@@ -8,11 +8,10 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 優先順:
 
-1. 依存関係とlockfileの整合
-2. security / lint / build / test の検証基盤整理
-3. docsの入口と運用Runbook整備
-4. README / CLAUDE / architecture / commands の古い記述修正
-5. 巨大ファイル分割は公開後に段階的に実施
+1. secrets guard / lint / build / test の検証基盤整理
+2. docsの入口と運用Runbook整備
+3. README / CLAUDE / architecture / commands の古い記述修正
+4. 巨大ファイル分割は公開後に段階的に実施
 
 ## 必ず読む文書
 
@@ -45,14 +44,15 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 現在の検証状態
 
-2026-05-06時点の監査結果:
+2026-05-06時点の検証結果:
 
 - `npm run build`: 成功
 - `npm test`: 成功。132 tests pass
 - `npm run lint`: 失敗。58 errors / 149 warnings
 - `npx tsc --noEmit`: 失敗
 - `npm run security:all`: 失敗
-- `npm run security:deps`: 失敗。high=3 / critical=2
+- `npm run security:deps`: 成功。high=0 / critical=0
+- `npm audit --omit=dev --audit-level=high`: 成功。Next同梱 `postcss@8.4.31` にmoderate 2件は残る
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -67,9 +67,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. lockfileと依存関係を揃え、`npm run security:deps` を通す
-2. secrets guardの誤検知方針を決め、`npm run security:all` を通す
-3. Web本体用のlint対象を分離し、公開前に使える検証コマンドを作る
-4. README / CLAUDE / architecture / commands の古い記述を実装に合わせる
-5. 日本語の障害対応Runbookを追加する
-
+1. secrets guardの誤検知方針を決め、`npm run security:all` を通す
+2. Web本体用のlint対象を分離し、公開前に使える検証コマンドを作る
+3. README / CLAUDE / architecture / commands の古い記述を実装に合わせる
+4. 日本語の障害対応Runbookを追加する
