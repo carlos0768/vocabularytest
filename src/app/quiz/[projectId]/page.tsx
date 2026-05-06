@@ -551,7 +551,7 @@ export default function QuizPage() {
       setIsComplete(true);
       // Onboarding: any quiz completion advances to 'completed'.
       if (onboardingStep === 'signed_up' || onboardingStep === 'first_scan_done') {
-        setOnboardingStep('completed');
+        void setOnboardingStep('completed');
         // Defer PWA prompt slightly so the completion screen lands first.
         window.setTimeout(() => setPwaPromptOpen(true), 700);
       }

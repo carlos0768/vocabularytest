@@ -243,7 +243,7 @@ export default function ConfirmPage() {
 
       // Onboarding: signed_up → first_scan_done on first successful save.
       if (onboardingStep === 'signed_up') {
-        setOnboardingStep('first_scan_done');
+        await setOnboardingStep('first_scan_done');
       }
 
       refreshWordCount();

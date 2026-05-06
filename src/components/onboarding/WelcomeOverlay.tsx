@@ -4,12 +4,13 @@ import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
-import { useOnboarding } from '@/hooks/use-onboarding';
 
 interface WelcomeOverlayProps {
   open: boolean;
   /** Called whenever overlay closes (skip or proceed). Parent decides whether to remount. */
   onClose?: () => void;
+  /** Called when the user explicitly skips onboarding. */
+  onSkip: () => void;
   /**
    * Optional callback for the primary CTA. When provided, the overlay calls
    * this instead of navigating to `/scan` — lets the parent open its own
@@ -55,9 +56,8 @@ const CONFETTI = [
   { x: '95%', y: '48%', size: 9,  color: '#9f1239', delay: 0.22, rotate: 8 },
 ] as const;
 
-export function WelcomeOverlay({ open, onClose, onStartScan }: WelcomeOverlayProps) {
+export function WelcomeOverlay({ open, onClose, onSkip, onStartScan }: WelcomeOverlayProps) {
   const router = useRouter();
-  const { setStep } = useOnboarding();
 
   // Body scroll lock while open.
   useEffect(() => {
@@ -70,7 +70,7 @@ export function WelcomeOverlay({ open, onClose, onStartScan }: WelcomeOverlayPro
   }, [open]);
 
   const handleSkip = () => {
-    setStep('skipped');
+    onSkip();
     onClose?.();
   };
 

@@ -123,7 +123,7 @@ const EMPTY_STATS: HomeStats = {
 
 export default function HomePage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
-  const { step: onboardingStep, loading: onboardingLoading, setStep: setOnboardingStep, markCompletedSilently } = useOnboarding();
+  const { step: onboardingStep, loading: onboardingLoading, setStep: setOnboardingStep } = useOnboarding();
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
@@ -214,26 +214,19 @@ export default function HomePage() {
     void loadHome();
   }, [loadHome]);
 
-  // Onboarding bootstrap: when no step is stored yet, decide initial state
-  // based on whether the user already has projects.
-  // - Has projects → mark 'completed' silently (legacy user, no UX change).
-  // - No projects → seed 'signed_up' + open WelcomeOverlay (new user).
   useEffect(() => {
-    if (authLoading || onboardingLoading || loading) return;
-    if (onboardingStep !== null) {
-      // Already initialized; only auto-open overlay if step is signed_up.
-      if (onboardingStep === 'signed_up' && !welcomeOpen) {
-        setWelcomeOpen(true);
-      }
+    if (authLoading || onboardingLoading) return;
+    if (onboardingStep === 'signed_up') {
+      setWelcomeOpen(true);
       return;
     }
-    if (projects.length > 0) {
-      markCompletedSilently();
-    } else {
-      setOnboardingStep('signed_up');
-      setWelcomeOpen(true);
-    }
-  }, [authLoading, onboardingLoading, loading, onboardingStep, projects.length, welcomeOpen, markCompletedSilently, setOnboardingStep]);
+    setWelcomeOpen(false);
+  }, [authLoading, onboardingLoading, onboardingStep]);
+
+  const handleWelcomeSkip = useCallback(() => {
+    setWelcomeOpen(false);
+    void setOnboardingStep('skipped');
+  }, [setOnboardingStep]);
 
   // Pro: バックグラウンドスキャンのポーリング
   useEffect(() => {
@@ -491,6 +484,7 @@ export default function HomePage() {
       <WelcomeOverlay
         open={welcomeOpen}
         onClose={() => setWelcomeOpen(false)}
+        onSkip={handleWelcomeSkip}
         onStartScan={() => setVocabScanOpen(true)}
       />
     </div>
