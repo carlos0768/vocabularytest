@@ -28,12 +28,12 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 4. If the page uses `useSearchParams()`, wrap the content in a `<Suspense>` boundary (Next.js 16 requirement)
 5. If the page needs data, use the `useAuth()` hook for auth state and `getRepository()` for data access
 6. Run `npm run build` to verify no build errors
-7. Run `npm run lint` to pass security checks
+7. Run `npm run lint:web` for the Web prelaunch lint gate
 8. Test the page in browser at `http://localhost:3000/{feature-name}`
 
 **Success criteria**:
 - `npm run build` succeeds
-- `npm run lint` succeeds
+- `npm run lint:web` succeeds
 - Page renders correctly for both authenticated and unauthenticated states
 - If protected, unauthenticated users are redirected to `/login`
 
@@ -62,12 +62,13 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 4. Validate request body with Zod schema using `parseJsonWithSchema(request, schema, options)`
 5. Use `requestSchema.strict()` to reject unexpected fields (prevents parameter injection)
 6. If the route needs to bypass RLS (admin operations), use `SUPABASE_SERVICE_ROLE_KEY` via `createClient(url, key)` directly -- and document why in a code comment
-7. If the route is AI-heavy, add a timeout override in `vercel.json` (`maxDuration: 30` or `60`)
-8. Run `npm run lint` (includes SQL injection guard check)
+7. If the route is AI-heavy, add a timeout override in `vercel.json` (`maxDuration: 30`, `60`, `120`, or `300`, matching nearby route needs)
+8. Run `npm run lint:web` and `npm run security:all`
 9. Run `npm run build`
 
 **Success criteria**:
-- `npm run lint` succeeds (SQL injection guard passes)
+- `npm run lint:web` succeeds
+- `npm run security:all` succeeds
 - `npm run build` succeeds
 - Route returns 401 for unauthenticated requests
 - Route rejects malformed input with 400
@@ -78,7 +79,7 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 - Do not use the service role client unless the route specifically requires RLS bypass
 
 **Cautions**:
-- Vercel default function timeout is 10s. AI extraction routes need 60s. Add to `vercel.json` if needed.
+- Vercel default function timeout is short for AI work. Current long-running scan routes use 120s or 300s in `vercel.json`.
 - All user-facing error messages should be in Japanese. Log messages can be in English.
 
 ---
@@ -123,7 +124,7 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 **Cautions**:
 - If updating the Dexie schema, existing users' IndexedDB will auto-migrate on next visit. Test with pre-existing local data.
-- The database currently has ~43 migrations. Use the timestamp format (`YYYYMMDDHHMMSS_`) for new migrations.
+- The database currently has 76 migrations. Use the timestamp format (`YYYYMMDDHHMMSS_`) for new migrations.
 
 ---
 
@@ -163,19 +164,17 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 **Primary targets**: Entire codebase.
 
 **Steps**:
-1. `npm run lint` -- ESLint + SQL injection guard
-2. `npm test` -- Unit tests
-3. `npm run build` -- Production build
-4. (Optional) `npm run security:all` -- Full security suite (SQL + secrets + deps audit)
+1. `npm run verify` -- Web lint gate, security suite, unit tests, and production build
+2. If diagnosing legacy lint debt specifically, optionally run `npm run lint`
 
 **Success criteria**:
-- All four commands exit with code 0
+- `npm run verify` exits with code 0
 - No TypeScript errors
-- No ESLint errors
+- No ESLint errors in `npm run lint:web`
 - No SQL injection guard violations
 
 **Prohibited actions**:
-- Do not skip `npm run lint` -- it includes the SQL injection security check
+- Do not skip `npm run verify` before deploying. It includes `npm run lint:web`, `npm run security:all`, `npm test`, and `npm run build`.
 
 **Cautions**:
 - `npm run build` requires environment variables to be set (at minimum `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`). If missing, the Supabase client returns a mock during build.
@@ -195,14 +194,14 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 4. Make the fix
 5. If the fix touches subscription logic, run `npm test` (includes subscription status tests)
 6. If the fix touches AI extraction, run `npm test` (includes extraction tests)
-7. If the fix touches webhook logic, run `npm test` (includes webhook extractor tests)
-8. Run `npm run lint`
+7. If the fix touches webhook logic, run `npm test` and relevant webhook QA or route tests
+8. Run `npm run lint:web`
 9. Run `npm run build`
 
 **Success criteria**:
 - Bug is resolved
 - `npm test` passes
-- `npm run lint` passes
+- `npm run lint:web` passes
 - `npm run build` passes
 - No invariants violated
 
@@ -258,7 +257,7 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 4. If double-processing occurred, check the `claim_webhook_event` RPC behavior
 5. If activation failed, check the `subscription_sessions` table for the user's session record
 6. Verify the `subscriptions` table state for the affected user
-7. Reference `docs/ops-komoju-incident-2026-02-09.md` for prior incident patterns (historical KOMOJU reference)
+7. If useful, reference `docs/ops-komoju-incident-2026-02-09.md` only as historical payment incident context. Current Web billing is Stripe.
 
 **Success criteria**:
 - User's subscription status is correct in the `subscriptions` table

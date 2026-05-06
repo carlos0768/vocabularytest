@@ -1,6 +1,6 @@
 # Command Reference
 
-All commands should be run from the project root directory (`C:\Users\carlo\working\englishvo`).
+All commands should be run from the project root directory (`/Users/haradakarurosukei/Desktop/Working/englishvo`).
 
 ---
 
@@ -62,10 +62,13 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 - **Prerequisites**: None (tests mock external dependencies)
 - **Danger level**: Safe -- no external API calls, no database writes
 - **Test files** (fixed list in `package.json`):
+  - `src/lib/api/internal-worker.test.ts`
   - `src/lib/stripe/client.test.ts`
   - `src/lib/appstore/config.test.ts`
   - `src/lib/appstore/verify.test.ts`
+  - `src/lib/appstore/notifications.test.ts`
   - `src/lib/subscription/status.test.ts`
+  - `src/lib/subscription/display.test.ts`
   - `src/lib/subscription/reconcile-status.test.ts`
   - `src/lib/subscription/billing-activation.test.ts`
   - `src/lib/db/remote-repository.test.ts`
@@ -76,10 +79,17 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
   - `src/lib/ai/extract-highlighted-words.test.ts`
   - `src/lib/ai/extract-eiken-words.test.ts`
   - `src/lib/ai/extract-wrong-answers.test.ts`
+  - `src/lib/ai/generate-example-sentences.test.ts`
+  - `src/lib/lexicon/master-first-scan.test.ts`
+  - `src/lib/lexicon/resolver.test.ts`
+  - `src/lib/lexicon/word-resolution-jobs.test.ts`
+  - `src/lib/words/backfill-japanese.test.ts`
+  - `src/lib/schemas/ai-response.test.ts`
   - `src/app/api/extract/route.provider.test.ts`
   - `src/app/api/scan-jobs/process/route.extractor.test.ts`
-  - `src/app/api/subscription/webhook/route.extractors.test.ts`
+  - `src/app/api/words/create/route.test.ts`
   - `src/app/api/subscription/appstore/verify/route.test.ts`
+  - `src/app/api/subscription/appstore/notifications/route.test.ts`
 - **Notes**: New test files must be manually added to this list in `package.json`.
 
 ---

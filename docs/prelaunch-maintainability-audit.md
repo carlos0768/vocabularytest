@@ -1,5 +1,7 @@
 # 公開前 保守性監査メモ
 
+> 履歴監査スナップショット: この文書は2026-05-06のdocs同期前に見つかった状態を記録しています。下記のKOMOJU/Sentry/migration数/grammar route関連の指摘の一部は、現行docsと設定では修正済みです。最新状況は `docs/maintenance/TASKS.md` を確認してください。
+
 作成日: 2026-05-06
 
 ## 結論

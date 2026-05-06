@@ -1,4 +1,5 @@
 -- KOMOJU運用モニタリングSQL
+-- 履歴資料: 現行Web課金はStripeです。旧KOMOJU経路の調査時だけ参照してください。
 -- Supabase SQL Editor / MCP execute_sql でそのまま実行可能
 
 -- 1) 直近24時間のWebhook失敗イベント

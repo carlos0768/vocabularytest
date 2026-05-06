@@ -78,3 +78,27 @@
 - 対象外ディレクトリはWeb本体とは別コードベース、legacy/experimental、動画素材、または生成物であり、公開前Web検証の失敗原因に含めると判断がぶれる。
 - `shared/` はWeb本体のdomain type/DB mapper契約なので対象に残す。
 - 既存の広範囲 `npm run lint` は履歴確認用に残し、公開判断では `npm run verify` を信頼する。
+
+## 2026-05-06: 現行Web課金docsはStripeを正とする
+
+判断:
+
+- README、CLAUDE、architecture、runbooks、commandsの現行課金説明はStripe Checkout / Stripe webhook / `STRIPE_*` を正とする。
+- KOMOJU関連docsと `src/lib/komoju/` は削除せず、履歴資料・過去実装として残す。
+
+理由:
+
+- 現行の `src/app/api/subscription/` は `src/lib/stripe/` を使い、Stripe webhook signatureを検証して課金状態を反映している。
+- KOMOJU資料は過去障害の理解には有用だが、現在の運用者が一次確認先として扱うと誤誘導になる。
+
+## 2026-05-06: Sentry env例はno-op実装に合わせて外す
+
+判断:
+
+- `.env.example` からSentry関連envを削除する。
+- `src/instrumentation.ts` と `src/instrumentation-client.ts` はno-opのまま残し、docsで現在未使用と明記する。
+
+理由:
+
+- `@sentry/nextjs` は現在installされておらず、instrumentationもSentry初期化を行っていない。
+- 使っていない監視envをサンプルに残すと、本番監視が存在するように見えて運用判断を誤らせる。

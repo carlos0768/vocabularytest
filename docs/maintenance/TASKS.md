@@ -4,9 +4,7 @@
 
 ## P0: 公開前に必ず終わらせる
 
-- [ ] docsの古い記述を実装に合わせる
-  - 対象: `README.md`, `CLAUDE.md`, `docs/architecture.md`, `docs/commands.md`, `docs/runbooks.md`, `.env.example`, `vercel.json`
-  - 注意: KOMOJU/Stripe、Sentry、migration数、テスト一覧、存在しないroute設定
+現時点で未完了のP0はありません。
 
 ## P1: 公開前にできれば終わらせる
 
@@ -40,6 +38,17 @@
 
 ## Done
 
+- [x] 2026-05-06: docsの古い記述を実装に同期
+  - 対象: `README.md`, `CLAUDE.md`, `docs/architecture.md`, `docs/commands.md`, `docs/runbooks.md`, `.env.example`, `vercel.json`
+  - Web課金説明をStripe中心へ統一。KOMOJU資料と `src/lib/komoju/` は履歴資料・過去実装として残す方針を明記
+  - Sentry env例を `.env.example` から削除。現状は `src/instrumentation.ts` / `src/instrumentation-client.ts` がno-opで、Sentry未使用と明記
+  - migration数を実態の76 filesへ更新
+  - `docs/commands.md` の古いWindowsパスとテスト固定リストを現在のrepo/package.jsonに同期
+  - 存在しない `src/app/api/grammar/route.ts` の `vercel.json` timeout設定を削除
+  - `npm run verify`: 成功。`lint:web` は0 errors / 98 warnings、`npm test` は132 tests pass
+  - 残ったKOMOJU/Sentry/grammar route記述: `docs/KOMOJU_BILLING_SPEC.md`, `docs/ops-komoju-incident-2026-02-09.md`, `docs/qa/komoju-payment-test-matrix.md`, `docs/komoju-monitoring.sql`, `docs/_discovery_notes.md`, `docs/research.md`, `docs/prelaunch-maintainability-audit.md` などの履歴・調査資料または同期済み判断メモ
+  - 残った `npm run lint` 記述: legacy/broad lintとして説明している箇所のみ
+  - 次にやるべきこと: 日本語障害対応Runbook、本番環境変数チェックリスト、テスト固定リスト方式の見直し
 - [x] 2026-05-06: Web本体向けlint対象を分離し、公開前検証コマンドを定義
   - `npm run lint:web` を追加。対象は `src/`, `shared/`, Next/PostCSS/ESLint設定、security guard系scripts
   - `mobile/`, `ios-native/`, `cloud-run-scan/`, `stitch/`, `uisu/`, `vocabularytest*`, `legacy/`, `experimental/`, `動画素材/`, `.next/`, `node_modules/`, build/dist/coverage/out はWeb本体公開前lint対象外

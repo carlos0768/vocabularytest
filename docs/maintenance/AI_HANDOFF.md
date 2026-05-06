@@ -10,7 +10,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 1. lint / build / test の検証基盤整理
 2. docsの入口と運用Runbook整備
-3. README / CLAUDE / architecture / commands の古い記述修正
+3. 日本語の障害対応Runbookと本番環境変数チェックリスト整備
 4. 巨大ファイル分割は公開後に段階的に実施
 
 ## 必ず読む文書
@@ -56,6 +56,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - `npm run security:all`: 成功
 - `npm run security:deps`: 成功。high=0 / critical=0
 - `npm audit --omit=dev --audit-level=high`: 成功。Next同梱 `postcss@8.4.31` にmoderate 2件は残る
+- README/CLAUDE/architecture/commands/runbooks/.env.example/vercel.json の古い課金・Sentry・migration数・grammar route記述は 2026-05-06 に実装へ同期済み
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -70,6 +71,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. README / CLAUDE / architecture / commands の古い記述を実装に合わせる
-2. 日本語の障害対応Runbookを追加する
-3. 本番環境変数チェックリストを作る
+1. 日本語の障害対応Runbookを追加する
+2. 本番環境変数チェックリストを作る
+3. テスト固定リスト方式を見直す

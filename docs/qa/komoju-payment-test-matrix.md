@@ -1,5 +1,7 @@
 # KOMOJU Payment Test Matrix
 
+> Historical reference: current Web billing uses Stripe. Use this matrix only when investigating the old KOMOJU path or comparing past incidents.
+
 Last Updated: 2026-02-21
 Scope: `/api/subscription/create`, `/api/subscription/webhook`, `/api/subscription/reconcile`, `/subscription/success`
 

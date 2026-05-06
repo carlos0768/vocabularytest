@@ -21,10 +21,10 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | Local DB | Dexie.js (IndexedDB) | ^4.2.1 | `src/lib/db/dexie.ts` |
 | Cloud DB | Supabase (PostgreSQL + Auth + Storage) | ^2.91.0 | `src/lib/supabase/` |
 | Supabase SSR | `@supabase/ssr` | ^0.8.0 | `src/lib/supabase/`, `middleware.ts` |
-| AI - Image OCR | Google Gemini 2.5 Flash | `@google/genai` ^1.38.0 | `src/lib/ai/config.ts:L17` |
+| AI - Image OCR | Google Gemini 2.5 Flash | `@google/genai` ^1.44.0 | `src/lib/ai/config.ts:L17` |
 | AI - Quiz Gen | OpenAI GPT-4o-mini | `openai` ^6.16.0 | `src/lib/ai/config.ts:L18` |
 | AI - Embeddings | OpenAI text-embedding-3-small | `openai` ^6.16.0 | `src/lib/embeddings/` |
-| Payment (Web) | Stripe | `stripe` ^17 | `src/lib/stripe/` |
+| Payment (Web) | Stripe | `stripe` ^22.0.0 | `src/lib/stripe/` |
 | Payment (iOS) | Apple IAP | `@apple/app-store-server-library` ^2.0.0 | `src/app/api/subscription/appstore/` |
 | Animations | Framer Motion | ^12.29.0 | — |
 | Validation | Zod | ^4.3.6 | `src/lib/schemas/` |
@@ -93,7 +93,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 
 | Directory | Responsibility |
 |-----------|---------------|
-| `supabase/migrations/` | ~43 SQL migration files (applied sequentially) |
+| `supabase/migrations/` | 76 SQL migration files (applied sequentially) |
 | `scripts/` | Security check scripts (SQL injection guard, secrets guard, deps audit) |
 | `public/` | Static assets, PWA manifest (`manifest.json`), service worker (`sw.js`) |
 
@@ -273,6 +273,8 @@ iOS purchase -> app sends transactionId
 | Web Push | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications fail |
 | Cloud Run (optional) | `CLOUD_RUN_URL`, `CLOUD_RUN_AUTH_TOKEN` | Falls back to direct API calls |
 
+Sentry is currently unused: `src/instrumentation.ts` and `src/instrumentation-client.ts` are no-op files, and `@sentry/nextjs` is not installed.
+
 ---
 
 ## Vercel Configuration
@@ -281,8 +283,13 @@ iOS purchase -> app sends transactionId
 
 | Route | Timeout |
 |-------|---------|
-| `src/app/api/extract/route.ts` | 60s |
+| `src/app/api/extract/route.ts` | 120s |
+| `src/app/api/scan-jobs/route.ts` | 300s |
+| `src/app/api/scan-jobs/create/route.ts` | 300s |
+| `src/app/api/scan-jobs/process/route.ts` | 300s |
 | `src/app/api/sentence-quiz/route.ts` | 60s |
-| `src/app/api/grammar/route.ts` | 60s (route does not currently exist -- stale config) |
+| `src/app/api/generate-examples/route.ts` | 60s |
 | `src/app/api/regenerate-distractors/route.ts` | 30s |
 | `src/app/api/generate-quiz-distractors/route.ts` | 30s |
+
+No `/grammar/` or `/api/grammar/` route exists in `src/app/`, so `vercel.json` does not define a grammar route timeout.

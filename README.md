@@ -47,7 +47,7 @@ src/
 │   │   ├── extract/        # Gemini 2.5 Flash OCR + 翻訳
 │   │   ├── sentence-quiz/  # 例文生成（pgvectorベクトル検索）
 │   │   ├── scan-jobs/      # バックグラウンドスキャン管理
-│   │   └── subscription/   # KOMOJU決済連携
+│   │   └── subscription/   # Stripe / App Store課金連携
 │   ├── quiz/[projectId]/   # 4択クイズ（間隔反復）
 │   ├── flashcard/          # スワイプ式カードレビュー
 │   ├── dictation/          # ディクテーション練習
@@ -62,7 +62,8 @@ src/
 │   ├── ai/                 # AIプロンプト・レスポンス解析（Gemini/OpenAI）
 │   ├── db/                 # リポジトリパターン（Local/Remote/Hybrid）
 │   ├── supabase/           # Supabaseクライアント（ブラウザ + サーバー）
-│   ├── komoju/             # KOMOJU決済クライアント
+│   ├── stripe/             # Stripe決済クライアント
+│   ├── subscription/       # 課金状態の判定・反映
 │   └── spaced-repetition/  # SM-2アルゴリズム実装
 └── types/                  # TypeScript型定義
 ```
@@ -97,7 +98,7 @@ Proユーザー   →  HybridWordRepository  （IndexedDB + Supabase同期）
 | クラウドDB | Supabase（PostgreSQL + pgvector） |
 | 認証 | Supabase Auth（メール/パスワード） |
 | AI | Gemini 2.5 Flash（スキャン抽出） + OpenAI GPT系（クイズ生成・埋め込みなど） |
-| 決済 | KOMOJU（PayPay、クレジットカード、コンビニ決済） |
+| 決済 | Stripe（Web課金、クレジットカード、月額300円） + Apple IAP（iOS） |
 | バリデーション | Zod |
 | PWA | Service Worker + Web App Manifest |
 
@@ -146,9 +147,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ADMIN_SECRET=your-admin-secret
 
-# KOMOJU決済
-KOMOJU_SECRET_KEY=your-secret
-KOMOJU_WEBHOOK_SECRET=your-webhook-secret
+# Stripe Web課金
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key
+STRIPE_WEBHOOK_SECRET=dummy-stripe-webhook-signing-secret
+STRIPE_PRICE_ID=price_your-price-id
 
 # Apple IAP（iOS向け / Phase 2-3で使用）
 APPLE_IAP_ISSUER_ID=99b16628-15e4-4668-972b-eeff55eeff55
@@ -188,15 +190,16 @@ npx supabase db push
 ```bash
 npm run dev      # 開発サーバー起動（localhost:3000）
 npm run build    # 本番ビルド
-npm run lint     # ESLint実行
+npm run lint:web # Web本体の公開前lint gate
+npm run verify   # lint:web + security:all + test + build
 ```
 
 ## プラン比較
 
 | | 無料 | Pro（月額300円） |
 |---|---|---|
-| スキャン | 無制限* | 無制限 |
-| 単語数上限 | 200語 | 無制限 |
+| スキャン | 3回/日 | 無制限 |
+| 単語数上限 | 100語 | 無制限 |
 | ストレージ | ローカル（IndexedDB） | クラウド（Supabase） |
 | クロスデバイス同期 | - | ○ |
 | フラッシュカード | - | ○ |
@@ -223,10 +226,12 @@ APIコストダッシュボード（内部運用）:
 - `GET /api/ops/api-costs?days=30` (`x-admin-secret` ヘッダー必須)
 - UI: `/ops/api-costs`（ADMIN_SECRET入力後に表示）
 
-KOMOJUのWebhook URLを本番ドメインに設定：
+StripeのWebhook URLを本番ドメインに設定：
 ```
 https://your-domain.com/api/subscription/webhook
 ```
+
+KOMOJU関連の資料と `src/lib/komoju/` は履歴資料・過去実装として残っています。現行のWeb課金確認では、Stripe Dashboard、`STRIPE_*` 環境変数、`src/lib/stripe/`、`src/app/api/subscription/` を正としてください。
 
 App Store Server Notifications V2（Phase 3）:
 - エンドポイント: `https://www.your-domain.com/api/subscription/appstore/notifications`

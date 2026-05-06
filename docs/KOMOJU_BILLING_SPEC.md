@@ -1,5 +1,7 @@
 # KOMOJU Billing Specification
 
+> Historical reference: current Web billing uses Stripe. This document describes the previous KOMOJU implementation and should not be treated as the active billing specification without checking `src/lib/stripe/`, `src/app/api/subscription/`, and the Stripe runbook/docs.
+
 Last Updated: 2026-02-21
 Owner: Backend / Subscription
 Applies To: `src/app/api/subscription/*`, `src/lib/subscription/*`, `src/lib/komoju/*`

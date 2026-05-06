@@ -77,7 +77,9 @@
 
 詳細は [`prelaunch-maintainability-audit.md`](prelaunch-maintainability-audit.md) を参照してください。現時点で特に重要な注意点は以下です。
 
-- `npm run lint` が失敗している
+- `npm run lint` は広範囲のlegacy lintで、公開前Web gateではない
+- 公開前Web検証は `npm run verify` / `npm run lint:web` を使う
 - `npm run security:deps` と `npm run security:all` は成功している
-- README/CLAUDE/docsにKOMOJU、Sentry、migration数など古い記述が残っている
+- 現行Web課金はStripe中心。KOMOJU資料は履歴資料として残している
+- Sentryは現在未使用。`src/instrumentation.ts` と `src/instrumentation-client.ts` はno-op
 - 巨大ファイルの分割は重要だが、公開前は検証基盤と運用文書の整備を優先する

@@ -11,7 +11,7 @@ Run the guard directly:
 npm run security:sql
 ```
 
-Run full lint (guard runs first):
+Run the broad legacy lint command (guard runs first). For Web prelaunch verification, prefer `npm run verify`:
 
 ```bash
 npm run lint

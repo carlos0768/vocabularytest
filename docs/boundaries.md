@@ -59,7 +59,7 @@ Migration files in `supabase/migrations/` that have already been applied to prod
 
 | File | Condition |
 |------|-----------|
-| `scripts/check-sql-injection-guard.mjs` | Runs during `npm run lint`. Changes affect security CI gate. Test with `npm run test:security:sql`. |
+| `scripts/check-sql-injection-guard.mjs` | Runs during `npm run security:sql`, `npm run security:all`, and the broad legacy `npm run lint`. Changes affect security gates. Test with `npm run test:security:sql`. |
 | `scripts/check-secrets-guard.mjs` | Runs as part of `npm run security:all`. Test with `npm run test:security:secrets`. |
 
 ---
@@ -206,4 +206,4 @@ When you change X, you must also check Y.
 
 3. **`wasPro` inconsistency**: `use-projects.ts` correctly passes `wasPro` to `getRepository()`, but `scan/confirm/page.tsx` may not pass it in all code paths. This could cause downgraded Pro users to get `localRepository` instead of `readonlyRemoteRepository` during certain operations.
 
-4. **Grammar feature**: No `src/app/grammar/` or `src/app/api/grammar/` routes exist in the codebase, though `vercel.json` references `src/app/api/grammar/route.ts` and CLAUDE.md describes it. The feature appears to have been removed or never implemented. The `vercel.json` reference should be cleaned up.
+4. **Grammar feature**: No `src/app/grammar/` or `src/app/api/grammar/` routes exist in the codebase. Historical notes may mention a grammar feature, but `vercel.json` no longer carries a timeout entry for it.

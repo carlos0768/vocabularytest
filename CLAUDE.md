@@ -16,7 +16,8 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 ```bash
 npm run dev      # Start development server (localhost:3000)
 npm run build    # Production build
-npm run lint     # ESLint + SQL injection guard
+npm run lint:web # Web prelaunch ESLint gate
+npm run verify   # lint:web + security:all + tests + build
 npm test         # Unit tests (Node.js built-in test runner + tsx)
 npm run security:all  # Full security suite (SQL + secrets + deps audit)
 ```
@@ -72,7 +73,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 |-----------|---------------|
 | `src/app/` | Next.js App Router pages and API routes |
 | `src/app/api/extract/` | Image OCR + word extraction (core scan flow) |
-| `src/app/api/subscription/` | KOMOJU + AppStore subscription + webhooks |
+| `src/app/api/subscription/` | Stripe + AppStore subscription + webhooks |
 | `src/components/` | React components split by feature domain |
 | `src/hooks/` | Custom React hooks (state management layer) |
 | `src/lib/ai/` | AI integrations: config, prompts, provider abstraction |
@@ -84,7 +85,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 | `src/types/` | Re-exports from `shared/types/` + web-specific types |
 | `shared/types/` | **Source of truth** for domain types (Word, Project, Subscription) |
 | `shared/db/` | DB row to domain object mappers |
-| `supabase/migrations/` | ~43 SQL migration files |
+| `supabase/migrations/` | 76 SQL migration files |
 | `scripts/` | Security check scripts (SQL injection, secrets, deps audit) |
 
 Full directory map: `docs/architecture.md`
@@ -122,7 +123,7 @@ getRepository(subscriptionStatus, wasPro)
 1. User signs up -> OTP email sent via Resend (`/api/auth/send-otp`)
 2. User verifies OTP -> Account created, session set
 3. Subscription + profile rows auto-created via database trigger (`on_auth_user_created` -> `handle_new_user()`). Launch campaign (2026-04-04+): first 66 eligible signups get permanent test Pro in-DB; see `docs/ops-auto-pro-first-66-2026-04-04.md`.
-4. User upgrades -> KOMOJU payment page -> Webhook activates Pro
+4. User upgrades -> Stripe Checkout -> Webhook activates Pro
 
 ### Payment Flow (Stripe)
 1. User clicks upgrade -> `/api/subscription/create` -> Creates Stripe Checkout Session
@@ -195,7 +196,7 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 1. Set all required environment variables in hosting platform
 2. Run Supabase migrations
 3. Configure Stripe webhook URL to production domain
-4. Verify `npm run lint && npm test && npm run build` passes
+4. Verify `npm run verify` passes
 
 ## Future Features (TODO)
 
@@ -207,6 +208,12 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 
 ### 3. Grammar learning feature -- Not implemented
 - Routes (`/grammar/`, `/api/grammar/`) do not currently exist in the codebase
-- `vercel.json` references `src/app/api/grammar/route.ts` (stale config)
+- `vercel.json` no longer contains a timeout entry for the missing grammar route
 - AI config has grammar extraction settings in `src/lib/ai/config.ts`
 - Feature was planned but routes were removed or never created
+
+## Historical References
+
+- `src/lib/komoju/` and KOMOJU docs remain as historical material from the previous Web billing implementation. Current Web billing is Stripe.
+- Sentry is currently unused. `src/instrumentation.ts` and `src/instrumentation-client.ts` are no-op files, and `@sentry/nextjs` is not installed.
+- `npm run lint` is a broad legacy lint command. Use `npm run lint:web` and `npm run verify` for Web prelaunch checks.

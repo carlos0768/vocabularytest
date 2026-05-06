@@ -29,6 +29,5 @@
 
 - 課金、認証、スキャン、同期、DBを触る前に [`../boundaries.md`](../boundaries.md) と [`../invariants.md`](../invariants.md) を読む。
 - 古いKOMOJU資料は履歴として有用だが、現在のWeb課金実装はStripe中心で確認する。
-- Sentry関連の記述は現状の実装とズレている可能性があるため、実コードと環境変数を確認する。
+- Sentryは現在未使用。`src/instrumentation.ts` と `src/instrumentation-client.ts` はno-opで、`@sentry/nextjs` は未導入。
 - 障害対応で新しい知見が出たら、該当runbookへ追記する。恒久化前のメモは `../maintenance/` に残す。
-
