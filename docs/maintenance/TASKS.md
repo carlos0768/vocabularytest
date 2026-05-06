@@ -8,16 +8,6 @@
 
 ## P1: 公開前にできれば終わらせる
 
-- [ ] `docs/ops/` に日本語の障害対応Runbookを追加する
-  - 残り: Supabase障害
-  - 残り: AIコスト急増
-- [ ] 本番環境変数チェックリストを作る
-  - Vercel
-  - Supabase
-  - Stripe
-  - Cloud Run
-  - Apple IAP
-  - Push通知
 - [ ] テスト実行方式を見直す
   - 現状: `package.json` の `test` script は固定リスト
   - 課題: repo内に存在するが固定リストに入っていないtestがある
@@ -35,6 +25,14 @@
 
 ## Done
 
+- [x] 2026-05-07: 残りの日本語運用Runbookと本番環境変数チェックリストを追加
+  - 追加: [`../ops/supabase-incident-runbook.md`](../ops/supabase-incident-runbook.md), [`../ops/ai-cost-spike-runbook.md`](../ops/ai-cost-spike-runbook.md), [`../ops/production-env-checklist.md`](../ops/production-env-checklist.md)
+  - `docs/ops/README.md` から3本に辿れるようにリンクを追加
+  - Supabase Runbookは Supabase Dashboard / Logs / Table Editor / SQL Editor / Vercel Runtime Logs、主要テーブル、RLS、読み取りSQL、migration事故時の禁止事項を根拠に初動手順化
+  - AIコストRunbookは `/ops/api-costs`, `/api/ops/api-costs`, `api_cost_events`, Cloud Run fallback、OpenAI/Gemini/Google Cloud billing、AI制限envを根拠に初動手順化
+  - 本番環境変数チェックリストは Vercel, Supabase, Stripe, Cloud Run, OpenAI/Gemini, Apple IAP, Resend, Web Push/APNS, Admin/internal worker の確認観点を整理
+  - 確認: 新規Markdownの存在確認、相対リンク存在確認、`rg -n "supabase-incident|ai-cost-spike|production-env" docs/ops docs/maintenance`
+  - `npm run verify`: 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は132 tests pass、`build` 成功
 - [x] 2026-05-07: 公開後の日本語初動Runbookを3本追加
   - 追加: [`../ops/scan-failure-runbook.md`](../ops/scan-failure-runbook.md), [`../ops/billing-stripe-failure-runbook.md`](../ops/billing-stripe-failure-runbook.md), [`../ops/login-auth-failure-runbook.md`](../ops/login-auth-failure-runbook.md)
   - `docs/ops/README.md` から3本に辿れるようにリンクを追加

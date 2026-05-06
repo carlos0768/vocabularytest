@@ -9,6 +9,9 @@
 | [`scan-failure-runbook.md`](scan-failure-runbook.md) | スキャン失敗 / 遅延の初動対応 |
 | [`billing-stripe-failure-runbook.md`](billing-stripe-failure-runbook.md) | Stripe課金反映失敗の初動対応 |
 | [`login-auth-failure-runbook.md`](login-auth-failure-runbook.md) | ログイン / 認証失敗の初動対応 |
+| [`supabase-incident-runbook.md`](supabase-incident-runbook.md) | Supabase接続障害 / migration事故の初動対応 |
+| [`ai-cost-spike-runbook.md`](ai-cost-spike-runbook.md) | AIコスト急増の初動対応 |
+| [`production-env-checklist.md`](production-env-checklist.md) | 本番環境変数の公開前 / 障害時チェックリスト |
 | [`scan-gemini-cloudrun-runbook.md`](scan-gemini-cloudrun-runbook.md) | Cloud Run経由のGeminiスキャン抽出の運用 |
 | [`scan-example-sentences-runbook.md`](scan-example-sentences-runbook.md) | スキャン後の例文生成トラブルシュート |
 | [`nightly-lexicon-cron-runbook.md`](nightly-lexicon-cron-runbook.md) | Nightly Master Lexicon Cronの復旧手順 |
@@ -16,14 +19,6 @@
 | [`../ops-auto-pro-first-66-2026-04-04.md`](../ops-auto-pro-first-66-2026-04-04.md) | 初期66人自動Proキャンペーンの運用メモ |
 | [`../ops-manual-pro-activation-2026-03-09.md`](../ops-manual-pro-activation-2026-03-09.md) | 手動Pro付与の運用メモ |
 | [`../ops-komoju-incident-2026-02-09.md`](../ops-komoju-incident-2026-02-09.md) | 過去のKOMOJU決済反映障害メモ |
-
-## 公開前に追加したいRunbook
-
-以下はまだ不足している運用手順です。作成状況は [`../maintenance/TASKS.md`](../maintenance/TASKS.md) で管理します。スキャン失敗、Stripe課金反映失敗、ログイン失敗は上記の初動Runbookを参照してください。
-
-- Supabase接続障害 / migration事故
-- AIコスト急増
-- 本番環境変数チェックリスト
 
 ## 運用時の基本ルール
 
