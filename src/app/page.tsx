@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
+import { WelcomeOverlay } from '@/components/onboarding/WelcomeOverlay';
+import { EmptyStateGuide } from '@/components/onboarding/EmptyStateGuide';
+import { HintBanner } from '@/components/onboarding/HintBanner';
+import { useOnboarding } from '@/hooks/use-onboarding';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
 import { getDb, getRepository } from '@/lib/db';
@@ -119,6 +123,7 @@ const EMPTY_STATS: HomeStats = {
 
 export default function HomePage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { step: onboardingStep, loading: onboardingLoading, setStep: setOnboardingStep, markCompletedSilently } = useOnboarding();
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
@@ -127,6 +132,8 @@ export default function HomePage() {
   const [correctionLoading, setCorrectionLoading] = useState(false);
   const [correctionScanOpen, setCorrectionScanOpen] = useState(false);
   const [pendingScans, setPendingScans] = useState<{ id: string; project_title: string }[]>([]);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -206,6 +213,27 @@ export default function HomePage() {
   useEffect(() => {
     void loadHome();
   }, [loadHome]);
+
+  // Onboarding bootstrap: when no step is stored yet, decide initial state
+  // based on whether the user already has projects.
+  // - Has projects → mark 'completed' silently (legacy user, no UX change).
+  // - No projects → seed 'signed_up' + open WelcomeOverlay (new user).
+  useEffect(() => {
+    if (authLoading || onboardingLoading || loading) return;
+    if (onboardingStep !== null) {
+      // Already initialized; only auto-open overlay if step is signed_up.
+      if (onboardingStep === 'signed_up' && !welcomeOpen) {
+        setWelcomeOpen(true);
+      }
+      return;
+    }
+    if (projects.length > 0) {
+      markCompletedSilently();
+    } else {
+      setOnboardingStep('signed_up');
+      setWelcomeOpen(true);
+    }
+  }, [authLoading, onboardingLoading, loading, onboardingStep, projects.length, welcomeOpen, markCompletedSilently, setOnboardingStep]);
 
   // Pro: バックグラウンドスキャンのポーリング
   useEffect(() => {
@@ -343,6 +371,19 @@ export default function HomePage() {
         </Link>
       </div>
 
+      {onboardingStep === 'first_scan_done' && visibleProjects.length > 0 && (
+        <div className="px-[18px] pb-3">
+          <HintBanner
+            icon="bolt"
+            title="次はクイズで覚えよう！"
+            description="作った単語帳を 4 択クイズで定着させましょう。"
+            href={`/quiz/${visibleProjects[0].id}`}
+            ctaLabel="クイズへ"
+            tone="amber"
+          />
+        </div>
+      )}
+
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
         {pendingScans.map((job) => (
           <PendingScanRow key={job.id} title={job.project_title} />
@@ -353,17 +394,21 @@ export default function HomePage() {
             <span className="ml-2 text-sm">読み込み中...</span>
           </div>
         ) : visibleProjects.length === 0 ? (
-          <SolidEmpty
-            icon="menu_book"
-            title="単語帳はまだありません"
-            description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
-            action={
-              <Link href="/scan" className="solid-link-primary">
-                <Icon name="add_a_photo" size={16} />
-                新規スキャン
-              </Link>
-            }
-          />
+          onboardingStep === 'completed' || onboardingStep === 'first_scan_done' ? (
+            <EmptyStateGuide onStartScan={() => setVocabScanOpen(true)} />
+          ) : (
+            <SolidEmpty
+              icon="menu_book"
+              title="単語帳はまだありません"
+              description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
+              action={
+                <Link href="/scan" className="solid-link-primary">
+                  <Icon name="add_a_photo" size={16} />
+                  新規スキャン
+                </Link>
+              }
+            />
+          )
         ) : (
           visibleProjects.map((project) => <ProjectRow key={project.id} project={project} />)
         )}
@@ -435,6 +480,18 @@ export default function HomePage() {
         isOpen={correctionScanOpen}
         onClose={() => setCorrectionScanOpen(false)}
         defaultMode="correction"
+      />
+
+      <ScanCaptureModal
+        isOpen={vocabScanOpen}
+        onClose={() => setVocabScanOpen(false)}
+        defaultMode="vocab"
+      />
+
+      <WelcomeOverlay
+        open={welcomeOpen}
+        onClose={() => setWelcomeOpen(false)}
+        onStartScan={() => setVocabScanOpen(true)}
       />
     </div>
   );

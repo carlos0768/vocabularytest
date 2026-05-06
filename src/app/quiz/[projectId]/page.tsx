@@ -12,6 +12,9 @@ import { calculateNextReview, getStatusAfterAnswer, getWordsDueForReview, sortWo
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useOnboarding } from '@/hooks/use-onboarding';
+import { HintBanner } from '@/components/onboarding/HintBanner';
+import { PwaInstallPromptModal } from '@/components/onboarding/PwaInstallPromptModal';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
@@ -136,6 +139,8 @@ export default function QuizPage() {
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user } = useAuth();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
+  const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
+  const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
 
   const countFromUrl = searchParams.get('count');
   const returnPath = searchParams.get('from');
@@ -544,6 +549,12 @@ export default function QuizPage() {
     setIsTransitioning(true);
     if (currentIndex + 1 >= questions.length) {
       setIsComplete(true);
+      // Onboarding: any quiz completion advances to 'completed'.
+      if (onboardingStep === 'signed_up' || onboardingStep === 'first_scan_done') {
+        setOnboardingStep('completed');
+        // Defer PWA prompt slightly so the completion screen lands first.
+        window.setTimeout(() => setPwaPromptOpen(true), 700);
+      }
     } else {
       setCurrentIndex((prev) => prev + 1);
       setSelectedIndex(null);
@@ -624,7 +635,17 @@ export default function QuizPage() {
         <div className="flex flex-1 flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <h1 className="mb-2 text-center font-display text-2xl font-black text-[var(--solid-ink)]">問題数を入力</h1>
-            <p className="mb-8 text-center text-[var(--color-muted)]">1〜{maxQ}問まで</p>
+            <p className="mb-4 text-center text-[var(--color-muted)]">1〜{maxQ}問まで</p>
+            {(onboardingStep === 'signed_up' || onboardingStep === 'first_scan_done') && (
+              <div className="mb-6">
+                <HintBanner
+                  icon="quiz"
+                  title="4 択から正しい意味を選ぼう！"
+                  description="間違えても OK。スピード感が大事です。"
+                  tone="violet"
+                />
+              </div>
+            )}
             <div className="space-y-6">
               <div className="flex items-center justify-center gap-3">
                 <input
@@ -659,6 +680,8 @@ export default function QuizPage() {
   if (isComplete) {
     const percentage = Math.round((results.correct / results.total) * 100);
     return (
+      <>
+      <PwaInstallPromptModal open={pwaPromptOpen} onClose={() => setPwaPromptOpen(false)} />
       <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
         <button type="button" onClick={backToProject} className="absolute left-4 inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]" style={{ top: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}>
           <Icon name="close" size={22} />
@@ -690,6 +713,7 @@ export default function QuizPage() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
