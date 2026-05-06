@@ -10,8 +10,9 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 1. lint / build / test の検証基盤整理
 2. docsの入口と運用Runbook整備
-3. アーキテクチャ保守性監査を行い、API構成、責務分離、巨大ファイル、危険領域の依存関係を把握する
-4. 巨大ファイル分割は、監査と小さなリファクタ計画の後に段階的に実施
+3. 作成済みのアーキテクチャ保守性監査を読み、API構成、責務分離、巨大ファイル、危険領域の依存関係を把握する
+4. P2-Bとして、監査結果を小さなリファクタ計画と検証条件へ分解する
+5. 巨大ファイル分割は、監査と小さなリファクタ計画の後に段階的に実施
 
 ## 必ず読む文書
 
@@ -21,7 +22,8 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2. このファイル
 3. [`../boundaries.md`](../boundaries.md)
 4. [`../invariants.md`](../invariants.md)
-5. 触る領域のrunbookまたは関連docs
+5. P2-B/P2-Cや危険領域を扱う場合は [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md)
+6. 触る領域のrunbookまたは関連docs
 
 作業後:
 
@@ -62,6 +64,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - docsの矛盾一覧は 2026-05-07 に [`DOCS_CONSISTENCY_AUDIT.md`](DOCS_CONSISTENCY_AUDIT.md) として作成済み
 - docs整合性監査で公開前に直す候補だった `docs/boundaries.md` のmigration数と `docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンクは 2026-05-07 に修正済み
 - docs整合性監査で実装確認が必要な候補: Supabase RLS表現差分、Cloud Run本番env、App Store / IAP外部設定
+- P2-A アーキテクチャ保守性監査は 2026-05-07 に [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md) として作成済み。API route/server action/repository責務、巨大ファイル5本、危険領域依存関係、データ流れ/復旧点、リファクタ優先度を整理済み
 - `docs/ops/` のスキャン失敗、Stripe課金反映失敗、ログイン/認証失敗の日本語初動Runbookは 2026-05-07 に追加済み
 - `docs/ops/` のSupabase接続障害 / migration事故、AIコスト急増、本番環境変数チェックリストは 2026-05-07 に追加済み
 - テスト固定リスト方式は 2026-05-07 に整理済み。`npm test` は通過確認済みのWeb/shared通常test固定リスト、`npm run test:security` はsecurity guard/route tests、`npm run test:cloud-run-scan` は別packageのCloud Run tests
@@ -80,5 +83,5 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-Aとして、公開後もAIと人間が安全に変更を続けられるかを見るアーキテクチャ保守性監査を行う
-2. P2-B以降は、監査後に小さなリファクタ計画へ分解してから扱う
+1. P2-Bとして、[`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md) をもとに小さなリファクタ計画へ分解する
+2. P2-C以降は、検証条件が書かれた小タスク単位で段階的に扱う

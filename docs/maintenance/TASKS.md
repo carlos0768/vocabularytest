@@ -16,19 +16,21 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ### P2-A: アーキテクチャ保守性監査
 
-- [ ] API route / server action / repository層の責務一覧を作る
+- 成果物: [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md)
+
+- [x] API route / server action / repository層の責務一覧を作る
   - どのAPIが認証、課金、スキャン、同期、DB更新、外部サービス呼び出しを担当しているかを棚卸しする
   - API routeが直接持ちすぎている責務と、lib/repository層へ寄せるべき責務を分ける
-- [ ] 巨大ファイルの責務マップを作る
+- [x] 巨大ファイルの責務マップを作る
   - 対象候補: `src/app/api/scan-jobs/process/route.ts`, `src/app/page.tsx`, `src/app/project/[id]/page.tsx`, `src/app/quiz/[projectId]/page.tsx`, `src/lib/ai/prompts.ts`
   - 先に「何を担当しているか」「どこを触ると何が壊れやすいか」を文書化し、分割作業はその後に行う
-- [ ] 認証、課金、スキャン、同期、DB migrationの依存関係を図解または一覧化する
+- [x] 認証、課金、スキャン、同期、DB migrationの依存関係を図解または一覧化する
   - 障害時に見るべきテーブル、env、外部サービス、runbookを紐づける
   - 公開後にAIへ依頼する時の「触ってよい境界」と「慎重に扱う境界」を明確にする
-- [ ] データの流れと失敗時の復旧点を整理する
+- [x] データの流れと失敗時の復旧点を整理する
   - 例: スキャン開始から画像保存、Cloud Run、DB保存、利用回数更新まで
   - 例: Stripe checkoutからwebhook、subscription反映、reconcileまで
-- [ ] リファクタ優先度を、リスク、変更頻度、ユーザー影響、テスト有無で決める
+- [x] リファクタ優先度を、リスク、変更頻度、ユーザー影響、テスト有無で決める
 
 ### P2-B: リファクタ計画
 
@@ -67,6 +69,14 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-07: P2-A アーキテクチャ保守性監査を作成
+  - 追加: [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md)
+  - 棚卸し対象: `src/app/api`, server action有無、repository層、`src/lib`, `shared`, `supabase/migrations`
+  - 整理: API route / repository責務、巨大ファイル5本の責務マップ、認証・課金・スキャン・同期・DB migrationの依存関係、データ流れと復旧点、リファクタ優先度
+  - 変更なし: code、巨大ファイル分割、認証、課金、スキャン、同期、DB migration、過去migrationファイル
+  - 確認: `git diff --check` 成功
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は196 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: P2-Bとして、監査結果を小さなリファクタ計画と検証条件へ分解する
 - [x] 2026-05-07: P1 docs修正候補と固定リスト除外testを整理
   - `docs/boundaries.md` のmigration数を実態の76 filesへ同期
   - `docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンクを相対リンクへ修正
