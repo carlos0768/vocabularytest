@@ -10,7 +10,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 1. lint / build / test の検証基盤整理
 2. docsの入口と運用Runbook整備
-3. docs矛盾一覧と固定リスト除外testの扱い整理
+3. docs整合性監査で見つかった公開前docs修正候補と固定リスト除外testの扱い整理
 4. 巨大ファイル分割は公開後に段階的に実施
 
 ## 必ず読む文書
@@ -59,6 +59,9 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - `npm run security:deps`: 成功。high=0 / critical=0
 - `npm audit --omit=dev --audit-level=high`: 成功。Next同梱 `postcss@8.4.31` にmoderate 2件は残る
 - README/CLAUDE/architecture/commands/runbooks/.env.example/vercel.json の古い課金・Sentry・migration数・grammar route記述は 2026-05-06 に実装へ同期済み
+- docsの矛盾一覧は 2026-05-07 に [`DOCS_CONSISTENCY_AUDIT.md`](DOCS_CONSISTENCY_AUDIT.md) として作成済み
+- docs整合性監査で公開前に直す候補: `docs/boundaries.md` のmigration数「approximately 43」、`docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンク
+- docs整合性監査で実装確認が必要な候補: Supabase RLS表現差分、Cloud Run本番env、App Store / IAP外部設定
 - `docs/ops/` のスキャン失敗、Stripe課金反映失敗、ログイン/認証失敗の日本語初動Runbookは 2026-05-07 に追加済み
 - `docs/ops/` のSupabase接続障害 / migration事故、AIコスト急増、本番環境変数チェックリストは 2026-05-07 に追加済み
 - テスト固定リスト方式は 2026-05-07 に整理済み。`npm test` は通過確認済みのWeb/shared通常test固定リスト、`npm run test:security` はsecurity guard/route tests、`npm run test:cloud-run-scan` は別packageのCloud Run tests
@@ -77,5 +80,5 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. docsの矛盾一覧を作る
+1. docs整合性監査で見つかった公開前docs修正候補を直す
 2. 固定リストから除外した古いtestの期待値を、仕様確認後に別タスクで扱う

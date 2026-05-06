@@ -12,11 +12,22 @@
   - `src/lib/supabase/session-cache.test.ts`: 現行実装では `user_cookie`, `user_chunk`, `user_local` を期待する3件が `undefined` になり失敗する
   - `src/app/api/shared-projects/shared.test.ts`: 現行metrics payloadは `likeCount: 0` を含むが、2件の期待値が `likeCount` なしで失敗する
   - 公開前gateを壊さないため、上記2ファイルは `npm run test:web` の固定リストには入れていない
-- [ ] docsの矛盾一覧を作る
-  - まずは矛盾箇所を列挙し、修正は別タスクに分ける
+- [ ] docs整合性監査で見つかった公開前修正候補を直す
+  - 詳細: [`DOCS_CONSISTENCY_AUDIT.md`](DOCS_CONSISTENCY_AUDIT.md)
+  - `docs/boundaries.md` のmigration数「approximately 43」を実態の76 filesへ同期する
+  - `docs/ops/scan-example-sentences-runbook.md` の `.codex/worktrees/...` 絶対リンクを相対リンクへ直す
 
 ## P2: 公開後に段階的に進める
 
+- [ ] docs内のローカル絶対パスとline番号参照を相対表記へ寄せる
+  - `docs/commands.md`, `docs/security/*.md`, `docs/runbooks.md` など
+  - 公開前の挙動には影響しないため、正式docs整備の一部として扱う
+- [ ] Supabase RLSのdocs差分をlive DB / migration / policy単位で再監査する
+  - `docs/invariants.md` は監査済み、`docs/boundaries.md` は未確認としており、表現が割れている
+  - 本番schema driftを含めて確認するまでは、実装確認なしに片方へ断定しない
+- [ ] Cloud RunとApp Store / IAPの本番外部設定を確認する
+  - Cloud RunはVercel envとCloud Run service envの一致を確認する
+  - App Store / IAPはApp Store Connect、product id、Notifications V2到達を確認する
 - [ ] `src/app/api/scan-jobs/process/route.ts` を段階的に分割する
 - [ ] `src/app/page.tsx` を段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を段階的に分割する
@@ -26,6 +37,14 @@
 
 ## Done
 
+- [x] 2026-05-07: docsの矛盾一覧を作成
+  - 追加: [`DOCS_CONSISTENCY_AUDIT.md`](DOCS_CONSISTENCY_AUDIT.md)
+  - 分類: 修正済みで問題なし / 履歴資料として意図的に残す / 古い可能性があるが公開前には影響が低い / 公開前に修正すべき / 実装確認が必要
+  - 棚卸し対象: KOMOJU, Sentry, migration数, `npm run lint`, `npm test` 固定リスト, grammar route, Cloud Run, Stripe, App Store / IAP, Supabase RLS, Windowsパスや古いrepoパス
+  - 実装確認: `package.json`, `.env.example`, `vercel.json`, `README.md`, `CLAUDE.md`, `docs/architecture.md`, `docs/commands.md`, `docs/runbooks.md`, `docs/ops/README.md`, `src/instrumentation.ts`, `src/app/api/subscription/`, `src/lib/stripe/`, `src/lib/komoju/`, `src/lib/appstore/`
+  - 公開前修正候補: `docs/boundaries.md` のmigration数、`docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンク
+  - 実装確認が必要: Supabase RLSのdocs表現差分、Cloud Run本番env、App Store / IAP外部設定
+  - 確認: `docs/maintenance/DOCS_CONSISTENCY_AUDIT.md` の存在確認、指定 `rg` 確認、`npm run verify` 成功
 - [x] 2026-05-07: テスト実行方式を整理し、公開前Web verifyの対象を明確化
   - repo内テスト棚卸し: root側は `src/**/*.test.ts`, `src/**/*.security.test.ts`, `shared/**/*.test.ts`, `scripts/**/*.test.mjs` に50 files、Cloud Run側は `cloud-run-scan/src/**/*.test.ts` に6 files
   - 旧 `npm test` 固定リストは28 files / 132 tests。固定リスト外は20 filesで、`src/app/api/security/route.security.test.ts` は `npm run test:security` 側の対象
