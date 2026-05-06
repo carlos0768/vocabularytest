@@ -6,7 +6,9 @@ import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
+import { useOnboarding } from '@/hooks/use-onboarding';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { HintBanner } from '@/components/onboarding/HintBanner';
 import { getRepository } from '@/lib/db';
 import { getDb } from '@/lib/db/dexie';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
@@ -92,6 +94,7 @@ export default function ConfirmPage() {
   const router = useRouter();
   const { count: currentWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
   const { isPro, subscription, user } = useAuth();
+  const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const { aiEnabled: accountAiEnabled } = useUserPreferences();
   const { showToast } = useToast();
 
@@ -238,6 +241,11 @@ export default function ConfirmPage() {
 
       ['scanvocab_extracted_words','scanvocab_source_labels','scanvocab_lexicon_entries','scanvocab_project_name','scanvocab_project_icon','scanvocab_existing_project_id','scanvocab_ai_enabled'].forEach(k => sessionStorage.removeItem(k));
 
+      // Onboarding: signed_up → first_scan_done on first successful save.
+      if (onboardingStep === 'signed_up') {
+        await setOnboardingStep('first_scan_done');
+      }
+
       refreshWordCount();
 
       const newTotal = currentWordCount + selectedWords.length;
@@ -338,6 +346,18 @@ export default function ConfirmPage() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Onboarding hint */}
+      {onboardingStep === 'signed_up' && (
+        <div className="px-[18px] pb-3">
+          <HintBanner
+            icon="check_circle"
+            title="あと少し！保存ボタンで単語帳を作成しよう"
+            description="不要な単語を削除・編集してから保存できます。"
+            tone="accent"
+          />
         </div>
       )}
 
