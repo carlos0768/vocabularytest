@@ -8,9 +8,10 @@
 
 ## P1: 公開前にできれば終わらせる
 
-- [ ] テスト実行方式を見直す
-  - 現状: `package.json` の `test` script は固定リスト
-  - 課題: repo内に存在するが固定リストに入っていないtestがある
+- [ ] 固定リストから除外した古いtestを別タスクで扱う
+  - `src/lib/supabase/session-cache.test.ts`: 現行実装では `user_cookie`, `user_chunk`, `user_local` を期待する3件が `undefined` になり失敗する
+  - `src/app/api/shared-projects/shared.test.ts`: 現行metrics payloadは `likeCount: 0` を含むが、2件の期待値が `likeCount` なしで失敗する
+  - 公開前gateを壊さないため、上記2ファイルは `npm run test:web` の固定リストには入れていない
 - [ ] docsの矛盾一覧を作る
   - まずは矛盾箇所を列挙し、修正は別タスクに分ける
 
@@ -25,6 +26,17 @@
 
 ## Done
 
+- [x] 2026-05-07: テスト実行方式を整理し、公開前Web verifyの対象を明確化
+  - repo内テスト棚卸し: root側は `src/**/*.test.ts`, `src/**/*.security.test.ts`, `shared/**/*.test.ts`, `scripts/**/*.test.mjs` に50 files、Cloud Run側は `cloud-run-scan/src/**/*.test.ts` に6 files
+  - 旧 `npm test` 固定リストは28 files / 132 tests。固定リスト外は20 filesで、`src/app/api/security/route.security.test.ts` は `npm run test:security` 側の対象
+  - 固定リスト外の通常test 19 filesのうち、17 filesは個別/小グループ実行で成功したため `npm run test:web` に追加
+  - `scripts/check-*.test.mjs` と `src/app/api/**/*.security.test.ts` は `npm run test:security` の対象として維持し、`npm run verify` に `npm run test:security` を追加
+  - `cloud-run-scan` は別packageのため root `npm run verify` には含めず、root helper `npm run test:cloud-run-scan` を追加
+  - 除外: `src/lib/supabase/session-cache.test.ts` は3 failures、`src/app/api/shared-projects/shared.test.ts` は2 failures。テストを通すための本体仕様変更は行っていない
+  - 確認: `npm test` 成功。183 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は183 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 確認: `npm run test:cloud-run-scan` 成功。22 tests pass
 - [x] 2026-05-07: 残りの日本語運用Runbookと本番環境変数チェックリストを追加
   - 追加: [`../ops/supabase-incident-runbook.md`](../ops/supabase-incident-runbook.md), [`../ops/ai-cost-spike-runbook.md`](../ops/ai-cost-spike-runbook.md), [`../ops/production-env-checklist.md`](../ops/production-env-checklist.md)
   - `docs/ops/README.md` から3本に辿れるようにリンクを追加

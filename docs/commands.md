@@ -52,16 +52,25 @@ All commands should be run from the project root directory (`/Users/haradakaruro
   1. `npm run lint:web`
   2. `npm run security:all`
   3. `npm test`
-  4. `npm run build`
+  4. `npm run test:security`
+  5. `npm run build`
 - **Prerequisites**: Environment variables needed by `npm run build`
 - **Danger level**: Safe -- writes only build output under `.next/`
+- **Notes**: This is the Web app prelaunch gate. It does not run the separate Cloud Run scan service tests; use `npm run test:cloud-run-scan` for that package.
 
 ### `npm test`
 
-- **What it does**: Runs unit tests using Node.js built-in test runner with `tsx`
+- **What it does**: Runs `npm run test:web`
 - **Prerequisites**: None (tests mock external dependencies)
 - **Danger level**: Safe -- no external API calls, no database writes
-- **Test files** (fixed list in `package.json`):
+- **Notes**: This remains a curated fixed list, not full auto-discovery. Full discovery currently includes stale excluded tests documented in `docs/maintenance/TASKS.md`.
+
+### `npm run test:web`
+
+- **What it does**: Runs curated Web/shared unit tests using Node.js built-in test runner with `tsx`
+- **Prerequisites**: None (tests mock external dependencies)
+- **Danger level**: Safe -- no external API calls, no database writes
+- **Test files** (curated fixed list in `package.json`):
   - `src/lib/api/internal-worker.test.ts`
   - `src/lib/stripe/client.test.ts`
   - `src/lib/appstore/config.test.ts`
@@ -90,7 +99,24 @@ All commands should be run from the project root directory (`/Users/haradakaruro
   - `src/app/api/words/create/route.test.ts`
   - `src/app/api/subscription/appstore/verify/route.test.ts`
   - `src/app/api/subscription/appstore/notifications/route.test.ts`
-- **Notes**: New test files must be manually added to this list in `package.json`.
+  - `shared/source-labels.test.ts`
+  - `src/app/api/share-import/route.test.ts`
+  - `src/app/api/shared-projects/me/route.test.ts`
+  - `src/app/api/shared-projects/metrics/route.test.ts`
+  - `src/app/api/shared-projects/public/route.test.ts`
+  - `src/app/api/shared-projects/route.test.ts`
+  - `src/app/shared/shared-page-utils.test.ts`
+  - `src/lib/ai/gemini-model.test.ts`
+  - `src/lib/ai/prompts.translation-context.test.ts`
+  - `src/lib/ai/providers/cloud-run-timing.test.ts`
+  - `src/lib/api-cost/pricing.test.ts`
+  - `src/lib/komoju/client.test.ts`
+  - `src/lib/lexicon/cleanup.test.ts`
+  - `src/lib/lexicon/enrichment-jobs.test.ts`
+  - `src/lib/similarity/local-similar-words.test.ts`
+  - `src/lib/similarity/similar-cache.test.ts`
+  - `src/lib/spaced-repetition.test.ts`
+- **Notes**: New normal Web/shared test files must be manually added to this list after confirming they are safe and passing. Security guard tests belong in `npm run test:security`, and Cloud Run scan service tests belong in `npm run test:cloud-run-scan`.
 
 ---
 
@@ -104,6 +130,7 @@ All commands should be run from the project root directory (`/Users/haradakaruro
   3. `npm run test:security:routes` -- API route security tests (`*.security.test.ts`)
 - **Prerequisites**: None
 - **Danger level**: Safe
+- **Notes**: Included in `npm run verify`.
 
 ### `npm run test:security:sql`
 
@@ -163,6 +190,18 @@ All commands should be run from the project root directory (`/Users/haradakaruro
 
 ---
 
+## Separate Packages
+
+### `npm run test:cloud-run-scan`
+
+- **What it does**: Runs the Cloud Run scan service test suite from the separate `cloud-run-scan/` package
+- **Command**: `cd cloud-run-scan && npm test`
+- **Prerequisites**: `cloud-run-scan/node_modules` must be installed
+- **Danger level**: Safe -- tests use mocked provider behavior and do not call external APIs
+- **Notes**: This is intentionally not part of root `npm run verify`, which is the Web app prelaunch gate.
+
+---
+
 ## QA / E2E
 
 ### `npm run qa:stripe:webhook-e2e`
@@ -182,6 +221,7 @@ For a typical code change, run these commands in order:
 ```bash
 npm run lint:web      # Web app lint gate
 npm test              # Unit tests
+npm run test:security # Security guard and route tests
 npm run build         # Production build verification
 ```
 
