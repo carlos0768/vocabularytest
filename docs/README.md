@@ -77,9 +77,7 @@
 
 詳細は [`prelaunch-maintainability-audit.md`](prelaunch-maintainability-audit.md) を参照してください。現時点で特に重要な注意点は以下です。
 
-- `package-lock.json` と実際の `node_modules` がズレている
 - `npm run lint` が失敗している
-- `npm run security:deps` と `npm run security:all` が失敗している
+- `npm run security:deps` と `npm run security:all` は成功している
 - README/CLAUDE/docsにKOMOJU、Sentry、migration数など古い記述が残っている
 - 巨大ファイルの分割は重要だが、公開前は検証基盤と運用文書の整備を優先する
-

@@ -4,9 +4,6 @@
 
 ## P0: 公開前に必ず終わらせる
 
-- [ ] secrets guardの失敗を整理する
-  - 現状: `npm run security:all` が `CLAUDE.md`, `src/lib/api/internal-worker.ts`, `src/lib/api/internal-worker.test.ts` で失敗
-  - 成功条件: 本物のsecretではないものを安全に修正またはallowlist化し、`npm run security:secrets` が通る
 - [ ] lint対象を整理する
   - 現状: `npm run lint` が `mobile/`, `cloud-run-scan/dist/`, 動画素材配下まで拾って失敗
   - 成功条件: 少なくともWeb本体向けの `lint:web` が通る
@@ -49,6 +46,16 @@
 
 ## Done
 
+- [x] 2026-05-06: secrets guardの失敗を整理し、`security:all` を通過
+  - `CLAUDE.md` のStripe webhook secret例を実prefix風でないdummy値へ変更
+  - `src/lib/api/internal-worker.ts` とtestの実secretではない値・変数名による誤検知をdummy表現へ整理
+  - `security/secrets-allowlist.json` は空のまま維持
+  - `npm run security:secrets`: 成功。violations 0
+  - `npm run security:all`: 成功
+  - `npm run test:security:secrets`: 成功。7 tests pass
+  - `npm run build`: 成功
+  - `npm test`: 成功。132 tests pass
+  - 次にやるべきこと: lint対象整理と公開前検証コマンド定義
 - [x] 2026-05-06: `package-lock.json` と実際のinstall結果を一致させ、dependency auditのhigh/criticalを解消
   - `npm ls next uuid protobufjs fast-jwt undici --all`: `next@16.2.4`, `uuid@13.0.2`, `protobufjs@7.5.6`, `fast-jwt@6.2.4`, `undici@7.25.0`
   - `npm run security:deps`: 成功。high=0 / critical=0
