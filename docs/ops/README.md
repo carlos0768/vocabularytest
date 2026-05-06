@@ -6,6 +6,9 @@
 
 | 文書 | 用途 |
 |---|---|
+| [`scan-failure-runbook.md`](scan-failure-runbook.md) | スキャン失敗 / 遅延の初動対応 |
+| [`billing-stripe-failure-runbook.md`](billing-stripe-failure-runbook.md) | Stripe課金反映失敗の初動対応 |
+| [`login-auth-failure-runbook.md`](login-auth-failure-runbook.md) | ログイン / 認証失敗の初動対応 |
 | [`scan-gemini-cloudrun-runbook.md`](scan-gemini-cloudrun-runbook.md) | Cloud Run経由のGeminiスキャン抽出の運用 |
 | [`scan-example-sentences-runbook.md`](scan-example-sentences-runbook.md) | スキャン後の例文生成トラブルシュート |
 | [`nightly-lexicon-cron-runbook.md`](nightly-lexicon-cron-runbook.md) | Nightly Master Lexicon Cronの復旧手順 |
@@ -16,11 +19,8 @@
 
 ## 公開前に追加したいRunbook
 
-以下はまだ不足している運用手順です。作成状況は [`../maintenance/TASKS.md`](../maintenance/TASKS.md) で管理します。
+以下はまだ不足している運用手順です。作成状況は [`../maintenance/TASKS.md`](../maintenance/TASKS.md) で管理します。スキャン失敗、Stripe課金反映失敗、ログイン失敗は上記の初動Runbookを参照してください。
 
-- スキャン失敗 / 遅延
-- Pro課金が反映されない
-- ログインできない
 - Supabase接続障害 / migration事故
 - AIコスト急増
 - 本番環境変数チェックリスト

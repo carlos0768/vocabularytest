@@ -9,11 +9,8 @@
 ## P1: 公開前にできれば終わらせる
 
 - [ ] `docs/ops/` に日本語の障害対応Runbookを追加する
-  - スキャン失敗
-  - 課金反映失敗
-  - ログイン失敗
-  - Supabase障害
-  - AIコスト急増
+  - 残り: Supabase障害
+  - 残り: AIコスト急増
 - [ ] 本番環境変数チェックリストを作る
   - Vercel
   - Supabase
@@ -38,6 +35,15 @@
 
 ## Done
 
+- [x] 2026-05-07: 公開後の日本語初動Runbookを3本追加
+  - 追加: [`../ops/scan-failure-runbook.md`](../ops/scan-failure-runbook.md), [`../ops/billing-stripe-failure-runbook.md`](../ops/billing-stripe-failure-runbook.md), [`../ops/login-auth-failure-runbook.md`](../ops/login-auth-failure-runbook.md)
+  - `docs/ops/README.md` から3本に辿れるようにリンクを追加
+  - スキャンは `/api/extract`, `/api/scan-jobs/*`, Cloud Run, `scan_jobs`, `daily_scan_usage`, `scan-images` を根拠に初動手順化
+  - 課金はStripe中心で、`subscription_sessions`, `subscriptions`, `webhook_events`, `webhook` / `reconcile` の二経路を根拠に初動手順化。KOMOJU資料は履歴扱いと明記
+  - 認証は `/api/auth/*`, Resend, Supabase Auth, `otp_requests`, middlewareを根拠に初動手順化
+  - 確認: 新規Markdownの存在確認、相対リンク存在確認、`rg -n "scan-failure|billing-stripe|login-auth" docs/ops docs/maintenance`
+  - `npm run verify`: 成功。`lint:web` は0 errors / 98 warnings、`npm test` は132 tests pass、`build` 成功
+  - 残りの日本語Runbook候補: Supabase接続障害 / migration事故、AIコスト急増
 - [x] 2026-05-06: docsの古い記述を実装に同期
   - 対象: `README.md`, `CLAUDE.md`, `docs/architecture.md`, `docs/commands.md`, `docs/runbooks.md`, `.env.example`, `vercel.json`
   - Web課金説明をStripe中心へ統一。KOMOJU資料と `src/lib/komoju/` は履歴資料・過去実装として残す方針を明記
