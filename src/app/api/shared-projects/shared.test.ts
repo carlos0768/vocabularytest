@@ -28,6 +28,7 @@ type MetricsRow = {
   project_id: string;
   word_count: number;
   collaborator_count: number;
+  like_count?: number | null;
 };
 
 type FakeAdminOptions = {
@@ -443,6 +444,7 @@ test('getSharedProjectMetrics uses RPC results when available', async () => {
   assert.deepEqual(metrics.get('project-1'), {
     wordCount: 4,
     collaboratorCount: 2,
+    likeCount: 0,
   });
 });
 
@@ -462,5 +464,6 @@ test('getSharedProjectMetrics falls back to exact counts when RPC is unavailable
   assert.deepEqual(metrics.get('project-1'), {
     wordCount: 3,
     collaboratorCount: 2,
+    likeCount: 0,
   });
 });

@@ -96,7 +96,7 @@ where created_at >= now() - interval '7 days';
 
 ### 4.4 `provider` が増える
 - Gemini / Cloud Run / key / rate limit を疑う
-- まず [`scan-gemini-cloudrun-runbook.md`](/Users/haradakarurosukei/.codex/worktrees/a8f6/englishvo-scan-example-hardening/docs/ops/scan-gemini-cloudrun-runbook.md) を確認する
+- まず [`scan-gemini-cloudrun-runbook.md`](scan-gemini-cloudrun-runbook.md) を確認する
 
 ## 5. Rollout / Verification
 - `npm run test`

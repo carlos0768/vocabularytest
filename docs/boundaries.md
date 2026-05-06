@@ -22,7 +22,7 @@ These files and directories are auto-generated, externally managed, or carry hig
 
 ### Migration Files: Special Rule
 
-Migration files in `supabase/migrations/` that have already been applied to production **must never be modified**. There are approximately 43 migration files (from `001_initial_schema.sql` through `20260226010000_add_word_insights.sql`). To change the database schema, always create a **new** migration file with a timestamp-prefixed filename.
+Migration files in `supabase/migrations/` that have already been applied to production **must never be modified**. There are 76 migration files in this repository. To change the database schema, always create a **new** migration file with a timestamp-prefixed filename.
 
 ---
 

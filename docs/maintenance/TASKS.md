@@ -8,14 +8,7 @@
 
 ## P1: 公開前にできれば終わらせる
 
-- [ ] 固定リストから除外した古いtestを別タスクで扱う
-  - `src/lib/supabase/session-cache.test.ts`: 現行実装では `user_cookie`, `user_chunk`, `user_local` を期待する3件が `undefined` になり失敗する
-  - `src/app/api/shared-projects/shared.test.ts`: 現行metrics payloadは `likeCount: 0` を含むが、2件の期待値が `likeCount` なしで失敗する
-  - 公開前gateを壊さないため、上記2ファイルは `npm run test:web` の固定リストには入れていない
-- [ ] docs整合性監査で見つかった公開前修正候補を直す
-  - 詳細: [`DOCS_CONSISTENCY_AUDIT.md`](DOCS_CONSISTENCY_AUDIT.md)
-  - `docs/boundaries.md` のmigration数「approximately 43」を実態の76 filesへ同期する
-  - `docs/ops/scan-example-sentences-runbook.md` の `.codex/worktrees/...` 絶対リンクを相対リンクへ直す
+現時点で未完了のP1はありません。
 
 ## P2: 保守可能な構造へ段階的に進める
 
@@ -74,6 +67,19 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-07: P1 docs修正候補と固定リスト除外testを整理
+  - `docs/boundaries.md` のmigration数を実態の76 filesへ同期
+  - `docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンクを相対リンクへ修正
+  - `src/lib/supabase/session-cache.test.ts` は本体実装を変えず、古い簡略user fixtureを現行 `parseUser()` が受け付けるSupabase `User` 相当fixtureへ同期
+  - `src/app/api/shared-projects/shared.test.ts` は本体実装を変えず、現行metrics payloadの `likeCount: 0` 期待値へ同期
+  - 上記2ファイルを `npm run test:web` 固定リストへ復帰
+  - 変更なし: 認証、課金、スキャン、同期、DB migration、過去migrationファイル
+  - 確認: `npm exec -- tsx --test src/lib/supabase/session-cache.test.ts` 成功。5 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/shared-projects/shared.test.ts` 成功。8 tests pass
+  - 確認: `npm test` 成功。196 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は196 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 残リスク: P2のアーキテクチャ保守性監査、巨大ファイル分割、Supabase RLS / Cloud Run / App Store外部設定確認は未着手
 - [x] 2026-05-07: docsの矛盾一覧を作成
   - 追加: [`DOCS_CONSISTENCY_AUDIT.md`](DOCS_CONSISTENCY_AUDIT.md)
   - 分類: 修正済みで問題なし / 履歴資料として意図的に残す / 古い可能性があるが公開前には影響が低い / 公開前に修正すべき / 実装確認が必要

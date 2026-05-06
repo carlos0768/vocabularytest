@@ -10,9 +10,8 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 1. lint / build / test の検証基盤整理
 2. docsの入口と運用Runbook整備
-3. docs整合性監査で見つかった公開前docs修正候補と固定リスト除外testの扱い整理
-4. アーキテクチャ保守性監査を行い、API構成、責務分離、巨大ファイル、危険領域の依存関係を把握する
-5. 巨大ファイル分割は、監査と小さなリファクタ計画の後に段階的に実施
+3. アーキテクチャ保守性監査を行い、API構成、責務分離、巨大ファイル、危険領域の依存関係を把握する
+4. 巨大ファイル分割は、監査と小さなリファクタ計画の後に段階的に実施
 
 ## 必ず読む文書
 
@@ -48,7 +47,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-07時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。183 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。196 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 98 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -61,12 +60,12 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - `npm audit --omit=dev --audit-level=high`: 成功。Next同梱 `postcss@8.4.31` にmoderate 2件は残る
 - README/CLAUDE/architecture/commands/runbooks/.env.example/vercel.json の古い課金・Sentry・migration数・grammar route記述は 2026-05-06 に実装へ同期済み
 - docsの矛盾一覧は 2026-05-07 に [`DOCS_CONSISTENCY_AUDIT.md`](DOCS_CONSISTENCY_AUDIT.md) として作成済み
-- docs整合性監査で公開前に直す候補: `docs/boundaries.md` のmigration数「approximately 43」、`docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンク
+- docs整合性監査で公開前に直す候補だった `docs/boundaries.md` のmigration数と `docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンクは 2026-05-07 に修正済み
 - docs整合性監査で実装確認が必要な候補: Supabase RLS表現差分、Cloud Run本番env、App Store / IAP外部設定
 - `docs/ops/` のスキャン失敗、Stripe課金反映失敗、ログイン/認証失敗の日本語初動Runbookは 2026-05-07 に追加済み
 - `docs/ops/` のSupabase接続障害 / migration事故、AIコスト急増、本番環境変数チェックリストは 2026-05-07 に追加済み
 - テスト固定リスト方式は 2026-05-07 に整理済み。`npm test` は通過確認済みのWeb/shared通常test固定リスト、`npm run test:security` はsecurity guard/route tests、`npm run test:cloud-run-scan` は別packageのCloud Run tests
-- 固定リストから意図的に除外中: `src/lib/supabase/session-cache.test.ts` と `src/app/api/shared-projects/shared.test.ts`。現行実装との期待値ズレで失敗するため、公開前gateには入れず [`TASKS.md`](TASKS.md) に追跡
+- 固定リストから除外していた `src/lib/supabase/session-cache.test.ts` と `src/app/api/shared-projects/shared.test.ts` は、本体仕様変更なしで現行期待値へ同期し、2026-05-07 に `npm run test:web` へ復帰済み
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -81,6 +80,5 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. docs整合性監査で見つかった公開前docs修正候補を直す
-2. 固定リストから除外した古いtestの期待値を、仕様確認後に別タスクで扱う
-3. P2-Aとして、公開後もAIと人間が安全に変更を続けられるかを見るアーキテクチャ保守性監査を行う
+1. P2-Aとして、公開後もAIと人間が安全に変更を続けられるかを見るアーキテクチャ保守性監査を行う
+2. P2-B以降は、監査後に小さなリファクタ計画へ分解してから扱う
