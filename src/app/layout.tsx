@@ -5,6 +5,7 @@ import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import { StatsSync } from '@/components/StatsSync';
+import { HomeOpenLogger } from '@/components/analytics/HomeOpenLogger';
 import { PersistentAppShell } from '@/components/ui/PersistentAppShell';
 import { GooglePublisherTagScript } from '@/components/ads/GooglePublisherTagScript';
 import { ADSENSE_CLIENT_ID } from '@/lib/adsense';
@@ -138,6 +139,7 @@ export default function RootLayout({
             </OfflineSyncProvider>
           </ToastProvider>
           <StatsSync />
+          <HomeOpenLogger />
           <ServiceWorkerRegistration />
         </ThemeProvider>
       </body>
