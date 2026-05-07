@@ -50,7 +50,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-07時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。204 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。209 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 98 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -73,6 +73,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - 固定リストから除外していた `src/lib/supabase/session-cache.test.ts` と `src/app/api/shared-projects/shared.test.ts` は、本体仕様変更なしで現行期待値へ同期し、2026-05-07 に `npm run test:web` へ復帰済み
 - P2-C Task 1は 2026-05-07 に完了。`src/app/api/scan-jobs/process/route.contract.test.ts` を追加し、pending claim、already processed、valid UUIDのmissing job、`client_local` result payload、example生成失敗warning、completed通知を固定済み。worker auth 401、non-uuid `jobId` 400、`INTERNAL_WORKER_TOKEN` 正規化は既存 `src/app/api/security/route.security.test.ts` で継続固定。`processJobById()` にはtest用の任意depsだけを追加し、未指定時のproduction behavior、HTTP self-fetch禁止、AI prompt、post-processing、通知/timing、認証、課金、同期、DB migrationは変更していない
 - P2-C Task 2は 2026-05-07 に完了。`src/lib/scan/mode-provider.ts` を追加し、`/api/extract` と `/api/scan-jobs/process` のprovider mapping / missing key判定を共通化済み。`all` / `circled` / `eiken` / `idiom` は既存 `AI_CONFIG.extraction.*.provider` へのmappingを維持し、Cloud Run設定時はdirect provider key missingを返さない。HTTP境界、usage increment、AI抽出呼び出し、Cloud Run fallback、prompt、認証、課金、同期、DB migrationは変更していない。`src/lib/scan/mode-provider.test.ts` を `npm run test:web` 固定リストへ追加済み
+- P2-C Task 3は 2026-05-07 に完了。`src/lib/scan/job-create-contract.ts` を追加し、`/api/scan-jobs/create` とlegacy `/api/scan-jobs` の `clientPlatform` / Pro状態からの `save_mode` 判定を共通化済み。webはPro/freeとも `server_cloud`、iOS/Android freeは `client_local`、iOS/Android Proは `server_cloud`、legacy routeの `clientPlatform` 正規化、uploaded image存在確認がusage incrementより前にあること、missing uploaded image 400、Pro-only mode 403、usage limit 429、`after(processJobById)` 直接呼び出しを `src/app/api/scan-jobs/create/route.contract.test.ts` で固定済み。`checkAndIncrementScanUsage()` の呼び出しタイミング、Storage bucket名、uploaded file existence check、target project ownership check、`scan_jobs` insert payload、`after(processJobById)` の直接呼び出し、認証、課金、同期、DB migrationは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -87,6 +88,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-Cとして、[`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) の「最初の3回分の実行計画」を順番に進める
-2. 次回は3回目としてTask 3「scan job create / legacy routeのsave mode contractを固定する」だけを行い、usage increment、Storage確認、`after(processJobById)` 直接呼び出しは動かさない
+1. P2-Cの最初の3回分は完了済み。次は `src/app/api/scan-jobs/process/route.ts` の段階的分割へ進める
+2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない

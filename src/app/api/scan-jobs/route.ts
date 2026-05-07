@@ -3,6 +3,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
 import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
+import {
+  normalizeLegacyScanJobClientPlatform,
+  resolveScanJobSaveMode,
+} from '@/lib/scan/job-create-contract';
 import { processJobById } from './process/route';
 
 export const maxDuration = 300;
@@ -77,11 +81,9 @@ export async function POST(request: NextRequest) {
     const projectTitle = formData.get('projectTitle') as string;
     const scanMode = formData.get('scanMode') as string || 'all';
     const eikenLevel = formData.get('eikenLevel') as string || null;
-    const clientPlatformRaw = (formData.get('clientPlatform') as string | null)?.trim().toLowerCase();
-    const clientPlatform =
-      clientPlatformRaw === 'ios' || clientPlatformRaw === 'android'
-        ? clientPlatformRaw
-        : 'web';
+    const clientPlatform = normalizeLegacyScanJobClientPlatform(
+      formData.get('clientPlatform') as string | null,
+    );
     const targetProjectId = (formData.get('targetProjectId') as string | null)?.trim() || null;
 
     if (!image || !projectTitle) {
@@ -132,10 +134,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isProUser = Boolean(scanData.is_pro);
-    const saveMode: 'server_cloud' | 'client_local' =
-      (clientPlatform === 'ios' || clientPlatform === 'android') && !isProUser
-        ? 'client_local'
-        : 'server_cloud';
+    const saveMode = resolveScanJobSaveMode({ clientPlatform, isProUser });
 
     let validatedTargetProjectId: string | null = null;
     if (saveMode === 'server_cloud' && targetProjectId) {

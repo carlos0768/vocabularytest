@@ -61,6 +61,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 固定: `all` / `circled` / `eiken` / `idiom` は既存 `AI_CONFIG.extraction.*.provider` へmapping、Cloud Run設定時はdirect provider key missingを返さない、Cloud Run未設定時は不足しているconfigured provider keyを返す
   - 変更: `src/app/api/extract/route.provider.test.ts` と `src/app/api/scan-jobs/process/route.extractor.test.ts` のprovider helper参照先を `src/lib/scan/mode-provider.ts` へ更新し、`src/lib/scan/mode-provider.test.ts` を `npm run test:web` 固定リストへ追加
   - 変更なし: auth、usage increment、AI抽出呼び出し、Cloud Run fallback、`ExtractMode` の値、`AI_CONFIG` の意味、prompt、認証、課金、同期、DB migration
+- [x] 2026-05-07: Task 3 `scan job create / legacy routeのsave mode contractを固定する`
+  - 追加: `src/lib/scan/job-create-contract.ts`, `src/app/api/scan-jobs/create/route.contract.test.ts`
+  - 共通化: `/api/scan-jobs/create` とlegacy `/api/scan-jobs` の `clientPlatform` / Pro状態からの `save_mode` 判定を `resolveScanJobSaveMode()` へ移動
+  - 固定: webはPro/freeとも `server_cloud`、iOS/Android freeは `client_local`、iOS/Android Proは `server_cloud`、legacy routeの `clientPlatform` 正規化、uploaded image存在確認がusage incrementより前にあること、missing uploaded image 400、Pro-only mode 403、usage limit 429、`after(processJobById)` 直接呼び出し
+  - 変更: 新contract testを `npm run test:web` 固定リストへ追加
+  - 変更なし: `checkAndIncrementScanUsage()` の呼び出しタイミング、Storage bucket名、uploaded file existence check、target project ownership check、`scan_jobs` insert payload、`after(processJobById)` の直接呼び出し、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -83,6 +89,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-07: P2-C Task 3 scan job create / legacy routeのsave mode contractを固定
+  - 追加: `src/lib/scan/job-create-contract.ts`, `src/app/api/scan-jobs/create/route.contract.test.ts`
+  - 更新: `src/app/api/scan-jobs/create/route.ts`, `src/app/api/scan-jobs/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: webはPro/freeとも `server_cloud`、iOS/Android freeは `client_local`、iOS/Android Proは `server_cloud`、legacy routeの `clientPlatform` 正規化、uploaded image存在確認がusage incrementより前にあること、missing uploaded image 400、Pro-only mode 403、usage limit 429、`after(processJobById)` 直接呼び出し
+  - 変更なし: `checkAndIncrementScanUsage()` の呼び出しタイミング、Storage bucket名、uploaded file existence check、target project ownership check、`scan_jobs` insert payload、`after(processJobById)` の直接呼び出し、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/create/route.contract.test.ts` 成功。5 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は209 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: P2-Cの最初の3回分は完了。以降は `src/app/api/scan-jobs/process/route.ts` の段階的分割へ進めるが、引き続き1回1責務でcontract/testを先に固定する
 - [x] 2026-05-07: P2-C Task 2 scan mode / provider選択helperを共通化
   - 追加: `src/lib/scan/mode-provider.ts`, `src/lib/scan/mode-provider.test.ts`
   - 更新: `src/app/api/extract/route.ts`, `src/app/api/scan-jobs/process/route.ts`, `src/app/api/extract/route.provider.test.ts`, `src/app/api/scan-jobs/process/route.extractor.test.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
