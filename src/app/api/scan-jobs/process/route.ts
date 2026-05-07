@@ -17,6 +17,12 @@ import {
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { buildClientLocalScanJobResultPayload } from '@/lib/scan/job-result-payload';
+import {
+  buildServerCloudMergedProjectSourceLabels,
+  buildServerCloudProjectInsertPayload,
+  buildServerCloudWordsInsertPayload,
+  shouldRollbackServerCloudProjectAfterWordsInsertFailure,
+} from '@/lib/scan/server-cloud-persistence';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -1085,7 +1091,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           }
         }
 
-        const mergedProjectSourceLabels = mergeSourceLabels(existingProject.source_labels, dedupedSourceLabels);
+        const mergedProjectSourceLabels = buildServerCloudMergedProjectSourceLabels({
+          existingSourceLabels: existingProject.source_labels,
+          scanSourceLabels: dedupedSourceLabels,
+        });
         const { error: sourceLabelUpdateError, usedLegacyColumns: usedLegacyUpdateColumns } = await updateProjectSourceLabelsCompat(
           supabaseAdmin,
           existingProject.id,
@@ -1105,12 +1114,12 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             title?: string | null;
           }>(
             supabaseAdmin,
-            {
-              user_id: job.user_id,
-              title: job.project_title,
-              source_labels: dedupedSourceLabels,
-              icon_image: job.project_icon_image ?? null,
-            },
+            buildServerCloudProjectInsertPayload({
+              userId: job.user_id,
+              projectTitle: job.project_title,
+              sourceLabels: dedupedSourceLabels,
+              projectIconImage: job.project_icon_image,
+            }),
           );
         usedProjectSourceLabelsCompat = usedProjectSourceLabelsCompat || usedLegacyInsertColumns;
 
@@ -1128,16 +1137,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         console.warn('[scan-jobs/process] projects.source_labels compatibility fallback used');
       }
 
-      const wordsToInsert = resolvedWords.map((word) => ({
-        project_id: projectId,
-        english: word.english,
-        japanese: word.japanese,
-        lexicon_entry_id: word.lexiconEntryId ?? null,
-        distractors: word.distractors,
-        example_sentence: word.exampleSentence || null,
-        example_sentence_ja: word.exampleSentenceJa || null,
-        part_of_speech_tags: word.partOfSpeechTags,
-      }));
+      const wordsToInsert = buildServerCloudWordsInsertPayload(resolvedWords, projectId);
 
       const dbInsertStart = Date.now();
       const { data: insertedWords, error: wordsError } = await supabaseAdmin
@@ -1147,7 +1147,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError) {
-        if (createdNewProject) {
+        if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: wordsError })) {
           await supabaseAdmin.from('projects').delete().eq('id', projectId);
         }
         throw new Error('Failed to insert words');
