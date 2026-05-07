@@ -67,6 +67,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 固定: webはPro/freeとも `server_cloud`、iOS/Android freeは `client_local`、iOS/Android Proは `server_cloud`、legacy routeの `clientPlatform` 正規化、uploaded image存在確認がusage incrementより前にあること、missing uploaded image 400、Pro-only mode 403、usage limit 429、`after(processJobById)` 直接呼び出し
   - 変更: 新contract testを `npm run test:web` 固定リストへ追加
   - 変更なし: `checkAndIncrementScanUsage()` の呼び出しタイミング、Storage bucket名、uploaded file existence check、target project ownership check、`scan_jobs` insert payload、`after(processJobById)` の直接呼び出し、認証、課金、同期、DB migration
+- [x] 2026-05-07: Task 5 `scan-jobs/process のclient_local result payload builderを抽出する`
+  - 追加: `src/lib/scan/job-result-payload.ts`, `src/lib/scan/job-result-payload.test.ts`
+  - 抽出: `src/app/api/scan-jobs/process/route.ts` の `client_local` 完了時に `scan_jobs.result` へ保存するpayload object作成を `buildClientLocalScanJobResultPayload()` へ移動
+  - 固定: `wordCount`, `saveMode`, `extractedWords`, `sourceLabels`, `lexiconEntries`, `warnings`, `exampleGeneration`、warningなし / `exampleGeneration` なしの場合のpayload shape、空 `lexiconEntries`
+  - 変更: 新helper testを `npm run test:web` 固定リストへ追加
+  - 変更なし: `scan_jobs.update({ status: 'completed' })` の実行場所、DB update payloadの意味、AI抽出呼び出し、example generation呼び出し、通知、timing flush、post-processing `after()`、server_cloudのproject/word保存、認証、課金、同期、DB migration、prompt文言
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -89,6 +95,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-07: P2-C Task 5 scan-jobs/process のclient_local result payload builderを抽出
+  - 追加: `src/lib/scan/job-result-payload.ts`, `src/lib/scan/job-result-payload.test.ts`
+  - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: `wordCount`, `saveMode`, `extractedWords`, `sourceLabels`, `lexiconEntries`, `warnings`, `exampleGeneration`、warningなし / `exampleGeneration` なしの場合のpayload shape、空 `lexiconEntries`
+  - 変更なし: `scan_jobs.update({ status: 'completed' })` の実行場所、DB update payloadの意味、AI抽出呼び出し、example generation呼び出し、通知、timing flush、post-processing `after()`、server_cloudのproject/word保存、認証、課金、同期、DB migration、prompt文言
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/process/route.extractor.test.ts src/app/api/scan-jobs/process/route.contract.test.ts` 成功。9 tests pass
+  - 確認: `npm exec -- tsx --test src/lib/scan/job-result-payload.test.ts` 成功。5 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は214 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: `scan-jobs/process` を続けて分割する場合は [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) のTask 6でserver_cloud保存処理の境界準備へ進む。未実施のTask 4 `/api/extract` route contractも残っている
 - [x] 2026-05-07: P2-C Task 3 scan job create / legacy routeのsave mode contractを固定
   - 追加: `src/lib/scan/job-create-contract.ts`, `src/app/api/scan-jobs/create/route.contract.test.ts`
   - 更新: `src/app/api/scan-jobs/create/route.ts`, `src/app/api/scan-jobs/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

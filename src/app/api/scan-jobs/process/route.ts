@@ -16,6 +16,7 @@ import {
   getProvidersForMode,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
+import { buildClientLocalScanJobResultPayload } from '@/lib/scan/job-result-payload';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -1003,25 +1004,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           }
         }
 
-        const resultPayload: {
-          wordCount: number;
-          warnings?: string[];
-          saveMode: ScanJobSaveMode;
-          extractedWords: ProcessedExtractedWord[];
-          sourceLabels: string[];
-          lexiconEntries: unknown[];
-          exampleGeneration?: ExampleGenerationSummary;
-        } = {
-          wordCount: resolvedWords.length,
-          saveMode,
+        const resultPayload = buildClientLocalScanJobResultPayload({
           extractedWords: resolvedWords,
           sourceLabels: dedupedSourceLabels,
-          lexiconEntries: resolvedResult?.lexiconEntries ?? [],
-        };
-        applyExampleGenerationSummary(resultPayload, warningSet, exampleGenerationSummary);
-        if (warningSet.size > 0) {
-          resultPayload.warnings = Array.from(warningSet);
-        }
+          lexiconEntries: resolvedResult?.lexiconEntries,
+          warnings: warningSet,
+          exampleGeneration: exampleGenerationSummary,
+        });
 
         timing.totalMs = Date.now() - processingStartedAt;
         timing.imageCount = imagePaths.length;
