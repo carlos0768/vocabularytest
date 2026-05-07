@@ -55,6 +55,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 既存testで継続固定: worker auth 401、non-uuid `jobId` 400、`INTERNAL_WORKER_TOKEN` 正規化
   - 変更: `processJobById()` にtest用の任意depsを追加。未指定時は既存のSupabase singleton、AI抽出、example生成、通知、timingを使うためproduction behaviorは変更しない
   - 変更なし: `processJobById()` のDB更新順、status遷移、post-processing `after()`、通知送信条件、timing log、AI prompt、HTTP self-fetch、認証、課金、同期、DB migration
+- [x] 2026-05-07: Task 2 `scan mode / provider選択helperを共通化する`
+  - 追加: `src/lib/scan/mode-provider.ts`, `src/lib/scan/mode-provider.test.ts`
+  - 共通化: `/api/extract` と `/api/scan-jobs/process` の `getProvidersForMode()` / `getMissingProviderKey()` 相当をhelperへ移動
+  - 固定: `all` / `circled` / `eiken` / `idiom` は既存 `AI_CONFIG.extraction.*.provider` へmapping、Cloud Run設定時はdirect provider key missingを返さない、Cloud Run未設定時は不足しているconfigured provider keyを返す
+  - 変更: `src/app/api/extract/route.provider.test.ts` と `src/app/api/scan-jobs/process/route.extractor.test.ts` のprovider helper参照先を `src/lib/scan/mode-provider.ts` へ更新し、`src/lib/scan/mode-provider.test.ts` を `npm run test:web` 固定リストへ追加
+  - 変更なし: auth、usage increment、AI抽出呼び出し、Cloud Run fallback、`ExtractMode` の値、`AI_CONFIG` の意味、prompt、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -77,6 +83,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-07: P2-C Task 2 scan mode / provider選択helperを共通化
+  - 追加: `src/lib/scan/mode-provider.ts`, `src/lib/scan/mode-provider.test.ts`
+  - 更新: `src/app/api/extract/route.ts`, `src/app/api/scan-jobs/process/route.ts`, `src/app/api/extract/route.provider.test.ts`, `src/app/api/scan-jobs/process/route.extractor.test.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: `all` / `circled` / `eiken` / `idiom` のprovider mapping、Cloud Run設定時のdirect provider key missing抑制、Cloud Run未設定時のprovider key不足判定
+  - 変更なし: auth、usage increment、AI抽出呼び出し、Cloud Run fallback、`ExtractMode` の値、`AI_CONFIG` の意味、prompt、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/app/api/extract/route.provider.test.ts src/app/api/scan-jobs/process/route.extractor.test.ts` 成功。8 tests pass
+  - 確認: `npm exec -- tsx --test src/lib/scan/mode-provider.test.ts` 成功。4 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は204 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: P2-C 3回目として、[`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) のTask 3「scan job create / legacy routeのsave mode contractを固定する」だけを実施する
 - [x] 2026-05-07: P2-C Task 1 scan job process contract testを追加
   - 追加: `src/app/api/scan-jobs/process/route.contract.test.ts`
   - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

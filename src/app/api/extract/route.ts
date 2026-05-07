@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { extractWordsFromImage, extractCircledWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
-import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
-import { isCloudRunConfigured } from '@/lib/ai/providers';
+import { getAPIKeys } from '@/lib/ai/config';
+import {
+  getMissingProviderKey,
+  getProvidersForMode,
+  type ExtractMode,
+} from '@/lib/scan/mode-provider';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
@@ -10,12 +14,7 @@ import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 
-// Extraction modes (aligned with iOS: no highlighted / wrong-answer scan)
-// - 'all': Extract all words
-// - 'circled': Extract hand-circled words only
-// - 'eiken': Extract words filtered by EIKEN level
-// - 'idiom': Extract idioms and phrases only
-export type ExtractMode = 'all' | 'circled' | 'eiken' | 'idiom';
+export type { ExtractMode } from '@/lib/scan/mode-provider';
 
 // EIKEN levels (null means no filter, required for 'eiken' mode)
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
@@ -25,33 +24,6 @@ const requestSchema = z.object({
   mode: z.enum(['all', 'circled', 'eiken', 'idiom']).optional().default('all'),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
 }).strict();
-
-function getProvidersForMode(mode: ExtractMode): AIProvider[] {
-  switch (mode) {
-    case 'idiom':
-      return [AI_CONFIG.extraction.idioms.provider];
-    case 'eiken':
-      return [AI_CONFIG.extraction.eiken.provider];
-    case 'circled':
-      return [AI_CONFIG.extraction.circled.provider];
-    case 'all':
-    default:
-      return [AI_CONFIG.extraction.words.provider];
-  }
-}
-
-function getMissingProviderKey(mode: ExtractMode, apiKeys: { gemini?: string; openai?: string }): AIProvider | null {
-  if (isCloudRunConfigured()) return null;
-
-  const requiredProviders = new Set(getProvidersForMode(mode));
-  for (const provider of requiredProviders) {
-    if (!apiKeys[provider]) {
-      return provider;
-    }
-  }
-
-  return null;
-}
 
 export const __internal = {
   getProvidersForMode,

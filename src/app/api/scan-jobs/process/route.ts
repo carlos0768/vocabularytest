@@ -5,14 +5,17 @@ import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
-import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
-import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
-import { isCloudRunConfigured } from '@/lib/ai/providers';
+import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
+import {
+  getMissingProviderKey,
+  getProvidersForMode,
+  type ExtractMode,
+} from '@/lib/scan/mode-provider';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -107,33 +110,6 @@ const ENABLE_POST_SCAN_QUIZ_PREFILL = false;
 const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'] as const;
 type EikenLevel = (typeof EIKEN_LEVEL_ORDER)[number];
 const EIKEN_LEVEL_SET = new Set<string>(EIKEN_LEVEL_ORDER);
-
-function getProvidersForMode(mode: ExtractMode): AIProvider[] {
-  switch (mode) {
-    case 'circled':
-      return [AI_CONFIG.extraction.circled.provider];
-    case 'eiken':
-      return [AI_CONFIG.extraction.eiken.provider];
-    case 'idiom':
-      return [AI_CONFIG.extraction.idioms.provider];
-    case 'all':
-    default:
-      return [AI_CONFIG.extraction.words.provider];
-  }
-}
-
-function getMissingProviderKey(mode: ExtractMode, apiKeys: { gemini?: string; openai?: string }): AIProvider | null {
-  if (isCloudRunConfigured()) return null;
-
-  const requiredProviders = new Set(getProvidersForMode(mode));
-  for (const provider of requiredProviders) {
-    if (!apiKeys[provider]) {
-      return provider;
-    }
-  }
-
-  return null;
-}
 
 export const __internal = {
   getProvidersForMode,
