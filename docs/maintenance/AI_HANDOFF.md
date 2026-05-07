@@ -11,8 +11,8 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 1. lint / build / test の検証基盤整理
 2. docsの入口と運用Runbook整備
 3. 作成済みのアーキテクチャ保守性監査を読み、API構成、責務分離、巨大ファイル、危険領域の依存関係を把握する
-4. P2-Bとして、監査結果を小さなリファクタ計画と検証条件へ分解する
-5. 巨大ファイル分割は、監査と小さなリファクタ計画の後に段階的に実施
+4. P2-Bの [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) を読み、contract/test/検証条件を固定した小タスク単位でP2-Cを進める
+5. 巨大ファイル分割は、計画内の最初の3回分を終えた後に段階的に実施する
 
 ## 必ず読む文書
 
@@ -23,7 +23,8 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 3. [`../boundaries.md`](../boundaries.md)
 4. [`../invariants.md`](../invariants.md)
 5. P2-B/P2-Cや危険領域を扱う場合は [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md)
-6. 触る領域のrunbookまたは関連docs
+6. P2-Cへ入る場合は [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
+7. 触る領域のrunbookまたは関連docs
 
 作業後:
 
@@ -65,6 +66,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - docs整合性監査で公開前に直す候補だった `docs/boundaries.md` のmigration数と `docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンクは 2026-05-07 に修正済み
 - docs整合性監査で実装確認が必要な候補: Supabase RLS表現差分、Cloud Run本番env、App Store / IAP外部設定
 - P2-A アーキテクチャ保守性監査は 2026-05-07 に [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md) として作成済み。API route/server action/repository責務、巨大ファイル5本、危険領域依存関係、データ流れ/復旧点、リファクタ優先度を整理済み
+- P2-B リファクタ計画は 2026-05-07 に [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) として作成済み。P2-Aの優先度表をそのまま実装順にせず、scan job contract testを最初に置く
 - `docs/ops/` のスキャン失敗、Stripe課金反映失敗、ログイン/認証失敗の日本語初動Runbookは 2026-05-07 に追加済み
 - `docs/ops/` のSupabase接続障害 / migration事故、AIコスト急増、本番環境変数チェックリストは 2026-05-07 に追加済み
 - テスト固定リスト方式は 2026-05-07 に整理済み。`npm test` は通過確認済みのWeb/shared通常test固定リスト、`npm run test:security` はsecurity guard/route tests、`npm run test:cloud-run-scan` は別packageのCloud Run tests
@@ -83,5 +85,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-Bとして、[`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md) をもとに小さなリファクタ計画へ分解する
-2. P2-C以降は、検証条件が書かれた小タスク単位で段階的に扱う
+1. P2-Cとして、[`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) の「最初の3回分の実行計画」から始める
+2. 1回目は `scan-jobs/process` のcontract test追加だけを行い、production behaviorを変えない
+3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない

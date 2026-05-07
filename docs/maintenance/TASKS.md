@@ -34,15 +34,17 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ### P2-B: リファクタ計画
 
-- [ ] 監査結果をもとに、小さな作業単位へ分解する
+- 成果物: [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
+
+- [x] 監査結果をもとに、小さな作業単位へ分解する
   - 1タスクで1つの責務だけを動かす
   - 認証、課金、スキャン、同期、DB migrationを同時に触る作業を避ける
-- [ ] 各リファクタに検証条件を書く
+- [x] 各リファクタに検証条件を書く
   - 実行するnpm script、手動確認、関連runbook、失敗時の戻し方を明記する
-- [ ] 分割後の置き場所と命名ルールを決める
+- [x] 分割後の置き場所と命名ルールを決める
   - API routeは薄くし、複雑な処理は既存の `src/lib/` / repository層 / service相当の置き場所へ寄せる
   - 新しい抽象化は、重複削減か責務分離の効果が明確な場合だけ追加する
-- [ ] AI作業用のプロンプト雛形を作る
+- [x] AI作業用のプロンプト雛形を作る
   - 作業前に読むdocs、触ってよい範囲、禁止事項、検証コマンド、TASKS更新ルールを固定する
 
 ### P2-C: 段階的リファクタ
@@ -69,6 +71,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-07: P2-B リファクタ計画を作成
+  - 追加: [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
+  - 方針: いきなり巨大ファイルを分割せず、先にcontract/test/検証条件を固定する。認証、課金、スキャン、同期、DB migrationは同時に触らない
+  - 優先順位: P2-Aの表では `scan-jobs/process` service boundaryがP1先頭だったが、実行順はscan job contract testを先頭に修正
+  - 小タスク: scan process contract、scan provider helper、scan create save mode、extract route contract、client_local payload、server_cloud保存境界準備、notification/timing、Home/Project scan sessionStorage、Quiz helper、prompt contract、Stripe webhook、reconcile、Auth OTP、sync safety
+  - 最初の3回: scan process contract test、scan mode/provider helper、background scan create save mode contractの順
+  - 変更なし: code、巨大ファイル分割、機能追加、認証、課金、スキャン、同期、DB migration、過去migrationファイル
+  - 確認: `git diff --check` 成功
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は196 tests pass、`test:security` は38 tests pass、`build` 成功
 - [x] 2026-05-07: P2-A アーキテクチャ保守性監査を作成
   - 追加: [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md)
   - 棚卸し対象: `src/app/api`, server action有無、repository層、`src/lib`, `shared`, `supabase/migrations`
@@ -76,7 +87,7 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 変更なし: code、巨大ファイル分割、認証、課金、スキャン、同期、DB migration、過去migrationファイル
   - 確認: `git diff --check` 成功
   - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は196 tests pass、`test:security` は38 tests pass、`build` 成功
-  - 次にやるべきこと: P2-Bとして、監査結果を小さなリファクタ計画と検証条件へ分解する
+  - 次にやるべきこと: P2-Cとして、[`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) の最初の3回分から段階的に実施する
 - [x] 2026-05-07: P1 docs修正候補と固定リスト除外testを整理
   - `docs/boundaries.md` のmigration数を実態の76 filesへ同期
   - `docs/ops/scan-example-sentences-runbook.md` のrepo外絶対リンクを相対リンクへ修正

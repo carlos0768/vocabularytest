@@ -96,6 +96,20 @@
 - security guard testは公開前検証に含める価値が高く、通常unit testとは責務が違う。
 - Cloud Run scan serviceは別packageで依存関係と実行責務が分かれているため、Web本体の最低verifyとは別に確認する方が判断しやすい。
 
+## 2026-05-07: P2-Bはcontract firstで進める
+
+判断:
+
+- P2-Aの優先度表では `src/app/api/scan-jobs/process/route.ts` のservice boundaryをP1先頭に置いたが、P2-Cの実行順ではscan job contract testを先に行う。
+- 最初の3回は、scan process contract test、scan mode/provider helper、background scan create save mode contractの順にする。
+- `scan-jobs/process` のproject/word保存分離、Stripe webhook/reconcile、Auth OTP、hybrid sync、prompt本文変更、DB migrationは、先行contractがない状態では実装に入らない。
+
+理由:
+
+- `scan-jobs/process` はjob claim、AI抽出、DB保存、rollback、通知、timing、post-processingを同時に持ち、route-level worker flow coverageが薄い。
+- 分割前に `pending -> processing -> completed/failed`、`client_local` / `server_cloud` payload、example warning、usage/Pro mode、webhook idempotencyなどの契約を固定しないと、AIが安全に小さく直せない。
+- 公開後のリファクタでは、1回のAIセッションで1責務だけを動かす方が、事故時に戻しやすい。
+
 ## 2026-05-06: 現行Web課金docsはStripeを正とする
 
 判断:
