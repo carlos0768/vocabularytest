@@ -50,7 +50,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-07時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。196 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。200 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 98 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -71,6 +71,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - `docs/ops/` のSupabase接続障害 / migration事故、AIコスト急増、本番環境変数チェックリストは 2026-05-07 に追加済み
 - テスト固定リスト方式は 2026-05-07 に整理済み。`npm test` は通過確認済みのWeb/shared通常test固定リスト、`npm run test:security` はsecurity guard/route tests、`npm run test:cloud-run-scan` は別packageのCloud Run tests
 - 固定リストから除外していた `src/lib/supabase/session-cache.test.ts` と `src/app/api/shared-projects/shared.test.ts` は、本体仕様変更なしで現行期待値へ同期し、2026-05-07 に `npm run test:web` へ復帰済み
+- P2-C Task 1は 2026-05-07 に完了。`src/app/api/scan-jobs/process/route.contract.test.ts` を追加し、pending claim、already processed、valid UUIDのmissing job、`client_local` result payload、example生成失敗warning、completed通知を固定済み。worker auth 401、non-uuid `jobId` 400、`INTERNAL_WORKER_TOKEN` 正規化は既存 `src/app/api/security/route.security.test.ts` で継続固定。`processJobById()` にはtest用の任意depsだけを追加し、未指定時のproduction behavior、HTTP self-fetch禁止、AI prompt、post-processing、通知/timing、認証、課金、同期、DB migrationは変更していない
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -85,6 +86,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-Cとして、[`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) の「最初の3回分の実行計画」から始める
-2. 1回目は `scan-jobs/process` のcontract test追加だけを行い、production behaviorを変えない
+1. P2-Cとして、[`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) の「最初の3回分の実行計画」を順番に進める
+2. 次回は2回目としてTask 2「scan mode / provider選択helperを共通化する」だけを行い、provider mapping以外のproduction behaviorを変えない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない

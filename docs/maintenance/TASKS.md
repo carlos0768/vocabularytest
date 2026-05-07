@@ -49,6 +49,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ### P2-C: 段階的リファクタ
 
+- [x] 2026-05-07: Task 1 `scan job process contract testを追加する`
+  - 追加: `src/app/api/scan-jobs/process/route.contract.test.ts`
+  - 固定: `pending` job claimの `status='processing'` update + `eq('status','pending')` 条件、already completed jobの再処理なし、valid UUIDだが行がないjobの404、`client_local` completed payload、example生成失敗時の `example_generation_failed` warning / `exampleGeneration` summary、completed通知
+  - 既存testで継続固定: worker auth 401、non-uuid `jobId` 400、`INTERNAL_WORKER_TOKEN` 正規化
+  - 変更: `processJobById()` にtest用の任意depsを追加。未指定時は既存のSupabase singleton、AI抽出、example生成、通知、timingを使うためproduction behaviorは変更しない
+  - 変更なし: `processJobById()` のDB更新順、status遷移、post-processing `after()`、通知送信条件、timing log、AI prompt、HTTP self-fetch、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -71,6 +77,17 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-07: P2-C Task 1 scan job process contract testを追加
+  - 追加: `src/app/api/scan-jobs/process/route.contract.test.ts`
+  - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: pending claim、already processed、valid UUIDのmissing job、`client_local` result payload、example生成失敗warning、completed通知
+  - 既存security testで確認: worker auth 401、non-uuid `jobId` 400、`INTERNAL_WORKER_TOKEN` 正規化
+  - 変更なし: production behavior、HTTP self-fetch、AI prompt、DB migration、認証、課金、同期
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/process/route.extractor.test.ts` 成功。5 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/process/route.contract.test.ts` 成功。4 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は200 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: P2-C 2回目として、[`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) のTask 2「scan mode / provider選択helperを共通化する」だけを実施する
 - [x] 2026-05-07: P2-B リファクタ計画を作成
   - 追加: [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
   - 方針: いきなり巨大ファイルを分割せず、先にcontract/test/検証条件を固定する。認証、課金、スキャン、同期、DB migrationは同時に触らない

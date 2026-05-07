@@ -73,6 +73,18 @@ type ExtractionLikeResult =
   | { success: true; data: { words: unknown[]; sourceLabels?: unknown[] } }
   | { success: false; error: string; reason?: string };
 
+export interface ProcessJobDeps {
+  supabaseAdmin?: SupabaseClient;
+  getApiKeys?: typeof getAPIKeys;
+  extractImage?: typeof extractFromImage;
+  resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
+  backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
+  generateExamples?: typeof generateExampleSentences;
+  sendPushNotifications?: typeof sendScanJobPushNotifications;
+  sendApnsNotifications?: typeof sendScanJobApnsNotifications;
+  flushTiming?: typeof flushTimingLogs;
+}
+
 interface ProcessedExtractedWord {
   english: string;
   japanese: string;
@@ -670,12 +682,22 @@ async function extractFromImage(
   }
 }
 
-export async function processJobById(jobId: string): Promise<NextResponse> {
+export async function processJobById(jobId: string, processDeps?: ProcessJobDeps): Promise<NextResponse> {
   try {
     console.log('[scan-jobs/process] Processing started', { jobId });
 
+    const supabaseAdmin = processDeps?.supabaseAdmin ?? getSupabaseAdmin();
+    const getApiKeys = processDeps?.getApiKeys ?? getAPIKeys;
+    const extractImage = processDeps?.extractImage ?? extractFromImage;
+    const resolveImmediateWords = processDeps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst;
+    const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
+    const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
+    const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
+    const sendApnsNotifications = processDeps?.sendApnsNotifications ?? sendScanJobApnsNotifications;
+    const flushTiming = processDeps?.flushTiming ?? flushTimingLogs;
+
     const processingTimestamp = new Date().toISOString();
-    const { data: claimedJob, error: claimError } = await getSupabaseAdmin()
+    const { data: claimedJob, error: claimError } = await supabaseAdmin
       .from('scan_jobs')
       .update({ status: 'processing', updated_at: processingTimestamp })
       .eq('id', jobId)
@@ -689,7 +711,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
     const job = claimedJob;
     if (!job) {
-      const { data: existingJob, error: jobError } = await getSupabaseAdmin()
+      const { data: existingJob, error: jobError } = await supabaseAdmin
       .from('scan_jobs')
       .select('*')
       .eq('id', jobId)
@@ -714,7 +736,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
     const cloudRunTimingEntries: CloudRunTimingEntry[] = [];
     return await runWithCloudRunTimingCollector(cloudRunTimingEntries, async () => {
-      const apiKeys = getAPIKeys();
+      const apiKeys = getApiKeys();
       const processingStartedAt = Date.now();
       const timing = createTimingMetrics();
 
@@ -740,7 +762,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           throw new Error(`${providerLabel} APIキーが設定されていません`);
         }
 
-        const { data: preference } = await getSupabaseAdmin()
+        const { data: preference } = await supabaseAdmin
           .from('user_preferences')
           .select('ai_enabled')
           .eq('user_id', job.user_id)
@@ -776,7 +798,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         const pageLabel = `ページ${pageIndex + 1}`;
 
         const dlStart = Date.now();
-        const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
+        const { data: imageData, error: downloadError } = await supabaseAdmin.storage
           .from('scan-images')
           .download(imagePath);
         const dlMs = Date.now() - dlStart;
@@ -802,7 +824,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           const exStart = Date.now();
           const extractionResult = await withTimeout(
             withCloudRunTimingPhase('aiExtraction', () =>
-              extractFromImage(base64Image, mode, job.eiken_level, apiKeys)
+              extractImage(base64Image, mode, job.eiken_level, apiKeys)
             ),
             EXTRACTION_TIMEOUT_MS,
             `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
@@ -871,8 +893,8 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
               projectTitle: job.project_title,
               status: 'warning' as const,
             };
-            await sendScanJobPushNotifications(getSupabaseAdmin(), warningParams);
-            void sendScanJobApnsNotifications(getSupabaseAdmin(), warningParams).catch(e => console.error('[APNs] warning push failed:', e));
+            await sendPushNotifications(supabaseAdmin, warningParams);
+            void sendApnsNotifications(supabaseAdmin, warningParams).catch(e => console.error('[APNs] warning push failed:', e));
           }
 
           allExtractedWords.push(...words);
@@ -890,7 +912,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         timing.totalMs = Date.now() - processingStartedAt;
         timing.imageCount = imagePaths.length;
         timing.wordCount = 0;
-        await getSupabaseAdmin()
+        await supabaseAdmin
           .from('scan_jobs')
           .update({
             status: 'failed',
@@ -907,10 +929,10 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           status: 'failed' as const,
           wordCount: 0,
         };
-        await sendScanJobPushNotifications(getSupabaseAdmin(), failParams1);
-        void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams1).catch(e => console.error('[APNs] fail push failed:', e));
+        await sendPushNotifications(supabaseAdmin, failParams1);
+        void sendApnsNotifications(supabaseAdmin, failParams1).catch(e => console.error('[APNs] fail push failed:', e));
 
-        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
+        await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
 
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
@@ -919,11 +941,11 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
       const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
       const lexiconResolutionStart = Date.now();
       const resolvedResult = masterFirstEnabled
-        ? await resolveImmediateWordsWithMasterFirst(dedupedWords)
+        ? await resolveImmediateWords(dedupedWords)
         : null;
       const rollbackResult = masterFirstEnabled
         ? null
-        : await backfillMissingJapaneseTranslationsWithMetadata(dedupedWords);
+        : await backfillWords(dedupedWords);
       timing.lexiconResolutionMs = Date.now() - lexiconResolutionStart;
       const resolvedWords = resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords;
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
@@ -962,7 +984,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           let exampleGenerationElapsedMs = 0;
           try {
             const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
-              generateExampleSentences(wordsNeedingExamples, apiKeys)
+              generateExamples(wordsNeedingExamples, apiKeys)
             );
             exampleGenerationSummary = exampleResult.summary;
             exampleGenerationErrors = exampleResult.errors;
@@ -1029,7 +1051,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         timing.imageCount = imagePaths.length;
         timing.wordCount = dedupedWords.length;
 
-        await getSupabaseAdmin()
+        await supabaseAdmin
           .from('scan_jobs')
           .update({
             status: 'completed',
@@ -1047,10 +1069,10 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           status: 'completed' as const,
           wordCount: resolvedWords.length,
         };
-        void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
-        void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
+        void sendPushNotifications(supabaseAdmin, completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
+        void sendApnsNotifications(supabaseAdmin, completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
 
-        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
+        await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
 
         return NextResponse.json({
           success: true,
@@ -1072,7 +1094,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
             title: string | null;
             source_labels?: string[] | null;
           }>(
-            getSupabaseAdmin(),
+            supabaseAdmin,
             targetProjectId,
             job.user_id,
           );
@@ -1086,7 +1108,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         projectTitleForNotification = existingProject.title ?? projectTitleForNotification;
 
         if (job.project_icon_image) {
-          const { error: iconUpdateError } = await getSupabaseAdmin()
+          const { error: iconUpdateError } = await supabaseAdmin
             .from('projects')
             .update({ icon_image: job.project_icon_image })
             .eq('id', existingProject.id)
@@ -1100,7 +1122,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
         const mergedProjectSourceLabels = mergeSourceLabels(existingProject.source_labels, dedupedSourceLabels);
         const { error: sourceLabelUpdateError, usedLegacyColumns: usedLegacyUpdateColumns } = await updateProjectSourceLabelsCompat(
-          getSupabaseAdmin(),
+          supabaseAdmin,
           existingProject.id,
           mergedProjectSourceLabels,
           job.user_id,
@@ -1117,7 +1139,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
             id: string;
             title?: string | null;
           }>(
-            getSupabaseAdmin(),
+            supabaseAdmin,
             {
               user_id: job.user_id,
               title: job.project_title,
@@ -1153,7 +1175,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
       }));
 
       const dbInsertStart = Date.now();
-      const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
+      const { data: insertedWords, error: wordsError } = await supabaseAdmin
         .from('words')
         .insert(wordsToInsert)
         .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
@@ -1161,7 +1183,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
       if (wordsError) {
         if (createdNewProject) {
-          await getSupabaseAdmin().from('projects').delete().eq('id', projectId);
+          await supabaseAdmin.from('projects').delete().eq('id', projectId);
         }
         throw new Error('Failed to insert words');
       }
@@ -1189,7 +1211,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         let exampleGenerationElapsedMs = 0;
         try {
           const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
-            generateExampleSentences(wordsForExampleGen, apiKeys)
+            generateExamples(wordsForExampleGen, apiKeys)
           );
           exampleGenerationSummary = exampleResult.summary;
           exampleGenerationErrors = exampleResult.errors;
@@ -1198,7 +1220,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
             // Batch update DB with generated examples
             await Promise.all(
               exampleResult.examples.map((ex) =>
-                getSupabaseAdmin()
+                supabaseAdmin
                   .from('words')
                   .update({
                     example_sentence: ex.exampleSentence,
@@ -1216,7 +1238,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
             after(async () => {
               try {
                 const generatedWordIds = examplesSnapshot.map(ex => ex.wordId);
-                const { data: wordsWithLexicon } = await getSupabaseAdmin()
+                const { data: wordsWithLexicon } = await supabaseAdmin
                   .from('words')
                   .select('id, lexicon_entry_id')
                   .in('id', generatedWordIds)
@@ -1348,7 +1370,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
                     if (item.exampleSentenceJa) {
                       updatePayload.example_sentence_ja = item.exampleSentenceJa;
                     }
-                    return getSupabaseAdmin()
+                    return supabaseAdmin
                       .from('words')
                       .update(updatePayload)
                       .eq('id', item.wordId);
@@ -1382,7 +1404,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
       timing.imageCount = imagePaths.length;
       timing.wordCount = dedupedWords.length;
 
-      await getSupabaseAdmin()
+      await supabaseAdmin
         .from('scan_jobs')
         .update({
           status: 'completed',
@@ -1400,10 +1422,10 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         status: 'completed' as const,
         wordCount: resolvedWords.length,
       };
-      void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
-      void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
+      void sendPushNotifications(supabaseAdmin, completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
+      void sendApnsNotifications(supabaseAdmin, completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
 
-      await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
+      await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
 
       // Heavy/non-critical tasks run after completion update.
       after(async () => {
@@ -1489,7 +1511,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
                       if (item.exampleSentenceJa) {
                         updatePayload.example_sentence_ja = item.exampleSentenceJa;
                       }
-                      return getSupabaseAdmin()
+                      return supabaseAdmin
                         .from('words')
                         .update(updatePayload)
                         .eq('id', item.wordId);
@@ -1532,7 +1554,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
         timing.totalMs = Date.now() - processingStartedAt;
 
-        await getSupabaseAdmin()
+        await supabaseAdmin
           .from('scan_jobs')
           .update({
             status: 'failed',
@@ -1549,10 +1571,10 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           status: 'failed' as const,
           wordCount: 0,
         };
-        await sendScanJobPushNotifications(getSupabaseAdmin(), failParams2);
-        void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams2).catch(e => console.error('[APNs] fail push failed:', e));
+        await sendPushNotifications(supabaseAdmin, failParams2);
+        void sendApnsNotifications(supabaseAdmin, failParams2).catch(e => console.error('[APNs] fail push failed:', e));
 
-        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
+        await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
 
         return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
       }
