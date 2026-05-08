@@ -23,6 +23,7 @@ import {
   buildServerCloudWordsInsertPayload,
   shouldRollbackServerCloudProjectAfterWordsInsertFailure,
 } from '@/lib/scan/server-cloud-persistence';
+import { buildServerCloudScanJobResultPayload } from '@/lib/scan/server-cloud-result-payload';
 import {
   buildScanJobCompletedNotificationParams,
   buildScanJobFailedNotificationParams,
@@ -1286,26 +1287,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         });
       }
 
-      const resultPayload: {
-        wordCount: number;
-        warnings?: string[];
-        saveMode: ScanJobSaveMode;
-        targetProjectId: string;
-        sourceLabels: string[];
-        quizPrefillRequested?: number;
-        quizPrefillSucceeded?: number;
-        quizPrefillFailed?: number;
-        exampleGeneration?: ExampleGenerationSummary;
-      } = {
+      const resultPayload = buildServerCloudScanJobResultPayload({
         wordCount: resolvedWords.length,
-        saveMode,
         targetProjectId: projectId,
         sourceLabels: dedupedSourceLabels,
-      };
-      applyExampleGenerationSummary(resultPayload, warningSet, exampleGenerationSummary);
-      if (warningSet.size > 0) {
-        resultPayload.warnings = Array.from(warningSet);
-      }
+        warnings: warningSet,
+        exampleGeneration: exampleGenerationSummary,
+      });
 
       if (aiEnabled) {
         const quizPrefillStart = Date.now();

@@ -176,9 +176,10 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
   - 成果物: [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
   - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分けた
   - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切った
-- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 2以降を1回1責務で実施する
+- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 3以降を1回1責務で実施する
   - Task 1 `server_cloud` route contract追加は 2026-05-09 に完了
-  - 次はTask 2 `server_cloud` result payload builder抽出候補。ただし保存処理全体のservice化はまだしない
+  - Task 2 `server_cloud` result payload builder抽出は 2026-05-09 に完了
+  - 次はTask 3 `quiz prefillのselector / update payloadを純粋helperへ出す` 候補。ただしAI呼び出し、DB更新実行、timing、post-processingは動かさない
 - [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
   - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
 - [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
@@ -205,6 +206,17 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
 
 ## Done
 
+- [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 2 `server_cloud` result payload builder抽出
+  - 追加: `src/lib/scan/server-cloud-result-payload.ts`, `src/lib/scan/server-cloud-result-payload.test.ts`
+  - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: `server_cloud` completed時に `scan_jobs.result` へ保存する `wordCount` / `saveMode` / `targetProjectId` / `sourceLabels` / optional fields のpayload作成を `buildServerCloudScanJobResultPayload()` へ移動
+  - 固定: `wordCount`, `saveMode`, `targetProjectId`, `sourceLabels`, `warnings`, `exampleGeneration`, `quizPrefillRequested`, `quizPrefillSucceeded`, `quizPrefillFailed` の有無と値。warningなし / `exampleGeneration` なしではoptional fieldsを省略する
+  - 変更: `src/app/api/scan-jobs/process/route.ts` は既存の `server_cloud` result payload object literalをhelper呼び出しへ置換。quiz prefill実行後の既存counter代入は維持
+  - 変更なし: project insert / update / delete、words insert、rollback条件、example生成呼び出し、quiz prefill実行、`scan_jobs.update({ status: 'completed' })` の位置とpayloadの意味、通知、timing、`after()`、AI抽出、lexicon、prompt、認証、課金、同期、DB migration、package-lock
+  - 確認: `npm exec -- tsx --test src/lib/scan/server-cloud-result-payload.test.ts src/app/api/scan-jobs/process/route.contract.test.ts` 成功。13 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/process/route.extractor.test.ts` 成功。5 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は299 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 残リスク: quiz prefill selector / update payload、server_cloud example generation seed/update、image extraction worker、post-processing候補計算はまだroute内に残る。次も [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) に沿って1回1責務で進める
 - [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 1 `server_cloud` route contract追加
   - 更新: `src/app/api/scan-jobs/process/route.contract.test.ts`, `src/app/api/scan-jobs/process/route.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
   - 固定: 新規projectの `server_cloud` happy pathで、project insert -> words insert -> completed update -> completed通知 -> timing flush の順序と、`scan_jobs.result` の `wordCount` / `saveMode` / `targetProjectId` / `sourceLabels` payloadをroute-levelで固定
