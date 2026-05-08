@@ -50,7 +50,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-08時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。265 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。274 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -85,6 +85,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 11のprompt本文差分なし機械的分割は 2026-05-08 に完了。`src/lib/ai/prompts.ts` は既存public exports 26件を維持するbarrelにし、実体を `src/lib/ai/prompts/source-labels.ts`, `word-extraction.ts`, `circled.ts`, `eiken.ts`, `grammar.ts`, `idiom.ts`, `highlighted.ts`, `wrong-answer.ts` へ分割済み。旧 `prompts.ts` と新barrelのpublic exportsを比較し、prompt文字列とEIKEN/grammar helper戻り値が一致することを確認済み。prompt本文の意味、source label rule、EIKEN level order、AI schema、抽出ロジック、認証、課金、同期、DB migrationは変更していない。`npm run verify` は成功し、`npm test` は253 tests pass
 - P2-C Task 12は 2026-05-08 に完了。`src/lib/subscription/stripe-webhook-handlers.ts` と `src/lib/subscription/stripe-webhook-handlers.test.ts` を追加し、Stripe webhook route内のevent type別handlerをhelperへ移動済み。`request.text()`、`stripe-signature`、`constructWebhookEvent()`、payload hash、`claimWebhookEvent()`、`markWebhookEventProcessed()`、`markWebhookEventFailed()`、`WebhookError` status mappingはroute側に残した。checkout activationが `activateBillingFromSession()` を使うこと、invoice.paidのsubscription id解決、first invoice skip、unknown subscription no-op、charge.refunded cancellation payloadをhelper testで固定済み。既存のcheckout / invoice / subscription / refund DB更新payloadの意味、課金状態、Stripe API接続、認証、スキャン、同期、prompt、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は258 tests pass
 - P2-C Task 13は 2026-05-08 に完了。`src/lib/subscription/reconcile-status.ts` に `/api/subscription/reconcile` のpending / failed / confirmed response descriptor、Checkout payment state分類、activation error reason mappingを追加し、route側は `NextResponse.json` 変換と既存のauth/session/Stripe/activation flowを維持する形へ整理済み。unknown session 404、forbidden 403、metadata mismatch 409、Stripe fetch failure pending、unpaid / expired failed、paid activation path、stored failed / cancelled / pending / confirmed response shapeを `src/lib/subscription/reconcile-status.test.ts` で固定済み。cookie auth、session ownership check、Stripe session fetch、`activateBillingFromSession()`、`markSessionFailed()`、webhook handler、課金状態更新の意味、DB migration、認証、スキャン、同期、promptは変更していない。`npm run verify` は成功し、`npm test` は265 tests pass
+- P2-C Task 14前半は 2026-05-08 に完了。`src/lib/auth/otp-lifecycle.ts` と `src/lib/auth/otp-lifecycle.test.ts` を追加し、Auth OTP lifecycleの現行挙動を固定済み。email lower-case、OTP insert payload、invalid code時のattempts increment、`AUTH_OTP_MAX_ATTEMPTS = 5`、expired / max attempts OTP delete、reset-password missing email concealment、signup existing email 409、valid OTP時の `otp_requests.verified = true`、reset-password set-passwordのverified OTP + 5分grace、route別success effects fixtureを固定。4つのOTP routeはこのhelperを使うようにしたが、Supabase Auth user作成/更新、session cookie設定、Resend送信文言、OTP code生成方式、service role client配置、DB migration、課金、スキャン、同期、promptは変更していない。route full mockは未追加で、Auth admin / cookie副作用のroute-level mock testは後続候補。`npm run verify` は成功し、`npm test` は274 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -99,6 +100,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 13まで完了済み。次はTask 14 Auth OTP helper抽出準備、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
+1. P2-C Task 14前半まで完了済み。次はTask 15 sync safety contract test、Auth OTPのroute-level mock補強、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
 2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない

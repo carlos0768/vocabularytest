@@ -5,6 +5,14 @@ import { createServerClient } from '@supabase/ssr';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  buildOtpInsertPayload,
+  evaluateAuthOtpCode,
+  evaluateResetPasswordVerifiedOtp,
+  findAuthUserByNormalizedEmail,
+  normalizeOtpEmail,
+  resolveAuthOtpSendPolicy,
+} from '@/lib/auth/otp-lifecycle';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -36,7 +44,6 @@ async function getServerClient() {
   );
 }
 
-const MAX_ATTEMPTS = 5;
 const emailSchema = z.string().trim().email().max(254);
 const codeSchema = z.string().trim().regex(/^\d{6}$/);
 const passwordSchema = z.string().min(8).max(128);
@@ -93,20 +100,16 @@ export async function POST(request: Request) {
 // Step 1: Send OTP to email
 async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
   const adminClient = getAdminClient();
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = normalizeOtpEmail(email);
 
   // Check if user exists
   const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-  const existingUser = existingUsers?.users.find(
-    (u) => u.email?.toLowerCase() === normalizedEmail
-  );
+  const existingUser = findAuthUserByNormalizedEmail(existingUsers?.users, normalizedEmail);
+  const sendPolicy = resolveAuthOtpSendPolicy('reset-password', Boolean(existingUser));
 
-  if (!existingUser) {
+  if (!sendPolicy.shouldSendOtp) {
     // Don't reveal if user exists or not for security
-    return NextResponse.json({
-      success: true,
-      message: '登録されているメールアドレスの場合、認証コードを送信しました',
-    });
+    return NextResponse.json(sendPolicy.response.body);
   }
 
   // Delete existing OTPs for this email
@@ -120,12 +123,7 @@ async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
   const otpCode = generateOtpCode();
   const { error: insertError } = await adminClient
     .from('otp_requests')
-    .insert({
-      email: normalizedEmail,
-      otp_code: otpCode,
-      verified: false,
-      attempts: 0,
-    });
+    .insert(buildOtpInsertPayload({ normalizedEmail, otpCode }));
 
   if (insertError) {
     console.error('Failed to insert OTP:', insertError);
@@ -157,7 +155,7 @@ async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
 // Step 2: Verify OTP
 async function handleVerifyOtp({ email, code }: z.infer<typeof verifyOtpSchema>) {
   const adminClient = getAdminClient();
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = normalizeOtpEmail(email);
   const normalizedCode = code;
 
   // Get OTP record
@@ -170,50 +168,54 @@ async function handleVerifyOtp({ email, code }: z.infer<typeof verifyOtpSchema>)
     .limit(1)
     .single();
 
-  if (fetchError || !otpRecord) {
+  const verificationResult = evaluateAuthOtpCode({
+    otpRecord: fetchError ? null : otpRecord,
+    code: normalizedCode,
+  });
+
+  if (verificationResult.status === 'missing') {
     return NextResponse.json(
-      { error: '認証コードが見つかりません。再度コードを送信してください。' },
-      { status: 400 }
+      verificationResult.response.body,
+      { status: verificationResult.response.status }
     );
   }
 
   // Check expiry
-  if (new Date(otpRecord.expires_at) < new Date()) {
-    await adminClient.from('otp_requests').delete().eq('id', otpRecord.id);
+  if (verificationResult.status === 'expired') {
+    await adminClient.from('otp_requests').delete().eq('id', verificationResult.otpId);
     return NextResponse.json(
-      { error: '認証コードの有効期限が切れました。再度コードを送信してください。' },
-      { status: 400 }
+      verificationResult.response.body,
+      { status: verificationResult.response.status }
     );
   }
 
   // Check attempts
-  if (otpRecord.attempts >= MAX_ATTEMPTS) {
-    await adminClient.from('otp_requests').delete().eq('id', otpRecord.id);
+  if (verificationResult.status === 'max_attempts') {
+    await adminClient.from('otp_requests').delete().eq('id', verificationResult.otpId);
     return NextResponse.json(
-      { error: '試行回数の上限に達しました。再度コードを送信してください。' },
-      { status: 400 }
+      verificationResult.response.body,
+      { status: verificationResult.response.status }
     );
   }
 
   // Verify code
-  if (otpRecord.otp_code !== normalizedCode) {
+  if (verificationResult.status === 'invalid_code') {
     await adminClient
       .from('otp_requests')
-      .update({ attempts: otpRecord.attempts + 1 })
-      .eq('id', otpRecord.id);
+      .update(verificationResult.attemptsUpdate)
+      .eq('id', verificationResult.otpId);
 
-    const remainingAttempts = MAX_ATTEMPTS - otpRecord.attempts - 1;
     return NextResponse.json(
-      { error: `認証コードが正しくありません。残り${remainingAttempts}回` },
-      { status: 400 }
+      verificationResult.response.body,
+      { status: verificationResult.response.status }
     );
   }
 
   // Mark as verified
   await adminClient
     .from('otp_requests')
-    .update({ verified: true })
-    .eq('id', otpRecord.id);
+    .update(verificationResult.verifiedUpdate)
+    .eq('id', verificationResult.otpId);
 
   return NextResponse.json({
     success: true,
@@ -224,7 +226,7 @@ async function handleVerifyOtp({ email, code }: z.infer<typeof verifyOtpSchema>)
 // Step 3: Set new password
 async function handleSetPassword({ email, newPassword }: z.infer<typeof setPasswordSchema>) {
   const adminClient = getAdminClient();
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = normalizeOtpEmail(email);
 
   // Verify OTP was already verified
   const { data: otpRecord, error: fetchError } = await adminClient
@@ -236,29 +238,29 @@ async function handleSetPassword({ email, newPassword }: z.infer<typeof setPassw
     .limit(1)
     .single();
 
-  if (fetchError || !otpRecord) {
+  const verifiedOtpResult = evaluateResetPasswordVerifiedOtp({
+    otpRecord: fetchError ? null : otpRecord,
+  });
+
+  if (verifiedOtpResult.status === 'missing') {
     return NextResponse.json(
-      { error: '認証が完了していません。最初からやり直してください。' },
-      { status: 400 }
+      verifiedOtpResult.response.body,
+      { status: verifiedOtpResult.response.status }
     );
   }
 
   // Check expiry (even for verified, don't allow old tokens)
-  const expiryTime = new Date(otpRecord.expires_at);
-  expiryTime.setMinutes(expiryTime.getMinutes() + 5); // Extra 5 min for password entry
-  if (expiryTime < new Date()) {
-    await adminClient.from('otp_requests').delete().eq('id', otpRecord.id);
+  if (verifiedOtpResult.status === 'expired') {
+    await adminClient.from('otp_requests').delete().eq('id', verifiedOtpResult.otpId);
     return NextResponse.json(
-      { error: 'セッションが期限切れです。最初からやり直してください。' },
-      { status: 400 }
+      verifiedOtpResult.response.body,
+      { status: verifiedOtpResult.response.status }
     );
   }
 
   // Get user
   const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-  const existingUser = existingUsers?.users.find(
-    (u) => u.email?.toLowerCase() === normalizedEmail
-  );
+  const existingUser = findAuthUserByNormalizedEmail(existingUsers?.users, normalizedEmail);
 
   if (!existingUser) {
     return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 400 });

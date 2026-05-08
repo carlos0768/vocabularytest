@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  buildOtpInsertPayload,
+  findAuthUserByNormalizedEmail,
+  normalizeOtpEmail,
+  resolveAuthOtpSendPolicy,
+} from '@/lib/auth/otp-lifecycle';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -28,18 +34,17 @@ export async function POST(request: Request) {
     const { email } = parsed.data;
 
     const supabase = getAdminClient();
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = normalizeOtpEmail(email);
 
     // 既存ユーザーチェック
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingUser = existingUsers?.users.find(
-      (u) => u.email?.toLowerCase() === normalizedEmail
-    );
+    const existingUser = findAuthUserByNormalizedEmail(existingUsers?.users, normalizedEmail);
+    const sendPolicy = resolveAuthOtpSendPolicy('signup', Boolean(existingUser));
 
-    if (existingUser) {
+    if (!sendPolicy.shouldSendOtp) {
       return NextResponse.json(
-        { error: 'このメールアドレスは既に登録されています', existing_user: true },
-        { status: 409 }
+        sendPolicy.response.body,
+        { status: sendPolicy.response.status }
       );
     }
 
@@ -56,12 +61,7 @@ export async function POST(request: Request) {
     // OTPをデータベースに保存
     const { error: insertError } = await supabase
       .from('otp_requests')
-      .insert({
-        email: normalizedEmail,
-        otp_code: otpCode,
-        verified: false,
-        attempts: 0,
-      });
+      .insert(buildOtpInsertPayload({ normalizedEmail, otpCode }));
 
     if (insertError) {
       console.error('Failed to insert OTP:', insertError);
