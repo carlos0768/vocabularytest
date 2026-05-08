@@ -30,6 +30,38 @@ export const __internal = {
   getMissingProviderKey,
 };
 
+export type ExtractRouteDeps = {
+  createClient?: typeof createRouteHandlerClient;
+  getApiKeys?: typeof getAPIKeys;
+  getProvidersForMode?: typeof getProvidersForMode;
+  getMissingProviderKey?: typeof getMissingProviderKey;
+  extractWords?: typeof extractWordsFromImage;
+  extractCircledWords?: typeof extractCircledWordsFromImage;
+  extractEikenWords?: typeof extractEikenWordsFromImage;
+  extractIdioms?: typeof extractIdiomsFromImage;
+  resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
+  backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
+  generateExamples?: typeof generateExampleSentences;
+  saveExamples?: typeof saveExamplesToLexicon;
+};
+
+function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
+  return {
+    createClient: deps?.createClient ?? createRouteHandlerClient,
+    getApiKeys: deps?.getApiKeys ?? getAPIKeys,
+    getProvidersForMode: deps?.getProvidersForMode ?? getProvidersForMode,
+    getMissingProviderKey: deps?.getMissingProviderKey ?? getMissingProviderKey,
+    extractWords: deps?.extractWords ?? extractWordsFromImage,
+    extractCircledWords: deps?.extractCircledWords ?? extractCircledWordsFromImage,
+    extractEikenWords: deps?.extractEikenWords ?? extractEikenWordsFromImage,
+    extractIdioms: deps?.extractIdioms ?? extractIdiomsFromImage,
+    resolveImmediateWords: deps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst,
+    backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
+    generateExamples: deps?.generateExamples ?? generateExampleSentences,
+    saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
+  };
+}
+
 function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
   const disabledModes = (process.env.MASTER_FIRST_SCAN_DISABLED_MODES ?? '')
     .split(',')
@@ -43,13 +75,27 @@ function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
 // Extracts words from an uploaded image using configured AI provider
 // SECURITY: Requires authentication, enforces server-side scan limits
 
-export async function POST(request: NextRequest) {
+export async function handleExtractPost(request: NextRequest, deps?: ExtractRouteDeps) {
+  const {
+    createClient,
+    getApiKeys,
+    getProvidersForMode: resolveProvidersForMode,
+    getMissingProviderKey: resolveMissingProviderKey,
+    extractWords,
+    extractCircledWords,
+    extractEikenWords,
+    extractIdioms,
+    resolveImmediateWords,
+    backfillWords,
+    generateExamples,
+    saveExamples,
+  } = getDeps(deps);
   const startedAt = Date.now();
   try {
     // ============================================
     // 1. AUTHENTICATION CHECK
     // ============================================
-    const supabase = await createRouteHandlerClient(request);
+    const supabase = await createClient(request);
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const { data: { user }, error: authError } = bearerToken
@@ -108,7 +154,7 @@ export async function POST(request: NextRequest) {
 
     // OpenAI image endpoint does not accept PDF data URLs.
     // Return a clear message instead of surfacing a vague provider error.
-    if (isValidPdf && getProvidersForMode(mode).includes('openai')) {
+    if (isValidPdf && resolveProvidersForMode(mode).includes('openai')) {
       return NextResponse.json(
         {
           success: false,
@@ -170,8 +216,8 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 4. PROCESS IMAGE
     // ============================================
-    const apiKeys = getAPIKeys();
-    const missingProviderKey = getMissingProviderKey(mode, apiKeys);
+    const apiKeys = getApiKeys();
+    const missingProviderKey = resolveMissingProviderKey(mode, apiKeys);
     if (missingProviderKey) {
       const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
       return NextResponse.json(
@@ -186,7 +232,7 @@ export async function POST(request: NextRequest) {
     let result;
     const aiStart = Date.now();
     if (mode === 'idiom') {
-      result = await extractIdiomsFromImage(image, apiKeys);
+      result = await extractIdioms(image, apiKeys);
     } else if (mode === 'eiken') {
       // EIKEN filter mode
       if (!eikenLevel) {
@@ -196,14 +242,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      result = await extractEikenWordsFromImage(image, apiKeys, eikenLevel);
+      result = await extractEikenWords(image, apiKeys, eikenLevel);
     } else if (mode === 'circled') {
       // Note: eikenLevel is NOT used for circled mode anymore
-      result = await extractCircledWordsFromImage(image, apiKeys, {});
+      result = await extractCircledWords(image, apiKeys, {});
     } else {
       // Note: eikenLevel is NOT used for 'all' mode anymore (use 'eiken' mode instead)
       // Examples are generated in prefill flow to avoid duplicate AI generation costs.
-      result = await extractWordsFromImage(image, apiKeys, {
+      result = await extractWords(image, apiKeys, {
         includeExamples: false,
       });
     }
@@ -221,11 +267,11 @@ export async function POST(request: NextRequest) {
     // ============================================
     const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
     const resolved = masterFirstEnabled
-      ? await resolveImmediateWordsWithMasterFirst(result.data.words)
+      ? await resolveImmediateWords(result.data.words)
       : null;
     const rollbackResult = masterFirstEnabled
       ? null
-      : await backfillMissingJapaneseTranslationsWithMetadata(result.data.words);
+      : await backfillWords(result.data.words);
     const extractedWords = resolved?.words ?? rollbackResult?.words ?? result.data.words;
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
@@ -266,7 +312,7 @@ export async function POST(request: NextRequest) {
       const exGenStart = Date.now();
 
       try {
-        const exampleResult = await generateExampleSentences(wordsNeedingExamples, apiKeys);
+        const exampleResult = await generateExamples(wordsNeedingExamples, apiKeys);
         const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
 
         let exIdx = 0;
@@ -319,7 +365,7 @@ export async function POST(request: NextRequest) {
               .filter((x): x is NonNullable<typeof x> => x !== null);
 
             if (lexiconUpdates.length > 0) {
-              await saveExamplesToLexicon(lexiconUpdates);
+              await saveExamples(lexiconUpdates);
             }
           }
         } catch (lexSaveError) {
@@ -358,4 +404,8 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleExtractPost(request);
 }

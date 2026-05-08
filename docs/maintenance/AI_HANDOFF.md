@@ -50,7 +50,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-08時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。224 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。235 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 98 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -74,9 +74,10 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 1は 2026-05-07 に完了。`src/app/api/scan-jobs/process/route.contract.test.ts` を追加し、pending claim、already processed、valid UUIDのmissing job、`client_local` result payload、example生成失敗warning、completed通知を固定済み。worker auth 401、non-uuid `jobId` 400、`INTERNAL_WORKER_TOKEN` 正規化は既存 `src/app/api/security/route.security.test.ts` で継続固定。`processJobById()` にはtest用の任意depsだけを追加し、未指定時のproduction behavior、HTTP self-fetch禁止、AI prompt、post-processing、通知/timing、認証、課金、同期、DB migrationは変更していない
 - P2-C Task 2は 2026-05-07 に完了。`src/lib/scan/mode-provider.ts` を追加し、`/api/extract` と `/api/scan-jobs/process` のprovider mapping / missing key判定を共通化済み。`all` / `circled` / `eiken` / `idiom` は既存 `AI_CONFIG.extraction.*.provider` へのmappingを維持し、Cloud Run設定時はdirect provider key missingを返さない。HTTP境界、usage increment、AI抽出呼び出し、Cloud Run fallback、prompt、認証、課金、同期、DB migrationは変更していない。`src/lib/scan/mode-provider.test.ts` を `npm run test:web` 固定リストへ追加済み
 - P2-C Task 3は 2026-05-07 に完了。`src/lib/scan/job-create-contract.ts` を追加し、`/api/scan-jobs/create` とlegacy `/api/scan-jobs` の `clientPlatform` / Pro状態からの `save_mode` 判定を共通化済み。webはPro/freeとも `server_cloud`、iOS/Android freeは `client_local`、iOS/Android Proは `server_cloud`、legacy routeの `clientPlatform` 正規化、uploaded image存在確認がusage incrementより前にあること、missing uploaded image 400、Pro-only mode 403、usage limit 429、`after(processJobById)` 直接呼び出しを `src/app/api/scan-jobs/create/route.contract.test.ts` で固定済み。`checkAndIncrementScanUsage()` の呼び出しタイミング、Storage bucket名、uploaded file existence check、target project ownership check、`scan_jobs` insert payload、`after(processJobById)` の直接呼び出し、認証、課金、同期、DB migrationは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み
+- P2-C Task 4は 2026-05-08 に完了。`src/app/api/extract/route.contract.test.ts` を追加し、`/api/extract` のunauthenticated 401、strict request schema 400、unsupported file type 400、PDF + OpenAI provider 400、HEIC/HEIF 400、Pro-only mode 403、usage limit 429、scan usage failure 500、AI extraction failure 422、success responseの `scanInfo` / `sourceLabels` / `lexiconEntries` shape、example generation失敗時のbest-effort継続を固定済み。`handleExtractPost()` にはtest用の任意depsだけを追加し、未指定時のproduction behavior、auth方法、`check_and_increment_scan` の呼び出しタイミング、user-facing error文言、AI抽出順、example generation best-effort、PDF/OpenAI制限、HEIC拒否順序、認証、課金、同期、DB migration、prompt文言は変更していない。新contract testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は235 tests pass
 - P2-C Task 5は 2026-05-07 に完了。`src/lib/scan/job-result-payload.ts` を追加し、`/api/scan-jobs/process` の `client_local` 完了時に `scan_jobs.result` へ保存するpayload object作成を `buildClientLocalScanJobResultPayload()` へ移動済み。`wordCount`, `saveMode`, `extractedWords`, `sourceLabels`, `lexiconEntries`, `warnings`, `exampleGeneration`、warningなし / `exampleGeneration` なしの場合のpayload shape、空 `lexiconEntries` を `src/lib/scan/job-result-payload.test.ts` で固定済み。`scan_jobs.update({ status: 'completed' })` の実行場所、DB update payloadの意味、AI抽出呼び出し、example generation呼び出し、通知、timing flush、post-processing `after()`、server_cloud保存、認証、課金、同期、DB migration、prompt文言は変更していない。新helper testを `npm run test:web` 固定リストへ追加済み
 - P2-C Task 6は 2026-05-07 に完了。`src/lib/scan/server-cloud-persistence.ts` と `src/lib/scan/server-cloud-persistence.contract.test.ts` を追加し、`server_cloud` 保存時の新規project insert payload、既存project sourceLabels merge、words insert payload、words保存失敗時rollback条件を固定済み。新規project作成後にwords保存が失敗した時だけ新規projectを削除し、既存project追加時は削除しない条件をhelper testで固定。`/api/scan-jobs/process` はpayload/条件builderを呼ぶだけに留め、Supabase insert/update/deleteの順序、DB保存処理本体、通知、timing、AI生成、post-processing、認証、課金、同期、DB migrationは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み
-- P2-C Task 7は 2026-05-08 に完了。`src/lib/scan/job-side-effects.ts` と `src/lib/scan/job-side-effects.test.ts` を追加し、`scan-jobs/process` のcompleted / failed / grammar warning通知params作成とtiming flush呼び出しwrapperを抽出済み。通知送信タイミング、Web Push / APNS送信条件、`completed` / `failed` DB更新前後の順序、Google Sheets timing payload、AI抽出、DB保存、example生成、post-processing、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は224 tests pass
+- P2-C Task 7は 2026-05-08 に完了。`src/lib/scan/job-side-effects.ts` と `src/lib/scan/job-side-effects.test.ts` を追加し、`scan-jobs/process` のcompleted / failed / grammar warning通知params作成とtiming flush呼び出しwrapperを抽出済み。通知送信タイミング、Web Push / APNS送信条件、`completed` / `failed` DB更新前後の順序、Google Sheets timing payload、AI抽出、DB保存、example生成、post-processing、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -91,6 +92,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 7まで完了済み。次は未実施のTask 4 `/api/extract` route contract、またはTask 8 Home scan sessionStorage helperへ進む候補がある。どちらも1回1責務でcontract/testを先に固定する
+1. P2-C Task 7までとTask 4 `/api/extract` route contractは完了済み。次はTask 8 Home scan sessionStorage helper、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どちらも1回1責務でcontract/testを先に固定する
 2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない

@@ -67,6 +67,13 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 固定: webはPro/freeとも `server_cloud`、iOS/Android freeは `client_local`、iOS/Android Proは `server_cloud`、legacy routeの `clientPlatform` 正規化、uploaded image存在確認がusage incrementより前にあること、missing uploaded image 400、Pro-only mode 403、usage limit 429、`after(processJobById)` 直接呼び出し
   - 変更: 新contract testを `npm run test:web` 固定リストへ追加
   - 変更なし: `checkAndIncrementScanUsage()` の呼び出しタイミング、Storage bucket名、uploaded file existence check、target project ownership check、`scan_jobs` insert payload、`after(processJobById)` の直接呼び出し、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 4 `/api/extract` のrequest / usage / response contractを固定する
+  - 追加: `src/app/api/extract/route.contract.test.ts`
+  - 固定: unauthenticated 401、strict request schema 400、unsupported file type 400、PDF + OpenAI provider 400、HEIC/HEIF 400、Pro-only mode 403、usage limit 429、scan usage failure 500、AI extraction failure 422、success responseの `scanInfo` / `sourceLabels` / `lexiconEntries` shape
+  - 固定: unsupported file / PDF + OpenAI / HEIC はusage increment前に拒否、missing EIKEN levelはusage increment後かつAI抽出前に400、Pro-only modeは `check_and_increment_scan` の `p_require_pro: true` 応答で403
+  - 変更: `src/app/api/extract/route.ts` に `handleExtractPost()` とtest用の任意depsを追加。未指定時は既存のroute client、provider helper、AI抽出、lexicon解決、example生成、lexicon保存を使うためproduction behaviorは変更しない
+  - 変更: 新contract testを `npm run test:web` 固定リストへ追加
+  - 変更なし: auth方法、`check_and_increment_scan` の呼び出しタイミング、user-facing error文言、AI抽出順、example generation best-effort、PDF/OpenAI制限、HEIC拒否順序、認証、課金、同期、DB migration、prompt文言
 - [x] 2026-05-07: Task 5 `scan-jobs/process のclient_local result payload builderを抽出する`
   - 追加: `src/lib/scan/job-result-payload.ts`, `src/lib/scan/job-result-payload.test.ts`
   - 抽出: `src/app/api/scan-jobs/process/route.ts` の `client_local` 完了時に `scan_jobs.result` へ保存するpayload object作成を `buildClientLocalScanJobResultPayload()` へ移動
@@ -107,6 +114,16 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 4 `/api/extract` route contract test追加
+  - 追加: `src/app/api/extract/route.contract.test.ts`
+  - 更新: `src/app/api/extract/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: 401 / 400 / 403 / 429 / 422 / 500 の代表応答、`scanInfo` shape、`limitReached`、`sourceLabels` / `lexiconEntries` shape、Pro-only modeのfreeユーザー拒否、usage limit応答、PDF/OpenAI制限、HEIC拒否、example generation失敗時のbest-effort継続
+  - 変更なし: auth方法、`check_and_increment_scan` の呼び出しタイミング、user-facing error文言、AI抽出順、example generation best-effort、PDF/OpenAI制限、HEIC拒否順序、認証、課金、同期、DB migration、prompt文言
+  - 確認: `npm exec -- tsx --test src/app/api/extract/route.provider.test.ts` 成功。3 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/extract/route.contract.test.ts` 成功。11 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/extract/route.provider.test.ts src/app/api/extract/route.contract.test.ts` 成功。14 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は235 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 8 Home scan sessionStorage helper、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 7 notification / timing adapter抽出
   - 追加: `src/lib/scan/job-side-effects.ts`, `src/lib/scan/job-side-effects.test.ts`
   - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
@@ -115,7 +132,7 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 確認: `npm exec -- tsx --test src/lib/scan/job-side-effects.test.ts` 成功。5 tests pass
   - 確認: `npm exec -- tsx --test src/lib/scan/job-side-effects.test.ts src/app/api/scan-jobs/process/route.extractor.test.ts src/app/api/scan-jobs/process/route.contract.test.ts` 成功。14 tests pass
   - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は224 tests pass、`test:security` は38 tests pass、`build` 成功
-  - 次にやるべきこと: 未実施のTask 4 `/api/extract` route contract、またはTask 8 Home scan sessionStorage helperへ進む場合も、1回1責務でcontract/testを先に固定する
+  - 次にやるべきこと: Task 4は2026-05-08に完了済み。Task 8 Home scan sessionStorage helper、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-07: P2-C Task 6 scan-jobs/process のserver_cloud保存処理の境界準備
   - 追加: `src/lib/scan/server-cloud-persistence.ts`, `src/lib/scan/server-cloud-persistence.contract.test.ts`
   - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
