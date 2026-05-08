@@ -11,8 +11,8 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 1. lint / build / test の検証基盤整理
 2. docsの入口と運用Runbook整備
 3. 作成済みのアーキテクチャ保守性監査を読み、API構成、責務分離、巨大ファイル、危険領域の依存関係を把握する
-4. P2-Bの [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) を読み、contract/test/検証条件を固定した小タスク単位でP2-Cを進める
-5. 巨大ファイル分割は、計画内の最初の3回分を終えた後に段階的に実施する
+4. P2-C Task 1-15完了後は [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、次フェーズ候補を1責務ずつ再分解する
+5. 巨大ファイル分割は、checkpointで未固定リスクを確認してから段階的に実施する
 
 ## 必ず読む文書
 
@@ -23,8 +23,9 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 3. [`../boundaries.md`](../boundaries.md)
 4. [`../invariants.md`](../invariants.md)
 5. P2-B/P2-Cや危険領域を扱う場合は [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md)
-6. P2-Cへ入る場合は [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
-7. 触る領域のrunbookまたは関連docs
+6. P2-C Task 1-15完了後の状態を確認する場合は [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md)
+7. P2-Cの履歴やTask 1-15の元計画を確認する場合は [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
+8. 触る領域のrunbookまたは関連docs
 
 作業後:
 
@@ -102,6 +103,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 15まで完了済み。次は残りの `scan-jobs/process` 段階的分割、またはUI巨大ファイルの純粋helper化へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
-2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
-3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
+1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、次フェーズ候補を確認する
+2. 推奨順は、`scan-jobs/process` 残分割の再計画、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
+3. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸ししてから小タスクへ切り直す。DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない
+4. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する

@@ -167,13 +167,24 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 変更なし: Dexie schema、DB migration、`fullSync()` のlocal delete順、sync queue item format、remoteRepository API contract、認証、課金、スキャン、prompt、UI
   - 確認: `npm exec -- tsx --test src/lib/db/hybrid-repository.test.ts src/lib/db/sync-queue.test.ts` 成功。12 tests pass
   - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は290 tests pass、`test:security` は38 tests pass、`build` 成功
-- [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
-- [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
-- [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
-- [ ] `src/app/quiz/[projectId]/page.tsx` を、クイズ進行、保存、表示の責務を確認してから段階的に分割する
+
+#### P2-C完了後の次フェーズ候補
+
+P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、以下の候補から1回1責務で再分解してください。
+
+- [ ] `src/app/api/scan-jobs/process/route.ts` の残分割を再計画する
+  - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分ける
+  - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切る
+- [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
+  - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
+- [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
+  - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
+- [ ] `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
+  - 既存のquestion/storage helperを前提に、回答処理、spaced repetition、wrong answer記録、background distractor APIを分けて検討する
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
   - 2026-05-08 Task 11でprompt contract test追加とprompt本文差分なしのdomain別機械的分割まで完了
-- [ ] repository層、認証、課金、同期は、監査で問題が明確になった箇所から小さく直す
+- [ ] repository層、認証、課金、同期は、監査で問題が明確になった箇所だけを小さく直す
+  - 認証、課金、スキャン、同期、DB migrationを同じセッションで同時に触らない
 
 ### P2-D: 正式docsへの昇格
 

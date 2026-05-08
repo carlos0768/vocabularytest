@@ -133,3 +133,16 @@
 
 - `@sentry/nextjs` は現在installされておらず、instrumentationもSentry初期化を行っていない。
 - 使っていない監視envをサンプルに残すと、本番監視が存在するように見えて運用判断を誤らせる。
+
+## 2026-05-09: P2-C Task 1-15完了後はcheckpointを次フェーズ入口にする
+
+判断:
+
+- P2-C Task 1-15完了後の次セッションは、まず `docs/maintenance/P2C_CHECKPOINT.md` を読む。
+- `REFACTOR_PLAN.md` はTask 1-15の履歴と元計画として残し、次フェーズの優先判断はcheckpointと `TASKS.md` を優先する。
+- 次の本格作業は、`scan-jobs/process` 残分割、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格の候補から1責務ずつ再分解して進める。
+
+理由:
+
+- Task 1-15で安全柵は増えたが、巨大ファイルや正式docs昇格はまだ広いままで、次のAIがそのまま実装へ入ると作業範囲が膨らむ。
+- checkpointを入口にすることで、完了済みcontractと未固定リスクを誤読しにくくなる。
