@@ -103,6 +103,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 共通化: Project detailのscan-to-addで `scanvocab_existing_project_id` 設定、staleなproject draft / source labels / lexicon entriesの削除、single/multiple scan結果payload保存をHomeと同じStorage-like helperへ移動
   - 固定: Project scan-to-add準備時に既存project idを保存し、project name/icon/source labels/lexicon entriesを削除すること、scan resultのJSON保存shapeはsingle/multiple共通helperを使うこと
   - 変更なし: repository選択、`mutationRepository`、scan file processing、share、bulk delete、filter/sort UI、API呼び出し、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 10 `Quiz question builderとstorage keyを純粋helperへ出す`
+  - 追加: `src/lib/quiz/quiz-state.ts`, `src/lib/quiz/quiz-state.test.ts`
+  - 抽出: `src/app/quiz/[projectId]/page.tsx` の `getQuizStorageKey()`、30分TTL判定、generic distractor pool、`generateQuestions()` 相当のquestion builderを純粋helperへ移動
+  - 固定: review mode keyは `quiz_state_review`、通常keyは `quiz_state_${projectId}`、TTLは30分で境界は `>`、en-to-ja / ja-to-en の選択肢生成、重複除外、fallback distractors
+  - 変更: 新helper testを `npm run test:web` 固定リストへ追加
+  - 変更なし: repository update、spaced repetition保存、wrong answer記録、background distractor API、review/collection loading、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -125,6 +131,14 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 10 Quiz question/storage helper抽出
+  - 追加: `src/lib/quiz/quiz-state.ts`, `src/lib/quiz/quiz-state.test.ts`
+  - 更新: `src/app/quiz/[projectId]/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: quiz sessionStorage key、30分TTL境界、en-to-ja / ja-to-en question生成、stored distractor利用、placeholder時の他単語fallback、generic distractor fallback、重複除外
+  - 変更なし: repository update、spaced repetition保存、wrong answer記録、background distractor API、review/collection loading、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/quiz/quiz-state.test.ts` 成功。6 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は247 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 11 prompt contract test / 機械的分割、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 9 Project scan-to-add session contract共通化
   - 更新: `src/app/project/[id]/page.tsx`, `src/lib/scan/scan-session-storage.ts`, `src/lib/scan/scan-session-storage.test.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
   - 固定: Project scan-to-addの `/scan/confirm` sessionStorage準備、既存project id保存、project name/icon/source labels/lexicon entries削除、single/multiple scan result payload保存shape

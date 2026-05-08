@@ -50,9 +50,9 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-08時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。241 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。247 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
-- `npm run lint:web`: 成功。0 errors / 98 warnings
+- `npm run lint:web`: 成功。0 errors / 97 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
 - `npm run test:cloud-run-scan`: 成功。22 tests pass。Cloud Run scan serviceは別packageなので root Web `verify` には含めない
 - `npm run lint`: 公開前gateではない。Web本体公開前検証には `npm run lint:web` / `npm run verify` を使う
@@ -80,6 +80,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 7は 2026-05-08 に完了。`src/lib/scan/job-side-effects.ts` と `src/lib/scan/job-side-effects.test.ts` を追加し、`scan-jobs/process` のcompleted / failed / grammar warning通知params作成とtiming flush呼び出しwrapperを抽出済み。通知送信タイミング、Web Push / APNS送信条件、`completed` / `failed` DB更新前後の順序、Google Sheets timing payload、AI抽出、DB保存、example生成、post-processing、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み
 - P2-C Task 8は 2026-05-08 に完了。`src/lib/scan/scan-session-storage.ts` と `src/lib/scan/scan-session-storage.test.ts` を追加し、Homeの `/scan/confirm` 受け渡し用 `scanvocab_extracted_words`, `scanvocab_source_labels`, `scanvocab_lexicon_entries`, `scanvocab_project_name`, `scanvocab_project_icon`, `scanvocab_existing_project_id` の読み書き/削除をStorage-like helperへ移動済み。result payloadのJSON保存shape、existing project追加時のproject name/icon削除、new project draftのtitle/icon読込、project icon未指定時の削除を固定。file upload、PDF expansion、Supabase Storage upload、`/api/extract` 呼び出し、`/api/scan-jobs/create` 呼び出し、UI state、画面文言、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は240 tests pass
 - P2-C Task 9は 2026-05-08 に完了。Project detailのscan-to-addで `/scan/confirm` へ渡す `scanvocab_existing_project_id`, `scanvocab_extracted_words`, `scanvocab_source_labels`, `scanvocab_lexicon_entries` の保存/削除を `src/lib/scan/scan-session-storage.ts` へ寄せ、Project用の準備helper `prepareScanConfirmForExistingProject()` を追加済み。既存project id保存、project name/icon/source labels/lexicon entries削除、single/multiple scan結果payloadのJSON保存shapeをhelper testで固定。repository選択、`mutationRepository`、scan file processing、share、bulk delete、filter/sort UI、API呼び出し、認証、課金、同期、DB migrationは変更していない。既存helper testを拡張済み。`npm run verify` は成功し、`npm test` は241 tests pass
+- P2-C Task 10は 2026-05-08 に完了。`src/lib/quiz/quiz-state.ts` と `src/lib/quiz/quiz-state.test.ts` を追加し、Quiz pageの `getQuizStorageKey()`、30分TTL判定、generic distractor pool、`generateQuestions()` 相当のquestion builderを純粋helperへ移動済み。review key `quiz_state_review`、通常key `quiz_state_${projectId}`、TTL境界、en-to-ja / ja-to-en question生成、stored distractor利用、placeholder時の他単語fallback、generic distractor fallback、重複除外を固定。repository update、spaced repetition保存、wrong answer記録、background distractor API、review/collection loading、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は247 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -94,6 +95,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 9まで完了済み。次はTask 10 Quiz question builder/storage key helper、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どちらも1回1責務でcontract/testを先に固定する
+1. P2-C Task 10まで完了済み。次はTask 11 prompt contract test / 機械的分割、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どちらも1回1責務でcontract/testを先に固定する
 2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない

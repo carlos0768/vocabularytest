@@ -7,9 +7,15 @@ import { Icon } from '@/components/ui/Icon';
 import { QuizOption, TypeInQuizField } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
+import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
+import {
+  generateQuizQuestions,
+  getQuizStorageKey,
+  isQuizStateExpired,
+  type QuizDirection,
+} from '@/lib/quiz/quiz-state';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
@@ -21,21 +27,9 @@ const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 
-const GENERIC_JA_DISTRACTOR_POOL = [
-  '確認する', '提供する', '参加する', '検討する', '対応する', '説明する', '準備する', '記録する',
-] as const;
-
-const GENERIC_EN_DISTRACTOR_POOL = [
-  'consider', 'provide', 'develop', 'maintain', 'achieve', 'support', 'prepare', 'review',
-] as const;
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-// Session storage key for quiz state persistence
-const getQuizStorageKey = (projectId: string, reviewMode: boolean) => 
-  `quiz_state_${reviewMode ? 'review' : projectId}`;
 
 interface QuizPersistState {
   questions: QuizQuestion[];
@@ -44,11 +38,9 @@ interface QuizPersistState {
   isRevealed: boolean;
   results: { correct: number; total: number };
   questionCount: number;
-  quizDirection: 'en-to-ja' | 'ja-to-en';
+  quizDirection: QuizDirection;
   timestamp: number;
 }
-
-const QUIZ_STATE_TTL = 30 * 60 * 1000; // 30 minutes
 
 export default function QuizPage() {
   const router = useRouter();
@@ -88,7 +80,7 @@ export default function QuizPage() {
   const [distractorError, setDistractorError] = useState<string | null>(null);
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
+  const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
 
@@ -179,85 +171,13 @@ export default function QuizPage() {
     }
   }, [isComplete, clearQuizState]);
 
-  const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
-    const selected = sortWordsByPriority(words).slice(0, count);
-
-    return selected.map((word) => {
-      if (direction === 'ja-to-en') {
-        const correctEn = word.english.trim().toLowerCase();
-        const otherWords = words.filter(w => w.id !== word.id);
-        let englishDistractors = shuffleArray(otherWords)
-          .map((w) => w.english)
-          .filter((e) => e.trim().toLowerCase() !== correctEn);
-        englishDistractors = [...new Set(englishDistractors.map((e) => e.trim()))].slice(0, 3);
-        let gi = 0;
-        while (englishDistractors.length < 3 && gi < GENERIC_EN_DISTRACTOR_POOL.length) {
-          const g = GENERIC_EN_DISTRACTOR_POOL[gi++];
-          if (g.toLowerCase() !== correctEn && !englishDistractors.includes(g)) {
-            englishDistractors.push(g);
-          }
-        }
-        while (englishDistractors.length < 3) {
-          englishDistractors.push(`option${englishDistractors.length + 1}`);
-        }
-        englishDistractors = englishDistractors.slice(0, 3);
-
-        const allOptions = [word.english, ...englishDistractors];
-        const shuffled = shuffleArray(allOptions);
-        const correctIndex = shuffled.indexOf(word.english);
-
-        return {
-          word,
-          options: shuffled,
-          correctIndex,
-        };
-      } else {
-        const correctJa = word.japanese.trim().toLowerCase();
-        let distractors: string[] = [...(word.distractors || [])];
-
-        if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
-          const otherWords = words.filter((w) => w.id !== word.id);
-          distractors = shuffleArray(otherWords)
-            .map((w) => w.japanese)
-            .filter((d) => d.trim().toLowerCase() !== correctJa);
-        }
-
-        distractors = [...new Set(distractors.map((d) => d.trim()))].filter(
-          (d) => d.length > 0 && d.toLowerCase() !== correctJa,
-        );
-
-        let gi = 0;
-        while (distractors.length < 3 && gi < GENERIC_JA_DISTRACTOR_POOL.length) {
-          const g = GENERIC_JA_DISTRACTOR_POOL[gi++];
-          if (g.toLowerCase() !== correctJa && !distractors.includes(g)) {
-            distractors.push(g);
-          }
-        }
-        while (distractors.length < 3) {
-          distractors.push(`選択肢${distractors.length + 1}`);
-        }
-        distractors = distractors.slice(0, 3);
-
-        const allOptions = [word.japanese, ...distractors];
-        const shuffled = shuffleArray(allOptions);
-        const correctIndex = shuffled.indexOf(word.japanese);
-
-        return {
-          word,
-          options: shuffled,
-          correctIndex,
-        };
-      }
-    });
-  }, []);
-
   // Generate distractors for words that don't have them, then start quiz
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
 
     if (quizDirection === 'ja-to-en') {
-      const jaToEnQuestions = generateQuestions(selected, selected.length, quizDirection);
+      const jaToEnQuestions = generateQuizQuestions(selected, selected.length, quizDirection);
       setQuestions(jaToEnQuestions);
       return;
     }
@@ -265,7 +185,7 @@ export default function QuizPage() {
     // 英→日: AIの完了を待たずに即クイズ開始（他単語の訳＋汎用語で4択を構成）。
     // 旧実装は1リクエストで最大20語×例文・品詞まで生成しており、失敗時は finalWords が空のまま
     // エラーになり得た。AIはバックグラウンドで品質改善のみ行う。
-    const quizQuestionsImmediate = generateQuestions(words, count, quizDirection);
+    const quizQuestionsImmediate = generateQuizQuestions(words, count, quizDirection);
     setQuestions(quizQuestionsImmediate);
 
     const toImprove = selected.filter((w) => needsDistractors(w));
@@ -360,7 +280,7 @@ export default function QuizPage() {
         }
       }
     })();
-  }, [generateQuestions, needsDistractors, quizDirection, repository]);
+  }, [needsDistractors, quizDirection, repository]);
 
   useEffect(() => {
     if (authLoading || userPreferencesLoading) return;
@@ -380,7 +300,7 @@ export default function QuizPage() {
         const state: QuizPersistState = JSON.parse(saved);
         
         // Check if state is expired (30 minutes)
-        if (Date.now() - state.timestamp > QUIZ_STATE_TTL) {
+        if (isQuizStateExpired(state.timestamp)) {
           sessionStorage.removeItem(storageKey);
           return false;
         }
@@ -561,7 +481,7 @@ export default function QuizPage() {
             setLoading(false);
             await startQuizWithDistractors(prioritizedSourceWords, resolvedCount);
           } else {
-            const generated = generateQuestions(prioritizedSourceWords, resolvedCount, quizDirection);
+            const generated = generateQuizQuestions(prioritizedSourceWords, resolvedCount, quizDirection);
             setQuestions(generated);
           }
         }
@@ -574,7 +494,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors]);
+  }, [projectId, repository, router, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors, quizDirection]);
 
   // Phase 2: Fetch latest from remote in background (Pro users)
   // Updates allWords if remote has more words than local
@@ -779,7 +699,7 @@ export default function QuizPage() {
     if (needsGeneration) {
       await startQuizWithDistractors(allWords, count);
     } else {
-      const regenerated = generateQuestions(allWords, count, quizDirection);
+      const regenerated = generateQuizQuestions(allWords, count, quizDirection);
       setQuestions(regenerated);
     }
 
@@ -800,7 +720,7 @@ export default function QuizPage() {
         // 英→日はローカルで4択を組むためオフラインでも開始可（AIはバックグラウンド）
         await startQuizWithDistractors(allWords, count);
       } else {
-        const generated = generateQuestions(allWords, count, quizDirection);
+        const generated = generateQuizQuestions(allWords, count, quizDirection);
         setQuestions(generated);
       }
     }
