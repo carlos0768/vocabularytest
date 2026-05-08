@@ -50,7 +50,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-08時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。235 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。240 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 98 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -78,6 +78,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 5は 2026-05-07 に完了。`src/lib/scan/job-result-payload.ts` を追加し、`/api/scan-jobs/process` の `client_local` 完了時に `scan_jobs.result` へ保存するpayload object作成を `buildClientLocalScanJobResultPayload()` へ移動済み。`wordCount`, `saveMode`, `extractedWords`, `sourceLabels`, `lexiconEntries`, `warnings`, `exampleGeneration`、warningなし / `exampleGeneration` なしの場合のpayload shape、空 `lexiconEntries` を `src/lib/scan/job-result-payload.test.ts` で固定済み。`scan_jobs.update({ status: 'completed' })` の実行場所、DB update payloadの意味、AI抽出呼び出し、example generation呼び出し、通知、timing flush、post-processing `after()`、server_cloud保存、認証、課金、同期、DB migration、prompt文言は変更していない。新helper testを `npm run test:web` 固定リストへ追加済み
 - P2-C Task 6は 2026-05-07 に完了。`src/lib/scan/server-cloud-persistence.ts` と `src/lib/scan/server-cloud-persistence.contract.test.ts` を追加し、`server_cloud` 保存時の新規project insert payload、既存project sourceLabels merge、words insert payload、words保存失敗時rollback条件を固定済み。新規project作成後にwords保存が失敗した時だけ新規projectを削除し、既存project追加時は削除しない条件をhelper testで固定。`/api/scan-jobs/process` はpayload/条件builderを呼ぶだけに留め、Supabase insert/update/deleteの順序、DB保存処理本体、通知、timing、AI生成、post-processing、認証、課金、同期、DB migrationは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み
 - P2-C Task 7は 2026-05-08 に完了。`src/lib/scan/job-side-effects.ts` と `src/lib/scan/job-side-effects.test.ts` を追加し、`scan-jobs/process` のcompleted / failed / grammar warning通知params作成とtiming flush呼び出しwrapperを抽出済み。通知送信タイミング、Web Push / APNS送信条件、`completed` / `failed` DB更新前後の順序、Google Sheets timing payload、AI抽出、DB保存、example生成、post-processing、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み
+- P2-C Task 8は 2026-05-08 に完了。`src/lib/scan/scan-session-storage.ts` と `src/lib/scan/scan-session-storage.test.ts` を追加し、Homeの `/scan/confirm` 受け渡し用 `scanvocab_extracted_words`, `scanvocab_source_labels`, `scanvocab_lexicon_entries`, `scanvocab_project_name`, `scanvocab_project_icon`, `scanvocab_existing_project_id` の読み書き/削除をStorage-like helperへ移動済み。result payloadのJSON保存shape、existing project追加時のproject name/icon削除、new project draftのtitle/icon読込、project icon未指定時の削除を固定。file upload、PDF expansion、Supabase Storage upload、`/api/extract` 呼び出し、`/api/scan-jobs/create` 呼び出し、UI state、画面文言、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は240 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -92,6 +93,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 7までとTask 4 `/api/extract` route contractは完了済み。次はTask 8 Home scan sessionStorage helper、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どちらも1回1責務でcontract/testを先に固定する
+1. P2-C Task 8まで完了済み。次はTask 9 Project scan-to-add session contract共通化、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どちらも1回1責務でcontract/testを先に固定する
 2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない

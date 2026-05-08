@@ -28,6 +28,13 @@ import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
 import { mergeSourceLabels } from '../../shared/source-labels';
 import { mergeLexiconEntries } from '../../shared/lexicon';
 import {
+  clearScanConfirmProjectIcon,
+  getScanConfirmProjectDraft,
+  saveScanConfirmProjectDraft,
+  saveScanConfirmResultPayload,
+  setScanConfirmExistingProject,
+} from '@/lib/scan/scan-session-storage';
+import {
   getCachedProjects,
   getCachedProjectWords,
   getCachedAllFavorites,
@@ -1034,9 +1041,7 @@ export default function HomePage() {
 
     // If adding to existing project, skip project name modal
     if (isAddingToExisting && currentProject) {
-      sessionStorage.setItem('scanvocab_existing_project_id', currentProject.id);
-      sessionStorage.removeItem('scanvocab_project_name');
-      sessionStorage.removeItem('scanvocab_project_icon');
+      setScanConfirmExistingProject(sessionStorage, currentProject.id);
       processMultipleImages(scanFiles);
     } else {
       setShowProjectNameModal(true);
@@ -1051,15 +1056,15 @@ export default function HomePage() {
       { id: 'analyze', label: '文字を解析中...', status: 'pending' },
     ]);
 
-    if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('scanvocab_existing_project_id')) {
-      const title = sessionStorage.getItem('scanvocab_project_name');
-      if (title?.trim()) {
-        setPendingGeneratingWordbook({
-          id: `generating-${Date.now()}`,
-          title: title.trim(),
-          iconDataUrl: sessionStorage.getItem('scanvocab_project_icon') || undefined,
-        });
-      }
+    const projectDraft = typeof sessionStorage !== 'undefined'
+      ? getScanConfirmProjectDraft(sessionStorage)
+      : null;
+    if (projectDraft) {
+      setPendingGeneratingWordbook({
+        id: `generating-${Date.now()}`,
+        title: projectDraft.title,
+        iconDataUrl: projectDraft.iconDataUrl,
+      });
     }
 
     try {
@@ -1113,9 +1118,11 @@ export default function HomePage() {
       ]);
 
       // Save result to sessionStorage and navigate to confirm page
-      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
-      sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(mergeSourceLabels(result.sourceLabels)));
-      sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(mergeLexiconEntries(result.lexiconEntries)));
+      saveScanConfirmResultPayload(sessionStorage, {
+        words: result.words,
+        sourceLabels: mergeSourceLabels(result.sourceLabels),
+        lexiconEntries: mergeLexiconEntries(result.lexiconEntries),
+      });
       // Navigate first, then close processing modal
       // (closing modal before navigation causes a flash of the home screen)
       setPendingGeneratingWordbook(null);
@@ -1159,15 +1166,15 @@ export default function HomePage() {
     }));
     setProcessingSteps(initialSteps);
 
-    if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('scanvocab_existing_project_id')) {
-      const title = sessionStorage.getItem('scanvocab_project_name');
-      if (title?.trim()) {
-        setPendingGeneratingWordbook({
-          id: `generating-${Date.now()}`,
-          title: title.trim(),
-          iconDataUrl: sessionStorage.getItem('scanvocab_project_icon') || undefined,
-        });
-      }
+    const projectDraft = typeof sessionStorage !== 'undefined'
+      ? getScanConfirmProjectDraft(sessionStorage)
+      : null;
+    if (projectDraft) {
+      setPendingGeneratingWordbook({
+        id: `generating-${Date.now()}`,
+        title: projectDraft.title,
+        iconDataUrl: projectDraft.iconDataUrl,
+      });
     }
 
     try {
@@ -1252,9 +1259,11 @@ export default function HomePage() {
       }
 
       // Save merged results to sessionStorage
-      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
-      sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
-      sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
+      saveScanConfirmResultPayload(sessionStorage, {
+        words: allWords,
+        sourceLabels: allSourceLabels,
+        lexiconEntries: allLexiconEntries,
+      });
 
       setProcessingSteps(prev => [
         ...prev.map(s => ({ ...s, status: 'complete' as const })),
@@ -1430,12 +1439,7 @@ export default function HomePage() {
     setShowProjectNameModal(false);
 
     // Free users: use traditional flow
-    sessionStorage.setItem('scanvocab_project_name', projectName);
-    if (projectIcon) {
-      sessionStorage.setItem('scanvocab_project_icon', projectIcon);
-    } else {
-      sessionStorage.removeItem('scanvocab_project_icon');
-    }
+    saveScanConfirmProjectDraft(sessionStorage, { projectName, projectIcon });
     sessionStorage.removeItem('scanvocab_project_id');
 
     if (files.length === 1) {
@@ -1626,7 +1630,7 @@ export default function HomePage() {
               setScanUploadStatus(undefined);
               setPendingFile(null);
               setPendingFiles([]);
-              sessionStorage.removeItem('scanvocab_project_icon');
+              clearScanConfirmProjectIcon(sessionStorage);
               setPendingGeneratingWordbook((prev) => (prev?.linkedJobId ? prev : null));
             }}
             onConfirm={handleProjectNameConfirm}
@@ -1847,7 +1851,7 @@ export default function HomePage() {
           setScanUploadStatus(undefined);
           setPendingFile(null);
           setPendingFiles([]);
-          sessionStorage.removeItem('scanvocab_project_icon');
+          clearScanConfirmProjectIcon(sessionStorage);
           setPendingGeneratingWordbook((prev) => (prev?.linkedJobId ? prev : null));
         }}
         onConfirm={handleProjectNameConfirm}

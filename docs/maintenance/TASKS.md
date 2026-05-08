@@ -92,6 +92,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 抽出: `flushTiming()` 呼び出しを `flushScanJobTimingLogs()` wrapperへ移動
   - 変更: 新helper testを `npm run test:web` 固定リストへ追加
   - 変更なし: 通知送信タイミング、Web Push / APNS送信条件、`completed` / `failed` DB更新前後の順序、Google Sheets timing payload、AI抽出、DB保存、example生成、post-processing、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 8 `Home scan sessionStorage contract helperを作る`
+  - 追加: `src/lib/scan/scan-session-storage.ts`, `src/lib/scan/scan-session-storage.test.ts`
+  - 抽出: `src/app/page.tsx` の `/scan/confirm` 受け渡し用 `scanvocab_extracted_words`, `scanvocab_source_labels`, `scanvocab_lexicon_entries`, `scanvocab_project_name`, `scanvocab_project_icon`, `scanvocab_existing_project_id` の読み書き/削除をStorage-like helperへ移動
+  - 固定: result payloadのJSON保存shape、existing project追加時にproject name/iconを削除すること、project draft読込がexisting project時はnullになること、project icon未指定時の削除、iconだけの削除
+  - 変更: 新helper testを `npm run test:web` 固定リストへ追加
+  - 変更なし: file upload、PDF expansion、Supabase Storage upload、`/api/extract` 呼び出し、`/api/scan-jobs/create` 呼び出し、UI state、画面文言、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -114,6 +120,14 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 8 Home scan sessionStorage helper抽出
+  - 追加: `src/lib/scan/scan-session-storage.ts`, `src/lib/scan/scan-session-storage.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: `/scan/confirm` 受け渡し用sessionStorage key、result payloadのJSON保存shape、existing project追加時のproject name/icon削除、new project draftのtitle/icon読込、project icon未指定時の削除
+  - 変更なし: file upload、PDF expansion、Supabase Storage upload、`/api/extract` 呼び出し、`/api/scan-jobs/create` 呼び出し、UI state、画面文言、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/scan/scan-session-storage.test.ts` 成功。5 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は240 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 9 Project scan-to-add session contract共通化、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 4 `/api/extract` route contract test追加
   - 追加: `src/app/api/extract/route.contract.test.ts`
   - 更新: `src/app/api/extract/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
