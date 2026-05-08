@@ -109,6 +109,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 固定: review mode keyは `quiz_state_review`、通常keyは `quiz_state_${projectId}`、TTLは30分で境界は `>`、en-to-ja / ja-to-en の選択肢生成、重複除外、fallback distractors
   - 変更: 新helper testを `npm run test:web` 固定リストへ追加
   - 変更なし: repository update、spaced repetition保存、wrong answer記録、background distractor API、review/collection loading、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 11 `prompt contract testを増やしてからdomain別に分ける` のうちprompt contract test追加
+  - 追加: `src/lib/ai/prompts.contract.test.ts`
+  - 固定: `src/lib/ai/prompts.ts` の既存public exports、sourceLabelsの一般名詞禁止/物理教材名指示、JSON出力指示、`partOfSpeechTags` 出力contract、EIKEN level以上filter、idiom / phrasal_verb分類
+  - 変更: 新contract testを `npm run test:web` 固定リストへ追加
+  - 未実施: promptファイル分割。後続で行う場合もprompt本文の意味変更なしの機械的分割に限定する
+  - 変更なし: prompt本文、source label rule、EIKEN level order、AI schema、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -131,6 +137,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 11 prompt contract test追加
+  - 追加: `src/lib/ai/prompts.contract.test.ts`
+  - 更新: `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: prompt moduleの既存export、sourceLabels一般名詞禁止、JSON出力指示、`partOfSpeechTags` 出力contract、EIKEN level以上filter、idiom / phrasal_verb分類
+  - 変更なし: `src/lib/ai/prompts.ts` の本文、source label rule、EIKEN level order、AI schema、promptファイル分割、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/ai/prompts.contract.test.ts` 成功。6 tests pass
+  - 確認: `npm exec -- tsx --test src/lib/ai/prompts.translation-context.test.ts src/lib/ai/prompts.contract.test.ts src/lib/ai/extract-circled-words.test.ts src/lib/ai/extract-eiken-words.test.ts src/lib/ai/extract-highlighted-words.test.ts src/lib/ai/extract-wrong-answers.test.ts` 成功。20 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は253 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: prompt分割へ進む場合は、今回追加したcontractを維持し、prompt本文差分なしの機械的分割だけに限定する
 - [x] 2026-05-08: P2-C Task 10 Quiz question/storage helper抽出
   - 追加: `src/lib/quiz/quiz-state.ts`, `src/lib/quiz/quiz-state.test.ts`
   - 更新: `src/app/quiz/[projectId]/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
