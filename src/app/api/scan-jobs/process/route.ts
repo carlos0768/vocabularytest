@@ -23,6 +23,12 @@ import {
   buildServerCloudWordsInsertPayload,
   shouldRollbackServerCloudProjectAfterWordsInsertFailure,
 } from '@/lib/scan/server-cloud-persistence';
+import {
+  buildScanJobCompletedNotificationParams,
+  buildScanJobFailedNotificationParams,
+  buildScanJobWarningNotificationParams,
+  flushScanJobTimingLogs,
+} from '@/lib/scan/job-side-effects';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -869,13 +875,11 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           }
           if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
             grammarWarningNotified = true;
-            const warningParams = {
+            const warningParams = buildScanJobWarningNotificationParams({
               userId: job.user_id,
               jobId,
-              projectId: null,
               projectTitle: job.project_title,
-              status: 'warning' as const,
-            };
+            });
             await sendPushNotifications(supabaseAdmin, warningParams);
             void sendApnsNotifications(supabaseAdmin, warningParams).catch(e => console.error('[APNs] warning push failed:', e));
           }
@@ -904,18 +908,22 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           })
           .eq('id', jobId);
 
-        const failParams1 = {
+        const failParams1 = buildScanJobFailedNotificationParams({
           userId: job.user_id,
           jobId,
-          projectId: null,
           projectTitle: job.project_title,
-          status: 'failed' as const,
-          wordCount: 0,
-        };
+        });
         await sendPushNotifications(supabaseAdmin, failParams1);
         void sendApnsNotifications(supabaseAdmin, failParams1).catch(e => console.error('[APNs] fail push failed:', e));
 
-        await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
+        await flushScanJobTimingLogs({
+          flushTiming,
+          cloudRunTimingEntries,
+          timing,
+          jobId,
+          userId: job.user_id,
+          status: 'failed',
+        });
 
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
@@ -1032,18 +1040,24 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           })
           .eq('id', jobId);
 
-        const completedParams1 = {
+        const completedParams1 = buildScanJobCompletedNotificationParams({
           userId: job.user_id,
           jobId,
           projectId: null,
           projectTitle: job.project_title,
-          status: 'completed' as const,
           wordCount: resolvedWords.length,
-        };
+        });
         void sendPushNotifications(supabaseAdmin, completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
         void sendApnsNotifications(supabaseAdmin, completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
 
-        await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
+        await flushScanJobTimingLogs({
+          flushTiming,
+          cloudRunTimingEntries,
+          timing,
+          jobId,
+          userId: job.user_id,
+          status: 'completed',
+        });
 
         return NextResponse.json({
           success: true,
@@ -1379,18 +1393,24 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         })
         .eq('id', jobId);
 
-      const completedParams2 = {
+      const completedParams2 = buildScanJobCompletedNotificationParams({
         userId: job.user_id,
         jobId,
         projectId,
         projectTitle: projectTitleForNotification,
-        status: 'completed' as const,
         wordCount: resolvedWords.length,
-      };
+      });
       void sendPushNotifications(supabaseAdmin, completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
       void sendApnsNotifications(supabaseAdmin, completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
 
-      await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
+      await flushScanJobTimingLogs({
+        flushTiming,
+        cloudRunTimingEntries,
+        timing,
+        jobId,
+        userId: job.user_id,
+        status: 'completed',
+      });
 
       // Heavy/non-critical tasks run after completion update.
       after(async () => {
@@ -1528,18 +1548,22 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           })
           .eq('id', jobId);
 
-        const failParams2 = {
+        const failParams2 = buildScanJobFailedNotificationParams({
           userId: job.user_id,
           jobId,
-          projectId: null,
           projectTitle: job.project_title,
-          status: 'failed' as const,
-          wordCount: 0,
-        };
+        });
         await sendPushNotifications(supabaseAdmin, failParams2);
         void sendApnsNotifications(supabaseAdmin, failParams2).catch(e => console.error('[APNs] fail push failed:', e));
 
-        await flushTiming(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
+        await flushScanJobTimingLogs({
+          flushTiming,
+          cloudRunTimingEntries,
+          timing,
+          jobId,
+          userId: job.user_id,
+          status: 'failed',
+        });
 
         return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
       }

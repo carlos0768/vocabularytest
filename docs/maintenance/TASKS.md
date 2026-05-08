@@ -79,6 +79,12 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 固定: 新規project作成後にwords保存が失敗した時だけ新規projectを削除し、既存project追加時は削除しない
   - 変更: `src/app/api/scan-jobs/process/route.ts` はpayload/rollback条件builderを呼ぶだけに限定し、新contract testを `npm run test:web` 固定リストへ追加
   - 変更なし: Supabase insert/update/deleteの順序、DB保存処理本体、通知、timing、AI生成、post-processing、source labels compat helper、lexicon/example persistence、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 7 `notification / timing adapterをscan処理から切り出す`
+  - 追加: `src/lib/scan/job-side-effects.ts`, `src/lib/scan/job-side-effects.test.ts`
+  - 抽出: completed / failed / grammar warning の通知params作成を `buildScanJobCompletedNotificationParams()` / `buildScanJobFailedNotificationParams()` / `buildScanJobWarningNotificationParams()` へ移動
+  - 抽出: `flushTiming()` 呼び出しを `flushScanJobTimingLogs()` wrapperへ移動
+  - 変更: 新helper testを `npm run test:web` 固定リストへ追加
+  - 変更なし: 通知送信タイミング、Web Push / APNS送信条件、`completed` / `failed` DB更新前後の順序、Google Sheets timing payload、AI抽出、DB保存、example生成、post-processing、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -101,6 +107,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 7 notification / timing adapter抽出
+  - 追加: `src/lib/scan/job-side-effects.ts`, `src/lib/scan/job-side-effects.test.ts`
+  - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: completed / failed / grammar warning の通知params shape、`client_local` 完了時の `projectId: null`、failed通知の `wordCount: 0`、timing wrapperが既存のentries/timing/jobId/userId/statusをそのまま渡すこと
+  - 変更なし: 通知送信タイミング、Web Push / APNS送信条件、`completed` / `failed` DB更新前後の順序、Google Sheets timing payload、AI抽出、DB保存、example生成、post-processing、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/scan/job-side-effects.test.ts` 成功。5 tests pass
+  - 確認: `npm exec -- tsx --test src/lib/scan/job-side-effects.test.ts src/app/api/scan-jobs/process/route.extractor.test.ts src/app/api/scan-jobs/process/route.contract.test.ts` 成功。14 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は224 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: 未実施のTask 4 `/api/extract` route contract、またはTask 8 Home scan sessionStorage helperへ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-07: P2-C Task 6 scan-jobs/process のserver_cloud保存処理の境界準備
   - 追加: `src/lib/scan/server-cloud-persistence.ts`, `src/lib/scan/server-cloud-persistence.contract.test.ts`
   - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
