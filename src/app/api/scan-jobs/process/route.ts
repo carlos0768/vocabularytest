@@ -25,6 +25,10 @@ import {
 } from '@/lib/scan/server-cloud-persistence';
 import { buildServerCloudScanJobResultPayload } from '@/lib/scan/server-cloud-result-payload';
 import {
+  applyClientLocalGeneratedExamples,
+  buildClientLocalExampleSeedWords,
+} from '@/lib/scan/example-generation';
+import {
   buildScanJobCompletedNotificationParams,
   buildScanJobFailedNotificationParams,
   buildScanJobWarningNotificationParams,
@@ -949,13 +953,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         // --- Synchronous example sentence generation (client_local) ---
         let exampleGenerationSummary: ExampleGenerationSummary | undefined;
         let exampleGenerationErrors: string[] = [];
-        const wordsNeedingExamples = resolvedWords
-          .filter((w) => !w.exampleSentence)
-          .map((w, i) => ({
-            id: String(i), // client_local has no DB ids; use index as placeholder
-            english: w.english,
-            japanese: w.japanese,
-          }));
+        let clientLocalResolvedWords = resolvedWords;
+        const wordsNeedingExamples = buildClientLocalExampleSeedWords(resolvedWords);
 
         if (wordsNeedingExamples.length > 0) {
           const exampleGenerationStart = Date.now();
@@ -966,22 +965,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             );
             exampleGenerationSummary = exampleResult.summary;
             exampleGenerationErrors = exampleResult.errors;
-            const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
-
-            let exIdx = 0;
-            for (const word of resolvedWords) {
-              if (!word.exampleSentence) {
-                const generated = exampleMap.get(String(exIdx));
-                if (generated) {
-                  word.exampleSentence = generated.exampleSentence;
-                  word.exampleSentenceJa = generated.exampleSentenceJa;
-                  if (!word.partOfSpeechTags?.length) {
-                    word.partOfSpeechTags = generated.partOfSpeechTags;
-                  }
-                }
-                exIdx++;
-              }
-            }
+            clientLocalResolvedWords = applyClientLocalGeneratedExamples(
+              resolvedWords,
+              exampleResult.examples,
+            );
           } catch (exampleError) {
             // Example generation failure should NOT fail the scan
             console.error('[scan-jobs/process] Example generation failed (client_local), continuing without:', exampleError);
@@ -1006,7 +993,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
 
         const resultPayload = buildClientLocalScanJobResultPayload({
-          extractedWords: resolvedWords,
+          extractedWords: clientLocalResolvedWords,
           sourceLabels: dedupedSourceLabels,
           lexiconEntries: resolvedResult?.lexiconEntries,
           warnings: warningSet,
