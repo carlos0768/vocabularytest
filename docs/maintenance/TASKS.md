@@ -98,6 +98,11 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 固定: result payloadのJSON保存shape、existing project追加時にproject name/iconを削除すること、project draft読込がexisting project時はnullになること、project icon未指定時の削除、iconだけの削除
   - 変更: 新helper testを `npm run test:web` 固定リストへ追加
   - 変更なし: file upload、PDF expansion、Supabase Storage upload、`/api/extract` 呼び出し、`/api/scan-jobs/create` 呼び出し、UI state、画面文言、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 9 `Project scan-to-addのsession contractをHome helperへ合わせる`
+  - 更新: `src/app/project/[id]/page.tsx`, `src/lib/scan/scan-session-storage.ts`, `src/lib/scan/scan-session-storage.test.ts`
+  - 共通化: Project detailのscan-to-addで `scanvocab_existing_project_id` 設定、staleなproject draft / source labels / lexicon entriesの削除、single/multiple scan結果payload保存をHomeと同じStorage-like helperへ移動
+  - 固定: Project scan-to-add準備時に既存project idを保存し、project name/icon/source labels/lexicon entriesを削除すること、scan resultのJSON保存shapeはsingle/multiple共通helperを使うこと
+  - 変更なし: repository選択、`mutationRepository`、scan file processing、share、bulk delete、filter/sort UI、API呼び出し、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -120,6 +125,13 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 9 Project scan-to-add session contract共通化
+  - 更新: `src/app/project/[id]/page.tsx`, `src/lib/scan/scan-session-storage.ts`, `src/lib/scan/scan-session-storage.test.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: Project scan-to-addの `/scan/confirm` sessionStorage準備、既存project id保存、project name/icon/source labels/lexicon entries削除、single/multiple scan result payload保存shape
+  - 変更なし: repository選択、`mutationRepository`、scan file processing、share、bulk delete、filter/sort UI、API呼び出し、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/scan/scan-session-storage.test.ts` 成功。6 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 98 warnings、`security:all` 成功、`npm test` は241 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 10 Quiz question builder/storage key helper、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 8 Home scan sessionStorage helper抽出
   - 追加: `src/lib/scan/scan-session-storage.ts`, `src/lib/scan/scan-session-storage.test.ts`
   - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

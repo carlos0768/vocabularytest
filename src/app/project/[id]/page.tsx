@@ -26,6 +26,10 @@ import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLo
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import type { LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
+import {
+  prepareScanConfirmForExistingProject,
+  saveScanConfirmResultPayload,
+} from '@/lib/scan/scan-session-storage';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../../shared/lexicon';
 
@@ -326,10 +330,7 @@ export default function ProjectDetailPage() {
       }
     }
 
-    sessionStorage.setItem('scanvocab_existing_project_id', project.id);
-    sessionStorage.removeItem('scanvocab_project_name');
-    sessionStorage.removeItem('scanvocab_source_labels');
-    sessionStorage.removeItem('scanvocab_lexicon_entries');
+    prepareScanConfirmForExistingProject(sessionStorage, project.id);
 
     const totalFiles = scanFiles.length;
     setProcessing(true);
@@ -374,9 +375,11 @@ export default function ProjectDetailPage() {
           throw new Error(result.error || '解析に失敗しました');
         }
 
-        sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words));
-        sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(mergeSourceLabels(result.sourceLabels)));
-        sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(mergeLexiconEntries(result.lexiconEntries)));
+        saveScanConfirmResultPayload(sessionStorage, {
+          words: result.words,
+          sourceLabels: mergeSourceLabels(result.sourceLabels),
+          lexiconEntries: mergeLexiconEntries(result.lexiconEntries),
+        });
         startTransition(() => { router.push('/scan/confirm'); });
         setProcessing(false);
       } catch (error) {
@@ -464,9 +467,11 @@ export default function ProjectDetailPage() {
           throw new Error('画像から単語を読み取れませんでした');
         }
 
-        sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
-        sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
-        sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
+        saveScanConfirmResultPayload(sessionStorage, {
+          words: allWords,
+          sourceLabels: allSourceLabels,
+          lexiconEntries: allLexiconEntries,
+        });
         startTransition(() => { router.push('/scan/confirm'); });
         setProcessing(false);
       } catch (error) {

@@ -6,6 +6,7 @@ import {
   clearScanConfirmProjectIcon,
   getScanConfirmProjectDraft,
   hasScanConfirmExistingProject,
+  prepareScanConfirmForExistingProject,
   saveScanConfirmProjectDraft,
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
@@ -87,6 +88,31 @@ test('setScanConfirmExistingProject stores the target id and clears new-project 
   assert.deepEqual(storage.removedKeys, [
     SCAN_CONFIRM_SESSION_KEYS.projectName,
     SCAN_CONFIRM_SESSION_KEYS.projectIcon,
+  ]);
+});
+
+test('prepareScanConfirmForExistingProject clears stale project scan-to-add metadata', () => {
+  const storage = new MemoryStorage({
+    [SCAN_CONFIRM_SESSION_KEYS.extractedWords]: '[{"english":"old"}]',
+    [SCAN_CONFIRM_SESSION_KEYS.sourceLabels]: '["old source"]',
+    [SCAN_CONFIRM_SESSION_KEYS.lexiconEntries]: '[{"id":"old-entry"}]',
+    [SCAN_CONFIRM_SESSION_KEYS.projectName]: 'New Project',
+    [SCAN_CONFIRM_SESSION_KEYS.projectIcon]: 'data:image/png;base64,icon',
+  });
+
+  prepareScanConfirmForExistingProject(storage, 'project-2');
+
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.existingProjectId), 'project-2');
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.extractedWords), '[{"english":"old"}]');
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.sourceLabels), null);
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.lexiconEntries), null);
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.projectName), null);
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.projectIcon), null);
+  assert.deepEqual(storage.removedKeys, [
+    SCAN_CONFIRM_SESSION_KEYS.projectName,
+    SCAN_CONFIRM_SESSION_KEYS.projectIcon,
+    SCAN_CONFIRM_SESSION_KEYS.sourceLabels,
+    SCAN_CONFIRM_SESSION_KEYS.lexiconEntries,
   ]);
 });
 
