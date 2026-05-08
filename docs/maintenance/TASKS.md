@@ -172,9 +172,13 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、以下の候補から1回1責務で再分解してください。
 
-- [ ] `src/app/api/scan-jobs/process/route.ts` の残分割を再計画する
-  - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分ける
-  - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切る
+- [x] `src/app/api/scan-jobs/process/route.ts` の残分割を再計画する
+  - 成果物: [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
+  - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分けた
+  - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切った
+- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1以降を1回1責務で実施する
+  - まず `server_cloud` route contract追加から進める
+  - 実装タスクは未着手。保存処理全体のservice化はまだしない
 - [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
   - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
 - [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする

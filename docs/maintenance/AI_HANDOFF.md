@@ -104,6 +104,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 ## 次にやるべき作業
 
 1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、次フェーズ候補を確認する
-2. 推奨順は、`scan-jobs/process` 残分割の再計画、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
-3. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸ししてから小タスクへ切り直す。DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない
+2. 推奨順は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1以降、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
+3. `scan-jobs/process` の続きへ進む場合は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) を読み、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない
 4. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
