@@ -129,6 +129,13 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 確認: `npm exec -- tsx --test src/lib/subscription/billing-activation.test.ts src/lib/subscription/stripe-webhook-handlers.test.ts` 成功。10 tests pass
   - 確認: `npm run test:security` 成功。38 tests pass
   - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は258 tests pass、`test:security` は38 tests pass、`build` 成功
+- [x] 2026-05-08: Task 13 `reconcile routeのresponse state helperを抽出する`
+  - 更新: `src/app/api/subscription/reconcile/route.ts`, `src/lib/subscription/reconcile-status.ts`, `src/lib/subscription/reconcile-status.test.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: `/api/subscription/reconcile` のpending / failed / confirmed response descriptor、Checkout payment state分類、activation errorからresponse reasonへのmappingを `reconcile-status.ts` へ移動
+  - 固定: unknown session 404、forbidden 403、metadata mismatch 409、Stripe fetch failureはpending、unpaid / expiredはfailed、paidはactivationへ進む、stored failed / cancelled / activation待ち / confirmed response shape
+  - 変更なし: cookie auth、session ownership check、Stripe session fetch、`activateBillingFromSession()`、`markSessionFailed()`、webhook handler、課金状態更新の意味、DB migration、認証、スキャン、同期、prompt
+  - 確認: `npm exec -- tsx --test src/lib/subscription/reconcile-status.test.ts src/lib/subscription/billing-activation.test.ts` 成功。15 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は265 tests pass、`test:security` は38 tests pass、`build` 成功
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -152,6 +159,14 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 13 subscription reconcile response helper抽出
+  - 更新: `src/app/api/subscription/reconcile/route.ts`, `src/lib/subscription/reconcile-status.ts`, `src/lib/subscription/reconcile-status.test.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: reconcile routeのpending / failed / confirmed response shape、HTTP statusつきfailed mapping、Checkout payment state分類、activation error reason mappingをhelperへ移動
+  - 固定: unknown session 404、forbidden 403、metadata mismatch 409、Stripe fetch failure pending、unpaid / expired failed、paid activation path、stored failed / cancelled / pending / confirmed response shape
+  - 変更なし: cookie auth、session ownership check、Stripe session fetch、`activateBillingFromSession()`、`markSessionFailed()`、webhook handler、課金状態更新の意味、DB migration、認証、スキャン、同期、prompt
+  - 確認: `npm exec -- tsx --test src/lib/subscription/reconcile-status.test.ts src/lib/subscription/billing-activation.test.ts` 成功。15 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は265 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 14 Auth OTP helper抽出準備、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 12 Stripe webhook event handler抽出
   - 追加: `src/lib/subscription/stripe-webhook-handlers.ts`, `src/lib/subscription/stripe-webhook-handlers.test.ts`
   - 更新: `src/app/api/subscription/webhook/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
