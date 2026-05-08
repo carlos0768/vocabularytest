@@ -142,11 +142,22 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 固定: email lower-case、OTP insert payloadの `verified: false` / `attempts: 0`、invalid code時の `attempts + 1`、`AUTH_OTP_MAX_ATTEMPTS = 5`、expired / max attempts OTPのid指定delete、missing OTP response、reset-password verified OTPの追加5分grace
   - 固定: reset-password send-otpは存在しないemailを200 successで秘匿、signup send-otpは既存emailで409、`verify-otp` / `signup-verify` / `reset-password verify-otp` のvalid code時は `otp_requests.verified = true` をid指定で更新
   - Routeごとの差分: `verify-otp` はvalid OTP後に既存ユーザーを使うかrandom passwordのconfirmed userを作り、magiclink session cookieを作成してOTPをemail単位で削除する。`signup-verify` はvalid OTP後に既存emailならOTP削除後409、未登録なら入力passwordでconfirmed userを作り、magiclink session cookieを作成してOTPをemail単位で削除する。`reset-password` はsendでmissing emailを秘匿、verifyでOTPをverified化、set-passwordでverified OTP + 5分graceを確認してpassword更新、OTP削除、password sign-inをbest-effortで行う
-  - 今回route full mockは追加していない。Supabase Auth user作成/更新、session cookie設定、Resend送信文言、OTP code生成方式は移動・変更せず、`AUTH_OTP_ROUTE_SUCCESS_EFFECTS` のfixtureとhelper testで現行差分を固定した。Auth admin / cookie副作用のroute-level mock testは後続候補
+  - 前半ではroute full mockは追加していない。Supabase Auth user作成/更新、session cookie設定、Resend送信文言、OTP code生成方式は移動・変更せず、`AUTH_OTP_ROUTE_SUCCESS_EFFECTS` のfixtureとhelper testで現行差分を固定した
   - 変更なし: Supabase Auth user作成/更新のpayload、session cookie設定、Resend送信文言、OTP code生成方式、service role clientの配置、DB migration、課金、スキャン、同期、prompt
   - 確認: `npm exec -- tsx --test src/lib/auth/otp-lifecycle.test.ts` 成功。9 tests pass
   - 確認: `npm run test:security` 成功。38 tests pass
   - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は274 tests pass、`test:security` は38 tests pass、`build` 成功
+- [x] 2026-05-08: Task 14後半 `Auth OTP route-level contract testを追加する`
+  - 追加: `src/app/api/auth/otp.contract.test.ts`
+  - 更新: `src/app/api/auth/send-otp/route.ts`, `src/app/api/auth/verify-otp/route.ts`, `src/app/api/auth/signup-verify/route.ts`, `src/app/api/auth/reset-password/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: signup send-otpは既存emailで409、reset-password send-otpは存在しないemailでも200で秘匿、invalid codeはattemptsをid指定で `+1` して400、expired OTP / max attempts OTPはid指定でdeleteして400、valid OTPは `otp_requests.verified = true` をid指定で更新
+  - Route差分: `verify-otp` valid flowは未登録emailでconfirmed user作成、magiclink session設定、OTP email cleanupを行う。`signup-verify` valid OTP後も既存emailならverified更新後にOTP email cleanupして409を返す。`reset-password` set-passwordはverified OTP + graceを確認し、password更新、OTP email cleanup、password sign-in best-effortを行う
+  - 変更: 4つのOTP routeにtest用の任意depsつきhandlerだけを追加。`POST()` は従来のproduction depsを使う
+  - 変更なし: Supabase Auth user作成/更新payload、session cookie設定の意味、Resend送信文言、OTP code生成方式、service role client配置、DB migration、課金、スキャン、同期、prompt
+  - 確認: `npm exec -- tsx --test src/lib/auth/otp-lifecycle.test.ts` 成功。9 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/auth/otp.contract.test.ts` 成功。9 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は283 tests pass、`test:security` は38 tests pass、`build` 成功
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -170,12 +181,24 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 14後半 Auth OTP route-level contract test追加
+  - 追加: `src/app/api/auth/otp.contract.test.ts`
+  - 更新: `src/app/api/auth/send-otp/route.ts`, `src/app/api/auth/verify-otp/route.ts`, `src/app/api/auth/signup-verify/route.ts`, `src/app/api/auth/reset-password/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: signup send-otp既存email 409、reset-password send-otp missing email concealment 200、invalid code attempts +1 by id、expired / max attempts delete by id、valid OTP verified update by id
+  - Route差分: verifyは未登録emailでconfirmed user作成 + magiclink session + OTP email cleanup、signupはvalid OTP後の既存email 409 + cleanup、reset-passwordはset-passwordでverified OTP確認 + password update + cleanup + sign-in best-effort
+  - 変更: 4 routeにtest用の任意depsつきhandlerだけを追加し、`POST()` のproduction depsは維持
+  - 変更なし: Supabase Auth user作成/更新payload、session cookie設定の意味、Resend送信文言、OTP code生成方式、service role client配置、DB migration、課金、スキャン、同期、prompt
+  - 確認: `npm exec -- tsx --test src/lib/auth/otp-lifecycle.test.ts` 成功。9 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/auth/otp.contract.test.ts` 成功。9 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は283 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 15 sync safety contract test、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 14前半 Auth OTP lifecycle現行挙動固定
   - 追加: `src/lib/auth/otp-lifecycle.ts`, `src/lib/auth/otp-lifecycle.test.ts`
   - 更新: `src/app/api/auth/send-otp/route.ts`, `src/app/api/auth/verify-otp/route.ts`, `src/app/api/auth/signup-verify/route.ts`, `src/app/api/auth/reset-password/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
   - 固定: email lower-case、OTP insert payload、invalid code attempts increment、`AUTH_OTP_MAX_ATTEMPTS = 5`、expired / max attempts OTP delete、reset-password missing email concealment、signup existing email 409、valid OTP時の `verified: true` 更新、reset-password set-passwordのverified OTP + 5分grace
   - Route差分: verifyは既存/新規user + magiclink session、signupは既存email 409または入力password user作成 + magiclink session、reset-passwordはverifyでOTP verified化しset-passwordでpassword更新 + OTP cleanup + sign-in best-effort
-  - route full mockは未追加。Supabase Auth user作成/更新、session cookie設定、Resend送信文言、OTP code生成方式は変更せず、helper testとsuccess-effects fixtureで固定。Auth admin / cookie副作用のroute-level mock testは後続候補
+  - 前半時点ではroute full mockは未追加。Supabase Auth user作成/更新、session cookie設定、Resend送信文言、OTP code生成方式は変更せず、helper testとsuccess-effects fixtureで固定
   - 変更なし: Supabase Auth user作成/更新payload、session cookie設定、Resend送信文言、OTP code生成方式、service role client配置、DB migration、課金、スキャン、同期、prompt
   - 確認: `npm exec -- tsx --test src/lib/auth/otp-lifecycle.test.ts` 成功。9 tests pass
   - 確認: `npm run test:security` 成功。38 tests pass

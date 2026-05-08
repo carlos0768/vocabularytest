@@ -23,7 +23,20 @@ const requestSchema = z.object({
   email: z.string().trim().email().max(254),
 }).strict();
 
+export type SendOtpRouteDeps = {
+  getAdminClient?: typeof getAdminClient;
+  generateOtpCode?: typeof generateOtpCode;
+  sendOtpEmail?: typeof sendOtpEmail;
+};
+
 export async function POST(request: Request) {
+  return handleSendOtpPost(request);
+}
+
+export async function handleSendOtpPost(
+  request: Request,
+  deps: SendOtpRouteDeps = {},
+) {
   try {
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: '有効なメールアドレスを入力してください',
@@ -33,7 +46,7 @@ export async function POST(request: Request) {
     }
     const { email } = parsed.data;
 
-    const supabase = getAdminClient();
+    const supabase = (deps.getAdminClient ?? getAdminClient)();
     const normalizedEmail = normalizeOtpEmail(email);
 
     // 既存ユーザーチェック
@@ -56,7 +69,7 @@ export async function POST(request: Request) {
       .eq('verified', false);
 
     // 新しいOTPコードを生成
-    const otpCode = generateOtpCode();
+    const otpCode = (deps.generateOtpCode ?? generateOtpCode)();
 
     // OTPをデータベースに保存
     const { error: insertError } = await supabase
@@ -72,7 +85,7 @@ export async function POST(request: Request) {
     }
 
     // Resendでメール送信
-    const emailResult = await sendOtpEmail({
+    const emailResult = await (deps.sendOtpEmail ?? sendOtpEmail)({
       to: normalizedEmail,
       otpCode,
     });

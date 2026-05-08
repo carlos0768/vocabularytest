@@ -72,9 +72,23 @@ const requestSchema = z.discriminatedUnion('action', [
   setPasswordSchema,
 ]);
 
+export type ResetPasswordRouteDeps = {
+  getAdminClient?: typeof getAdminClient;
+  getServerClient?: typeof getServerClient;
+  generateOtpCode?: typeof generateOtpCode;
+  sendOtpEmail?: typeof sendOtpEmail;
+};
+
 // POST /api/auth/reset-password
 // action: 'send-otp' | 'verify-otp' | 'set-password'
 export async function POST(request: Request) {
+  return handleResetPasswordPost(request);
+}
+
+export async function handleResetPasswordPost(
+  request: Request,
+  deps: ResetPasswordRouteDeps = {},
+) {
   try {
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: '不正なリクエストです',
@@ -85,12 +99,12 @@ export async function POST(request: Request) {
     const body = parsed.data;
 
     if (body.action === 'send-otp') {
-      return handleSendOtp(body);
+      return handleSendOtp(body, deps);
     }
     if (body.action === 'verify-otp') {
-      return handleVerifyOtp(body);
+      return handleVerifyOtp(body, deps);
     }
-    return handleSetPassword(body);
+    return handleSetPassword(body, deps);
   } catch (error) {
     console.error('Reset password error:', error);
     return NextResponse.json({ error: 'サーバーエラーが発生しました' }, { status: 500 });
@@ -98,8 +112,11 @@ export async function POST(request: Request) {
 }
 
 // Step 1: Send OTP to email
-async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
-  const adminClient = getAdminClient();
+async function handleSendOtp(
+  { email }: z.infer<typeof sendOtpSchema>,
+  deps: ResetPasswordRouteDeps,
+) {
+  const adminClient = (deps.getAdminClient ?? getAdminClient)();
   const normalizedEmail = normalizeOtpEmail(email);
 
   // Check if user exists
@@ -120,7 +137,7 @@ async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
     .eq('verified', false);
 
   // Generate and save OTP
-  const otpCode = generateOtpCode();
+  const otpCode = (deps.generateOtpCode ?? generateOtpCode)();
   const { error: insertError } = await adminClient
     .from('otp_requests')
     .insert(buildOtpInsertPayload({ normalizedEmail, otpCode }));
@@ -131,7 +148,7 @@ async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
   }
 
   // Send email via Resend
-  const emailResult = await sendOtpEmail({
+  const emailResult = await (deps.sendOtpEmail ?? sendOtpEmail)({
     to: normalizedEmail,
     otpCode,
   });
@@ -153,8 +170,11 @@ async function handleSendOtp({ email }: z.infer<typeof sendOtpSchema>) {
 }
 
 // Step 2: Verify OTP
-async function handleVerifyOtp({ email, code }: z.infer<typeof verifyOtpSchema>) {
-  const adminClient = getAdminClient();
+async function handleVerifyOtp(
+  { email, code }: z.infer<typeof verifyOtpSchema>,
+  deps: ResetPasswordRouteDeps,
+) {
+  const adminClient = (deps.getAdminClient ?? getAdminClient)();
   const normalizedEmail = normalizeOtpEmail(email);
   const normalizedCode = code;
 
@@ -224,8 +244,11 @@ async function handleVerifyOtp({ email, code }: z.infer<typeof verifyOtpSchema>)
 }
 
 // Step 3: Set new password
-async function handleSetPassword({ email, newPassword }: z.infer<typeof setPasswordSchema>) {
-  const adminClient = getAdminClient();
+async function handleSetPassword(
+  { email, newPassword }: z.infer<typeof setPasswordSchema>,
+  deps: ResetPasswordRouteDeps,
+) {
+  const adminClient = (deps.getAdminClient ?? getAdminClient)();
   const normalizedEmail = normalizeOtpEmail(email);
 
   // Verify OTP was already verified
@@ -284,7 +307,7 @@ async function handleSetPassword({ email, newPassword }: z.infer<typeof setPassw
     .eq('email', normalizedEmail);
 
   // Log the user in
-  const serverClient = await getServerClient();
+  const serverClient = await (deps.getServerClient ?? getServerClient)();
   const { error: signInError } = await serverClient.auth.signInWithPassword({
     email: normalizedEmail,
     password: newPassword,

@@ -46,7 +46,19 @@ const requestSchema = z.object({
   password: z.string().min(8).max(128),
 }).strict();
 
+export type SignupVerifyRouteDeps = {
+  getAdminClient?: typeof getAdminClient;
+  getServerClient?: typeof getServerClient;
+};
+
 export async function POST(request: Request) {
+  return handleSignupVerifyPost(request);
+}
+
+export async function handleSignupVerifyPost(
+  request: Request,
+  deps: SignupVerifyRouteDeps = {},
+) {
   try {
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: 'メールアドレス、6桁の認証コード、8文字以上のパスワードを入力してください',
@@ -56,7 +68,7 @@ export async function POST(request: Request) {
     }
     const { email, code, password } = parsed.data;
 
-    const adminClient = getAdminClient();
+    const adminClient = (deps.getAdminClient ?? getAdminClient)();
     const normalizedEmail = normalizeOtpEmail(email);
     const normalizedCode = code;
 
@@ -174,7 +186,7 @@ export async function POST(request: Request) {
     }
 
     // トークンを使ってセッションを設定
-    const serverClient = await getServerClient();
+    const serverClient = await (deps.getServerClient ?? getServerClient)();
     const { data: sessionData, error: sessionError } = await serverClient.auth.verifyOtp({
       token_hash: linkData.properties.hashed_token,
       type: 'magiclink',

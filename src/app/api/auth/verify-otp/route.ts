@@ -45,7 +45,19 @@ const requestSchema = z.object({
   code: z.string().trim().regex(/^\d{6}$/),
 }).strict();
 
+export type VerifyOtpRouteDeps = {
+  getAdminClient?: typeof getAdminClient;
+  getServerClient?: typeof getServerClient;
+};
+
 export async function POST(request: Request) {
+  return handleVerifyOtpPost(request);
+}
+
+export async function handleVerifyOtpPost(
+  request: Request,
+  deps: VerifyOtpRouteDeps = {},
+) {
   try {
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: 'メールアドレスと6桁の認証コードを入力してください',
@@ -55,7 +67,7 @@ export async function POST(request: Request) {
     }
     const { email, code } = parsed.data;
 
-    const adminClient = getAdminClient();
+    const adminClient = (deps.getAdminClient ?? getAdminClient)();
     const normalizedEmail = normalizeOtpEmail(email);
     const normalizedCode = code;
 
@@ -171,7 +183,7 @@ export async function POST(request: Request) {
     }
 
     // トークンを使ってセッションを設定
-    const serverClient = await getServerClient();
+    const serverClient = await (deps.getServerClient ?? getServerClient)();
     const { data: sessionData, error: sessionError } = await serverClient.auth.verifyOtp({
       token_hash: linkData.properties.hashed_token,
       type: 'magiclink',
