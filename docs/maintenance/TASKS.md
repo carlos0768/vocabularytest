@@ -120,6 +120,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 変更: `src/lib/ai/prompts.ts` は既存public exportsを維持するbarrel exportへ変更
   - 固定: 旧 `prompts.ts` と新barrelのpublic exports 26件を比較し、prompt文字列とEIKEN/grammar helper戻り値が一致することを確認
   - 変更なし: prompt本文の意味、source label rule、EIKEN level order、AI schema、抽出ロジック、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 12 `Stripe webhook event handler抽出`
+  - 追加: `src/lib/subscription/stripe-webhook-handlers.ts`, `src/lib/subscription/stripe-webhook-handlers.test.ts`
+  - 更新: `src/app/api/subscription/webhook/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded` のevent type別handlerをroute外へ移動
+  - 固定: checkout session completedが `activateBillingFromSession()` を使うこと、invoice.paidのsubscription id解決、first invoice skip、unknown subscription no-op、charge.refunded cancellation payload
+  - 変更なし: `request.text()`, `stripe-signature`, `constructWebhookEvent()`, payload hash, `claimWebhookEvent()`, `markWebhookEventProcessed()`, `markWebhookEventFailed()`, `WebhookError` status mapping、checkout / invoice / subscription / refundの課金状態の意味、Stripe API接続、認証、スキャン、同期、prompt、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/subscription/billing-activation.test.ts src/lib/subscription/stripe-webhook-handlers.test.ts` 成功。10 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は258 tests pass、`test:security` は38 tests pass、`build` 成功
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -143,6 +152,16 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 12 Stripe webhook event handler抽出
+  - 追加: `src/lib/subscription/stripe-webhook-handlers.ts`, `src/lib/subscription/stripe-webhook-handlers.test.ts`
+  - 更新: `src/app/api/subscription/webhook/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: Stripe webhookのevent type別処理をhelperへ移動し、routeは署名検証、payload hash、claim、processed/failed markingを保持
+  - 固定: checkout activationは `activateBillingFromSession()` を使う、invoice.paidのsubscription id解決、first invoice skip、unknown subscription no-op、charge.refunded cancellation payload
+  - 変更なし: `request.text()`, `stripe-signature`, `constructWebhookEvent()`, `claimWebhookEvent()`, `markWebhookEventProcessed()`, `markWebhookEventFailed()`, `WebhookError` status mapping、課金状態の意味、Stripe API接続、認証、スキャン、同期、prompt、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/subscription/billing-activation.test.ts src/lib/subscription/stripe-webhook-handlers.test.ts` 成功。10 tests pass
+  - 確認: `npm run test:security` 成功。38 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は258 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 13 subscription reconcile response helper抽出、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 11 prompt file機械的分割
   - 追加: `src/lib/ai/prompts/source-labels.ts`, `word-extraction.ts`, `circled.ts`, `eiken.ts`, `grammar.ts`, `idiom.ts`, `highlighted.ts`, `wrong-answer.ts`
   - 更新: `src/lib/ai/prompts.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

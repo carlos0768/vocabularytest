@@ -50,7 +50,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-08時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。253 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。258 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -83,6 +83,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 10は 2026-05-08 に完了。`src/lib/quiz/quiz-state.ts` と `src/lib/quiz/quiz-state.test.ts` を追加し、Quiz pageの `getQuizStorageKey()`、30分TTL判定、generic distractor pool、`generateQuestions()` 相当のquestion builderを純粋helperへ移動済み。review key `quiz_state_review`、通常key `quiz_state_${projectId}`、TTL境界、en-to-ja / ja-to-en question生成、stored distractor利用、placeholder時の他単語fallback、generic distractor fallback、重複除外を固定。repository update、spaced repetition保存、wrong answer記録、background distractor API、review/collection loading、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は247 tests pass
 - P2-C Task 11のうちprompt contract test追加は 2026-05-08 に完了。`src/lib/ai/prompts.contract.test.ts` を追加し、`src/lib/ai/prompts.ts` の既存public exports、sourceLabels一般名詞禁止/物理教材名指示、JSON出力指示、`partOfSpeechTags` 出力contract、EIKEN level以上filter、idiom / phrasal_verb分類を固定済み。prompt本文、source label rule、EIKEN level order、AI schema、promptファイル分割、認証、課金、同期、DB migrationは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は253 tests pass
 - P2-C Task 11のprompt本文差分なし機械的分割は 2026-05-08 に完了。`src/lib/ai/prompts.ts` は既存public exports 26件を維持するbarrelにし、実体を `src/lib/ai/prompts/source-labels.ts`, `word-extraction.ts`, `circled.ts`, `eiken.ts`, `grammar.ts`, `idiom.ts`, `highlighted.ts`, `wrong-answer.ts` へ分割済み。旧 `prompts.ts` と新barrelのpublic exportsを比較し、prompt文字列とEIKEN/grammar helper戻り値が一致することを確認済み。prompt本文の意味、source label rule、EIKEN level order、AI schema、抽出ロジック、認証、課金、同期、DB migrationは変更していない。`npm run verify` は成功し、`npm test` は253 tests pass
+- P2-C Task 12は 2026-05-08 に完了。`src/lib/subscription/stripe-webhook-handlers.ts` と `src/lib/subscription/stripe-webhook-handlers.test.ts` を追加し、Stripe webhook route内のevent type別handlerをhelperへ移動済み。`request.text()`、`stripe-signature`、`constructWebhookEvent()`、payload hash、`claimWebhookEvent()`、`markWebhookEventProcessed()`、`markWebhookEventFailed()`、`WebhookError` status mappingはroute側に残した。checkout activationが `activateBillingFromSession()` を使うこと、invoice.paidのsubscription id解決、first invoice skip、unknown subscription no-op、charge.refunded cancellation payloadをhelper testで固定済み。既存のcheckout / invoice / subscription / refund DB更新payloadの意味、課金状態、Stripe API接続、認証、スキャン、同期、prompt、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は258 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -97,6 +98,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 11まで完了済み。次はTask 12 Stripe webhook handler抽出準備、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
+1. P2-C Task 12まで完了済み。次はTask 13 subscription reconcile response helper抽出、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
 2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない
