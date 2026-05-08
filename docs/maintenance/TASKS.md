@@ -115,11 +115,17 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 変更: 新contract testを `npm run test:web` 固定リストへ追加
   - 未実施: promptファイル分割。後続で行う場合もprompt本文の意味変更なしの機械的分割に限定する
   - 変更なし: prompt本文、source label rule、EIKEN level order、AI schema、認証、課金、同期、DB migration
+- [x] 2026-05-08: Task 11 `prompt contract testを増やしてからdomain別に分ける` のうちprompt本文差分なし機械的分割
+  - 追加: `src/lib/ai/prompts/source-labels.ts`, `word-extraction.ts`, `circled.ts`, `eiken.ts`, `grammar.ts`, `idiom.ts`, `highlighted.ts`, `wrong-answer.ts`
+  - 変更: `src/lib/ai/prompts.ts` は既存public exportsを維持するbarrel exportへ変更
+  - 固定: 旧 `prompts.ts` と新barrelのpublic exports 26件を比較し、prompt文字列とEIKEN/grammar helper戻り値が一致することを確認
+  - 変更なし: prompt本文の意味、source label rule、EIKEN level order、AI schema、抽出ロジック、認証、課金、同期、DB migration
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
 - [ ] `src/app/quiz/[projectId]/page.tsx` を、クイズ進行、保存、表示の責務を確認してから段階的に分割する
-- [ ] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
+- [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
+  - 2026-05-08 Task 11でprompt contract test追加とprompt本文差分なしのdomain別機械的分割まで完了
 - [ ] repository層、認証、課金、同期は、監査で問題が明確になった箇所から小さく直す
 
 ### P2-D: 正式docsへの昇格
@@ -137,6 +143,16 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-08: P2-C Task 11 prompt file機械的分割
+  - 追加: `src/lib/ai/prompts/source-labels.ts`, `word-extraction.ts`, `circled.ts`, `eiken.ts`, `grammar.ts`, `idiom.ts`, `highlighted.ts`, `wrong-answer.ts`
+  - 更新: `src/lib/ai/prompts.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: `src/lib/ai/prompts.ts` は既存import互換のbarrelとして残し、既存public exports 26件を維持
+  - 確認: 旧 `prompts.ts` と新barrelのpublic exportsを比較し、prompt文字列とEIKEN/grammar helper戻り値が一致
+  - 変更なし: prompt本文の意味、source label rule、EIKEN level order、AI schema、抽出ロジック、認証、課金、同期、DB migration
+  - 確認: `npm exec -- tsx --test src/lib/ai/prompts.contract.test.ts` 成功。6 tests pass
+  - 確認: `npm exec -- tsx --test src/lib/ai/prompts.translation-context.test.ts src/lib/ai/prompts.contract.test.ts src/lib/ai/extract-circled-words.test.ts src/lib/ai/extract-eiken-words.test.ts src/lib/ai/extract-highlighted-words.test.ts src/lib/ai/extract-wrong-answers.test.ts` 成功。20 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は253 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: Task 12 Stripe webhook handler抽出準備、または残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する
 - [x] 2026-05-08: P2-C Task 11 prompt contract test追加
   - 追加: `src/lib/ai/prompts.contract.test.ts`
   - 更新: `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

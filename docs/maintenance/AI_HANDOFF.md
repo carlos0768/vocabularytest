@@ -82,6 +82,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 9は 2026-05-08 に完了。Project detailのscan-to-addで `/scan/confirm` へ渡す `scanvocab_existing_project_id`, `scanvocab_extracted_words`, `scanvocab_source_labels`, `scanvocab_lexicon_entries` の保存/削除を `src/lib/scan/scan-session-storage.ts` へ寄せ、Project用の準備helper `prepareScanConfirmForExistingProject()` を追加済み。既存project id保存、project name/icon/source labels/lexicon entries削除、single/multiple scan結果payloadのJSON保存shapeをhelper testで固定。repository選択、`mutationRepository`、scan file processing、share、bulk delete、filter/sort UI、API呼び出し、認証、課金、同期、DB migrationは変更していない。既存helper testを拡張済み。`npm run verify` は成功し、`npm test` は241 tests pass
 - P2-C Task 10は 2026-05-08 に完了。`src/lib/quiz/quiz-state.ts` と `src/lib/quiz/quiz-state.test.ts` を追加し、Quiz pageの `getQuizStorageKey()`、30分TTL判定、generic distractor pool、`generateQuestions()` 相当のquestion builderを純粋helperへ移動済み。review key `quiz_state_review`、通常key `quiz_state_${projectId}`、TTL境界、en-to-ja / ja-to-en question生成、stored distractor利用、placeholder時の他単語fallback、generic distractor fallback、重複除外を固定。repository update、spaced repetition保存、wrong answer記録、background distractor API、review/collection loading、認証、課金、同期、DB migrationは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は247 tests pass
 - P2-C Task 11のうちprompt contract test追加は 2026-05-08 に完了。`src/lib/ai/prompts.contract.test.ts` を追加し、`src/lib/ai/prompts.ts` の既存public exports、sourceLabels一般名詞禁止/物理教材名指示、JSON出力指示、`partOfSpeechTags` 出力contract、EIKEN level以上filter、idiom / phrasal_verb分類を固定済み。prompt本文、source label rule、EIKEN level order、AI schema、promptファイル分割、認証、課金、同期、DB migrationは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は253 tests pass
+- P2-C Task 11のprompt本文差分なし機械的分割は 2026-05-08 に完了。`src/lib/ai/prompts.ts` は既存public exports 26件を維持するbarrelにし、実体を `src/lib/ai/prompts/source-labels.ts`, `word-extraction.ts`, `circled.ts`, `eiken.ts`, `grammar.ts`, `idiom.ts`, `highlighted.ts`, `wrong-answer.ts` へ分割済み。旧 `prompts.ts` と新barrelのpublic exportsを比較し、prompt文字列とEIKEN/grammar helper戻り値が一致することを確認済み。prompt本文の意味、source label rule、EIKEN level order、AI schema、抽出ロジック、認証、課金、同期、DB migrationは変更していない。`npm run verify` は成功し、`npm test` は253 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -96,6 +97,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 11のprompt contract test追加まで完了済み。次はTask 11のprompt本文差分なし機械的分割、Task 12 Stripe webhook handler抽出準備、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
+1. P2-C Task 11まで完了済み。次はTask 12 Stripe webhook handler抽出準備、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
 2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
 3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない
