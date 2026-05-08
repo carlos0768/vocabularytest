@@ -99,6 +99,7 @@ export interface ProcessJobDeps {
   sendPushNotifications?: typeof sendScanJobPushNotifications;
   sendApnsNotifications?: typeof sendScanJobApnsNotifications;
   flushTiming?: typeof flushTimingLogs;
+  afterTask?: typeof after;
 }
 
 interface ProcessedExtractedWord {
@@ -684,6 +685,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
     const sendApnsNotifications = processDeps?.sendApnsNotifications ?? sendScanJobApnsNotifications;
     const flushTiming = processDeps?.flushTiming ?? flushTimingLogs;
+    const scheduleAfter = processDeps?.afterTask ?? after;
 
     const processingTimestamp = new Date().toISOString();
     const { data: claimedJob, error: claimError } = await supabaseAdmin
@@ -1214,7 +1216,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           // Save examples to lexicon master DB (best-effort, non-blocking)
           if (exampleResult.examples.length > 0) {
             const examplesSnapshot = [...exampleResult.examples];
-            after(async () => {
+            scheduleAfter(async () => {
               try {
                 const generatedWordIds = examplesSnapshot.map(ex => ex.wordId);
                 const { data: wordsWithLexicon } = await supabaseAdmin
@@ -1272,7 +1274,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       // --- Pronunciation backfill (best-effort, non-blocking) ---
       if (insertedWordsArray.length > 0) {
         const pronunciationWordIds = insertedWordsArray.map((w: { id: string }) => w.id);
-        after(async () => {
+        scheduleAfter(async () => {
           try {
             const result = await backfillPronunciations(pronunciationWordIds);
             if (result.updated > 0) {
@@ -1413,7 +1415,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       });
 
       // Heavy/non-critical tasks run after completion update.
-      after(async () => {
+      scheduleAfter(async () => {
         const aiTranslatedWordIdSet = new Set(aiTranslatedWordIds);
         const pendingWordIds = insertedWordsArray
           .filter((row: {

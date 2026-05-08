@@ -176,9 +176,9 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
   - 成果物: [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
   - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分けた
   - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切った
-- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1以降を1回1責務で実施する
-  - まず `server_cloud` route contract追加から進める
-  - 実装タスクは未着手。保存処理全体のservice化はまだしない
+- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 2以降を1回1責務で実施する
+  - Task 1 `server_cloud` route contract追加は 2026-05-09 に完了
+  - 次はTask 2 `server_cloud` result payload builder抽出候補。ただし保存処理全体のservice化はまだしない
 - [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
   - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
 - [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
@@ -205,6 +205,17 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
 
 ## Done
 
+- [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 1 `server_cloud` route contract追加
+  - 更新: `src/app/api/scan-jobs/process/route.contract.test.ts`, `src/app/api/scan-jobs/process/route.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: 新規projectの `server_cloud` happy pathで、project insert -> words insert -> completed update -> completed通知 -> timing flush の順序と、`scan_jobs.result` の `wordCount` / `saveMode` / `targetProjectId` / `sourceLabels` payloadをroute-levelで固定
+  - 固定: words insert失敗時、新規projectだけrollback deleteし、その後にfailed update / failed通知 / timing flushへ進むことを固定
+  - 固定: 既存project追加時のwords insert失敗ではproject deleteしないことを固定
+  - 変更: `processJobById()` にtest用の任意 `afterTask` depsを追加。未指定時は従来どおりNextの `after()` を使うためproduction behaviorは変更しない
+  - 変更なし: DB update payloadの意味、rollback条件、通知/timing/post-processingのproduction順序、AI抽出、example生成、lexicon、prompt、認証、課金、同期、DB migration、package-lock
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/process/route.contract.test.ts src/lib/scan/server-cloud-persistence.contract.test.ts` 成功。12 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/process/route.extractor.test.ts` 成功。5 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は293 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 残リスク: `server_cloud` result payload builder、quiz prefill selector、example generation seed/update、image extraction worker、post-processing候補計算はまだroute内に残る。次も [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) に沿って1回1責務で進める
 - [x] 2026-05-09: P2-C Task 15 hybrid repository / sync queue safety contract test追加
   - 追加: `src/lib/db/sync-queue.test.ts`
   - 更新: `src/lib/db/hybrid-repository.ts`, `src/lib/db/sync-queue.ts`, `src/lib/db/hybrid-repository.test.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
