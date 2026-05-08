@@ -158,6 +158,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 確認: `npm exec -- tsx --test src/app/api/auth/otp.contract.test.ts` 成功。9 tests pass
   - 確認: `npm run test:security` 成功。38 tests pass
   - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は283 tests pass、`test:security` は38 tests pass、`build` 成功
+- [x] 2026-05-09: Task 15 `hybrid repository / sync queue safety contract testを追加する`
+  - 追加: `src/lib/db/sync-queue.test.ts`
+  - 更新: `src/lib/db/hybrid-repository.ts`, `src/lib/db/sync-queue.ts`, `src/lib/db/hybrid-repository.test.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: `fullSync()` はremote empty + local dataでlocal project/wordを削除しない。pending createを持つlocal-only projectはremoteへpushする。synced userが変わる場合はdeltaではなくfull sync pathを使う
+  - 固定: `syncQueue.process()` はqueue順にcreate / update / deleteをremote repositoryへ適用する。失敗itemはqueueに残して `retryCount` を増やす。`retryCount >= 3` はdropする。成功したitemだけqueueから削除する
+  - 変更: `HybridWordRepository` と `SyncQueue` にtest用constructor dependency injectionを追加。未指定時は既存の `getDb()`, `remoteRepository`, `syncQueue`, online判定を使う
+  - 変更なし: Dexie schema、DB migration、`fullSync()` のlocal delete順、sync queue item format、remoteRepository API contract、認証、課金、スキャン、prompt、UI
+  - 確認: `npm exec -- tsx --test src/lib/db/hybrid-repository.test.ts src/lib/db/sync-queue.test.ts` 成功。12 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は290 tests pass、`test:security` は38 tests pass、`build` 成功
 - [ ] `src/app/api/scan-jobs/process/route.ts` を、監査結果に基づいて段階的に分割する
 - [ ] `src/app/page.tsx` を、画面責務と状態管理の境界を確認してから段階的に分割する
 - [ ] `src/app/project/[id]/page.tsx` を、データ取得、表示、操作の責務を確認してから段階的に分割する
@@ -181,6 +190,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
 
 ## Done
 
+- [x] 2026-05-09: P2-C Task 15 hybrid repository / sync queue safety contract test追加
+  - 追加: `src/lib/db/sync-queue.test.ts`
+  - 更新: `src/lib/db/hybrid-repository.ts`, `src/lib/db/sync-queue.ts`, `src/lib/db/hybrid-repository.test.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 固定: remote empty + local data時のdestructive sync guard、pending createつきlocal-only projectのremote push、synced user変更時のfull sync path、sync queueのcreate/update/delete順、retry increment、retry limit drop、成功itemのみ削除
+  - 変更: production defaultを維持したconstructor dependency injectionのみ追加
+  - 変更なし: Dexie schema、DB migration、`fullSync()` のlocal delete順、sync queue item format、remoteRepository API contract、認証、課金、スキャン、prompt、UI
+  - 確認: `npm exec -- tsx --test src/lib/db/hybrid-repository.test.ts src/lib/db/sync-queue.test.ts` 成功。12 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は290 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 次にやるべきこと: 残りの `scan-jobs/process` 段階的分割へ進む場合も、1回1責務でcontract/testを先に固定する。同期領域をさらに触る場合は今回固定したdestructive guard / retry/drop contractを維持する
 - [x] 2026-05-08: P2-C Task 14後半 Auth OTP route-level contract test追加
   - 追加: `src/app/api/auth/otp.contract.test.ts`
   - 更新: `src/app/api/auth/send-otp/route.ts`, `src/app/api/auth/verify-otp/route.ts`, `src/app/api/auth/signup-verify/route.ts`, `src/app/api/auth/reset-password/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

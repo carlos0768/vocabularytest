@@ -7,10 +7,31 @@ import type { Project, Word } from '@/types';
 
 const MAX_RETRY_COUNT = 3;
 
+type SyncQueueRemoteRepository = {
+  createProjectWithId(project: Project): Promise<void>;
+  updateProject(id: string, updates: Partial<Project>): Promise<void>;
+  deleteProject(id: string): Promise<void>;
+  createWordsWithIds(words: Word[]): Promise<void>;
+  updateWord(id: string, updates: Partial<Word>): Promise<void>;
+  deleteWord(id: string): Promise<void>;
+};
+
+export type SyncQueueDependencies = {
+  getDb: typeof getDb;
+  remoteRepository: SyncQueueRemoteRepository;
+};
+
+const defaultDependencies: SyncQueueDependencies = {
+  getDb,
+  remoteRepository,
+};
+
 export class SyncQueue {
+  constructor(private readonly dependencies: SyncQueueDependencies = defaultDependencies) {}
+
   // Add an operation to the sync queue
   async add(item: Omit<SyncQueueItem, 'id' | 'createdAt' | 'retryCount'>): Promise<void> {
-    const db = getDb();
+    const db = this.dependencies.getDb();
     await db.syncQueue.add({
       ...item,
       createdAt: new Date().toISOString(),
@@ -20,19 +41,19 @@ export class SyncQueue {
 
   // Get all pending items
   async getPending(): Promise<SyncQueueItem[]> {
-    const db = getDb();
+    const db = this.dependencies.getDb();
     return db.syncQueue.toArray();
   }
 
   // Remove a processed item
   async remove(id: number): Promise<void> {
-    const db = getDb();
+    const db = this.dependencies.getDb();
     await db.syncQueue.delete(id);
   }
 
   // Increment retry count
   async incrementRetry(id: number): Promise<void> {
-    const db = getDb();
+    const db = this.dependencies.getDb();
     const item = await db.syncQueue.get(id);
     if (item) {
       await db.syncQueue.update(id, { retryCount: item.retryCount + 1 });
@@ -41,7 +62,7 @@ export class SyncQueue {
 
   // Clear all items (after full sync)
   async clear(): Promise<void> {
-    const db = getDb();
+    const db = this.dependencies.getDb();
     await db.syncQueue.clear();
   }
 
@@ -96,17 +117,17 @@ export class SyncQueue {
     switch (operation) {
       case 'create': {
         const project = data as Project;
-        await remoteRepository.createProjectWithId(project);
+        await this.dependencies.remoteRepository.createProjectWithId(project);
         break;
       }
       case 'update': {
-        const { id, updates } = data as { id: string; updates: Record<string, unknown> };
-        await remoteRepository.updateProject(id, updates);
+        const { id, updates } = data as { id: string; updates: Partial<Project> };
+        await this.dependencies.remoteRepository.updateProject(id, updates);
         break;
       }
       case 'delete': {
         const { id } = data as { id: string };
-        await remoteRepository.deleteProject(id);
+        await this.dependencies.remoteRepository.deleteProject(id);
         break;
       }
     }
@@ -119,17 +140,17 @@ export class SyncQueue {
     switch (operation) {
       case 'create': {
         const word = data as Word;
-        await remoteRepository.createWordsWithIds([word]);
+        await this.dependencies.remoteRepository.createWordsWithIds([word]);
         break;
       }
       case 'update': {
-        const { id, updates } = data as { id: string; updates: Record<string, unknown> };
-        await remoteRepository.updateWord(id, updates);
+        const { id, updates } = data as { id: string; updates: Partial<Word> };
+        await this.dependencies.remoteRepository.updateWord(id, updates);
         break;
       }
       case 'delete': {
         const { id } = data as { id: string };
-        await remoteRepository.deleteWord(id);
+        await this.dependencies.remoteRepository.deleteWord(id);
         break;
       }
     }

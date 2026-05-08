@@ -47,10 +47,10 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 現在の検証状態
 
-2026-05-08時点の検証結果:
+2026-05-09時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。283 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。290 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -87,6 +87,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 13は 2026-05-08 に完了。`src/lib/subscription/reconcile-status.ts` に `/api/subscription/reconcile` のpending / failed / confirmed response descriptor、Checkout payment state分類、activation error reason mappingを追加し、route側は `NextResponse.json` 変換と既存のauth/session/Stripe/activation flowを維持する形へ整理済み。unknown session 404、forbidden 403、metadata mismatch 409、Stripe fetch failure pending、unpaid / expired failed、paid activation path、stored failed / cancelled / pending / confirmed response shapeを `src/lib/subscription/reconcile-status.test.ts` で固定済み。cookie auth、session ownership check、Stripe session fetch、`activateBillingFromSession()`、`markSessionFailed()`、webhook handler、課金状態更新の意味、DB migration、認証、スキャン、同期、promptは変更していない。`npm run verify` は成功し、`npm test` は265 tests pass
 - P2-C Task 14前半は 2026-05-08 に完了。`src/lib/auth/otp-lifecycle.ts` と `src/lib/auth/otp-lifecycle.test.ts` を追加し、Auth OTP lifecycleの現行挙動を固定済み。email lower-case、OTP insert payload、invalid code時のattempts increment、`AUTH_OTP_MAX_ATTEMPTS = 5`、expired / max attempts OTP delete、reset-password missing email concealment、signup existing email 409、valid OTP時の `otp_requests.verified = true`、reset-password set-passwordのverified OTP + 5分grace、route別success effects fixtureを固定。4つのOTP routeはこのhelperを使うようにしたが、Supabase Auth user作成/更新、session cookie設定、Resend送信文言、OTP code生成方式、service role client配置、DB migration、課金、スキャン、同期、promptは変更していない。前半時点ではroute full mockは未追加だった。`npm run verify` は成功し、`npm test` は274 tests pass
 - P2-C Task 14後半は 2026-05-08 に完了。`src/app/api/auth/otp.contract.test.ts` を追加し、4つのOTP routeをmock Supabase Admin / server cookie clientでroute-level固定済み。signup send-otp既存email 409、reset-password send-otp missing email concealment 200、invalid code attempts +1 by id、expired / max attempts delete by id、valid OTP verified update by idを固定。Route差分として、`verify-otp` の未登録email confirmed user作成 + magiclink session + OTP email cleanup、`signup-verify` のvalid OTP後既存email 409 + cleanup、`reset-password` set-passwordのverified OTP確認 + password update + cleanup + sign-in best-effortを固定。4 routeにはtest用の任意depsつきhandlerだけを追加し、`POST()` のproduction deps、Supabase Auth user作成/更新payload、session cookie設定の意味、Resend送信文言、OTP code生成方式、service role client配置、DB migration、課金、スキャン、同期、promptは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は283 tests pass
+- P2-C Task 15は 2026-05-09 に完了。`src/lib/db/sync-queue.test.ts` を追加し、`src/lib/db/hybrid-repository.test.ts` を拡張してsync safety contractを固定済み。`fullSync()` はremote empty + local dataでlocal project/wordを削除しないこと、pending createを持つlocal-only projectはremoteへpushされること、synced user変更時はdeltaではなくfull sync pathを使うことを固定。`syncQueue.process()` はqueue順のcreate/update/delete適用、失敗itemの `retryCount` increment、`retryCount >= 3` drop、成功itemのみqueue削除をfake repositoryで固定。`HybridWordRepository` と `SyncQueue` にはtest用constructor dependency injectionだけを追加し、未指定時のproduction depsは既存singletonのまま。Dexie schema、DB migration、`fullSync()` のlocal delete順、sync queue item format、remoteRepository API contract、認証、課金、スキャン、prompt、UIは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は290 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -101,6 +102,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 14後半まで完了済み。次はTask 15 sync safety contract test、または残りの `scan-jobs/process` 段階的分割へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
+1. P2-C Task 15まで完了済み。次は残りの `scan-jobs/process` 段階的分割、またはUI巨大ファイルの純粋helper化へ進む候補がある。どれも1回1責務でcontract/testを先に固定する
 2. `scan-jobs/process` の分割は、1回1責務でcontract/testを先に固定し、DB状態遷移、通知、timing、post-processingの順序を無自覚に動かさない
-3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない
+3. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
