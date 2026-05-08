@@ -51,7 +51,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-09時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。299 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。304 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -91,6 +91,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - P2-C Task 15は 2026-05-09 に完了。`src/lib/db/sync-queue.test.ts` を追加し、`src/lib/db/hybrid-repository.test.ts` を拡張してsync safety contractを固定済み。`fullSync()` はremote empty + local dataでlocal project/wordを削除しないこと、pending createを持つlocal-only projectはremoteへpushされること、synced user変更時はdeltaではなくfull sync pathを使うことを固定。`syncQueue.process()` はqueue順のcreate/update/delete適用、失敗itemの `retryCount` increment、`retryCount >= 3` drop、成功itemのみqueue削除をfake repositoryで固定。`HybridWordRepository` と `SyncQueue` にはtest用constructor dependency injectionだけを追加し、未指定時のproduction depsは既存singletonのまま。Dexie schema、DB migration、`fullSync()` のlocal delete順、sync queue item format、remoteRepository API contract、認証、課金、スキャン、prompt、UIは変更していない。新contract testを `npm run test:web` 固定リストへ追加済み。`npm run verify` は成功し、`npm test` は290 tests pass
 - SCAN_PROCESS_NEXT_PLAN Task 1は 2026-05-09 に完了。`src/app/api/scan-jobs/process/route.contract.test.ts` に `server_cloud` route-level contractを追加し、新規project happy pathの project insert -> words insert -> completed update -> completed通知 -> timing flush とresult payload、words insert失敗時の新規projectだけrollback + failed update / failed通知 / timing flush、既存project追加時の非rollbackを固定済み。`processJobById()` にはtest用の任意 `afterTask` depsだけを追加し、未指定時は従来どおりNextの `after()` を使うためproduction behaviorは変更していない。保存処理のservice化、DB update payloadの意味、rollback条件、通知/timing/post-processingのproduction順序、AI抽出、example生成、lexicon、prompt、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は293 tests pass
 - SCAN_PROCESS_NEXT_PLAN Task 2は 2026-05-09 に完了。`src/lib/scan/server-cloud-result-payload.ts` とtestを追加し、`server_cloud` completed result payload作成を `buildServerCloudScanJobResultPayload()` へ移動済み。`wordCount`, `saveMode`, `targetProjectId`, `sourceLabels`, `warnings`, `exampleGeneration`, `quizPrefillRequested/Succeeded/Failed` の有無と値、warningなし / `exampleGeneration` なしでoptional fieldsを省略することを固定済み。route側は既存object literalをhelper呼び出しへ置換しただけで、project/word保存、rollback、example生成呼び出し、quiz prefill実行、completed update位置、通知、timing、`after()`、AI抽出、lexicon、prompt、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は299 tests pass
+- SCAN_PROCESS_NEXT_PLAN Task 3は 2026-05-09 に完了。`src/lib/scan/quiz-prefill.ts` とtestを追加し、`server_cloud` branch内のquiz prefill対象選定を `buildQuizPrefillSeedWords()`、word update payload作成を `buildQuizPrefillWordUpdatePayload()` へ移動済み。distractors不足、example不足、POS不足だけを対象にすること、placeholder distractors不足扱い、example fieldsは生成結果に値がある時だけpayloadへ入れること、空生成結果で既存example/POSを上書きしないことを固定済み。route側は通常quiz prefillとpost-scan quiz prefillのfilter/map/object literalをhelper呼び出しへ置換しただけで、`generateQuizContentWithRetry()` のretry順、AI呼び出し、Supabase update実行、`ai_enabled` 判定、timing加算、post-scan prefill feature flag、completed update、通知、`after()` は変更していない。`npm run verify` は成功し、`npm test` は304 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -106,6 +107,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 ## 次にやるべき作業
 
 1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、次フェーズ候補を確認する
-2. 推奨順は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 3以降、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
+2. 推奨順は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 4以降、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
 3. `scan-jobs/process` の続きへ進む場合は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) を読み、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない
 4. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する

@@ -30,6 +30,11 @@ import {
   buildScanJobWarningNotificationParams,
   flushScanJobTimingLogs,
 } from '@/lib/scan/job-side-effects';
+import {
+  buildQuizPrefillSeedWords,
+  buildQuizPrefillWordUpdatePayload,
+  type QuizPrefillSeedWord,
+} from '@/lib/scan/quiz-prefill';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -455,27 +460,6 @@ async function flushTimingLogs(
   }
 }
 
-interface QuizSeedWord {
-  id: string;
-  english: string;
-  japanese: string;
-}
-
-function hasValidDistractors(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  if (value.length < 3) return false;
-  if (value.length === 3 && value[0] === '選択肢1') return false;
-  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
-function hasExampleSentence(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function hasPartOfSpeechTags(value: unknown): boolean {
-  return normalizePartOfSpeechTags(value).length > 0;
-}
-
 function normalizeText(value: unknown): string {
   if (typeof value !== 'string') return '';
   return value
@@ -591,7 +575,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
   return deduped;
 }
 
-async function generateQuizContentWithRetry(words: QuizSeedWord[]): Promise<{
+async function generateQuizContentWithRetry(words: QuizPrefillSeedWord[]): Promise<{
   results: QuizContentResult[];
   failedWordIds: string[];
 }> {
@@ -1298,22 +1282,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       if (aiEnabled) {
         const quizPrefillStart = Date.now();
         try {
-          const quizSeedWords: QuizSeedWord[] = insertedWordsArray
-            .filter((w: {
-              distractors: unknown;
-              example_sentence: string | null;
-              example_sentence_ja: string | null;
-              part_of_speech_tags: unknown;
-            }) =>
-              !hasValidDistractors(w.distractors) ||
-              !hasExampleSentence(w.example_sentence) ||
-              !hasPartOfSpeechTags(w.part_of_speech_tags)
-            )
-            .map((w: { id: string; english: string; japanese: string }) => ({
-              id: w.id,
-              english: w.english,
-              japanese: w.japanese,
-            }));
+          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray);
 
           let quizPrefillSucceeded = 0;
           const quizPrefillFailedWordIds = new Set<string>();
@@ -1327,18 +1296,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
               try {
                 await Promise.all(
                   results.map((item) => {
-                    // Only include example fields if quiz content actually has them
-                    // to avoid overwriting examples generated in the previous step
-                    const updatePayload: Record<string, unknown> = {
-                      distractors: item.distractors,
-                      part_of_speech_tags: item.partOfSpeechTags,
-                    };
-                    if (item.exampleSentence) {
-                      updatePayload.example_sentence = item.exampleSentence;
-                    }
-                    if (item.exampleSentenceJa) {
-                      updatePayload.example_sentence_ja = item.exampleSentenceJa;
-                    }
+                    const updatePayload = buildQuizPrefillWordUpdatePayload(item);
                     return supabaseAdmin
                       .from('words')
                       .update(updatePayload)
@@ -1448,22 +1406,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (insertedWordsArray.length === 0) return;
 
         if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
-          const quizSeedWords: QuizSeedWord[] = insertedWordsArray
-            .filter((w: {
-              distractors: unknown;
-              example_sentence: string | null;
-              example_sentence_ja: string | null;
-              part_of_speech_tags: unknown;
-            }) =>
-              !hasValidDistractors(w.distractors) ||
-              !hasExampleSentence(w.example_sentence) ||
-              !hasPartOfSpeechTags(w.part_of_speech_tags)
-            )
-            .map((w: { id: string; english: string; japanese: string }) => ({
-              id: w.id,
-              english: w.english,
-              japanese: w.japanese,
-            }));
+          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray);
 
           if (quizSeedWords.length > 0) {
             let quizPrefillSucceeded = 0;
@@ -1476,16 +1419,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
                 try {
                   await Promise.all(
                     results.map((item) => {
-                      const updatePayload: Record<string, unknown> = {
-                        distractors: item.distractors,
-                        part_of_speech_tags: item.partOfSpeechTags,
-                      };
-                      if (item.exampleSentence) {
-                        updatePayload.example_sentence = item.exampleSentence;
-                      }
-                      if (item.exampleSentenceJa) {
-                        updatePayload.example_sentence_ja = item.exampleSentenceJa;
-                      }
+                      const updatePayload = buildQuizPrefillWordUpdatePayload(item);
                       return supabaseAdmin
                         .from('words')
                         .update(updatePayload)

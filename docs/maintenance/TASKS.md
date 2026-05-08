@@ -176,10 +176,11 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
   - 成果物: [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
   - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分けた
   - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切った
-- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 3以降を1回1責務で実施する
+- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 4以降を1回1責務で実施する
   - Task 1 `server_cloud` route contract追加は 2026-05-09 に完了
   - Task 2 `server_cloud` result payload builder抽出は 2026-05-09 に完了
-  - 次はTask 3 `quiz prefillのselector / update payloadを純粋helperへ出す` 候補。ただしAI呼び出し、DB更新実行、timing、post-processingは動かさない
+  - Task 3 `quiz prefillのselector / update payloadを純粋helperへ出す` は 2026-05-09 に完了
+  - 次はTask 4 `client_local example generationのplan/apply helperを抽出する` 候補。ただしexample生成呼び出し、summary/warning、completed update、通知、timingは動かさない
 - [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
   - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
 - [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
@@ -206,6 +207,16 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
 
 ## Done
 
+- [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 3 quiz prefill selector / update payload helper抽出
+  - 追加: `src/lib/scan/quiz-prefill.ts`, `src/lib/scan/quiz-prefill.test.ts`
+  - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: `server_cloud` branch内のquiz prefill対象選定を `buildQuizPrefillSeedWords()` へ移動し、word update payload作成を `buildQuizPrefillWordUpdatePayload()` へ移動
+  - 固定: distractors不足、example不足、POS不足のwordだけprefill対象になる。placeholder distractorsは不足扱い。生成結果に値がある時だけ `example_sentence` / `example_sentence_ja` をpayloadへ入れ、空の生成結果で既存exampleを上書きしない。空の `partOfSpeechTags` はpayloadへ入れず、既存POSを空で上書きしない
+  - 変更: route側は通常quiz prefillとpost-scan quiz prefillの既存filter/map/object literalをhelper呼び出しへ置換。`generateQuizContentWithRetry()` のretry順、AI呼び出し、Supabase update実行、`ai_enabled` 判定、timing加算、post-scan prefill feature flag、completed update、通知、`after()` は変更していない
+  - 確認: `npm exec -- tsx --test src/lib/scan/quiz-prefill.test.ts src/app/api/scan-jobs/process/route.contract.test.ts` 成功。12 tests pass
+  - 確認: `npm exec -- tsx --test src/app/api/scan-jobs/process/route.extractor.test.ts` 成功。5 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は304 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 残リスク: `client_local` example generationのseed/apply、`server_cloud` example generationのseed/update payload、image extraction worker、post-processing候補計算はまだroute内に残る。次も [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) に沿って1回1責務で進める
 - [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 2 `server_cloud` result payload builder抽出
   - 追加: `src/lib/scan/server-cloud-result-payload.ts`, `src/lib/scan/server-cloud-result-payload.test.ts`
   - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
