@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { shuffleArray, getGuestUserId } from '@/lib/utils';
+import { getGuestUserId } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
@@ -44,16 +44,22 @@ function HeaderBtn({
   children,
   onClick,
   'aria-label': ariaLabel,
+  'aria-expanded': ariaExpanded,
+  'aria-haspopup': ariaHasPopup,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   'aria-label'?: string;
+  'aria-expanded'?: boolean;
+  'aria-haspopup'?: 'menu';
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHasPopup}
       className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
     >
       {children}
@@ -116,6 +122,26 @@ function nextWordStatus(current: string): 'new' | 'review' | 'mastered' {
   return 'new';
 }
 
+type FlashcardSortOrder = 'mastery' | 'partOfSpeech';
+
+const FLASHCARD_SORT_OPTIONS: Array<{ value: FlashcardSortOrder; label: string; icon: string }> = [
+  { value: 'mastery', label: '習得度順', icon: 'trending_up' },
+  { value: 'partOfSpeech', label: '品詞順', icon: 'category' },
+];
+
+function getPrimaryPartOfSpeech(word: Word): string {
+  return word.partOfSpeechTags?.[0]?.trim().toLowerCase() || 'zzz';
+}
+
+function sortFlashcardWords(wordList: Word[], order: FlashcardSortOrder): Word[] {
+  if (order === 'mastery') return sortWordsByPriority(wordList);
+  return [...wordList].sort((a, b) => {
+    const posDiff = getPrimaryPartOfSpeech(a).localeCompare(getPrimaryPartOfSpeech(b), undefined, { sensitivity: 'base' });
+    if (posDiff !== 0) return posDiff;
+    return a.english.localeCompare(b.english, undefined, { sensitivity: 'base' });
+  });
+}
+
 /* ---------- Progress storage ---------- */
 const getProgressKey = (projectId: string, favoritesOnly: boolean) =>
   `flashcard_progress_${projectId}${favoritesOnly ? '_favorites' : ''}`;
@@ -141,6 +167,8 @@ export default function FlashcardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<FlashcardSortOrder>('mastery');
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
   /* Edit modal */
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -171,7 +199,7 @@ export default function FlashcardPage() {
     cacheRestoredRef.current = true;
     const cachedWords = getCachedProjectWords()[projectId];
     if (cachedWords && cachedWords.length > 0 && !favoritesOnly && !collectionId) {
-      const sorted = sortWordsByPriority(cachedWords);
+      const sorted = sortFlashcardWords(cachedWords, 'mastery');
       setWords(sorted);
       hasLoadedRef.current = true;
       setLoading(false);
@@ -277,7 +305,7 @@ export default function FlashcardPage() {
 
         if (loadedWords.length === 0) { backToProject(); return; }
 
-        const sorted = sortWordsByPriority(loadedWords);
+        const sorted = sortFlashcardWords(loadedWords, 'mastery');
         let finalWords = sorted;
 
         if (savedWordIds.length > 0) {
@@ -378,10 +406,17 @@ export default function FlashcardPage() {
     setTimeout(() => { isSwiping.current = false; }, 50);
   };
 
-  const handleShuffle = () => {
-    const shuffled = shuffleArray([...words]);
-    setWords(shuffled); setCurrentIndex(0); setIsFlipped(false);
-    saveProgress(shuffled, 0);
+  const handleSortOrderChange = (nextOrder: FlashcardSortOrder) => {
+    const sorted = sortFlashcardWords(words, nextOrder);
+    setSortOrder(nextOrder);
+    setSortMenuOpen(false);
+    setWords(sorted); setCurrentIndex(0); setIsFlipped(false);
+    saveProgress(sorted, 0);
+  };
+
+  const handleSaveCurrentProgress = () => {
+    saveProgress(words, currentIndex);
+    setSortMenuOpen(false);
   };
 
   /* Keyboard nav */
@@ -489,7 +524,7 @@ export default function FlashcardPage() {
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
-      {/* Header: HeaderBtn close | progress | HeaderBtn shuffle */}
+      {/* Header: HeaderBtn close | progress | HeaderBtn details */}
       <div
         className="flex shrink-0 items-center justify-between px-4 pb-2.5"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
@@ -507,9 +542,61 @@ export default function FlashcardPage() {
           </div>
         </div>
 
-        <HeaderBtn onClick={handleShuffle} aria-label="シャッフル">
-          <Icon name="shuffle" size={16} />
-        </HeaderBtn>
+        <div className="relative">
+          <HeaderBtn
+            onClick={() => setSortMenuOpen((open) => !open)}
+            aria-label="詳細"
+            aria-expanded={sortMenuOpen}
+            aria-haspopup="menu"
+          >
+            <Icon name="more_horiz" size={18} />
+          </HeaderBtn>
+          {sortMenuOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="詳細メニューを閉じる"
+                className="fixed inset-0 z-10 cursor-default bg-transparent"
+                onClick={() => setSortMenuOpen(false)}
+              />
+              <div
+                role="menu"
+                className="absolute right-0 top-[48px] z-20 w-[132px] rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white p-1.5 shadow-[2px_2px_0_var(--solid-ink)]"
+              >
+                {FLASHCARD_SORT_OPTIONS.map((option) => {
+                  const selected = sortOrder === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selected}
+                      onClick={() => handleSortOrderChange(option.value)}
+                      className={`flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-left text-xs font-bold text-[var(--solid-ink)] ${
+                        selected ? 'bg-[rgba(26,26,26,0.06)]' : 'hover:bg-[rgba(26,26,26,0.04)]'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon name={option.icon} size={14} />
+                        {option.label}
+                      </span>
+                      {selected && <Icon name="check" size={14} />}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleSaveCurrentProgress}
+                  className="flex w-full items-center gap-1.5 rounded-[10px] px-2.5 py-2 text-left text-xs font-bold text-[var(--solid-ink)] hover:bg-[rgba(26,26,26,0.04)]"
+                >
+                  <Icon name="save" size={14} />
+                  保存
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Card area (no ghost cards) */}
