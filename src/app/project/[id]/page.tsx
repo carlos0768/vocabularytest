@@ -1537,8 +1537,13 @@ function WordRow({
             onClick={onCycleVocabularyType}
             className="shrink-0"
           />
-          <button type="button" onClick={onToggleFavorite} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りを切り替え">
-            <Icon name="bookmark" size={18} filled={word.isFavorite} />
+          <button
+            type="button"
+            onClick={onToggleFavorite}
+            className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center text-[var(--color-accent)]"
+            aria-label="お気に入りを切り替え"
+          >
+            <Icon name="bookmark" size={22} filled={word.isFavorite} />
           </button>
         </div>
       </div>
