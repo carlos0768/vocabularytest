@@ -53,7 +53,7 @@ const DESKTOP_AD_PLACEMENTS = [
     matches: (pathname: string) => pathname === '/collections' || pathname.startsWith('/collections/'),
   },
   {
-    label: 'お気に入り',
+    label: '保存済み',
     matches: (pathname: string) => pathname === '/favorites' || pathname.startsWith('/favorites/'),
   },
 ];

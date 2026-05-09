@@ -82,7 +82,7 @@ export default function FavoritesPage() {
       setFavorites(nextFavorites);
     } catch (loadError) {
       console.error('Failed to load favorites:', loadError);
-      setError('お気に入りの読み込みに失敗しました');
+      setError('保存済み単語の読み込みに失敗しました');
       setFavorites([]);
     } finally {
       setLoading(false);
@@ -127,12 +127,13 @@ export default function FavoritesPage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+          aria-label="戻る"
         >
           <Icon name="chevron_left" size={18} />
         </button>
         <div className="flex-1 text-base font-bold text-[var(--solid-ink)]">
-          お気に入り
+          保存済み
         </div>
       </div>
 
@@ -146,7 +147,7 @@ export default function FavoritesPage() {
 
             <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
               <Icon name="bookmark" size={13} filled />
-              <span className="font-mono text-[10px] font-bold tracking-[0.08em]">FAVORITES</span>
+              <span className="font-mono text-[10px] font-bold tracking-[0.08em]">SAVED</span>
             </div>
 
             <div className="mt-2.5 flex items-baseline gap-1.5">
@@ -170,7 +171,7 @@ export default function FavoritesPage() {
 
             <div className="mt-3.5 flex gap-2">
               <ActionLink href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'} icon="style" label="カード" accent />
-              <ActionLink href={isPro ? `/quiz/all/favorites?from=${returnPath}` : '/subscription'} icon="play_arrow" label="4択" />
+              <ActionLink href={isPro ? `/quiz/all/favorites?count=10&from=${returnPath}` : '/subscription'} icon="quiz" label="クイズ" />
             </div>
           </div>
         </div>
@@ -208,7 +209,7 @@ export default function FavoritesPage() {
           </div>
         ) : sortedFavorites.length === 0 ? (
           <div className="rounded-[10px] border-[1.25px] border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
-            お気に入り単語はまだありません
+            保存済み単語はまだありません
           </div>
         ) : (
           sortedFavorites.map((word) => (
@@ -230,7 +231,7 @@ export default function FavoritesPage() {
                 <div className="mt-[3px] truncate font-mono text-[9px] text-[var(--color-muted)]">{word.projectTitle}</div>
               </Link>
               <StatusPill kind={word.status} />
-              <button type="button" onClick={() => void handleToggleFavorite(word)} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りから外す">
+              <button type="button" onClick={() => void handleToggleFavorite(word)} className="inline-flex text-[var(--color-accent)]" aria-label="保存済みから外す">
                 <Icon name="bookmark" size={15} filled />
               </button>
             </div>

@@ -285,7 +285,7 @@ export default function HomePage() {
           <Link
             href="/favorites"
             className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-accent)] shadow-[2px_2px_0_var(--solid-ink)]"
-            aria-label="お気に入り"
+            aria-label="保存済み"
           >
             <Icon name="bookmark" size={16} filled />
           </Link>

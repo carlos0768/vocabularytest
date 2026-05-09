@@ -12,7 +12,12 @@ import { useAuth } from '@/hooks/use-auth';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
-const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20, 30];
+
+function parseFavoriteQuizQuestionCount(value: string | null): number {
+  if (!value) return DEFAULT_QUESTION_COUNT;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_QUESTION_COUNT;
+}
 
 export default function FavoritesQuizPage() {
   const router = useRouter();
@@ -21,11 +26,10 @@ export default function FavoritesQuizPage() {
   const projectId = params.projectId as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
 
-  // Get question count from URL or show selection screen
   const countFromUrl = searchParams.get('count');
   const returnPath = searchParams.get('from');
-  const [questionCount, setQuestionCount] = useState<number | null>(
-    countFromUrl ? parseInt(countFromUrl, 10) : null
+  const [questionCount] = useState<number>(
+    () => parseFavoriteQuizQuestionCount(countFromUrl)
   );
 
   const backToProject = useCallback(() => {
@@ -43,9 +47,8 @@ export default function FavoritesQuizPage() {
   });
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [inputCount, setInputCount] = useState(''); // User input for question count
   const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
-  const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
+  const quizDirection: 'en-to-ja' | 'ja-to-en' = 'en-to-ja';
 
   // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -149,11 +152,8 @@ export default function FavoritesQuizPage() {
 
         setAllFavoriteWords(favoriteWords); // Store all favorite words for restart
 
-        // Only generate questions if question count is set
-        if (questionCount) {
-          const generated = generateQuestions(favoriteWords, questionCount, quizDirection);
-          setQuestions(generated);
-        }
+        const generated = generateQuestions(favoriteWords, questionCount, quizDirection);
+        setQuestions(generated);
       } catch (error) {
         console.error('Failed to load words:', error);
         backToProject();
@@ -203,22 +203,13 @@ export default function FavoritesQuizPage() {
   // Restart quiz with new random questions from all favorite words
   const handleRestart = () => {
     // Use allFavoriteWords to get completely new random questions
-    const regenerated = generateQuestions(allFavoriteWords, questionCount || DEFAULT_QUESTION_COUNT, quizDirection);
+    const regenerated = generateQuestions(allFavoriteWords, questionCount, quizDirection);
     setQuestions(regenerated);
     setCurrentIndex(0);
     setSelectedIndex(null);
     setIsRevealed(false);
     setResults({ correct: 0, total: 0 });
     setIsComplete(false);
-  };
-
-  // Handle question count selection
-  const handleSelectCount = (count: number) => {
-    setQuestionCount(count);
-    if (allFavoriteWords.length > 0) {
-      const generated = generateQuestions(allFavoriteWords, count, quizDirection);
-      setQuestions(generated);
-    }
   };
 
   // Toggle favorite status
@@ -241,110 +232,8 @@ export default function FavoritesQuizPage() {
       <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[var(--color-warning)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">苦手クイズを準備中...</p>
+          <p className="text-[var(--color-muted)]">保存済みクイズを準備中...</p>
         </div>
-      </div>
-    );
-  }
-
-  // Question count selection screen
-  if (!questionCount) {
-    const maxQuestions = allFavoriteWords.length;
-    const parsedInput = parseInt(inputCount, 10);
-    const isValidInput = !isNaN(parsedInput) && parsedInput >= 1 && parsedInput <= maxQuestions;
-
-    const handleSubmit = () => {
-      if (isValidInput) {
-        handleSelectCount(parsedInput);
-      }
-    };
-
-    return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:left-[280px]">
-        {/* Header */}
-        <header className="sticky top-0 flex-shrink-0 p-4 flex items-center justify-between">
-          <button
-            onClick={backToProject}
-            className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
-          >
-            <Icon name="close" size={24} />
-          </button>
-          <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full">
-            <Icon name="flag" size={16} filled className="text-[var(--color-warning)]" />
-            <span className="text-sm font-medium text-[var(--color-warning)]">苦手クイズ</span>
-          </div>
-          <div className="w-10" /> {/* Spacer for alignment */}
-        </header>
-
-        {/* Selection */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="w-full max-w-sm">
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] text-center mb-2">
-              問題数を入力
-            </h1>
-            <p className="text-[var(--color-muted)] text-center mb-8">
-              1〜{maxQuestions}問まで
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-center gap-2">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min={1}
-                  max={maxQuestions}
-                  value={inputCount}
-                  onChange={(e) => setInputCount(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && isValidInput) {
-                      handleSubmit();
-                    }
-                  }}
-                  placeholder={String(DEFAULT_QUESTION_COUNT)}
-                  className="w-24 text-center text-3xl font-bold px-4 py-3 border-2 border-[var(--color-border)] rounded-xl focus:border-[var(--color-warning)] focus:outline-none transition-colors"
-                  autoFocus
-                />
-                <span className="text-xl text-[var(--color-muted)]">問</span>
-              </div>
-
-              {/* Direction toggle */}
-              <div className="flex items-center justify-center">
-                <div className="inline-flex rounded-full border border-[var(--color-border)] p-1 bg-[var(--color-surface)]">
-                  <button
-                    onClick={() => setQuizDirection('en-to-ja')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      quizDirection === 'en-to-ja'
-                        ? 'bg-[var(--color-warning)] text-white'
-                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-                    }`}
-                  >
-                    英→日
-                  </button>
-                  <button
-                    onClick={() => setQuizDirection('ja-to-en')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      quizDirection === 'ja-to-en'
-                        ? 'bg-[var(--color-warning)] text-white'
-                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-                    }`}
-                  >
-                    日→英
-                  </button>
-                </div>
-              </div>
-
-              <Button
-                onClick={handleSubmit}
-                disabled={!isValidInput}
-                className="w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90"
-                size="lg"
-              >
-                スタート
-              </Button>
-            </div>
-          </div>
-        </main>
       </div>
     );
   }
@@ -373,7 +262,7 @@ export default function FavoritesQuizPage() {
             </div>
 
             <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
-              苦手クイズ完了！
+              保存済みクイズ完了！
             </h1>
 
             <div className="mb-6">
@@ -388,12 +277,12 @@ export default function FavoritesQuizPage() {
             {/* Performance message */}
             <p className="text-[var(--color-muted)] mb-8">
               {percentage === 100
-                ? '苦手を克服！素晴らしい！'
+                ? '全問正解！素晴らしい！'
                 : percentage >= 80
-                ? 'よくできました！もう少しで克服！'
+                ? 'よくできました！'
                 : percentage >= 60
                 ? '頑張りました！繰り返し練習しましょう'
-                : '苦手は繰り返しが大事！もう一度！'}
+                : '保存した単語をもう一度確認しましょう'}
             </p>
 
             <div className="space-y-3">
@@ -431,7 +320,7 @@ export default function FavoritesQuizPage() {
           {/* Title badge */}
           <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full min-w-0">
             <Icon name="flag" size={16} filled className="text-[var(--color-warning)] shrink-0" />
-            <span className="text-sm font-medium text-[var(--color-warning)] truncate">苦手クイズ</span>
+            <span className="text-sm font-medium text-[var(--color-warning)] truncate">保存済みクイズ</span>
           </div>
 
           {/* Progress indicator */}
@@ -470,7 +359,7 @@ export default function FavoritesQuizPage() {
           <button
             onClick={handleToggleFavorite}
             className="p-2 rounded-full hover:bg-[var(--color-primary-light)] transition-colors"
-            aria-label={currentQuestion?.word.isFavorite ? '苦手を解除' : '苦手にマーク'}
+            aria-label={currentQuestion?.word.isFavorite ? '保存済みから外す' : '保存済みに追加'}
           >
             <Icon
               name="flag"
