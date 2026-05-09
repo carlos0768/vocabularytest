@@ -54,6 +54,7 @@ UI保護ルール:
 
 - [ ] Supabase DashboardでGoogle providerが有効。
 - [ ] Supabase DashboardでApple providerが有効。
+- [ ] `NEXT_PUBLIC_AUTH_OAUTH_PROVIDERS` はSupabase側で有効化済みのproviderだけをCSVで指定している。
 - [ ] Supabase Auth redirect URL allowlistに本番 `https://<domain>/auth/callback` がある。
 - [ ] Google OAuth client側のauthorized redirect URIがSupabase callback URLを指している。
 - [ ] Apple Sign in with Apple側のReturn URLがSupabase callback URLを指している。

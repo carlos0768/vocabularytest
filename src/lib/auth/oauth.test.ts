@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildOAuthCallbackUrl,
   buildOAuthRedirectCookie,
+  getEnabledOAuthProviders,
   getOAuthProviderLabel,
   isAuthOAuthProvider,
   normalizeOAuthRedirectPath,
@@ -40,6 +41,12 @@ test('isAuthOAuthProvider accepts only supported launch providers', () => {
   assert.equal(isAuthOAuthProvider('google'), true);
   assert.equal(isAuthOAuthProvider('apple'), true);
   assert.equal(isAuthOAuthProvider('github'), false);
+});
+
+test('getEnabledOAuthProviders returns only configured supported providers in stable order', () => {
+  assert.deepEqual(getEnabledOAuthProviders(undefined), []);
+  assert.deepEqual(getEnabledOAuthProviders(''), []);
+  assert.deepEqual(getEnabledOAuthProviders('apple, google, github, GOOGLE'), ['google', 'apple']);
 });
 
 test('getOAuthProviderLabel returns user-facing labels', () => {

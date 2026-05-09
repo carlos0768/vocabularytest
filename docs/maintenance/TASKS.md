@@ -50,7 +50,7 @@
 - [x] `/login` が表示される。
 - [x] `/signup` が実フォームとして表示される。
 - [x] `/signup` から古いモックオンボーディング文言が消えている。
-- [x] `/login` と `/signup` にGoogle / Apple OAuthボタンが表示される。
+- [x] `/login` と `/signup` のGoogle / Apple OAuthボタンは、`NEXT_PUBLIC_AUTH_OAUTH_PROVIDERS` に含まれるproviderだけ表示される。
 - [x] 初回公開対象外の添削/構造解析を公開導線から非表示にする。
 - [x] `/projects` 下部の浮動プラスボタンを非表示にする。
 
@@ -58,7 +58,7 @@
 
 - [ ] signup OTP実メール到達
 - [ ] 登録後ログイン済みredirect
-- [ ] Google / Apple OAuth redirect
+- [ ] Google / Apple OAuth redirect（Supabase provider有効化後、`NEXT_PUBLIC_AUTH_OAUTH_PROVIDERS=google,apple` を設定して確認）
 - [ ] Supabase本番env/RLS/migration一致
 - [ ] Resend送信domain
 - [ ] Stripe webhook/reconcile

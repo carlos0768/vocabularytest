@@ -4,12 +4,23 @@ import { useState } from 'react';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
-import { getOAuthProviderLabel, type AuthOAuthProvider } from '@/lib/auth/oauth';
+import {
+  getEnabledOAuthProviders,
+  getOAuthProviderLabel,
+  type AuthOAuthProvider,
+} from '@/lib/auth/oauth';
 
 const PROVIDERS: { id: AuthOAuthProvider; mark: string }[] = [
   { id: 'google', mark: 'G' },
   { id: 'apple', mark: 'A' },
 ];
+
+const ENABLED_PROVIDER_IDS = getEnabledOAuthProviders(
+  process.env.NEXT_PUBLIC_AUTH_OAUTH_PROVIDERS,
+);
+const ENABLED_PROVIDERS = PROVIDERS.filter((provider) =>
+  ENABLED_PROVIDER_IDS.includes(provider.id),
+);
 
 export function OAuthProviderButtons({
   redirectPath,
@@ -22,6 +33,10 @@ export function OAuthProviderButtons({
 }) {
   const { signInWithOAuth } = useAuth();
   const [loadingProvider, setLoadingProvider] = useState<AuthOAuthProvider | null>(null);
+
+  if (ENABLED_PROVIDERS.length === 0) {
+    return null;
+  }
 
   const handleProviderClick = async (provider: AuthOAuthProvider) => {
     if (disabled || loadingProvider) return;
@@ -37,7 +52,7 @@ export function OAuthProviderButtons({
 
   return (
     <div className="flex flex-col gap-2 px-6 pb-3">
-      {PROVIDERS.map((provider) => {
+      {ENABLED_PROVIDERS.map((provider) => {
         const label = getOAuthProviderLabel(provider.id);
         const isLoading = loadingProvider === provider.id;
         return (

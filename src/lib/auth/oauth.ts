@@ -9,6 +9,20 @@ export function isAuthOAuthProvider(value: string): value is AuthOAuthProvider {
   return AUTH_OAUTH_PROVIDERS.includes(value as AuthOAuthProvider);
 }
 
+export function getEnabledOAuthProviders(value: string | null | undefined): AuthOAuthProvider[] {
+  if (!value) return [];
+
+  const seen = new Set<AuthOAuthProvider>();
+  for (const item of value.split(',')) {
+    const provider = item.trim().toLowerCase();
+    if (isAuthOAuthProvider(provider)) {
+      seen.add(provider);
+    }
+  }
+
+  return AUTH_OAUTH_PROVIDERS.filter((provider) => seen.has(provider));
+}
+
 export function normalizeOAuthRedirectPath(value: string | null | undefined): string {
   if (!value) return DEFAULT_REDIRECT_PATH;
 
