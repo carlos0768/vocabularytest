@@ -1,22 +1,26 @@
 'use client';
 
 import { useState, Suspense, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { OtpInput } from '@/components/ui/OtpInput';
-import { useAuth } from '@/hooks/use-auth';
-
-type Step = 'form' | 'otp';
+import {
+  SIGNUP_RESEND_COOLDOWN_SECONDS,
+  type SignupStep,
+  buildSignupOtpRequestBody,
+  buildSignupVerifyRequestBody,
+  isSignupOtpComplete,
+  resolveSignupRouteError,
+  validateSignupCredentials,
+} from '@/lib/auth/signup-flow';
 
 function SignupForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
-  const router = useRouter();
-  const { signIn } = useAuth();
 
-  const [step, setStep] = useState<Step>('form');
+  const [step, setStep] = useState<SignupStep>('form');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,13 +44,9 @@ function SignupForm() {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 8) {
-      setError('パスワードは8文字以上で入力してください');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('パスワードが一致しません');
+    const validation = validateSignupCredentials({ password, confirmPassword });
+    if (!validation.ok) {
+      setError(validation.error);
       return;
     }
 
@@ -56,31 +56,19 @@ function SignupForm() {
       const response = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(buildSignupOtpRequestBody(email)),
       });
 
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        // 既存ユーザーの場合はそのままログイン
-        if (data.existing_user) {
-          const result = await signIn(email, password);
-          if (result.error) {
-            setError('このメールアドレスは既に登録されています。パスワードが正しくない場合はログインページからお試しください。');
-            setLoading(false);
-            return;
-          }
-          // ハードナビゲーションでcookieを確実にサーバーへ反映
-          window.location.href = redirect;
-          return;
-        }
-        setError(data.error || '認証コードの送信に失敗しました');
+        setError(resolveSignupRouteError(data, '認証コードの送信に失敗しました'));
         setLoading(false);
         return;
       }
 
       setStep('otp');
-      setResendCooldown(60);
+      setResendCooldown(SIGNUP_RESEND_COOLDOWN_SECONDS);
     } catch {
       setError('通信エラーが発生しました');
     } finally {
@@ -90,7 +78,7 @@ function SignupForm() {
 
   // Step 2: Verify OTP and create account
   const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) return;
+    if (!isSignupOtpComplete(otpCode)) return;
 
     setError(null);
     setLoading(true);
@@ -99,13 +87,17 @@ function SignupForm() {
       const response = await fetch('/api/auth/signup-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: otpCode, password }),
+        body: JSON.stringify(buildSignupVerifyRequestBody({
+          email,
+          code: otpCode,
+          password,
+        })),
       });
 
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        setError(data.error || 'アカウントの作成に失敗しました');
+        setError(resolveSignupRouteError(data, 'アカウントの作成に失敗しました'));
         setLoading(false);
         return;
       }
@@ -121,7 +113,7 @@ function SignupForm() {
 
   // Auto-submit when 6 digits entered
   useEffect(() => {
-    if (otpCode.length === 6 && !loading) {
+    if (isSignupOtpComplete(otpCode) && !loading) {
       handleVerifyOtp();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,16 +130,16 @@ function SignupForm() {
       const response = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(buildSignupOtpRequestBody(email)),
       });
 
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        setError(data.error || '再送信に失敗しました');
+        setError(resolveSignupRouteError(data, '再送信に失敗しました'));
       } else {
         setOtpCode('');
-        setResendCooldown(60);
+        setResendCooldown(SIGNUP_RESEND_COOLDOWN_SECONDS);
       }
     } catch {
       setError('通信エラーが発生しました');

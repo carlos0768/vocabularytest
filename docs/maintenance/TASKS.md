@@ -10,6 +10,20 @@
 
 現時点で未完了のP1はありません。
 
+## 公開前個別修正
+
+- [x] 2026-05-09: 新規登録導線をOTP-onlyに正常化
+  - 更新: `src/app/signup/page.tsx`, `src/lib/auth/signup-flow.ts`, `src/lib/auth/signup-flow.test.ts`, `package.json`, `docs/maintenance/AI_HANDOFF.md`, `docs/maintenance/TASKS.md`
+  - 固定: `/signup` は `form -> otp` の2段階だけを通り、オンボーディングやプロフィール設定には遷移しない
+  - 変更: signup画面内の既存メール自動ログイン分岐を削除し、`/api/auth/send-otp` の既存email 409 error表示に統一
+  - 変更なし: `/api/auth/send-otp` と `/api/auth/signup-verify` のrequest/response、Supabase Auth user作成、session cookie作成、Resend送信、DB migration、課金、スキャン、同期
+  - 確認: `npm exec -- tsx --test src/lib/auth/signup-flow.test.ts src/app/api/auth/otp.contract.test.ts` 成功。14 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 96 warnings
+  - 確認: `npm test` 成功。395 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 96 warnings、`security:all` 成功、`npm test` は395 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 残確認: 実メール/Supabase実環境でOTPが届き、登録後にログイン済みでredirect先へ進めることは公開前手動チェックで確認する
+
 ## P2: 保守可能な構造へ段階的に進める
 
 P2は「巨大ファイルをいきなり分割する作業」ではなく、公開後もAIと人間が安全に変更を続けられる構造へ近づけるための保守性工事です。最初に全体構造を監査し、次に小さな実装タスクへ分解し、最後に検証しながら段階的に直します。
