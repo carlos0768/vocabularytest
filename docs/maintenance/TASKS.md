@@ -168,15 +168,15 @@ P2は「巨大ファイルをいきなり分割する作業」ではなく、公
   - 確認: `npm exec -- tsx --test src/lib/db/hybrid-repository.test.ts src/lib/db/sync-queue.test.ts` 成功。12 tests pass
   - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は290 tests pass、`test:security` は38 tests pass、`build` 成功
 
-#### P2-C完了後の次フェーズ候補
+#### SCAN_PROCESS_NEXT_PLAN Task 1-7完了後の次フェーズ候補
 
-P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、以下の候補から1回1責務で再分解してください。
+P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task 1-7 は完了済みです。次の実装タスクへ入る前に [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) と [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md) を読み、以下の候補から1回1責務で再分解してください。
 
 - [x] `src/app/api/scan-jobs/process/route.ts` の残分割を再計画する
   - 成果物: [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
   - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分けた
   - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切った
-- [x] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 7以降を1回1責務で実施する
+- [x] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1-7を1回1責務で実施する
   - Task 1 `server_cloud` route contract追加は 2026-05-09 に完了
   - Task 2 `server_cloud` result payload builder抽出は 2026-05-09 に完了
   - Task 3 `quiz prefillのselector / update payloadを純粋helperへ出す` は 2026-05-09 に完了
@@ -185,20 +185,21 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
   - Task 6 `per-image extraction workerを小さく切り出す` は 2026-05-09 に完了
   - Task 7 `post-processing候補計算をpure helperへ出す` は 2026-05-09 に完了
   - `SCAN_PROCESS_NEXT_PLAN.md` に列挙したTask 1-7は完了。次にscan-jobs/processをさらに触る場合は、現行routeを再棚卸しして新しい1責務タスクへ分ける
-- [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
+- [x] `scan-jobs/process` Task 1-7完了後のcheckpointを作る
+  - 成果物: [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
+  - Task 1-7で完了したこと、helper化された責務、固定済みtest、まだroute.ts に残る責務、次に触る時の注意点を整理した
+- [ ] Home巨大ファイル整理: `src/app/page.tsx` の画面責務と副作用を再棚卸しする
   - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
-- [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
+- [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
   - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
-- [ ] `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
+- [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
   - 既存のquestion/storage helperを前提に、回答処理、spaced repetition、wrong answer記録、background distractor APIを分けて検討する
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
   - 2026-05-08 Task 11でprompt contract test追加とprompt本文差分なしのdomain別機械的分割まで完了
-- [ ] repository層、認証、課金、同期は、監査で問題が明確になった箇所だけを小さく直す
-  - 認証、課金、スキャン、同期、DB migrationを同じセッションで同時に触らない
 
 ### P2-D: 正式docsへの昇格
 
-- [ ] P2-A/P2-Bで得た恒久知識を `docs/architecture.md`, `docs/boundaries.md`, `docs/invariants.md`, `docs/ops/` へ反映する
+- [ ] P2-D正式docs昇格: P2-A/P2-B/P2-Cとscan process checkpointで得た恒久知識を `docs/architecture.md`, `docs/boundaries.md`, `docs/invariants.md`, `docs/ops/` へ反映する
 - [ ] docs内のローカル絶対パスとline番号参照を相対表記へ寄せる
   - `docs/commands.md`, `docs/security/*.md`, `docs/runbooks.md` など
   - 公開前の挙動には影響しないため、正式docs整備の一部として扱う
@@ -211,6 +212,11 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
 
 ## Done
 
+- [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 1-7完了後のcheckpoint作成
+  - 追加: [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
+  - 更新: `docs/maintenance/AI_HANDOFF.md`, `docs/maintenance/TASKS.md`
+  - 整理: Task 1-7で完了したroute-level contract / helper抽出、helper化された責務と固定済みtest、まだroute.ts に残る責務、これ以上scan-jobs/processを触る場合の注意点、次フェーズ候補を整理
+  - 変更なし: code、API、型、schema、package-lock、migration、既存docsの移動・削除・改名
 - [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 7 post-processing候補計算 helper抽出
   - 追加: `src/lib/scan/post-processing.ts`, `src/lib/scan/post-processing.test.ts`
   - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

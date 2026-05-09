@@ -11,8 +11,9 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 1. lint / build / test の検証基盤整理
 2. docsの入口と運用Runbook整備
 3. 作成済みのアーキテクチャ保守性監査を読み、API構成、責務分離、巨大ファイル、危険領域の依存関係を把握する
-4. P2-C Task 1-15完了後は [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、次フェーズ候補を1責務ずつ再分解する
-5. 巨大ファイル分割は、checkpointで未固定リスクを確認してから段階的に実施する
+4. P2-C Task 1-15完了後は [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読む
+5. `SCAN_PROCESS_NEXT_PLAN.md` Task 1-7完了後は [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md) を読み、次フェーズ候補を1責務ずつ再分解する
+6. 巨大ファイル分割は、checkpointで未固定リスクを確認してから段階的に実施する
 
 ## 必ず読む文書
 
@@ -24,8 +25,10 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 4. [`../invariants.md`](../invariants.md)
 5. P2-B/P2-Cや危険領域を扱う場合は [`ARCHITECTURE_MAINTAINABILITY_AUDIT.md`](ARCHITECTURE_MAINTAINABILITY_AUDIT.md)
 6. P2-C Task 1-15完了後の状態を確認する場合は [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md)
-7. P2-Cの履歴やTask 1-15の元計画を確認する場合は [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
-8. 触る領域のrunbookまたは関連docs
+7. `scan-jobs/process` Task 1-7完了後の状態を確認する場合は [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
+8. P2-Cの履歴やTask 1-15の元計画を確認する場合は [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md)
+9. `scan-jobs/process` Task 1-7の元計画を確認する場合は [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
+10. 触る領域のrunbookまたは関連docs
 
 作業後:
 
@@ -110,7 +113,8 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 ## 次にやるべき作業
 
-1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、次フェーズ候補を確認する
-2. [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1-7は完了済み。推奨順は、必要なら `scan-jobs/process` の再棚卸し、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
-3. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない小タスクへ切る
-4. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
+1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、P2-C全体の未固定リスクを確認する
+2. [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1-7は完了済み。`scan-jobs/process` 完了後の入口は [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
+3. 推奨候補は、Home巨大ファイル整理、Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
+4. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない新しい小タスクへ切る
+5. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
