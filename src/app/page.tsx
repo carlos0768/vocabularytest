@@ -273,12 +273,21 @@ export default function HomePage() {
           MERKEN
           <span className="ml-1 inline-block h-[5px] w-[5px] -translate-y-2 bg-[var(--color-accent)]" />
         </div>
-        <div className="flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5 shadow-[2px_2px_0_var(--solid-ink)]">
-          <span className="inline-flex text-[var(--color-warning)]">
-            <Icon name="local_fire_department" size={13} filled />
-          </span>
-          <span className="font-mono text-xs font-bold text-[var(--solid-ink)]">{streakDays}</span>
-          <span className="text-[10px] font-semibold text-[var(--color-muted)]">日連続</span>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/favorites"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-accent)] shadow-[2px_2px_0_var(--solid-ink)]"
+            aria-label="お気に入り"
+          >
+            <Icon name="bookmark" size={16} filled />
+          </Link>
+          <div className="flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5 shadow-[2px_2px_0_var(--solid-ink)]">
+            <span className="inline-flex text-[var(--color-warning)]">
+              <Icon name="local_fire_department" size={13} filled />
+            </span>
+            <span className="font-mono text-xs font-bold text-[var(--solid-ink)]">{streakDays}</span>
+            <span className="text-[10px] font-semibold text-[var(--color-muted)]">日連続</span>
+          </div>
         </div>
       </div>
 
