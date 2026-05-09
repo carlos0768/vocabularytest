@@ -36,6 +36,17 @@ import {
 import type { LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import {
+  activateProjectMultipleScanFileStep,
+  buildProjectMultipleScanInitialSteps,
+  buildProjectSingleScanAnalyzeSteps,
+  buildProjectSingleScanInitialSteps,
+  completeProjectMultipleScanFileStep,
+  markActiveOrPendingProjectScanStepsError,
+  markProjectMultipleScanFileApiError,
+  markProjectMultipleScanFileProcessingError,
+  type ProjectScanProgressStep,
+} from '@/lib/project/project-scan-progress';
+import {
   prepareScanConfirmForExistingProject,
   saveScanConfirmResultPayload,
 } from '@/lib/scan/scan-session-storage';
@@ -347,10 +358,7 @@ export default function ProjectDetailPage() {
     const extractionProfile: ImageProcessingProfile = 'default';
 
     if (totalFiles === 1) {
-      setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'active' },
-        { id: 'analyze', label: '文字を解析中...', status: 'pending' },
-      ]);
+      setProcessingSteps(buildProjectSingleScanInitialSteps());
 
       try {
         const processedFile = await processImageFile(scanFiles[0], extractionProfile);
@@ -368,10 +376,7 @@ export default function ProjectDetailPage() {
           reader.readAsDataURL(processedFile);
         });
 
-        setProcessingSteps([
-          { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-          { id: 'analyze', label: '文字を解析中...', status: 'active' },
-        ]);
+        setProcessingSteps(buildProjectSingleScanAnalyzeSteps());
 
         const response = await fetch('/api/extract', {
           method: 'POST',
@@ -393,18 +398,13 @@ export default function ProjectDetailPage() {
         setProcessing(false);
       } catch (error) {
         console.error('Scan error:', error);
-        setProcessingSteps(prev => prev.map(s =>
-          s.status === 'active' || s.status === 'pending'
-            ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
-            : s
+        setProcessingSteps(prev => markActiveOrPendingProjectScanStepsError(
+          prev,
+          error instanceof Error ? error.message : '予期しないエラー',
         ));
       }
     } else {
-      const initialSteps: ProgressStep[] = scanFiles.map((_, i) => ({
-        id: `file-${i}`,
-        label: `画像 ${i + 1}/${totalFiles} を処理中...`,
-        status: i === 0 ? 'active' : 'pending',
-      }));
+      const initialSteps: ProjectScanProgressStep[] = buildProjectMultipleScanInitialSteps(totalFiles);
       setProcessingSteps(initialSteps);
 
       try {
@@ -414,21 +414,13 @@ export default function ProjectDetailPage() {
         let allLexiconEntries: LexiconEntry[] = [];
 
         for (let i = 0; i < scanFiles.length; i++) {
-          setProcessingSteps(prev => prev.map((s, idx) => ({
-            ...s,
-            status: idx < i ? 'complete' : idx === i ? 'active' : 'pending',
-            label: idx === i ? `画像 ${i + 1}/${totalFiles} を処理中...` : s.label,
-          })));
+          setProcessingSteps(prev => activateProjectMultipleScanFileStep(prev, i, totalFiles));
 
           let processedFile: File;
           try {
             processedFile = await processImageFile(scanFiles[i], extractionProfile);
           } catch {
-            setProcessingSteps(prev => prev.map((s, idx) => ({
-              ...s,
-              status: idx === i ? 'error' : s.status,
-              label: idx === i ? `画像 ${i + 1}: 処理エラー` : s.label,
-            })));
+            setProcessingSteps(prev => markProjectMultipleScanFileProcessingError(prev, i));
             continue;
           }
 
@@ -454,22 +446,14 @@ export default function ProjectDetailPage() {
           const result = await response.json();
 
           if (!response.ok || !result.success) {
-            setProcessingSteps(prev => prev.map((s, idx) => ({
-              ...s,
-              status: idx === i ? 'error' : s.status,
-              label: idx === i ? `画像 ${i + 1}: エラー` : s.label,
-            })));
+            setProcessingSteps(prev => markProjectMultipleScanFileApiError(prev, i));
             continue;
           }
 
           allWords.push(...result.words);
           allSourceLabels = mergeSourceLabels(allSourceLabels, result.sourceLabels);
           allLexiconEntries = mergeLexiconEntries(allLexiconEntries, result.lexiconEntries);
-          setProcessingSteps(prev => prev.map((s, idx) => ({
-            ...s,
-            status: idx === i ? 'complete' : s.status,
-            label: idx === i ? `画像 ${i + 1}/${totalFiles} 完了` : s.label,
-          })));
+          setProcessingSteps(prev => completeProjectMultipleScanFileStep(prev, i, totalFiles));
         }
 
         if (allWords.length === 0) {
@@ -485,10 +469,9 @@ export default function ProjectDetailPage() {
         setProcessing(false);
       } catch (error) {
         console.error('Scan error:', error);
-        setProcessingSteps(prev => prev.map(s =>
-          s.status === 'active' || s.status === 'pending'
-            ? { ...s, status: 'error', label: error instanceof Error ? error.message : '予期しないエラー' }
-            : s
+        setProcessingSteps(prev => markActiveOrPendingProjectScanStepsError(
+          prev,
+          error instanceof Error ? error.message : '予期しないエラー',
         ));
       }
     }

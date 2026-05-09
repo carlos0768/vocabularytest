@@ -287,6 +287,21 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm test` 成功。372 tests pass
   - 確認: `npm run build` 成功
   - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 372 tests pass、`test:security` 38 tests pass、`build` 成功
+- [x] Project scan progress step builderをpure helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/project/project-scan-progress.ts`, `src/lib/project/project-scan-progress.test.ts`
+  - 更新: `src/app/project/[id]/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: Project detailのscan-to-add progress step生成・更新だけをpure helperへ移動。single scan初期step、single scan analyze開始step、active/pending stepのerror化、multiple scan初期step、current file active化、file processing error step、API error step、file complete stepを固定した
+  - 固定: `upload` / `analyze` / `file-${index}` のstep id、`画像をアップロード中...`、`文字を解析中...`、`画像 n/m を処理中...`、`画像 n: 処理エラー`、`画像 n: エラー`、`画像 n/m 完了`、active/pendingだけerror化されること
+  - 変更: `page.tsx` はprogress helper呼び出しへの置換に限定した
+  - 変更なし: `/api/extract` request / response / fetch処理、FileReader、`processImageFile`、PDF expansion、sessionStorage保存、router遷移、scan result accumulator、repository選択、share、bulk delete、word mutation、project mutation、認証、課金、同期、DB migration、package-lock
+  - 確認: `git diff --check` 成功
+  - 確認: `npm exec -- tsx --test src/lib/project/project-scan-progress.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。380 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 380 tests pass、`test:security` 38 tests pass、`build` 成功
+  - 残リスク: Project scan-to-addのresult accumulator、`/api/extract` client response handling、FileReader/PDF expansion/sessionStorage handoffはまだ `src/app/project/[id]/page.tsx` に残る
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
   - 既存のquestion/storage helperを前提に、回答処理、spaced repetition、wrong answer記録、background distractor APIを分けて検討する
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
