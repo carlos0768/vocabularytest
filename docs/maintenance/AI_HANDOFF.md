@@ -51,7 +51,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-09時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。309 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。313 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -93,6 +93,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - SCAN_PROCESS_NEXT_PLAN Task 2は 2026-05-09 に完了。`src/lib/scan/server-cloud-result-payload.ts` とtestを追加し、`server_cloud` completed result payload作成を `buildServerCloudScanJobResultPayload()` へ移動済み。`wordCount`, `saveMode`, `targetProjectId`, `sourceLabels`, `warnings`, `exampleGeneration`, `quizPrefillRequested/Succeeded/Failed` の有無と値、warningなし / `exampleGeneration` なしでoptional fieldsを省略することを固定済み。route側は既存object literalをhelper呼び出しへ置換しただけで、project/word保存、rollback、example生成呼び出し、quiz prefill実行、completed update位置、通知、timing、`after()`、AI抽出、lexicon、prompt、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は299 tests pass
 - SCAN_PROCESS_NEXT_PLAN Task 3は 2026-05-09 に完了。`src/lib/scan/quiz-prefill.ts` とtestを追加し、`server_cloud` branch内のquiz prefill対象選定を `buildQuizPrefillSeedWords()`、word update payload作成を `buildQuizPrefillWordUpdatePayload()` へ移動済み。distractors不足、example不足、POS不足だけを対象にすること、placeholder distractors不足扱い、example fieldsは生成結果に値がある時だけpayloadへ入れること、空生成結果で既存example/POSを上書きしないことを固定済み。route側は通常quiz prefillとpost-scan quiz prefillのfilter/map/object literalをhelper呼び出しへ置換しただけで、`generateQuizContentWithRetry()` のretry順、AI呼び出し、Supabase update実行、`ai_enabled` 判定、timing加算、post-scan prefill feature flag、completed update、通知、`after()` は変更していない。`npm run verify` は成功し、`npm test` は304 tests pass
 - SCAN_PROCESS_NEXT_PLAN Task 4は 2026-05-09 に完了。`src/lib/scan/example-generation.ts` とtestを追加し、`client_local` branchのexample生成seed作成を `buildClientLocalExampleSeedWords()`、生成結果の反映を `applyClientLocalGeneratedExamples()` へ移動済み。DB idがないclient_localではplaceholder idにindex文字列を使うこと、既存exampleありwordをseedから除外すること、生成結果がある時だけexample / 日本語 / POSを反映し、既存POSを空生成結果で上書きしないこと、生成結果がないwordを維持することを固定済み。route側は該当map/loopをhelper呼び出しへ置換しただけで、`generateExamples()` 呼び出し、Cloud Run timing phase、example生成失敗時のbest-effort継続、summary/warning作成、completed update、通知、timing flush、server_cloud branch、保存処理全体、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は309 tests pass
+- SCAN_PROCESS_NEXT_PLAN Task 5は 2026-05-09 に完了。`src/lib/scan/example-generation.ts` に `server_cloud` 用の `buildServerCloudExampleSeedWords()` / `buildServerCloudExampleUpdatePayload()` を追加し、inserted wordのexample生成対象選定とwords table update payload作成だけを純粋helperへ移動済み。`example_sentence` が空文字 / null / 空白だけのwordだけseedに入り、既存exampleありwordは除外され、seed idはinserted word idを使うこと、DB update payloadが `example_sentence`, `example_sentence_ja`, `part_of_speech_tags` を維持することを固定済み。route側は既存filter/map/object literalをhelper呼び出しへ置換しただけで、`generateExamples()` 呼び出し、`Promise.all` のSupabase update実行、lexicon master example save `after()`、timing加算、completed update、通知、pronunciation backfill、quiz prefill、rollback条件、client_local branch、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は313 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -108,6 +109,6 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 ## 次にやるべき作業
 
 1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、次フェーズ候補を確認する
-2. 推奨順は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 5以降、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
+2. 推奨順は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 6以降、Home / Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
 3. `scan-jobs/process` の続きへ進む場合は、[`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) を読み、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない
 4. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する

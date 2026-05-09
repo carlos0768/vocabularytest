@@ -27,6 +27,8 @@ import { buildServerCloudScanJobResultPayload } from '@/lib/scan/server-cloud-re
 import {
   applyClientLocalGeneratedExamples,
   buildClientLocalExampleSeedWords,
+  buildServerCloudExampleSeedWords,
+  buildServerCloudExampleUpdatePayload,
 } from '@/lib/scan/example-generation';
 import {
   buildScanJobCompletedNotificationParams,
@@ -1147,15 +1149,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
       // --- Synchronous example sentence generation (server_cloud) ---
-      const wordsForExampleGen = insertedWordsArray
-        .filter((w: { id: string; example_sentence: string | null; japanese: string }) =>
-          !w.example_sentence || w.example_sentence.trim().length === 0
-        )
-        .map((w: { id: string; english: string; japanese: string }) => ({
-          id: w.id,
-          english: w.english,
-          japanese: w.japanese,
-        }));
+      const wordsForExampleGen = buildServerCloudExampleSeedWords(insertedWordsArray);
 
       let exampleGenerationSummary: ExampleGenerationSummary | undefined;
       let exampleGenerationErrors: string[] = [];
@@ -1175,11 +1169,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
               exampleResult.examples.map((ex) =>
                 supabaseAdmin
                   .from('words')
-                  .update({
-                    example_sentence: ex.exampleSentence,
-                    example_sentence_ja: ex.exampleSentenceJa,
-                    part_of_speech_tags: ex.partOfSpeechTags,
-                  })
+                  .update(buildServerCloudExampleUpdatePayload(ex))
                   .eq('id', ex.wordId)
               )
             );

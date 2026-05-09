@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   applyClientLocalGeneratedExamples,
   buildClientLocalExampleSeedWords,
+  buildServerCloudExampleSeedWords,
+  buildServerCloudExampleUpdatePayload,
 } from '@/lib/scan/example-generation';
 
 test('buildClientLocalExampleSeedWords uses index strings as client_local placeholder ids', () => {
@@ -140,4 +142,87 @@ test('applyClientLocalGeneratedExamples preserves original words without generat
 
   assert.deepEqual(applied[1], missingGenerated);
   assert.equal(applied[1], missingGenerated);
+});
+
+test('buildServerCloudExampleSeedWords includes only inserted words with empty or null examples', () => {
+  const seedWords = buildServerCloudExampleSeedWords([
+    {
+      id: 'word-existing',
+      english: 'persist',
+      japanese: '続ける',
+      example_sentence: 'She persisted through the difficult assignment.',
+    },
+    {
+      id: 'word-empty',
+      english: 'adapt',
+      japanese: '適応する',
+      example_sentence: '',
+    },
+    {
+      id: 'word-null',
+      english: 'resilience',
+      japanese: '回復力',
+      example_sentence: null,
+    },
+  ]);
+
+  assert.deepEqual(seedWords, [
+    {
+      id: 'word-empty',
+      english: 'adapt',
+      japanese: '適応する',
+    },
+    {
+      id: 'word-null',
+      english: 'resilience',
+      japanese: '回復力',
+    },
+  ]);
+});
+
+test('buildServerCloudExampleSeedWords treats whitespace-only examples as missing', () => {
+  const seedWords = buildServerCloudExampleSeedWords([
+    {
+      id: 'inserted-word-id',
+      english: 'concise',
+      japanese: '簡潔な',
+      example_sentence: '   ',
+    },
+  ]);
+
+  assert.deepEqual(seedWords, [
+    {
+      id: 'inserted-word-id',
+      english: 'concise',
+      japanese: '簡潔な',
+    },
+  ]);
+});
+
+test('buildServerCloudExampleSeedWords uses inserted word ids as seed ids', () => {
+  const seedWords = buildServerCloudExampleSeedWords([
+    {
+      id: 'inserted-db-id-123',
+      english: 'analyze',
+      japanese: '分析する',
+      example_sentence: null,
+    },
+  ]);
+
+  assert.equal(seedWords[0]?.id, 'inserted-db-id-123');
+});
+
+test('buildServerCloudExampleUpdatePayload preserves generated example DB update fields', () => {
+  const payload = buildServerCloudExampleUpdatePayload({
+    wordId: 'word-1',
+    exampleSentence: 'Students analyze the chart carefully.',
+    exampleSentenceJa: '生徒たちはその図表を注意深く分析します。',
+    partOfSpeechTags: ['verb'],
+  });
+
+  assert.deepEqual(payload, {
+    example_sentence: 'Students analyze the chart carefully.',
+    example_sentence_ja: '生徒たちはその図表を注意深く分析します。',
+    part_of_speech_tags: ['verb'],
+  });
 });

@@ -8,6 +8,19 @@ export interface ClientLocalExampleWord {
   exampleSentenceJa?: string;
 }
 
+export interface ServerCloudExampleCandidateWord {
+  id: string;
+  english: string;
+  japanese: string;
+  example_sentence?: string | null;
+}
+
+export interface ServerCloudExampleUpdatePayload {
+  example_sentence: string;
+  example_sentence_ja: string;
+  part_of_speech_tags: string[];
+}
+
 export function buildClientLocalExampleSeedWords(
   words: readonly ClientLocalExampleWord[],
 ): ExampleSeedWord[] {
@@ -59,4 +72,26 @@ export function applyClientLocalGeneratedExamples<T extends ClientLocalExampleWo
 
     return nextWord;
   });
+}
+
+export function buildServerCloudExampleSeedWords(
+  words: readonly ServerCloudExampleCandidateWord[],
+): ExampleSeedWord[] {
+  return words
+    .filter((word) => !word.example_sentence || word.example_sentence.trim().length === 0)
+    .map((word) => ({
+      id: word.id,
+      english: word.english,
+      japanese: word.japanese,
+    }));
+}
+
+export function buildServerCloudExampleUpdatePayload(
+  example: GeneratedExample,
+): ServerCloudExampleUpdatePayload {
+  return {
+    example_sentence: example.exampleSentence,
+    example_sentence_ja: example.exampleSentenceJa,
+    part_of_speech_tags: example.partOfSpeechTags,
+  };
 }
