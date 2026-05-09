@@ -171,7 +171,7 @@ export default function SignupPage() {
       {/* Bottom CTAs */}
       <div
         className="px-6 pb-7 pt-3"
-        style={{ background: 'linear-gradient(to top, #fafaf7 70%, rgba(250,250,247,0))' }}
+        style={{ background: 'linear-gradient(to top, var(--color-background) 70%, rgba(0,0,0,0))' }}
       >
         <div className="relative">
           <div

@@ -158,14 +158,15 @@ export function BottomNav() {
           bottom: 0,
           zIndex: 40,
           paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-          background: 'linear-gradient(to top, #faf7f1 70%, rgba(250,247,241,0))',
+          background:
+            'linear-gradient(to top, var(--color-background) 70%, rgba(0,0,0,0))',
           pointerEvents: 'none',
         }}
       >
         <div
           style={{
             margin: '0 14px',
-            background: '#fff',
+            background: 'var(--color-surface)',
             border: '1.25px solid var(--solid-ink)',
             borderRadius: 22,
             boxShadow: '3px 3px 0 var(--solid-ink)',
@@ -207,7 +208,7 @@ export function BottomNav() {
                       height: 42,
                       borderRadius: 21,
                       background: 'var(--solid-ink)',
-                      color: '#fff',
+                      color: 'var(--color-background)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

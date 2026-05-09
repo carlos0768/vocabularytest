@@ -253,6 +253,67 @@ body {
   background-color: #283039;
 }
 
+/* Translucent white utilities — bypass `.dark .bg-white` rule.
+   In dark mode they paint a near-white wash on top of dark surfaces,
+   leaving any `--solid-ink` / `--color-foreground` text invisible. */
+.dark .bg-white\/80 {
+  background-color: rgb(30 36 43 / 0.8);
+}
+
+.dark .bg-white\/70 {
+  background-color: rgb(30 36 43 / 0.7);
+}
+
+.dark .bg-white\/10 {
+  background-color: rgb(255 255 255 / 0.08);
+}
+
+.dark .hover\:bg-white:hover {
+  background-color: var(--color-surface);
+}
+
+.dark .hover\:bg-white\/80:hover {
+  background-color: rgb(30 36 43 / 0.85);
+}
+
+/* Inverted-fill surfaces — backgrounds whose color flips to near-white
+   in dark mode. Anything painted `text-white` on top of them disappears. */
+.dark .bg-\[var\(--solid-ink\)\].text-white,
+.dark .bg-\[var\(--solid-ink\)\] .text-white,
+.dark .bg-\[var\(--color-foreground\)\].text-white,
+.dark .bg-\[var\(--color-foreground\)\] .text-white,
+.dark .bg-\[var\(--color-primary\)\].text-white,
+.dark .bg-\[var\(--color-primary\)\] .text-white,
+.dark .bg-\[var\(--color-hero-btn\)\].text-white,
+.dark .bg-\[var\(--color-hero-btn\)\] .text-white {
+  color: var(--color-background);
+}
+
+/* Same flip for fractional-opacity text classes (text-white/90, /75 …)
+   used on inverted surfaces. */
+.dark .bg-\[var\(--solid-ink\)\] .text-white\/90,
+.dark .bg-\[var\(--solid-ink\)\] .text-white\/75,
+.dark .bg-\[var\(--solid-ink\)\] .text-white\/70,
+.dark .bg-\[var\(--solid-ink\)\] .text-white\/60,
+.dark .bg-\[var\(--solid-ink\)\] .text-white\/50,
+.dark .bg-\[var\(--color-foreground\)\] .text-white\/90,
+.dark .bg-\[var\(--color-foreground\)\] .text-white\/75,
+.dark .bg-\[var\(--color-foreground\)\] .text-white\/70,
+.dark .bg-\[var\(--color-foreground\)\] .text-white\/60,
+.dark .bg-\[var\(--color-foreground\)\] .text-white\/50 {
+  color: rgb(17 20 24 / 0.85);
+}
+
+/* Built-in Merken classes whose CSS hardcodes `color: white`. The bg
+   flips with `--color-foreground`/`--solid-ink`, so the text needs to
+   flip too in dark mode. */
+.dark .btn-primary,
+.dark .chip-pro,
+.dark .solid-link-primary,
+.dark .fab {
+  color: var(--color-background);
+}
+
 /* ===== Custom Shadows ===== */
 
 .shadow-soft {
