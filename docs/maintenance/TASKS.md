@@ -241,8 +241,18 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm exec -- tsx --test src/lib/home/home-scan-progress.test.ts` 成功。10 tests pass
   - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
   - 確認: `npm test` 成功。356 tests pass
-  - 確認: `npm run build` 失敗。今回未変更の `src/lib/home/home-session-storage.ts:75` で `Object is of type 'unknown'`。今回の制約でsessionStorage helperには触れないため未修正
-  - 残リスク: build gateは既存type guard errorで未通過。次回、sessionStorage領域を触る許可がある時に `home-session-storage.ts` の型ガードを最小修正して再度 `npm run build` を通す
+  - 確認: 当時の `npm run build` は今回未変更の `src/lib/home/home-session-storage.ts:75` type guard errorで失敗。2026-05-09にsessionStorage helper側を最小修正し、`npm run build` / `npm run verify` は成功済み
+- [x] Home generating wordbook payload type guardを最小修正する
+  - 2026-05-09に完了
+  - 更新: `src/lib/home/home-session-storage.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 修正: `isGeneratingWordbookPayload()` 内で `title` をローカル変数へ受け、`typeof title === 'string' && title.length > 0` で判定する形に変更
+  - 変更なし: `consumeHomeGeneratingWordbook()` の外部挙動、sessionStorage key名、JSON shape、`/api/extract`、UI、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `git diff --check` 成功
+  - 確認: `npm exec -- tsx --test src/lib/home/home-session-storage.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。356 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 356 tests pass、`test:security` 38 tests pass、`build` 成功
 - [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
   - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
@@ -265,6 +275,17 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
 
 ## Done
 
+- [x] 2026-05-09: Home generating wordbook payload type guard最小修正
+  - 更新: `src/lib/home/home-session-storage.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 修正: `isGeneratingWordbookPayload()` の `title` accessをローカル変数経由にし、TypeScriptがstringとしてnarrowingできる形に変更した
+  - 変更なし: `consumeHomeGeneratingWordbook()` の外部挙動、sessionStorage key名、JSON shape、`/api/extract`、UI、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `git diff --check` 成功
+  - 確認: `npm exec -- tsx --test src/lib/home/home-session-storage.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。356 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 356 tests pass、`test:security` 38 tests pass、`build` 成功
+  - 残リスク: Home immediate scanのresult accumulator、`/api/extract` client response handling、background upload flowはまだ `src/app/page.tsx` に残る
 - [x] 2026-05-09: Home immediate scan progress step builder抽出
   - 追加: `src/lib/home/home-scan-progress.ts`, `src/lib/home/home-scan-progress.test.ts`
   - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
@@ -274,8 +295,8 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm exec -- tsx --test src/lib/home/home-scan-progress.test.ts` 成功。10 tests pass
   - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
   - 確認: `npm test` 成功。356 tests pass
-  - 確認: `npm run build` 失敗。今回未変更の `src/lib/home/home-session-storage.ts:75` で `Object is of type 'unknown'`
-  - 残リスク: Home immediate scanのresult accumulator、`/api/extract` client response handling、background upload flowはまだ `src/app/page.tsx` に残る。build gateは既存sessionStorage helperのtype guard修正まで未通過
+  - 確認: 当時の `npm run build` は今回未変更の `src/lib/home/home-session-storage.ts:75` type guard errorで失敗。2026-05-09にsessionStorage helper側を最小修正し、`npm run build` / `npm run verify` は成功済み
+  - 残リスク: Home immediate scanのresult accumulator、`/api/extract` client response handling、background upload flowはまだ `src/app/page.tsx` に残る
 - [x] 2026-05-09: Home scan job local notification message builder抽出
   - 追加: `src/lib/home/home-scan-job-notifications.ts`, `src/lib/home/home-scan-job-notifications.test.ts`
   - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

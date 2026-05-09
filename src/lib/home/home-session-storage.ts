@@ -68,12 +68,12 @@ export function clearLegacyHomeProjectId(storage: HomeSessionStorage): void {
 function isGeneratingWordbookPayload(
   value: unknown,
 ): value is Record<string, unknown> & { title: string } {
-  return (
-    typeof value === 'object'
-    && value !== null
-    && typeof (value as Record<string, unknown>).title === 'string'
-    && (value as Record<string, unknown>).title.length > 0
-  );
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const title = (value as Record<string, unknown>).title;
+  return typeof title === 'string' && title.length > 0;
 }
 
 function getOptionalString(value: unknown): string | undefined {
