@@ -77,7 +77,6 @@ type DictionaryMeaning = {
 
 type DictionaryEntry = {
   word?: string;
-  phonetic?: string;
   origin?: string;
   meanings?: DictionaryMeaning[];
 };
@@ -181,7 +180,6 @@ function toDictionaryContext(entry: DictionaryEntry) {
 
   return {
     word: entry.word ?? '',
-    phonetic: entry.phonetic ?? '',
     origin: entry.origin ?? '',
     partOfSpeechTags,
     meanings,

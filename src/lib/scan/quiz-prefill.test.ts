@@ -15,6 +15,7 @@ test('buildQuizPrefillSeedWords selects only words missing distractors, examples
       distractors: ['短くする', '無視する', '隠す'],
       example_sentence: 'Please elaborate on your answer.',
       example_sentence_ja: 'あなたの答えについて詳しく説明してください。',
+      pronunciation: '/ɪˈlæbəreɪt/',
       part_of_speech_tags: ['verb'],
     },
     {
@@ -24,6 +25,7 @@ test('buildQuizPrefillSeedWords selects only words missing distractors, examples
       distractors: ['長い'],
       example_sentence: 'Keep your answer concise.',
       example_sentence_ja: '答えは簡潔にしてください。',
+      pronunciation: '/kənˈsaɪs/',
       part_of_speech_tags: ['adjective'],
     },
     {
@@ -33,6 +35,7 @@ test('buildQuizPrefillSeedWords selects only words missing distractors, examples
       distractors: ['やめる', '忘れる', '避ける'],
       example_sentence: '',
       example_sentence_ja: '彼女は練習を続けました。',
+      pronunciation: '/pərˈsɪst/',
       part_of_speech_tags: ['verb'],
     },
     {
@@ -42,7 +45,18 @@ test('buildQuizPrefillSeedWords selects only words missing distractors, examples
       distractors: ['弱さ', '混乱', '退屈'],
       example_sentence: 'The team showed resilience.',
       example_sentence_ja: 'そのチームは回復力を示しました。',
+      pronunciation: '/rɪˈzɪliəns/',
       part_of_speech_tags: [],
+    },
+    {
+      id: 'missing-pronunciation',
+      english: 'adapt',
+      japanese: '適応する',
+      distractors: ['拒む', '避ける', '忘れる'],
+      example_sentence: 'We adapt to new rules.',
+      example_sentence_ja: '私たちは新しい規則に適応します。',
+      pronunciation: '',
+      part_of_speech_tags: ['verb'],
     },
   ]);
 
@@ -62,6 +76,11 @@ test('buildQuizPrefillSeedWords selects only words missing distractors, examples
       english: 'resilience',
       japanese: '回復力',
     },
+    {
+      id: 'missing-pronunciation',
+      english: 'adapt',
+      japanese: '適応する',
+    },
   ]);
 });
 
@@ -74,6 +93,7 @@ test('buildQuizPrefillSeedWords treats placeholder distractors as missing', () =
       distractors: ['選択肢1', '選択肢2', '選択肢3'],
       example_sentence: 'We adapt to new rules.',
       example_sentence_ja: '私たちは新しい規則に適応します。',
+      pronunciation: '/əˈdæpt/',
       part_of_speech_tags: ['verb'],
     },
   ]);
@@ -92,6 +112,7 @@ test('buildQuizPrefillWordUpdatePayload includes generated example fields only w
     wordId: 'word-1',
     distractors: ['短くする', '無視する', '隠す'],
     partOfSpeechTags: ['verb'],
+    pronunciation: '/ɪˈlæbəreɪt/',
     exampleSentence: 'Please elaborate on your answer.',
     exampleSentenceJa: 'あなたの答えについて詳しく説明してください。',
   });
@@ -99,6 +120,7 @@ test('buildQuizPrefillWordUpdatePayload includes generated example fields only w
   assert.deepEqual(payload, {
     distractors: ['短くする', '無視する', '隠す'],
     part_of_speech_tags: ['verb'],
+    pronunciation: '/ɪˈlæbəreɪt/',
     example_sentence: 'Please elaborate on your answer.',
     example_sentence_ja: 'あなたの答えについて詳しく説明してください。',
   });
@@ -109,6 +131,7 @@ test('buildQuizPrefillWordUpdatePayload does not overwrite existing examples wit
     wordId: 'word-1',
     distractors: ['短くする', '無視する', '隠す'],
     partOfSpeechTags: ['verb'],
+    pronunciation: '',
     exampleSentence: '',
     exampleSentenceJa: '   ',
   });
@@ -119,6 +142,7 @@ test('buildQuizPrefillWordUpdatePayload does not overwrite existing examples wit
   });
   assert.equal(Object.hasOwn(payload, 'example_sentence'), false);
   assert.equal(Object.hasOwn(payload, 'example_sentence_ja'), false);
+  assert.equal(Object.hasOwn(payload, 'pronunciation'), false);
 });
 
 test('buildQuizPrefillWordUpdatePayload does not overwrite existing POS with an empty generated result', () => {
@@ -126,6 +150,7 @@ test('buildQuizPrefillWordUpdatePayload does not overwrite existing POS with an 
     wordId: 'word-1',
     distractors: ['短くする', '無視する', '隠す'],
     partOfSpeechTags: [],
+    pronunciation: '',
     exampleSentence: '',
     exampleSentenceJa: '',
   });

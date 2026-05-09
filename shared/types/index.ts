@@ -192,6 +192,7 @@ export interface AIWordExtraction {
   cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
+  pronunciation?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
 }

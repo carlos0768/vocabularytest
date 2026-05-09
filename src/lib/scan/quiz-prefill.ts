@@ -8,6 +8,7 @@ export interface QuizPrefillCandidateWord {
   distractors: unknown;
   example_sentence: unknown;
   example_sentence_ja?: unknown;
+  pronunciation?: unknown;
   part_of_speech_tags: unknown;
 }
 
@@ -21,6 +22,7 @@ export interface QuizPrefillWordUpdatePayload {
   [key: string]: unknown;
   distractors: string[];
   part_of_speech_tags?: string[];
+  pronunciation?: string;
   example_sentence?: string;
   example_sentence_ja?: string;
 }
@@ -40,6 +42,10 @@ function hasPartOfSpeechTags(value: unknown): boolean {
   return normalizePartOfSpeechTags(value).length > 0;
 }
 
+function hasPronunciation(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function normalizeGeneratedText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -53,6 +59,7 @@ export function buildQuizPrefillSeedWords(
     .filter((word) =>
       !hasValidDistractors(word.distractors) ||
       !hasExampleSentence(word.example_sentence) ||
+      !hasPronunciation(word.pronunciation) ||
       !hasPartOfSpeechTags(word.part_of_speech_tags)
     )
     .map((word) => ({
@@ -69,11 +76,15 @@ export function buildQuizPrefillWordUpdatePayload(
     distractors: item.distractors,
   };
   const partOfSpeechTags = normalizePartOfSpeechTags(item.partOfSpeechTags);
+  const pronunciation = normalizeGeneratedText(item.pronunciation);
   const exampleSentence = normalizeGeneratedText(item.exampleSentence);
   const exampleSentenceJa = normalizeGeneratedText(item.exampleSentenceJa);
 
   if (partOfSpeechTags.length > 0) {
     payload.part_of_speech_tags = partOfSpeechTags;
+  }
+  if (pronunciation) {
+    payload.pronunciation = pronunciation;
   }
   if (exampleSentence) {
     payload.example_sentence = exampleSentence;

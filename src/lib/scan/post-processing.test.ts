@@ -95,6 +95,7 @@ test('buildPostScanQuizPrefillSeedWords uses the Task 3 quiz prefill selector cr
       distractors: ['短くする', '無視する', '隠す'],
       example_sentence: 'Please elaborate on your answer.',
       example_sentence_ja: 'あなたの答えについて詳しく説明してください。',
+      pronunciation: '/ɪˈlæbəreɪt/',
       part_of_speech_tags: ['verb'],
     },
     {
@@ -104,6 +105,7 @@ test('buildPostScanQuizPrefillSeedWords uses the Task 3 quiz prefill selector cr
       distractors: ['長い'],
       example_sentence: 'Keep your answer concise.',
       example_sentence_ja: '答えは簡潔にしてください。',
+      pronunciation: '/kənˈsaɪs/',
       part_of_speech_tags: ['adjective'],
     },
     {
@@ -113,6 +115,7 @@ test('buildPostScanQuizPrefillSeedWords uses the Task 3 quiz prefill selector cr
       distractors: ['やめる', '忘れる', '避ける'],
       example_sentence: '',
       example_sentence_ja: '彼女は練習を続けました。',
+      pronunciation: '/pərˈsɪst/',
       part_of_speech_tags: ['verb'],
     },
     {
@@ -122,6 +125,7 @@ test('buildPostScanQuizPrefillSeedWords uses the Task 3 quiz prefill selector cr
       distractors: ['弱さ', '混乱', '退屈'],
       example_sentence: 'The team showed resilience.',
       example_sentence_ja: 'そのチームは回復力を示しました。',
+      pronunciation: '/rɪˈzɪliəns/',
       part_of_speech_tags: [],
     },
     {
@@ -131,7 +135,18 @@ test('buildPostScanQuizPrefillSeedWords uses the Task 3 quiz prefill selector cr
       distractors: ['選択肢1', '選択肢2', '選択肢3'],
       example_sentence: 'We adapt to new rules.',
       example_sentence_ja: '私たちは新しい規則に適応します。',
+      pronunciation: '/əˈdæpt/',
       part_of_speech_tags: ['verb'],
+    },
+    {
+      id: 'missing-pronunciation',
+      english: 'reliable',
+      japanese: '信頼できる',
+      distractors: ['不安定な', '退屈な', '一時的な'],
+      example_sentence: 'This source is reliable.',
+      example_sentence_ja: 'この情報源は信頼できます。',
+      pronunciation: '',
+      part_of_speech_tags: ['adjective'],
     },
   ];
 
@@ -157,6 +172,11 @@ test('buildPostScanQuizPrefillSeedWords uses the Task 3 quiz prefill selector cr
       id: 'placeholder-distractors',
       english: 'adapt',
       japanese: '適応する',
+    },
+    {
+      id: 'missing-pronunciation',
+      english: 'reliable',
+      japanese: '信頼できる',
     },
   ]);
   assert.deepEqual(seedWords, buildQuizPrefillSeedWords(words));

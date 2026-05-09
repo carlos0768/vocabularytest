@@ -22,6 +22,7 @@ export interface ServerCloudWordForInsert {
   distractors: string[];
   exampleSentence?: string;
   exampleSentenceJa?: string;
+  pronunciation?: string;
   partOfSpeechTags?: string[];
 }
 
@@ -33,6 +34,7 @@ export interface ServerCloudWordInsertPayload {
   distractors: string[];
   example_sentence: string | null;
   example_sentence_ja: string | null;
+  pronunciation: string | null;
   part_of_speech_tags?: string[];
 }
 
@@ -66,6 +68,7 @@ export function buildServerCloudWordsInsertPayload(
     distractors: word.distractors,
     example_sentence: word.exampleSentence || null,
     example_sentence_ja: word.exampleSentenceJa || null,
+    pronunciation: word.pronunciation || null,
     part_of_speech_tags: word.partOfSpeechTags,
   }));
 }

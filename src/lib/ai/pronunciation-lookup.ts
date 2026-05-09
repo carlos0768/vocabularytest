@@ -1,92 +1,129 @@
 /**
- * Pronunciation Lookup via Free Dictionary API
+ * IPA pronunciation generation.
  *
- * 英単語の IPA 発音記号を dictionaryapi.dev から取得する。
+ * 発音記号は外部辞書APIではなくAIで生成する。
  * scan-jobs/process の after() でバッチ実行し、words.pronunciation に保存する。
  */
 
+import { z } from 'zod';
+import { AI_CONFIG } from '@/lib/ai/config';
+import { getProviderFromConfig } from '@/lib/ai/providers';
+import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
-const DICTIONARY_TIMEOUT_MS = 8_000;
-const CONCURRENCY = 5;
+const BATCH_SIZE = 20;
+const MAX_PRONUNCIATION_LENGTH = 120;
 
-type DictionaryPhonetic = {
-  text?: string;
-};
+const pronunciationResponseSchema = z.object({
+  results: z.array(z.object({
+    id: z.string().trim().min(1),
+    pronunciation: z.string().trim().max(MAX_PRONUNCIATION_LENGTH).optional().default(''),
+  })).default([]),
+});
 
-type DictionaryResponse = {
-  phonetic?: string;
-  phonetics?: DictionaryPhonetic[];
-};
+const PRONUNCIATION_PROMPT = `あなたは英語発音辞典の編集者です。
+与えられた英単語または英語フレーズについて、標準的なIPA発音記号を生成してください。
 
-function extractIPA(entry: DictionaryResponse): string | null {
-  if (entry.phonetic && entry.phonetic.trim()) {
-    return entry.phonetic.trim();
-  }
+ルール:
+- pronunciation は必ず "/.../" 形式のIPAで返す
+- 英単語ではない、または発音を確定できない場合は空文字にする
+- アメリカ英語の一般的な発音を優先する
+- 説明文やMarkdownは出さない
+- JSONのみ返す
 
-  if (Array.isArray(entry.phonetics)) {
-    for (const p of entry.phonetics) {
-      if (p.text && p.text.trim()) {
-        return p.text.trim();
-      }
-    }
-  }
-
-  return null;
-}
-
-async function fetchPronunciation(english: string): Promise<string | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DICTIONARY_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(english.toLowerCase().trim())}`,
-      { method: 'GET', signal: controller.signal },
-    );
-
-    if (!response.ok) return null;
-
-    const data = (await response.json()) as unknown;
-    if (!Array.isArray(data) || data.length === 0) return null;
-
-    return extractIPA(data[0] as DictionaryResponse);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+出力形式:
+{
+  "results": [
+    { "id": "word-id", "pronunciation": "/əˈdæpt/" }
+  ]
+}`;
 
 export interface PronunciationResult {
   wordId: string;
   pronunciation: string;
 }
 
+interface PronunciationWordInput {
+  id: string;
+  english: string;
+}
+
+function normalizePronunciation(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  let text = value.trim();
+  if (!text) return null;
+
+  const lower = text.toLowerCase();
+  if (['n/a', 'na', 'unknown', '不明', '-', '---'].includes(lower)) return null;
+
+  if (text.length > MAX_PRONUNCIATION_LENGTH) return null;
+  if (text.startsWith('[') && text.endsWith(']')) {
+    text = `/${text.slice(1, -1).trim()}/`;
+  }
+  if (!text.startsWith('/')) text = `/${text}`;
+  if (!text.endsWith('/')) text = `${text}/`;
+
+  return text.length <= MAX_PRONUNCIATION_LENGTH ? text : null;
+}
+
+function buildPronunciationPrompt(words: PronunciationWordInput[]): string {
+  const wordList = words
+    .map((word, index) => `${index + 1}. ID: ${word.id} / English: ${word.english}`)
+    .join('\n');
+
+  return `${PRONUNCIATION_PROMPT}\n\n対象:\n${wordList}`;
+}
+
+async function generatePronunciationBatch(
+  words: PronunciationWordInput[],
+): Promise<PronunciationResult[]> {
+  if (words.length === 0) return [];
+
+  const config = {
+    ...AI_CONFIG.lexicon.classifyPos,
+    temperature: 0,
+    maxOutputTokens: 2048,
+    responseFormat: 'json' as const,
+  };
+  const provider = getProviderFromConfig(config, {
+    gemini: process.env.GOOGLE_AI_API_KEY,
+    openai: process.env.OPENAI_API_KEY,
+  });
+
+  const result = await provider.generateText(buildPronunciationPrompt(words), config);
+  if (!result.success || !result.content?.trim()) {
+    throw new Error(result.success ? 'AI pronunciation response is empty' : result.error);
+  }
+
+  const parsed = pronunciationResponseSchema.parse(parseJsonResponse(result.content));
+  const inputIds = new Set(words.map((word) => word.id));
+
+  return parsed.results
+    .filter((item) => inputIds.has(item.id))
+    .map((item) => ({
+      wordId: item.id,
+      pronunciation: normalizePronunciation(item.pronunciation),
+    }))
+    .filter((item): item is PronunciationResult => Boolean(item.pronunciation));
+}
+
 /**
- * 指定した単語リストの IPA 発音記号を Dictionary API から取得する。
- * 取得できた単語のみ結果に含む。
+ * 指定した単語リストの IPA 発音記号をAIで生成する。
+ * 生成できた単語のみ結果に含む。
  */
 export async function lookupPronunciations(
-  words: Array<{ id: string; english: string }>,
+  words: PronunciationWordInput[],
 ): Promise<PronunciationResult[]> {
   if (words.length === 0) return [];
 
   const results: PronunciationResult[] = [];
 
-  for (let i = 0; i < words.length; i += CONCURRENCY) {
-    const chunk = words.slice(i, i + CONCURRENCY);
-    const settled = await Promise.allSettled(
-      chunk.map(async (word) => {
-        const ipa = await fetchPronunciation(word.english);
-        return ipa ? { wordId: word.id, pronunciation: ipa } : null;
-      }),
-    );
-
-    for (const result of settled) {
-      if (result.status === 'fulfilled' && result.value) {
-        results.push(result.value);
-      }
+  for (let i = 0; i < words.length; i += BATCH_SIZE) {
+    const chunk = words.slice(i, i + BATCH_SIZE);
+    try {
+      results.push(...await generatePronunciationBatch(chunk));
+    } catch (error) {
+      console.error('[pronunciation-lookup] AI generation failed:', error);
     }
   }
 
@@ -94,7 +131,7 @@ export async function lookupPronunciations(
 }
 
 /**
- * pronunciation が null の単語に対して Dictionary API で IPA を取得し DB 更新する。
+ * pronunciation が null の単語に対してAIで IPA を生成し DB 更新する。
  */
 export async function backfillPronunciations(
   wordIds: string[],
@@ -114,9 +151,9 @@ export async function backfillPronunciations(
   }
 
   const lookupResults = await lookupPronunciations(
-    (words as Array<{ id: string; english: string }>).map((w) => ({
-      id: w.id,
-      english: w.english,
+    (words as Array<{ id: string; english: string }>).map((word) => ({
+      id: word.id,
+      english: word.english,
     })),
   );
 
@@ -145,3 +182,8 @@ export async function backfillPronunciations(
 
   return { updated, errors };
 }
+
+export const __internal = {
+  normalizePronunciation,
+  buildPronunciationPrompt,
+};

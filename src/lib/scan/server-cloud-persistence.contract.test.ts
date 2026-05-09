@@ -59,6 +59,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
         distractors: ['短くする', '無視する', '隠す'],
         exampleSentence: 'Please elaborate on your answer.',
         exampleSentenceJa: 'あなたの答えについて詳しく説明してください。',
+        pronunciation: '/ɪˈlæbəreɪt/',
         partOfSpeechTags: ['verb'],
       },
       {
@@ -81,6 +82,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       distractors: ['短くする', '無視する', '隠す'],
       example_sentence: 'Please elaborate on your answer.',
       example_sentence_ja: 'あなたの答えについて詳しく説明してください。',
+      pronunciation: '/ɪˈlæbəreɪt/',
       part_of_speech_tags: ['verb'],
     },
     {
@@ -91,6 +93,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       distractors: ['長い', '曖昧な', '古い'],
       example_sentence: null,
       example_sentence_ja: null,
+      pronunciation: null,
       part_of_speech_tags: undefined,
     },
   ]);

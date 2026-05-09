@@ -674,7 +674,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   );
   assert.equal(
     wordsInsert.columns,
-    'id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, part_of_speech_tags',
+    'id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags',
   );
   assert.deepEqual(wordsInsert.payload, [
     {
@@ -685,6 +685,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
       distractors: ['ばなな', 'ぶどう', 'もも'],
       example_sentence: 'I ate an apple.',
       example_sentence_ja: '私はりんごを食べました。',
+      pronunciation: null,
       part_of_speech_tags: ['noun'],
     },
   ]);

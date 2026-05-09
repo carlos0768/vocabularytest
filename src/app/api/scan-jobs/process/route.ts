@@ -129,6 +129,7 @@ interface ProcessedExtractedWord {
   cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
+  pronunciation?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
 }
@@ -538,6 +539,7 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
       japaneseSource: normalizedJapanese ? normalizeJapaneseSource(word.japaneseSource) : undefined,
       distractors: mergeDistractors([], word.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
+      pronunciation: firstNonEmpty(word.pronunciation),
       exampleSentence: firstNonEmpty(word.exampleSentence),
       exampleSentenceJa: firstNonEmpty(word.exampleSentenceJa),
     });
@@ -564,6 +566,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
         japaneseSource: source.japaneseSource,
         distractors: mergeDistractors([], source.distractors),
         partOfSpeechTags: normalizePartOfSpeechTags(source.partOfSpeechTags),
+        pronunciation: firstNonEmpty(source.pronunciation),
         exampleSentence: firstNonEmpty(source.exampleSentence),
         exampleSentenceJa: firstNonEmpty(source.exampleSentenceJa),
       });
@@ -580,6 +583,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
         ...(existing.partOfSpeechTags ?? []),
         ...(source.partOfSpeechTags ?? []),
       ]),
+      pronunciation: existing.pronunciation ?? firstNonEmpty(source.pronunciation),
       exampleSentence: existing.exampleSentence ?? firstNonEmpty(source.exampleSentence),
       exampleSentenceJa: existing.exampleSentenceJa ?? firstNonEmpty(source.exampleSentenceJa),
     };
@@ -1106,7 +1110,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const { data: insertedWords, error: wordsError } = await supabaseAdmin
         .from('words')
         .insert(wordsToInsert)
-        .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
+        .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags');
       timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError) {

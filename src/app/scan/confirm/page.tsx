@@ -52,6 +52,10 @@ function hasPartOfSpeechTags(value: unknown): boolean {
   return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
 }
 
+function hasPronunciation(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createBrowserClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -161,11 +165,11 @@ export default function ConfirmPage() {
     const headers = await getAuthHeaders();
     const seedWords = createdWords
       .filter((w) => w.english.trim().length > 0 && w.japanese.trim().length > 0 &&
-        (!hasValidDistractors(w.distractors) || !hasExampleSentence(w.exampleSentence) || !hasPartOfSpeechTags(w.partOfSpeechTags)))
+        (!hasValidDistractors(w.distractors) || !hasExampleSentence(w.exampleSentence) || !hasPronunciation(w.pronunciation) || !hasPartOfSpeechTags(w.partOfSpeechTags)))
       .map((w) => ({ id: w.id, english: w.english, japanese: w.japanese }));
     if (seedWords.length === 0) return createdWords;
 
-    const resultMap = new Map<string, { distractors: string[]; partOfSpeechTags: string[]; exampleSentence: string; exampleSentenceJa: string }>();
+    const resultMap = new Map<string, { distractors: string[]; partOfSpeechTags: string[]; pronunciation: string; exampleSentence: string; exampleSentenceJa: string }>();
     const batches = chunkArray(seedWords, QUIZ_PREFILL_BATCH_SIZE);
 
     for (const batch of batches) {
@@ -180,7 +184,7 @@ export default function ConfirmPage() {
           for (const result of data.results) {
             if (!result?.wordId || !Array.isArray(result.distractors)) continue;
             succeeded.add(result.wordId);
-            resultMap.set(result.wordId, { distractors: result.distractors, partOfSpeechTags: Array.isArray(result.partOfSpeechTags) ? result.partOfSpeechTags : [], exampleSentence: result.exampleSentence || '', exampleSentenceJa: result.exampleSentenceJa || '' });
+            resultMap.set(result.wordId, { distractors: result.distractors, partOfSpeechTags: Array.isArray(result.partOfSpeechTags) ? result.partOfSpeechTags : [], pronunciation: result.pronunciation || '', exampleSentence: result.exampleSentence || '', exampleSentenceJa: result.exampleSentenceJa || '' });
           }
           pending = pending.filter((w) => !succeeded.has(w.id));
           if (pending.length > 0 && attempt < QUIZ_PREFILL_MAX_ATTEMPTS) await sleep(250 * attempt);
@@ -196,6 +200,7 @@ export default function ConfirmPage() {
       const generated = resultMap.get(word.id);
       if (!generated) continue;
       const patch: Partial<Word> = { distractors: generated.distractors, partOfSpeechTags: generated.partOfSpeechTags };
+      if (generated.pronunciation.trim().length > 0) patch.pronunciation = generated.pronunciation;
       if (generated.exampleSentence.trim().length > 0) { patch.exampleSentence = generated.exampleSentence; patch.exampleSentenceJa = generated.exampleSentenceJa; }
       updates.push(updateWord(word.id, patch));
     }
@@ -204,7 +209,13 @@ export default function ConfirmPage() {
     return createdWords.map((word) => {
       const generated = resultMap.get(word.id);
       if (!generated) return word;
-      return { ...word, distractors: generated.distractors, partOfSpeechTags: generated.partOfSpeechTags, ...(generated.exampleSentence.trim().length > 0 ? { exampleSentence: generated.exampleSentence, exampleSentenceJa: generated.exampleSentenceJa } : {}) };
+      return {
+        ...word,
+        distractors: generated.distractors,
+        partOfSpeechTags: generated.partOfSpeechTags,
+        ...(generated.pronunciation.trim().length > 0 ? { pronunciation: generated.pronunciation } : {}),
+        ...(generated.exampleSentence.trim().length > 0 ? { exampleSentence: generated.exampleSentence, exampleSentenceJa: generated.exampleSentenceJa } : {}),
+      };
     });
   };
 
@@ -234,7 +245,7 @@ export default function ConfirmPage() {
       const createdWords = await repository.createWords(selectedWords.map((w) => ({
         projectId: targetProjectId, english: w.english, japanese: w.japanese, japaneseSource: w.japaneseSource,
         lexiconEntryId: w.lexiconEntryId, cefrLevel: w.cefrLevel, distractors: w.distractors,
-        partOfSpeechTags: w.partOfSpeechTags, exampleSentence: w.exampleSentence, exampleSentenceJa: w.exampleSentenceJa,
+        partOfSpeechTags: w.partOfSpeechTags, pronunciation: w.pronunciation, exampleSentence: w.exampleSentence, exampleSentenceJa: w.exampleSentenceJa,
       })));
 
       if (aiEnabledForGeneration) void prefillQuizData(createdWords, repository.updateWord.bind(repository));

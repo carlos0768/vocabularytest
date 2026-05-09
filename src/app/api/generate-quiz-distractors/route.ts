@@ -28,6 +28,10 @@ function hasPartOfSpeechTags(value: unknown): boolean {
   return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
 }
 
+function hasPronunciation(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 const requestSchema = z.object({
   words: z.array(
     z.object({
@@ -65,7 +69,7 @@ export async function POST(request: NextRequest) {
     const wordIds = words.map((word) => word.id);
     const { data: existingWordRows } = await supabase
       .from('words')
-      .select('id, distractors, example_sentence, part_of_speech_tags')
+      .select('id, distractors, example_sentence, pronunciation, part_of_speech_tags')
       .in('id', wordIds);
 
     const existingWordMap = new Map(
@@ -75,6 +79,7 @@ export async function POST(request: NextRequest) {
         id: string;
         distractors: unknown;
         example_sentence: string | null;
+        pronunciation: string | null;
         part_of_speech_tags: unknown;
       }) => [row.id, row])
     );
@@ -85,6 +90,7 @@ export async function POST(request: NextRequest) {
       return (
         !hasValidDistractors(existing.distractors) ||
         !hasExampleSentence(existing.example_sentence) ||
+        !hasPronunciation(existing.pronunciation) ||
         !hasPartOfSpeechTags(existing.part_of_speech_tags)
       );
     });
@@ -100,7 +106,7 @@ export async function POST(request: NextRequest) {
       wordsToGenerate as QuizContentWordInput[]
     );
 
-    const resultsForDb = results.filter((r) => r.exampleSentence || r.partOfSpeechTags.length > 0);
+    const resultsForDb = results.filter((r) => r.exampleSentence || r.partOfSpeechTags.length > 0 || r.pronunciation);
     if (resultsForDb.length > 0) {
       for (const result of resultsForDb) {
         if (!existingWordMap.has(result.wordId)) continue;
@@ -111,6 +117,9 @@ export async function POST(request: NextRequest) {
         }
         if (result.partOfSpeechTags.length > 0) {
           updateData.part_of_speech_tags = result.partOfSpeechTags;
+        }
+        if (result.pronunciation) {
+          updateData.pronunciation = result.pronunciation;
         }
         await supabase
           .from('words')
