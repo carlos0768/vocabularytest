@@ -78,6 +78,8 @@ export default function ProjectPage() {
   const [renameValue, setRenameValue] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
+  const [deleteWordTarget, setDeleteWordTarget] = useState<Word | null>(null);
+  const [deleteWordLoading, setDeleteWordLoading] = useState(false);
 
   const [showManualWordModal, setShowManualWordModal] = useState(false);
   const [showScanCaptureModal, setShowScanCaptureModal] = useState(false);
@@ -211,6 +213,30 @@ export default function ProjectPage() {
     } finally {
       setBulkDeleteLoading(false);
       setBulkDeleteModalOpen(false);
+    }
+  };
+
+  const handleOpenDeleteWord = useCallback((wordId: string) => {
+    const target = selectedWord?.id === wordId ? selectedWord : words.find((w) => w.id === wordId) ?? null;
+    if (target) setDeleteWordTarget(target);
+  }, [selectedWord, words]);
+
+  const handleConfirmSingleWordDelete = async () => {
+    if (!deleteWordTarget || deleteWordLoading) return;
+    setDeleteWordLoading(true);
+    try {
+      await mutationRepository.deleteWord(deleteWordTarget.id);
+      setWords((prev) => prev.filter((w) => w.id !== deleteWordTarget.id));
+      setSelectedWord((current) => (current?.id === deleteWordTarget.id ? null : current));
+      showToast({ message: '単語を削除しました', type: 'success' });
+      invalidateHomeCache();
+      refreshWordCount();
+      setDeleteWordTarget(null);
+    } catch (deleteError) {
+      console.error('Failed to delete word:', deleteError);
+      showToast({ message: '削除に失敗しました', type: 'error' });
+    } finally {
+      setDeleteWordLoading(false);
     }
   };
 
@@ -1001,11 +1027,20 @@ export default function ProjectPage() {
                   setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
                   setSelectedWord(updated);
                 }}
+                onDelete={handleOpenDeleteWord}
               />
             </div>
           </div>
         </div>
       )}
+
+      <SingleWordDeleteModal
+        open={deleteWordTarget !== null}
+        loading={deleteWordLoading}
+        word={deleteWordTarget}
+        onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
+        onConfirm={() => void handleConfirmSingleWordDelete()}
+      />
     </div>
   );
 }
@@ -1661,6 +1696,69 @@ function BulkDeleteModal({
           </h2>
           <p className="mt-2 text-[11px] leading-[1.5] text-[var(--color-muted)]">
             選択した{count}語が削除されます。この操作は取り消せません。
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-60"
+              style={{ background: 'var(--color-error, #cc4d59)' }}
+            >
+              {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+              削除する
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SingleWordDeleteModal({
+  open,
+  loading,
+  word,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  word: Word | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open || !word) return null;
+  return (
+    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="閉じる"
+        onClick={onCancel}
+        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-5">
+        <div
+          className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
+          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+        >
+          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+            DELETE
+          </div>
+          <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+            単語を削除しますか？
+          </h2>
+          <p className="mt-2 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+            {word.english} が削除されます。この操作は取り消せません。
           </p>
           <div className="mt-4 flex gap-2">
             <button

@@ -447,10 +447,11 @@ export function WordDetailView({
             </button>
             <button
               onClick={onDelete ? () => onDelete(wordId) : undefined}
-              className="flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
-              aria-label={onDelete ? '削除メニュー' : 'メニュー'}
+              className="flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+              style={{ color: onDelete ? 'var(--color-error, #cc4d59)' : 'var(--solid-ink)' }}
+              aria-label={onDelete ? '削除' : 'メニュー'}
             >
-              <Icon name="more_horiz" size={18} />
+              <Icon name={onDelete ? 'delete' : 'more_horiz'} size={18} />
             </button>
           </div>
         )}
