@@ -254,8 +254,15 @@ export default function HomePage() {
   }, [user, isPro, authLoading]);
 
   const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW } = stats;
+  const unmasteredCount = newW + review;
   const goalTotal = dueCount + completedToday;
   const goalProgress = goalTotal > 0 ? Math.round((completedToday / goalTotal) * 100) : 0;
+  const dailyLearnTarget = Math.min(unmasteredCount, 10);
+  const learnProgress = dailyLearnTarget > 0
+    ? Math.min(100, Math.round((completedToday / dailyLearnTarget) * 100))
+    : 0;
+  const goalState: 'review' | 'learn' | 'empty' =
+    dueCount > 0 ? 'review' : totalWords === 0 ? 'empty' : 'learn';
   const visibleProjects = projects.slice(0, 3);
 
   if (authLoading) {
@@ -300,32 +307,87 @@ export default function HomePage() {
       )}
 
       <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5">
-        <Link href={dueCount > 0 ? '/quiz/all?review=1&from=/' : '/projects'} className="block">
-          <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-              TODAY&apos;S GOAL
-            </div>
-            <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-                {dueCount}
-              </span>
-              <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
-            </div>
-            <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
-              {completedToday} / {goalTotal} 完了
-            </div>
-            <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-              <div className="h-full bg-[var(--color-accent)]" style={{ width: `${goalProgress}%` }} />
-            </div>
-            <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
-              <span className="text-[13px] font-bold">復習を始める</span>
-              <span className="inline-flex text-[var(--color-accent)]">
-                <Icon name="chevron_right" size={12} />
-              </span>
-            </div>
-          </SolidPanel>
-        </Link>
+        {goalState === 'empty' ? (
+          <button type="button" onClick={() => setVocabScanOpen(true)} className="block text-left">
+            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                TODAY&apos;S GOAL
+              </div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="inline-flex text-[var(--solid-ink)]">
+                  <Icon name="photo_camera" size={26} />
+                </span>
+                <span className="font-display text-[18px] font-extrabold leading-tight text-[var(--solid-ink)]">
+                  最初のスキャン
+                </span>
+              </div>
+              <div className="mt-1 text-[11px] leading-snug text-[var(--color-muted)]">
+                ノートを撮って単語を登録しよう
+              </div>
+              <div className="mt-3.5 flex items-center gap-[3px] text-[var(--solid-ink)]">
+                <span className="text-[13px] font-bold">スキャンを開始</span>
+                <span className="inline-flex text-[var(--color-accent)]">
+                  <Icon name="chevron_right" size={12} />
+                </span>
+              </div>
+            </SolidPanel>
+          </button>
+        ) : goalState === 'learn' ? (
+          <Link href="/quiz/all?learn=1&from=/" className="block">
+            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                TODAY&apos;S GOAL
+              </div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
+                  {unmasteredCount}
+                </span>
+                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
+              </div>
+              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
+                未習得 ・ 本日 {completedToday} 語学習
+              </div>
+              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${learnProgress}%` }} />
+              </div>
+              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
+                <span className="text-[13px] font-bold">学習を始める</span>
+                <span className="inline-flex text-[var(--color-accent)]">
+                  <Icon name="chevron_right" size={12} />
+                </span>
+              </div>
+            </SolidPanel>
+          </Link>
+        ) : (
+          <Link href="/quiz/all?review=1&from=/" className="block">
+            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                TODAY&apos;S GOAL
+              </div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
+                  {dueCount}
+                </span>
+                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
+              </div>
+              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
+                {completedToday} / {goalTotal} 完了
+              </div>
+              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${goalProgress}%` }} />
+              </div>
+              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
+                <span className="text-[13px] font-bold">復習を始める</span>
+                <span className="inline-flex text-[var(--color-accent)]">
+                  <Icon name="chevron_right" size={12} />
+                </span>
+              </div>
+            </SolidPanel>
+          </Link>
+        )}
 
         <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
           <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">

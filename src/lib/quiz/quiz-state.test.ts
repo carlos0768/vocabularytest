@@ -30,6 +30,7 @@ function createWord(overrides: Partial<Word> & Pick<Word, 'id' | 'english' | 'ja
 test('getQuizStorageKey fixes normal and review session keys', () => {
   assert.equal(getQuizStorageKey('project-1', false), 'quiz_state_project-1');
   assert.equal(getQuizStorageKey('project-1', true), 'quiz_state_review');
+  assert.equal(getQuizStorageKey('project-1', false, true), 'quiz_state_learn');
 });
 
 test('isQuizStateExpired preserves the 30 minute TTL boundary', () => {

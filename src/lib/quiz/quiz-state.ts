@@ -14,8 +14,8 @@ export const GENERIC_EN_DISTRACTOR_POOL = [
   'consider', 'provide', 'develop', 'maintain', 'achieve', 'support', 'prepare', 'review',
 ] as const;
 
-export function getQuizStorageKey(projectId: string, reviewMode: boolean): string {
-  return `quiz_state_${reviewMode ? 'review' : projectId}`;
+export function getQuizStorageKey(projectId: string, reviewMode: boolean, learnMode = false): string {
+  return `quiz_state_${reviewMode ? 'review' : learnMode ? 'learn' : projectId}`;
 }
 
 export function isQuizStateExpired(timestamp: number, now: number = Date.now()): boolean {

@@ -142,6 +142,7 @@ export default function QuizPage() {
   const countFromUrl = searchParams.get('count');
   const returnPath = searchParams.get('from');
   const reviewMode = searchParams.get('review') === '1';
+  const learnMode = searchParams.get('learn') === '1';
   const collectionId = searchParams.get('collectionId');
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
@@ -182,7 +183,7 @@ export default function QuizPage() {
 
   const restoredFromStorage = useRef(false);
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
-  const storageKey = getQuizStorageKey(projectId, reviewMode);
+  const storageKey = getQuizStorageKey(projectId, reviewMode, learnMode);
 
   const saveQuizState = useCallback(() => {
     if (questions.length === 0 || !questionCount) return;
@@ -202,9 +203,10 @@ export default function QuizPage() {
     restoredFromStorage.current = false;
     const fromQ = returnPath ? `&from=${encodeURIComponent(returnPath)}` : '';
     const cnt = Math.max(1, Math.min(questionCount ?? DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
-    const url = `${pathname}?review=1&count=${cnt}${fromQ}&_rs=${Date.now()}`;
+    const modeParam = learnMode ? 'learn=1' : 'review=1';
+    const url = `${pathname}?${modeParam}&count=${cnt}${fromQ}&_rs=${Date.now()}`;
     window.location.assign(url);
-  }, [clearQuizState, returnPath, questionCount, pathname]);
+  }, [clearQuizState, returnPath, questionCount, pathname, learnMode]);
 
   useEffect(() => {
     if (questions.length > 0 && questionCount && !isComplete) saveQuizState();
@@ -342,7 +344,7 @@ export default function QuizPage() {
 
         let sourceWords: Word[] = [];
 
-        if (reviewMode) {
+        if (reviewMode || learnMode) {
           const userId = user ? user.id : getGuestUserId();
           let projects = await repository.getProjects(userId);
           let wordRepo = repository;
@@ -367,7 +369,10 @@ export default function QuizPage() {
             const arrays = await Promise.all(projectIds.map((id) => wordRepo.getWords(id)));
             wordsByProject = Object.fromEntries(projectIds.map((id, idx) => [id, arrays[idx] ?? []]));
           }
-          sourceWords = getWordsDueForReview(projectIds.flatMap((id) => wordsByProject[id] ?? []));
+          const allFlat = projectIds.flatMap((id) => wordsByProject[id] ?? []);
+          sourceWords = reviewMode
+            ? getWordsDueForReview(allFlat)
+            : allFlat.filter((w) => w.status !== 'mastered');
         } else if (collectionId) {
           sourceWords = await loadCollectionWords(collectionId);
         } else {
@@ -380,7 +385,7 @@ export default function QuizPage() {
           sourceWords = loadedWords;
         }
 
-        if (!reviewMode) {
+        if (!reviewMode && !learnMode) {
           const nonMastered = sourceWords.filter((w) => w.status !== 'mastered');
           if (nonMastered.length > 0) sourceWords = nonMastered;
         }
@@ -410,10 +415,10 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, collectionId, backToProject, user, storageKey, needsDistractors, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, collectionId, backToProject, user, storageKey, needsDistractors, quizDirection]);
 
   useEffect(() => {
-    if (authLoading || !user || reviewMode || collectionId) return;
+    if (authLoading || !user || reviewMode || learnMode || collectionId) return;
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
@@ -422,11 +427,11 @@ export default function QuizPage() {
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, collectionId]);
+  }, [authLoading, user, projectId, reviewMode, learnMode, collectionId]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
-    if (reviewMode || collectionId) return;
+    if (reviewMode || learnMode || collectionId) return;
     if (questions.length === 0) return;
     if (vocabularyMergeFromLocalAppliedRef.current) return;
     vocabularyMergeFromLocalAppliedRef.current = true;
@@ -451,7 +456,7 @@ export default function QuizPage() {
       } catch { vocabularyMergeFromLocalAppliedRef.current = false; }
     })();
     return () => { cancelled = true; };
-  }, [questions.length, projectId, repository, reviewMode, collectionId]);
+  }, [questions.length, projectId, repository, reviewMode, learnMode, collectionId]);
 
   const currentQuestion = questions[currentIndex];
   const isActiveVocab = currentQuestion?.word.vocabularyType === 'active';
@@ -469,7 +474,7 @@ export default function QuizPage() {
       return next;
     });
     if (isCorrect) recordCorrectAnswer(false);
-    else recordWrongAnswer(word.id, word.english, word.japanese, reviewMode ? word.projectId : projectId, word.distractors);
+    else recordWrongAnswer(word.id, word.english, word.japanese, reviewMode || learnMode ? word.projectId : projectId, word.distractors);
     recordActivity();
     try {
       const newStatus = getStatusAfterAnswer(word.status, isCorrect);
@@ -495,7 +500,7 @@ export default function QuizPage() {
       return next;
     });
     if (isCorrect) recordCorrectAnswer(false);
-    else recordWrongAnswer(word.id, word.english, word.japanese, reviewMode ? word.projectId : projectId, word.distractors);
+    else recordWrongAnswer(word.id, word.english, word.japanese, reviewMode || learnMode ? word.projectId : projectId, word.distractors);
     recordActivity();
     try {
       const newStatus = getStatusAfterAnswer(word.status, isCorrect);
@@ -662,7 +667,7 @@ export default function QuizPage() {
               {completionMessage}
             </p>
             <div className="space-y-3">
-              {reviewMode ? (
+              {reviewMode || learnMode ? (
                 <>
                   <SolidButton variant="inverse" onClick={goToNextReviewQuiz} iconRight="arrow_forward" className="w-full justify-center">次へ進む</SolidButton>
                   <SolidButton onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
