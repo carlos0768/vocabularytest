@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { __internal } from '@/app/api/extract/route';
+import { getMissingProviderKey, getProvidersForMode } from '@/lib/scan/mode-provider';
 import { AI_CONFIG } from '@/lib/ai/config';
 
 function withCloudRunEnv<T>(url: string | undefined, token: string | undefined, run: () => T): T {
@@ -27,21 +27,21 @@ function withCloudRunEnv<T>(url: string | undefined, token: string | undefined, 
 
 test('Cloud Run configured mode does not require direct provider key', () => {
   withCloudRunEnv('https://scan.example.run.app', 'token-123', () => {
-    const missing = __internal.getMissingProviderKey('all', { gemini: undefined, openai: undefined });
+    const missing = getMissingProviderKey('all', { gemini: undefined, openai: undefined });
     assert.equal(missing, null);
   });
 });
 
 test('Without Cloud Run, missing gemini key is reported for all mode', () => {
   withCloudRunEnv(undefined, undefined, () => {
-    const missing = __internal.getMissingProviderKey('all', { gemini: undefined, openai: undefined });
+    const missing = getMissingProviderKey('all', { gemini: undefined, openai: undefined });
     assert.equal(missing, 'gemini');
   });
 });
 
 test('idiom mode resolves provider from idioms config', () => {
   withCloudRunEnv(undefined, undefined, () => {
-    const providers = __internal.getProvidersForMode('idiom');
+    const providers = getProvidersForMode('idiom');
     assert.deepEqual(providers, [AI_CONFIG.extraction.idioms.provider]);
   });
 });
