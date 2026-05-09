@@ -54,10 +54,10 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-09時点の検証結果:
 
 - `npm run build`: 成功。2026-05-09に `src/lib/home/home-session-storage.ts` の `isGeneratingWordbookPayload()` type guardを最小修正し、既知の `Object is of type 'unknown'` build failureを解消
-- `npm test`: 成功。385 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。390 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
-- `npm run verify`: 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は385 tests pass、`test:security` は38 tests pass、`build` 成功
+- `npm run verify`: 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は390 tests pass、`test:security` は38 tests pass、`build` 成功
 - `npm run test:cloud-run-scan`: 成功。22 tests pass。Cloud Run scan serviceは別packageなので root Web `verify` には含めない
 - `npm run lint`: 公開前gateではない。Web本体公開前検証には `npm run lint:web` / `npm run verify` を使う
 - `npx tsc --noEmit`: 今回は未再実行。`npm run build` のTypeScript checkは成功
@@ -111,6 +111,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - Project scan progress step builder helper化は 2026-05-09 に完了。`src/lib/project/project-scan-progress.ts` とtestを追加し、Project detailのscan-to-addにあるsingle scan初期/analyze開始、multiple scan初期/current file active化/file processing error/API error/file complete、active/pending step error化をpure helperへ移動済み。`page.tsx` はprogress helper呼び出しへの置換だけに留め、`/api/extract` request/response/fetch処理、FileReader、`processImageFile`、PDF expansion、sessionStorage保存、router遷移、scan result accumulator、repository選択、share、bulk delete、word/project mutation、認証、課金、同期、DB migration、package-lockは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/project/project-scan-progress.test.ts` は8 tests pass、`git diff --check` 成功、`npm run lint:web` は0 errors / 97 warnings、`npm test` は380 tests pass、`npm run build` と `npm run verify` は成功
 - Project scan result accumulator helper化は 2026-05-09 に完了。`src/lib/project/project-scan-results.ts` とtestを追加し、Project detailのmultiple scan結果集約にあるwords蓄積、sourceLabels merge、lexiconEntries merge、words 0件判定、`saveScanConfirmResultPayload()` payload作成をpure helperへ移動済み。`page.tsx` はhelper呼び出しへの置換だけに留め、`/api/extract` request/response/fetch処理、FileReader、`processImageFile`、PDF expansion、progress helper、sessionStorage key名、router遷移、`prepareScanConfirmForExistingProject()` の呼び出し位置と意味、single scan挙動、repository選択、share、bulk delete、word/project mutation、認証、課金、同期、DB migration、package-lockは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/project/project-scan-results.test.ts` は5 tests pass、`git diff --check` 成功、`npm run lint:web` は0 errors / 97 warnings、`npm test` は385 tests pass、`npm run build` と `npm run verify` は成功
 - Quiz巨大ファイル保守性棚卸しは 2026-05-09 に [`QUIZ_PAGE_AUDIT.md`](QUIZ_PAGE_AUDIT.md) として作成済み。`src/app/quiz/[projectId]/page.tsx` は 1147 行で、データ取得、クイズ問題生成、回答判定、進捗/スコア表示、spaced repetition保存、wrong answer記録、distractor生成/API、storage復元、modal / toast / UI stateを分類済み。`src/lib/quiz/quiz-state.ts` はstorage key、30分TTL、generic distractor pool、question builderを担当済み。危険領域としてspaced repetition、wrong answer、distractor API、quiz state storage、repository更新、認証/課金/同期/DB migrationに影響する箇所を整理済み。コード変更はしていない。次にQuiz実装へ進む場合の最初の推奨は、repository、spaced repetition、wrong answer、distractor API、storageに触れないQuiz progress / score selectorの純粋helper化
+- Quiz progress / score selector helper化は 2026-05-09 に完了。`src/lib/quiz/quiz-progress.ts` とtestを追加し、Quiz pageの完了画面正答率、percentageから完了メッセージを返す処理、header progress bar width、問題数入力の `parsedInput` / `isValidInput` 判定をpure helperへ移動済み。`page.tsx` はhelper呼び出しへの置換だけに留め、UI文言、percentage閾値、progress表示、問題数入力条件、回答判定、問題生成、保存処理、API呼び出し、repository、spaced repetition、wrong answer、distractor API、quiz state storage、認証、課金、同期、DB migration、package-lockは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/quiz/quiz-progress.test.ts` は5 tests pass、`git diff --check` 成功、`npm run lint:web` は0 errors / 97 warnings、`npm test` は390 tests pass、`npm run build` と `npm run verify` は成功
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -129,7 +130,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2. [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1-7は完了済み。`scan-jobs/process` 完了後の入口は [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
 3. Home巨大ファイルの棚卸しは [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) に完了済み。Home表示selector、Home専用sessionStorage key、scan job local notification message builder、immediate scan progress step builder、immediate scan result accumulatorの純粋helper化も完了済み。Home scan client flowの棚卸しは [`HOME_SCAN_FLOW_AUDIT.md`](HOME_SCAN_FLOW_AUDIT.md) に完了済み。既知だった `home-session-storage.ts` type guardのbuild failureは解消済み。次にHome実装へ進む場合も、`/api/extract`、PDF/file upload、background upload、Storage、認証、課金、同期、DB migrationに触れない1責務ずつ進める
 4. Project巨大ファイルの棚卸しは [`PROJECT_PAGE_AUDIT.md`](PROJECT_PAGE_AUDIT.md) に完了済み。Project表示selector pure helper化、Project scan progress step builder helper化、Project scan result accumulator helper化も完了済み。次にProject実装へ進む場合も1責務ずつ切り、repository選択、scan-to-add sessionStorage、share公開範囲、bulk delete、favorite / wrong answer / spaced repetitionを同時に触らない
-5. Quiz巨大ファイルの棚卸しは [`QUIZ_PAGE_AUDIT.md`](QUIZ_PAGE_AUDIT.md) に完了済み。次にQuiz実装へ進む場合も1責務ずつ切り、spaced repetition、wrong answer、distractor API、quiz state storage、repository更新を同時に触らない
-6. 他の推奨候補は、Quiz progress / score selector helper化、P2-D正式docs昇格
+5. Quiz巨大ファイルの棚卸しは [`QUIZ_PAGE_AUDIT.md`](QUIZ_PAGE_AUDIT.md) に完了済み。Quiz progress / score selector helper化も完了済み。次にQuiz実装へ進む場合も1責務ずつ切り、spaced repetition、wrong answer、distractor API、quiz state storage、repository更新を同時に触らない
+6. 他の推奨候補は、Quiz type-in answer判定helper化、Quiz sessionStorage persist/restore parser helper化、P2-D正式docs昇格
 7. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない新しい小タスクへ切る
 8. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する

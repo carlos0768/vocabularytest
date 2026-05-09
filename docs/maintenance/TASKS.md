@@ -326,6 +326,21 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 変更なし: code、リファクタ、機能追加、`src/app/quiz/[projectId]/page.tsx`、API、型、schema、package-lock、migration、認証、課金、同期、DB migration
   - 次に実装する場合の最初の推奨は、Quiz progress / score selectorをpure helperへ出すこと。repository、spaced repetition、wrong answer、distractor API、storageには触れない
   - 確認: `git diff --check` 成功。docs-only変更のため `npm run verify` は実行していない
+- [x] Quiz progress / score selectorをpure helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/quiz/quiz-progress.ts`, `src/lib/quiz/quiz-progress.test.ts`
+  - 更新: `src/app/quiz/[projectId]/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: 完了画面の正答率、percentageから完了メッセージを返す処理、header progress barのwidth percentage、問題数入力の`parsedInput` / `isValidInput` 判定をpure helperへ移動
+  - 固定: 100 / 80以上 / 60以上 / 60未満の完了メッセージ、`Math.round((correct / total) * 100)` の正答率、`(currentIndex + 1) / questions.length * 100` の進捗率、入力が1〜maxQuestionsの時だけvalid、invalid / 空文字 / 0 / max超過はinvalid
+  - 変更: `page.tsx` はhelper呼び出しへの置換に限定した
+  - 変更なし: UI文言、percentage閾値、progress表示、問題数入力条件、回答判定、問題生成、保存処理、API呼び出し、repository、spaced repetition、wrong answer、distractor API、quiz state storage、認証、課金、同期、DB migration、package-lock
+  - 確認: `git diff --check` 成功
+  - 確認: `npm exec -- tsx --test src/lib/quiz/quiz-progress.test.ts` 成功。5 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。390 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 390 tests pass、`test:security` 38 tests pass、`build` 成功
+  - 残リスク: Quiz pageの回答判定、spaced repetition保存、wrong answer記録、background distractor API、quiz state storage persist/restore、repository更新はまだ `src/app/quiz/[projectId]/page.tsx` に残る
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
   - 2026-05-08 Task 11でprompt contract test追加とprompt本文差分なしのdomain別機械的分割まで完了
 

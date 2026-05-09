@@ -16,6 +16,12 @@ import {
   isQuizStateExpired,
   type QuizDirection,
 } from '@/lib/quiz/quiz-state';
+import {
+  calculateQuizProgressPercentage,
+  calculateQuizScorePercentage,
+  getQuizCompletionMessage,
+  parseQuizQuestionCountInput,
+} from '@/lib/quiz/quiz-progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
@@ -811,8 +817,7 @@ export default function QuizPage() {
   // Question count selection screen
   if (!questionCount) {
     const maxQuestions = Math.min(allWords.length, MAX_NORMAL_QUIZ_QUESTION_COUNT);
-    const parsedInput = parseInt(inputCount, 10);
-    const isValidInput = !isNaN(parsedInput) && parsedInput >= 1 && parsedInput <= maxQuestions;
+    const { parsedInput, isValidInput } = parseQuizQuestionCountInput(inputCount, maxQuestions);
 
     const handleSubmit = () => {
       if (isValidInput) {
@@ -907,7 +912,7 @@ export default function QuizPage() {
 
   // Quiz complete screen
   if (isComplete) {
-    const percentage = Math.round((results.correct / results.total) * 100);
+    const percentage = calculateQuizScorePercentage(results);
 
     return (
       <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
@@ -942,13 +947,7 @@ export default function QuizPage() {
             </div>
 
             <p className="text-[var(--color-foreground)] mb-8">
-              {percentage === 100
-                ? 'パーフェクト! 素晴らしい!'
-                : percentage >= 80
-                ? 'よくできました!'
-                : percentage >= 60
-                ? 'もう少し! 復習しましょう'
-                : '繰り返し練習しましょう!'}
+              {getQuizCompletionMessage(percentage)}
             </p>
 
             <div className="space-y-3">
@@ -1007,7 +1006,7 @@ export default function QuizPage() {
           <div className="flex-1 progress-bar min-w-0">
             <div
               className="progress-bar-fill"
-              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+              style={{ width: `${calculateQuizProgressPercentage(currentIndex, questions.length)}%` }}
             />
           </div>
         </div>
