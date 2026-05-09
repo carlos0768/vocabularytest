@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
@@ -27,7 +27,6 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 function SignupForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
 
@@ -216,7 +215,7 @@ function SignupForm() {
       stepLabel="1/2"
       title="新規登録"
       description="メールアドレスとパスワードでアカウントを作成します。"
-      onBack={() => router.back()}
+      backHref="/"
     >
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-2.5 px-6 pb-3">
@@ -307,26 +306,36 @@ function SignupShell({
   stepLabel,
   title,
   description,
+  backHref,
   onBack,
   children,
 }: {
   stepLabel: string;
   title: string;
   description: string;
-  onBack: () => void;
+  backHref?: string;
+  onBack?: () => void;
   children: ReactNode;
 }) {
+  const backClassName = 'flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none';
+
   return (
     <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       <div className="flex items-center gap-2 px-[14px] pt-1">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
-          aria-label="戻る"
-        >
-          <Icon name="chevron_left" size={16} />
-        </button>
+        {backHref ? (
+          <Link href={backHref} className={backClassName} aria-label="戻る">
+            <Icon name="chevron_left" size={16} />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onBack}
+            className={backClassName}
+            aria-label="戻る"
+          >
+            <Icon name="chevron_left" size={16} />
+          </button>
+        )}
         <div className="flex-1" />
         <div className="mr-1.5 flex items-center gap-1">
           <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--color-muted)]">
@@ -369,13 +378,6 @@ function SignupShell({
       {children}
 
       <div className="flex-1" />
-
-      <div className="px-6 pb-8 pt-5 text-center">
-        <span className="text-xs text-[var(--color-muted)]">ホームへ戻る場合は </span>
-        <Link href="/" className="text-xs font-bold text-[var(--solid-ink)] underline">
-          こちら
-        </Link>
-      </div>
     </div>
   );
 }

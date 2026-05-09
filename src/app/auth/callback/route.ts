@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
-import { normalizeOAuthRedirectPath } from '@/lib/auth/oauth';
+import {
+  buildExpiredOAuthRedirectCookie,
+  normalizeOAuthRedirectPath,
+  readOAuthRedirectCookie,
+} from '@/lib/auth/oauth';
 import { NextResponse } from 'next/server';
 
 // GET /auth/callback
@@ -7,17 +11,22 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = normalizeOAuthRedirectPath(searchParams.get('next'));
+  const cookieNext = readOAuthRedirectCookie(request.headers.get('cookie'));
+  const next = normalizeOAuthRedirectPath(searchParams.get('next') ?? cookieNext);
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      const response = NextResponse.redirect(`${origin}${next}`);
+      response.headers.append('Set-Cookie', buildExpiredOAuthRedirectCookie());
+      return response;
     }
   }
 
   // Return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  const response = NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  response.headers.append('Set-Cookie', buildExpiredOAuthRedirectCookie());
+  return response;
 }

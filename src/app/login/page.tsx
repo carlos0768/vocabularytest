@@ -2,13 +2,12 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
   const { signIn } = useAuth();
@@ -39,14 +38,13 @@ function LoginForm() {
   return (
     <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       <div className="px-[14px] pt-1">
-        <button
-          type="button"
-          onClick={() => router.back()}
+        <Link
+          href="/"
           className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />
-        </button>
+        </Link>
       </div>
 
       <div className="px-6 pb-2 pt-6 text-center">
@@ -151,13 +149,6 @@ function LoginForm() {
       </div>
 
       <div className="flex-1" />
-
-      <div className="px-6 pb-8 pt-5 text-center">
-        <span className="text-xs text-[var(--color-muted)]">ホームへ戻る場合は </span>
-        <Link href="/" className="text-xs font-bold text-[var(--solid-ink)] underline">
-          こちら
-        </Link>
-      </div>
     </div>
   );
 }

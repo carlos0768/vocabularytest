@@ -11,7 +11,12 @@ import { clearAllUserStats } from '@/lib/utils';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription, wasProUser } from '@/lib/subscription/status';
 import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-offline';
 import { getCachedSupabaseSessionSnapshot, isCachedSupabaseSessionValid } from '@/lib/supabase/session-cache';
-import { buildOAuthCallbackUrl, getOAuthProviderLabel, type AuthOAuthProvider } from '@/lib/auth/oauth';
+import {
+  buildOAuthCallbackUrl,
+  buildOAuthRedirectCookie,
+  getOAuthProviderLabel,
+  type AuthOAuthProvider,
+} from '@/lib/auth/oauth';
 
 interface AuthState {
   user: User | null;
@@ -500,11 +505,12 @@ export function useAuth() {
     }
 
     notifyListeners({ ...globalAuthState, loading: true, error: null });
+    document.cookie = buildOAuthRedirectCookie(redirectPath, window.location.protocol === 'https:');
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: buildOAuthCallbackUrl(redirectPath, window.location.origin),
+        redirectTo: buildOAuthCallbackUrl(window.location.origin),
       },
     });
 

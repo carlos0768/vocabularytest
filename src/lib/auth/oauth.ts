@@ -1,4 +1,5 @@
 export const AUTH_OAUTH_PROVIDERS = ['google', 'apple'] as const;
+export const OAUTH_REDIRECT_COOKIE = 'merken_oauth_next';
 
 export type AuthOAuthProvider = (typeof AUTH_OAUTH_PROVIDERS)[number];
 
@@ -23,13 +24,44 @@ export function normalizeOAuthRedirectPath(value: string | null | undefined): st
   }
 }
 
-export function buildOAuthCallbackUrl(
+export function buildOAuthCallbackUrl(origin: string): string {
+  return new URL('/auth/callback', origin).toString();
+}
+
+export function buildOAuthRedirectCookie(
   redirectPath: string | null | undefined,
-  origin: string,
+  secure: boolean,
 ): string {
-  const callbackUrl = new URL('/auth/callback', origin);
-  callbackUrl.searchParams.set('next', normalizeOAuthRedirectPath(redirectPath));
-  return callbackUrl.toString();
+  const attrs = [
+    `${OAUTH_REDIRECT_COOKIE}=${encodeURIComponent(normalizeOAuthRedirectPath(redirectPath))}`,
+    'Path=/',
+    'Max-Age=600',
+    'SameSite=Lax',
+  ];
+  if (secure) attrs.push('Secure');
+  return attrs.join('; ');
+}
+
+export function buildExpiredOAuthRedirectCookie(): string {
+  return `${OAUTH_REDIRECT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
+export function readOAuthRedirectCookie(cookieHeader: string | null | undefined): string | null {
+  if (!cookieHeader) return null;
+
+  const cookie = cookieHeader
+    .split(';')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(`${OAUTH_REDIRECT_COOKIE}=`));
+
+  if (!cookie) return null;
+
+  const rawValue = cookie.slice(OAUTH_REDIRECT_COOKIE.length + 1);
+  try {
+    return normalizeOAuthRedirectPath(decodeURIComponent(rawValue));
+  } catch {
+    return DEFAULT_REDIRECT_PATH;
+  }
 }
 
 export function getOAuthProviderLabel(provider: AuthOAuthProvider): string {

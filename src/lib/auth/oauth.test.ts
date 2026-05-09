@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildOAuthCallbackUrl,
+  buildOAuthRedirectCookie,
   getOAuthProviderLabel,
   isAuthOAuthProvider,
   normalizeOAuthRedirectPath,
+  readOAuthRedirectCookie,
 } from './oauth';
 
 test('normalizeOAuthRedirectPath keeps app-relative paths with query and hash', () => {
@@ -17,11 +19,21 @@ test('normalizeOAuthRedirectPath rejects external and protocol-relative redirect
   assert.equal(normalizeOAuthRedirectPath('javascript:alert(1)'), '/');
 });
 
-test('buildOAuthCallbackUrl points Supabase OAuth back to the app callback with next', () => {
+test('buildOAuthCallbackUrl points Supabase OAuth back to a fixed app callback', () => {
   assert.equal(
-    buildOAuthCallbackUrl('/projects?sort=recent', 'https://merken.example'),
-    'https://merken.example/auth/callback?next=%2Fprojects%3Fsort%3Drecent',
+    buildOAuthCallbackUrl('https://merken.example'),
+    'https://merken.example/auth/callback',
   );
+});
+
+test('OAuth redirect cookie stores only normalized app-relative paths', () => {
+  const cookie = buildOAuthRedirectCookie('/projects?sort=recent', false);
+  assert.match(cookie, /^merken_oauth_next=%2Fprojects%3Fsort%3Drecent; Path=\/; Max-Age=600; SameSite=Lax$/);
+  assert.equal(readOAuthRedirectCookie(cookie), '/projects?sort=recent');
+});
+
+test('OAuth redirect cookie rejects external paths when read', () => {
+  assert.equal(readOAuthRedirectCookie('merken_oauth_next=https%3A%2F%2Fevil.example; Path=/'), '/');
 });
 
 test('isAuthOAuthProvider accepts only supported launch providers', () => {
