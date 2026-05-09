@@ -137,6 +137,7 @@ export default function SharedDetailPage() {
           pronunciation: word.pronunciation ?? undefined,
           partOfSpeechTags: word.partOfSpeechTags ?? undefined,
           vocabularyType: word.vocabularyType ?? undefined,
+          wordOrderQuiz: word.wordOrderQuiz ?? undefined,
         })),
       );
 

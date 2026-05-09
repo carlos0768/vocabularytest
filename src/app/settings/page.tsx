@@ -8,8 +8,6 @@ import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/components/theme-provider';
-import { useWordCount } from '@/hooks/use-word-count';
-import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -18,7 +16,6 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user, isPro, signOut, loading: authLoading, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { count: wordCount, loading: wordCountLoading } = useWordCount();
   const {
     username,
     loading: profileLoading,
@@ -26,7 +23,6 @@ export default function SettingsPage() {
     error: profileError,
     setUsername,
   } = useProfile();
-  const { aiEnabled, loading: userPreferencesLoading, saving: userPreferencesSaving, setAiEnabled } = useUserPreferences();
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
 
@@ -196,21 +192,6 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
-
-      {/* 学習 */}
-      <SettingsGroup label="学習">
-        <SettingsRow icon="psychology" label="AI補助">
-          <button
-            type="button"
-            onClick={() => setAiEnabled(!(aiEnabled !== false))}
-            disabled={userPreferencesLoading || userPreferencesSaving}
-            className={`h-5 w-[34px] rounded-full border-[1.25px] border-[var(--solid-ink)] p-0.5 transition-colors ${aiEnabled !== false ? 'bg-[var(--color-accent)]' : 'bg-[rgba(26,26,26,0.15)]'}`}
-          >
-            <span className={`block h-3.5 w-3.5 rounded-full border border-[var(--solid-ink)] bg-white transition-transform ${aiEnabled !== false ? 'translate-x-[14px]' : 'translate-x-0'}`} />
-          </button>
-        </SettingsRow>
-        <SettingsRow icon="data_usage" label="保存済み単語" hint={wordCountLoading ? '集計中...' : `${wordCount.toLocaleString()}語`} />
-      </SettingsGroup>
 
       {/* 表示 */}
       <SettingsGroup label="表示">

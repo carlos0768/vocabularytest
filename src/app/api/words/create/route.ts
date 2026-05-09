@@ -27,6 +27,16 @@ const usagePatternSchema = z.object({
   register: z.string().trim().max(40).optional(),
 }).strict();
 
+const wordOrderQuizSchema = z.object({
+  version: z.literal(1),
+  sourceEnglish: z.string().trim().min(1).max(200),
+  sourceJapanese: z.string().trim().min(1).max(300),
+  sentenceTokens: z.array(z.string().trim().min(1).max(80)).min(1).max(30),
+  answerTokens: z.array(z.string().trim().min(1).max(80)).min(1).max(3),
+  decoyTokens: z.array(z.string().trim().min(1).max(80)).length(3),
+  generatedAt: z.string().datetime(),
+}).strict();
+
 const wordInputSchema = z.object({
   id: z.string().uuid().optional(),
   projectId: z.string().uuid(),
@@ -44,6 +54,7 @@ const wordInputSchema = z.object({
   usagePatterns: z.array(usagePatternSchema).max(8).optional(),
   insightsGeneratedAt: z.string().datetime().optional(),
   insightsVersion: z.number().int().min(1).max(100).optional(),
+  wordOrderQuiz: wordOrderQuizSchema.optional(),
   status: z.enum(['new', 'review', 'mastered']).optional(),
   createdAt: z.string().datetime().optional(),
   lastReviewedAt: z.string().datetime().optional(),
@@ -159,6 +170,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         usage_patterns: word.usagePatterns ?? null,
         insights_generated_at: word.insightsGeneratedAt ?? null,
         insights_version: word.insightsVersion ?? null,
+        word_order_quiz: word.wordOrderQuiz ?? null,
         status: word.status ?? 'new',
         created_at: word.createdAt ?? new Date().toISOString(),
         last_reviewed_at: word.lastReviewedAt ?? null,

@@ -210,6 +210,7 @@ export class RemoteWordRepository implements WordRepository {
           usagePatterns: word.usagePatterns,
           insightsGeneratedAt: word.insightsGeneratedAt,
           insightsVersion: word.insightsVersion,
+          wordOrderQuiz: word.wordOrderQuiz,
           status: word.status,
           createdAt: word.createdAt,
           lastReviewedAt: word.lastReviewedAt,
@@ -485,6 +486,10 @@ export class RemoteWordRepository implements WordRepository {
         distractors: w.distractors,
         exampleSentence: w.exampleSentence,
         exampleSentenceJa: w.exampleSentenceJa,
+        pronunciation: w.pronunciation,
+        partOfSpeechTags: w.partOfSpeechTags,
+        vocabularyType: w.vocabularyType,
+        wordOrderQuiz: w.wordOrderQuiz,
       }));
 
       await this.createWords(wordsToCreate);

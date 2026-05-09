@@ -92,6 +92,16 @@ export class WordSnapDB extends Dexie {
           }
         });
       });
+
+    // Version 9: Add wordOrderQuiz cache field on words (no new indexes needed).
+    this.version(9).stores({
+      projects: 'id, userId, createdAt, isFavorite',
+      words: 'id, projectId, status, createdAt, nextReviewAt, isFavorite, lexiconEntryId',
+      lexiconEntries: 'id, normalizedHeadword, pos, cefrLevel',
+      syncQueue: '++id, table, entityId, createdAt',
+      collections: 'id, userId, createdAt',
+      collectionProjects: '++id, [collectionId+projectId], collectionId, projectId',
+    });
   }
 }
 

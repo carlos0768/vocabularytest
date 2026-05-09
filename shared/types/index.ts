@@ -21,6 +21,16 @@ export interface UsagePattern {
   register?: string;
 }
 
+export interface WordOrderQuizCache {
+  version: 1;
+  sourceEnglish: string;
+  sourceJapanese: string;
+  sentenceTokens: string[];
+  answerTokens: string[];
+  decoyTokens: string[];
+  generatedAt: string;
+}
+
 export interface LexiconSense {
   id: string;
   lexiconEntryId: string;
@@ -139,6 +149,7 @@ export interface Word {
   usagePatterns?: UsagePattern[];
   insightsGeneratedAt?: string; // ISO string
   insightsVersion?: number; // Schema version
+  wordOrderQuiz?: WordOrderQuizCache;
   // User-created custom sections
   customSections?: CustomSection[];
 }
@@ -205,11 +216,24 @@ export interface AIResponse {
 
 // ============ Quiz Types ============
 
-export interface QuizQuestion {
+export interface MultipleChoiceQuizQuestion {
+  type?: 'multiple-choice';
   word: Word;
   options: string[]; // Shuffled: 1 correct + 3 distractors
   correctIndex: number;
 }
+
+export interface WordOrderQuizQuestion {
+  type: 'word-order';
+  word: Word;
+  sentenceTokens: string[];
+  answerTokens: string[];
+  decoyTokens: string[];
+  options: string[];
+  correctIndex?: never;
+}
+
+export type QuizQuestion = MultipleChoiceQuizQuestion | WordOrderQuizQuestion;
 
 export interface QuizResult {
   wordId: string;

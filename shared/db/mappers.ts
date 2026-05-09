@@ -11,6 +11,7 @@ import type {
   CollectionProject,
   RelatedWord,
   UsagePattern,
+  WordOrderQuizCache,
 } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
 import {
@@ -138,6 +139,7 @@ export interface WordRow {
   usage_patterns?: unknown | null;
   insights_generated_at?: string | null;
   insights_version?: number | null;
+  word_order_quiz?: unknown | null;
   status?: string | null;
   created_at: string;
   last_reviewed_at?: string | null;
@@ -297,6 +299,48 @@ function normalizeUsagePatterns(value: unknown): UsagePattern[] | undefined {
   return result.length > 0 ? result : undefined;
 }
 
+function normalizeStringArray(value: unknown, maxCount: number): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: string[] = [];
+  for (const item of value) {
+    const normalized = toNonEmptyString(item);
+    if (!normalized) continue;
+    result.push(normalized);
+    if (result.length >= maxCount) break;
+  }
+  return result.length > 0 ? result : undefined;
+}
+
+function normalizeWordOrderQuizCache(value: unknown): WordOrderQuizCache | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  if (record.version !== 1) return undefined;
+
+  const sourceEnglish = toNonEmptyString(record.sourceEnglish ?? record.source_english);
+  const sourceJapanese = toNonEmptyString(record.sourceJapanese ?? record.source_japanese);
+  const generatedAt = toNonEmptyString(record.generatedAt ?? record.generated_at);
+  const sentenceTokens = normalizeStringArray(record.sentenceTokens ?? record.sentence_tokens, 30);
+  const answerTokens = normalizeStringArray(record.answerTokens ?? record.answer_tokens, 3);
+  const decoyTokens = normalizeStringArray(record.decoyTokens ?? record.decoy_tokens, 3);
+
+  if (!sourceEnglish || !sourceJapanese || !generatedAt || !sentenceTokens || !answerTokens || !decoyTokens) {
+    return undefined;
+  }
+  if (answerTokens.length < 1 || answerTokens.length > 3 || decoyTokens.length !== 3) {
+    return undefined;
+  }
+
+  return {
+    version: 1,
+    sourceEnglish,
+    sourceJapanese,
+    sentenceTokens,
+    answerTokens,
+    decoyTokens,
+    generatedAt,
+  };
+}
+
 export function mapWordFromRow(row: WordRow): Word {
   const defaultSR = getDefaultSpacedRepetitionFields();
   return {
@@ -316,6 +360,7 @@ export function mapWordFromRow(row: WordRow): Word {
     usagePatterns: normalizeUsagePatterns(row.usage_patterns),
     insightsGeneratedAt: row.insights_generated_at ?? undefined,
     insightsVersion: row.insights_version ?? undefined,
+    wordOrderQuiz: normalizeWordOrderQuizCache(row.word_order_quiz),
     status: (row.status as Word['status']) ?? 'new',
     createdAt: row.created_at,
     lastReviewedAt: row.last_reviewed_at ?? undefined,
@@ -362,6 +407,7 @@ export function mapWordToInsert(word: WordInput): {
   usage_patterns?: UsagePattern[];
   insights_generated_at?: string;
   insights_version?: number;
+  word_order_quiz?: WordOrderQuizCache;
   status: string;
   ease_factor: number;
   interval_days: number;
@@ -384,6 +430,7 @@ export function mapWordToInsert(word: WordInput): {
     usage_patterns: word.usagePatterns,
     insights_generated_at: word.insightsGeneratedAt,
     insights_version: word.insightsVersion,
+    word_order_quiz: word.wordOrderQuiz,
     status: 'new',
     ease_factor: defaultSR.easeFactor,
     interval_days: defaultSR.intervalDays,
@@ -408,6 +455,7 @@ export function mapWordToInsertWithId(word: Word): {
   usage_patterns?: UsagePattern[];
   insights_generated_at?: string;
   insights_version?: number;
+  word_order_quiz?: WordOrderQuizCache;
   status: string;
   created_at: string;
   last_reviewed_at?: string;
@@ -433,6 +481,7 @@ export function mapWordToInsertWithId(word: Word): {
     usage_patterns: word.usagePatterns,
     insights_generated_at: word.insightsGeneratedAt,
     insights_version: word.insightsVersion,
+    word_order_quiz: word.wordOrderQuiz,
     status: word.status,
     created_at: word.createdAt,
     last_reviewed_at: word.lastReviewedAt,
@@ -461,6 +510,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.usagePatterns !== undefined) updateData.usage_patterns = updates.usagePatterns;
   if (updates.insightsGeneratedAt !== undefined) updateData.insights_generated_at = updates.insightsGeneratedAt;
   if (updates.insightsVersion !== undefined) updateData.insights_version = updates.insightsVersion;
+  if (updates.wordOrderQuiz !== undefined) updateData.word_order_quiz = updates.wordOrderQuiz;
 
   // Spaced repetition fields
   if (updates.lastReviewedAt !== undefined) updateData.last_reviewed_at = updates.lastReviewedAt;
