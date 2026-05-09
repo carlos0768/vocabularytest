@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 
 import type { Word } from '@/types';
 import {
+  WORD_ORDER_BLANK_TOKEN,
+  WORD_ORDER_CACHE_VERSION,
+} from '@/lib/quiz/word-order';
+import {
   GENERIC_EN_DISTRACTOR_POOL,
   GENERIC_JA_DISTRACTOR_POOL,
   QUIZ_STATE_TTL_MS,
@@ -135,4 +139,47 @@ test('generateQuizQuestions excludes the correct English word from generic fallb
 
   assert.deepEqual(question.options, ['consider', 'provide', 'develop', 'maintain']);
   assert.equal(question.correctIndex, 0);
+});
+
+test('generateQuizQuestions uses word-order questions for cached multi-word entries', () => {
+  const [question] = generateQuizQuestions([
+    createWord({
+      id: 'word-1',
+      english: 'take care',
+      japanese: '世話をする',
+      wordOrderQuiz: {
+        version: WORD_ORDER_CACHE_VERSION,
+        sourceEnglish: 'take care',
+        sourceJapanese: '世話をする',
+        sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+        answerTokens: ['take', 'care'],
+        decoyTokens: ['hold', 'keep', 'watch'],
+        generatedAt: '2026-05-09T00:00:00.000Z',
+      },
+    }),
+  ], 1, 'en-to-ja', identityShuffle);
+
+  assert.equal(question.type, 'word-order');
+  assert.deepEqual(question.options, ['take', 'care', 'hold', 'keep', 'watch']);
+});
+
+test('generateQuizQuestions does not fall back to multiple-choice for uncached multi-word entries', () => {
+  const questions = generateQuizQuestions([
+    createWord({
+      id: 'word-1',
+      english: 'take care',
+      japanese: '世話をする',
+      distractors: ['守る', '持つ', '作る'],
+    }),
+    createWord({
+      id: 'word-2',
+      english: 'adapt',
+      japanese: '適応する',
+      distractors: ['拒む', '避ける', '忘れる'],
+    }),
+  ], 2, 'en-to-ja', identityShuffle);
+
+  assert.equal(questions.length, 1);
+  assert.equal(questions[0]?.word.id, 'word-2');
+  assert.notEqual(questions[0]?.type, 'word-order');
 });

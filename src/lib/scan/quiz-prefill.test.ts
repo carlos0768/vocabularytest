@@ -107,6 +107,40 @@ test('buildQuizPrefillSeedWords treats placeholder distractors as missing', () =
   ]);
 });
 
+test('buildQuizPrefillSeedWords excludes multi-word entries from multiple-choice prefill', () => {
+  const seedWords = buildQuizPrefillSeedWords([
+    {
+      id: 'multi-word',
+      english: 'take care',
+      japanese: '世話をする',
+      distractors: [],
+      example_sentence: '',
+      example_sentence_ja: '',
+      pronunciation: '',
+      part_of_speech_tags: [],
+    },
+    {
+      id: 'single-word',
+      english: 'adapt',
+      japanese: '適応する',
+      distractors: [],
+      example_sentence: 'We adapt.',
+      example_sentence_ja: '私たちは適応します。',
+      pronunciation: '/əˈdæpt/',
+      part_of_speech_tags: ['verb'],
+    },
+  ]);
+
+  assert.deepEqual(seedWords, [
+    {
+      id: 'single-word',
+      english: 'adapt',
+      japanese: '適応する',
+    },
+  ]);
+});
+
+
 test('buildQuizPrefillWordUpdatePayload includes generated example fields only when they have values', () => {
   const payload = buildQuizPrefillWordUpdatePayload({
     wordId: 'word-1',

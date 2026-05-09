@@ -316,6 +316,7 @@ export default function QuizPage() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const needsDistractors = useCallback((w: Word) => {
+    if (isWordOrderEligible(w)) return false;
     const missingDistractors =
       !w.distractors || w.distractors.length === 0 ||
       (w.distractors.length === 3 && w.distractors[0] === '選択肢1');
@@ -408,7 +409,10 @@ export default function QuizPage() {
         const quiz = normalizeWordOrderQuizCache(word, result.quiz);
         if (quiz) generated.set(word.id, quiz);
       }
-      if (generated.size === 0) return words;
+      if (generated.size === 0) {
+        setDistractorError('語順クイズの準備に失敗しました。もう一度お試しください。');
+        return words;
+      }
 
       await Promise.all([...generated.entries()].map(([wordId, wordOrderQuiz]) => (
         repository.updateWord(wordId, { wordOrderQuiz }).catch(() => {})
@@ -430,10 +434,7 @@ export default function QuizPage() {
   }, [needsWordOrderQuiz, repository]);
 
   const generateQuestions = useCallback((words: Word[], count: number, direction: QuizDirection = 'en-to-ja'): QuizQuestion[] => {
-    return generateQuizQuestions(words, count, direction).map((question) => {
-      const wordOrderQuestion = buildWordOrderQuestion(question.word);
-      return wordOrderQuestion ?? question;
-    });
+    return generateQuizQuestions(words, count, direction);
   }, []);
 
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {

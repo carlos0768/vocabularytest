@@ -57,6 +57,7 @@ interface InsertedWordRow {
   example_sentence: string | null;
   example_sentence_ja: string | null;
   part_of_speech_tags?: string[];
+  word_order_quiz?: unknown | null;
 }
 
 type QueryError = { message: string; code?: string; details?: string; hint?: string };
@@ -308,6 +309,7 @@ function deriveInsertedWords(payload: unknown): InsertedWordRow[] {
       example_sentence: typeof row.example_sentence === 'string' ? row.example_sentence : null,
       example_sentence_ja: typeof row.example_sentence_ja === 'string' ? row.example_sentence_ja : null,
       part_of_speech_tags: Array.isArray(row.part_of_speech_tags) ? row.part_of_speech_tags as string[] : undefined,
+      word_order_quiz: row.word_order_quiz ?? null,
     };
   });
 }
@@ -674,7 +676,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   );
   assert.equal(
     wordsInsert.columns,
-    'id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags',
+    'id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz',
   );
   assert.deepEqual(wordsInsert.payload, [
     {

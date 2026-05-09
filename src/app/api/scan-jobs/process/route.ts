@@ -49,6 +49,7 @@ import {
   buildQuizPrefillWordUpdatePayload,
   type QuizPrefillSeedWord,
 } from '@/lib/scan/quiz-prefill';
+import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -1110,7 +1111,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const { data: insertedWords, error: wordsError } = await supabaseAdmin
         .from('words')
         .insert(wordsToInsert)
-        .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags');
+        .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
       timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError) {
@@ -1348,6 +1349,25 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
 
         if (insertedWordsArray.length === 0) return;
+
+        if (aiEnabled) {
+          try {
+            const summary = await prefillWordOrderQuizzesForWords(insertedWordsArray, {
+              getUpdateClient: () => supabaseAdmin,
+            });
+            if (summary.requested > 0) {
+              console.log('[scan-jobs/process] Word-order quiz prefill finished:', {
+                jobId,
+                ...summary,
+              });
+            }
+          } catch (error) {
+            console.error('[scan-jobs/process] Word-order quiz prefill failed (non-critical):', {
+              jobId,
+              error,
+            });
+          }
+        }
 
         if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
           const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray);

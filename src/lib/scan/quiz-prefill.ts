@@ -1,5 +1,6 @@
 import type { QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { isWordOrderEligible } from '@/lib/quiz/word-order';
 
 export interface QuizPrefillCandidateWord {
   id: string;
@@ -57,10 +58,13 @@ export function buildQuizPrefillSeedWords(
 ): QuizPrefillSeedWord[] {
   return words
     .filter((word) =>
-      !hasValidDistractors(word.distractors) ||
-      !hasExampleSentence(word.example_sentence) ||
-      !hasPronunciation(word.pronunciation) ||
-      !hasPartOfSpeechTags(word.part_of_speech_tags)
+      !isWordOrderEligible(word) &&
+      (
+        !hasValidDistractors(word.distractors) ||
+        !hasExampleSentence(word.example_sentence) ||
+        !hasPronunciation(word.pronunciation) ||
+        !hasPartOfSpeechTags(word.part_of_speech_tags)
+      )
     )
     .map((word) => ({
       id: word.id,

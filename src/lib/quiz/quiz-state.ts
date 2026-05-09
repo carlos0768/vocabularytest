@@ -1,6 +1,10 @@
 import type { QuizQuestion, Word } from '@/types';
 import { shuffleArray } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
+import {
+  buildWordOrderQuestion,
+  isWordOrderEligible,
+} from '@/lib/quiz/word-order';
 
 export type QuizDirection = 'en-to-ja' | 'ja-to-en';
 
@@ -28,9 +32,19 @@ export function generateQuizQuestions(
   direction: QuizDirection = 'en-to-ja',
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
 ): QuizQuestion[] {
-  const selected = sortWordsByPriority(words).slice(0, count);
+  const questions: QuizQuestion[] = [];
 
-  return selected.map((word) => {
+  for (const word of sortWordsByPriority(words)) {
+    if (questions.length >= count) break;
+
+    if (isWordOrderEligible(word)) {
+      const wordOrderQuestion = buildWordOrderQuestion(word, shuffle);
+      if (wordOrderQuestion) {
+        questions.push(wordOrderQuestion);
+      }
+      continue;
+    }
+
     if (direction === 'ja-to-en') {
       const correctEn = word.english.trim().toLowerCase();
       const otherWords = words.filter((item) => item.id !== word.id);
@@ -58,11 +72,12 @@ export function generateQuizQuestions(
       englishDistractors = englishDistractors.slice(0, 3);
       const options = shuffle([word.english, ...englishDistractors]);
 
-      return {
+      questions.push({
         word,
         options,
         correctIndex: options.indexOf(word.english),
-      };
+      });
+      continue;
     }
 
     const correctJa = word.japanese.trim().toLowerCase();
@@ -94,10 +109,12 @@ export function generateQuizQuestions(
     distractors = distractors.slice(0, 3);
     const options = shuffle([word.japanese, ...distractors]);
 
-    return {
+    questions.push({
       word,
       options,
       correctIndex: options.indexOf(word.japanese),
-    };
-  });
+    });
+  }
+
+  return questions;
 }

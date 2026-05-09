@@ -11,6 +11,8 @@ import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/bac
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
 import { z } from 'zod';
 
 const relatedWordSchema = z.object({
@@ -170,6 +172,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         usage_patterns: word.usagePatterns ?? null,
         insights_generated_at: word.insightsGeneratedAt ?? null,
         insights_version: word.insightsVersion ?? null,
+        word_order_quiz: word.wordOrderQuiz ?? null,
         status: word.status ?? 'new',
         created_at: word.createdAt ?? new Date().toISOString(),
         last_reviewed_at: word.lastReviewedAt ?? null,
@@ -206,10 +209,11 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
     const aiTranslatedWordIds = Array.from(aiTranslatedIndexes)
       .map((index) => ((data ?? []) as WordRow[])[index]?.id)
       .filter((value): value is string => typeof value === 'string' && value.length > 0);
+    const createdWordRows = (data ?? []) as WordRow[];
 
     runAfter(async () => {
       const aiTranslatedWordIdSet = new Set(aiTranslatedWordIds);
-      const pendingWordIds = ((data ?? []) as WordRow[])
+      const pendingWordIds = createdWordRows
         .filter((row) => needsWordLexiconResolution({
           lexiconEntryId: row.lexicon_entry_id ?? null,
           partOfSpeechTags: row.part_of_speech_tags,
@@ -236,11 +240,22 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       } catch (jobError) {
         console.error('[words/create] Failed to enqueue word lexicon resolution', jobError);
       }
+
+      try {
+        const summary = await prefillWordOrderQuizzesForWords(createdWordRows, {
+          getUpdateClient: () => getSupabaseAdmin(),
+        });
+        if (summary.requested > 0) {
+          console.log('[words/create] Word-order quiz prefill finished', summary);
+        }
+      } catch (wordOrderError) {
+        console.error('[words/create] Word-order quiz prefill failed (non-critical)', wordOrderError);
+      }
     });
 
     return NextResponse.json({
       success: true,
-      words: ((data ?? []) as WordRow[]).map(mapWordFromRow),
+      words: createdWordRows.map(mapWordFromRow),
       lexiconEntries: immediateResolution.lexiconEntries,
     });
   } catch (error) {

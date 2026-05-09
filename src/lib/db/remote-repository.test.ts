@@ -5,7 +5,7 @@ import { WORDS_SELECT_COLUMNS } from './remote-repository';
 
 test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', () => {
   assert.equal(WORDS_SELECT_COLUMNS.includes('embedding'), false);
-  assert.equal(WORDS_SELECT_COLUMNS.includes('word_order_quiz'), false);
+  assert.equal(WORDS_SELECT_COLUMNS.includes('word_order_quiz'), true);
 
   const expectedFragments = [
     'id',
@@ -23,6 +23,7 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
     'usage_patterns',
     'insights_generated_at',
     'insights_version',
+    'word_order_quiz',
     'status',
     'created_at',
     'last_reviewed_at',
