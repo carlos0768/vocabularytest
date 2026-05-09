@@ -3,11 +3,8 @@
 
 import type {
   Project,
-  ProjectBlock,
-  ProjectBlockType,
   Word,
   CustomSection,
-  CustomColumn,
   VocabularyType,
   LexiconEntry,
   Collection,
@@ -37,7 +34,6 @@ export interface ProjectRow {
   id: string;
   user_id: string;
   title: string;
-  description?: string | null;
   source_labels?: unknown[] | null;
   icon_image?: string | null;
   created_at: string;
@@ -45,69 +41,6 @@ export interface ProjectRow {
   share_scope?: string | null;
   imported_from_share_id?: string | null;
   is_favorite?: boolean | null;
-  custom_columns?: unknown | null;
-  blocks?: unknown | null;
-}
-
-function normalizeProjectBlocks(raw: unknown): ProjectBlock[] | undefined {
-  if (raw == null) return undefined;
-  const arr = Array.isArray(raw)
-    ? raw
-    : typeof raw === 'string'
-      ? (() => {
-          try {
-            return JSON.parse(raw);
-          } catch {
-            return [];
-          }
-        })()
-      : [];
-  if (!Array.isArray(arr)) return undefined;
-  const result: ProjectBlock[] = [];
-  for (const entry of arr) {
-    if (!entry || typeof entry !== 'object') continue;
-    const record = entry as { id?: unknown; type?: unknown; position?: unknown; data?: unknown };
-    if (typeof record.id !== 'string') continue;
-    const type: ProjectBlockType | null =
-      record.type === 'richText' || record.type === 'wordList' || record.type === 'database'
-        ? record.type
-        : null;
-    if (!type) continue;
-    const position = typeof record.position === 'number' ? record.position : result.length;
-    const data =
-      record.data && typeof record.data === 'object' && !Array.isArray(record.data)
-        ? (record.data as Record<string, unknown>)
-        : {};
-    result.push({ id: record.id, type, position, data: data as ProjectBlock['data'] });
-  }
-  result.sort((a, b) => a.position - b.position);
-  return result;
-}
-
-function normalizeCustomColumns(raw: unknown): CustomColumn[] | undefined {
-  if (!raw) return undefined;
-  const arr = Array.isArray(raw)
-    ? raw
-    : typeof raw === 'string'
-      ? (() => {
-          try {
-            return JSON.parse(raw);
-          } catch {
-            return [];
-          }
-        })()
-      : [];
-  if (!Array.isArray(arr)) return undefined;
-  const result: CustomColumn[] = [];
-  for (const entry of arr) {
-    if (!entry || typeof entry !== 'object') continue;
-    const record = entry as { id?: unknown; title?: unknown; type?: unknown };
-    if (typeof record.id !== 'string' || typeof record.title !== 'string') continue;
-    const type: CustomColumn['type'] =
-      record.type === 'number' || record.type === 'date' ? record.type : 'text';
-    result.push({ id: record.id, title: record.title, type });
-  }
-  return result.length > 0 ? result : undefined;
 }
 
 export function mapProjectFromRow(row: ProjectRow): Project {
@@ -115,7 +48,6 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     id: row.id,
     userId: row.user_id,
     title: row.title,
-    description: row.description ?? undefined,
     sourceLabels: normalizeSourceLabels(row.source_labels),
     iconImage: row.icon_image ?? undefined,
     createdAt: row.created_at,
@@ -125,15 +57,12 @@ export function mapProjectFromRow(row: ProjectRow): Project {
       ? row.imported_from_share_id.trim()
       : undefined,
     isFavorite: row.is_favorite ?? false,
-    customColumns: normalizeCustomColumns(row.custom_columns),
-    blocks: normalizeProjectBlocks(row.blocks),
   };
 }
 
 export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | 'sourceLabels'> & { sourceLabels?: string[] }): {
   user_id: string;
   title: string;
-  description?: string;
   source_labels: string[];
   icon_image?: string;
   imported_from_share_id?: string;
@@ -141,7 +70,6 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
   return {
     user_id: project.userId,
     title: project.title,
-    ...(project.description !== undefined && { description: project.description }),
     source_labels: normalizeSourceLabels(project.sourceLabels),
     ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
     ...(project.importedFromShareId !== undefined && {
@@ -154,7 +82,6 @@ export function mapProjectToInsertWithId(project: Project): {
   id: string;
   user_id: string;
   title: string;
-  description?: string;
   source_labels: string[];
   icon_image?: string;
   created_at: string;
@@ -162,14 +89,11 @@ export function mapProjectToInsertWithId(project: Project): {
   share_scope?: string;
   imported_from_share_id?: string;
   is_favorite?: boolean;
-  custom_columns?: CustomColumn[];
-  blocks?: ProjectBlock[];
 } {
   return {
     id: project.id,
     user_id: project.userId,
     title: project.title,
-    ...(project.description !== undefined && { description: project.description }),
     source_labels: normalizeSourceLabels(project.sourceLabels),
     ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
     created_at: project.createdAt,
@@ -179,15 +103,12 @@ export function mapProjectToInsertWithId(project: Project): {
       imported_from_share_id: project.importedFromShareId,
     }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
-    ...(project.customColumns !== undefined && { custom_columns: project.customColumns }),
-    ...(project.blocks !== undefined && { blocks: project.blocks }),
   };
 }
 
 export function mapProjectUpdates(updates: Partial<Project>): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
   if (updates.title !== undefined) updateData.title = updates.title;
-  if (updates.description !== undefined) updateData.description = updates.description ?? null;
   if (updates.sourceLabels !== undefined) updateData.source_labels = normalizeSourceLabels(updates.sourceLabels);
   if (updates.iconImage !== undefined) updateData.icon_image = updates.iconImage;
   if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
@@ -196,8 +117,6 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
     updateData.imported_from_share_id = updates.importedFromShareId;
   }
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
-  if (updates.customColumns !== undefined) updateData.custom_columns = updates.customColumns;
-  if (updates.blocks !== undefined) updateData.blocks = updates.blocks;
   return updateData;
 }
 
@@ -416,11 +335,11 @@ function normalizeCustomSections(raw: unknown): CustomSection[] | undefined {
   return arr.filter(
     (s: unknown): s is CustomSection => {
       if (typeof s !== 'object' || s === null) return false;
-      const section = s as Partial<Record<keyof CustomSection, unknown>>;
+      const section = s as Record<string, unknown>;
       return (
-        typeof section.id === 'string'
-        && typeof section.title === 'string'
-        && typeof section.content === 'string'
+        typeof section.id === 'string' &&
+        typeof section.title === 'string' &&
+        typeof section.content === 'string'
       );
     },
   );

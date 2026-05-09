@@ -1,5 +1,6 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import type { User } from '@supabase/supabase-js';
 import {
   getCachedSupabaseSessionSnapshot,
   getCachedSupabaseUser,
@@ -100,6 +101,19 @@ function buildJwtWithSub(sub: string): string {
   return `${header}.${payload}.signature`;
 }
 
+function makeSupabaseUser(id: string): User {
+  return {
+    id,
+    aud: 'authenticated',
+    role: 'authenticated',
+    email: `${id}@example.com`,
+    created_at: '2026-05-07T00:00:00.000Z',
+    updated_at: '2026-05-07T00:00:00.000Z',
+    app_metadata: { provider: 'email', providers: ['email'] },
+    user_metadata: {},
+  };
+}
+
 afterEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = ORIGINAL_SUPABASE_URL;
   restoreGlobals();
@@ -113,7 +127,7 @@ test('restores session from single cookie key', () => {
   const sessionRaw = JSON.stringify({
     access_token: 'token-from-cookie',
     expires_at: Math.floor(Date.now() / 1000) + 3600,
-    user: { id: 'user_cookie' },
+    user: makeSupabaseUser('user_cookie'),
   });
 
   setupBrowserEnv({
@@ -136,7 +150,7 @@ test('restores session from chunked cookie keys', () => {
   const sessionRaw = JSON.stringify({
     access_token: 'token-chunked',
     expires_at: Math.floor(Date.now() / 1000) + 3600,
-    user: { id: 'user_chunk' },
+    user: makeSupabaseUser('user_chunk'),
   });
   const encoded = encodeCookieSession(sessionRaw);
   const chunkSize = Math.max(1, Math.floor(encoded.length / 3));
@@ -162,7 +176,7 @@ test('falls back to localStorage when cookie is missing', () => {
   const sessionRaw = JSON.stringify({
     access_token: 'token-local',
     expires_at: Math.floor(Date.now() / 1000) + 3600,
-    user: { id: 'user_local' },
+    user: makeSupabaseUser('user_local'),
   });
 
   setupBrowserEnv({

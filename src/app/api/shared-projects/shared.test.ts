@@ -28,6 +28,7 @@ type MetricsRow = {
   project_id: string;
   word_count: number;
   collaborator_count: number;
+  like_count?: number | null;
 };
 
 type FakeAdminOptions = {

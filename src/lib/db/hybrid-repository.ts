@@ -2,10 +2,10 @@
 // Combines local (IndexedDB) and remote (Supabase) storage for Pro users
 // Reads from local (fast), writes to both local + sync queue
 
-import type { Word, Project, WordRepository } from '@/types';
+import type { LexiconEntry, Word, Project, WordRepository } from '@/types';
 import { localRepository } from './local-repository';
 import { remoteRepository } from './remote-repository';
-import { syncQueue } from './sync-queue';
+import { syncQueue, type SyncQueue } from './sync-queue';
 import { getDb } from './dexie';
 
 // Check if online
@@ -29,7 +29,42 @@ export function shouldRunFullSync(
   return now - lastSync >= FULL_SYNC_INTERVAL_MS;
 }
 
+type HybridRemoteRepository = {
+  createProjectWithId(project: Project): Promise<void>;
+  createWordsWithIds(words: Word[]): Promise<void>;
+  getProjects(userId: string): Promise<Project[]>;
+  getProjectIds(userId: string): Promise<string[]>;
+  getProjectsUpdatedSince(userId: string, since: string): Promise<Project[]>;
+  getAllWordsByProjectIds(projectIds: string[]): Promise<Record<string, Word[]>>;
+  getWordsUpdatedSince(projectIds: string[], since: string): Promise<Word[]>;
+  getWordIdsByProjectIds(projectIds: string[]): Promise<string[]>;
+  getLexiconEntriesByIds(ids: string[]): Promise<LexiconEntry[]>;
+  updateProject(id: string, updates: Partial<Project>): Promise<void>;
+  deleteProject(id: string): Promise<void>;
+  updateWord(id: string, updates: Partial<Word>): Promise<void>;
+  deleteWord(id: string): Promise<void>;
+  deleteWordsByProject(projectId: string): Promise<void>;
+};
+
+export type HybridRepositoryDependencies = {
+  getDb: typeof getDb;
+  remoteRepository: HybridRemoteRepository;
+  syncQueue: Pick<SyncQueue, 'add' | 'clear' | 'getPending' | 'process'>;
+  isOnline: () => boolean;
+  now: () => number;
+};
+
+const defaultDependencies: HybridRepositoryDependencies = {
+  getDb,
+  remoteRepository,
+  syncQueue,
+  isOnline,
+  now: () => Date.now(),
+};
+
 export class HybridWordRepository implements WordRepository {
+  constructor(private readonly dependencies: HybridRepositoryDependencies = defaultDependencies) {}
+
   // Get last sync timestamp
   getLastSync(): number | null {
     if (typeof localStorage === 'undefined') return null;
@@ -67,7 +102,7 @@ export class HybridWordRepository implements WordRepository {
 
   // Full sync: Download all data from Supabase to local
   async fullSync(userId: string): Promise<void> {
-    if (!isOnline()) {
+    if (!this.dependencies.isOnline()) {
       console.log('[HybridRepo] Offline, skipping full sync');
       return;
     }
@@ -87,14 +122,14 @@ export class HybridWordRepository implements WordRepository {
 
   /** Full sync: fetch everything from remote (first sync or user switch) */
   private async _fullSyncAll(userId: string): Promise<void> {
-    const db = getDb();
+    const db = this.dependencies.getDb();
 
     try {
       // 1. Get local projects for this user
       const localProjects = await db.projects.where('userId').equals(userId).toArray();
 
       // 2. Get all projects from remote
-      const remoteProjects = await remoteRepository.getProjects(userId);
+      const remoteProjects = await this.dependencies.remoteRepository.getProjects(userId);
 
       // 3. Push local-only projects that have a pending create in the sync queue.
       //    Local-only projects WITHOUT a queued create were deleted from another
@@ -102,7 +137,7 @@ export class HybridWordRepository implements WordRepository {
       const remoteProjectIds = new Set(remoteProjects.map(p => p.id));
       const localOnlyProjects = localProjects.filter(p => !remoteProjectIds.has(p.id));
 
-      const pendingItems = await syncQueue.getPending();
+      const pendingItems = await this.dependencies.syncQueue.getPending();
       const pendingCreateProjectIds = new Set(
         pendingItems
           .filter(item => item.table === 'projects' && item.operation === 'create')
@@ -113,10 +148,10 @@ export class HybridWordRepository implements WordRepository {
 
       for (const project of projectsToPush) {
         try {
-          await remoteRepository.createProjectWithId(project as Project);
+          await this.dependencies.remoteRepository.createProjectWithId(project as Project);
           const localWords = await db.words.where('projectId').equals(project.id).toArray();
           if (localWords.length > 0) {
-            await remoteRepository.createWordsWithIds(localWords as Word[]);
+            await this.dependencies.remoteRepository.createWordsWithIds(localWords as Word[]);
           }
           console.log('[HybridRepo] Pushed local-only project to remote:', project.id);
         } catch (err) {
@@ -130,13 +165,13 @@ export class HybridWordRepository implements WordRepository {
 
       // 4. Re-fetch remote projects (now includes pushed local-only data)
       const mergedProjects = projectsToPush.length > 0
-        ? await remoteRepository.getProjects(userId)
+        ? await this.dependencies.remoteRepository.getProjects(userId)
         : remoteProjects;
 
       // 5. Safety: skip local delete if remote is empty but local has data
       if (mergedProjects.length === 0 && localProjects.length > 0) {
         console.warn('[HybridRepo] Remote is empty but local has data — skipping destructive sync');
-        this.setLastSync(Date.now());
+        this.setLastSync(this.dependencies.now());
         this.setSyncedUserId(userId);
         return;
       }
@@ -159,7 +194,7 @@ export class HybridWordRepository implements WordRepository {
       await db.lexiconEntries.clear();
 
       if (mergedProjectIds.length > 0) {
-        const remoteWordsByProject = await remoteRepository.getAllWordsByProjectIds(mergedProjectIds);
+        const remoteWordsByProject = await this.dependencies.remoteRepository.getAllWordsByProjectIds(mergedProjectIds);
         const remoteWords = mergedProjectIds.flatMap((projectId) => remoteWordsByProject[projectId] ?? []);
         if (remoteWords.length > 0) {
           await db.words.bulkPut(remoteWords);
@@ -167,7 +202,7 @@ export class HybridWordRepository implements WordRepository {
 
         const lexiconEntryIds = [...new Set(remoteWords.map((word) => word.lexiconEntryId).filter(Boolean))] as string[];
         if (lexiconEntryIds.length > 0) {
-          const lexiconEntries = await remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
+          const lexiconEntries = await this.dependencies.remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
           if (lexiconEntries.length > 0) {
             await db.lexiconEntries.bulkPut(lexiconEntries);
           }
@@ -175,10 +210,10 @@ export class HybridWordRepository implements WordRepository {
       }
 
       // 8. Clear sync queue (we're now in sync)
-      await syncQueue.clear();
+      await this.dependencies.syncQueue.clear();
 
       // 9. Update sync metadata
-      this.setLastSync(Date.now());
+      this.setLastSync(this.dependencies.now());
       this.setSyncedUserId(userId);
 
       console.log('[HybridRepo] Full sync complete');
@@ -195,13 +230,13 @@ export class HybridWordRepository implements WordRepository {
    * Reduces I/O from ~hundreds of IOPS to ~tens.
    */
   private async _deltaSync(userId: string, since: string): Promise<void> {
-    const db = getDb();
+    const db = this.dependencies.getDb();
 
     try {
       // 1. Projects: get remote IDs + updated projects (2 lightweight queries)
       const [remoteProjectIds, updatedProjects] = await Promise.all([
-        remoteRepository.getProjectIds(userId),
-        remoteRepository.getProjectsUpdatedSince(userId, since),
+        this.dependencies.remoteRepository.getProjectIds(userId),
+        this.dependencies.remoteRepository.getProjectsUpdatedSince(userId, since),
       ]);
 
       // 2. Detect deleted projects
@@ -227,8 +262,8 @@ export class HybridWordRepository implements WordRepository {
       // 5. Words: get updated words + remote IDs for deletion detection
       const activeProjectIds = remoteProjectIds.length > 0 ? remoteProjectIds : [];
       const [updatedWords, remoteWordIds] = await Promise.all([
-        remoteRepository.getWordsUpdatedSince(activeProjectIds, since),
-        remoteRepository.getWordIdsByProjectIds(activeProjectIds),
+        this.dependencies.remoteRepository.getWordsUpdatedSince(activeProjectIds, since),
+        this.dependencies.remoteRepository.getWordIdsByProjectIds(activeProjectIds),
       ]);
 
       // 6. Detect deleted words
@@ -249,7 +284,7 @@ export class HybridWordRepository implements WordRepository {
         // 8. Sync lexicon entries for updated words
         const lexiconEntryIds = [...new Set(updatedWords.map(w => w.lexiconEntryId).filter(Boolean))] as string[];
         if (lexiconEntryIds.length > 0) {
-          const lexiconEntries = await remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
+          const lexiconEntries = await this.dependencies.remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
           if (lexiconEntries.length > 0) {
             await db.lexiconEntries.bulkPut(lexiconEntries);
           }
@@ -257,7 +292,7 @@ export class HybridWordRepository implements WordRepository {
       }
 
       // 9. Update sync metadata
-      this.setLastSync(Date.now());
+      this.setLastSync(this.dependencies.now());
       this.setSyncedUserId(userId);
 
       const totalChanges = updatedProjects.length + updatedWords.length + deletedProjectIds.length + deletedWordIds.length;
@@ -271,12 +306,12 @@ export class HybridWordRepository implements WordRepository {
 
   // Process pending sync queue
   async processSyncQueue(): Promise<void> {
-    if (!isOnline()) {
+    if (!this.dependencies.isOnline()) {
       console.log('[HybridRepo] Offline, skipping sync queue processing');
       return;
     }
 
-    const result = await syncQueue.process();
+    const result = await this.dependencies.syncQueue.process();
     console.log('[HybridRepo] Sync queue processed:', result);
   }
 
@@ -289,12 +324,12 @@ export class HybridWordRepository implements WordRepository {
     const created = await localRepository.createProject(project);
 
     // 2. If online, create remotely immediately (with same ID)
-    if (isOnline()) {
+    if (this.dependencies.isOnline()) {
       try {
-        await remoteRepository.createProjectWithId(created);
+        await this.dependencies.remoteRepository.createProjectWithId(created);
       } catch (error) {
         console.error('[HybridRepo] Remote create failed, queuing:', error);
-        await syncQueue.add({
+        await this.dependencies.syncQueue.add({
           operation: 'create',
           table: 'projects',
           entityId: created.id,
@@ -303,7 +338,7 @@ export class HybridWordRepository implements WordRepository {
       }
     } else {
       // Queue for later sync
-      await syncQueue.add({
+      await this.dependencies.syncQueue.add({
         operation: 'create',
         table: 'projects',
         entityId: created.id,
@@ -329,12 +364,12 @@ export class HybridWordRepository implements WordRepository {
     await localRepository.updateProject(id, updates);
 
     // 2. Sync to remote
-    if (isOnline()) {
+    if (this.dependencies.isOnline()) {
       try {
-        await remoteRepository.updateProject(id, updates);
+        await this.dependencies.remoteRepository.updateProject(id, updates);
       } catch (error) {
         console.error('[HybridRepo] Remote update failed, queuing:', error);
-        await syncQueue.add({
+        await this.dependencies.syncQueue.add({
           operation: 'update',
           table: 'projects',
           entityId: id,
@@ -342,7 +377,7 @@ export class HybridWordRepository implements WordRepository {
         });
       }
     } else {
-      await syncQueue.add({
+      await this.dependencies.syncQueue.add({
         operation: 'update',
         table: 'projects',
         entityId: id,
@@ -356,12 +391,12 @@ export class HybridWordRepository implements WordRepository {
     await localRepository.deleteProject(id);
 
     // 2. Sync to remote
-    if (isOnline()) {
+    if (this.dependencies.isOnline()) {
       try {
-        await remoteRepository.deleteProject(id);
+        await this.dependencies.remoteRepository.deleteProject(id);
       } catch (error) {
         console.error('[HybridRepo] Remote delete failed, queuing:', error);
-        await syncQueue.add({
+        await this.dependencies.syncQueue.add({
           operation: 'delete',
           table: 'projects',
           entityId: id,
@@ -369,7 +404,7 @@ export class HybridWordRepository implements WordRepository {
         });
       }
     } else {
-      await syncQueue.add({
+      await this.dependencies.syncQueue.add({
         operation: 'delete',
         table: 'projects',
         entityId: id,
@@ -387,13 +422,13 @@ export class HybridWordRepository implements WordRepository {
     const created = await localRepository.createWords(words);
 
     // 2. Sync to remote (with same IDs)
-    if (isOnline()) {
+    if (this.dependencies.isOnline()) {
       try {
-        await remoteRepository.createWordsWithIds(created);
+        await this.dependencies.remoteRepository.createWordsWithIds(created);
       } catch (error) {
         console.error('[HybridRepo] Remote create words failed, queuing:', error);
         for (const word of created) {
-          await syncQueue.add({
+          await this.dependencies.syncQueue.add({
             operation: 'create',
             table: 'words',
             entityId: word.id,
@@ -403,7 +438,7 @@ export class HybridWordRepository implements WordRepository {
       }
     } else {
       for (const word of created) {
-        await syncQueue.add({
+        await this.dependencies.syncQueue.add({
           operation: 'create',
           table: 'words',
           entityId: word.id,
@@ -430,12 +465,12 @@ export class HybridWordRepository implements WordRepository {
     await localRepository.updateWord(id, updates);
 
     // 2. Sync to remote
-    if (isOnline()) {
+    if (this.dependencies.isOnline()) {
       try {
-        await remoteRepository.updateWord(id, updates);
+        await this.dependencies.remoteRepository.updateWord(id, updates);
       } catch (error) {
         console.error('[HybridRepo] Remote update word failed, queuing:', error);
-        await syncQueue.add({
+        await this.dependencies.syncQueue.add({
           operation: 'update',
           table: 'words',
           entityId: id,
@@ -443,7 +478,7 @@ export class HybridWordRepository implements WordRepository {
         });
       }
     } else {
-      await syncQueue.add({
+      await this.dependencies.syncQueue.add({
         operation: 'update',
         table: 'words',
         entityId: id,
@@ -457,12 +492,12 @@ export class HybridWordRepository implements WordRepository {
     await localRepository.deleteWord(id);
 
     // 2. Sync to remote
-    if (isOnline()) {
+    if (this.dependencies.isOnline()) {
       try {
-        await remoteRepository.deleteWord(id);
+        await this.dependencies.remoteRepository.deleteWord(id);
       } catch (error) {
         console.error('[HybridRepo] Remote delete word failed, queuing:', error);
-        await syncQueue.add({
+        await this.dependencies.syncQueue.add({
           operation: 'delete',
           table: 'words',
           entityId: id,
@@ -470,7 +505,7 @@ export class HybridWordRepository implements WordRepository {
         });
       }
     } else {
-      await syncQueue.add({
+      await this.dependencies.syncQueue.add({
         operation: 'delete',
         table: 'words',
         entityId: id,
@@ -484,9 +519,9 @@ export class HybridWordRepository implements WordRepository {
     await localRepository.deleteWordsByProject(projectId);
 
     // 2. Sync to remote
-    if (isOnline()) {
+    if (this.dependencies.isOnline()) {
       try {
-        await remoteRepository.deleteWordsByProject(projectId);
+        await this.dependencies.remoteRepository.deleteWordsByProject(projectId);
       } catch (error) {
         console.error('[HybridRepo] Remote delete words failed:', error);
         // Don't queue this - project deletion will cascade
