@@ -222,6 +222,7 @@ test('words/create inserts raw words, returns resolved lexicon entries, and enqu
   assert.equal(fakeClient.insertedRows[0]?.['vocabulary_type'], 'active');
   assert.equal(fakeClient.insertedRows[0]?.['lexicon_entry_id'], preservedLexiconEntryId);
   assert.equal(fakeClient.insertedRows[0]?.['english'], 'book');
+  assert.equal(Object.hasOwn(fakeClient.insertedRows[0] ?? {}, 'word_order_quiz'), false);
   assert.equal(fakeClient.insertedRows[1]?.['vocabulary_type'], null);
   assert.equal(fakeClient.insertedRows[1]?.['english'], 'compose');
   assert.deepEqual(enqueued, [

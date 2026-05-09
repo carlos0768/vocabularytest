@@ -170,7 +170,6 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         usage_patterns: word.usagePatterns ?? null,
         insights_generated_at: word.insightsGeneratedAt ?? null,
         insights_version: word.insightsVersion ?? null,
-        word_order_quiz: word.wordOrderQuiz ?? null,
         status: word.status ?? 'new',
         created_at: word.createdAt ?? new Date().toISOString(),
         last_reviewed_at: word.lastReviewedAt ?? null,
