@@ -76,7 +76,7 @@ function getDesktopAdPlacement(pathname: string): string | null {
 
 export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [scrollEnding, setScrollEnding] = useState(false);
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const isGuestHome = pathname === '/' && !authLoading && !user;
+  const isGuestHome = pathname === '/' && !user;
 
   if (shouldHideShell(pathname) || isGuestHome) {
     return <>{children}</>;
