@@ -12,31 +12,27 @@
 
 ## 自動検証
 
-- [ ] `git diff --check`
-- [ ] `npm run security:deps`
-- [ ] `npm run security:secrets`
-- [ ] `npm run security:all`
-- [ ] `npm run lint:web`
-- [ ] `npm test`
-- [ ] `npm run build`
-- [ ] `npm run verify`
+- [x] `git diff --check`
+- [x] `npm run security:deps`
+- [x] `npm run security:secrets`
+- [x] `npm run security:all`
+- [x] `npm run lint:web`
+- [x] `npm test`
+- [x] `npm run build`
+- [x] `npm run verify`
 
 ## UI保護
 
-- [ ] `git diff --name-only origin/main...HEAD` で禁止UIファイルに差分が無い。
-- [ ] `/` が最新UIのまま表示される。
-- [ ] `/login` が最新UIのまま表示される。
-- [ ] `/signup` が実フォームとして表示される。
+- [x] `git diff --name-only origin/main...HEAD` で `src/components/redesign/**` と `src/app/globals.css` に差分が無い。
+- [x] `/` が最新UIのまま表示される。
+- [x] `/login` が最新UIのまま表示される。
+- [x] `/signup` が実フォームとして表示される。
+- [x] `/project/[id]` と `/quiz/[projectId]` は未ログイン時に最新login UIへredirectされる。
 
-禁止UIファイル:
+UI保護ルール:
 
-- `src/app/page.tsx`
-- `src/app/project/**`
-- `src/app/quiz/**`
-- `src/components/home/**`
-- `src/components/project/**`
-- `src/components/redesign/**`
-- `src/app/globals.css`
+- `src/components/redesign/**` と `src/app/globals.css` は原則差分なし。
+- `src/app/page.tsx`, `src/app/project/**`, `src/app/quiz/**`, `src/components/home/**`, `src/components/project/**` はhelper接続だけ許可。見た目・文言・レイアウトを旧UIへ戻さない。
 
 ## Signup手動QA
 

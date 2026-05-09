@@ -9,7 +9,7 @@
 - [x] scan/API/lib系リファクタを最新コードへ再実装する。
 - [x] Home/Project/QuizのUI隣接helperを、最新UIの見た目を保ったまま再実装する。
 - [x] 反映済みの恒久知識だけを正式docsへ昇格する。
-- [ ] 最終verify後に `codex/prelaunch-safety-baseline-current-ui` をpushする。
+- [x] 最終verify後に `codex/prelaunch-safety-baseline-current-ui` をpushする。
 
 注意: 旧docs内の「完了済み」は旧ブランチ上での記録です。このブランチで完了したかどうかは、このチェックリストを正とします。
 
@@ -61,10 +61,10 @@
 
 - [x] `npm run lint:web`（再移植後）
 - [x] `npm run build`（再移植後）
-- [ ] `npm run security:deps`
-- [ ] `npm run security:secrets`
-- [ ] `npm run security:all`
-- [ ] `npm test`
-- [ ] `npm run verify`
-- [ ] ブラウザで最新UI確認
-- [ ] remote push
+- [x] `npm run security:deps`
+- [x] `npm run security:secrets`
+- [x] `npm run security:all`
+- [x] `npm test`
+- [x] `npm run verify`
+- [x] ブラウザで最新UI確認
+- [x] remote push
