@@ -11,6 +11,7 @@ import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId 
 import { calculateNextReview, getStatusAfterAnswer, getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
+  applyWordOrderQuestionsToPendingQuiz,
   generateQuizQuestions,
   getQuizStorageKey,
   isQuizStateExpired,
@@ -310,6 +311,7 @@ export default function QuizPage() {
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
+  const currentIndexRef = useRef(0);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -330,6 +332,10 @@ export default function QuizPage() {
   const restoredFromStorage = useRef(false);
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
   const storageKey = getQuizStorageKey(projectId, reviewMode, learnMode);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   const saveQuizState = useCallback(() => {
     if (questions.length === 0 || !questionCount) return;
@@ -409,10 +415,7 @@ export default function QuizPage() {
         const quiz = normalizeWordOrderQuizCache(word, result.quiz);
         if (quiz) generated.set(word.id, quiz);
       }
-      if (generated.size === 0) {
-        setDistractorError('語順クイズの準備に失敗しました。もう一度お試しください。');
-        return words;
-      }
+      if (generated.size === 0) return words;
 
       await Promise.all([...generated.entries()].map(([wordId, wordOrderQuiz]) => (
         repository.updateWord(wordId, { wordOrderQuiz }).catch(() => {})
@@ -434,22 +437,26 @@ export default function QuizPage() {
   }, [needsWordOrderQuiz, repository]);
 
   const generateQuestions = useCallback((words: Word[], count: number, direction: QuizDirection = 'en-to-ja'): QuizQuestion[] => {
-    return generateQuizQuestions(words, count, direction);
+    return generateQuizQuestions(words, count, direction, undefined, {
+      allowPendingWordOrderFallback: true,
+    });
   }, []);
 
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
-    const preparedSelected = await applyGeneratedWordOrderQuizzes(selected);
-    const preparedById = new Map(preparedSelected.map((word) => [word.id, word]));
-    const preparedWords = words.map((word) => preparedById.get(word.id) ?? word);
-    const nextQuestions = generateQuestions(preparedWords, count, quizDirection);
+    const nextQuestions = generateQuestions(words, count, quizDirection);
     setQuestions(nextQuestions);
 
-    const wordOrderQuestionIds = new Set(
-      nextQuestions.filter(isWordOrderQuestion).map((question) => question.word.id),
-    );
-    const toImprove = preparedSelected.filter((w) => !wordOrderQuestionIds.has(w.id) && needsDistractors(w));
+    if (selected.some(needsWordOrderQuiz)) {
+      void applyGeneratedWordOrderQuizzes(selected).then((updatedWords) => {
+        setQuestions((prev) =>
+          applyWordOrderQuestionsToPendingQuiz(prev, updatedWords, currentIndexRef.current)
+        );
+      });
+    }
+
+    const toImprove = selected.filter((w) => needsDistractors(w));
     if (toImprove.length === 0) return;
 
     void (async () => {
@@ -500,7 +507,7 @@ export default function QuizPage() {
         }
       }
     })();
-  }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, quizDirection, repository]);
+  }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository]);
 
   useEffect(() => {
     if (authLoading || userPreferencesLoading) return;

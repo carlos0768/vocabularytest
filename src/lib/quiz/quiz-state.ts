@@ -31,6 +31,7 @@ export function generateQuizQuestions(
   count: number,
   direction: QuizDirection = 'en-to-ja',
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
+  settings: { allowPendingWordOrderFallback?: boolean } = {},
 ): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
 
@@ -42,7 +43,9 @@ export function generateQuizQuestions(
       if (wordOrderQuestion) {
         questions.push(wordOrderQuestion);
       }
-      continue;
+      if (wordOrderQuestion || !settings.allowPendingWordOrderFallback) {
+        continue;
+      }
     }
 
     if (direction === 'ja-to-en') {
@@ -117,4 +120,60 @@ export function generateQuizQuestions(
   }
 
   return questions;
+}
+
+export function applyWordOrderQuestionsToPendingQuiz(
+  questions: QuizQuestion[],
+  words: Word[],
+  currentIndex: number,
+  shuffle: <T>(items: T[]) => T[] = shuffleArray,
+): QuizQuestion[] {
+  const wordById = new Map(words.map((word) => [word.id, word]));
+  const wordOrderQuestionWordIds = new Set(
+    questions
+      .filter((question) => question.type === 'word-order')
+      .map((question) => question.word.id),
+  );
+  const insertAfterCurrent: QuizQuestion[] = [];
+  let changed = false;
+
+  const nextQuestions = questions.map((question, index) => {
+    if (question.type === 'word-order') {
+      return question;
+    }
+
+    const updatedWord = wordById.get(question.word.id);
+    if (!updatedWord) {
+      return question;
+    }
+
+    const wordOrderQuestion = buildWordOrderQuestion(updatedWord, shuffle);
+    if (!wordOrderQuestion) {
+      return question;
+    }
+
+    if (index <= currentIndex) {
+      if (!wordOrderQuestionWordIds.has(question.word.id)) {
+        insertAfterCurrent.push(wordOrderQuestion);
+        wordOrderQuestionWordIds.add(question.word.id);
+        changed = true;
+      }
+      return question;
+    }
+
+    changed = true;
+    wordOrderQuestionWordIds.add(question.word.id);
+    return wordOrderQuestion;
+  });
+
+  if (insertAfterCurrent.length === 0) {
+    return changed ? nextQuestions : questions;
+  }
+
+  const insertAt = Math.min(Math.max(currentIndex + 1, 0), nextQuestions.length);
+  return [
+    ...nextQuestions.slice(0, insertAt),
+    ...insertAfterCurrent,
+    ...nextQuestions.slice(insertAt),
+  ];
 }
