@@ -317,8 +317,15 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm run build` 成功
   - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 385 tests pass、`test:security` 38 tests pass、`build` 成功
   - 残リスク: Project scan-to-addの`/api/extract` client response handling、FileReader/PDF expansion/sessionStorage handoffはまだ `src/app/project/[id]/page.tsx` に残る。share、bulk delete、repository mutationも未分割
-- [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
-  - 既存のquestion/storage helperを前提に、回答処理、spaced repetition、wrong answer記録、background distractor APIを分けて検討する
+- [x] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
+  - 2026-05-09に完了
+  - 追加: [`QUIZ_PAGE_AUDIT.md`](QUIZ_PAGE_AUDIT.md)
+  - 整理: データ取得、クイズ問題生成、回答判定、進捗/スコア表示、spaced repetition保存、wrong answer記録、distractor生成/API、storage復元、modal / toast / UI stateを分類
+  - 整理: spaced repetition、wrong answer、distractor API、quiz state storage、repository更新、認証/課金/同期/DB migrationに影響しそうな箇所を危険領域として明記
+  - 整理: `src/lib/quiz/quiz-state.ts` が担当済みのstorage key、30分TTL、generic distractor pool、question builderと、まだpage側に残る責務を分離
+  - 変更なし: code、リファクタ、機能追加、`src/app/quiz/[projectId]/page.tsx`、API、型、schema、package-lock、migration、認証、課金、同期、DB migration
+  - 次に実装する場合の最初の推奨は、Quiz progress / score selectorをpure helperへ出すこと。repository、spaced repetition、wrong answer、distractor API、storageには触れない
+  - 確認: `git diff --check` 成功。docs-only変更のため `npm run verify` は実行していない
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
   - 2026-05-08 Task 11でprompt contract test追加とprompt本文差分なしのdomain別機械的分割まで完了
 
