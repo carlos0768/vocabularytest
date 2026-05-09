@@ -286,7 +286,7 @@ function SettingsRow({
       <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
         <Icon name={icon} size={16} />
       </span>
-      <span className="flex-1 text-[13px] font-medium text-[var(--solid-ink)]">{label}</span>
+      <span className="flex-1 text-[13px] font-bold text-[var(--solid-ink)]">{label}</span>
       {hint && <span className="font-mono text-[10px] text-[var(--color-muted)]">{hint}</span>}
       {children}
       {href && !children && <Icon name="chevron_right" size={14} className="text-[var(--color-muted)]" />}
