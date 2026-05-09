@@ -62,9 +62,6 @@ function LoginForm() {
         <div className="font-display text-2xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
           ログイン
         </div>
-        <div className="mt-1 text-xs text-[var(--color-muted)]">
-          アカウントに接続して、続きから始める。
-        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
