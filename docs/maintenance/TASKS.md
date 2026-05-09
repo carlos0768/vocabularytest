@@ -193,9 +193,16 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 整理: 画面表示、scan開始、file upload、PDF expansion、sessionStorage handoff、repository / project / words操作、offline / PWA寄り処理、toast / notification、UI stateを分類
   - 整理: `components/home`, `hooks`, `src/lib/scan/scan-session-storage.ts`, `src/lib/home-cache.ts`, `src/lib/image-utils.ts` など、既に外へ出ているhelper / component / hookを確認
   - 次に実装へ進む場合の最初の推奨は、scanやrepositoryに触らないHome表示selectorの純粋helper化
-- [ ] Home表示selectorを純粋helperへ出す
-  - `src/app/page.tsx` のstatus countsとshared/my project sort/filterを、UI文言や挙動を変えずにhelper + testへ切り出す
-  - 認証、課金、スキャンAPI、同期、DB migration、package-lockは触らない
+- [x] Home表示selectorを純粋helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/home/home-page-selectors.ts`, `src/lib/home/home-page-selectors.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: Homeのword status counts、`completionPercent`、共有/マイ単語帳分離、favorite優先 + `createdAt` 降順 + 最大8件の表示順をpure helperへ移動
+  - 固定: mastered / review / unlearned count、`totalWords = 0` のcompletion、rounding、favorite優先、同favorite状態での `createdAt` 降順、`importedFromShareId` による共有/マイ分離、最大8件、元projects配列非破壊
+  - 変更なし: UI文言、表示順の意味、表示件数、空状態、scan、repository、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-page-selectors.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。330 tests pass
 - [ ] Home専用sessionStorage keyを小さくhelper化する
   - `scanvocab_selected_project_id`, `scanvocab_generating_wordbook`, legacy `scanvocab_project_id` 削除を棚卸し済みの範囲で固定する
   - `/scan/confirm` payload shape、file upload、API呼び出しは触らない
@@ -223,6 +230,16 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
 
 ## Done
 
+- [x] 2026-05-09: Home表示selector helper抽出
+  - 追加: `src/lib/home/home-page-selectors.ts`, `src/lib/home/home-page-selectors.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: `src/app/page.tsx` のword status counts、`completionPercent`、共有/マイ単語帳分離、favorite優先 + `createdAt` 降順 + 最大8件のHome表示順
+  - 変更: `page.tsx` は表示用selector helper呼び出しへの置換に限定し、UI文言、表示順の意味、表示件数、空状態は変更していない
+  - 変更なし: scan開始、file upload、PDF expansion、sessionStorage、Notification、PWA、repository load/mutation、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-page-selectors.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。330 tests pass
+  - 残リスク: HomeのsessionStorage key、scan job local notification、immediate/background scan client flow、Home data loaderはまだ `src/app/page.tsx` に残る
 - [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 1-7完了後のcheckpoint作成
   - 追加: [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
   - 更新: `docs/maintenance/AI_HANDOFF.md`, `docs/maintenance/TASKS.md`

@@ -35,6 +35,11 @@ import {
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
 import {
+  calculateHomeCompletionPercent,
+  countHomeWordStatuses,
+  selectHomeProjectSections,
+} from '@/lib/home/home-page-selectors';
+import {
   getCachedProjects,
   getCachedProjectWords,
   getCachedAllFavorites,
@@ -1457,42 +1462,17 @@ export default function HomePage() {
 
   // Word status counts — must be before early returns to satisfy hooks rules
   const allWordsFlat = useMemo(() => Object.values(getCachedProjectWords()).flat(), [projects, words]);
-  const { masteredTotal, learningTotal, unlearnedTotal } = useMemo(() => {
-    let mastered = 0, learning = 0, unlearned = 0;
-    for (const w of allWordsFlat) {
-      if (w.status === 'mastered') mastered++;
-      else if (w.status === 'review') learning++;
-      else unlearned++;
-    }
-    return { masteredTotal: mastered, learningTotal: learning, unlearnedTotal: unlearned };
-  }, [allWordsFlat]);
-  const completionPercent = totalWords > 0 ? Math.round((masteredTotal / totalWords) * 100) : 0;
+  const { masteredTotal, learningTotal, unlearnedTotal } = useMemo(
+    () => countHomeWordStatuses(allWordsFlat),
+    [allWordsFlat],
+  );
+  const completionPercent = calculateHomeCompletionPercent(masteredTotal, totalWords);
 
-  const homeSharedProjects = useMemo(() => {
-    const byHomeOrder = (a: Project, b: Project) => {
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    };
-    return [...projects]
-      .filter((p) => Boolean(p.importedFromShareId))
-      .sort(byHomeOrder)
-      .slice(0, 8);
-  }, [projects]);
-
-  const homeMyProjects = useMemo(() => {
-    const byHomeOrder = (a: Project, b: Project) => {
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    };
-    return [...projects]
-      .filter((p) => !p.importedFromShareId)
-      .sort(byHomeOrder)
-      .slice(0, 8);
-  }, [projects]);
-
-  const showSharedProjectsSection = homeSharedProjects.length > 0;
+  const {
+    homeSharedProjects,
+    homeMyProjects,
+    showSharedProjectsSection,
+  } = useMemo(() => selectHomeProjectSections(projects), [projects]);
 
   // Session expired: was logged in before but session is now invalid
   // Show re-login prompt instead of local data with free plan restrictions
