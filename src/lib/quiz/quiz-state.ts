@@ -1,0 +1,103 @@
+import type { QuizQuestion, Word } from '@/types';
+import { shuffleArray } from '@/lib/utils';
+import { sortWordsByPriority } from '@/lib/spaced-repetition';
+
+export type QuizDirection = 'en-to-ja' | 'ja-to-en';
+
+export const QUIZ_STATE_TTL_MS = 30 * 60 * 1000;
+
+export const GENERIC_JA_DISTRACTOR_POOL = [
+  '確認する', '提供する', '参加する', '検討する', '対応する', '説明する', '準備する', '記録する',
+] as const;
+
+export const GENERIC_EN_DISTRACTOR_POOL = [
+  'consider', 'provide', 'develop', 'maintain', 'achieve', 'support', 'prepare', 'review',
+] as const;
+
+export function getQuizStorageKey(projectId: string, reviewMode: boolean): string {
+  return `quiz_state_${reviewMode ? 'review' : projectId}`;
+}
+
+export function isQuizStateExpired(timestamp: number, now: number = Date.now()): boolean {
+  return now - timestamp > QUIZ_STATE_TTL_MS;
+}
+
+export function generateQuizQuestions(
+  words: Word[],
+  count: number,
+  direction: QuizDirection = 'en-to-ja',
+  shuffle: <T>(items: T[]) => T[] = shuffleArray,
+): QuizQuestion[] {
+  const selected = sortWordsByPriority(words).slice(0, count);
+
+  return selected.map((word) => {
+    if (direction === 'ja-to-en') {
+      const correctEn = word.english.trim().toLowerCase();
+      const otherWords = words.filter((item) => item.id !== word.id);
+      let englishDistractors = shuffle(otherWords)
+        .map((item) => item.english)
+        .filter((english) => english.trim().toLowerCase() !== correctEn);
+
+      englishDistractors = [...new Set(englishDistractors.map((english) => english.trim()))].slice(0, 3);
+
+      let genericIndex = 0;
+      while (
+        englishDistractors.length < 3 &&
+        genericIndex < GENERIC_EN_DISTRACTOR_POOL.length
+      ) {
+        const generic = GENERIC_EN_DISTRACTOR_POOL[genericIndex++];
+        if (generic.toLowerCase() !== correctEn && !englishDistractors.includes(generic)) {
+          englishDistractors.push(generic);
+        }
+      }
+
+      while (englishDistractors.length < 3) {
+        englishDistractors.push(`option${englishDistractors.length + 1}`);
+      }
+
+      englishDistractors = englishDistractors.slice(0, 3);
+      const options = shuffle([word.english, ...englishDistractors]);
+
+      return {
+        word,
+        options,
+        correctIndex: options.indexOf(word.english),
+      };
+    }
+
+    const correctJa = word.japanese.trim().toLowerCase();
+    let distractors: string[] = [...(word.distractors || [])];
+
+    if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
+      const otherWords = words.filter((item) => item.id !== word.id);
+      distractors = shuffle(otherWords)
+        .map((item) => item.japanese)
+        .filter((japanese) => japanese.trim().toLowerCase() !== correctJa);
+    }
+
+    distractors = [...new Set(distractors.map((distractor) => distractor.trim()))].filter(
+      (distractor) => distractor.length > 0 && distractor.toLowerCase() !== correctJa,
+    );
+
+    let genericIndex = 0;
+    while (distractors.length < 3 && genericIndex < GENERIC_JA_DISTRACTOR_POOL.length) {
+      const generic = GENERIC_JA_DISTRACTOR_POOL[genericIndex++];
+      if (generic.toLowerCase() !== correctJa && !distractors.includes(generic)) {
+        distractors.push(generic);
+      }
+    }
+
+    while (distractors.length < 3) {
+      distractors.push(`選択肢${distractors.length + 1}`);
+    }
+
+    distractors = distractors.slice(0, 3);
+    const options = shuffle([word.japanese, ...distractors]);
+
+    return {
+      word,
+      options,
+      correctIndex: options.indexOf(word.japanese),
+    };
+  });
+}

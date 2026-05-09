@@ -7,9 +7,19 @@ import { SolidButton } from '@/components/redesign/SolidPage';
 import { TypeInQuizField } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { shuffleArray, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
+import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
+import {
+  generateQuizQuestions,
+  getQuizStorageKey,
+  isQuizStateExpired,
+  type QuizDirection,
+} from '@/lib/quiz/quiz-state';
+import {
+  calculateQuizScorePercentage,
+  getQuizCompletionMessage,
+} from '@/lib/quiz/quiz-progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
@@ -23,20 +33,9 @@ const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 
-const GENERIC_JA_DISTRACTOR_POOL = [
-  '確認する', '提供する', '参加する', '検討する', '対応する', '説明する', '準備する', '記録する',
-] as const;
-
-const GENERIC_EN_DISTRACTOR_POOL = [
-  'consider', 'provide', 'develop', 'maintain', 'achieve', 'support', 'prepare', 'review',
-] as const;
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-const getQuizStorageKey = (projectId: string, reviewMode: boolean) =>
-  `quiz_state_${reviewMode ? 'review' : projectId}`;
 
 interface QuizPersistState {
   questions: QuizQuestion[];
@@ -46,11 +45,9 @@ interface QuizPersistState {
   results: { correct: number; total: number };
   answerResults?: (boolean | null)[];
   questionCount: number;
-  quizDirection: 'en-to-ja' | 'ja-to-en';
+  quizDirection: QuizDirection;
   timestamp: number;
 }
-
-const QUIZ_STATE_TTL = 30 * 60 * 1000;
 
 /* ---------- DS-styled option card ---------- */
 function DSQuizOption({
@@ -168,7 +165,7 @@ export default function QuizPage() {
   const [distractorError, setDistractorError] = useState<string | null>(null);
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [quizDirection, setQuizDirection] = useState<'en-to-ja' | 'ja-to-en'>('en-to-ja');
+  const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
 
@@ -225,42 +222,8 @@ export default function QuizPage() {
     if (isComplete) clearQuizState();
   }, [isComplete, clearQuizState]);
 
-  const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
-    const selected = sortWordsByPriority(words).slice(0, count);
-    return selected.map((word) => {
-      if (direction === 'ja-to-en') {
-        const correctEn = word.english.trim().toLowerCase();
-        const otherWords = words.filter(w => w.id !== word.id);
-        let englishDistractors = shuffleArray(otherWords).map((w) => w.english).filter((e) => e.trim().toLowerCase() !== correctEn);
-        englishDistractors = [...new Set(englishDistractors.map((e) => e.trim()))].slice(0, 3);
-        let gi = 0;
-        while (englishDistractors.length < 3 && gi < GENERIC_EN_DISTRACTOR_POOL.length) {
-          const g = GENERIC_EN_DISTRACTOR_POOL[gi++];
-          if (g.toLowerCase() !== correctEn && !englishDistractors.includes(g)) englishDistractors.push(g);
-        }
-        while (englishDistractors.length < 3) englishDistractors.push(`option${englishDistractors.length + 1}`);
-        const allOptions = [word.english, ...englishDistractors.slice(0, 3)];
-        const shuffled = shuffleArray(allOptions);
-        return { word, options: shuffled, correctIndex: shuffled.indexOf(word.english) };
-      } else {
-        const correctJa = word.japanese.trim().toLowerCase();
-        let distractors: string[] = [...(word.distractors || [])];
-        if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
-          const otherWords = words.filter((w) => w.id !== word.id);
-          distractors = shuffleArray(otherWords).map((w) => w.japanese).filter((d) => d.trim().toLowerCase() !== correctJa);
-        }
-        distractors = [...new Set(distractors.map((d) => d.trim()))].filter((d) => d.length > 0 && d.toLowerCase() !== correctJa);
-        let gi = 0;
-        while (distractors.length < 3 && gi < GENERIC_JA_DISTRACTOR_POOL.length) {
-          const g = GENERIC_JA_DISTRACTOR_POOL[gi++];
-          if (g.toLowerCase() !== correctJa && !distractors.includes(g)) distractors.push(g);
-        }
-        while (distractors.length < 3) distractors.push(`選択肢${distractors.length + 1}`);
-        const allOptions = [word.japanese, ...distractors.slice(0, 3)];
-        const shuffled = shuffleArray(allOptions);
-        return { word, options: shuffled, correctIndex: shuffled.indexOf(word.japanese) };
-      }
-    });
+  const generateQuestions = useCallback((words: Word[], count: number, direction: QuizDirection = 'en-to-ja'): QuizQuestion[] => {
+    return generateQuizQuestions(words, count, direction);
   }, []);
 
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
@@ -334,7 +297,7 @@ export default function QuizPage() {
         const saved = sessionStorage.getItem(storageKey);
         if (!saved) return false;
         const state: QuizPersistState = JSON.parse(saved);
-        if (Date.now() - state.timestamp > QUIZ_STATE_TTL) { sessionStorage.removeItem(storageKey); return false; }
+        if (isQuizStateExpired(state.timestamp)) { sessionStorage.removeItem(storageKey); return false; }
         if (!state.questions || state.questions.length === 0) return false;
         const restoredCount = Math.max(1, Math.min(state.questionCount || state.questions.length, state.questions.length, MAX_NORMAL_QUIZ_QUESTION_COUNT));
         const restoredQuestions = state.questions.slice(0, restoredCount);
@@ -678,7 +641,8 @@ export default function QuizPage() {
 
   /* ---------- Quiz complete ---------- */
   if (isComplete) {
-    const percentage = Math.round((results.correct / results.total) * 100);
+    const percentage = calculateQuizScorePercentage(results);
+    const completionMessage = getQuizCompletionMessage(percentage);
     return (
       <>
       <PwaInstallPromptModal open={pwaPromptOpen} onClose={() => setPwaPromptOpen(false)} />
@@ -695,7 +659,7 @@ export default function QuizPage() {
             <p className="mb-1 font-mono text-5xl font-black text-[var(--color-success)]">{percentage}%</p>
             <p className="mb-6 text-[var(--color-muted)]">{results.total}問中 {results.correct}問正解</p>
             <p className="mb-8 text-[var(--solid-ink)]">
-              {percentage === 100 ? 'パーフェクト! 素晴らしい!' : percentage >= 80 ? 'よくできました!' : percentage >= 60 ? 'もう少し! 復習しましょう' : '繰り返し練習しましょう!'}
+              {completionMessage}
             </p>
             <div className="space-y-3">
               {reviewMode ? (

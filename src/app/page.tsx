@@ -21,6 +21,10 @@ import {
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
+import {
+  calculateHomeCompletionPercent,
+  countHomeWordStatuses,
+} from '@/lib/home/home-page-selectors';
 import { getDailyStats, getGuestUserId, getStreakDays } from '@/lib/utils';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
@@ -100,14 +104,15 @@ async function getProjectsWithWords(
 function buildHomeStats(allWords: Word[]): HomeStats {
   const daily = getDailyStats();
   const dueWords = getWordsDueForReview(allWords);
+  const statusCounts = countHomeWordStatuses(allWords);
   return {
     dueCount: dueWords.length,
     completedToday: daily.todayCount,
     streakDays: getStreakDays(),
     totalWords: allWords.length,
-    mastered: allWords.filter((word) => word.status === 'mastered').length,
-    review: allWords.filter((word) => word.status === 'review').length,
-    newW: allWords.filter((word) => word.status === 'new').length,
+    mastered: statusCounts.masteredTotal,
+    review: statusCounts.learningTotal,
+    newW: statusCounts.unlearnedTotal,
   };
 }
 
@@ -498,7 +503,7 @@ function MiniDonut({ mastered, review, total }: { mastered: number; review: numb
   const C = 2 * Math.PI * r;
   const mFrac = total ? mastered / total : 0;
   const rFrac = total ? review / total : 0;
-  const pct = total ? Math.round((mastered / total) * 100) : 0;
+  const pct = calculateHomeCompletionPercent(mastered, total);
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>

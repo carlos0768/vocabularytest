@@ -20,6 +20,14 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
+import {
+  countProjectWordStats,
+  isProjectWordFilterActive,
+  selectAvailableProjectPartsOfSpeech,
+  selectFilteredProjectWords,
+  type ProjectWordActivenessFilter,
+  type ProjectWordSortOrder,
+} from '@/lib/project/project-page-selectors';
 import type { Project, ProjectShareScope, SubscriptionStatus, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -47,11 +55,11 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
-  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
+  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('createdAsc');
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
   const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
-  const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
+  const [wordFilterActiveness, setWordFilterActiveness] = useState<ProjectWordActivenessFilter>('all');
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
@@ -142,40 +150,31 @@ export default function ProjectPage() {
   }, [project?.id]);
 
   const counts = useMemo(() => {
-    const mastered = words.filter((word) => word.status === 'mastered').length;
-    const learning = words.filter((word) => word.status === 'review').length;
-    const newCount = words.filter((word) => word.status === 'new').length;
-    return { total: words.length, mastered, learning, newCount };
+    const wordStats = countProjectWordStats(words);
+    return {
+      total: wordStats.total,
+      mastered: wordStats.mastered,
+      learning: wordStats.learning,
+      newCount: wordStats.unlearned,
+    };
   }, [words]);
 
-  const wordFilterActive = wordFilterBookmark || wordFilterActiveness !== 'all' || wordFilterPos !== null;
+  const wordFilterActive = isProjectWordFilterActive({
+    bookmark: wordFilterBookmark,
+    activeness: wordFilterActiveness,
+    partOfSpeech: wordFilterPos,
+  });
 
-  const availablePartsOfSpeech = useMemo(() => {
-    const set = new Set<string>();
-    for (const w of words) {
-      for (const tag of w.partOfSpeechTags ?? []) set.add(tag);
-    }
-    return [...set].sort();
-  }, [words]);
+  const availablePartsOfSpeech = useMemo(() => selectAvailableProjectPartsOfSpeech(words), [words]);
 
   const filteredWords = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    let base = normalized
-      ? words.filter(
-          (word) =>
-            word.english.toLowerCase().includes(normalized) ||
-            word.japanese.toLowerCase().includes(normalized),
-        )
-      : words;
-    if (wordFilterBookmark) base = base.filter((w) => w.isFavorite);
-    if (wordFilterActiveness !== 'all') base = base.filter((w) => w.vocabularyType === wordFilterActiveness);
-    if (wordFilterPos) base = base.filter((w) => w.partOfSpeechTags?.includes(wordFilterPos!));
-    if (wordSortOrder === 'alphabetical') return [...base].sort((a, b) => a.english.localeCompare(b.english));
-    if (wordSortOrder === 'statusAsc') {
-      const rank = (s: string) => (s === 'new' ? 0 : s === 'review' ? 1 : 2);
-      return [...base].sort((a, b) => rank(a.status) - rank(b.status));
-    }
-    return base;
+    return selectFilteredProjectWords(words, {
+      searchText: query.trim().toLowerCase(),
+      sortOrder: wordSortOrder,
+      bookmark: wordFilterBookmark,
+      activeness: wordFilterActiveness,
+      partOfSpeech: wordFilterPos,
+    });
   }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
 
   const handleExitSelectMode = useCallback(() => {
