@@ -28,6 +28,17 @@ Migration files in `supabase/migrations/` that have already been applied to prod
 
 ## Safe to Modify (with conditions)
 
+### Prelaunch Stop Rule
+
+Before the first public release, do not continue broad refactors just because maintainability work remains. Only change code for:
+
+- `npm run verify` failures
+- signup / login / reset-password / scan / payment user-facing failures
+- production environment or runbook issues that would block launch
+- narrowly scoped fixes with clear tests
+
+Home, Project, Quiz, and `scan-jobs/process` still have mixed responsibilities. Their additional decomposition should wait until after release unless one of the blockers above applies.
+
 ### Application Code (`src/`)
 
 | Area | Condition |
@@ -96,6 +107,14 @@ These areas require extra caution. Small changes can cause cascading failures.
 - Optimistic load reads Supabase session from localStorage before async calls.
 - **Impact of breakage**: All components see stale auth data. Users may see wrong subscription tier.
 - **Before modifying**: Test full auth flow: login, logout, account switching, page reload.
+
+### 4a. Signup OTP Flow (`src/app/signup/page.tsx`, `src/app/api/auth/`)
+
+- `/signup` is intentionally a two-step flow: email/password form -> OTP input.
+- The signup page calls `/api/auth/send-otp`, then `/api/auth/signup-verify`.
+- Existing signup emails return the API's 409 error; the signup page must not silently auto-login the user.
+- **Impact of breakage**: New users cannot register, existing users may see confusing account state, or session cookies may not be established.
+- **Before modifying**: Run `src/lib/auth/signup-flow.test.ts` and `src/app/api/auth/otp.contract.test.ts`, then verify signup manually with a real OTP email before release.
 
 ### 5. Scan Limit Enforcement (`src/app/api/extract/route.ts`)
 

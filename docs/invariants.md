@@ -107,6 +107,22 @@ Source: `src/lib/db/hybrid-repository.ts` lines 107-113.
 
 **Consequence of violation**: Scans become brittle during transient AI failures, or example-generation regressions become invisible in production.
 
+### INV-14: Signup is OTP-only before app entry
+
+The Web signup page has exactly two user-facing steps: email/password form, then OTP input. It sends OTP through `/api/auth/send-otp` and completes account creation/session setup through `/api/auth/signup-verify`. It must not route new users through mock onboarding, and it must not auto-login existing emails from the signup screen.
+
+**Consequence of violation**: New users may be blocked before account creation, or existing users may enter inconsistent auth state from the wrong screen.
+
+Source: `src/app/signup/page.tsx`, `src/lib/auth/signup-flow.ts`, `src/app/api/auth/otp.contract.test.ts`.
+
+### INV-15: Scan jobs are processed by direct invocation with a pending claim
+
+Async scan job processing must preserve direct `processJobById()` invocation and the `pending -> processing` claim guard. Do not reintroduce HTTP self-fetch from `after()` callbacks, and do not process jobs without the pending claim.
+
+**Consequence of violation**: Scan jobs can hang silently, process twice, or skip status transitions and notifications.
+
+Source: `src/app/api/scan-jobs/create/route.ts`, `src/app/api/scan-jobs/route.ts`, `src/app/api/scan-jobs/process/route.ts`, `src/app/api/scan-jobs/process/route.contract.test.ts`.
+
 ---
 
 ## Candidate Invariants

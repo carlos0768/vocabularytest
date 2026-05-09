@@ -213,7 +213,8 @@ Selection logic in `getRepository(subscriptionStatus, wasPro)`:
 
 ## Authentication
 
-- **Signup**: Custom OTP flow via Resend email (`/api/auth/send-otp`, `/api/auth/verify-otp`), not Supabase magic links.
+- **Signup**: Custom OTP flow via Resend email. `/signup` is fixed to two user-facing steps: email/password form -> OTP input. It calls `/api/auth/send-otp`, then `/api/auth/signup-verify`, which creates a confirmed Supabase Auth user with the submitted password and establishes a session cookie.
+- **Password reset / OTP auth routes**: `/api/auth/reset-password` handles reset OTP and password update. `/api/auth/verify-otp` is a separate OTP verification route used by the broader auth OTP flow.
 - **DB hook**: After `auth.users` insert, trigger `on_auth_user_created` runs `handle_new_user()`, which creates `subscriptions` and `profiles` rows. As of migration `20260404150000_auto_pro_first_66_users.sql`, the first 66 users with `created_at` on or after 2026-04-04 receive permanent test Pro in the same transaction (see `docs/ops-auto-pro-first-66-2026-04-04.md`).
 - **Session**: Supabase Auth manages sessions. Browser client stores session in localStorage (`sb-{projectRef}-auth-token`).
 - **Middleware**: `src/lib/supabase/middleware.ts` protects routes listed in `protectedPaths` array. Redirects to `/login` if unauthenticated.
@@ -274,6 +275,18 @@ iOS purchase -> app sends transactionId
 | Cloud Run (optional) | `CLOUD_RUN_URL`, `CLOUD_RUN_AUTH_TOKEN` | Falls back to direct API calls |
 
 Sentry is currently unused: `src/instrumentation.ts` and `src/instrumentation-client.ts` are no-op files, and `@sentry/nextjs` is not installed.
+
+---
+
+## Maintenance Baseline
+
+Prelaunch maintenance work intentionally stops short of complete large-file decomposition. The current minimum safe baseline is:
+
+- `npm run verify` is the Web prelaunch gate. It runs `lint:web`, `security:all`, the curated Web/shared `npm test`, security route tests, and production build.
+- `npm run test:cloud-run-scan` is separate and must be run explicitly when touching the `cloud-run-scan/` package or Cloud Run behavior.
+- AI agents must read `docs/README.md`, `docs/maintenance/AI_HANDOFF.md`, `docs/boundaries.md`, and `docs/invariants.md` before code edits.
+- Before initial public release, use `docs/maintenance/PRELAUNCH_RELEASE_CHECKLIST.md` for manual QA and external service checks.
+- Public operation starts from `docs/ops/README.md` and the relevant runbook for auth, scan, billing, Supabase, AI cost, or production env issues.
 
 ---
 

@@ -6,6 +6,13 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 ## Operations Runbooks
 
+- Prelaunch Release Checklist: [`docs/maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](docs/maintenance/PRELAUNCH_RELEASE_CHECKLIST.md)
+- Login / Auth Failure: [`docs/ops/login-auth-failure-runbook.md`](docs/ops/login-auth-failure-runbook.md)
+- Scan Failure / Delay: [`docs/ops/scan-failure-runbook.md`](docs/ops/scan-failure-runbook.md)
+- Stripe Billing Failure: [`docs/ops/billing-stripe-failure-runbook.md`](docs/ops/billing-stripe-failure-runbook.md)
+- Supabase Incident / Migration Accident: [`docs/ops/supabase-incident-runbook.md`](docs/ops/supabase-incident-runbook.md)
+- AI Cost Spike: [`docs/ops/ai-cost-spike-runbook.md`](docs/ops/ai-cost-spike-runbook.md)
+- Production Environment Checklist: [`docs/ops/production-env-checklist.md`](docs/ops/production-env-checklist.md)
 - Nightly Master Lexicon Cron: [`docs/ops/nightly-lexicon-cron-runbook.md`](docs/ops/nightly-lexicon-cron-runbook.md)
 - Scan Extraction Gemini 2.5 Flash (Cloud Run): [`docs/ops/scan-gemini-cloudrun-runbook.md`](docs/ops/scan-gemini-cloudrun-runbook.md)
 - Auto Pro for first 66 signups (2026-04-04 campaign): [`docs/ops-auto-pro-first-66-2026-04-04.md`](ops-auto-pro-first-66-2026-04-04.md)

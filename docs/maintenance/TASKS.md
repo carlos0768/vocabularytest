@@ -360,7 +360,12 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
 
 ### P2-D: 正式docsへの昇格
 
-- [ ] P2-D正式docs昇格: P2-A/P2-B/P2-Cとscan process checkpointで得た恒久知識を `docs/architecture.md`, `docs/boundaries.md`, `docs/invariants.md`, `docs/ops/` へ反映する
+- [x] 2026-05-09: P2-D正式docs昇格の最小実施
+  - 追加: [`PRELAUNCH_RELEASE_CHECKLIST.md`](PRELAUNCH_RELEASE_CHECKLIST.md)
+  - 更新: `docs/README.md`, `docs/architecture.md`, `docs/boundaries.md`, `docs/invariants.md`, `docs/commands.md`, `docs/runbooks.md`, `docs/ops/README.md`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 昇格: `npm run verify`をWeb公開前gateとして正式docsへ明記し、signup OTP-only導線、scan job direct invocation + pending claim、公開前停止条件、運用Runbook入口を恒久知識へ反映
+  - 変更なし: code、API request/response、DB schema、migration、課金仕様、scan仕様、package依存
+  - 残確認: signup OTP実メール、Supabase本番env/RLS/migration、Resend送信domain、Stripe webhook/reconcile、Cloud Run env/token、App Store/IAP外部設定は自動テストでは完了扱いにしない
 - [ ] docs内のローカル絶対パスとline番号参照を相対表記へ寄せる
   - `docs/commands.md`, `docs/security/*.md`, `docs/runbooks.md` など
   - 公開前の挙動には影響しないため、正式docs整備の一部として扱う

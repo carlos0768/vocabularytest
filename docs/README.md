@@ -45,6 +45,7 @@
 | [`maintenance/TASKS.md`](maintenance/TASKS.md) | 未完了タスクと優先度 |
 | [`maintenance/ROADMAP.md`](maintenance/ROADMAP.md) | 公開前、公開直後、公開後の段階計画 |
 | [`maintenance/DECISIONS.md`](maintenance/DECISIONS.md) | 方針判断と理由 |
+| [`maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](maintenance/PRELAUNCH_RELEASE_CHECKLIST.md) | 初版公開前の最終チェック、手動QA、外部サービス確認 |
 | [`maintenance/_archive/`](maintenance/_archive/) | 終了した工事ログの退避先 |
 
 ### 要確認・古い可能性がある資料
@@ -79,6 +80,7 @@
 
 - `npm run lint` は広範囲のlegacy lintで、公開前Web gateではない
 - 公開前Web検証は `npm run verify` / `npm run lint:web` を使う
+- 初版公開前の最終確認は [`maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](maintenance/PRELAUNCH_RELEASE_CHECKLIST.md) を使う
 - `npm run security:deps` と `npm run security:all` は成功している
 - 現行Web課金はStripe中心。KOMOJU資料は履歴資料として残している
 - Sentryは現在未使用。`src/instrumentation.ts` と `src/instrumentation-client.ts` はno-op

@@ -135,3 +135,5 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 6. 他の推奨候補は、Quiz type-in answer判定helper化、Quiz sessionStorage persist/restore parser helper化、P2-D正式docs昇格
 7. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない新しい小タスクへ切る
 8. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
+9. 初版公開前の最終判断は [`PRELAUNCH_RELEASE_CHECKLIST.md`](PRELAUNCH_RELEASE_CHECKLIST.md) を使う。追加リファクタではなく、`npm run verify`、手動QA、Supabase/Resend/Stripe/Cloud Run等の外部確認、残リスク分類を優先する
+10. P2-D正式docs昇格の最小実施は完了済み。`architecture.md`, `boundaries.md`, `invariants.md`, `commands.md`, `runbooks.md`, `ops/README.md` へ、verify gate、signup OTP-only導線、scan job direct invocation、公開前停止条件、Runbook入口を反映済み

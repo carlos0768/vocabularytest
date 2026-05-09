@@ -6,6 +6,7 @@
 
 | 文書 | 用途 |
 |---|---|
+| [`../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md) | 初版公開前の最終チェック、手動QA、外部サービス確認 |
 | [`scan-failure-runbook.md`](scan-failure-runbook.md) | スキャン失敗 / 遅延の初動対応 |
 | [`billing-stripe-failure-runbook.md`](billing-stripe-failure-runbook.md) | Stripe課金反映失敗の初動対応 |
 | [`login-auth-failure-runbook.md`](login-auth-failure-runbook.md) | ログイン / 認証失敗の初動対応 |
@@ -22,6 +23,7 @@
 
 ## 運用時の基本ルール
 
+- 初版公開前は [`../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md) を使い、実メール、代表scan、Stripe、Supabase、Resend、Cloud Runの確認漏れを分ける。
 - 課金、認証、スキャン、同期、DBを触る前に [`../boundaries.md`](../boundaries.md) と [`../invariants.md`](../invariants.md) を読む。
 - 古いKOMOJU資料は履歴として有用だが、現在のWeb課金実装はStripe中心で確認する。
 - Sentryは現在未使用。`src/instrumentation.ts` と `src/instrumentation-client.ts` はno-opで、`@sentry/nextjs` は未導入。
