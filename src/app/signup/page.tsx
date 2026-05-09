@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { OtpInput } from '@/components/ui/OtpInput';
@@ -276,6 +277,12 @@ function SignupForm() {
           </PrimaryAction>
         </div>
       </form>
+
+      <OAuthProviderButtons
+        redirectPath={redirect}
+        disabled={loading}
+        onError={(message) => setError(message || null)}
+      />
 
       <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
         <div className="h-px flex-1 bg-[var(--color-border)]" />

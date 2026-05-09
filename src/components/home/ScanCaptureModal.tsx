@@ -19,7 +19,7 @@ interface ScanCaptureModalProps {
   targetProjectId?: string;
 }
 
-type TopMode = 'vocab' | 'correction' | 'parser';
+type TopMode = 'vocab';
 type SubOption = 'circle' | 'eiken' | 'idiom' | 'all';
 
 const MODES: { k: TopMode; label: string; pro?: boolean; icon: React.ReactNode }[] = [
@@ -33,16 +33,6 @@ const MODES: { k: TopMode; label: string; pro?: boolean; icon: React.ReactNode }
       </svg>
     ),
   },
-  {
-    k: 'correction',
-    label: '添削',
-    pro: true,
-    icon: (
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M15 4l5 5L9 20H4v-5L15 4z"/>
-      </svg>
-    ),
-  },
 ];
 
 const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[] = [
@@ -51,12 +41,6 @@ const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[
   { k: 'idiom',  label: '熟語・イディオム', hint: '複合語・熟語を抽出' },
   { k: 'all',    label: 'すべての単語',     hint: '全単語を網羅' },
 ];
-
-const MODE_SCAN_PATH: Record<TopMode, string> = {
-  vocab: '/scan',
-  correction: '/correction/scan',
-  parser: '/parser/scan',
-};
 
 function subToExtractMode(sub: SubOption): ExtractMode {
   if (sub === 'circle') return 'circled';
@@ -83,28 +67,6 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
     setProcessing(true);
     setErrorMsg(null);
     try {
-      if (activeMode === 'correction') {
-        // OCR the image server-side and run correction analysis without navigating away
-        const supabase = createBrowserClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('ログインが必要です');
-
-        const formData = new FormData();
-        formData.append('image', file);
-
-        const res = await fetch('/api/correction/scan', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          body: formData,
-        });
-        const json = await res.json() as { success: boolean; id?: string; error?: string };
-        if (!json.success || !json.id) throw new Error(json.error ?? '添削に失敗しました');
-
-        onClose();
-        router.push(`/correction/result?id=${json.id}`);
-        return;
-      }
-
       // Pro: バックグラウンドジョブ送信（確認画面をスキップ）
       if (isPro) {
         const supabase = createBrowserClient();
@@ -172,7 +134,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5 shadow-[3px_3px_0_var(--solid-ink)]">
             <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
             <span className="text-[13px] font-bold text-[var(--solid-ink)]">
-              {activeMode === 'correction' ? 'AI が添削中...' : isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...'}
+              {isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...'}
             </span>
           </div>
         </div>

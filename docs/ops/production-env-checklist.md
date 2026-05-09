@@ -30,6 +30,10 @@
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` は同じ本番projectのservice role key。
 - [ ] anon keyとservice role keyを別projectから混ぜていない。
 - [ ] migrationはrepoの `supabase/migrations/` と本番schemaが一致している。
+- [ ] Authentication > ProvidersでGoogle providerが有効。
+- [ ] Authentication > ProvidersでApple providerが有効。
+- [ ] Authentication > URL ConfigurationのSite URLが `NEXT_PUBLIC_APP_URL` と一致している。
+- [ ] Authentication > URL ConfigurationのRedirect URLsに本番 `/auth/callback` が登録されている。
 - [ ] `api_cost_events` と `feature_usage_daily` が存在する。
 - [ ] `scan_jobs`, `daily_scan_usage`, `otp_requests`, `subscription_sessions`, `webhook_events`, `subscriptions` が存在する。
 - [ ] RLSが必要なテーブルで有効になっている。
@@ -40,6 +44,7 @@
 - `SUPABASE_SERVICE_ROLE_KEY` を `NEXT_PUBLIC_` にしない。
 - service role keyをブラウザ、mobile client、公開docs、ログに出さない。
 - 本番projectにPreview用の手動検証値を混ぜない。
+- Google / Apple provider secretをclient envや公開docsに出さない。
 
 ## Stripe
 

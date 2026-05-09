@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { DesktopAdFrame } from '@/components/ads/DesktopAdFrame';
+import { useAuth } from '@/hooks/use-auth';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './bottom-nav';
 
@@ -15,7 +16,7 @@ const NO_SHELL_PATHS = [
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
   '/quick-response/', '/scan/confirm',
-  '/subscription', '/collections/new', '/word/', '/correction/result',
+  '/subscription', '/collections/new', '/word/',
 ];
 
 const DESKTOP_AD_PLACEMENTS = [
@@ -48,14 +49,6 @@ const DESKTOP_AD_PLACEMENTS = [
     matches: (pathname: string) => pathname === '/settings',
   },
   {
-    label: '添削',
-    matches: (pathname: string) => pathname === '/correction' || pathname.startsWith('/correction/'),
-  },
-  {
-    label: '構造解析',
-    matches: (pathname: string) => pathname === '/parser' || pathname.startsWith('/parser/'),
-  },
-  {
     label: 'コレクション',
     matches: (pathname: string) => pathname === '/collections' || pathname.startsWith('/collections/'),
   },
@@ -83,6 +76,7 @@ function getDesktopAdPlacement(pathname: string): string | null {
 
 export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { user, loading: authLoading } = useAuth();
   const [scrollEnding, setScrollEnding] = useState(false);
 
   useEffect(() => {
@@ -115,7 +109,9 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  if (shouldHideShell(pathname)) {
+  const isGuestHome = pathname === '/' && !authLoading && !user;
+
+  if (shouldHideShell(pathname) || isGuestHome) {
     return <>{children}</>;
   }
 

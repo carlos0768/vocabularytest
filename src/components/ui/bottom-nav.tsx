@@ -130,7 +130,7 @@ const TABS: TabItem[] = [
     k: 'account',
     label: 'アカウント',
     href: '/settings',
-    matchPaths: ['/settings', '/subscription', '/correction', '/parser'],
+    matchPaths: ['/settings', '/subscription'],
     IconDefault: AccountIcon,
     IconActive: AccountIconFilled,
   },

@@ -6,6 +6,7 @@
 
 - 最新UIベースのブランチから作業している。
 - `/signup` がモックではなく、メール・パスワード・OTPで登録できる導線になっている。
+- Google / Apple OAuthログインがSupabase本番設定で有効になっている。
 - `npm run verify` が通っている。
 - 実メールOTP、Supabase、Resend、Stripe、Cloud Runの公開前確認が完了または明確に未完として記録されている。
 - 残リスクが「公開後に直せるもの」と「公開前に止めるもの」に分けられている。
@@ -25,9 +26,14 @@
 
 - [x] `git diff --name-only origin/main...HEAD` で `src/components/redesign/**` と `src/app/globals.css` に差分が無い。
 - [x] `/` が最新UIのまま表示される。
+- [x] 未ログイン時の `/` はゲスト向け登録導線として表示される。
 - [x] `/login` が最新UIのまま表示される。
+- [x] `/login` と `/signup` にGoogle / Apple OAuthボタンが表示される。
 - [x] `/signup` が実フォームとして表示される。
 - [x] `/project/[id]` と `/quiz/[projectId]` は未ログイン時に最新login UIへredirectされる。
+- [x] 初回公開対象外の添削/構造解析は、ナビ、ホーム、スキャン導線から非表示にする。
+- [x] `/correction/**` と `/parser/**` のページは初回公開では404にする。
+- [x] `/projects` 下部の浮動プラスボタンは非表示にする。
 
 UI保護ルール:
 
@@ -44,9 +50,21 @@ UI保護ルール:
 - [ ] パスワード不一致が画面で止まる。
 - [ ] OTP誤入力・期限切れが画面で分かる。
 
+## OAuth手動QA
+
+- [ ] Supabase DashboardでGoogle providerが有効。
+- [ ] Supabase DashboardでApple providerが有効。
+- [ ] Supabase Auth redirect URL allowlistに本番 `https://<domain>/auth/callback` がある。
+- [ ] Google OAuth client側のauthorized redirect URIがSupabase callback URLを指している。
+- [ ] Apple Sign in with Apple側のReturn URLがSupabase callback URLを指している。
+- [ ] `/login?redirect=/projects` からGoogleログイン後、`/projects` に戻る。
+- [ ] `/signup?redirect=/` からAppleログイン後、ログイン済みで `/` に戻る。
+- [ ] OAuth失敗時は `/auth/auth-code-error` に戻り、無限redirectしない。
+
 ## 外部サービス確認
 
 - [ ] Supabase本番envがVercel/実行環境に設定されている。
+- [ ] Supabase AuthのSite URLが本番 `NEXT_PUBLIC_APP_URL` と一致している。
 - [ ] Supabase RLSとmigrationの状態が本番DBと一致している。
 - [ ] Resend送信domainが認証済み。
 - [ ] Stripe webhook URLと署名secretが本番設定と一致している。
@@ -67,5 +85,6 @@ UI保護ルール:
 
 - Home/Project/Quizの追加分割
 - scan-jobs/processの追加分割
+- 添削/構造解析の公開復帰
 - 既存docsの全面整理
 - 使い勝手改善や追加機能

@@ -11,6 +11,7 @@ import { clearAllUserStats } from '@/lib/utils';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription, wasProUser } from '@/lib/subscription/status';
 import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-offline';
 import { getCachedSupabaseSessionSnapshot, isCachedSupabaseSessionValid } from '@/lib/supabase/session-cache';
+import { buildOAuthCallbackUrl, getOAuthProviderLabel, type AuthOAuthProvider } from '@/lib/auth/oauth';
 
 interface AuthState {
   user: User | null;
@@ -489,6 +490,35 @@ export function useAuth() {
     return { success: true, data };
   }, [getSupabase, loadUser]);
 
+  const signInWithOAuth = useCallback(async (provider: AuthOAuthProvider, redirectPath = '/') => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { success: false, error: 'Supabase not initialized' };
+    }
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'OAuth login is only available in the browser' };
+    }
+
+    notifyListeners({ ...globalAuthState, loading: true, error: null });
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: buildOAuthCallbackUrl(redirectPath, window.location.origin),
+      },
+    });
+
+    if (error) {
+      notifyListeners({ ...globalAuthState, loading: false, error: error.message });
+      return {
+        success: false,
+        error: `${getOAuthProviderLabel(provider)}ログインに失敗しました`,
+      };
+    }
+
+    return { success: true };
+  }, [getSupabase]);
+
   // Sign out
   const signOut = useCallback(async () => {
     const supabase = getSupabase();
@@ -570,6 +600,7 @@ export function useAuth() {
     wasPro,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     refresh: loadUser,
   };

@@ -23,15 +23,18 @@
 
 - [x] `/signup` のモックオンボーディング画面を外す。
 - [x] メール・パスワード入力からOTP入力へ進む実動線にする。
+- [x] `/login` と `/signup` にGoogle / Apple OAuthログイン導線を追加する。
 - [x] `send-otp` / `signup-verify` の既存API contractを変えない。
 - [x] 既存メール時にsignup画面から自動ログインしない。
 - [ ] 実メールOTP到達と登録後redirectを手動確認する。
+- [ ] Google / Apple OAuthをSupabase本番provider設定で手動確認する。
 
 ## P0: 検証基盤
 
 - [x] `npm run lint:web` を追加する。
 - [x] `npm run verify` を追加する。
 - [x] signup helper testを固定テスト一覧に追加する。
+- [x] OAuth redirect helper testを固定テスト一覧に追加する。
 - [x] `npm run security:deps`
 - [x] `npm run security:secrets`
 - [x] `npm run security:all`
@@ -43,14 +46,19 @@
 ## P0: ローカルUI確認
 
 - [x] `/` が表示される。
+- [x] 未ログイン時の `/` をゲスト向け登録導線にする。
 - [x] `/login` が表示される。
 - [x] `/signup` が実フォームとして表示される。
 - [x] `/signup` から古いモックオンボーディング文言が消えている。
+- [x] `/login` と `/signup` にGoogle / Apple OAuthボタンが表示される。
+- [x] 初回公開対象外の添削/構造解析を公開導線から非表示にする。
+- [x] `/projects` 下部の浮動プラスボタンを非表示にする。
 
 ## P0: 公開前手動確認
 
 - [ ] signup OTP実メール到達
 - [ ] 登録後ログイン済みredirect
+- [ ] Google / Apple OAuth redirect
 - [ ] Supabase本番env/RLS/migration一致
 - [ ] Resend送信domain
 - [ ] Stripe webhook/reconcile

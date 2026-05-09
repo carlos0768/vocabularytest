@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
-import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
+import { SolidButton, SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { WelcomeOverlay } from '@/components/onboarding/WelcomeOverlay';
 import { EmptyStateGuide } from '@/components/onboarding/EmptyStateGuide';
@@ -25,39 +25,15 @@ import {
   calculateHomeCompletionPercent,
   countHomeWordStatuses,
 } from '@/lib/home/home-page-selectors';
-import { getDailyStats, getGuestUserId, getStreakDays } from '@/lib/utils';
+import { getDailyStats, getStreakDays } from '@/lib/utils';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-type HistoryItem = {
-  id: string;
-  purpose: string;
-  preview: string;
-  score: number;
-  wordCount: number;
-  issueCount: number;
-  createdAt: string;
-};
-
-function scoreColor(score: number): string {
-  if (score >= 85) return 'var(--color-success)';
-  if (score >= 70) return 'var(--color-accent)';
-  if (score >= 60) return '#c8a02e';
-  return '#c43d3d';
-}
-
-function formatWhen(value: string) {
-  const diff = Date.now() - Date.parse(value);
-  if (!Number.isFinite(diff)) return '';
-  const minutes = Math.max(1, Math.floor(diff / 60000));
-  if (minutes < 60) return `${minutes} 分前`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 時間前`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} 日前`;
-  return new Date(value).toLocaleDateString('ja-JP');
-}
+const GUEST_PREVIEW_WORDS = [
+  { english: 'adapt', japanese: '適応する', status: '復習' },
+  { english: 'evidence', japanese: '証拠', status: '新規' },
+  { english: 'reliable', japanese: '信頼できる', status: '定着' },
+];
 
 type HomeStats = {
   dueCount: number;
@@ -133,9 +109,6 @@ export default function HomePage() {
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [correctionItems, setCorrectionItems] = useState<HistoryItem[]>([]);
-  const [correctionLoading, setCorrectionLoading] = useState(false);
-  const [correctionScanOpen, setCorrectionScanOpen] = useState(false);
   const [pendingScans, setPendingScans] = useState<{ id: string; project_title: string }[]>([]);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
@@ -147,12 +120,20 @@ export default function HomePage() {
 
   const loadHome = useCallback(async () => {
     if (authLoading) return;
+    if (!user) {
+      setProjects([]);
+      setStats(EMPTY_STATS);
+      setPendingScans([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const userId = user ? user.id : getGuestUserId();
+      const userId = user.id;
       let rawProjects: Project[] = [];
       let readRepo: WordReadRepository = repository;
 
@@ -221,12 +202,16 @@ export default function HomePage() {
 
   useEffect(() => {
     if (authLoading || onboardingLoading) return;
+    if (!user) {
+      setWelcomeOpen(false);
+      return;
+    }
     if (onboardingStep === 'signed_up') {
       setWelcomeOpen(true);
       return;
     }
     setWelcomeOpen(false);
-  }, [authLoading, onboardingLoading, onboardingStep]);
+  }, [authLoading, onboardingLoading, onboardingStep, user]);
 
   const handleWelcomeSkip = useCallback(() => {
     setWelcomeOpen(false);
@@ -268,24 +253,18 @@ export default function HomePage() {
     return () => { if (intervalId) clearInterval(intervalId); };
   }, [user, isPro, authLoading]);
 
-  useEffect(() => {
-    if (authLoading || !user || !isPro || !navigator.onLine) return;
-    let active = true;
-    setCorrectionLoading(true);
-    fetch('/api/correction/history')
-      .then((r) => r.json())
-      .then((data: { success: boolean; items?: HistoryItem[] }) => {
-        if (active && data.success) setCorrectionItems(data.items ?? []);
-      })
-      .catch(() => {})
-      .finally(() => { if (active) setCorrectionLoading(false); });
-    return () => { active = false; };
-  }, [authLoading, user, isPro]);
-
   const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW } = stats;
   const goalTotal = dueCount + completedToday;
   const goalProgress = goalTotal > 0 ? Math.round((completedToday / goalTotal) * 100) : 0;
   const visibleProjects = projects.slice(0, 3);
+
+  if (authLoading) {
+    return <HomeLoadingScreen />;
+  }
+
+  if (!user) {
+    return <GuestHomePage />;
+  }
 
   return (
     <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-4">
@@ -412,74 +391,6 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
-        <div>
-          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">CORRECTION</div>
-          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">添削</h2>
-        </div>
-      </div>
-
-      <div className="px-[18px]">
-        {correctionLoading ? (
-          <div className="flex items-center justify-center py-6 text-[var(--color-muted)]">
-            <Icon name="progress_activity" size={18} className="animate-spin" />
-          </div>
-        ) : correctionItems.length === 0 ? (
-          <SolidEmpty
-            icon="edit_note"
-            title="添削はまだありません"
-            description="スキャンで最初の添削を作成しましょう。"
-            action={
-              <button
-                type="button"
-                onClick={() => setCorrectionScanOpen(true)}
-                className="solid-link-primary"
-              >
-                <Icon name="add_a_photo" size={16} />
-                新規スキャン
-              </button>
-            }
-          />
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {correctionItems.slice(0, 3).map((item) => (
-              <Link key={item.id} href={`/correction/result?id=${item.id}`} className="block">
-                <SolidPanel
-                  className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
-                  faceClassName="!p-[13px]"
-                >
-                  <div className="flex items-stretch gap-[11px]">
-                    <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-background)]">
-                      <div className="tabular-nums text-[19px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-display)', color: scoreColor(item.score) }}>{item.score}</div>
-                      <div className="mt-0.5 font-mono text-[7.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">SCORE</div>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-[3px] flex items-center gap-1.5">
-                        <span className="rounded bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">{item.purpose}</span>
-                        <span className="font-mono text-[9px] text-[var(--color-muted)]">{formatWhen(item.createdAt)}</span>
-                      </div>
-                      <div className="line-clamp-2 text-[11.5px] italic leading-[1.5] text-[var(--solid-ink)]">{item.preview}</div>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-[3px] font-mono text-[9px] font-bold text-[var(--color-muted)]"><span className="inline-block h-[5px] w-[5px] rounded-full bg-[#c43d3d]" />{item.issueCount} 指摘</span>
-                        <span className="inline-block h-[3px] w-[3px] rounded-full bg-[var(--color-muted)]" />
-                        <span className="font-mono text-[9px] font-semibold text-[var(--color-muted)]">{item.wordCount} 語</span>
-                      </div>
-                    </div>
-                    <div className="shrink-0 self-center text-[var(--color-muted)]"><Icon name="chevron_right" size={14} /></div>
-                  </div>
-                </SolidPanel>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <ScanCaptureModal
-        isOpen={correctionScanOpen}
-        onClose={() => setCorrectionScanOpen(false)}
-        defaultMode="correction"
-      />
-
       <ScanCaptureModal
         isOpen={vocabScanOpen}
         onClose={() => setVocabScanOpen(false)}
@@ -492,6 +403,127 @@ export default function HomePage() {
         onSkip={handleWelcomeSkip}
         onStartScan={() => setVocabScanOpen(true)}
       />
+    </div>
+  );
+}
+
+function HomeLoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] text-[var(--color-muted)]">
+      <Icon name="progress_activity" size={22} className="animate-spin" />
+    </div>
+  );
+}
+
+function GuestHomePage() {
+  return (
+    <main className="min-h-screen bg-[var(--color-background)] font-[var(--font-body)] text-[var(--solid-ink)]">
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-5 lg:px-8">
+        <Link href="/" className="flex items-baseline gap-2" aria-label="MERKEN home">
+          <span className="font-display text-[24px] font-black leading-none tracking-[0.08em]">
+            MERKEN
+          </span>
+          <span className="inline-block h-1.5 w-1.5 bg-[var(--color-accent)]" />
+        </Link>
+        <Link
+          href="/login?redirect=/"
+          className="rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-2 text-[12px] font-bold shadow-[2px_2px_0_var(--solid-ink)]"
+        >
+          ログイン
+        </Link>
+      </header>
+
+      <section className="mx-auto grid w-full max-w-5xl gap-6 px-5 pb-28 pt-2 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8 lg:pb-16 lg:pt-8">
+        <div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-1.5 shadow-[2px_2px_0_var(--solid-ink)]">
+            <Icon name="add_a_photo" size={15} className="text-[var(--color-accent)]" />
+            <span className="text-[11px] font-black">写真から単語帳作成</span>
+          </div>
+          <h1 className="font-display text-[42px] font-black leading-[1.06] text-[var(--solid-ink)] lg:text-[64px]">
+            覚えたい英単語を、
+            <br />
+            その場で単語帳に。
+          </h1>
+          <p className="mt-4 max-w-[560px] text-[15px] font-semibold leading-7 text-[var(--color-muted)] lg:text-[17px]">
+            ノートやプリントを撮って、英単語を保存。作った単語帳はクイズと復習でそのまま覚えられます。
+          </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <SolidButton href="/signup?redirect=/" variant="inverse" size="lg" iconRight="chevron_right">
+              無料で始める
+            </SolidButton>
+            <SolidButton href="/login?redirect=/" size="lg" iconLeft="login">
+              すでにアカウントがある
+            </SolidButton>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {['メール登録', 'スキャン保存', '4択クイズ', '復習管理'].map((label) => (
+              <span
+                key={label}
+                className="rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[11px] font-bold text-[var(--solid-ink)]"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <SolidPanel className="!rounded-[24px]" faceClassName="!p-4 lg:!p-5">
+          <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <div className="font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                  SAMPLE BOOK
+                </div>
+                <div className="mt-1 font-display text-[22px] font-black">英検プリント</div>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2px_2px_0_var(--solid-ink)]">
+                <Icon name="menu_book" size={24} />
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {GUEST_PREVIEW_WORDS.map((word) => (
+                <div
+                  key={word.english}
+                  className="flex items-center gap-3 rounded-[14px] border-[1.25px] border-[var(--color-border)] bg-white p-3"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] font-display text-[15px] font-black">
+                    {word.english.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14px] font-black">{word.english}</div>
+                    <div className="truncate text-[11px] font-semibold text-[var(--color-muted)]">{word.japanese}</div>
+                  </div>
+                  <span className="rounded-full bg-[var(--solid-ink)] px-2 py-1 font-mono text-[9px] font-black text-white">
+                    {word.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <GuestMetric value="3" label="保存" />
+              <GuestMetric value="1" label="復習" />
+              <GuestMetric value="0" label="未登録" />
+            </div>
+          </div>
+        </SolidPanel>
+      </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[#faf7f1] via-[#faf7f1] to-transparent px-5 pb-[max(18px,env(safe-area-inset-bottom))] pt-8 lg:hidden">
+        <SolidButton href="/signup?redirect=/" variant="inverse" size="lg" className="w-full" iconRight="chevron_right">
+          無料で始める
+        </SolidButton>
+      </div>
+    </main>
+  );
+}
+
+function GuestMetric({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2 py-3 text-center shadow-[2px_2px_0_var(--solid-ink)]">
+      <div className="font-display text-[22px] font-black leading-none">{value}</div>
+      <div className="mt-1 text-[10px] font-bold text-[var(--color-muted)]">{label}</div>
     </div>
   );
 }

@@ -215,15 +215,6 @@ export default function ProjectListPage() {
         )}
       </div>
 
-      <Link href="/scan" className="absolute bottom-[108px] right-[22px] z-30">
-        <span className="relative block">
-          <span className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-full bg-[var(--solid-ink)]" />
-          <span className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
-            <Icon name="add" size={22} />
-          </span>
-        </span>
-      </Link>
-
     </div>
   );
 }

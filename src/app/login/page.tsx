@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -127,11 +128,11 @@ function LoginForm() {
         </div>
       </form>
 
-      <div className="px-6 pb-3">
-        <div className="rounded-[10px] border-[1.25px] border-dashed border-[var(--color-border)] bg-white/60 px-3 py-2 text-center text-[11px] leading-5 text-[var(--color-muted)]">
-          Apple / Google ログインは未接続です。メールアドレスでログインしてください。
-        </div>
-      </div>
+      <OAuthProviderButtons
+        redirectPath={redirect}
+        disabled={loading}
+        onError={(message) => setError(message || null)}
+      />
 
       <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
         <div className="h-px flex-1 bg-[var(--color-border)]" />

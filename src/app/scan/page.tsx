@@ -2,11 +2,8 @@
 
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
-
 const MODES = [
   { k: 'vocab', label: '単語帳', icon: 'auto_stories', active: true },
-  { k: 'correction', label: '添削', icon: 'edit_note', pro: true },
-  { k: 'parser', label: '構造解析', icon: 'account_tree', pro: true },
 ];
 
 const SUB_OPTIONS = [
@@ -61,7 +58,7 @@ export default function ScanPage() {
           </button>
         </div>
 
-        {/* 3 modes */}
+        {/* Scan mode */}
         <div className="mb-3 flex flex-col gap-[7px]">
           {MODES.map((m) => {
             const isActive = m.k === activeMode;
@@ -87,11 +84,6 @@ export default function ScanPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold">{m.label}</span>
-                    {m.pro && !isPro && (
-                      <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-0.5 font-mono text-[8px] font-bold tracking-[0.04em] text-white">
-                        PRO
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div

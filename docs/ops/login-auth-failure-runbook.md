@@ -10,6 +10,7 @@
 - OTPログイン/ユーザー作成: `/api/auth/verify-otp`
 - サインアップOTP検証: `/api/auth/signup-verify`
 - パスワード再設定: `/api/auth/reset-password`
+- Google / Apple OAuth callback: `/auth/callback`
 - クライアント認証状態: `src/hooks/use-auth.ts`
 - 保護ルートのmiddleware: `src/lib/supabase/middleware.ts`
 - メール送信: Resend
@@ -26,6 +27,8 @@
   - 認証後に失敗する場合は該当APIの401も確認する
 - Supabase Dashboard
   - Authentication > Users
+  - Authentication > Providers
+  - Authentication > URL Configuration
   - Auth logs
   - Table: `otp_requests`
 - Resend Dashboard
@@ -42,6 +45,8 @@
 - OTP入力後に「認証コードが見つかりません」「有効期限が切れました」「試行回数の上限」と表示される。
 - サインアップ時に既存ユーザー扱いになる。
 - パスワード再設定メールは成功表示だが、メールが届かない。
+- Google / Appleボタンを押した後に外部認証画面へ移動しない。
+- Google / Apple認証後に `/auth/auth-code-error` へ戻る。
 - ログイン後も保護ページで `/login` に戻される。
 - `/api/auth/*` が500を返す。
 - Proユーザーの初期同期や購読情報取得だけが失敗する。
@@ -55,8 +60,10 @@
 3. Resend Dashboardで対象メールの送信履歴とbounce / blocked / deliveredを確認する。
 4. `otp_requests` で対象メールの最新OTP行を確認する。
 5. Supabase Authentication > Usersで対象メールが存在するか、email confirmed状態か確認する。
-6. ログイン後に戻される場合、`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` とcookie設定、middleware redirectを確認する。
-7. 認証後の購読情報や同期だけ失敗する場合、`/api/subscription/me`、sync系ログ、Supabase RLSエラーを別途確認する。
+6. OAuthの場合、Supabase Authentication > ProvidersでGoogle / Apple providerが有効か確認する。
+7. OAuthの場合、Supabase URL ConfigurationのSite URLとRedirect URLsに本番 `/auth/callback` があるか確認する。
+8. ログイン後に戻される場合、`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` とcookie設定、middleware redirectを確認する。
+9. 認証後の購読情報や同期だけ失敗する場合、`/api/subscription/me`、sync系ログ、Supabase RLSエラーを別途確認する。
 
 ## 探すべきログ文字列
 
@@ -76,6 +83,7 @@ Vercel:
 - `Reset password error:`
 - `Failed to update password:`
 - `Auth error:`
+- `/auth/auth-code-error`
 - `Failed to fetch subscription:`
 - `[Auth] Pro user detected, triggering initial sync`
 - `[Auth] Initial sync failed:`
@@ -113,6 +121,9 @@ Vercel:
 - `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` が同じSupabase projectの値か。
 - `RESEND_API_KEY` が本番環境に設定され、`noreply@merken.jp` から送信できる状態か。
 - `NEXT_PUBLIC_APP_URL` が本番ドメインを指しているか。
+- Supabase AuthのSite URLが `NEXT_PUBLIC_APP_URL` と同じ本番ドメインか。
+- Supabase AuthのRedirect URLsに `https://<本番ドメイン>/auth/callback` が登録されているか。
+- Google / Apple側のOAuth redirect URI / Return URLが、Supabase projectの callback URLを指しているか。
 
 ## 確認するSupabaseテーブルまたはSQL例
 

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { normalizeOAuthRedirectPath } from '@/lib/auth/oauth';
 import { NextResponse } from 'next/server';
 
 // GET /auth/callback
@@ -6,7 +7,7 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/';
+  const next = normalizeOAuthRedirectPath(searchParams.get('next'));
 
   if (code) {
     const supabase = await createClient();

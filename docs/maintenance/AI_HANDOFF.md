@@ -38,16 +38,20 @@
 ## 現在の状態
 
 - `/signup` はメール・パスワード入力からOTP入力へ進む実動線に更新済み。
+- `/login` と `/signup` にGoogle / Apple OAuthログインを追加済み。Supabase Auth provider設定とredirect URL allowlistは本番手動確認対象。
+- 未ログイン時の `/` は新デザインcomponentを使ったゲスト向け登録導線。ログイン済みの学習ダッシュボードとは表示を分ける。
 - 既存ユーザー時にsignup画面から自動ログインしない。
 - `send-otp` / `signup-verify` のAPI contractは変更していない。
 - 旧P2-C、scan process追加分割、Auth OTP、Stripe/reconcile、sync queue、AI prompt split、Home/Project/Quiz helperは最新UIブランチへ再実装済み。
 - `src/components/redesign/**` と `src/app/globals.css` に差分は入れていない。
+- 初回公開では、添削と構造解析は非表示。ナビ、ホーム、スキャン導線から外し、`/correction/**` と `/parser/**` のページは404にする。API実装とDBは削除しない。
 - `npm run security:deps`, `npm run security:secrets`, `npm run security:all`, `npm run lint:web`, `npm test`, `npm run build`, `npm run verify` は通過済み。
 - ブラウザで `/`, `/login`, `/signup`, `/project/[id]`, `/quiz/[projectId]` を確認済み。未ログインのProject/Quizはlogin redirectで保護される。
 - 実メールOTP到達と本番外部サービス確認は未実施。
 
 ## 次にやるべきこと
 
-1. 実メールOTP、Supabase本番、Resend、Stripe、Cloud Run、App Store/IAPは `PRELAUNCH_RELEASE_CHECKLIST.md` に従って手動確認する。
+1. 実メールOTP、Google/Apple OAuth、Supabase本番、Resend、Stripe、Cloud Run、App Store/IAPは `PRELAUNCH_RELEASE_CHECKLIST.md` に従って手動確認する。
 2. 手動確認で実害が見つかった場合だけ、対象領域を1つに限定して修正計画を立てる。
-3. 公開後の追加整理は、Home/Project/Quizの追加分割、scan-jobs/processの追加分割、既存docs全面整理の順で別判断にする。
+3. 添削/構造解析を再公開する場合は、ページ404解除、ナビ復帰、スキャン導線復帰、API/DB手動QAをまとめて別タスクにする。
+4. 公開後の追加整理は、Home/Project/Quizの追加分割、scan-jobs/processの追加分割、既存docs全面整理の順で別判断にする。
