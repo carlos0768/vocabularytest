@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  buildOtpInsertPayload,
+  findAuthUserByNormalizedEmail,
+  normalizeOtpEmail,
+  resolveAuthOtpSendPolicy,
+} from '@/lib/auth/otp-lifecycle';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -17,7 +23,20 @@ const requestSchema = z.object({
   email: z.string().trim().email().max(254),
 }).strict();
 
+export type SendOtpRouteDeps = {
+  getAdminClient?: typeof getAdminClient;
+  generateOtpCode?: typeof generateOtpCode;
+  sendOtpEmail?: typeof sendOtpEmail;
+};
+
 export async function POST(request: Request) {
+  return handleSendOtpPost(request);
+}
+
+export async function handleSendOtpPost(
+  request: Request,
+  deps: SendOtpRouteDeps = {},
+) {
   try {
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: '有効なメールアドレスを入力してください',
@@ -27,19 +46,18 @@ export async function POST(request: Request) {
     }
     const { email } = parsed.data;
 
-    const supabase = getAdminClient();
-    const normalizedEmail = email.toLowerCase();
+    const supabase = (deps.getAdminClient ?? getAdminClient)();
+    const normalizedEmail = normalizeOtpEmail(email);
 
     // 既存ユーザーチェック
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingUser = existingUsers?.users.find(
-      (u) => u.email?.toLowerCase() === normalizedEmail
-    );
+    const existingUser = findAuthUserByNormalizedEmail(existingUsers?.users, normalizedEmail);
+    const sendPolicy = resolveAuthOtpSendPolicy('signup', Boolean(existingUser));
 
-    if (existingUser) {
+    if (!sendPolicy.shouldSendOtp) {
       return NextResponse.json(
-        { error: 'このメールアドレスは既に登録されています', existing_user: true },
-        { status: 409 }
+        sendPolicy.response.body,
+        { status: sendPolicy.response.status }
       );
     }
 
@@ -51,17 +69,12 @@ export async function POST(request: Request) {
       .eq('verified', false);
 
     // 新しいOTPコードを生成
-    const otpCode = generateOtpCode();
+    const otpCode = (deps.generateOtpCode ?? generateOtpCode)();
 
     // OTPをデータベースに保存
     const { error: insertError } = await supabase
       .from('otp_requests')
-      .insert({
-        email: normalizedEmail,
-        otp_code: otpCode,
-        verified: false,
-        attempts: 0,
-      });
+      .insert(buildOtpInsertPayload({ normalizedEmail, otpCode }));
 
     if (insertError) {
       console.error('Failed to insert OTP:', insertError);
@@ -72,7 +85,7 @@ export async function POST(request: Request) {
     }
 
     // Resendでメール送信
-    const emailResult = await sendOtpEmail({
+    const emailResult = await (deps.sendOtpEmail ?? sendOtpEmail)({
       to: normalizedEmail,
       otpCode,
     });

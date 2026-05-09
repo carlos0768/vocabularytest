@@ -4,6 +4,11 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  evaluateAuthOtpCode,
+  findAuthUserByNormalizedEmail,
+  normalizeOtpEmail,
+} from '@/lib/auth/otp-lifecycle';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -35,13 +40,24 @@ async function getServerClient() {
   );
 }
 
-const MAX_ATTEMPTS = 5;
 const requestSchema = z.object({
   email: z.string().trim().email().max(254),
   code: z.string().trim().regex(/^\d{6}$/),
 }).strict();
 
+export type VerifyOtpRouteDeps = {
+  getAdminClient?: typeof getAdminClient;
+  getServerClient?: typeof getServerClient;
+};
+
 export async function POST(request: Request) {
+  return handleVerifyOtpPost(request);
+}
+
+export async function handleVerifyOtpPost(
+  request: Request,
+  deps: VerifyOtpRouteDeps = {},
+) {
   try {
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: 'メールアドレスと6桁の認証コードを入力してください',
@@ -51,8 +67,8 @@ export async function POST(request: Request) {
     }
     const { email, code } = parsed.data;
 
-    const adminClient = getAdminClient();
-    const normalizedEmail = email.toLowerCase();
+    const adminClient = (deps.getAdminClient ?? getAdminClient)();
+    const normalizedEmail = normalizeOtpEmail(email);
     const normalizedCode = code;
 
     // OTPレコードを取得
@@ -65,65 +81,67 @@ export async function POST(request: Request) {
       .limit(1)
       .single();
 
-    if (fetchError || !otpRecord) {
+    const verificationResult = evaluateAuthOtpCode({
+      otpRecord: fetchError ? null : otpRecord,
+      code: normalizedCode,
+    });
+
+    if (verificationResult.status === 'missing') {
       return NextResponse.json(
-        { error: '認証コードが見つかりません。再度コードを送信してください。' },
-        { status: 400 }
+        verificationResult.response.body,
+        { status: verificationResult.response.status }
       );
     }
 
     // 有効期限チェック
-    if (new Date(otpRecord.expires_at) < new Date()) {
+    if (verificationResult.status === 'expired') {
       await adminClient
         .from('otp_requests')
         .delete()
-        .eq('id', otpRecord.id);
+        .eq('id', verificationResult.otpId);
 
       return NextResponse.json(
-        { error: '認証コードの有効期限が切れました。再度コードを送信してください。' },
-        { status: 400 }
+        verificationResult.response.body,
+        { status: verificationResult.response.status }
       );
     }
 
     // 試行回数チェック
-    if (otpRecord.attempts >= MAX_ATTEMPTS) {
+    if (verificationResult.status === 'max_attempts') {
       await adminClient
         .from('otp_requests')
         .delete()
-        .eq('id', otpRecord.id);
+        .eq('id', verificationResult.otpId);
 
       return NextResponse.json(
-        { error: '試行回数の上限に達しました。再度コードを送信してください。' },
-        { status: 400 }
+        verificationResult.response.body,
+        { status: verificationResult.response.status }
       );
     }
 
     // コード検証
-    if (otpRecord.otp_code !== normalizedCode) {
+    if (verificationResult.status === 'invalid_code') {
       // 試行回数をインクリメント
       await adminClient
         .from('otp_requests')
-        .update({ attempts: otpRecord.attempts + 1 })
-        .eq('id', otpRecord.id);
+        .update(verificationResult.attemptsUpdate)
+        .eq('id', verificationResult.otpId);
 
-      const remainingAttempts = MAX_ATTEMPTS - otpRecord.attempts - 1;
       return NextResponse.json(
-        { error: `認証コードが正しくありません。残り${remainingAttempts}回` },
-        { status: 400 }
+        verificationResult.response.body,
+        { status: verificationResult.response.status }
       );
     }
 
     // OTPを検証済みにする
     await adminClient
       .from('otp_requests')
-      .update({ verified: true })
-      .eq('id', otpRecord.id);
+      .update(verificationResult.verifiedUpdate)
+      .eq('id', verificationResult.otpId);
 
     // 既存ユーザーを確認
     const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-    const existingUser = existingUsers?.users.find(
-      (u) => u.email?.toLowerCase() === normalizedEmail
-    );
+    const existingUser = findAuthUserByNormalizedEmail(existingUsers?.users, normalizedEmail);
 
     let userId: string;
 
@@ -165,7 +183,7 @@ export async function POST(request: Request) {
     }
 
     // トークンを使ってセッションを設定
-    const serverClient = await getServerClient();
+    const serverClient = await (deps.getServerClient ?? getServerClient)();
     const { data: sessionData, error: sessionError } = await serverClient.auth.verifyOtp({
       token_hash: linkData.properties.hashed_token,
       type: 'magiclink',
