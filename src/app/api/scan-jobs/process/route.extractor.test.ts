@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { __internal } from '@/app/api/scan-jobs/process/route';
-import type { ExtractMode } from '@/app/api/extract/route';
+import { getProvidersForMode, type ExtractMode } from '@/lib/scan/mode-provider';
 import { AI_CONFIG } from '@/lib/ai/config';
 import type { ExampleGenerationSummary } from '@/lib/ai/generate-example-sentences';
 
@@ -59,7 +59,7 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
 });
 
 test('scan-jobs idiom mode resolves provider from idioms config', () => {
-  const providers = __internal.getProvidersForMode('idiom');
+  const providers = getProvidersForMode('idiom');
   assert.deepEqual(providers, [AI_CONFIG.extraction.idioms.provider]);
 });
 
@@ -104,7 +104,7 @@ test('scan-jobs marks partial example generation with warning and payload summar
 
   const warningSet = new Set<string>();
   const payload = __internal.applyExampleGenerationSummary(
-    { saveMode: 'server_cloud' as const, wordCount: 5, exampleGeneration: undefined },
+    { saveMode: 'server_cloud' as const, wordCount: 5 },
     warningSet,
     summary,
   );

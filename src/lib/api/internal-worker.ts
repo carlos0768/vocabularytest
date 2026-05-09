@@ -20,13 +20,13 @@ export function getAvailableInternalWorkerTokens(
   const seen = new Set<string>();
 
   for (const source of INTERNAL_WORKER_TOKEN_ENV_NAMES) {
-    const token = normalizeInternalWorkerValue(env[source]);
-    if (!token || seen.has(token)) {
+    const normalizedCredential = normalizeInternalWorkerValue(env[source]);
+    if (!normalizedCredential || seen.has(normalizedCredential)) {
       continue;
     }
 
-    seen.add(token);
-    tokens.push({ source, token });
+    seen.add(normalizedCredential);
+    tokens.push({ source, token: normalizedCredential });
   }
 
   return tokens;

@@ -5,6 +5,7 @@ import { parseJsonWithSchema } from '@/lib/api/validation';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
 import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
+import { resolveScanJobSaveMode } from '@/lib/scan/job-create-contract';
 import { processJobById } from '../process/route';
 
 export const maxDuration = 300;
@@ -158,10 +159,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isProUser = Boolean(scanData.is_pro);
-    const saveMode: 'server_cloud' | 'client_local' =
-      (clientPlatform === 'ios' || clientPlatform === 'android') && !isProUser
-        ? 'client_local'
-        : 'server_cloud';
+    const saveMode = resolveScanJobSaveMode({ clientPlatform, isProUser });
 
     let validatedTargetProjectId: string | null = null;
     if (saveMode === 'server_cloud' && targetProjectId) {

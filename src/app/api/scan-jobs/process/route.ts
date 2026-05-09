@@ -5,14 +5,50 @@ import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
-import type { ExtractMode } from '@/app/api/extract/route';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
-import { AI_CONFIG, getAPIKeys, type AIProvider } from '@/lib/ai/config';
-import { isCloudRunConfigured } from '@/lib/ai/providers';
+import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
+import {
+  getMissingProviderKey,
+  getProvidersForMode,
+  type ExtractMode,
+} from '@/lib/scan/mode-provider';
+import { buildClientLocalScanJobResultPayload } from '@/lib/scan/job-result-payload';
+import {
+  buildServerCloudMergedProjectSourceLabels,
+  buildServerCloudProjectInsertPayload,
+  buildServerCloudWordsInsertPayload,
+  shouldRollbackServerCloudProjectAfterWordsInsertFailure,
+} from '@/lib/scan/server-cloud-persistence';
+import { buildServerCloudScanJobResultPayload } from '@/lib/scan/server-cloud-result-payload';
+import {
+  applyClientLocalGeneratedExamples,
+  buildClientLocalExampleSeedWords,
+  buildServerCloudExampleSeedWords,
+  buildServerCloudExampleUpdatePayload,
+} from '@/lib/scan/example-generation';
+import {
+  buildScanJobCompletedNotificationParams,
+  buildScanJobFailedNotificationParams,
+  buildScanJobWarningNotificationParams,
+  flushScanJobTimingLogs,
+} from '@/lib/scan/job-side-effects';
+import {
+  processScanImage,
+  type ScanImageExtractionResult,
+} from '@/lib/scan/image-extraction';
+import {
+  buildPostScanLexiconResolutionWordIds,
+  buildPostScanQuizPrefillSeedWords,
+} from '@/lib/scan/post-processing';
+import {
+  buildQuizPrefillSeedWords,
+  buildQuizPrefillWordUpdatePayload,
+  type QuizPrefillSeedWord,
+} from '@/lib/scan/quiz-prefill';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -23,7 +59,6 @@ import {
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import {
   enqueueWordLexiconResolutionJobs,
-  needsWordLexiconResolution,
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
@@ -73,6 +108,19 @@ type ExtractionLikeResult =
   | { success: true; data: { words: unknown[]; sourceLabels?: unknown[] } }
   | { success: false; error: string; reason?: string };
 
+export interface ProcessJobDeps {
+  supabaseAdmin?: SupabaseClient;
+  getApiKeys?: typeof getAPIKeys;
+  extractImage?: typeof extractFromImage;
+  resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
+  backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
+  generateExamples?: typeof generateExampleSentences;
+  sendPushNotifications?: typeof sendScanJobPushNotifications;
+  sendApnsNotifications?: typeof sendScanJobApnsNotifications;
+  flushTiming?: typeof flushTimingLogs;
+  afterTask?: typeof after;
+}
+
 interface ProcessedExtractedWord {
   english: string;
   japanese: string;
@@ -95,33 +143,6 @@ const ENABLE_POST_SCAN_QUIZ_PREFILL = false;
 const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'] as const;
 type EikenLevel = (typeof EIKEN_LEVEL_ORDER)[number];
 const EIKEN_LEVEL_SET = new Set<string>(EIKEN_LEVEL_ORDER);
-
-function getProvidersForMode(mode: ExtractMode): AIProvider[] {
-  switch (mode) {
-    case 'circled':
-      return [AI_CONFIG.extraction.circled.provider];
-    case 'eiken':
-      return [AI_CONFIG.extraction.eiken.provider];
-    case 'idiom':
-      return [AI_CONFIG.extraction.idioms.provider];
-    case 'all':
-    default:
-      return [AI_CONFIG.extraction.words.provider];
-  }
-}
-
-function getMissingProviderKey(mode: ExtractMode, apiKeys: { gemini?: string; openai?: string }): AIProvider | null {
-  if (isCloudRunConfigured()) return null;
-
-  const requiredProviders = new Set(getProvidersForMode(mode));
-  for (const provider of requiredProviders) {
-    if (!apiKeys[provider]) {
-      return provider;
-    }
-  }
-
-  return null;
-}
 
 export const __internal = {
   getProvidersForMode,
@@ -452,27 +473,6 @@ async function flushTimingLogs(
   }
 }
 
-interface QuizSeedWord {
-  id: string;
-  english: string;
-  japanese: string;
-}
-
-function hasValidDistractors(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  if (value.length < 3) return false;
-  if (value.length === 3 && value[0] === '選択肢1') return false;
-  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
-function hasExampleSentence(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function hasPartOfSpeechTags(value: unknown): boolean {
-  return normalizePartOfSpeechTags(value).length > 0;
-}
-
 function normalizeText(value: unknown): string {
   if (typeof value !== 'string') return '';
   return value
@@ -588,7 +588,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
   return deduped;
 }
 
-async function generateQuizContentWithRetry(words: QuizSeedWord[]): Promise<{
+async function generateQuizContentWithRetry(words: QuizPrefillSeedWord[]): Promise<{
   results: QuizContentResult[];
   failedWordIds: string[];
 }> {
@@ -670,12 +670,23 @@ async function extractFromImage(
   }
 }
 
-export async function processJobById(jobId: string): Promise<NextResponse> {
+export async function processJobById(jobId: string, processDeps?: ProcessJobDeps): Promise<NextResponse> {
   try {
     console.log('[scan-jobs/process] Processing started', { jobId });
 
+    const supabaseAdmin = processDeps?.supabaseAdmin ?? getSupabaseAdmin();
+    const getApiKeys = processDeps?.getApiKeys ?? getAPIKeys;
+    const extractImage = processDeps?.extractImage ?? extractFromImage;
+    const resolveImmediateWords = processDeps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst;
+    const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
+    const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
+    const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
+    const sendApnsNotifications = processDeps?.sendApnsNotifications ?? sendScanJobApnsNotifications;
+    const flushTiming = processDeps?.flushTiming ?? flushTimingLogs;
+    const scheduleAfter = processDeps?.afterTask ?? after;
+
     const processingTimestamp = new Date().toISOString();
-    const { data: claimedJob, error: claimError } = await getSupabaseAdmin()
+    const { data: claimedJob, error: claimError } = await supabaseAdmin
       .from('scan_jobs')
       .update({ status: 'processing', updated_at: processingTimestamp })
       .eq('id', jobId)
@@ -689,7 +700,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
     const job = claimedJob;
     if (!job) {
-      const { data: existingJob, error: jobError } = await getSupabaseAdmin()
+      const { data: existingJob, error: jobError } = await supabaseAdmin
       .from('scan_jobs')
       .select('*')
       .eq('id', jobId)
@@ -714,7 +725,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
     const cloudRunTimingEntries: CloudRunTimingEntry[] = [];
     return await runWithCloudRunTimingCollector(cloudRunTimingEntries, async () => {
-      const apiKeys = getAPIKeys();
+      const apiKeys = getApiKeys();
       const processingStartedAt = Date.now();
       const timing = createTimingMetrics();
 
@@ -740,7 +751,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           throw new Error(`${providerLabel} APIキーが設定されていません`);
         }
 
-        const { data: preference } = await getSupabaseAdmin()
+        const { data: preference } = await supabaseAdmin
           .from('user_preferences')
           .select('ai_enabled')
           .eq('user_id', job.user_id)
@@ -765,72 +776,38 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
       // Process each image in parallel (concurrency limit: 5)
       const PARALLEL_CONCURRENCY = 5;
 
-      async function processOneImage(pageIndex: number): Promise<{
-        words: ProcessedExtractedWord[];
-        sourceLabels: string[];
-        warningCode?: ExtractionWarningCode;
-        error?: string;
-        pageWarning?: string;
-      }> {
-        const imagePath = imagePaths[pageIndex];
-        const pageLabel = `ページ${pageIndex + 1}`;
+      async function processOneImage(pageIndex: number): Promise<ScanImageExtractionResult<ProcessedExtractedWord, ExtractionWarningCode>> {
+        const result = await processScanImage<ProcessedExtractedWord, ExtractionWarningCode>(
+          {
+            imagePath: imagePaths[pageIndex],
+            pageIndex,
+            mode,
+            eikenLevel: job.eiken_level,
+            apiKeys,
+            timeoutMs: EXTRACTION_TIMEOUT_MS,
+            timeoutMessage: `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`,
+          },
+          {
+            downloadImage: (imagePath) => supabaseAdmin.storage
+              .from('scan-images')
+              .download(imagePath),
+            extractImage,
+            parseWords: parseExtractedWords,
+            withTimingPhase: withCloudRunTimingPhase,
+            withTimeout,
+          },
+        );
 
-        const dlStart = Date.now();
-        const { data: imageData, error: downloadError } = await getSupabaseAdmin().storage
-          .from('scan-images')
-          .download(imagePath);
-        const dlMs = Date.now() - dlStart;
-
-        if (downloadError || !imageData) {
-          console.error(`Failed to download image ${imagePath}:`, downloadError);
-          return { words: [], sourceLabels: [], error: '画像データの取得に失敗しました', pageWarning: `${pageLabel}: 画像データの取得に失敗しました` };
+        if (typeof result.downloadMs === 'number' && typeof result.extractionMs === 'number') {
+          timing.perImage.push({
+            downloadMs: result.downloadMs,
+            extractionMs: result.extractionMs,
+          });
+          timing.imageDownloadMs += result.downloadMs;
+          timing.aiExtractionMs += result.extractionMs;
         }
 
-        const buffer = await imageData.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        const ext = imagePath.split('.').pop()?.toLowerCase();
-        const mimeType = ext === 'pdf'
-          ? 'application/pdf'
-          : ext === 'png'
-            ? 'image/png'
-            : ext === 'webp'
-              ? 'image/webp'
-              : 'image/jpeg';
-        const base64Image = `data:${mimeType};base64,${base64}`;
-
-        try {
-          const exStart = Date.now();
-          const extractionResult = await withTimeout(
-            withCloudRunTimingPhase('aiExtraction', () =>
-              extractFromImage(base64Image, mode, job.eiken_level, apiKeys)
-            ),
-            EXTRACTION_TIMEOUT_MS,
-            `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
-          );
-          const exMs = Date.now() - exStart;
-
-          timing.perImage.push({ downloadMs: dlMs, extractionMs: exMs });
-          timing.imageDownloadMs += dlMs;
-          timing.aiExtractionMs += exMs;
-
-          const { result, warningCode } = extractionResult;
-
-          if (result.success && result.data?.words) {
-            return {
-              words: parseExtractedWords(result.data.words),
-              sourceLabels: ensureSourceLabels(result.data.sourceLabels),
-              warningCode,
-            };
-          } else if (!result.success) {
-            const errMsg = result.error || '画像の解析に失敗しました';
-            return { words: [], sourceLabels: [], warningCode, error: errMsg, pageWarning: `${pageLabel}: ${errMsg}` };
-          }
-          return { words: [], sourceLabels: [], warningCode };
-        } catch (error) {
-          console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
-          const errMsg = error instanceof Error ? error.message : '画像解析に失敗しました';
-          return { words: [], sourceLabels: [], error: errMsg, pageWarning: `${pageLabel}: 画像解析に失敗しました` };
-        }
+        return result;
       }
 
       // Run in batches of PARALLEL_CONCURRENCY
@@ -864,15 +841,13 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           }
           if (warningCode === 'grammar_not_found' && !grammarWarningNotified) {
             grammarWarningNotified = true;
-            const warningParams = {
+            const warningParams = buildScanJobWarningNotificationParams({
               userId: job.user_id,
               jobId,
-              projectId: null,
               projectTitle: job.project_title,
-              status: 'warning' as const,
-            };
-            await sendScanJobPushNotifications(getSupabaseAdmin(), warningParams);
-            void sendScanJobApnsNotifications(getSupabaseAdmin(), warningParams).catch(e => console.error('[APNs] warning push failed:', e));
+            });
+            await sendPushNotifications(supabaseAdmin, warningParams);
+            void sendApnsNotifications(supabaseAdmin, warningParams).catch(e => console.error('[APNs] warning push failed:', e));
           }
 
           allExtractedWords.push(...words);
@@ -890,7 +865,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         timing.totalMs = Date.now() - processingStartedAt;
         timing.imageCount = imagePaths.length;
         timing.wordCount = 0;
-        await getSupabaseAdmin()
+        await supabaseAdmin
           .from('scan_jobs')
           .update({
             status: 'failed',
@@ -899,18 +874,22 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           })
           .eq('id', jobId);
 
-        const failParams1 = {
+        const failParams1 = buildScanJobFailedNotificationParams({
           userId: job.user_id,
           jobId,
-          projectId: null,
           projectTitle: job.project_title,
-          status: 'failed' as const,
-          wordCount: 0,
-        };
-        await sendScanJobPushNotifications(getSupabaseAdmin(), failParams1);
-        void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams1).catch(e => console.error('[APNs] fail push failed:', e));
+        });
+        await sendPushNotifications(supabaseAdmin, failParams1);
+        void sendApnsNotifications(supabaseAdmin, failParams1).catch(e => console.error('[APNs] fail push failed:', e));
 
-        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
+        await flushScanJobTimingLogs({
+          flushTiming,
+          cloudRunTimingEntries,
+          timing,
+          jobId,
+          userId: job.user_id,
+          status: 'failed',
+        });
 
         return NextResponse.json({ error: errorMessage }, { status: 400 });
       }
@@ -919,11 +898,11 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
       const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
       const lexiconResolutionStart = Date.now();
       const resolvedResult = masterFirstEnabled
-        ? await resolveImmediateWordsWithMasterFirst(dedupedWords)
+        ? await resolveImmediateWords(dedupedWords)
         : null;
       const rollbackResult = masterFirstEnabled
         ? null
-        : await backfillMissingJapaneseTranslationsWithMetadata(dedupedWords);
+        : await backfillWords(dedupedWords);
       timing.lexiconResolutionMs = Date.now() - lexiconResolutionStart;
       const resolvedWords = resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords;
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
@@ -949,39 +928,22 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         // --- Synchronous example sentence generation (client_local) ---
         let exampleGenerationSummary: ExampleGenerationSummary | undefined;
         let exampleGenerationErrors: string[] = [];
-        const wordsNeedingExamples = resolvedWords
-          .filter((w) => !w.exampleSentence)
-          .map((w, i) => ({
-            id: String(i), // client_local has no DB ids; use index as placeholder
-            english: w.english,
-            japanese: w.japanese,
-          }));
+        let clientLocalResolvedWords = resolvedWords;
+        const wordsNeedingExamples = buildClientLocalExampleSeedWords(resolvedWords);
 
         if (wordsNeedingExamples.length > 0) {
           const exampleGenerationStart = Date.now();
           let exampleGenerationElapsedMs = 0;
           try {
             const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
-              generateExampleSentences(wordsNeedingExamples, apiKeys)
+              generateExamples(wordsNeedingExamples, apiKeys)
             );
             exampleGenerationSummary = exampleResult.summary;
             exampleGenerationErrors = exampleResult.errors;
-            const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
-
-            let exIdx = 0;
-            for (const word of resolvedWords) {
-              if (!word.exampleSentence) {
-                const generated = exampleMap.get(String(exIdx));
-                if (generated) {
-                  word.exampleSentence = generated.exampleSentence;
-                  word.exampleSentenceJa = generated.exampleSentenceJa;
-                  if (!word.partOfSpeechTags?.length) {
-                    word.partOfSpeechTags = generated.partOfSpeechTags;
-                  }
-                }
-                exIdx++;
-              }
-            }
+            clientLocalResolvedWords = applyClientLocalGeneratedExamples(
+              resolvedWords,
+              exampleResult.examples,
+            );
           } catch (exampleError) {
             // Example generation failure should NOT fail the scan
             console.error('[scan-jobs/process] Example generation failed (client_local), continuing without:', exampleError);
@@ -1005,31 +967,19 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           }
         }
 
-        const resultPayload: {
-          wordCount: number;
-          warnings?: string[];
-          saveMode: ScanJobSaveMode;
-          extractedWords: ProcessedExtractedWord[];
-          sourceLabels: string[];
-          lexiconEntries: unknown[];
-          exampleGeneration?: ExampleGenerationSummary;
-        } = {
-          wordCount: resolvedWords.length,
-          saveMode,
-          extractedWords: resolvedWords,
+        const resultPayload = buildClientLocalScanJobResultPayload({
+          extractedWords: clientLocalResolvedWords,
           sourceLabels: dedupedSourceLabels,
-          lexiconEntries: resolvedResult?.lexiconEntries ?? [],
-        };
-        applyExampleGenerationSummary(resultPayload, warningSet, exampleGenerationSummary);
-        if (warningSet.size > 0) {
-          resultPayload.warnings = Array.from(warningSet);
-        }
+          lexiconEntries: resolvedResult?.lexiconEntries,
+          warnings: warningSet,
+          exampleGeneration: exampleGenerationSummary,
+        });
 
         timing.totalMs = Date.now() - processingStartedAt;
         timing.imageCount = imagePaths.length;
         timing.wordCount = dedupedWords.length;
 
-        await getSupabaseAdmin()
+        await supabaseAdmin
           .from('scan_jobs')
           .update({
             status: 'completed',
@@ -1039,18 +989,24 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           })
           .eq('id', jobId);
 
-        const completedParams1 = {
+        const completedParams1 = buildScanJobCompletedNotificationParams({
           userId: job.user_id,
           jobId,
           projectId: null,
           projectTitle: job.project_title,
-          status: 'completed' as const,
           wordCount: resolvedWords.length,
-        };
-        void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
-        void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
+        });
+        void sendPushNotifications(supabaseAdmin, completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
+        void sendApnsNotifications(supabaseAdmin, completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
 
-        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
+        await flushScanJobTimingLogs({
+          flushTiming,
+          cloudRunTimingEntries,
+          timing,
+          jobId,
+          userId: job.user_id,
+          status: 'completed',
+        });
 
         return NextResponse.json({
           success: true,
@@ -1072,7 +1028,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
             title: string | null;
             source_labels?: string[] | null;
           }>(
-            getSupabaseAdmin(),
+            supabaseAdmin,
             targetProjectId,
             job.user_id,
           );
@@ -1086,7 +1042,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         projectTitleForNotification = existingProject.title ?? projectTitleForNotification;
 
         if (job.project_icon_image) {
-          const { error: iconUpdateError } = await getSupabaseAdmin()
+          const { error: iconUpdateError } = await supabaseAdmin
             .from('projects')
             .update({ icon_image: job.project_icon_image })
             .eq('id', existingProject.id)
@@ -1098,9 +1054,12 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           }
         }
 
-        const mergedProjectSourceLabels = mergeSourceLabels(existingProject.source_labels, dedupedSourceLabels);
+        const mergedProjectSourceLabels = buildServerCloudMergedProjectSourceLabels({
+          existingSourceLabels: existingProject.source_labels,
+          scanSourceLabels: dedupedSourceLabels,
+        });
         const { error: sourceLabelUpdateError, usedLegacyColumns: usedLegacyUpdateColumns } = await updateProjectSourceLabelsCompat(
-          getSupabaseAdmin(),
+          supabaseAdmin,
           existingProject.id,
           mergedProjectSourceLabels,
           job.user_id,
@@ -1117,13 +1076,13 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
             id: string;
             title?: string | null;
           }>(
-            getSupabaseAdmin(),
-            {
-              user_id: job.user_id,
-              title: job.project_title,
-              source_labels: dedupedSourceLabels,
-              icon_image: job.project_icon_image ?? null,
-            },
+            supabaseAdmin,
+            buildServerCloudProjectInsertPayload({
+              userId: job.user_id,
+              projectTitle: job.project_title,
+              sourceLabels: dedupedSourceLabels,
+              projectIconImage: job.project_icon_image,
+            }),
           );
         usedProjectSourceLabelsCompat = usedProjectSourceLabelsCompat || usedLegacyInsertColumns;
 
@@ -1141,27 +1100,18 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         console.warn('[scan-jobs/process] projects.source_labels compatibility fallback used');
       }
 
-      const wordsToInsert = resolvedWords.map((word) => ({
-        project_id: projectId,
-        english: word.english,
-        japanese: word.japanese,
-        lexicon_entry_id: word.lexiconEntryId ?? null,
-        distractors: word.distractors,
-        example_sentence: word.exampleSentence || null,
-        example_sentence_ja: word.exampleSentenceJa || null,
-        part_of_speech_tags: word.partOfSpeechTags,
-      }));
+      const wordsToInsert = buildServerCloudWordsInsertPayload(resolvedWords, projectId);
 
       const dbInsertStart = Date.now();
-      const { data: insertedWords, error: wordsError } = await getSupabaseAdmin()
+      const { data: insertedWords, error: wordsError } = await supabaseAdmin
         .from('words')
         .insert(wordsToInsert)
         .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, part_of_speech_tags');
       timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError) {
-        if (createdNewProject) {
-          await getSupabaseAdmin().from('projects').delete().eq('id', projectId);
+        if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: wordsError })) {
+          await supabaseAdmin.from('projects').delete().eq('id', projectId);
         }
         throw new Error('Failed to insert words');
       }
@@ -1172,15 +1122,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
       // --- Synchronous example sentence generation (server_cloud) ---
-      const wordsForExampleGen = insertedWordsArray
-        .filter((w: { id: string; example_sentence: string | null; japanese: string }) =>
-          !w.example_sentence || w.example_sentence.trim().length === 0
-        )
-        .map((w: { id: string; english: string; japanese: string }) => ({
-          id: w.id,
-          english: w.english,
-          japanese: w.japanese,
-        }));
+      const wordsForExampleGen = buildServerCloudExampleSeedWords(insertedWordsArray);
 
       let exampleGenerationSummary: ExampleGenerationSummary | undefined;
       let exampleGenerationErrors: string[] = [];
@@ -1189,7 +1131,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         let exampleGenerationElapsedMs = 0;
         try {
           const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
-            generateExampleSentences(wordsForExampleGen, apiKeys)
+            generateExamples(wordsForExampleGen, apiKeys)
           );
           exampleGenerationSummary = exampleResult.summary;
           exampleGenerationErrors = exampleResult.errors;
@@ -1198,13 +1140,9 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
             // Batch update DB with generated examples
             await Promise.all(
               exampleResult.examples.map((ex) =>
-                getSupabaseAdmin()
+                supabaseAdmin
                   .from('words')
-                  .update({
-                    example_sentence: ex.exampleSentence,
-                    example_sentence_ja: ex.exampleSentenceJa,
-                    part_of_speech_tags: ex.partOfSpeechTags,
-                  })
+                  .update(buildServerCloudExampleUpdatePayload(ex))
                   .eq('id', ex.wordId)
               )
             );
@@ -1213,10 +1151,10 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           // Save examples to lexicon master DB (best-effort, non-blocking)
           if (exampleResult.examples.length > 0) {
             const examplesSnapshot = [...exampleResult.examples];
-            after(async () => {
+            scheduleAfter(async () => {
               try {
                 const generatedWordIds = examplesSnapshot.map(ex => ex.wordId);
-                const { data: wordsWithLexicon } = await getSupabaseAdmin()
+                const { data: wordsWithLexicon } = await supabaseAdmin
                   .from('words')
                   .select('id, lexicon_entry_id')
                   .in('id', generatedWordIds)
@@ -1271,7 +1209,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
       // --- Pronunciation backfill (best-effort, non-blocking) ---
       if (insertedWordsArray.length > 0) {
         const pronunciationWordIds = insertedWordsArray.map((w: { id: string }) => w.id);
-        after(async () => {
+        scheduleAfter(async () => {
           try {
             const result = await backfillPronunciations(pronunciationWordIds);
             if (result.updated > 0) {
@@ -1283,46 +1221,18 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         });
       }
 
-      const resultPayload: {
-        wordCount: number;
-        warnings?: string[];
-        saveMode: ScanJobSaveMode;
-        targetProjectId: string;
-        sourceLabels: string[];
-        quizPrefillRequested?: number;
-        quizPrefillSucceeded?: number;
-        quizPrefillFailed?: number;
-        exampleGeneration?: ExampleGenerationSummary;
-      } = {
+      const resultPayload = buildServerCloudScanJobResultPayload({
         wordCount: resolvedWords.length,
-        saveMode,
         targetProjectId: projectId,
         sourceLabels: dedupedSourceLabels,
-      };
-      applyExampleGenerationSummary(resultPayload, warningSet, exampleGenerationSummary);
-      if (warningSet.size > 0) {
-        resultPayload.warnings = Array.from(warningSet);
-      }
+        warnings: warningSet,
+        exampleGeneration: exampleGenerationSummary,
+      });
 
       if (aiEnabled) {
         const quizPrefillStart = Date.now();
         try {
-          const quizSeedWords: QuizSeedWord[] = insertedWordsArray
-            .filter((w: {
-              distractors: unknown;
-              example_sentence: string | null;
-              example_sentence_ja: string | null;
-              part_of_speech_tags: unknown;
-            }) =>
-              !hasValidDistractors(w.distractors) ||
-              !hasExampleSentence(w.example_sentence) ||
-              !hasPartOfSpeechTags(w.part_of_speech_tags)
-            )
-            .map((w: { id: string; english: string; japanese: string }) => ({
-              id: w.id,
-              english: w.english,
-              japanese: w.japanese,
-            }));
+          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray);
 
           let quizPrefillSucceeded = 0;
           const quizPrefillFailedWordIds = new Set<string>();
@@ -1336,19 +1246,8 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
               try {
                 await Promise.all(
                   results.map((item) => {
-                    // Only include example fields if quiz content actually has them
-                    // to avoid overwriting examples generated in the previous step
-                    const updatePayload: Record<string, unknown> = {
-                      distractors: item.distractors,
-                      part_of_speech_tags: item.partOfSpeechTags,
-                    };
-                    if (item.exampleSentence) {
-                      updatePayload.example_sentence = item.exampleSentence;
-                    }
-                    if (item.exampleSentenceJa) {
-                      updatePayload.example_sentence_ja = item.exampleSentenceJa;
-                    }
-                    return getSupabaseAdmin()
+                    const updatePayload = buildQuizPrefillWordUpdatePayload(item);
+                    return supabaseAdmin
                       .from('words')
                       .update(updatePayload)
                       .eq('id', item.wordId);
@@ -1382,7 +1281,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
       timing.imageCount = imagePaths.length;
       timing.wordCount = dedupedWords.length;
 
-      await getSupabaseAdmin()
+      await supabaseAdmin
         .from('scan_jobs')
         .update({
           status: 'completed',
@@ -1392,35 +1291,31 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         })
         .eq('id', jobId);
 
-      const completedParams2 = {
+      const completedParams2 = buildScanJobCompletedNotificationParams({
         userId: job.user_id,
         jobId,
         projectId,
         projectTitle: projectTitleForNotification,
-        status: 'completed' as const,
         wordCount: resolvedWords.length,
-      };
-      void sendScanJobPushNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
-      void sendScanJobApnsNotifications(getSupabaseAdmin(), completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
+      });
+      void sendPushNotifications(supabaseAdmin, completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
+      void sendApnsNotifications(supabaseAdmin, completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
 
-      await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'completed');
+      await flushScanJobTimingLogs({
+        flushTiming,
+        cloudRunTimingEntries,
+        timing,
+        jobId,
+        userId: job.user_id,
+        status: 'completed',
+      });
 
       // Heavy/non-critical tasks run after completion update.
-      after(async () => {
-        const aiTranslatedWordIdSet = new Set(aiTranslatedWordIds);
-        const pendingWordIds = insertedWordsArray
-          .filter((row: {
-            id: string;
-            lexicon_entry_id?: string | null;
-            part_of_speech_tags?: unknown;
-          }) =>
-            aiTranslatedWordIdSet.has(row.id) ||
-            needsWordLexiconResolution({
-              lexiconEntryId: row.lexicon_entry_id ?? null,
-              partOfSpeechTags: row.part_of_speech_tags,
-            })
-          )
-          .map((row: { id: string }) => row.id);
+      scheduleAfter(async () => {
+        const pendingWordIds = buildPostScanLexiconResolutionWordIds(
+          insertedWordsArray,
+          aiTranslatedWordIds,
+        );
 
         if (pendingWordIds.length > 0) {
           try {
@@ -1451,22 +1346,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
         if (insertedWordsArray.length === 0) return;
 
         if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
-          const quizSeedWords: QuizSeedWord[] = insertedWordsArray
-            .filter((w: {
-              distractors: unknown;
-              example_sentence: string | null;
-              example_sentence_ja: string | null;
-              part_of_speech_tags: unknown;
-            }) =>
-              !hasValidDistractors(w.distractors) ||
-              !hasExampleSentence(w.example_sentence) ||
-              !hasPartOfSpeechTags(w.part_of_speech_tags)
-            )
-            .map((w: { id: string; english: string; japanese: string }) => ({
-              id: w.id,
-              english: w.english,
-              japanese: w.japanese,
-            }));
+          const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray);
 
           if (quizSeedWords.length > 0) {
             let quizPrefillSucceeded = 0;
@@ -1479,17 +1359,8 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
                 try {
                   await Promise.all(
                     results.map((item) => {
-                      const updatePayload: Record<string, unknown> = {
-                        distractors: item.distractors,
-                        part_of_speech_tags: item.partOfSpeechTags,
-                      };
-                      if (item.exampleSentence) {
-                        updatePayload.example_sentence = item.exampleSentence;
-                      }
-                      if (item.exampleSentenceJa) {
-                        updatePayload.example_sentence_ja = item.exampleSentenceJa;
-                      }
-                      return getSupabaseAdmin()
+                      const updatePayload = buildQuizPrefillWordUpdatePayload(item);
+                      return supabaseAdmin
                         .from('words')
                         .update(updatePayload)
                         .eq('id', item.wordId);
@@ -1532,7 +1403,7 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
 
         timing.totalMs = Date.now() - processingStartedAt;
 
-        await getSupabaseAdmin()
+        await supabaseAdmin
           .from('scan_jobs')
           .update({
             status: 'failed',
@@ -1541,18 +1412,22 @@ export async function processJobById(jobId: string): Promise<NextResponse> {
           })
           .eq('id', jobId);
 
-        const failParams2 = {
+        const failParams2 = buildScanJobFailedNotificationParams({
           userId: job.user_id,
           jobId,
-          projectId: null,
           projectTitle: job.project_title,
-          status: 'failed' as const,
-          wordCount: 0,
-        };
-        await sendScanJobPushNotifications(getSupabaseAdmin(), failParams2);
-        void sendScanJobApnsNotifications(getSupabaseAdmin(), failParams2).catch(e => console.error('[APNs] fail push failed:', e));
+        });
+        await sendPushNotifications(supabaseAdmin, failParams2);
+        void sendApnsNotifications(supabaseAdmin, failParams2).catch(e => console.error('[APNs] fail push failed:', e));
 
-        await flushTimingLogs(cloudRunTimingEntries, timing, jobId, job.user_id, 'failed');
+        await flushScanJobTimingLogs({
+          flushTiming,
+          cloudRunTimingEntries,
+          timing,
+          jobId,
+          userId: job.user_id,
+          status: 'failed',
+        });
 
         return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
       }
