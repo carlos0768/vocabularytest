@@ -1,6 +1,6 @@
 # Refactor Plan
 
-> Current UI rescue note: この文書は旧 `codex/prelaunch-safety-baseline` 向けのP2-C分解計画です。最新UIブランチでは、旧コミットを丸ごとcherry-pickせず、各taskの意図とcontractを最新 `origin/main` のコードへ再実装してください。
+> Current UI rescue note: この文書は旧 `codex/prelaunch-safety-baseline` 向けのP2-C分解計画です。各taskは旧コミットを丸ごとcherry-pickせず、最新 `origin/main` のコードへ再実装済みです。今後は履歴資料として扱ってください。
 
 作成日: 2026-05-07
 

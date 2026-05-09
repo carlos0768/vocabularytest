@@ -1,6 +1,6 @@
 # Command Reference
 
-All commands should be run from the project root directory (`C:\Users\carlo\working\englishvo`).
+All commands should be run from the project root directory.
 
 ---
 
@@ -30,6 +30,13 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 
 ## Quality Checks
 
+### `npm run lint:web`
+
+- **What it does**: Runs ESLint over the Web app, shared domain code, Next/PostCSS/ESLint config, and security guard scripts.
+- **Prerequisites**: None
+- **Danger level**: Safe -- read-only analysis
+- **Notes**: This is the current launch gate for the Web app. It intentionally excludes separate projects and generated/legacy directories.
+
 ### `npm run lint`
 
 - **What it does**: Runs two checks in sequence:
@@ -41,29 +48,18 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 
 ### `npm test`
 
-- **What it does**: Runs unit tests using Node.js built-in test runner with `tsx`
+- **What it does**: Runs `npm run test:web`, a fixed list of Web/shared unit and contract tests using Node.js built-in test runner with `tsx`
 - **Prerequisites**: None (tests mock external dependencies)
 - **Danger level**: Safe -- no external API calls, no database writes
-- **Test files** (fixed list in `package.json`):
-  - `src/lib/stripe/client.test.ts`
-  - `src/lib/appstore/config.test.ts`
-  - `src/lib/appstore/verify.test.ts`
-  - `src/lib/subscription/status.test.ts`
-  - `src/lib/subscription/reconcile-status.test.ts`
-  - `src/lib/subscription/billing-activation.test.ts`
-  - `src/lib/db/remote-repository.test.ts`
-  - `src/lib/db/hybrid-repository.test.ts`
-  - `src/lib/projects/load-helpers.test.ts`
-  - `src/lib/stats/calendar.test.ts`
-  - `src/lib/ai/extract-circled-words.test.ts`
-  - `src/lib/ai/extract-highlighted-words.test.ts`
-  - `src/lib/ai/extract-eiken-words.test.ts`
-  - `src/lib/ai/extract-wrong-answers.test.ts`
-  - `src/app/api/extract/route.provider.test.ts`
-  - `src/app/api/scan-jobs/process/route.extractor.test.ts`
-  - `src/app/api/subscription/webhook/route.extractors.test.ts`
-  - `src/app/api/subscription/appstore/verify/route.test.ts`
-- **Notes**: New test files must be manually added to this list in `package.json`.
+- **Coverage**: Auth OTP/signup, scan/extract contracts, scan helpers, Stripe/reconcile, App Store, sync queue, AI prompt contracts, Home/Project/Quiz helpers, shared project fallback, and repository helpers.
+- **Notes**: New test files must be manually added to `test:web` in `package.json`.
+
+### `npm run verify`
+
+- **What it does**: Runs `npm run lint:web && npm run security:all && npm test && npm run test:security && npm run build`.
+- **Prerequisites**: Same as build/test/security commands.
+- **Danger level**: Safe -- read-only except `.next/` build output.
+- **Notes**: This is the current prelaunch minimum automated gate.
 
 ---
 
@@ -153,7 +149,7 @@ All commands should be run from the project root directory (`C:\Users\carlo\work
 For a typical code change, run these commands in order:
 
 ```bash
-npm run lint          # Security + style checks
+npm run lint:web      # Web app lint gate
 npm test              # Unit tests
 npm run build         # Production build verification
 ```
@@ -161,8 +157,5 @@ npm run build         # Production build verification
 For pre-deploy verification:
 
 ```bash
-npm run lint
-npm test
-npm run security:all  # Full security suite
-npm run build
+npm run verify
 ```

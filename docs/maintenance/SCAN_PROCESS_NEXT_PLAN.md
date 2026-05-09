@@ -1,6 +1,6 @@
 # Scan Process Next Plan
 
-> Current UI rescue note: この文書は旧 `codex/prelaunch-safety-baseline` で実施済みのscan process追加分割計画です。最新UIブランチでは、Task 1-7を最新 `origin/main` のrouteへ再実装する作業リストとして扱います。
+> Current UI rescue note: この文書は旧 `codex/prelaunch-safety-baseline` で実施済みのscan process追加分割計画です。Task 1-7は最新UIブランチへ再実装済みです。今後は履歴資料として扱ってください。
 
 作成日: 2026-05-09
 

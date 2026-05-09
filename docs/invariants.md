@@ -107,6 +107,18 @@ Source: `src/lib/db/hybrid-repository.ts` lines 107-113.
 
 **Consequence of violation**: Scans become brittle during transient AI failures, or example-generation regressions become invisible in production.
 
+### INV-14: Latest UI branch must not revert redesign assets
+
+`codex/prelaunch-safety-baseline-current-ui` is based on latest `origin/main`. Maintenance helpers may be connected to `src/app/page.tsx`, `src/app/project/[id]/page.tsx`, and `src/app/quiz/[projectId]/page.tsx`, but `src/components/redesign/**` and `src/app/globals.css` must remain unchanged unless there is an explicit UI design task.
+
+**Consequence of violation**: Public launch UI can silently roll back to an older design while tests still pass.
+
+### INV-15: Signup is OTP-only before app entry
+
+`/signup` must stay on the two-step email/password -> OTP flow. It must not route new users through mock onboarding screens, and existing emails must return a signup error/login path rather than silently logging in.
+
+**Consequence of violation**: New users cannot complete real registration, or existing users get surprising auth state changes.
+
 ---
 
 ## Candidate Invariants

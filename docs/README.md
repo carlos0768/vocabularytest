@@ -16,8 +16,8 @@
 - `codex/prelaunch-safety-baseline` は古い `main` 由来なので、今後の公開前作業には使いません。
 - 最新UIを守るため、作業ブランチは `codex/prelaunch-safety-baseline-current-ui` を使います。
 - 旧ブランチの56コミットを丸ごとcherry-pickしません。
-- 旧ブランチの保守性向上作業は、このブランチへ1領域ずつ再実装します。
-- `docs/maintenance/*CHECKPOINT.md` やaudit系docsは、旧ブランチでの完了記録を含みます。最新UIブランチでは、`docs/maintenance/AI_HANDOFF.md` と `docs/maintenance/TASKS.md` の再移植状況を正としてください。
+- 旧ブランチの保守性向上作業は、最新UIを守った状態でこのブランチへ再実装済みです。
+- `docs/maintenance/*CHECKPOINT.md` やaudit系docsは、旧ブランチでの完了記録を含みます。最新UIブランチでの現在地は、`docs/maintenance/AI_HANDOFF.md` と `docs/maintenance/TASKS.md` を正としてください。
 - `src/components/redesign/**` と `src/app/globals.css` は原則変更しません。Home/Project/Quizを触る場合も、最新UIの見た目・文言・レイアウトを巻き戻さないことを最優先にします。
 
 ## 恒久情報

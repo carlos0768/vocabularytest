@@ -36,7 +36,9 @@ Migration files in `supabase/migrations/` that have already been applied to prod
 | `src/components/` | No special conditions. Run `npm run build` to verify. |
 | `src/hooks/` | **Caution**: `use-auth.ts` contains global singleton state (see Danger Zones below). Test auth flow after changes. |
 | `src/lib/ai/config.ts` | Changes affect all AI extraction. Verify model names are valid. Test extraction after changes. |
-| `src/lib/ai/prompts.ts` | Changes affect all AI output quality. Test with real images after changes. |
+| `src/lib/ai/prompts.ts` and `src/lib/ai/prompts/**` | Changes affect all AI output quality. Keep barrel exports stable, run prompt contract tests, and test with real images after changes. |
+| `src/lib/scan/**` | Pure scan helpers. Run `src/lib/scan/*.test.ts` and affected scan route contract tests after changes. |
+| `src/lib/home/**`, `src/lib/project/**`, `src/lib/quiz/**` | Pure helpers for latest UI pages. Keep visual/layout changes in `src/app/page.tsx`, `src/app/project/[id]/page.tsx`, and `src/app/quiz/[projectId]/page.tsx` minimal and verify in browser. |
 | `src/lib/db/local-repository.ts` | Test with free-tier flow after changes. |
 | `src/lib/db/remote-repository.ts` | Test with Pro-tier flow after changes. Affects cloud data. |
 | `src/lib/db/hybrid-repository.ts` | **Caution**: Contains `fullSync()` which is the most destructive client operation. See Danger Zones. |
@@ -89,6 +91,12 @@ These areas require extra caution. Small changes can cause cascading failures.
 - Has a safety guard at line 108: skips destructive sync when remote is empty but local has data.
 - **Impact of breakage**: Complete data loss for Pro users' local cache.
 - **Before modifying**: Run `npm test` which includes `src/lib/db/hybrid-repository.test.ts`. Verify the empty-remote guard is preserved.
+
+### 3a. Sync Queue (`src/lib/db/sync-queue.ts`)
+
+- Mediates offline create/update/delete operations for Pro users.
+- Retry/drop behavior is fixed by `src/lib/db/sync-queue.test.ts`.
+- **Impact of breakage**: Offline writes can be lost or replayed incorrectly when the user comes back online.
 
 ### 4. Global Auth Singleton (`src/hooks/use-auth.ts`)
 

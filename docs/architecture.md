@@ -64,8 +64,13 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/components/home/` | Home page modals (ScanModeModal, ProcessingModal) |
 | `src/hooks/` | Custom React hooks -- state management layer |
 | `src/lib/ai/` | AI integration: prompts, config, provider abstraction |
+| `src/lib/auth/` | Auth flow helpers such as OTP lifecycle and signup form contract |
 | `src/lib/ai/providers/` | Provider implementations (Gemini, OpenAI, CloudRun) |
 | `src/lib/db/` | Repository layer: local, remote, hybrid, readonly |
+| `src/lib/scan/` | Pure helpers for scan mode/provider selection, scan job payloads, persistence boundaries, side effects, example generation, image extraction, quiz prefill, and post-processing |
+| `src/lib/home/` | Home page pure selectors/session/progress helpers. Latest UI remains in `src/app/page.tsx`. |
+| `src/lib/project/` | Project page pure selectors/progress/result helpers. Latest UI remains in `src/app/project/[id]/page.tsx`. |
+| `src/lib/quiz/` | Quiz state, question generation, and progress helpers used by `src/app/quiz/[projectId]/page.tsx`. |
 | `src/lib/stripe/` | Stripe payment client and config (server-side only) |
 | `src/lib/supabase/` | Supabase clients: browser singleton, server, route handler, middleware |
 | `src/lib/schemas/` | Zod validation schemas for AI responses |
@@ -190,6 +195,7 @@ Notes:
 - Scan extraction itself does not require examples in the extractor response.
 - Example generation is intentionally best-effort. A scan can complete even when some words still have no example sentence.
 - Operational diagnostics for this path live in `scan_jobs.result.exampleGeneration` and the runbook at `docs/ops/scan-example-sentences-runbook.md`.
+- Contracts for `client_local`, `server_cloud`, notification side effects, result payloads, and post-processing live in `src/app/api/scan-jobs/process/route.contract.test.ts` and `src/lib/scan/*.test.ts`.
 
 ---
 
@@ -213,7 +219,8 @@ Selection logic in `getRepository(subscriptionStatus, wasPro)`:
 
 ## Authentication
 
-- **Signup**: Custom OTP flow via Resend email (`/api/auth/send-otp`, `/api/auth/verify-otp`), not Supabase magic links.
+- **Signup**: `/signup` uses a two-step email/password -> OTP flow. The UI contract is fixed in `src/lib/auth/signup-flow.ts`; the server lifecycle is fixed in `src/lib/auth/otp-lifecycle.ts` and `src/app/api/auth/otp.contract.test.ts`.
+- **OTP APIs**: `/api/auth/send-otp`, `/api/auth/signup-verify`, `/api/auth/verify-otp`, and `/api/auth/reset-password` preserve their existing request/response shapes. Existing signup emails return 409 and do not auto-login from signup.
 - **DB hook**: After `auth.users` insert, trigger `on_auth_user_created` runs `handle_new_user()`, which creates `subscriptions` and `profiles` rows. As of migration `20260404150000_auto_pro_first_66_users.sql`, the first 66 users with `created_at` on or after 2026-04-04 receive permanent test Pro in the same transaction (see `docs/ops-auto-pro-first-66-2026-04-04.md`).
 - **Session**: Supabase Auth manages sessions. Browser client stores session in localStorage (`sb-{projectRef}-auth-token`).
 - **Middleware**: `src/lib/supabase/middleware.ts` protects routes listed in `protectedPaths` array. Redirects to `/login` if unauthenticated.

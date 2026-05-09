@@ -1,6 +1,6 @@
 # P2-C Checkpoint
 
-> Current UI rescue note: この文書は旧 `codex/prelaunch-safety-baseline` 上での完了記録です。最新UIブランチでは、ここに書かれたcontract/test/helperを `origin/main` の最新コードへ再移植するための仕様として扱います。再移植の進捗は `docs/maintenance/TASKS.md` を正としてください。
+> Current UI rescue note: この文書は旧 `codex/prelaunch-safety-baseline` 上での完了記録を元にしています。記載されたcontract/test/helperは最新UIブランチへ再移植済みです。最終状態は `docs/maintenance/AI_HANDOFF.md` と `docs/maintenance/TASKS.md` を正としてください。
 
 作成日: 2026-05-09
 
