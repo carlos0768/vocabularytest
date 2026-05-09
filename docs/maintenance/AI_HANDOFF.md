@@ -54,7 +54,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-09時点の検証結果:
 
 - `npm run build`: 成功
-- `npm test`: 成功。330 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。338 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
 - `npm run verify`: 成功。`lint:web`, `security:all`, `npm test`, `test:security`, `build` を実行
@@ -101,6 +101,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - SCAN_PROCESS_NEXT_PLAN Task 7は 2026-05-09 に完了。`src/lib/scan/post-processing.ts` とtestを追加し、completed update後の `after()` 内にあるword lexicon resolution対象ID計算を `buildPostScanLexiconResolutionWordIds()`、post-scan quiz prefill seed計算を `buildPostScanQuizPrefillSeedWords()` へ移動済み。AI backfilled Japanese、lexicon entry不足、POS不足のlexicon resolution対象判定と、Task 3 `buildQuizPrefillSeedWords()` と同じpost-scan quiz prefill selector基準を固定済み。route側は `pendingWordIds` 計算とpost-scan quiz seed計算をhelper呼び出しへ置換しただけで、`after()` の配置、completed update前後の順序、enqueue/trigger、feature flag、通知、timing、scan_jobs update、project/word保存、example generation、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は322 tests pass
 - Home巨大ファイル保守性棚卸しは 2026-05-09 に [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) として作成済み。`src/app/page.tsx` は 1934 行で、画面表示、scan開始、file upload、PDF expansion、sessionStorage handoff、repository / project / words操作、offline / PWA寄り処理、toast / notification、UI stateを分類済み。コード変更はしていない。次にHome実装へ進む場合の最初の推奨は、認証、課金、スキャンAPI、同期、DB migration、package-lockに触れないHome表示selectorの純粋helper化
 - Home表示selector helper化は 2026-05-09 に完了。`src/lib/home/home-page-selectors.ts` とtestを追加し、`src/app/page.tsx` のword status counts、`completionPercent`、共有/マイ単語帳分離、favorite優先 + `createdAt` 降順 + 最大8件のHome表示順をpure helperへ移動済み。`page.tsx` はhelper呼び出しへの置換だけに留め、UI文言、表示順の意味、表示件数、空状態は変更していない。scan開始、file upload、PDF expansion、sessionStorage、Notification、PWA、repository load/mutation、認証、課金、同期、DB migration、package-lock、API routeは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/home/home-page-selectors.test.ts` は8 tests pass、`npm run lint:web` は0 errors / 97 warnings、`npm test` は330 tests pass
+- Home専用sessionStorage helper化は 2026-05-09 に完了。`src/lib/home/home-session-storage.ts` とtestを追加し、`scanvocab_selected_project_id` の保存/読込、`scanvocab_generating_wordbook` の読込 + JSON parse + 読込後削除、invalid JSON / titleなしpayloadのnull扱い、`scanvocab_generating_wordbook` 削除、legacy `scanvocab_project_id` 削除を固定済み。`src/app/page.tsx` はhelper呼び出しへの置換だけに留め、`/scan/confirm` payload shape、file upload、PDF expansion、scan API呼び出し、Notification、PWA、repository load/mutation、認証、課金、同期、DB migration、package-lock、API routeは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/home/home-session-storage.test.ts` は8 tests pass、`npm run lint:web` は0 errors / 97 warnings、`npm test` は338 tests pass
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -117,7 +118,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、P2-C全体の未固定リスクを確認する
 2. [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1-7は完了済み。`scan-jobs/process` 完了後の入口は [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
-3. Home巨大ファイルの棚卸しは [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) に完了済み。Home表示selectorの純粋helper化も完了済み。次にHome実装へ進む場合は、Home専用sessionStorage key helper化、scan job local notification message builder、immediate/background scan client flowの順で1責務ずつ進める
+3. Home巨大ファイルの棚卸しは [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) に完了済み。Home表示selectorの純粋helper化とHome専用sessionStorage key helper化も完了済み。次にHome実装へ進む場合は、scan job local notification message builder、immediate/background scan client flowの順で1責務ずつ進める
 4. 他の推奨候補は、Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
 5. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない新しい小タスクへ切る
 6. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する

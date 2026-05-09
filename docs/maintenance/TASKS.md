@@ -203,9 +203,16 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm exec -- tsx --test src/lib/home/home-page-selectors.test.ts` 成功。8 tests pass
   - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
   - 確認: `npm test` 成功。330 tests pass
-- [ ] Home専用sessionStorage keyを小さくhelper化する
-  - `scanvocab_selected_project_id`, `scanvocab_generating_wordbook`, legacy `scanvocab_project_id` 削除を棚卸し済みの範囲で固定する
-  - `/scan/confirm` payload shape、file upload、API呼び出しは触らない
+- [x] Home専用sessionStorage keyを小さくhelper化する
+  - 2026-05-09に完了
+  - 追加: `src/lib/home/home-session-storage.ts`, `src/lib/home/home-session-storage.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: `scanvocab_selected_project_id` の保存/読込、`scanvocab_generating_wordbook` の読込 + JSON parse + 読込後削除、`scanvocab_generating_wordbook` 削除、legacy `scanvocab_project_id` 削除
+  - 固定: selected project id保存/読込/null、valid generating wordbook payload読込後削除、invalid JSONのnull扱い + 削除、titleなしpayloadのnull扱い、legacy keyだけの削除
+  - 変更なし: `/scan/confirm` payload shape、file upload、PDF expansion、scan API呼び出し、Notification、PWA、repository load/mutation、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-session-storage.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。338 tests pass
 - [ ] Home scan job local notificationのmessage builderを純粋helperへ出す
   - completed / failed / grammar warningのgroupingとtitle/body/tag生成を固定し、Notification API呼び出し自体は別タスクに残す
 - [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
@@ -230,6 +237,16 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
 
 ## Done
 
+- [x] 2026-05-09: Home専用sessionStorage helper抽出
+  - 追加: `src/lib/home/home-session-storage.ts`, `src/lib/home/home-session-storage.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: `scanvocab_selected_project_id` の保存/読込、`scanvocab_generating_wordbook` の読込 + JSON parse + 読込後削除、`scanvocab_generating_wordbook` 削除、legacy `scanvocab_project_id` 削除
+  - 変更: `page.tsx` はHome専用sessionStorage helper呼び出しへの置換に限定した
+  - 変更なし: `/scan/confirm` payload shape、file upload、PDF expansion、scan API呼び出し、Notification、PWA、repository load/mutation、UI文言、画面遷移、表示順、空状態、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-session-storage.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。338 tests pass
+  - 残リスク: Homeのscan job local notification、immediate/background scan client flow、Home data loaderはまだ `src/app/page.tsx` に残る
 - [x] 2026-05-09: Home表示selector helper抽出
   - 追加: `src/lib/home/home-page-selectors.ts`, `src/lib/home/home-page-selectors.test.ts`
   - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
@@ -239,7 +256,7 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm exec -- tsx --test src/lib/home/home-page-selectors.test.ts` 成功。8 tests pass
   - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
   - 確認: `npm test` 成功。330 tests pass
-  - 残リスク: HomeのsessionStorage key、scan job local notification、immediate/background scan client flow、Home data loaderはまだ `src/app/page.tsx` に残る
+  - 残リスク: Homeのscan job local notification、immediate/background scan client flow、Home data loaderはまだ `src/app/page.tsx` に残る
 - [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 1-7完了後のcheckpoint作成
   - 追加: [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
   - 更新: `docs/maintenance/AI_HANDOFF.md`, `docs/maintenance/TASKS.md`

@@ -40,6 +40,13 @@ import {
   selectHomeProjectSections,
 } from '@/lib/home/home-page-selectors';
 import {
+  clearHomeGeneratingWordbook,
+  clearLegacyHomeProjectId,
+  consumeHomeGeneratingWordbook,
+  getHomeSelectedProjectId,
+  saveHomeSelectedProjectId,
+} from '@/lib/home/home-session-storage';
+import {
   getCachedProjects,
   getCachedProjectWords,
   getCachedAllFavorites,
@@ -156,7 +163,7 @@ export default function HomePage() {
       setDailyStats(getDailyStats());
       setStreakDays(getStreakDays());
       // Restore selected project index
-      const savedProjectId = sessionStorage.getItem('scanvocab_selected_project_id');
+      const savedProjectId = getHomeSelectedProjectId(sessionStorage);
       if (savedProjectId) {
         const idx = cachedProjects.findIndex(p => p.id === savedProjectId);
         if (idx >= 0) setCurrentProjectIndex(idx);
@@ -477,21 +484,15 @@ export default function HomePage() {
   // Restore generating-wordbook placeholder set by /scan page background upload.
   useEffect(() => {
     if (pendingGeneratingWordbook) return; // already showing
-    try {
-      const raw = sessionStorage.getItem('scanvocab_generating_wordbook');
-      if (raw) {
-        sessionStorage.removeItem('scanvocab_generating_wordbook');
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.title) {
-          setPendingGeneratingWordbook({
-            id: parsed.id || `generating-${Date.now()}`,
-            title: parsed.title,
-            iconDataUrl: parsed.iconDataUrl,
-            linkedJobId: parsed.linkedJobId,
-          });
-        }
-      }
-    } catch { /* ignore parse errors */ }
+    const payload = consumeHomeGeneratingWordbook(sessionStorage);
+    if (payload) {
+      setPendingGeneratingWordbook({
+        id: payload.id || `generating-${Date.now()}`,
+        title: payload.title,
+        iconDataUrl: payload.iconDataUrl,
+        linkedJobId: payload.linkedJobId,
+      });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
@@ -504,7 +505,7 @@ export default function HomePage() {
     );
     if (finished) {
       setPendingGeneratingWordbook(null);
-      sessionStorage.removeItem('scanvocab_generating_wordbook');
+      clearHomeGeneratingWordbook(sessionStorage);
     }
   }, [completedJobs, pendingGeneratingWordbook?.linkedJobId]);
 
@@ -672,7 +673,7 @@ export default function HomePage() {
   // Restore selected project from sessionStorage when projects are loaded
   useEffect(() => {
     if (projects.length > 0 && typeof window !== 'undefined') {
-      const savedProjectId = sessionStorage.getItem('scanvocab_selected_project_id');
+      const savedProjectId = getHomeSelectedProjectId(sessionStorage);
       if (savedProjectId) {
         const index = projects.findIndex(p => p.id === savedProjectId);
         if (index >= 0 && index !== currentProjectIndex) {
@@ -728,7 +729,7 @@ export default function HomePage() {
     setCurrentProjectIndex(index);
     // Save selected project ID to sessionStorage for persistence
     if (projects[index]) {
-      sessionStorage.setItem('scanvocab_selected_project_id', projects[index].id);
+      saveHomeSelectedProjectId(sessionStorage, projects[index].id);
     }
     setShowFavoritesOnly(false);
     setShowWrongAnswers(false);
@@ -1445,7 +1446,7 @@ export default function HomePage() {
 
     // Free users: use traditional flow
     saveScanConfirmProjectDraft(sessionStorage, { projectName, projectIcon });
-    sessionStorage.removeItem('scanvocab_project_id');
+    clearLegacyHomeProjectId(sessionStorage);
 
     if (files.length === 1) {
       processImage(files[0]);
