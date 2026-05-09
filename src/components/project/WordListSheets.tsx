@@ -44,7 +44,7 @@ function BottomSheetShell({ open, onClose, title, children, footer }: BottomShee
       <div
         className="relative w-full animate-fade-in-up"
         style={{
-          background: '#faf7f1',
+          background: 'var(--color-surface)',
           border: '1.5px solid var(--solid-ink)',
           borderBottomWidth: 0,
           borderTopLeftRadius: 20,

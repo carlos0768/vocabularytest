@@ -987,7 +987,7 @@ export default function ProjectPage() {
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
-                background: '#faf7f1',
+                background: 'var(--color-surface)',
                 border: '1.5px solid var(--solid-ink)',
                 borderRadius: 20,
                 boxShadow: '4px 5px 0 var(--solid-ink)',

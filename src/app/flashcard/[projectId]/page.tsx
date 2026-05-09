@@ -573,7 +573,7 @@ export default function FlashcardPage() {
                   style={{
                     color: statusColor(currentWord?.status ?? 'new'),
                     border: `1px solid ${statusColor(currentWord?.status ?? 'new')}`,
-                    background: 'white',
+                    background: 'var(--color-surface)',
                   }}
                 >
                   {statusLabel(currentWord?.status ?? 'new')}

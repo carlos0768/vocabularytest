@@ -196,7 +196,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           className="w-full animate-fade-in-up"
           style={{
             maxWidth: 480,
-            background: '#faf7f1',
+            background: 'var(--color-surface)',
             border: '1.5px solid var(--solid-ink)',
             borderBottomWidth: 0,
             borderTopLeftRadius: 20,
