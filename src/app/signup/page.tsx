@@ -315,10 +315,10 @@ function SignupShell({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
           aria-label="戻る"
         >
-          <Icon name="chevron_left" size={18} />
+          <Icon name="chevron_left" size={16} />
         </button>
         <div className="flex-1" />
         <div className="mr-1.5 flex items-center gap-1">
