@@ -1,196 +1,468 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { Icon } from '@/components/ui/Icon';
+import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { SolidPanel } from '@/components/redesign/SolidPage';
+import { Icon } from '@/components/ui/Icon';
+import { OtpInput } from '@/components/ui/OtpInput';
+import {
+  SIGNUP_OTP_LENGTH,
+  SIGNUP_RESEND_COOLDOWN_SECONDS,
+  buildSignupOtpRequestBody,
+  buildSignupVerifyRequestBody,
+  isSignupOtpComplete,
+  resolveSignupRouteError,
+  validateSignupCredentials,
+  type SignupStep,
+} from '@/lib/auth/signup-flow';
 
-const GOALS = [
-  { k: 'eiken', label: '英検対策', hue: 14 },
-  { k: 'toeic', label: 'TOEIC', hue: 240, active: true },
-  { k: 'school', label: '学校の勉強', hue: 130 },
-  { k: 'travel', label: '旅行・趣味', hue: 50 },
-];
+async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') || '/';
+
+  const [step, setStep] = useState<SignupStep>('form');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(() => {
+      setResendCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loading) return;
+
+    setError(null);
+    const validation = validateSignupCredentials({ password, confirmPassword });
+    if (!validation.ok) {
+      setError(validation.error);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildSignupOtpRequestBody(email)),
+      });
+      const data = await readJson(response);
+
+      if (!response.ok) {
+        setError(resolveSignupRouteError(data, '認証コードの送信に失敗しました'));
+        return;
+      }
+
+      setOtpCode('');
+      setStep('otp');
+      setResendCooldown(SIGNUP_RESEND_COOLDOWN_SECONDS);
+    } catch {
+      setError('通信エラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (loading || !isSignupOtpComplete(otpCode)) return;
+
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/signup-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildSignupVerifyRequestBody({
+          email,
+          code: otpCode,
+          password,
+        })),
+      });
+      const data = await readJson(response);
+
+      if (!response.ok) {
+        setError(resolveSignupRouteError(data, 'アカウントの作成に失敗しました'));
+        return;
+      }
+
+      window.location.href = redirect;
+    } catch {
+      setError('通信エラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (loading || resendCooldown > 0) return;
+
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildSignupOtpRequestBody(email)),
+      });
+      const data = await readJson(response);
+
+      if (!response.ok) {
+        setError(resolveSignupRouteError(data, '再送信に失敗しました'));
+        return;
+      }
+
+      setOtpCode('');
+      setResendCooldown(SIGNUP_RESEND_COOLDOWN_SECONDS);
+    } catch {
+      setError('通信エラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (step === 'otp') {
+    return (
+      <SignupShell
+        stepLabel="2/2"
+        title="メールを確認"
+        description="届いた6桁の認証コードを入力してください。"
+        onBack={() => {
+          setStep('form');
+          setOtpCode('');
+          setError(null);
+        }}
+      >
+        <SolidPanel className="mx-6 !rounded-xl" faceClassName="!p-4">
+          <div className="mb-4 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2px_2px_0_var(--solid-ink)]">
+              <Icon name="mail" size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-[var(--solid-ink)]">認証コードを送信しました</div>
+              <div className="mt-1 break-all text-xs leading-5 text-[var(--color-muted)]">{email}</div>
+            </div>
+          </div>
+
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+
+          <div className="py-2">
+            <OtpInput
+              length={SIGNUP_OTP_LENGTH}
+              value={otpCode}
+              onChange={setOtpCode}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="mt-4">
+            <PrimaryAction
+              type="button"
+              disabled={loading || !isSignupOtpComplete(otpCode)}
+              onClick={handleVerifyOtp}
+            >
+              {loading ? '確認中...' : '登録を完了する'}
+            </PrimaryAction>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3 text-[11px]">
+            <button
+              type="button"
+              onClick={() => {
+                setStep('form');
+                setOtpCode('');
+                setError(null);
+              }}
+              className="font-bold text-[var(--color-muted)]"
+            >
+              メールアドレスを変更
+            </button>
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={loading || resendCooldown > 0}
+              className="font-bold text-[var(--color-accent)] disabled:text-[var(--color-muted)]"
+            >
+              {resendCooldown > 0 ? `再送信 ${resendCooldown}秒` : 'コードを再送信'}
+            </button>
+          </div>
+        </SolidPanel>
+      </SignupShell>
+    );
+  }
 
   return (
-    <div
-      className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]"
+    <SignupShell
+      stepLabel="1/2"
+      title="新規登録"
+      description="メールアドレスとパスワードでアカウントを作成します。"
+      onBack={() => router.back()}
     >
-      {/* Header */}
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-2.5 px-6 pb-3">
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+
+          <FormField
+            label="メールアドレス"
+            placeholder="kenta@example.com"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            autoComplete="email"
+            disabled={loading}
+          />
+
+          <FormField
+            label="パスワード"
+            placeholder="8文字以上"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={setPassword}
+            autoComplete="new-password"
+            disabled={loading}
+            trailing={
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                className="font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+              >
+                {showPassword ? '非表示' : '表示'}
+              </button>
+            }
+          />
+
+          <FormField
+            label="パスワード（確認）"
+            placeholder="もう一度入力"
+            type={showPassword ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            autoComplete="new-password"
+            disabled={loading}
+          />
+        </div>
+
+        <div className="px-6 pb-4">
+          <PrimaryAction
+            type="submit"
+            disabled={
+              loading ||
+              email.trim().length === 0 ||
+              password.length === 0 ||
+              confirmPassword.length === 0
+            }
+          >
+            {loading ? '送信中...' : '認証コードを送信'}
+          </PrimaryAction>
+        </div>
+      </form>
+
+      <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
+        <div className="h-px flex-1 bg-[var(--color-border)]" />
+        <span className="font-mono text-[10px] text-[var(--color-muted)]">または</span>
+        <div className="h-px flex-1 bg-[var(--color-border)]" />
+      </div>
+
+      <div className="flex flex-col gap-2 px-6 pb-3">
+        <Link
+          href={`/login?redirect=${encodeURIComponent(redirect)}`}
+          className="flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]"
+        >
+          <Icon name="login" size={16} />
+          ログインする
+        </Link>
+      </div>
+    </SignupShell>
+  );
+}
+
+function SignupShell({
+  stepLabel,
+  title,
+  description,
+  onBack,
+  children,
+}: {
+  stepLabel: string;
+  title: string;
+  description: string;
+  onBack: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
       <div className="flex items-center gap-2 px-[14px] pt-1">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={onBack}
           className="inline-flex h-8 w-8 items-center justify-center bg-transparent text-[var(--solid-ink)]"
-          style={{ border: 'none', padding: 0 }}
+          aria-label="戻る"
         >
           <Icon name="chevron_left" size={18} />
         </button>
         <div className="flex-1" />
-        {/* Progress */}
         <div className="mr-1.5 flex items-center gap-1">
           <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--color-muted)]">
-            2/3
+            {stepLabel}
           </span>
           <div className="flex gap-[3px]">
-            {[1, 2, 3].map((i) => (
+            {[1, 2].map((item) => (
               <div
-                key={i}
+                key={item}
                 className="h-1 w-[18px] rounded-sm"
-                style={{ background: i <= 2 ? 'var(--solid-ink)' : 'rgba(26,26,26,0.15)' }}
+                style={{
+                  background:
+                    Number(stepLabel[0]) >= item
+                      ? 'var(--solid-ink)'
+                      : 'rgba(26,26,26,0.15)',
+                }}
               />
             ))}
           </div>
         </div>
       </div>
 
-      {/* Brand mini */}
-      <div className="px-6 pt-3 text-center">
-        <div className="inline-block font-display text-[22px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
+      <div className="px-6 pb-2 pt-6 text-center">
+        <div className="inline-block font-display text-[38px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN
-          <span
-            className="ml-[3px] inline-block h-1 w-1 bg-[var(--color-accent)]"
-            style={{ transform: 'translateY(-7px)' }}
-          />
+          <span className="ml-[5px] inline-block h-[7px] w-[7px] -translate-y-3 bg-[var(--color-accent)]" />
+        </div>
+        <div className="mt-1.5 font-mono text-[10px] tracking-[0.06em] text-[var(--color-muted)]">
+          単語を覚えるためのノート
         </div>
       </div>
 
-      {/* Title */}
-      <div className="px-6 pb-3.5 pt-5">
-        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-          STEP 02
+      <div className="px-6 pb-4 pt-6">
+        <div className="font-display text-2xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+          {title}
         </div>
-        <div className="mt-1 font-display text-[22px] font-extrabold leading-[1.25] tracking-[-0.02em] text-[var(--solid-ink)]">
-          何のために<br />英単語を覚えますか？
-        </div>
-        <div className="mt-1.5 text-xs text-[var(--color-muted)]">
-          目的に合わせて単語帳のおすすめが変わります。
-        </div>
+        <div className="mt-1 text-xs text-[var(--color-muted)]">{description}</div>
       </div>
 
-      {/* Goal grid */}
-      <div className="grid grid-cols-2 gap-2.5 px-6 pb-4">
-        {GOALS.map((g) => {
-          const isActive = !!g.active;
-          return (
-            <div key={g.k} className="relative">
-              {/* Shadow layer */}
-              <div
-                className="absolute inset-0 rounded-xl"
-                style={{
-                  transform: 'translate(2.5px, 2.5px)',
-                  background: isActive ? 'var(--color-accent)' : 'var(--solid-ink)',
-                }}
-              />
-              {/* Card face */}
-              <div
-                className="relative flex min-h-[80px] flex-col justify-between gap-2 rounded-xl bg-white"
-                style={{
-                  padding: '18px 14px',
-                  border: `${isActive ? 2 : 1.25}px solid ${isActive ? 'var(--color-accent)' : 'var(--solid-ink)'}`,
-                }}
-              >
-                <div
-                  className="h-8 w-8 rounded-lg"
-                  style={{
-                    background: `oklch(0.85 0.08 ${g.hue})`,
-                    border: '1.25px solid var(--solid-ink)',
-                  }}
-                />
-                <div className="flex items-center justify-between">
-                  <span className="font-display text-sm font-bold text-[var(--solid-ink)]">
-                    {g.label}
-                  </span>
-                  {isActive && (
-                    <span
-                      className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[var(--color-accent)] text-white"
-                    >
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M4 12l5 5L20 6" />
-                      </svg>
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Daily goal slider preview */}
-      <div className="px-6 pb-3.5">
-        <div className="mb-2 pl-0.5 font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-          1日の目標
-        </div>
-        <SolidPanel className="!rounded-xl" faceClassName="!p-3.5">
-          <div className="flex items-baseline gap-1">
-            <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-              20
-            </span>
-            <span className="text-xs font-bold text-[var(--solid-ink)]">語</span>
-            <span className="ml-auto font-mono text-[11px] text-[var(--color-muted)]">約 5 分/日</span>
-          </div>
-          <div
-            className="relative mt-3 rounded-full"
-            style={{ height: 5, background: 'rgba(26,26,26,0.08)' }}
-          >
-            <div
-              className="absolute inset-y-0 left-0 w-[40%] rounded-full bg-[var(--color-accent)]"
-            />
-            <div
-              className="absolute rounded-full border-2 border-[var(--solid-ink)] bg-white"
-              style={{
-                width: 18,
-                height: 18,
-                left: '40%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                boxShadow: '1.5px 1.5px 0 var(--solid-ink)',
-              }}
-            />
-          </div>
-          <div className="mt-1.5 flex justify-between font-mono text-[9px] text-[var(--color-muted)]">
-            <span>5</span><span>20</span><span>50</span><span>100</span>
-          </div>
-        </SolidPanel>
-      </div>
+      {children}
 
       <div className="flex-1" />
 
-      {/* Bottom CTAs */}
-      <div
-        className="px-6 pb-7 pt-3"
-        style={{ background: 'linear-gradient(to top, #fafaf7 70%, rgba(250,250,247,0))' }}
-      >
-        <div className="relative">
-          <div
-            className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]"
-            style={{ transform: 'translate(2.5px, 2.5px)' }}
-          />
-          <div
-            className="relative flex items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-white font-[var(--font-body)]"
-          >
-            次へ
-            <span className="inline-flex">
-              <Icon name="chevron_right" size={15} />
-            </span>
-          </div>
-        </div>
-        <div className="mt-2.5 text-center text-[11px] text-[var(--color-muted)]">
-          スキップ
-        </div>
+      <div className="px-6 pb-8 pt-5 text-center">
+        <span className="text-xs text-[var(--color-muted)]">ホームへ戻る場合は </span>
+        <Link href="/" className="text-xs font-bold text-[var(--solid-ink)] underline">
+          こちら
+        </Link>
       </div>
     </div>
+  );
+}
+
+function ErrorMessage({ children }: { children: ReactNode }) {
+  return (
+    <div
+      aria-live="polite"
+      className="rounded-[10px] border-[1.25px] border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2.5 text-xs font-bold text-[var(--color-error)]"
+    >
+      {children}
+    </div>
+  );
+}
+
+function PrimaryAction({
+  type,
+  disabled,
+  onClick,
+  children,
+}: {
+  type: 'button' | 'submit';
+  disabled?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+      className="group relative w-full disabled:pointer-events-none disabled:opacity-60"
+    >
+      <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)] transition-transform group-active:translate-x-[1px] group-active:translate-y-[1px]" />
+      <div className="relative flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
+        {children}
+      </div>
+    </button>
+  );
+}
+
+function SignupFallback() {
+  return (
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)]">
+      <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
+    </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupFallback />}>
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function FormField({
+  label,
+  placeholder,
+  type,
+  trailing,
+  value,
+  onChange,
+  autoComplete,
+  disabled,
+}: {
+  label: string;
+  placeholder: string;
+  type?: string;
+  trailing?: ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+        {label}
+      </div>
+      <div className="flex items-center gap-2 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-[11px] shadow-[2px_2px_0_var(--solid-ink)]">
+        <input
+          type={type || 'text'}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          required
+          autoComplete={autoComplete}
+          disabled={disabled}
+          className="flex-1 border-none bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)] disabled:opacity-60"
+        />
+        {trailing}
+      </div>
+    </label>
   );
 }
