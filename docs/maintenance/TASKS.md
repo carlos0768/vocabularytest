@@ -176,13 +176,14 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
   - 成果物: [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
   - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分けた
   - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切った
-- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 6以降を1回1責務で実施する
+- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 7以降を1回1責務で実施する
   - Task 1 `server_cloud` route contract追加は 2026-05-09 に完了
   - Task 2 `server_cloud` result payload builder抽出は 2026-05-09 に完了
   - Task 3 `quiz prefillのselector / update payloadを純粋helperへ出す` は 2026-05-09 に完了
   - Task 4 `client_local example generationのplan/apply helperを抽出する` は 2026-05-09 に完了
   - Task 5 `server_cloud example generationのseed / update payload helperを抽出する` は 2026-05-09 に完了
-  - 次はTask 6 `per-image extraction workerを小さく切り出す` 候補。ただしjob claim、provider key判定、batch concurrency、grammar warning通知、dedupe、no words failure branch、DB status update、通知、timing flush、post-processingは動かさない
+  - Task 6 `per-image extraction workerを小さく切り出す` は 2026-05-09 に完了
+  - 次はTask 7 `post-processing候補計算をpure helperへ出す` 候補。ただしcompleted update前後の順序、`after()` の配置、通知、timingは動かさない
 - [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
   - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
 - [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
@@ -209,6 +210,15 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
 
 ## Done
 
+- [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 6 per-image extraction worker helper抽出
+  - 追加: `src/lib/scan/image-extraction.ts`, `src/lib/scan/image-extraction.test.ts`
+  - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: 1画像単位のStorage download、MIME判定、base64 data URL化、AI extraction呼び出し、download/extraction ms計測、page warning生成を `processScanImage()` へ移動。helperは `downloadImage`, `extractImage`, `withTimingPhase`, `withTimeout`, `parseWords` をdepsとして受け取る
+  - 固定: pdf/png/webp/jpegのMIME判定、download failureのwords/sourceLabels空 + error + pageWarning、extraction failureのfirst error候補 + pageWarning、success時のparse済みwords/sourceLabels/downloadMs/extractionMs、helper resultの `warningCode` 伝播
+  - 変更: route側の `processOneImage()` は `processScanImage()` 呼び出しと既存timing aggregate更新だけに限定。`Promise.allSettled` batch loop、`PARALLEL_CONCURRENCY`、grammar warning通知、dedupe、no words failure、DB status update、completed/failed通知、timing flush、post-processingは変更していない
+  - 確認: `npm exec -- tsx --test src/lib/scan/image-extraction.test.ts src/app/api/scan-jobs/process/route.extractor.test.ts src/app/api/scan-jobs/process/route.contract.test.ts` 成功。16 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は317 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 残リスク: batch orchestration、grammar warning集約、dedupe/no words branch、DB状態遷移、post-processing候補計算はまだroute内に残る。次も [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) に沿って1回1責務で進める
 - [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 5 server_cloud example generation seed/update payload helper抽出
   - 更新: `src/lib/scan/example-generation.ts`, `src/lib/scan/example-generation.test.ts`, `src/app/api/scan-jobs/process/route.ts`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
   - 抽出: `server_cloud` branchのinserted wordsからexample生成seedを作る処理を `buildServerCloudExampleSeedWords()` へ移動し、GeneratedExampleからwords table update payloadを作る処理を `buildServerCloudExampleUpdatePayload()` へ移動

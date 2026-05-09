@@ -37,6 +37,10 @@ import {
   flushScanJobTimingLogs,
 } from '@/lib/scan/job-side-effects';
 import {
+  processScanImage,
+  type ScanImageExtractionResult,
+} from '@/lib/scan/image-extraction';
+import {
   buildQuizPrefillSeedWords,
   buildQuizPrefillWordUpdatePayload,
   type QuizPrefillSeedWord,
@@ -769,72 +773,38 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       // Process each image in parallel (concurrency limit: 5)
       const PARALLEL_CONCURRENCY = 5;
 
-      async function processOneImage(pageIndex: number): Promise<{
-        words: ProcessedExtractedWord[];
-        sourceLabels: string[];
-        warningCode?: ExtractionWarningCode;
-        error?: string;
-        pageWarning?: string;
-      }> {
-        const imagePath = imagePaths[pageIndex];
-        const pageLabel = `ページ${pageIndex + 1}`;
+      async function processOneImage(pageIndex: number): Promise<ScanImageExtractionResult<ProcessedExtractedWord, ExtractionWarningCode>> {
+        const result = await processScanImage<ProcessedExtractedWord, ExtractionWarningCode>(
+          {
+            imagePath: imagePaths[pageIndex],
+            pageIndex,
+            mode,
+            eikenLevel: job.eiken_level,
+            apiKeys,
+            timeoutMs: EXTRACTION_TIMEOUT_MS,
+            timeoutMessage: `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`,
+          },
+          {
+            downloadImage: (imagePath) => supabaseAdmin.storage
+              .from('scan-images')
+              .download(imagePath),
+            extractImage,
+            parseWords: parseExtractedWords,
+            withTimingPhase: withCloudRunTimingPhase,
+            withTimeout,
+          },
+        );
 
-        const dlStart = Date.now();
-        const { data: imageData, error: downloadError } = await supabaseAdmin.storage
-          .from('scan-images')
-          .download(imagePath);
-        const dlMs = Date.now() - dlStart;
-
-        if (downloadError || !imageData) {
-          console.error(`Failed to download image ${imagePath}:`, downloadError);
-          return { words: [], sourceLabels: [], error: '画像データの取得に失敗しました', pageWarning: `${pageLabel}: 画像データの取得に失敗しました` };
+        if (typeof result.downloadMs === 'number' && typeof result.extractionMs === 'number') {
+          timing.perImage.push({
+            downloadMs: result.downloadMs,
+            extractionMs: result.extractionMs,
+          });
+          timing.imageDownloadMs += result.downloadMs;
+          timing.aiExtractionMs += result.extractionMs;
         }
 
-        const buffer = await imageData.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        const ext = imagePath.split('.').pop()?.toLowerCase();
-        const mimeType = ext === 'pdf'
-          ? 'application/pdf'
-          : ext === 'png'
-            ? 'image/png'
-            : ext === 'webp'
-              ? 'image/webp'
-              : 'image/jpeg';
-        const base64Image = `data:${mimeType};base64,${base64}`;
-
-        try {
-          const exStart = Date.now();
-          const extractionResult = await withTimeout(
-            withCloudRunTimingPhase('aiExtraction', () =>
-              extractImage(base64Image, mode, job.eiken_level, apiKeys)
-            ),
-            EXTRACTION_TIMEOUT_MS,
-            `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`
-          );
-          const exMs = Date.now() - exStart;
-
-          timing.perImage.push({ downloadMs: dlMs, extractionMs: exMs });
-          timing.imageDownloadMs += dlMs;
-          timing.aiExtractionMs += exMs;
-
-          const { result, warningCode } = extractionResult;
-
-          if (result.success && result.data?.words) {
-            return {
-              words: parseExtractedWords(result.data.words),
-              sourceLabels: ensureSourceLabels(result.data.sourceLabels),
-              warningCode,
-            };
-          } else if (!result.success) {
-            const errMsg = result.error || '画像の解析に失敗しました';
-            return { words: [], sourceLabels: [], warningCode, error: errMsg, pageWarning: `${pageLabel}: ${errMsg}` };
-          }
-          return { words: [], sourceLabels: [], warningCode };
-        } catch (error) {
-          console.error(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
-          const errMsg = error instanceof Error ? error.message : '画像解析に失敗しました';
-          return { words: [], sourceLabels: [], error: errMsg, pageWarning: `${pageLabel}: 画像解析に失敗しました` };
-        }
+        return result;
       }
 
       // Run in batches of PARALLEL_CONCURRENCY
