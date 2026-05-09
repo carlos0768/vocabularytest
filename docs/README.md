@@ -16,7 +16,9 @@
 - `codex/prelaunch-safety-baseline` は古い `main` 由来なので、今後の公開前作業には使いません。
 - 最新UIを守るため、作業ブランチは `codex/prelaunch-safety-baseline-current-ui` を使います。
 - 旧ブランチの56コミットを丸ごとcherry-pickしません。
-- 公開前は、signup実動線、検証基盤、公開前チェックリスト、外部サービス手動確認に絞ります。
+- 旧ブランチの保守性向上作業は、このブランチへ1領域ずつ再実装します。
+- `docs/maintenance/*CHECKPOINT.md` やaudit系docsは、旧ブランチでの完了記録を含みます。最新UIブランチでは、`docs/maintenance/AI_HANDOFF.md` と `docs/maintenance/TASKS.md` の再移植状況を正としてください。
+- `src/components/redesign/**` と `src/app/globals.css` は原則変更しません。Home/Project/Quizを触る場合も、最新UIの見た目・文言・レイアウトを巻き戻さないことを最優先にします。
 
 ## 恒久情報
 
@@ -33,5 +35,10 @@
 - `docs/maintenance/AI_HANDOFF.md`: 次のAIが最初に読む引き継ぎ
 - `docs/maintenance/TASKS.md`: 公開前タスクの現在地
 - `docs/maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`: 公開判断前の最終チェックリスト
+- `docs/maintenance/ARCHITECTURE_MAINTAINABILITY_AUDIT.md`: 大局的な保守性棚卸し
+- `docs/maintenance/REFACTOR_PLAN.md`: 旧P2-Cの分解計画
+- `docs/maintenance/P2C_CHECKPOINT.md`: 旧P2-C完了後の固定済みcontractと残リスク
+- `docs/maintenance/SCAN_PROCESS_CHECKPOINT.md`: 旧scan process追加分割後の状態
+- `docs/maintenance/HOME_PAGE_AUDIT.md`, `docs/maintenance/PROJECT_PAGE_AUDIT.md`, `docs/maintenance/QUIZ_PAGE_AUDIT.md`: UI隣接巨大ファイルの棚卸し
 
 `maintenance/` は作業中のホワイトボードです。恒久化すべき内容は後続作業で正式docsへ移します。
