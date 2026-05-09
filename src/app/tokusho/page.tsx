@@ -29,7 +29,7 @@ export default function TokushoPage() {
       {/* Intro */}
       <div className="px-[18px] pb-3.5">
         <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
-          <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
+          <p className="m-0 text-[11px] font-semibold leading-[1.75] text-[var(--solid-ink)]">
             特定商取引法第11条に基づき、Pro 購読サービスの提供に関する事項を以下の通り表示します。
           </p>
         </div>
@@ -89,7 +89,7 @@ function DefRow({ label, children, last }: { label: string; children: React.Reac
       style={{ borderBottom: last ? 'none' : '1px solid var(--color-border)' }}
     >
       <div className="font-mono text-[10px] font-bold tracking-[0.02em] text-[var(--color-muted)]">{label}</div>
-      <div className="text-[11.5px] leading-[1.7] text-[var(--solid-ink)]">{children}</div>
+      <div className="text-[11.5px] font-semibold leading-[1.7] text-[var(--solid-ink)]">{children}</div>
     </div>
   );
 }

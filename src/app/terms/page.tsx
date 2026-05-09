@@ -27,7 +27,7 @@ export default function TermsPage() {
       {/* Intro */}
       <div className="px-[18px] pb-3.5">
         <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
-          <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
+          <p className="m-0 text-[11px] font-semibold leading-[1.75] text-[var(--solid-ink)]">
             本規約は、MERKEN（以下「本サービス」）の利用に関する条件を定めるものです。ユーザーは本規約に同意の上、本サービスを利用するものとします。
           </p>
         </div>
@@ -112,14 +112,14 @@ function Section({ num, label, children }: { num: string; label: string; childre
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="m-0 text-[11.5px] leading-[1.75] text-[var(--solid-ink)]">{children}</p>;
+  return <p className="m-0 text-[11.5px] font-semibold leading-[1.75] text-[var(--solid-ink)]">{children}</p>;
 }
 
 function OL({ items }: { items: string[] }) {
   return (
     <ol className="mt-1.5 space-y-0.5 pl-[18px]">
       {items.map((t, i) => (
-        <li key={i} className="pl-0.5 text-[11.5px] leading-[1.75] text-[var(--solid-ink)]">{t}</li>
+        <li key={i} className="pl-0.5 text-[11.5px] font-semibold leading-[1.75] text-[var(--solid-ink)]">{t}</li>
       ))}
     </ol>
   );
