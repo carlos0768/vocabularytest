@@ -33,7 +33,7 @@ import {
   type ProjectWordActivenessFilter,
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
-import type { LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
+import type { Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import {
   activateProjectMultipleScanFileStep,
@@ -50,6 +50,12 @@ import {
   prepareScanConfirmForExistingProject,
   saveScanConfirmResultPayload,
 } from '@/lib/scan/scan-session-storage';
+import {
+  addProjectScanResult,
+  buildProjectScanConfirmResultPayload,
+  createProjectScanResultAccumulator,
+  hasNoProjectScanWords,
+} from '@/lib/project/project-scan-results';
 import { mergeSourceLabels } from '../../../../shared/source-labels';
 import { mergeLexiconEntries } from '../../../../shared/lexicon';
 
@@ -408,10 +414,7 @@ export default function ProjectDetailPage() {
       setProcessingSteps(initialSteps);
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const allWords: any[] = [];
-        let allSourceLabels: string[] = [];
-        let allLexiconEntries: LexiconEntry[] = [];
+        let scanResultAccumulator = createProjectScanResultAccumulator();
 
         for (let i = 0; i < scanFiles.length; i++) {
           setProcessingSteps(prev => activateProjectMultipleScanFileStep(prev, i, totalFiles));
@@ -450,21 +453,18 @@ export default function ProjectDetailPage() {
             continue;
           }
 
-          allWords.push(...result.words);
-          allSourceLabels = mergeSourceLabels(allSourceLabels, result.sourceLabels);
-          allLexiconEntries = mergeLexiconEntries(allLexiconEntries, result.lexiconEntries);
+          scanResultAccumulator = addProjectScanResult(scanResultAccumulator, result);
           setProcessingSteps(prev => completeProjectMultipleScanFileStep(prev, i, totalFiles));
         }
 
-        if (allWords.length === 0) {
+        if (hasNoProjectScanWords(scanResultAccumulator)) {
           throw new Error('画像から単語を読み取れませんでした');
         }
 
-        saveScanConfirmResultPayload(sessionStorage, {
-          words: allWords,
-          sourceLabels: allSourceLabels,
-          lexiconEntries: allLexiconEntries,
-        });
+        saveScanConfirmResultPayload(
+          sessionStorage,
+          buildProjectScanConfirmResultPayload(scanResultAccumulator),
+        );
         startTransition(() => { router.push('/scan/confirm'); });
         setProcessing(false);
       } catch (error) {

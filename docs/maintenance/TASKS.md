@@ -302,6 +302,21 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm run build` 成功
   - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 380 tests pass、`test:security` 38 tests pass、`build` 成功
   - 残リスク: Project scan-to-addのresult accumulator、`/api/extract` client response handling、FileReader/PDF expansion/sessionStorage handoffはまだ `src/app/project/[id]/page.tsx` に残る
+- [x] Project scan result accumulatorをpure helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/project/project-scan-results.ts`, `src/lib/project/project-scan-results.test.ts`
+  - 更新: `src/app/project/[id]/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: Project detailのmultiple scan結果集約だけをpure helperへ移動。words蓄積、sourceLabels merge、lexiconEntries merge、words 0件判定、`saveScanConfirmResultPayload()` に渡すpayload作成を固定した
+  - 固定: 1件目/2件目のwords蓄積順、既存 `mergeSourceLabels()` と同じsourceLabels normalize/dedupe、既存 `mergeLexiconEntries()` と同じlast-entry-wins、words空判定、payload shape `{ words, sourceLabels, lexiconEntries }`
+  - 変更: `page.tsx` はmultiple scan result accumulatorのhelper呼び出しへの置換に限定した
+  - 変更なし: `/api/extract` request / response / fetch処理、FileReader、`processImageFile`、PDF expansion、progress helper、sessionStorage key名、router遷移、`prepareScanConfirmForExistingProject()` の呼び出し位置と意味、single scanの挙動、repository選択、share、bulk delete、word mutation、project mutation、認証、課金、同期、DB migration、package-lock
+  - 確認: `git diff --check` 成功
+  - 確認: `npm exec -- tsx --test src/lib/project/project-scan-results.test.ts` 成功。5 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。385 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 385 tests pass、`test:security` 38 tests pass、`build` 成功
+  - 残リスク: Project scan-to-addの`/api/extract` client response handling、FileReader/PDF expansion/sessionStorage handoffはまだ `src/app/project/[id]/page.tsx` に残る。share、bulk delete、repository mutationも未分割
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
   - 既存のquestion/storage helperを前提に、回答処理、spaced repetition、wrong answer記録、background distractor APIを分けて検討する
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
