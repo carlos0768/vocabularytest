@@ -54,10 +54,10 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 2026-05-09時点の検証結果:
 
 - `npm run build`: 成功。2026-05-09に `src/lib/home/home-session-storage.ts` の `isGeneratingWordbookPayload()` type guardを最小修正し、既知の `Object is of type 'unknown'` build failureを解消
-- `npm test`: 成功。356 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
+- `npm test`: 成功。361 tests pass。Web/shared通常testの固定リストを実行。固定リストは自動発見ではなく、通過確認済みtestだけを含める
 - `npm run test:security`: 成功。38 tests pass。SQL guard tests、secrets guard tests、API route security testsを実行
 - `npm run lint:web`: 成功。0 errors / 97 warnings
-- `npm run verify`: 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は356 tests pass、`test:security` は38 tests pass、`build` 成功
+- `npm run verify`: 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は361 tests pass、`test:security` は38 tests pass、`build` 成功
 - `npm run test:cloud-run-scan`: 成功。22 tests pass。Cloud Run scan serviceは別packageなので root Web `verify` には含めない
 - `npm run lint`: 公開前gateではない。Web本体公開前検証には `npm run lint:web` / `npm run verify` を使う
 - `npx tsc --noEmit`: 今回は未再実行。`npm run build` のTypeScript checkは成功
@@ -105,6 +105,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - Home scan job local notification message builder helper化は 2026-05-09 に完了。`src/lib/home/home-scan-job-notifications.ts` とtestを追加し、`src/app/page.tsx` のlocal notification用のgrouping key、`job.result` JSON parse、`wordCount` 抽出、`grammar_not_found` warning判定、completed / failed / grammar warningのtitle/body/tag生成、同project keyのwordCount合算をpure helperへ移動済み。`page.tsx` はhelper呼び出しへの置換だけに留め、Notification API呼び出し、permission request、service worker、PushManager判定、Web Push/APNS/server notification、scan job取得、acknowledge、polling、realtime subscription、UI文言、認証、課金、同期、DB migration、package-lock、API routeは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/home/home-scan-job-notifications.test.ts` は8 tests pass、`npm run lint:web` は0 errors / 97 warnings、`npm test` は346 tests pass
 - Home scan client flow棚卸しは 2026-05-09 に [`HOME_SCAN_FLOW_AUDIT.md`](HOME_SCAN_FLOW_AUDIT.md) として作成済み。scan mode選択、word limit / Pro判定、PDF expansion、existing project追加、immediate `/api/extract`、multiple image immediate scan、`/scan/confirm` sessionStorage handoff、Pro background upload、Supabase Storage upload / cleanup、`/api/scan-jobs/create`、pending generating card、toast / modal / progress stateを整理済み。コード変更はしていない。棚卸し時の最初の推奨は、`/api/extract`、sessionStorage、PDF、file upload、Storageに触れない `immediate scan progress step builder` のpure helper化だった
 - Home immediate scan progress step builder helper化は 2026-05-09 に完了。`src/lib/home/home-scan-progress.ts` とtestを追加し、single scanの初期/upload完了/analyze開始/完了、multiple scanの初期/current active/file処理エラー/API処理エラー/file完了/navigate、active/pendingのerror化をpure helperへ移動済み。`page.tsx` はhelper呼び出しへの置換だけに留め、`/api/extract` request/response/fetch処理、sessionStorage保存、PDF expansion、file upload、background upload、Storage bucket名、Supabase処理、toast文言、modal表示条件、画面遷移、UI文言、認証、課金、同期、DB migration、package-lock、API routeは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/home/home-scan-progress.test.ts` は10 tests pass、`npm run lint:web` は0 errors / 97 warnings、`npm test` は356 tests pass。直後の `npm run build` は既存 `src/lib/home/home-session-storage.ts:75` type guard errorで失敗していたが、2026-05-09にsessionStorage type guardを最小修正して `npm run build` / `npm run verify` は成功済み
+- Home immediate scan result accumulator helper化は 2026-05-09 に完了。`src/lib/home/home-immediate-scan-results.ts` とtestを追加し、multiple immediate scanのwords蓄積、sourceLabels merge、lexiconEntries merge、`/scan/confirm` payload作成、words 0件判定をpure helperへ移動済み。`page.tsx` はhelper呼び出しへの置換だけに留め、`/api/extract` request/response/fetch処理、sessionStorage key名、保存JSON shape、`/scan/confirm` 遷移、PDF expansion、file upload、background upload、Supabase Storage、UI文言、toast文言、認証、課金、同期、DB migration、package-lockは変更していない。新helper testを `npm run test:web` 固定リストへ追加済み。`npm exec -- tsx --test src/lib/home/home-immediate-scan-results.test.ts` は5 tests pass、`npm run lint:web` は0 errors / 97 warnings、`npm test` は361 tests pass、`npm run build` と `npm run verify` は成功
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -121,7 +122,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、P2-C全体の未固定リスクを確認する
 2. [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1-7は完了済み。`scan-jobs/process` 完了後の入口は [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
-3. Home巨大ファイルの棚卸しは [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) に完了済み。Home表示selector、Home専用sessionStorage key、scan job local notification message builder、immediate scan progress step builderの純粋helper化も完了済み。Home scan client flowの棚卸しは [`HOME_SCAN_FLOW_AUDIT.md`](HOME_SCAN_FLOW_AUDIT.md) に完了済み。既知だった `home-session-storage.ts` type guardのbuild failureは解消済み。次にHome実装へ進む場合は、`immediate scan result accumulator` のpure helper化など1責務ずつ進める
+3. Home巨大ファイルの棚卸しは [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) に完了済み。Home表示selector、Home専用sessionStorage key、scan job local notification message builder、immediate scan progress step builder、immediate scan result accumulatorの純粋helper化も完了済み。Home scan client flowの棚卸しは [`HOME_SCAN_FLOW_AUDIT.md`](HOME_SCAN_FLOW_AUDIT.md) に完了済み。既知だった `home-session-storage.ts` type guardのbuild failureは解消済み。次にHome実装へ進む場合も、`/api/extract`、PDF/file upload、background upload、Storage、認証、課金、同期、DB migrationに触れない1責務ずつ進める
 4. 他の推奨候補は、Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
 5. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない新しい小タスクへ切る
 6. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する

@@ -253,6 +253,19 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm test` 成功。356 tests pass
   - 確認: `npm run build` 成功
   - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 356 tests pass、`test:security` 38 tests pass、`build` 成功
+- [x] Home immediate scan result accumulatorをpure helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/home/home-immediate-scan-results.ts`, `src/lib/home/home-immediate-scan-results.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: multiple immediate scanのwords蓄積、sourceLabels merge、lexiconEntries merge、`/scan/confirm` payload作成、words 0件判定をpure helperへ移動
+  - 固定: 1件目/2件目のwords蓄積、既存 `mergeSourceLabels()` と同じsourceLabels normalize/dedupe、既存 `mergeLexiconEntries()` と同じlast-entry-wins、words空判定、`saveScanConfirmResultPayload()` に渡す `{ words, sourceLabels, lexiconEntries }` shape
+  - 変更なし: `/api/extract` request / response / fetch処理、sessionStorage key名、保存JSON shape、`/scan/confirm` 遷移、PDF expansion、file upload、background upload、Supabase Storage、UI文言、toast文言、認証、課金、同期、DB migration、package-lock、巨大ファイル全体分割
+  - 確認: `git diff --check` 成功
+  - 確認: `npm exec -- tsx --test src/lib/home/home-immediate-scan-results.test.ts` 成功。5 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。361 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 361 tests pass、`test:security` 38 tests pass、`build` 成功
 - [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
   - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする

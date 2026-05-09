@@ -51,6 +51,12 @@ import {
   markMultipleScanFileApiError,
   markMultipleScanFileProcessingError,
 } from '@/lib/home/home-scan-progress';
+import {
+  addHomeImmediateScanResult,
+  buildHomeImmediateScanConfirmResultPayload,
+  createHomeImmediateScanResultAccumulator,
+  hasNoHomeImmediateScanWords,
+} from '@/lib/home/home-immediate-scan-results';
 import { buildHomeScanJobLocalNotifications } from '@/lib/home/home-scan-job-notifications';
 import {
   clearHomeGeneratingWordbook,
@@ -71,7 +77,7 @@ import {
   invalidateHomeCache,
   restoreFromSessionStorage,
 } from '@/lib/home-cache';
-import type { LexiconEntry, Project, Word } from '@/types';
+import type { Project, Word } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 // Dynamic imports for modals - loaded only when opened (not in initial bundle)
@@ -1135,10 +1141,7 @@ export default function HomePage() {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allWords: any[] = [];
-      let allSourceLabels: string[] = [];
-      let allLexiconEntries: LexiconEntry[] = [];
+      let accumulatedResults = createHomeImmediateScanResultAccumulator();
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -1186,25 +1189,21 @@ export default function HomePage() {
           setScanInfo(result.scanInfo);
         }
 
-        // Merge words from this file
-        allWords.push(...result.words);
-        allSourceLabels = mergeSourceLabels(allSourceLabels, result.sourceLabels);
-        allLexiconEntries = mergeLexiconEntries(allLexiconEntries, result.lexiconEntries);
+        accumulatedResults = addHomeImmediateScanResult(accumulatedResults, result);
 
         // Mark current step as complete
         setProcessingSteps(prev => completeMultipleScanFileStep(prev, i, totalFiles));
       }
 
-      if (allWords.length === 0) {
+      if (hasNoHomeImmediateScanWords(accumulatedResults)) {
         throw new Error('画像から単語を読み取れませんでした');
       }
 
       // Save merged results to sessionStorage
-      saveScanConfirmResultPayload(sessionStorage, {
-        words: allWords,
-        sourceLabels: allSourceLabels,
-        lexiconEntries: allLexiconEntries,
-      });
+      saveScanConfirmResultPayload(
+        sessionStorage,
+        buildHomeImmediateScanConfirmResultPayload(accumulatedResults),
+      );
 
       setProcessingSteps(prev => appendMultipleScanNavigateStep(prev));
 
