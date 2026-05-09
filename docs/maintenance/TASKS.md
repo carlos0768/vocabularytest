@@ -266,8 +266,14 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm test` 成功。361 tests pass
   - 確認: `npm run build` 成功
   - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 361 tests pass、`test:security` 38 tests pass、`build` 成功
-- [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
-  - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
+- [x] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` の責務と危険領域を棚卸しする
+  - 2026-05-09に完了
+  - 追加: [`PROJECT_PAGE_AUDIT.md`](PROJECT_PAGE_AUDIT.md)
+  - 整理: データ取得、words / project 表示、filter / sort / search、word操作、project操作、scan-to-add、share、bulk delete、modal / toast / UI stateを分類
+  - 整理: repository選択、scan-to-add sessionStorage、share公開範囲、bulk delete、favorite / wrong answer / spaced repetition、認証/課金/同期/DB migrationに影響しそうな箇所を危険領域として明記
+  - 変更なし: code、リファクタ、機能追加、`src/app/project/[id]/page.tsx`、API、型、schema、package-lock、migration、認証、課金、スキャン、同期、DB migration
+  - 次に実装する場合の最初の推奨は、Project表示selectorをpure helperへ出すこと。repository選択、scan-to-add sessionStorage、share、bulk delete、favorite/status/vocabulary type、認証、課金、同期、DB migrationには触れない
+  - 確認: `git diff --check` 成功。docs-only変更のため `npm run verify` は実行していない
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
   - 既存のquestion/storage helperを前提に、回答処理、spaced repetition、wrong answer記録、background distractor APIを分けて検討する
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する
