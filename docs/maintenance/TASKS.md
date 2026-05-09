@@ -274,6 +274,19 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 変更なし: code、リファクタ、機能追加、`src/app/project/[id]/page.tsx`、API、型、schema、package-lock、migration、認証、課金、スキャン、同期、DB migration
   - 次に実装する場合の最初の推奨は、Project表示selectorをpure helperへ出すこと。repository選択、scan-to-add sessionStorage、share、bulk delete、favorite/status/vocabulary type、認証、課金、同期、DB migrationには触れない
   - 確認: `git diff --check` 成功。docs-only変更のため `npm run verify` は実行していない
+- [x] Project表示selectorをpure helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/project/project-page-selectors.ts`, `src/lib/project/project-page-selectors.test.ts`
+  - 更新: `src/app/project/[id]/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: Project detailのstats計算、word filter active判定、filteredWords計算、availablePartsOfSpeech計算、part of speech label変換をpure helperへ移動
+  - 固定: mastered / review / new / statusなしのstats、英語/日本語検索、favorite filter、active/passive filter、partOfSpeechTags filter、alphabetical / statusAsc / createdAsc sort、availablePartsOfSpeechのtrim / 空文字除外 / dedupe / sort、posLabelの既存mapping
+  - 変更なし: repository選択、scan-to-add、share、bulk delete、word mutation、project mutation、UI文言、表示順、filter条件、sort条件、空状態、認証、課金、同期、DB migration、package-lock
+  - 確認: `git diff --check` 成功
+  - 確認: `npm exec -- tsx --test src/lib/project/project-page-selectors.test.ts` 成功。11 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。372 tests pass
+  - 確認: `npm run build` 成功
+  - 確認: `npm run verify` 成功。`lint:web` 0 errors / 97 warnings、`security:all` 成功、`npm test` 372 tests pass、`test:security` 38 tests pass、`build` 成功
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
   - 既存のquestion/storage helperを前提に、回答処理、spaced repetition、wrong answer記録、background distractor APIを分けて検討する
 - [x] `src/lib/ai/prompts.ts` を、用途別の責務と呼び出し元を確認してから整理する

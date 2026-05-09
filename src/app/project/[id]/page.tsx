@@ -24,6 +24,15 @@ import { cacheProjectForOffline } from '@/lib/offline/recent-project-offline';
 import { expandFilesForScan, isPdfFile, processImageFile, type ImageProcessingProfile } from '@/lib/image-utils';
 import { invalidateHomeCache, getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
+import {
+  countProjectWordStats,
+  getProjectPartOfSpeechLabel,
+  isProjectWordFilterActive,
+  selectAvailableProjectPartsOfSpeech,
+  selectFilteredProjectWords,
+  type ProjectWordActivenessFilter,
+  type ProjectWordSortOrder,
+} from '@/lib/project/project-page-selectors';
 import type { LexiconEntry, Project, ProjectShareScope, Word, WordStatus, SubscriptionStatus } from '@/types';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 import {
@@ -112,9 +121,9 @@ export default function ProjectDetailPage() {
   // Word list toolbar: search, filter, sort
   const [wordSearchText, setWordSearchText] = useState('');
   const [wordShowSearch, setWordShowSearch] = useState(false);
-  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
+  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('createdAsc');
   const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
-  const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
+  const [wordFilterActiveness, setWordFilterActiveness] = useState<ProjectWordActivenessFilter>('all');
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
 
@@ -816,56 +825,25 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const stats = useMemo(() => {
-    const total = words.length;
-    const mastered = words.filter((w) => w.status === 'mastered').length;
-    const learning = words.filter((w) => w.status === 'review').length;
-    const unlearned = words.filter((w) => !w.status || w.status === 'new').length;
-    return { total, mastered, learning, unlearned };
-  }, [words]);
+  const stats = useMemo(() => countProjectWordStats(words), [words]);
 
-  const wordFilterActive = wordFilterBookmark || wordFilterActiveness !== 'all' || wordFilterPos !== null;
+  const wordFilterActive = isProjectWordFilterActive({
+    bookmark: wordFilterBookmark,
+    activeness: wordFilterActiveness,
+    partOfSpeech: wordFilterPos,
+  });
 
   const filteredWords = useMemo(() => {
-    let result = words;
-
-    if (wordSearchText) {
-      const q = wordSearchText.toLowerCase();
-      result = result.filter(
-        (w) => w.english.toLowerCase().includes(q) || w.japanese.toLowerCase().includes(q)
-      );
-    }
-    if (wordFilterBookmark) {
-      result = result.filter((w) => w.isFavorite);
-    }
-    if (wordFilterPos) {
-      result = result.filter((w) =>
-        w.partOfSpeechTags?.some((t) => t.toLowerCase().includes(wordFilterPos.toLowerCase()))
-      );
-    }
-    if (wordFilterActiveness === 'active') {
-      result = result.filter((w) => w.vocabularyType === 'active');
-    } else if (wordFilterActiveness === 'passive') {
-      result = result.filter((w) => w.vocabularyType === 'passive');
-    }
-
-    if (wordSortOrder === 'alphabetical') {
-      result = [...result].sort((a, b) => a.english.localeCompare(b.english, undefined, { sensitivity: 'base' }));
-    } else if (wordSortOrder === 'statusAsc') {
-      const statusOrder: Record<string, number> = { new: 0, review: 1, mastered: 2 };
-      result = [...result].sort((a, b) => (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0));
-    } else {
-      result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    }
-
-    return result;
+    return selectFilteredProjectWords(words, {
+      searchText: wordSearchText,
+      bookmark: wordFilterBookmark,
+      partOfSpeech: wordFilterPos,
+      activeness: wordFilterActiveness,
+      sortOrder: wordSortOrder,
+    });
   }, [words, wordSearchText, wordFilterBookmark, wordFilterPos, wordFilterActiveness, wordSortOrder]);
 
-  const availablePartsOfSpeech = useMemo(() => {
-    const all = words.flatMap((w) => w.partOfSpeechTags ?? []);
-    const trimmed = all.map((t) => t.trim()).filter(Boolean);
-    return [...new Set(trimmed)].sort();
-  }, [words]);
+  const availablePartsOfSpeech = useMemo(() => selectAvailableProjectPartsOfSpeech(words), [words]);
 
   const returnPath = project ? encodeURIComponent(`/project/${project.id}`) : '';
   const canUseAiFeatures = aiEnabled !== false;
@@ -924,12 +902,6 @@ export default function ProjectDetailPage() {
     typeof project.iconImage === 'string' && project.iconImage.startsWith('data:image/')
       ? project.iconImage
       : null;
-
-  const posLabel = (tags?: string[]) => {
-    if (!tags || tags.length === 0) return null;
-    const map: Record<string, string> = { noun: '名', verb: '動', adjective: '形', adverb: '副', phrase: '句', idiom: '熟', phrasal_verb: '句' };
-    return map[tags[0]] || tags[0].slice(0, 1);
-  };
 
   return (
     <>
@@ -1285,7 +1257,7 @@ export default function ProjectDetailPage() {
                           </span>
                         </td>
                         <td className="w-10 px-1 py-2.5 text-center text-xs font-bold text-[var(--color-muted)]">
-                          {posLabel(word.partOfSpeechTags) || '—'}
+                          {getProjectPartOfSpeechLabel(word.partOfSpeechTags) || '—'}
                         </td>
                         <td className="px-2 py-2.5 text-xs text-[var(--color-muted)] truncate max-w-0">
                           {word.japanese}
