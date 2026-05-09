@@ -213,8 +213,16 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm exec -- tsx --test src/lib/home/home-session-storage.test.ts` 成功。8 tests pass
   - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
   - 確認: `npm test` 成功。338 tests pass
-- [ ] Home scan job local notificationのmessage builderを純粋helperへ出す
-  - completed / failed / grammar warningのgroupingとtitle/body/tag生成を固定し、Notification API呼び出し自体は別タスクに残す
+- [x] Home scan job local notificationのmessage builderを純粋helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/home/home-scan-job-notifications.ts`, `src/lib/home/home-scan-job-notifications.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: local notification用のjob grouping key生成、`job.result` JSON parse、`wordCount` 抽出、`warnings` 内の `grammar_not_found` 判定、completed / failed / grammar warningのtitle/body/tag生成、同じproject keyに複数jobがある時のwordCount合算
+  - 固定: completed title、failed title、grammar warning title、failed優先、同project keyのwordCount合算、invalid JSONのwordCount 0 / warningなし、project titleなし時の `単語帳` fallback、tag `scan-job-${key}`
+  - 変更なし: Notification API、permission request、service worker、PushManager判定、Web Push/APNS/server notification、scan job取得、acknowledge、polling、realtime subscription、UI文言、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-scan-job-notifications.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。346 tests pass
 - [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
   - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
@@ -237,6 +245,16 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
 
 ## Done
 
+- [x] 2026-05-09: Home scan job local notification message builder抽出
+  - 追加: `src/lib/home/home-scan-job-notifications.ts`, `src/lib/home/home-scan-job-notifications.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: local notification用のgrouping key、result parse、wordCount、`grammar_not_found` warning、completed / failed / grammar warningのtitle/body/tag、同project keyのwordCount合算
+  - 変更: `page.tsx` はlocal notification builder helper呼び出しへの置換に限定した
+  - 変更なし: Notification API、permission request、service worker、PushManager判定、Web Push/APNS/server notification、scan job取得、acknowledge、polling、realtime subscription、UI文言、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-scan-job-notifications.test.ts` 成功。8 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。346 tests pass
+  - 残リスク: Homeのimmediate/background scan client flow、Home data loaderはまだ `src/app/page.tsx` に残る
 - [x] 2026-05-09: Home専用sessionStorage helper抽出
   - 追加: `src/lib/home/home-session-storage.ts`, `src/lib/home/home-session-storage.test.ts`
   - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
