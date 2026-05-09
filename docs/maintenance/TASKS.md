@@ -223,6 +223,19 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 確認: `npm exec -- tsx --test src/lib/home/home-scan-job-notifications.test.ts` 成功。8 tests pass
   - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
   - 確認: `npm test` 成功。346 tests pass
+- [x] Home scan client flowを棚卸しする
+  - 2026-05-09に完了
+  - 追加: [`HOME_SCAN_FLOW_AUDIT.md`](HOME_SCAN_FLOW_AUDIT.md)
+  - 整理: scan mode選択、word limit / Pro判定、PDF expansion、existing project追加、immediate scan、multiple image immediate scan、`/scan/confirm` sessionStorage handoff、Pro background upload、Supabase Storage upload / cleanup、`/api/scan-jobs/create`、pending generating card、toast / modal / progress state
+  - 整理: `src/lib/image-utils.ts`, `src/lib/scan/scan-session-storage.ts`, `src/lib/home/home-session-storage.ts`, `src/lib/home/home-scan-job-notifications.ts` に既に外へ出ている責務
+  - 変更なし: code、リファクタ、機能追加、scan API、file upload、PDF処理、Storage bucket名、API request/response shape、認証、課金、同期、DB migration、package-lock、API route、UI文言、画面遷移、toast文言、modal表示条件
+  - 次に実装する場合の最初の推奨は、`immediate scan progress step builder` をpure helperへ出すこと。`/api/extract`、sessionStorage、PDF、file upload、Storageには触れない
+  - 確認: `git diff --check` 成功。docs-only変更のため `npm run verify` は実行していない
+- [ ] Home immediate scan progress step builderをpure helperへ出す
+  - `HOME_SCAN_FLOW_AUDIT.md` の次に実装する候補1
+  - 対象: single/multipleの初期step、file active/complete/error、navigate step、error message反映
+  - 触らない: `/api/extract` request/response、sessionStorage、PDF expansion、background upload、Storage bucket名、toast/modal文言、認証、課金、同期、DB migration、package-lock、API route
+  - 検証: helper test、`git diff --check`、必要に応じて `npm run lint:web`
 - [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
   - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
