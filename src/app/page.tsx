@@ -29,6 +29,7 @@ import { getDailyStats, getStreakDays } from '@/lib/utils';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+const HOME_MY_BOOKS_VISIBLE_LIMIT = 5;
 const GUEST_PREVIEW_WORDS = [
   { english: 'adapt', japanese: '適応する', status: '復習' },
   { english: 'evidence', japanese: '証拠', status: '新規' },
@@ -263,7 +264,7 @@ export default function HomePage() {
     : 0;
   const goalState: 'review' | 'learn' | 'empty' =
     dueCount > 0 ? 'review' : totalWords === 0 ? 'empty' : 'learn';
-  const visibleProjects = projects.slice(0, 3);
+  const visibleProjects = projects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
   if (authLoading) {
     return <HomeLoadingScreen />;
