@@ -231,11 +231,18 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
   - 変更なし: code、リファクタ、機能追加、scan API、file upload、PDF処理、Storage bucket名、API request/response shape、認証、課金、同期、DB migration、package-lock、API route、UI文言、画面遷移、toast文言、modal表示条件
   - 次に実装する場合の最初の推奨は、`immediate scan progress step builder` をpure helperへ出すこと。`/api/extract`、sessionStorage、PDF、file upload、Storageには触れない
   - 確認: `git diff --check` 成功。docs-only変更のため `npm run verify` は実行していない
-- [ ] Home immediate scan progress step builderをpure helperへ出す
-  - `HOME_SCAN_FLOW_AUDIT.md` の次に実装する候補1
-  - 対象: single/multipleの初期step、file active/complete/error、navigate step、error message反映
-  - 触らない: `/api/extract` request/response、sessionStorage、PDF expansion、background upload、Storage bucket名、toast/modal文言、認証、課金、同期、DB migration、package-lock、API route
-  - 検証: helper test、`git diff --check`、必要に応じて `npm run lint:web`
+- [x] Home immediate scan progress step builderをpure helperへ出す
+  - 2026-05-09に完了
+  - 追加: `src/lib/home/home-scan-progress.ts`, `src/lib/home/home-scan-progress.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: single scanの初期step、upload完了/analyze開始step、完了step、multiple scanの初期step、現在file active化、file処理エラー、API処理エラー、file完了、navigate step追加、active/pending stepのerror化
+  - 固定: `upload` / `analyze` / `file-${index}` / `navigate` のstep id、`画像をアップロード中...`、`文字を解析中...`、`画像 n/m を処理中...`、`画像 n: 処理エラー`、`画像 n: エラー`、`画像 n/m 完了`、`結果を表示中...` のlabel、既存status遷移
+  - 変更なし: `/api/extract` request/response/fetch処理、sessionStorage保存、PDF expansion、file upload、background upload、Storage bucket名、Supabase処理、toast文言、modal表示条件、画面遷移、UI文言、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-scan-progress.test.ts` 成功。10 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。356 tests pass
+  - 確認: `npm run build` 失敗。今回未変更の `src/lib/home/home-session-storage.ts:75` で `Object is of type 'unknown'`。今回の制約でsessionStorage helperには触れないため未修正
+  - 残リスク: build gateは既存type guard errorで未通過。次回、sessionStorage領域を触る許可がある時に `home-session-storage.ts` の型ガードを最小修正して再度 `npm run build` を通す
 - [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
   - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする
@@ -258,6 +265,17 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
 
 ## Done
 
+- [x] 2026-05-09: Home immediate scan progress step builder抽出
+  - 追加: `src/lib/home/home-scan-progress.ts`, `src/lib/home/home-scan-progress.test.ts`
+  - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: Home immediate scanのprogress step生成・更新だけをpure helperへ移動。single scanの初期/upload完了/analyze開始/完了、multiple scanの初期/current active/file処理エラー/API処理エラー/file完了/navigate、active/pendingのerror化を固定した
+  - 変更: `page.tsx` はprogress helper呼び出しへの置換に限定した
+  - 変更なし: `/api/extract` request/response/fetch処理、sessionStorage保存、PDF expansion、file upload、background upload、Storage bucket名、Supabase処理、toast文言、modal表示条件、画面遷移、UI文言、認証、課金、同期、DB migration、package-lock、API route
+  - 確認: `npm exec -- tsx --test src/lib/home/home-scan-progress.test.ts` 成功。10 tests pass
+  - 確認: `npm run lint:web` 成功。0 errors / 97 warnings
+  - 確認: `npm test` 成功。356 tests pass
+  - 確認: `npm run build` 失敗。今回未変更の `src/lib/home/home-session-storage.ts:75` で `Object is of type 'unknown'`
+  - 残リスク: Home immediate scanのresult accumulator、`/api/extract` client response handling、background upload flowはまだ `src/app/page.tsx` に残る。build gateは既存sessionStorage helperのtype guard修正まで未通過
 - [x] 2026-05-09: Home scan job local notification message builder抽出
   - 追加: `src/lib/home/home-scan-job-notifications.ts`, `src/lib/home/home-scan-job-notifications.test.ts`
   - 更新: `src/app/page.tsx`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

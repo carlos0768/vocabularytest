@@ -39,6 +39,18 @@ import {
   countHomeWordStatuses,
   selectHomeProjectSections,
 } from '@/lib/home/home-page-selectors';
+import {
+  activateMultipleScanFileStep,
+  appendMultipleScanNavigateStep,
+  buildMultipleScanInitialSteps,
+  buildSingleScanAnalyzeSteps,
+  buildSingleScanCompleteSteps,
+  buildSingleScanInitialSteps,
+  completeMultipleScanFileStep,
+  markActiveOrPendingScanStepsError,
+  markMultipleScanFileApiError,
+  markMultipleScanFileProcessingError,
+} from '@/lib/home/home-scan-progress';
 import { buildHomeScanJobLocalNotifications } from '@/lib/home/home-scan-job-notifications';
 import {
   clearHomeGeneratingWordbook,
@@ -1016,10 +1028,7 @@ export default function HomePage() {
   // Direct image processing - calls /api/extract directly
   const processImage = async (file: File) => {
     setProcessing(true);
-    setProcessingSteps([
-      { id: 'upload', label: '画像をアップロード中...', status: 'active' },
-      { id: 'analyze', label: '文字を解析中...', status: 'pending' },
-    ]);
+    setProcessingSteps(buildSingleScanInitialSteps());
 
     const projectDraft = typeof sessionStorage !== 'undefined'
       ? getScanConfirmProjectDraft(sessionStorage)
@@ -1042,10 +1051,7 @@ export default function HomePage() {
         throw new Error('画像の処理に失敗しました。別の画像をお試しください。');
       }
 
-      setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-        { id: 'analyze', label: '文字を解析中...', status: 'active' },
-      ]);
+      setProcessingSteps(buildSingleScanAnalyzeSteps());
 
       // Call extract API directly
       const response = await fetch('/api/extract', {
@@ -1077,10 +1083,7 @@ export default function HomePage() {
         setScanInfo(result.scanInfo);
       }
 
-      setProcessingSteps([
-        { id: 'upload', label: '画像をアップロード中...', status: 'complete' },
-        { id: 'analyze', label: '文字を解析中...', status: 'complete' },
-      ]);
+      setProcessingSteps(buildSingleScanCompleteSteps());
 
       // Save result to sessionStorage and navigate to confirm page
       saveScanConfirmResultPayload(sessionStorage, {
@@ -1108,13 +1111,7 @@ export default function HomePage() {
         }
       }
 
-      setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.status === 'active' || s.status === 'pending'
-            ? { ...s, status: 'error', label: errorMessage }
-            : s
-        )
-      );
+      setProcessingSteps((prev) => markActiveOrPendingScanStepsError(prev, errorMessage));
     }
   };
 
@@ -1124,12 +1121,7 @@ export default function HomePage() {
     setProcessing(true);
 
     // Initialize steps for multiple files
-    const initialSteps: ProgressStep[] = files.map((_, index) => ({
-      id: `file-${index}`,
-      label: `画像 ${index + 1}/${totalFiles} を処理中...`,
-      status: index === 0 ? 'active' : 'pending',
-    }));
-    setProcessingSteps(initialSteps);
+    setProcessingSteps(buildMultipleScanInitialSteps(totalFiles));
 
     const projectDraft = typeof sessionStorage !== 'undefined'
       ? getScanConfirmProjectDraft(sessionStorage)
@@ -1152,11 +1144,7 @@ export default function HomePage() {
         const file = files[i];
 
         // Update current step to active
-        setProcessingSteps(prev => prev.map((s, idx) => ({
-          ...s,
-          status: idx < i ? 'complete' : idx === i ? 'active' : 'pending',
-          label: idx === i ? `画像 ${i + 1}/${totalFiles} を処理中...` : s.label,
-        })));
+        setProcessingSteps(prev => activateMultipleScanFileStep(prev, i, totalFiles));
 
         // Process image/PDF and convert to base64
         let base64: string;
@@ -1164,11 +1152,7 @@ export default function HomePage() {
           base64 = await processImageToBase64(file);
         } catch (imageError) {
           console.error('Image processing error:', imageError);
-          setProcessingSteps(prev => prev.map((s, idx) => ({
-            ...s,
-            status: idx === i ? 'error' : s.status,
-            label: idx === i ? `画像 ${i + 1}: 処理エラー` : s.label,
-          })));
+          setProcessingSteps(prev => markMultipleScanFileProcessingError(prev, i));
           continue;
         }
 
@@ -1194,11 +1178,7 @@ export default function HomePage() {
             return;
           }
           console.error(`Failed to process file ${i + 1}:`, result.error);
-          setProcessingSteps(prev => prev.map((s, idx) => ({
-            ...s,
-            status: idx === i ? 'error' : s.status,
-            label: idx === i ? `画像 ${i + 1}: エラー` : s.label,
-          })));
+          setProcessingSteps(prev => markMultipleScanFileApiError(prev, i));
           continue;
         }
 
@@ -1212,11 +1192,7 @@ export default function HomePage() {
         allLexiconEntries = mergeLexiconEntries(allLexiconEntries, result.lexiconEntries);
 
         // Mark current step as complete
-        setProcessingSteps(prev => prev.map((s, idx) => ({
-          ...s,
-          status: idx === i ? 'complete' : s.status,
-          label: idx === i ? `画像 ${i + 1}/${totalFiles} 完了` : s.label,
-        })));
+        setProcessingSteps(prev => completeMultipleScanFileStep(prev, i, totalFiles));
       }
 
       if (allWords.length === 0) {
@@ -1230,10 +1206,7 @@ export default function HomePage() {
         lexiconEntries: allLexiconEntries,
       });
 
-      setProcessingSteps(prev => [
-        ...prev.map(s => ({ ...s, status: 'complete' as const })),
-        { id: 'navigate', label: '結果を表示中...', status: 'active' },
-      ]);
+      setProcessingSteps(prev => appendMultipleScanNavigateStep(prev));
 
       setPendingGeneratingWordbook(null);
       startTransition(() => { router.push('/scan/confirm'); });
@@ -1242,14 +1215,9 @@ export default function HomePage() {
       console.error('Scan error:', error);
       setPendingGeneratingWordbook(null);
       setProcessingSteps((prev) =>
-        prev.map((s) =>
-          s.status === 'active' || s.status === 'pending'
-            ? {
-                ...s,
-                status: 'error',
-                label: error instanceof Error ? error.message : '予期しないエラーが発生しました',
-              }
-            : s
+        markActiveOrPendingScanStepsError(
+          prev,
+          error instanceof Error ? error.message : '予期しないエラーが発生しました',
         )
       );
     }
