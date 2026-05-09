@@ -188,8 +188,19 @@ P2-C Task 1-15 と [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) Task
 - [x] `scan-jobs/process` Task 1-7完了後のcheckpointを作る
   - 成果物: [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
   - Task 1-7で完了したこと、helper化された責務、固定済みtest、まだroute.ts に残る責務、次に触る時の注意点を整理した
-- [ ] Home巨大ファイル整理: `src/app/page.tsx` の画面責務と副作用を再棚卸しする
-  - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
+- [x] Home巨大ファイル整理: `src/app/page.tsx` の画面責務と副作用を再棚卸しする
+  - 成果物: [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md)
+  - 整理: 画面表示、scan開始、file upload、PDF expansion、sessionStorage handoff、repository / project / words操作、offline / PWA寄り処理、toast / notification、UI stateを分類
+  - 整理: `components/home`, `hooks`, `src/lib/scan/scan-session-storage.ts`, `src/lib/home-cache.ts`, `src/lib/image-utils.ts` など、既に外へ出ているhelper / component / hookを確認
+  - 次に実装へ進む場合の最初の推奨は、scanやrepositoryに触らないHome表示selectorの純粋helper化
+- [ ] Home表示selectorを純粋helperへ出す
+  - `src/app/page.tsx` のstatus countsとshared/my project sort/filterを、UI文言や挙動を変えずにhelper + testへ切り出す
+  - 認証、課金、スキャンAPI、同期、DB migration、package-lockは触らない
+- [ ] Home専用sessionStorage keyを小さくhelper化する
+  - `scanvocab_selected_project_id`, `scanvocab_generating_wordbook`, legacy `scanvocab_project_id` 削除を棚卸し済みの範囲で固定する
+  - `/scan/confirm` payload shape、file upload、API呼び出しは触らない
+- [ ] Home scan job local notificationのmessage builderを純粋helperへ出す
+  - completed / failed / grammar warningのgroupingとtitle/body/tag生成を固定し、Notification API呼び出し自体は別タスクに残す
 - [ ] Project巨大ファイル整理: `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
   - repository選択、scan-to-add、share、bulk delete、filter/sort UIを同時に触らない
 - [ ] Quiz巨大ファイル整理: `src/app/quiz/[projectId]/page.tsx` のクイズ進行、保存、表示を再棚卸しする

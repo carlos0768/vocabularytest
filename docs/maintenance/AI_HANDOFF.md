@@ -99,6 +99,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 - SCAN_PROCESS_NEXT_PLAN Task 5は 2026-05-09 に完了。`src/lib/scan/example-generation.ts` に `server_cloud` 用の `buildServerCloudExampleSeedWords()` / `buildServerCloudExampleUpdatePayload()` を追加し、inserted wordのexample生成対象選定とwords table update payload作成だけを純粋helperへ移動済み。`example_sentence` が空文字 / null / 空白だけのwordだけseedに入り、既存exampleありwordは除外され、seed idはinserted word idを使うこと、DB update payloadが `example_sentence`, `example_sentence_ja`, `part_of_speech_tags` を維持することを固定済み。route側は既存filter/map/object literalをhelper呼び出しへ置換しただけで、`generateExamples()` 呼び出し、`Promise.all` のSupabase update実行、lexicon master example save `after()`、timing加算、completed update、通知、pronunciation backfill、quiz prefill、rollback条件、client_local branch、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は313 tests pass
 - SCAN_PROCESS_NEXT_PLAN Task 6は 2026-05-09 に完了。`src/lib/scan/image-extraction.ts` とtestを追加し、1画像単位のStorage download、MIME判定、base64 data URL化、AI extraction呼び出し、download/extraction ms計測、page warning生成を `processScanImage()` へ移動済み。pdf/png/webp/jpegのMIME判定、download failureのwords/sourceLabels空 + error + pageWarning、extraction failureのfirst error候補 + pageWarning、success時のparse済みwords/sourceLabels/downloadMs/extractionMs、helper resultの `warningCode` 伝播を固定済み。route側の `processOneImage()` はhelper呼び出しと既存timing aggregate更新だけに留め、batch loop、並列数、grammar warning通知、dedupe、no words failure、DB status update、completed/failed通知、timing flush、post-processing、保存処理全体service化、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は317 tests pass
 - SCAN_PROCESS_NEXT_PLAN Task 7は 2026-05-09 に完了。`src/lib/scan/post-processing.ts` とtestを追加し、completed update後の `after()` 内にあるword lexicon resolution対象ID計算を `buildPostScanLexiconResolutionWordIds()`、post-scan quiz prefill seed計算を `buildPostScanQuizPrefillSeedWords()` へ移動済み。AI backfilled Japanese、lexicon entry不足、POS不足のlexicon resolution対象判定と、Task 3 `buildQuizPrefillSeedWords()` と同じpost-scan quiz prefill selector基準を固定済み。route側は `pendingWordIds` 計算とpost-scan quiz seed計算をhelper呼び出しへ置換しただけで、`after()` の配置、completed update前後の順序、enqueue/trigger、feature flag、通知、timing、scan_jobs update、project/word保存、example generation、認証、課金、同期、DB migration、package-lockは変更していない。`npm run verify` は成功し、`npm test` は322 tests pass
+- Home巨大ファイル保守性棚卸しは 2026-05-09 に [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) として作成済み。`src/app/page.tsx` は 1934 行で、画面表示、scan開始、file upload、PDF expansion、sessionStorage handoff、repository / project / words操作、offline / PWA寄り処理、toast / notification、UI stateを分類済み。コード変更はしていない。次にHome実装へ進む場合の最初の推奨は、認証、課金、スキャンAPI、同期、DB migration、package-lockに触れないHome表示selectorの純粋helper化
 
 詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
 
@@ -115,6 +116,7 @@ AIがこのリポジトリで作業する時は、最初にこのファイルを
 
 1. P2-C Task 1-15は完了済み。次セッションはまず [`P2C_CHECKPOINT.md`](P2C_CHECKPOINT.md) を読み、P2-C全体の未固定リスクを確認する
 2. [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 1-7は完了済み。`scan-jobs/process` 完了後の入口は [`SCAN_PROCESS_CHECKPOINT.md`](SCAN_PROCESS_CHECKPOINT.md)
-3. 推奨候補は、Home巨大ファイル整理、Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
-4. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない新しい小タスクへ切る
-5. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
+3. Home巨大ファイルの棚卸しは [`HOME_PAGE_AUDIT.md`](HOME_PAGE_AUDIT.md) に完了済み。Home実装へ進む場合は、最初にHome表示selectorの純粋helper化から始めるのが最も安全
+4. 他の推奨候補は、Project巨大ファイル整理、Quiz巨大ファイル整理、P2-D正式docs昇格
+5. `scan-jobs/process` の続きへ進む場合は、現行routeを再棚卸しし、DB状態遷移、rollback、通知、timing、post-processingの順序を無自覚に動かさない新しい小タスクへ切る
+6. P2-C以降も、認証、課金、スキャン、同期、DB migrationを同時に触らない。同期領域をさらに触る場合はTask 15で固定したdestructive guard / retry/drop contractを維持する
