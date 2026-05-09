@@ -176,14 +176,15 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
   - 成果物: [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md)
   - 現行routeを読み直し、Task 1-15で外に出た責務と、まだroute内に残る責務を分けた
   - DB状態遷移、rollback、通知、timing、post-processingを同時に動かさない小タスクへ切った
-- [ ] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 7以降を1回1責務で実施する
+- [x] [`SCAN_PROCESS_NEXT_PLAN.md`](SCAN_PROCESS_NEXT_PLAN.md) のTask 7以降を1回1責務で実施する
   - Task 1 `server_cloud` route contract追加は 2026-05-09 に完了
   - Task 2 `server_cloud` result payload builder抽出は 2026-05-09 に完了
   - Task 3 `quiz prefillのselector / update payloadを純粋helperへ出す` は 2026-05-09 に完了
   - Task 4 `client_local example generationのplan/apply helperを抽出する` は 2026-05-09 に完了
   - Task 5 `server_cloud example generationのseed / update payload helperを抽出する` は 2026-05-09 に完了
   - Task 6 `per-image extraction workerを小さく切り出す` は 2026-05-09 に完了
-  - 次はTask 7 `post-processing候補計算をpure helperへ出す` 候補。ただしcompleted update前後の順序、`after()` の配置、通知、timingは動かさない
+  - Task 7 `post-processing候補計算をpure helperへ出す` は 2026-05-09 に完了
+  - `SCAN_PROCESS_NEXT_PLAN.md` に列挙したTask 1-7は完了。次にscan-jobs/processをさらに触る場合は、現行routeを再棚卸しして新しい1責務タスクへ分ける
 - [ ] `src/app/page.tsx` の画面責務と副作用を再棚卸しする
   - scan開始、sessionStorage、file upload、PDF expansion、offline/PWA寄り処理、UI stateを分けてから実装単位を決める
 - [ ] `src/app/project/[id]/page.tsx` のデータ取得、表示、操作を再棚卸しする
@@ -210,6 +211,16 @@ P2-C Task 1-15は完了済みです。次の実装タスクへ入る前に [`P2C
 
 ## Done
 
+- [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 7 post-processing候補計算 helper抽出
+  - 追加: `src/lib/scan/post-processing.ts`, `src/lib/scan/post-processing.test.ts`
+  - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`
+  - 抽出: completed update後の `after()` 内にあったword lexicon resolution対象ID計算を `buildPostScanLexiconResolutionWordIds()` へ移動し、post-scan quiz prefill seed計算を `buildPostScanQuizPrefillSeedWords()` へ移動
+  - 固定: AI backfilled Japaneseのword idはlexicon resolution対象になる。`lexicon_entry_id` がないword、`part_of_speech_tags` が空/不足扱いのwordは対象になり、lexicon entryとPOSが揃っているwordは対象外になる。post-scan quiz prefill seedはTask 3の `buildQuizPrefillSeedWords()` と同じselector基準で作られる
+  - 変更: route側は `pendingWordIds` 計算とpost-scan quiz seed計算をhelper呼び出しへ置換しただけ
+  - 変更なし: `after()` の配置、completed update前後の順序、`enqueueWordLexiconResolutionJobs()` / `triggerWordLexiconResolutionProcessing()` の実行、`ENABLE_IMMEDIATE_WORD_LEXICON_PROCESSING`、`ENABLE_POST_SCAN_QUIZ_PREFILL`、`generateQuizContentWithRetry()`、quiz prefillのDB update実行、通知、timing、scan_jobs completed/failed update、project/word保存、example generation、prompt、認証、課金、同期、DB migration、package-lock
+  - 確認: `npm exec -- tsx --test src/lib/scan/post-processing.test.ts src/lib/scan/quiz-prefill.test.ts src/app/api/scan-jobs/process/route.contract.test.ts` 成功。17 tests pass
+  - 確認: `npm run verify` 成功。`lint:web` は0 errors / 97 warnings、`security:all` 成功、`npm test` は322 tests pass、`test:security` は38 tests pass、`build` 成功
+  - 残リスク: `after()` 内のenqueue/trigger実行、post-scan quiz prefill実行、非critical failure handlingはroute内に残る。DB状態遷移、rollback、通知、timingは今回触っていないため、次にscan-jobs/processをさらに分ける場合は再棚卸しから始める
 - [x] 2026-05-09: SCAN_PROCESS_NEXT_PLAN Task 6 per-image extraction worker helper抽出
   - 追加: `src/lib/scan/image-extraction.ts`, `src/lib/scan/image-extraction.test.ts`
   - 更新: `src/app/api/scan-jobs/process/route.ts`, `package.json`, `docs/maintenance/TASKS.md`, `docs/maintenance/AI_HANDOFF.md`

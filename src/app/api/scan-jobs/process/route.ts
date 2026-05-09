@@ -41,6 +41,10 @@ import {
   type ScanImageExtractionResult,
 } from '@/lib/scan/image-extraction';
 import {
+  buildPostScanLexiconResolutionWordIds,
+  buildPostScanQuizPrefillSeedWords,
+} from '@/lib/scan/post-processing';
+import {
   buildQuizPrefillSeedWords,
   buildQuizPrefillWordUpdatePayload,
   type QuizPrefillSeedWord,
@@ -55,7 +59,6 @@ import {
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import {
   enqueueWordLexiconResolutionJobs,
-  needsWordLexiconResolution,
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
@@ -1309,20 +1312,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
       // Heavy/non-critical tasks run after completion update.
       scheduleAfter(async () => {
-        const aiTranslatedWordIdSet = new Set(aiTranslatedWordIds);
-        const pendingWordIds = insertedWordsArray
-          .filter((row: {
-            id: string;
-            lexicon_entry_id?: string | null;
-            part_of_speech_tags?: unknown;
-          }) =>
-            aiTranslatedWordIdSet.has(row.id) ||
-            needsWordLexiconResolution({
-              lexiconEntryId: row.lexicon_entry_id ?? null,
-              partOfSpeechTags: row.part_of_speech_tags,
-            })
-          )
-          .map((row: { id: string }) => row.id);
+        const pendingWordIds = buildPostScanLexiconResolutionWordIds(
+          insertedWordsArray,
+          aiTranslatedWordIds,
+        );
 
         if (pendingWordIds.length > 0) {
           try {
@@ -1353,7 +1346,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (insertedWordsArray.length === 0) return;
 
         if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
-          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray);
+          const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray);
 
           if (quizSeedWords.length > 0) {
             let quizPrefillSucceeded = 0;
