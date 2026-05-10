@@ -2,9 +2,14 @@
 
 公開前の判断は「完璧な分割が終わったか」ではなく、「壊した時に検知でき、AIがdocsから状況復元でき、外部サービスの未確認点を把握できているか」で行います。
 
+## Main投入メモ
+
+2026-05-10に `codex/prelaunch-safety-baseline-current-ui` から `main` へfast-forward push済みです。mainに入った変更範囲、未確認項目、止める条件、戻し方は `docs/maintenance/MAIN_PUSH_RELEASE_NOTES_2026-05-10.md` を確認してください。
+
 ## 公開してよい条件
 
 - 最新UIベースのブランチから作業している。
+- `main` に入った変更範囲を `MAIN_PUSH_RELEASE_NOTES_2026-05-10.md` で確認済み。
 - `/signup` がモックではなく、メール・パスワード・OTPで登録できる導線になっている。
 - Google / Apple OAuthログインがSupabase本番設定で有効になっている。
 - `npm run verify` が通っている。
@@ -64,6 +69,8 @@ UI保護ルール:
 
 ## 外部サービス確認
 
+- [ ] Vercelのmain deploymentが成功している。
+- [ ] production URLで `/`、`/login`、`/signup` が表示できる。
 - [ ] Supabase本番envがVercel/実行環境に設定されている。
 - [ ] Supabase AuthのSite URLが本番 `NEXT_PUBLIC_APP_URL` と一致している。
 - [ ] Supabase RLSとmigrationの状態が本番DBと一致している。
@@ -72,6 +79,15 @@ UI保護ルール:
 - [ ] Stripe reconcile手順をrunbookから辿れる。
 - [ ] Cloud Run env/tokenが本番向けに設定されている。
 - [ ] App Store/IAPは公開範囲に含める場合のみ確認する。
+
+## Main投入後の追加確認
+
+- [ ] `main` 上で `npm run verify` が通る。
+- [ ] `main` 上で `npm test` が通る。
+- [ ] `main` 上で `npm run build` が通る。
+- [ ] Vercel deployment logsにmigration/env/auth関連の明確な失敗がない。
+- [ ] 学習統計が同一アカウントの別端末で一致する。
+- [ ] 問題が出た場合はVercel rollbackまたはrevert commitで戻す。force pushでmain履歴を巻き戻さない。
 
 ## 公開前に直すもの
 

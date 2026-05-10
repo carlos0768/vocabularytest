@@ -35,6 +35,7 @@
 - `docs/maintenance/AI_HANDOFF.md`: 次のAIが最初に読む引き継ぎ
 - `docs/maintenance/TASKS.md`: 公開前タスクの現在地
 - `docs/maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`: 公開判断前の最終チェックリスト
+- `docs/maintenance/MAIN_PUSH_RELEASE_NOTES_2026-05-10.md`: 2026-05-10にmainへ入った変更範囲と本番投入前の注意点
 - `docs/maintenance/ARCHITECTURE_MAINTAINABILITY_AUDIT.md`: 大局的な保守性棚卸し
 - `docs/maintenance/REFACTOR_PLAN.md`: 旧P2-Cの分解計画
 - `docs/maintenance/P2C_CHECKPOINT.md`: 旧P2-C完了後の固定済みcontractと残リスク

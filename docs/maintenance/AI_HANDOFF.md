@@ -2,11 +2,12 @@
 
 ## 現在の目的
 
-公開後もAIに安全に保守作業を任せられる最低ラインへ到達すること。旧 `codex/prelaunch-safety-baseline` で行った保守性向上作業は、最新 `origin/main` のUIを壊さずに `codex/prelaunch-safety-baseline-current-ui` へ再実装済みです。自動検証とローカルUI確認は完了済みで、次の主目的は外部サービス手動確認と公開判断です。
+公開後もAIに安全に保守作業を任せられる最低ラインへ到達すること。旧 `codex/prelaunch-safety-baseline` で行った保守性向上作業は、最新 `origin/main` のUIを壊さずに `codex/prelaunch-safety-baseline-current-ui` へ再実装済みです。2026-05-10に同ブランチの内容は `main` へfast-forward push済みです。自動検証とローカルUI確認は完了済みで、次の主目的は外部サービス手動確認と公開判断です。
 
 ## ブランチ方針
 
 - 正式な修正版ブランチ: `codex/prelaunch-safety-baseline-current-ui`
+- 2026-05-10時点で `main` は `codex/prelaunch-safety-baseline-current-ui` と同じ `d1fa9d2` を指す。
 - 参照専用の旧ブランチ: `codex/prelaunch-safety-baseline`
 - 旧ブランチの56コミット一括cherry-pickは禁止。
 - 最新 `origin/main` のUIを壊さないことを最優先にする。
@@ -37,6 +38,7 @@
 
 ## 現在の状態
 
+- main投入範囲の説明は `docs/maintenance/MAIN_PUSH_RELEASE_NOTES_2026-05-10.md` に固定済み。
 - `/signup` はメール・パスワード入力からOTP入力へ進む実動線に更新済み。
 - `/login` と `/signup` にGoogle / Apple OAuthログインを追加済み。Supabase Auth provider設定とredirect URL allowlistは本番手動確認対象。
 - 未ログイン時の `/` は新デザインcomponentを使ったゲスト向け登録導線。ログイン済みの学習ダッシュボードとは表示を分ける。
