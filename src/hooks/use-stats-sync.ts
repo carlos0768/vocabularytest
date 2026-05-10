@@ -18,14 +18,14 @@ import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
 const STATS_SYNC_INIT_KEY = 'merken_stats_sync_initialized';
 
 export function useStatsSync() {
-  const { user, isPro } = useAuth();
-  const hasInitializedRef = useRef(false);
+  const { user } = useAuth();
+  const initializedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user || !isPro || !isRemoteStatsSyncEnabled()) {
-      // Unregister callback when not Pro
+    if (!user || !isRemoteStatsSyncEnabled()) {
+      // Unregister callback when signed out or remote stats are disabled.
       registerStatsSyncCallback(null);
-      hasInitializedRef.current = false;
+      initializedUserIdRef.current = null;
       return;
     }
 
@@ -62,9 +62,9 @@ export function useStatsSync() {
       }
     });
 
-    // On first mount as Pro, push local data and pull remote data
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true;
+    // On first mount as an authenticated user, push local data and pull remote data.
+    if (initializedUserIdRef.current !== userId) {
+      initializedUserIdRef.current = userId;
 
       // Check if this is the first time syncing (initial Pro migration)
       const syncKey = `${STATS_SYNC_INIT_KEY}_${userId}`;
@@ -89,5 +89,5 @@ export function useStatsSync() {
     return () => {
       registerStatsSyncCallback(null);
     };
-  }, [user, isPro]);
+  }, [user]);
 }

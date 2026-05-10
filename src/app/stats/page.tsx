@@ -5,7 +5,6 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
-import { getActivityHistory } from '@/lib/utils';
 
 const HEAT_COLORS = [
   'rgba(26,26,26,0.07)',
@@ -44,7 +43,7 @@ export default function StatsPage() {
   const recentWeek = useMemo(() => stats?.weeklyStats.slice(-7) ?? [], [stats?.weeklyStats]);
   const weekTotal = recentWeek.reduce((sum, item) => sum + item.totalCount, 0);
   const maxWeekValue = Math.max(1, ...recentWeek.map((item) => item.totalCount));
-  const activity = useMemo(() => getActivityHistory(12), []);
+  const activity = useMemo(() => stats?.activityHistory ?? [], [stats?.activityHistory]);
   const heat = activity.map((item) => heatLevel(item.quizCount));
   const totalDays = activity.filter((item) => item.quizCount > 0).length;
   const avgPerDay = Math.round(weekTotal / 7);

@@ -132,8 +132,26 @@ export async function syncClearAllWrongAnswers(userId: string): Promise<void> {
 const DAILY_STATS_KEY = 'scanvocab_daily_stats';
 const STREAK_KEY = 'scanvocab_streak';
 const LAST_ACTIVITY_KEY = 'scanvocab_last_activity';
+const WEEKLY_STATS_KEY = 'scanvocab_weekly_stats';
 const WRONG_ANSWERS_KEY = 'scanvocab_wrong_answers';
 const ACTIVITY_HISTORY_KEY = 'scanvocab_activity_history';
+const REMOTE_ACTIVITY_HISTORY_DAYS = 84;
+
+type LocalWeeklyStatsEntry = {
+  date: string;
+  totalCount: number;
+  correctCount: number;
+  masteredCount: number;
+};
+
+function readLocalJsonArray<T>(key: string): T[] {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
 
 export async function pullStatsFromRemote(userId: string): Promise<void> {
   if (!isRemoteStatsSyncEnabled()) return;
@@ -147,7 +165,7 @@ export async function pullStatsFromRemote(userId: string): Promise<void> {
       supabase.from('user_wrong_answers').select('*').eq('user_id', userId),
       supabase.rpc('get_daily_stats_range', {
         p_user_id: userId,
-        p_start_date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        p_start_date: new Date(Date.now() - (REMOTE_ACTIVITY_HISTORY_DAYS - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         p_end_date: new Date().toISOString().split('T')[0],
       }),
     ]);
@@ -210,12 +228,11 @@ export async function pullStatsFromRemote(userId: string): Promise<void> {
 
     // Merge activity history (heatmap data)
     if (activityResult.data && !activityResult.error) {
-      const localHistory: DailyActivity[] = JSON.parse(
-        localStorage.getItem(ACTIVITY_HISTORY_KEY) || '[]',
-      );
+      const remoteRows = activityResult.data as { active_date: string; quiz_count: number; correct_count: number; mastered_count: number }[];
+      const localHistory: DailyActivity[] = readLocalJsonArray(ACTIVITY_HISTORY_KEY);
       const localMap = new Map(localHistory.map((h) => [h.date, h]));
 
-      for (const r of activityResult.data as { active_date: string; quiz_count: number; correct_count: number }[]) {
+      for (const r of remoteRows) {
         const existing = localMap.get(r.active_date);
         if (existing) {
           existing.quizCount = Math.max(existing.quizCount, r.quiz_count);
@@ -234,10 +251,35 @@ export async function pullStatsFromRemote(userId: string): Promise<void> {
         JSON.stringify(Array.from(localMap.values())),
       );
 
+      // Keep the legacy 14-day weekly cache in sync for home widgets.
+      const localWeekly: LocalWeeklyStatsEntry[] = readLocalJsonArray(WEEKLY_STATS_KEY);
+      const weeklyMap = new Map(localWeekly.map((entry) => [entry.date, entry]));
+      for (const r of remoteRows) {
+        const existing = weeklyMap.get(r.active_date);
+        if (existing) {
+          existing.totalCount = Math.max(existing.totalCount, r.quiz_count);
+          existing.correctCount = Math.max(existing.correctCount, r.correct_count);
+          existing.masteredCount = Math.max(existing.masteredCount, r.mastered_count);
+        } else {
+          weeklyMap.set(r.active_date, {
+            date: r.active_date,
+            totalCount: r.quiz_count,
+            correctCount: r.correct_count,
+            masteredCount: r.mastered_count,
+          });
+        }
+      }
+      const weeklyCutoff = new Date();
+      weeklyCutoff.setDate(weeklyCutoff.getDate() - 14);
+      const weeklyCutoffStr = weeklyCutoff.toISOString().split('T')[0];
+      localStorage.setItem(
+        WEEKLY_STATS_KEY,
+        JSON.stringify(Array.from(weeklyMap.values()).filter((entry) => entry.date >= weeklyCutoffStr)),
+      );
+
       // Also update today's daily stats if remote has data
       const today = new Date().toISOString().split('T')[0];
-      const todayRemote = (activityResult.data as { active_date: string; quiz_count: number; correct_count: number; mastered_count: number }[])
-        .find((r) => r.active_date === today);
+      const todayRemote = remoteRows.find((r) => r.active_date === today);
       if (todayRemote) {
         const stored = localStorage.getItem(DAILY_STATS_KEY);
         let localStats = { date: today, todayCount: 0, correctCount: 0, masteredCount: 0 };
@@ -281,13 +323,30 @@ export async function pushLocalStatsToRemote(userId: string): Promise<void> {
       await syncWrongAnswer(userId, wa);
     }
 
-    // Push activity history
-    const history: DailyActivity[] = JSON.parse(
-      localStorage.getItem(ACTIVITY_HISTORY_KEY) || '[]',
-    );
+    // Push activity history and weekly stats together so mastered counts are not lost.
+    const dailyMap = new Map<string, { quizCount: number; correctCount: number; masteredCount: number }>();
+    const history: DailyActivity[] = readLocalJsonArray(ACTIVITY_HISTORY_KEY);
     for (const day of history) {
-      if (day.quizCount > 0) {
-        await syncDailyStats(userId, day.date, day.quizCount, day.correctCount, 0);
+      dailyMap.set(day.date, {
+        quizCount: day.quizCount,
+        correctCount: day.correctCount,
+        masteredCount: 0,
+      });
+    }
+
+    const weeklyStats: LocalWeeklyStatsEntry[] = readLocalJsonArray(WEEKLY_STATS_KEY);
+    for (const day of weeklyStats) {
+      const existing = dailyMap.get(day.date);
+      dailyMap.set(day.date, {
+        quizCount: Math.max(existing?.quizCount ?? 0, day.totalCount),
+        correctCount: Math.max(existing?.correctCount ?? 0, day.correctCount),
+        masteredCount: Math.max(existing?.masteredCount ?? 0, day.masteredCount),
+      });
+    }
+
+    for (const [date, day] of dailyMap.entries()) {
+      if (day.quizCount > 0 || day.masteredCount > 0) {
+        await syncDailyStats(userId, date, day.quizCount, day.correctCount, day.masteredCount);
       }
     }
 

@@ -7,7 +7,16 @@
  */
 
 import { createBrowserClient } from '@/lib/supabase';
-import { getDailyStats, getWrongAnswers, getStreakDays, getGuestUserId, getWeeklyStats, type WeeklyStatsEntry } from '@/lib/utils';
+import {
+  getActivityHistory,
+  getDailyStats,
+  getWrongAnswers,
+  getStreakDays,
+  getGuestUserId,
+  getWeeklyStats,
+  type DailyActivity,
+  type WeeklyStatsEntry,
+} from '@/lib/utils';
 import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
 import type { SubscriptionStatus, Word } from '@/types';
@@ -27,6 +36,7 @@ export interface CachedStats {
     lastQuizDate: string | null;
   };
   weeklyStats: WeeklyStatsEntry[];
+  activityHistory: DailyActivity[];
 }
 
 // Module-level cache
@@ -34,13 +44,106 @@ let cachedStats: CachedStats | null = null;
 let cachedUserId: string | null = null;
 let fetchPromise: Promise<CachedStats | null> | null = null;
 
+const ACTIVITY_HISTORY_WEEKS = 12;
+const ACTIVITY_HISTORY_DAYS = ACTIVITY_HISTORY_WEEKS * 7;
+
+function isAuthenticatedStatsUser(userId: string): boolean {
+  return userId !== 'server-side' && userId !== 'guest_fallback' && !userId.startsWith('guest_');
+}
+
+function makeDateKey(daysAgo: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return date.toISOString().split('T')[0];
+}
+
+function buildActivityHistoryWindow(
+  entries: DailyActivity[],
+  weeks: number = ACTIVITY_HISTORY_WEEKS,
+): DailyActivity[] {
+  const map = new Map(entries.map((entry) => [entry.date, entry]));
+  const days = weeks * 7;
+  const result: DailyActivity[] = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = makeDateKey(i);
+    result.push(map.get(date) ?? { date, quizCount: 0, correctCount: 0 });
+  }
+
+  return result;
+}
+
+function mergeActivityHistories(
+  cached: DailyActivity[],
+  local: DailyActivity[],
+): DailyActivity[] {
+  const map = new Map<string, DailyActivity>();
+
+  for (const entry of [...cached, ...local]) {
+    const existing = map.get(entry.date);
+    if (!existing) {
+      map.set(entry.date, { ...entry });
+      continue;
+    }
+    existing.quizCount = Math.max(existing.quizCount, entry.quizCount);
+    existing.correctCount = Math.max(existing.correctCount, entry.correctCount);
+  }
+
+  return buildActivityHistoryWindow(Array.from(map.values()));
+}
+
+function mergeWeeklyStats(
+  cached: WeeklyStatsEntry[],
+  local: WeeklyStatsEntry[],
+): WeeklyStatsEntry[] {
+  const map = new Map<string, WeeklyStatsEntry>();
+
+  for (const entry of [...cached, ...local]) {
+    const existing = map.get(entry.date);
+    if (!existing) {
+      map.set(entry.date, { ...entry });
+      continue;
+    }
+    existing.totalCount = Math.max(existing.totalCount, entry.totalCount);
+    existing.correctCount = Math.max(existing.correctCount, entry.correctCount);
+    existing.masteredCount = Math.max(existing.masteredCount, entry.masteredCount);
+  }
+
+  const result: WeeklyStatsEntry[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const date = makeDateKey(i);
+    result.push(map.get(date) ?? { date, totalCount: 0, correctCount: 0, masteredCount: 0 });
+  }
+  return result;
+}
+
+function activityHistoryToWeeklyStats(history: DailyActivity[]): WeeklyStatsEntry[] {
+  const map = new Map(history.map((entry) => [entry.date, entry]));
+  const result: WeeklyStatsEntry[] = [];
+
+  for (let i = 13; i >= 0; i--) {
+    const date = makeDateKey(i);
+    const entry = map.get(date);
+    result.push({
+      date,
+      totalCount: entry?.quizCount ?? 0,
+      correctCount: entry?.correctCount ?? 0,
+      masteredCount: 0,
+    });
+  }
+
+  return result;
+}
+
 /**
  * 実際のWordデータから14日間の日別習得数を計算する。
  * 各日にmastered状態になった単語数（lastReviewedAt基準）を表示。
  * quiz activityカウント(totalCount, correctCount)はlocalStorageから取得。
  */
-function buildMasteryHistory(allWords: Word[]): WeeklyStatsEntry[] {
-  const localEntries = getWeeklyStats();
+function buildMasteryHistory(
+  allWords: Word[],
+  activityEntries: WeeklyStatsEntry[] = getWeeklyStats(),
+): WeeklyStatsEntry[] {
   const result: WeeklyStatsEntry[] = [];
 
   for (let i = 13; i >= 0; i--) {
@@ -61,7 +164,7 @@ function buildMasteryHistory(allWords: Word[]): WeeklyStatsEntry[] {
       return proxyDate >= startOfDayISO && proxyDate < endOfDayISO;
     }).length;
 
-    const localEntry = localEntries.find(e => e.date === dateStr);
+    const localEntry = activityEntries.find(e => e.date === dateStr);
     result.push({
       date: dateStr,
       totalCount: localEntry?.totalCount ?? 0,
@@ -82,28 +185,22 @@ export function getCachedStats(): CachedStats | null {
   const dailyStats = getDailyStats();
   const wrongAnswers = getWrongAnswers();
   const streakDays = getStreakDays();
+  const activityHistory = mergeActivityHistories(cachedStats.activityHistory, getActivityHistory(ACTIVITY_HISTORY_WEEKS));
 
   // weeklyStatsのquiz activityカウントのみlocalStorageから更新
   // masteredCountはWordデータから計算済みなのでキャッシュ値を保持
-  const localEntries = getWeeklyStats();
-  const mergedWeeklyStats = cachedStats.weeklyStats.map(entry => {
-    const localEntry = localEntries.find(e => e.date === entry.date);
-    return {
-      ...entry,
-      totalCount: localEntry?.totalCount ?? entry.totalCount,
-      correctCount: localEntry?.correctCount ?? entry.correctCount,
-    };
-  });
+  const mergedWeeklyStats = mergeWeeklyStats(cachedStats.weeklyStats, getWeeklyStats());
 
   return {
     ...cachedStats,
-    wrongAnswersCount: wrongAnswers.length,
+    wrongAnswersCount: Math.max(cachedStats.wrongAnswersCount, wrongAnswers.length),
     weeklyStats: mergedWeeklyStats,
+    activityHistory,
     quizStats: {
       ...cachedStats.quizStats,
-      todayCount: dailyStats.todayCount,
-      correctCount: dailyStats.correctCount,
-      streakDays,
+      todayCount: Math.max(cachedStats.quizStats.todayCount, dailyStats.todayCount),
+      correctCount: Math.max(cachedStats.quizStats.correctCount, dailyStats.correctCount),
+      streakDays: Math.max(cachedStats.quizStats.streakDays, streakDays),
     },
   };
 }
@@ -201,6 +298,32 @@ async function fetchStatsViaRpc(userId: string): Promise<{
   };
 }
 
+type RemoteDailyStatsRow = {
+  active_date: string;
+  quiz_count: number;
+  correct_count: number;
+  mastered_count: number;
+};
+
+async function fetchRemoteActivityHistory(userId: string): Promise<DailyActivity[]> {
+  const supabase = createBrowserClient();
+  const { data, error } = await supabase.rpc('get_daily_stats_range', {
+    p_user_id: userId,
+    p_start_date: makeDateKey(ACTIVITY_HISTORY_DAYS - 1),
+    p_end_date: makeDateKey(0),
+  });
+
+  if (error) throw error;
+
+  return buildActivityHistoryWindow(
+    ((data ?? []) as RemoteDailyStatsRow[]).map((row) => ({
+      date: String(row.active_date),
+      quizCount: row.quiz_count ?? 0,
+      correctCount: row.correct_count ?? 0,
+    })),
+  );
+}
+
 /**
  * Freeユーザー: home-cache から集計（DBクエリゼロ）
  */
@@ -250,6 +373,7 @@ async function fetchStatsData(
     const isProUser = isPro ?? subscriptionStatus === 'active';
     // Downgraded users still have data in Supabase, use RPC to fetch stats
     const hasRemoteData = isProUser || (wasPro ?? false);
+    const canUseRemoteStats = isAuthenticatedStatsUser(userId) && isRemoteStatsSyncEnabled();
 
     // Free: home-cache から即座に集計 / Pro/wasPro: RPC 1クエリ
     let wordStats: {
@@ -320,18 +444,22 @@ async function fetchStatsData(
     const dailyStats = getDailyStats();
     const wrongAnswers = getWrongAnswers();
     const streakDays = getStreakDays();
+    let activityHistory = getActivityHistory(ACTIVITY_HISTORY_WEEKS);
 
-    // For Pro users, also fetch remote wrong answer count and streak
-    // to ensure we show the most complete data
+    // Authenticated users store non-word learning stats in Supabase. Local
+    // values remain an instant cache and offline fallback.
     let wrongAnswersCount = wrongAnswers.length;
     let finalStreakDays = streakDays;
+    let todayCount = dailyStats.todayCount;
+    let correctCount = dailyStats.correctCount;
 
-    if (hasRemoteData && isRemoteStatsSyncEnabled()) {
+    if (canUseRemoteStats) {
       try {
         const supabase = createBrowserClient();
-        const [wrongCountResult, streakResult] = await Promise.all([
+        const [wrongCountResult, streakResult, remoteActivityHistory] = await Promise.all([
           supabase.from('user_wrong_answers').select('id', { count: 'exact', head: true }).eq('user_id', userId),
           supabase.from('user_streak').select('streak_count, last_activity_date').eq('user_id', userId).maybeSingle(),
+          fetchRemoteActivityHistory(userId),
         ]);
 
         if (wrongCountResult.count !== null && wrongCountResult.count !== undefined) {
@@ -346,20 +474,29 @@ async function fetchStatsData(
             finalStreakDays = Math.max(finalStreakDays, streakResult.data.streak_count);
           }
         }
+
+        activityHistory = mergeActivityHistories(remoteActivityHistory, activityHistory);
+        const today = makeDateKey(0);
+        const todayRemote = remoteActivityHistory.find((entry) => entry.date === today);
+        if (todayRemote) {
+          todayCount = Math.max(todayCount, todayRemote.quizCount);
+          correctCount = Math.max(correctCount, todayRemote.correctCount);
+        }
       } catch {
         // Fallback to local values
       }
     }
 
-    const weeklyStats = buildMasteryHistory(allWords);
+    const weeklyStats = buildMasteryHistory(allWords, activityHistoryToWeeklyStats(activityHistory));
 
     const stats: CachedStats = {
       ...wordStats,
       wrongAnswersCount,
       weeklyStats,
+      activityHistory,
       quizStats: {
-        todayCount: dailyStats.todayCount,
-        correctCount: dailyStats.correctCount,
+        todayCount,
+        correctCount,
         streakDays: finalStreakDays,
         lastQuizDate: null,
       },
