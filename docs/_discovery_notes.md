@@ -325,7 +325,7 @@ _All marked as Inferred_
 
 3. **Free user word limit client-side only**: The 100-word limit for free users is enforced in `scan/confirm/page.tsx` client-side. There is no server-side enforcement of this limit at the word creation level. A free user could theoretically bypass this by calling the API directly.
 
-4. **Grammar feature status**: The CLAUDE.md references a grammar learning feature (`/grammar/[projectId]/scan`, `/grammar/[projectId]`), but these routes were not found in the current `src/app/` directory tree. Either they were removed or not yet created. `vercel.json` references `src/app/api/grammar/route.ts` for timeout configuration, suggesting an API route may exist. Needs verification.
+4. **Grammar feature status**: The CLAUDE.md references a grammar learning feature (`/grammar/[projectId]/scan`, `/grammar/[projectId]`), but these routes were not found in the current `src/app/` directory tree. Either they were removed or not yet created. The stale `vercel.json` timeout for `src/app/api/grammar/route.ts` has been removed.
 
 5. **`/api/security` endpoint**: There is an `src/app/api/security/` directory but its route file was not read. Its purpose and auth requirements are unknown.
 

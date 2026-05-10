@@ -288,8 +288,9 @@ iOS purchase -> app sends transactionId
 
 | Route | Timeout |
 |-------|---------|
-| `src/app/api/extract/route.ts` | 60s |
-| `src/app/api/sentence-quiz/route.ts` | 60s |
-| `src/app/api/grammar/route.ts` | 60s (route does not currently exist -- stale config) |
-| `src/app/api/regenerate-distractors/route.ts` | 30s |
+| `src/app/api/extract/route.ts` | 120s |
+| `src/app/api/scan-jobs/route.ts` | 300s |
+| `src/app/api/scan-jobs/create/route.ts` | 300s |
+| `src/app/api/scan-jobs/process/route.ts` | 300s |
+| `src/app/api/generate-examples/route.ts` | 60s |
 | `src/app/api/generate-quiz-distractors/route.ts` | 30s |

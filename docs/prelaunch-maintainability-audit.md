@@ -100,7 +100,7 @@
 - READMEはKOMOJU決済中心だが、実装と `.env.example` はStripe中心。
 - `docs/architecture.md` はStripeと書いているが、READMEや `CLAUDE.md` の一部はKOMOJUのまま。
 - `.env.example` にSentry設定があるが、`src/instrumentation.ts` は「Sentry removed」のno-op。
-- `vercel.json` に存在しない `src/app/api/grammar/route.ts` の設定が残っている。
+- `vercel.json` に存在しない `src/app/api/grammar/route.ts` の設定が残っていた（未使用API整理で解消済み）。
 - `docs/commands.md` のプロジェクトルートがWindowsパス `C:\Users\carlo\working\englishvo` のまま。
 - docs内のmigration数が古い。実際は76本。
 - `docs/commands.md` のテスト一覧が `package.json` の現在の `test` scriptと一致していない。
