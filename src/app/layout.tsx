@@ -119,14 +119,7 @@ export default function RootLayout({
             }),
           }}
         />
-        <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />
-        {ADSENSE_CLIENT_ID && (
-          <script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
-            crossOrigin="anonymous"
-          />
-        )}
+        {ADSENSE_CLIENT_ID && <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />}
       </head>
       <body
         className={`${lexend.variable} ${notoSansJP.variable} antialiased`}

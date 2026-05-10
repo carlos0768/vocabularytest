@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import Script from 'next/script';
 import { cn } from '@/lib/utils';
+import {
+  ADSENSE_CLIENT_ID,
+  ADSENSE_DISPLAY_ADS_ENABLED,
+} from '@/lib/adsense';
 
 declare global {
   interface Window {
@@ -17,15 +22,6 @@ type DesktopAdSlotProps = {
   className?: string;
 };
 
-function normalizeClientId(value?: string): string {
-  const trimmed = value?.trim();
-  if (!trimmed) return '';
-  return trimmed.startsWith('ca-pub-') ? trimmed : `ca-pub-${trimmed}`;
-}
-
-const ADSENSE_CLIENT_ID = normalizeClientId(
-  process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID,
-);
 const DESKTOP_SLOT_IDS: Record<DesktopAdSlotSide, string> = {
   left: process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_DESKTOP_LEFT_SLOT?.trim() ?? '',
   right: process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_DESKTOP_RIGHT_SLOT?.trim() ?? '',
@@ -42,7 +38,7 @@ export function DesktopAdSlot({
   const slotId = DESKTOP_SLOT_IDS[side];
   const adRef = useRef<HTMLModElement | null>(null);
   const pushedRef = useRef(false);
-  const isConfigured = Boolean(ADSENSE_CLIENT_ID && slotId);
+  const isConfigured = Boolean(ADSENSE_DISPLAY_ADS_ENABLED && ADSENSE_CLIENT_ID && slotId);
   const sideLabel = side === 'left' ? '左' : '右';
 
   useEffect(() => {
@@ -86,22 +82,31 @@ export function DesktopAdSlot({
   }
 
   return (
-    <aside
-      aria-label={`${label} ${sideLabel}広告`}
-      className={cn(
-        'h-[600px] w-[160px] overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-soft',
-        className,
-      )}
-    >
-      <ins
-        ref={adRef}
-        className="adsbygoogle block"
-        style={{ display: 'block', width: '160px', height: '600px' }}
-        data-ad-client={ADSENSE_CLIENT_ID}
-        data-ad-format="rectangle"
-        data-ad-slot={slotId}
-        data-full-width-responsive="false"
+    <>
+      <Script
+        id="google-adsense-display"
+        async
+        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+        crossOrigin="anonymous"
+        strategy="afterInteractive"
       />
-    </aside>
+      <aside
+        aria-label={`${label} ${sideLabel}広告`}
+        className={cn(
+          'h-[600px] w-[160px] overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-soft',
+          className,
+        )}
+      >
+        <ins
+          ref={adRef}
+          className="adsbygoogle block"
+          style={{ display: 'block', width: '160px', height: '600px' }}
+          data-ad-client={ADSENSE_CLIENT_ID}
+          data-ad-format="rectangle"
+          data-ad-slot={slotId}
+          data-full-width-responsive="false"
+        />
+      </aside>
+    </>
   );
 }
