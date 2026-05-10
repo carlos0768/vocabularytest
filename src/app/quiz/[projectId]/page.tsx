@@ -259,7 +259,7 @@ function DSWordOrderPanel({
           }}
         >
           <p className="text-sm font-bold text-[var(--solid-ink)]">
-            {result === 'correct' ? '正解' : '正解'}
+            {result === 'correct' ? '正解' : '不正解'}
           </p>
           <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">{question.word.english}</p>
         </div>
