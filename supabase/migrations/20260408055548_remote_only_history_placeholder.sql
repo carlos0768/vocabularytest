@@ -1,0 +1,9 @@
+-- Remote-only migration history placeholder.
+--
+-- The remote database already contains migration version 20260408055548, but
+-- the corresponding SQL file is not present in this branch or local git
+-- history. Keep this no-op file so Supabase CLI migration history checks do
+-- not block future local migrations from being pushed.
+--
+-- Do not edit the remote migration history for this version unless the
+-- original SQL is recovered and reconciled intentionally.
