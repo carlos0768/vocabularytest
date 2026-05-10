@@ -47,6 +47,7 @@
 - 旧P2-C、scan process追加分割、Auth OTP、Stripe/reconcile、sync queue、AI prompt split、Home/Project/Quiz helperは最新UIブランチへ再実装済み。
 - `src/components/redesign/**` と `src/app/globals.css` に差分は入れていない。
 - 初回公開では、添削と構造解析は非表示。ナビ、ホーム、スキャン導線から外し、`/correction/**` と `/parser/**` のページは404にする。API実装とDBは削除しない。
+- 未使用API整理では、呼び出し元もdocs所有もない `/api/feedback` と、存在しない `/api/grammar` routeのVercel timeout設定だけを削除済み。`/api/dictation/grade` と `/api/translate` はdocs上の既存APIとして保持し、`/api/correction/**` と `/api/parser/**` は上記方針どおり保持する。
 - `npm run security:deps`, `npm run security:secrets`, `npm run security:all`, `npm run lint:web`, `npm test`, `npm run build`, `npm run verify` は通過済み。
 - ブラウザで `/`, `/login`, `/signup`, `/project/[id]`, `/quiz/[projectId]` を確認済み。未ログインのProject/Quizはlogin redirectで保護される。
 - 実メールOTP到達と本番外部サービス確認は未実施。

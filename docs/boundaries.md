@@ -214,4 +214,4 @@ When you change X, you must also check Y.
 
 3. **`wasPro` inconsistency**: `use-projects.ts` correctly passes `wasPro` to `getRepository()`, but `scan/confirm/page.tsx` may not pass it in all code paths. This could cause downgraded Pro users to get `localRepository` instead of `readonlyRemoteRepository` during certain operations.
 
-4. **Grammar feature**: No `src/app/grammar/` or `src/app/api/grammar/` routes exist in the codebase, though `vercel.json` references `src/app/api/grammar/route.ts` and CLAUDE.md describes it. The feature appears to have been removed or never implemented. The `vercel.json` reference should be cleaned up.
+4. **Grammar feature**: No `src/app/grammar/` or `src/app/api/grammar/` routes exist in the codebase. The stale `vercel.json` timeout for `src/app/api/grammar/route.ts` has been removed. If grammar is restored, add routes, middleware protection, tests, and any required Vercel timeout together.
