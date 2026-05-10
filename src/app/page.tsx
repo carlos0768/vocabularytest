@@ -358,7 +358,7 @@ export default function HomePage() {
     dueCount > 0 ? 'review' : totalWords === 0 ? 'empty' : 'learn';
   const visibleProjects = projects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
-  if (authLoading && user) {
+  if (authLoading) {
     return <HomeLoadingScreen />;
   }
 
