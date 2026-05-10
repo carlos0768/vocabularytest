@@ -3,28 +3,43 @@
 import { useState, useEffect, useMemo } from 'react';
 import { SolidHeader, SolidPage, SolidPanel, SolidSectionTitle, SolidStatCard } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
-import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
+import { getStats, type CachedStats } from '@/lib/stats-cache';
 
 export default function StatsPage() {
   const { user, subscription, isPro, wasPro, loading: authLoading } = useAuth();
 
-  const [stats, setStats] = useState<CachedStats | null>(() => getCachedStats());
+  const [stats, setStats] = useState<CachedStats | null>(null);
   const [loading, setLoading] = useState(!stats);
+  const [statsUserKey, setStatsUserKey] = useState<string | null>(null);
+  const currentUserKey = user?.id ?? 'guest';
+  const isLoadingStats = authLoading || loading || statsUserKey !== currentUserKey;
 
   useEffect(() => {
     if (authLoading) return;
 
+    const resolvedUserId = user?.id ?? null;
+    const requestUserKey = user?.id ?? 'guest';
+    let cancelled = false;
+
     const subscriptionStatus = subscription?.status ?? 'free';
-    getStats(subscriptionStatus, user?.id ?? null, isPro, wasPro)
+    getStats(subscriptionStatus, resolvedUserId, isPro, wasPro)
       .then((freshStats) => {
+        if (cancelled) return;
         setStats(freshStats);
+        setStatsUserKey(requestUserKey);
         setLoading(false);
       })
       .catch((error) => {
+        if (cancelled) return;
         console.error('Failed to load stats:', error);
+        setStats(null);
+        setStatsUserKey(requestUserKey);
         setLoading(false);
       });
-  }, [subscription?.status, authLoading, isPro, user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [subscription?.status, authLoading, isPro, user?.id, wasPro]);
 
   const masteryPercentage = stats && stats.totalWords > 0
     ? Math.round((stats.masteredWords / stats.totalWords) * 100)
@@ -49,7 +64,7 @@ export default function StatsPage() {
           title="進歩"
           description="毎日の正解数、単語の習得率、復習量をまとめて確認します。"
         />
-          {loading ? (
+          {isLoadingStats ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-3 border-[var(--color-foreground)] border-t-transparent rounded-full animate-spin" />
             </div>

@@ -467,6 +467,7 @@ export function clearAllWrongAnswers(): void {
 
 // Weekly activity heatmap tracking
 const ACTIVITY_HISTORY_KEY = 'scanvocab_activity_history';
+const STATS_OWNER_KEY = 'scanvocab_stats_owner';
 
 export interface DailyActivity {
   date: string; // YYYY-MM-DD
@@ -546,15 +547,42 @@ export function recordDailyActivity(isCorrect: boolean): void {
   localStorage.setItem(ACTIVITY_HISTORY_KEY, JSON.stringify(history));
 }
 
+const USER_STATS_KEYS = [
+  DAILY_STATS_KEY,
+  STREAK_KEY,
+  LAST_ACTIVITY_KEY,
+  WEEKLY_STATS_KEY,
+  WRONG_ANSWERS_KEY,
+  ACTIVITY_HISTORY_KEY,
+];
+
+function clearUserStatsValues(): void {
+  for (const key of USER_STATS_KEYS) {
+    localStorage.removeItem(key);
+  }
+}
+
+/**
+ * localStorage の学習統計はユーザーIDなしのキーで保存されるため、現在の
+ * ログインユーザーを記録して、端末内のアカウント切替時に前ユーザーの値を
+ * 読まないようにする。
+ */
+export function ensureUserStatsOwner(userId: string): void {
+  if (typeof window === 'undefined' || !userId) return;
+
+  const currentOwner = localStorage.getItem(STATS_OWNER_KEY);
+  if (currentOwner !== userId) {
+    clearUserStatsValues();
+  }
+  localStorage.setItem(STATS_OWNER_KEY, userId);
+}
+
 /**
  * ログアウト時に全ユーザー統計データをlocalStorageからクリアする。
  * ユーザーIDに紐づかないキーがアカウント間で混在するのを防ぐ。
  */
 export function clearAllUserStats(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(DAILY_STATS_KEY);
-  localStorage.removeItem(STREAK_KEY);
-  localStorage.removeItem(LAST_ACTIVITY_KEY);
-  localStorage.removeItem(WRONG_ANSWERS_KEY);
-  localStorage.removeItem(ACTIVITY_HISTORY_KEY);
+  clearUserStatsValues();
+  localStorage.removeItem(STATS_OWNER_KEY);
 }

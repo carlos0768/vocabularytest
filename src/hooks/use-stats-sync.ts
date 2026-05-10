@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { registerStatsSyncCallback } from '@/lib/utils';
+import { ensureUserStatsOwner, registerStatsSyncCallback } from '@/lib/utils';
 import type { WrongAnswer } from '@/lib/utils';
 import {
   syncDailyStats,
@@ -30,6 +30,7 @@ export function useStatsSync() {
     }
 
     const userId = user.id;
+    ensureUserStatsOwner(userId);
 
     // Register sync callback for all stat mutations
     registerStatsSyncCallback((event, payload) => {

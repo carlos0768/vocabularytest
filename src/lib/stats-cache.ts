@@ -14,6 +14,7 @@ import {
   getStreakDays,
   getGuestUserId,
   getWeeklyStats,
+  ensureUserStatsOwner,
   type DailyActivity,
   type WeeklyStatsEntry,
 } from '@/lib/utils';
@@ -43,12 +44,19 @@ export interface CachedStats {
 let cachedStats: CachedStats | null = null;
 let cachedUserId: string | null = null;
 let fetchPromise: Promise<CachedStats | null> | null = null;
+let fetchPromiseUserId: string | null = null;
 
 const ACTIVITY_HISTORY_WEEKS = 12;
 const ACTIVITY_HISTORY_DAYS = ACTIVITY_HISTORY_WEEKS * 7;
 
 function isAuthenticatedStatsUser(userId: string): boolean {
   return userId !== 'server-side' && userId !== 'guest_fallback' && !userId.startsWith('guest_');
+}
+
+function prepareStatsStorage(userId: string): void {
+  if (isAuthenticatedStatsUser(userId)) {
+    ensureUserStatsOwner(userId);
+  }
 }
 
 function makeDateKey(daysAgo: number): string {
@@ -178,8 +186,11 @@ function buildMasteryHistory(
 /**
  * キャッシュ済みの統計データを返す（なければnull）
  */
-export function getCachedStats(): CachedStats | null {
+export function getCachedStats(userId?: string | null): CachedStats | null {
+  const resolvedUserId = userId === undefined ? cachedUserId : userId ?? getGuestUserId();
+  if (resolvedUserId && cachedUserId && cachedUserId !== resolvedUserId) return null;
   if (!cachedStats) return null;
+  if (resolvedUserId) prepareStatsStorage(resolvedUserId);
 
   // localStorageデータは常に最新を反映
   const dailyStats = getDailyStats();
@@ -224,17 +235,22 @@ export function prefetchStats(
   wasPro: boolean = false,
 ): void {
   const resolvedUserId = userId ?? getGuestUserId();
+  prepareStatsStorage(resolvedUserId);
 
   // 同じユーザーのキャッシュが既にあればスキップ
   if (cachedStats && cachedUserId === resolvedUserId) return;
 
   // 既にフェッチ中ならスキップ
-  if (fetchPromise) return;
+  if (fetchPromise && fetchPromiseUserId === resolvedUserId) return;
 
-  fetchPromise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro)
-    .finally(() => {
-      fetchPromise = null;
-    });
+  fetchPromiseUserId = resolvedUserId;
+  const promise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro);
+  const wrappedPromise = promise.finally(() => {
+    if (fetchPromise !== wrappedPromise) return;
+    fetchPromise = null;
+    fetchPromiseUserId = null;
+  });
+  fetchPromise = wrappedPromise;
 }
 
 /**
@@ -247,21 +263,24 @@ export async function getStats(
   wasPro: boolean = false,
 ): Promise<CachedStats> {
   const resolvedUserId = userId ?? getGuestUserId();
+  prepareStatsStorage(resolvedUserId);
 
   // キャッシュがあれば即返す
   if (cachedStats && cachedUserId === resolvedUserId) {
-    return getCachedStats()!;
+    return getCachedStats(resolvedUserId)!;
   }
 
   // フェッチ中ならそれを待つ
-  if (fetchPromise) {
+  if (fetchPromise && fetchPromiseUserId === resolvedUserId) {
     const result = await fetchPromise;
-    if (result) return getCachedStats()!;
+    if (result) return getCachedStats(resolvedUserId)!;
   }
 
   // フェッチ実行
   const stats = await fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro);
-  return stats || getCachedStats()!;
+  const cached = getCachedStats(resolvedUserId);
+  if (stats || cached) return (stats ?? cached)!;
+  throw new Error('Stats unavailable');
 }
 
 /**
@@ -270,6 +289,8 @@ export async function getStats(
 export function invalidateStatsCache(): void {
   cachedStats = null;
   cachedUserId = null;
+  fetchPromise = null;
+  fetchPromiseUserId = null;
 }
 
 /**
@@ -370,6 +391,7 @@ async function fetchStatsData(
   wasPro?: boolean,
 ): Promise<CachedStats | null> {
   try {
+    prepareStatsStorage(userId);
     const isProUser = isPro ?? subscriptionStatus === 'active';
     // Downgraded users still have data in Supabase, use RPC to fetch stats
     const hasRemoteData = isProUser || (wasPro ?? false);

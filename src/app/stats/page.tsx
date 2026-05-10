@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
-import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
+import { getStats, type CachedStats } from '@/lib/stats-cache';
 
 const HEAT_COLORS = [
   'rgba(26,26,26,0.07)',
@@ -22,22 +22,38 @@ function heatLevel(count: number): number {
 
 export default function StatsPage() {
   const { user, subscription, isPro, wasPro, loading: authLoading } = useAuth();
-  const [stats, setStats] = useState<CachedStats | null>(() => getCachedStats());
+  const [stats, setStats] = useState<CachedStats | null>(null);
   const [loading, setLoading] = useState(!stats);
+  const [statsUserKey, setStatsUserKey] = useState<string | null>(null);
+  const currentUserKey = user?.id ?? 'guest';
+  const isLoadingStats = authLoading || loading || statsUserKey !== currentUserKey;
 
   useEffect(() => {
     if (authLoading) return;
 
+    const resolvedUserId = user?.id ?? null;
+    const requestUserKey = user?.id ?? 'guest';
+    let cancelled = false;
+
     const subscriptionStatus = subscription?.status ?? 'free';
-    getStats(subscriptionStatus, user?.id ?? null, isPro, wasPro)
+    getStats(subscriptionStatus, resolvedUserId, isPro, wasPro)
       .then((freshStats) => {
+        if (cancelled) return;
         setStats(freshStats);
+        setStatsUserKey(requestUserKey);
         setLoading(false);
       })
       .catch((error) => {
+        if (cancelled) return;
         console.error('Failed to load stats:', error);
+        setStats(null);
+        setStatsUserKey(requestUserKey);
         setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [authLoading, isPro, subscription?.status, user?.id, wasPro]);
 
   const recentWeek = useMemo(() => stats?.weeklyStats.slice(-7) ?? [], [stats?.weeklyStats]);
@@ -64,7 +80,7 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {isLoadingStats ? (
         <div className="flex items-center justify-center py-20 text-[var(--color-muted)]">
           <Icon name="progress_activity" size={22} className="animate-spin" />
           <span className="ml-2 text-sm">読み込み中...</span>
