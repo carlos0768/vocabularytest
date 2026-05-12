@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
+import { LpDemoSection } from '@/components/home/LpDemoSection';
 import { WelcomeOverlay } from '@/components/onboarding/WelcomeOverlay';
 import { EmptyStateGuide } from '@/components/onboarding/EmptyStateGuide';
 import { HintBanner } from '@/components/onboarding/HintBanner';
@@ -588,6 +589,7 @@ function GuestHomePage() {
           <nav className="flex items-center gap-7">
             <Link href="#how" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">使い方</Link>
             <Link href="#features" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">機能</Link>
+            <Link href="#demo" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">体験する</Link>
             <Link href="#pricing" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">料金</Link>
             <Link href="/login?redirect=/" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">ログイン</Link>
             <Link
@@ -771,9 +773,11 @@ function GuestHomePage() {
         </div>
       </section>
 
+      <LpDemoSection />
+
       <section className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
-          number="03"
+          number="04"
           label="Progress"
           title={<>ホームで、今日やることが<br />すぐ見える。</>}
           body="単語帳、習得度、連続日数、保存済み単語へアクセスできます。学習の入口をホームに集約し、スキャンから復習まで迷わない構成にしています。"
@@ -806,7 +810,7 @@ function GuestHomePage() {
 
       <section id="pricing" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
-          number="04"
+          number="05"
           label="Pricing"
           title={<>無料で始めて、<br />必要ならProへ。</>}
           body="料金と制限は実装中の設定に合わせています。まずは無料で試し、スキャン回数や同期が必要になったらProへ切り替えられます。"
@@ -830,7 +834,7 @@ function GuestHomePage() {
 
       <section id="faq" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
-          number="05"
+          number="06"
           label="FAQ"
           title={<>よくある質問。</>}
           body="このLPでは、今のサイトで実際に使える導線と制限だけを説明します。公開対象外の機能は掲載していません。"
