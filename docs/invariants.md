@@ -10,9 +10,9 @@ These have been verified against the source code.
 
 ### INV-01: Subscription row on signup
 
-Every Supabase user gets a `subscriptions` row on signup via the database trigger `on_auth_user_created`, which runs `handle_new_user()` (initial definition in `supabase/migrations/001_initial_schema.sql`; later migrations replace the function body, including `supabase/migrations/20260403180000_create_profiles.sql` and `supabase/migrations/20260404150000_auto_pro_first_66_users.sql`).
+Every Supabase user gets a `subscriptions` row on signup via the database trigger `on_auth_user_created`, which runs `handle_new_user()` (initial definition in `supabase/migrations/001_initial_schema.sql`; later migrations replace the function body, including `supabase/migrations/20260403180000_create_profiles.sql`, `supabase/migrations/20260404150000_auto_pro_first_66_users.sql`, and `supabase/migrations/20260512140000_retire_auto_pro_first_66_after_onboarding.sql`).
 
-The trigger always **inserts** `status='free'`, `plan='free'`. For a limited launch campaign, the same function may **immediately update** that row to permanent test Pro for eligible new users (see `docs/ops-auto-pro-first-66-2026-04-04.md`).
+The trigger always **inserts** `status='free'`, `plan='free'`. The former first-66 launch campaign is retired, so new signups must not be automatically upgraded to test Pro by this trigger (see `docs/ops-auto-pro-first-66-2026-04-04.md`).
 
 **Consequence of violation**: New users cannot use the app. Hooks assume a subscription row always exists.
 

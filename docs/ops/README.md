@@ -17,7 +17,7 @@
 | [`scan-example-sentences-runbook.md`](scan-example-sentences-runbook.md) | スキャン後の例文生成トラブルシュート |
 | [`nightly-lexicon-cron-runbook.md`](nightly-lexicon-cron-runbook.md) | Nightly Master Lexicon Cronの復旧手順 |
 | [`../runbooks.md`](../runbooks.md) | 主要運用Runbookの親文書 |
-| [`../ops-auto-pro-first-66-2026-04-04.md`](../ops-auto-pro-first-66-2026-04-04.md) | 初期66人自動Proキャンペーンの運用メモ |
+| [`../ops-auto-pro-first-66-2026-04-04.md`](../ops-auto-pro-first-66-2026-04-04.md) | 廃止済み初期66人自動Proキャンペーンの運用メモ |
 | [`../ops-manual-pro-activation-2026-03-09.md`](../ops-manual-pro-activation-2026-03-09.md) | 手動Pro付与の運用メモ |
 | [`../ops-komoju-incident-2026-02-09.md`](../ops-komoju-incident-2026-02-09.md) | 過去のKOMOJU決済反映障害メモ |
 
