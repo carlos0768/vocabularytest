@@ -100,7 +100,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 |-----------|---------------|
 | `supabase/migrations/` | ~43 SQL migration files (applied sequentially) |
 | `scripts/` | Security check scripts (SQL injection guard, secrets guard, deps audit) |
-| `public/` | Static assets, PWA manifest (`manifest.json`), service worker (`sw.js`) |
+| `public/` | Static assets, PWA manifest (`manifest.json`), service worker (`sw.js`), app icons |
 
 ### Excluded from tsconfig (separate projects)
 
@@ -110,6 +110,23 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `ios-native/` | Native Xcode project (MerkenIOS) |
 | `cloud-run-scan/` | Cloud Run AI gateway service |
 | `vocabularytest/`, `vocabularytest-clone/`, `stitch/` | Legacy/experimental |
+
+---
+
+## PWA and App Icon Assets
+
+The web app icon is a checked-in static asset set under `public/`.
+
+| File | Size | Used by |
+|------|------|---------|
+| `public/icon.png` | 1024x1024 | Source-quality app icon and local previews |
+| `public/icon-512.png` | 512x512 | Web App Manifest, Open Graph, Twitter card |
+| `public/icon-192.png` | 192x192 | Web App Manifest, Next.js metadata `icons.icon` |
+| `public/apple-touch-icon.png` | 180x180 | Apple touch icon |
+
+`public/manifest.json` references the 192px and 512px PNGs for both `any` and `maskable` icon purposes. `src/app/layout.tsx` references `icon-192.png` for browser metadata, `apple-touch-icon.png` for iOS, and `icon-512.png` for social preview images.
+
+When replacing the app icon, regenerate all four PNGs from the same 1024x1024 source so PWA install surfaces, iOS home-screen icons, README branding, and social previews do not drift.
 
 ---
 

@@ -83,6 +83,7 @@ Proユーザー   →  HybridWordRepository  （IndexedDB + Supabase同期）
 - **基調色**: `#137fec`
 - **フォント**: [Lexend](https://fonts.google.com/specimen/Lexend)（Google Fonts）
 - **アイコン**: [Material Symbols Outlined](https://fonts.google.com/icons)（CDN経由）
+- **PWA/OGアプリアイコン**: `public/icon.png`（1024px）を元画像とし、`public/icon-512.png`、`public/icon-192.png`、`public/apple-touch-icon.png` を配信用サイズとして保持
 - **レイアウト**: `AppShell`（デスクトップ: サイドバー / モバイル: ボトムナビ）
 - **ボタン**: Duolingo風3Dエフェクト（`border-b-4` + `active:border-b-2`）
 
