@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
-import { processImageToBase64 } from '@/lib/image-utils';
+import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import type { ExtractMode } from '@/app/api/extract/route';
 
@@ -21,6 +21,8 @@ interface ScanCaptureModalProps {
 
 type TopMode = 'vocab';
 type SubOption = 'circle' | 'eiken' | 'idiom' | 'all';
+
+const MAX_SCAN_IMAGE_COUNT = 20;
 
 const MODES: { k: TopMode; label: string; pro?: boolean; icon: React.ReactNode }[] = [
   {
@@ -49,6 +51,49 @@ function subToExtractMode(sub: SubOption): ExtractMode {
   return 'all';
 }
 
+function uniqueStrings(values: readonly unknown[]): string[] {
+  return Array.from(new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0)));
+}
+
+function lexiconEntryKey(entry: unknown, fallbackIndex: number): string {
+  if (entry && typeof entry === 'object') {
+    const record = entry as Record<string, unknown>;
+    if (typeof record.id === 'string' && record.id.length > 0) return `id:${record.id}`;
+    if (typeof record.headword === 'string' && record.headword.length > 0) {
+      return `headword:${record.headword.toLowerCase()}`;
+    }
+  }
+
+  try {
+    return `json:${JSON.stringify(entry)}`;
+  } catch {
+    return `index:${fallbackIndex}`;
+  }
+}
+
+function mergeLexiconEntries(existing: readonly unknown[], incoming: readonly unknown[]): unknown[] {
+  const merged = new Map<string, unknown>();
+
+  [...existing, ...incoming].forEach((entry, index) => {
+    merged.set(lexiconEntryKey(entry, index), entry);
+  });
+
+  return Array.from(merged.values());
+}
+
+function randomSuffix(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+}
+
+function uploadExtensionFor(file: File): string {
+  if (file.type === 'image/png') return '.png';
+  if (file.type === 'image/webp') return '.webp';
+  if (file.type === 'image/gif') return '.gif';
+  return '.jpg';
+}
+
 export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
@@ -56,75 +101,157 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
   const [activeSub, setActiveSub] = useState<SubOption>('all');
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleFileSelected = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    setProcessing(true);
-    setErrorMsg(null);
+  const createBackgroundScanJob = async (files: readonly File[]) => {
+    const supabase = createBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('ログインが必要です');
+
+    const uploadedPaths: string[] = [];
     try {
-      // Pro: バックグラウンドジョブ送信（確認画面をスキップ）
-      if (isPro) {
-        const supabase = createBrowserClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('ログインが必要です');
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index]!;
+        setProcessingLabel(`画像 ${index + 1}/${files.length} をアップロード中...`);
+        const processedFile = await processImageFile(file, 'default');
+        const ext = uploadExtensionFor(processedFile);
+        const imagePath = `${session.user.id}/${Date.now()}-${index}-${randomSuffix()}${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('scan-images')
+          .upload(imagePath, processedFile, {
+            contentType: processedFile.type || 'image/jpeg',
+            upsert: false,
+          });
 
-        const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('projectTitle', `スキャン ${dateLabel}`);
-        formData.append('scanMode', subToExtractMode(activeSub));
-        if (targetProjectId) {
-          formData.append('targetProjectId', targetProjectId);
+        if (uploadError) {
+          throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
         }
-
-        const res = await fetch('/api/scan-jobs', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          body: formData,
-        });
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({})) as { error?: string };
-          throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
-        }
-        onClose();
-        return;
+        uploadedPaths.push(imagePath);
       }
 
-      // Free: 既存フロー（/api/extract → sessionStorage → /scan/confirm）
+      const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+      setProcessingLabel('スキャンを送信中...');
+      const res = await fetch('/api/scan-jobs/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          imagePaths: uploadedPaths,
+          projectTitle: `スキャン ${dateLabel}`,
+          scanMode: subToExtractMode(activeSub),
+          eikenLevel: null,
+          targetProjectId: targetProjectId || undefined,
+          clientPlatform: 'web',
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
+      }
+    } catch (error) {
+      if (uploadedPaths.length > 0) {
+        await supabase.storage.from('scan-images').remove(uploadedPaths);
+      }
+      throw error;
+    }
+  };
+
+  const extractImagesImmediately = async (files: readonly File[]) => {
+    const allWords: unknown[] = [];
+    let allSourceLabels: string[] = [];
+    let allLexiconEntries: unknown[] = [];
+    const mode = subToExtractMode(activeSub);
+
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index]!;
+      setProcessingLabel(`画像 ${index + 1}/${files.length} を解析中...`);
       const base64 = await processImageToBase64(file, 'default');
-      const mode = subToExtractMode(activeSub);
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64, mode, eikenLevel: null }),
       });
-      const result = await res.json() as { success: boolean; words?: unknown[]; sourceLabels?: string[]; lexiconEntries?: unknown[]; error?: string; limitReached?: boolean };
-      if (!result.success) throw new Error(result.error ?? '抽出に失敗しました');
-      sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(result.words ?? []));
-      sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(result.sourceLabels ?? []));
-      sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(result.lexiconEntries ?? []));
-      sessionStorage.removeItem('scanvocab_project_name');
-      sessionStorage.removeItem('scanvocab_project_icon');
-      if (targetProjectId) {
-        sessionStorage.setItem('scanvocab_existing_project_id', targetProjectId);
-      } else {
-        sessionStorage.removeItem('scanvocab_existing_project_id');
+      const result = await res.json().catch(() => ({})) as {
+        success?: boolean;
+        words?: unknown[];
+        sourceLabels?: unknown[];
+        lexiconEntries?: unknown[];
+        error?: string;
+      };
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
       }
+
+      allWords.push(...(Array.isArray(result.words) ? result.words : []));
+      allSourceLabels = uniqueStrings([...allSourceLabels, ...(Array.isArray(result.sourceLabels) ? result.sourceLabels : [])]);
+      allLexiconEntries = mergeLexiconEntries(
+        allLexiconEntries,
+        Array.isArray(result.lexiconEntries) ? result.lexiconEntries : [],
+      );
+    }
+
+    if (allWords.length === 0) {
+      throw new Error('画像から単語を読み取れませんでした');
+    }
+
+    sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
+    sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
+    sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
+    sessionStorage.removeItem('scanvocab_project_name');
+    sessionStorage.removeItem('scanvocab_project_icon');
+    if (targetProjectId) {
+      sessionStorage.setItem('scanvocab_existing_project_id', targetProjectId);
+    } else {
+      sessionStorage.removeItem('scanvocab_existing_project_id');
+    }
+  };
+
+  const handleFilesSelected = async (files: readonly File[]) => {
+    if (files.length === 0) return;
+    if (files.length > MAX_SCAN_IMAGE_COUNT) {
+      setProcessingLabel(null);
+      setErrorMsg(`一度に選択できる画像は${MAX_SCAN_IMAGE_COUNT}枚までです`);
+      return;
+    }
+
+    setProcessing(true);
+    setErrorMsg(null);
+    setProcessingLabel(files.length > 1 ? `画像 1/${files.length} を準備中...` : null);
+    try {
+      // Pro: バックグラウンドジョブ送信（確認画面をスキップ）
+      if (isPro) {
+        await createBackgroundScanJob(files);
+        onClose();
+        return;
+      }
+
+      // Free: 既存フロー（/api/extract → sessionStorage → /scan/confirm）
+      await extractImagesImmediately(files);
+      setProcessingLabel('結果を表示中...');
       onClose();
       router.replace('/scan/confirm');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '処理に失敗しました');
+      setProcessingLabel(null);
       setProcessing(false);
     }
   };
 
   const handleCamera = () => cameraInputRef.current?.click();
   const handleLibrary = () => libraryInputRef.current?.click();
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = '';
+    void handleFilesSelected(files);
+  };
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -134,16 +261,16 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5 shadow-[3px_3px_0_var(--solid-ink)]">
             <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
             <span className="text-[13px] font-bold text-[var(--solid-ink)]">
-              {isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...'}
+              {processingLabel ?? (isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...')}
             </span>
           </div>
         </div>
       )}
       {/* Hidden file inputs */}
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="sr-only"
-        onChange={(e) => void handleFileSelected(e.target.files)} />
-      <input ref={libraryInputRef} type="file" accept="image/*" className="sr-only"
-        onChange={(e) => void handleFileSelected(e.target.files)} />
+      <input ref={cameraInputRef} type="file" accept="image/*,.heic,.heif" capture="environment" className="sr-only"
+        onChange={handleInputChange} />
+      <input ref={libraryInputRef} type="file" accept="image/*,.heic,.heif" multiple className="sr-only"
+        onChange={handleInputChange} />
 
       {/* Backdrop */}
       <div
@@ -311,6 +438,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
                   <path d="M3 16l5-5 4 4 3-3 6 6"/>
                 </svg>
                 <span className="text-[13px] font-bold">写真から選ぶ</span>
+                <span className="text-[10px] font-bold text-[var(--color-muted)]">複数枚可</span>
               </div>
             </button>
           </div>
