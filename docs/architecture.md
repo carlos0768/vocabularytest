@@ -158,7 +158,7 @@ Background prefill (async, non-blocking):
 ## Data Flow: iOS Async Scan
 
 ```
-iOS app uploads image to Supabase Storage
+Web Pro / iOS app uploads image(s) to Supabase Storage
   |
   v
 POST /api/scan-jobs/create -> creates job record in scan_jobs table
@@ -180,6 +180,14 @@ iOS app polls GET /api/scan-jobs (every ~4s) / receives push notification
   - Claim mechanism prevents duplicate processing
   - 10-minute timeout marks stuck jobs as failed
 ```
+
+Web scan entrypoints:
+
+- `src/components/home/ScanCaptureModal.tsx` is the current Home / Project detail scan launcher.
+- Camera capture remains single-image because browser camera capture returns one file.
+- Photo library selection accepts up to 20 images.
+- Free users process selected images immediately by calling `/api/extract` once per image, then merging words, source labels, and lexicon entries into the `/scan/confirm` sessionStorage handoff.
+- Pro users upload selected images to Supabase Storage and call `/api/scan-jobs/create` with `imagePaths`; the scan job worker processes every stored image path.
 
 ### Scan Job Processing Architecture
 

@@ -9,6 +9,7 @@
 - 即時スキャン: `/api/extract`
 - バックグラウンドスキャン: `/api/scan-jobs`, `/api/scan-jobs/create`, `/api/scan-jobs/process`
 - AI経路: Next.js -> Cloud Run -> Gemini/OpenAI、または Next.js -> Gemini/OpenAI 直接呼び出し
+- Web写真ライブラリの複数枚選択: Freeは画像ごとに `/api/extract`、ProはStorage upload後に `/api/scan-jobs/create` へ `imagePaths` を渡す
 
 詳細なCloud Run運用は [`scan-gemini-cloudrun-runbook.md`](scan-gemini-cloudrun-runbook.md)、例文生成だけの問題は [`scan-example-sentences-runbook.md`](scan-example-sentences-runbook.md) も確認してください。
 
@@ -39,6 +40,7 @@
 - `scan_jobs.status='failed'` で `error_message` にAI、Storage、timeout系の文言が入る。
 - `/api/extract` が 401 / 400 / 500 を返す。
 - 画像アップロード後に `scan-images` からファイルを取得できない。
+- 複数画像スキャンで一部ページだけ失敗する、または `scan_jobs.result.timing.imageCount` が選択枚数と合わない。
 - 無料ユーザーだけスキャンできず、Proユーザーは通る。
 - Cloud Run設定後だけ失敗する。
 
@@ -91,6 +93,8 @@ Vercel:
 - `Gemini API error:`
 - `OpenAI API error:`
 - `[scan-usage] check_and_increment_scan_batch not found. Falling back to single RPC.`
+
+複数画像スキャンの場合は、対象jobの `image_paths` 配列、Storage `scan-images` 上の実ファイル数、`scan_jobs.result.timing.imageCount` が一致しているかを確認する。Free即時スキャンでは `scan_jobs` は作られないため、ブラウザ側の `/api/extract` リクエスト数とレスポンスを確認する。
 
 Cloud Run:
 

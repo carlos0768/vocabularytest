@@ -173,7 +173,7 @@ DSに合わせて完全リライトした。タブ構成：
 | 共有 | `/shared` | |
 | アカウント | `/settings` | matchPaths: `/settings`, `/subscription`, `/stats`, `/correction`, `/parser` |
 
-`ScanCaptureModal` は既存のスキャン起動フロー（カメラ・ファイル選択）をそのまま使っているため、接続不要。
+`ScanCaptureModal` は既存のスキャン起動フロー（カメラ・写真ライブラリ選択）をそのまま使っているため、接続不要。写真ライブラリは複数枚選択に対応し、カメラ撮影は1回につき1枚を扱う。
 
 ---
 
