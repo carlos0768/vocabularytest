@@ -214,7 +214,7 @@ export function StatsScreen() {
               <View style={[styles.distSegment, { flex: masteredCount, backgroundColor: theme.success }]} />
             )}
             {reviewCount > 0 && (
-              <View style={[styles.distSegment, { flex: reviewCount, backgroundColor: theme.chartBlue }]} />
+              <View style={[styles.distSegment, { flex: reviewCount, backgroundColor: theme.warning }]} />
             )}
             {newCount > 0 && (
               <View style={[styles.distSegment, { flex: newCount, backgroundColor: theme.border }]} />
@@ -224,7 +224,7 @@ export function StatsScreen() {
           {/* 2x2 metric grid */}
           <View style={styles.metricsGrid}>
             <MetricTile label="習得済み" value={masteredCount} color={theme.success} bg={theme.successBg} />
-            <MetricTile label="復習中" value={reviewCount} color={theme.chartBlue} bg={theme.chartBlueBg} />
+            <MetricTile label="復習中" value={reviewCount} color={theme.warning} bg={theme.warningBg} />
             <MetricTile label="未学習" value={newCount} color={theme.secondaryText} bg={theme.surfaceAlt} />
             <MetricTile label="間違い" value={wrongCount} color={theme.danger} bg={theme.dangerBg} />
           </View>
@@ -331,7 +331,7 @@ function DonutChart({
         {reviewFrac > 0 && (
           <SvgCircle
             cx={size / 2} cy={size / 2} r={radius}
-            stroke={theme.chartBlue} strokeWidth={strokeWidth} fill="none"
+            stroke={theme.warning} strokeWidth={strokeWidth} fill="none"
             strokeDasharray={`${reviewDash} ${circumference - reviewDash}`}
             strokeDashoffset={-masteredDash}
             strokeLinecap="butt" rotation={-90} origin={`${size / 2}, ${size / 2}`}
@@ -415,6 +415,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   title: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: theme.fontSize.title1,
     fontWeight: '700',
     color: theme.primaryText,
@@ -439,11 +440,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   summaryValue: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 30,
     fontWeight: '700',
     color: theme.primaryText,
   },
   summaryLabel: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 14,
     fontWeight: '600',
     color: theme.secondaryText,
@@ -460,11 +463,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chartTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 15,
     fontWeight: '700',
     color: theme.primaryText,
   },
   chartSubtitle: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: theme.secondaryText,
   },
@@ -479,15 +484,18 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   legendText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 11,
     color: theme.secondaryText,
   },
   yLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 10,
     color: theme.mutedText,
     textAlign: 'right',
   },
   xLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 9,
     color: theme.mutedText,
     textAlign: 'center',
@@ -510,15 +518,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statsMainValue: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 32,
     fontWeight: '700',
     color: theme.primaryText,
   },
   statsMainLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     color: theme.secondaryText,
   },
   statsSubLabel: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 13,
     fontWeight: '500',
     color: theme.mutedText,
@@ -531,12 +542,14 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   donutPercent: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 15,
     fontWeight: '700',
     color: theme.primaryText,
     fontVariant: ['tabular-nums'],
   },
   donutLabel: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 10,
     fontWeight: '500',
     color: theme.secondaryText,
@@ -569,10 +582,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.05)',
   },
   metricValue: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 22,
     fontWeight: '700',
   },
   metricLabel: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 12,
     fontWeight: '500',
     color: theme.secondaryText,

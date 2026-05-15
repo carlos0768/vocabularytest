@@ -149,6 +149,12 @@ final class FlashcardViewModel: ObservableObject {
         speak(text: text, language: language)
     }
 
+    func speakEnglish() {
+        guard let word = currentWord else { return }
+        synthesizer.stopSpeaking(at: .immediate)
+        speak(text: word.english, language: "en-US")
+    }
+
     func toggleSpeed() {
         slowSpeed.toggle()
     }
@@ -163,31 +169,40 @@ final class FlashcardViewModel: ObservableObject {
                 patch: WordPatch(isFavorite: newValue)
             )
 
-            // Update in-memory
-            words[currentIndex] = Word(
-                id: word.id,
-                projectId: word.projectId,
-                english: word.english,
-                japanese: word.japanese,
-                distractors: word.distractors,
-                exampleSentence: word.exampleSentence,
-                exampleSentenceJa: word.exampleSentenceJa,
-                pronunciation: word.pronunciation,
-                status: word.status,
-                createdAt: word.createdAt,
-                lastReviewedAt: word.lastReviewedAt,
-                nextReviewAt: word.nextReviewAt,
-                easeFactor: word.easeFactor,
-                intervalDays: word.intervalDays,
-                repetition: word.repetition,
-                isFavorite: newValue
-            )
-            // Trigger re-render by bumping wordCount (same value but objectWillChange fires)
+            if let index = words.firstIndex(where: { $0.id == word.id }) {
+                words[index].isFavorite = newValue
+            }
             objectWillChange.send()
         } catch {
             if error.isCancellationError { return }
             errorMessage = error.localizedDescription
             logger.error("Toggle favorite failed: \(error.localizedDescription)")
+        }
+    }
+
+    func cycleStatus(using state: AppState) async {
+        guard let word = currentWord else { return }
+
+        let newStatus: WordStatus = switch word.status {
+        case .new: .review
+        case .review: .mastered
+        case .mastered: .new
+        }
+
+        do {
+            try await state.activeRepository.updateWord(
+                id: word.id,
+                patch: WordPatch(status: newStatus)
+            )
+
+            if let index = words.firstIndex(where: { $0.id == word.id }) {
+                words[index].status = newStatus
+            }
+            objectWillChange.send()
+        } catch {
+            if error.isCancellationError { return }
+            errorMessage = error.localizedDescription
+            logger.error("Cycle status failed: \(error.localizedDescription)")
         }
     }
 
@@ -213,36 +228,16 @@ final class FlashcardViewModel: ObservableObject {
                 id: word.id,
                 patch: WordPatch(english: english, japanese: japanese)
             )
-            words[currentIndex] = Word(
-                id: word.id,
-                projectId: word.projectId,
-                english: english,
-                japanese: japanese,
-                distractors: word.distractors,
-                exampleSentence: word.exampleSentence,
-                exampleSentenceJa: word.exampleSentenceJa,
-                pronunciation: word.pronunciation,
-                status: word.status,
-                createdAt: word.createdAt,
-                lastReviewedAt: word.lastReviewedAt,
-                nextReviewAt: word.nextReviewAt,
-                easeFactor: word.easeFactor,
-                intervalDays: word.intervalDays,
-                repetition: word.repetition,
-                isFavorite: word.isFavorite
-            )
+            if let index = words.firstIndex(where: { $0.id == word.id }) {
+                words[index].english = english
+                words[index].japanese = japanese
+            }
             objectWillChange.send()
         } catch {
             if error.isCancellationError { return }
             errorMessage = error.localizedDescription
             logger.error("Edit word failed: \(error.localizedDescription)")
         }
-    }
-
-    var dictionaryURL: URL? {
-        guard let word = currentWord else { return nil }
-        let encoded = word.english.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? word.english
-        return URL(string: "https://eow.alc.co.jp/search?q=\(encoded)")
     }
 
     func deleteWord(using state: AppState) async {

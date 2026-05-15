@@ -31,13 +31,11 @@ struct SearchView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Fixed header
-                HStack(alignment: .top) {
-                    Text("検索")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    Spacer()
-                }
+                SolidPageHeader(
+                    kicker: "SEARCH",
+                    title: "検索",
+                    subtitle: "保存した単語を英語・日本語で横断検索します。"
+                )
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
                 .padding(.bottom, 10)
@@ -46,7 +44,7 @@ struct SearchView: View {
                 // Search bar (matching Web: clean border, blue on focus)
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(isSearchFocused ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+                        .foregroundStyle(isSearchFocused ? MerkenTheme.accentGreen : MerkenTheme.mutedText)
                     TextField("英語・日本語で検索...", text: $viewModel.searchText)
                         .textFieldStyle(.plain)
                         .focused($isSearchFocused)
@@ -59,15 +57,10 @@ struct SearchView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
+                .solidTextField(cornerRadius: 16)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            isSearchFocused ? MerkenTheme.accentBlue : MerkenTheme.border,
-                            lineWidth: isSearchFocused ? 2 : 1.5
-                        )
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(isSearchFocused ? MerkenTheme.accentGreen : Color.clear, lineWidth: 2)
                 )
                 .animation(.easeInOut(duration: 0.15), value: isSearchFocused)
                 .padding(.horizontal, 16)
@@ -120,44 +113,23 @@ struct SearchView: View {
     // MARK: - Empty State (richer placeholder matching Web)
 
     private var emptyState: some View {
-        VStack(spacing: 24) {
-            // Main placeholder
-            VStack(spacing: 16) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 48))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                    .frame(width: 80, height: 80)
-                    .background(MerkenTheme.accentBlueLight, in: .circle)
-
-                VStack(spacing: 6) {
-                    Text("意味や単語を入力すると")
-                        .font(.headline)
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                    Text("関連する英単語を見つけます")
-                        .font(.headline)
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-
-                Text("例:「子犬」→ puppy, dog, pet...")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-        }
+        SolidEmptyState(
+            icon: "sparkles",
+            title: "関連する英単語を見つけます",
+            message: "例:「子犬」から puppy, dog, pet などを検索できます。"
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - No Results
 
     private var noResults: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 48))
-                .foregroundStyle(MerkenTheme.mutedText)
-            Text("「\(viewModel.searchText)」に関連する単語が見つかりません")
-                .font(.headline)
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.horizontal, 24)
+        SolidEmptyState(
+            icon: "doc.text.magnifyingglass",
+            title: "見つかりません",
+            message: "「\(viewModel.searchText)」に関連する単語が見つかりません。"
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Result List
@@ -165,9 +137,7 @@ struct SearchView: View {
     private var resultList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
-                Text("\(viewModel.results.count)件の関連単語")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.mutedText)
+                SolidSectionTitle("関連単語", count: viewModel.results.count)
                     .padding(.bottom, 4)
 
                 ForEach(viewModel.results) { result in

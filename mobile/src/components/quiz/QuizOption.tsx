@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo } from 'react';
 import { TouchableOpacity, Text, View, StyleSheet, Animated } from 'react-native';
+import { CheckCircle, XCircle } from 'lucide-react-native';
 import colors from '../../constants/colors';
+import theme from '../../constants/theme';
 
 interface QuizOptionProps {
   label: string;
@@ -52,30 +54,43 @@ export function QuizOption({
     }
   }, [isRevealed, isCorrect, flashAnim]);
 
-  const getBackgroundColor = () => {
-    if (!isRevealed) return colors.gray[50];
-    if (isCorrect) return colors.emerald[50];
-    if (isSelected) return colors.red[50];
-    return colors.gray[50];
+  const getFaceColor = () => {
+    if (!isRevealed) return colors.white;
+    if (isCorrect) return theme.successBg;
+    if (isSelected) return theme.dangerBg;
+    return colors.white;
   };
 
   const getLabelBackgroundColor = () => {
-    if (!isRevealed) return colors.gray[200];
-    if (isCorrect) return colors.emerald[500];
-    if (isSelected) return colors.red[500];
+    if (!isRevealed) return colors.white;
+    if (isCorrect) return theme.success;
+    if (isSelected) return theme.danger;
+    return colors.white;
+  };
+
+  const getBorderColor = () => {
+    if (!isRevealed) return theme.solidInk;
+    if (isCorrect) return theme.success;
+    if (isSelected) return theme.danger;
+    return colors.gray[200];
+  };
+
+  const getShadowColor = () => {
+    if (!isRevealed) return theme.solidInk;
+    if (isCorrect) return theme.success;
+    if (isSelected) return theme.danger;
     return colors.gray[200];
   };
 
   const getLabelTextColor = () => {
-    if (!isRevealed) return colors.gray[600];
+    if (!isRevealed) return theme.solidInk;
     if (isCorrect || isSelected) return colors.white;
     return colors.gray[400];
   };
 
   const getTextColor = () => {
-    if (!isRevealed) return colors.gray[900];
-    if (isCorrect) return colors.emerald[700];
-    if (isSelected) return colors.red[700];
+    if (!isRevealed) return theme.solidInk;
+    if (isCorrect || isSelected) return theme.solidInk;
     return colors.gray[400];
   };
 
@@ -93,7 +108,13 @@ export function QuizOption({
         activeOpacity={0.8}
         style={[
           styles.container,
-          { backgroundColor: getBackgroundColor(), opacity: getOpacity() },
+          {
+            backgroundColor: getFaceColor(),
+            borderColor: getBorderColor(),
+            shadowColor: getShadowColor(),
+            opacity: getOpacity(),
+          },
+          (isRevealed && (isCorrect || isSelected)) && styles.containerRevealed,
         ]}
       >
         {/* Option label (A, B, C, D) */}
@@ -114,10 +135,17 @@ export function QuizOption({
             styles.answerText,
             { color: getTextColor() },
             isRevealed && isCorrect && styles.answerTextBold,
+            isRevealed && isSelected && styles.answerTextBold,
           ]}
         >
           {label}
         </Text>
+        {isRevealed && isCorrect ? (
+          <CheckCircle size={20} color={theme.success} fill={theme.success} />
+        ) : null}
+        {isRevealed && isSelected && !isCorrect ? (
+          <XCircle size={20} color={theme.danger} fill={theme.danger} />
+        ) : null}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -128,26 +156,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 10,
+    borderWidth: 1.25,
+    shadowOpacity: 1,
+    shadowOffset: { width: 2, height: 2 },
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  containerRevealed: {
+    borderWidth: 2,
   },
   labelContainer: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
   },
   labelText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'NotoSansJP_700Bold',
+    fontSize: 13,
+    fontWeight: '700',
   },
   answerText: {
+    fontFamily: 'NotoSansJP_400Regular',
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
   },
   answerTextBold: {
-    fontWeight: '600',
+    fontWeight: '900',
   },
 });

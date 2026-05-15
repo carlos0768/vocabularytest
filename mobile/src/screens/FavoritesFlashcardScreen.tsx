@@ -17,7 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
-  Flag,
+  Bookmark,
   Eye,
   EyeOff,
   Volume2,
@@ -27,6 +27,7 @@ import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
 import { getGuestUserId, shuffleArray } from '../lib/utils';
 import colors from '../constants/colors';
+import theme from '../constants/theme';
 import type { RootStackParamList, Word } from '../types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -289,7 +290,7 @@ export function FavoritesFlashcardScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <Flag size={16} color={colors.orange[500]} />
+          <Bookmark size={16} color={theme.accentGreen} fill={theme.accentGreen} />
           <Text style={styles.progress}>
             {currentIndex + 1} / {words.length}
           </Text>
@@ -377,10 +378,10 @@ export function FavoritesFlashcardScreen() {
           onPress={handleToggleFavorite}
           style={styles.favoriteButton}
         >
-          <Flag
+          <Bookmark
             size={24}
-            color={currentWord?.isFavorite ? colors.orange[500] : colors.gray[400]}
-            fill={currentWord?.isFavorite ? colors.orange[500] : 'transparent'}
+            color={currentWord?.isFavorite ? theme.accentGreen : colors.gray[400]}
+            fill={currentWord?.isFavorite ? theme.accentGreen : 'transparent'}
           />
         </TouchableOpacity>
       </View>
@@ -435,6 +436,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[50],
   },
   loadingText: {
+    fontFamily: 'NotoSansJP_400Regular',
     marginTop: 16,
     fontSize: 14,
     color: colors.gray[600],
@@ -455,6 +457,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   progress: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
   },
@@ -497,7 +500,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   cardBack: {
-    backgroundColor: colors.orange[500],
+    backgroundColor: theme.accentBlack,
   },
   cardTextContainer: {
     flex: 1,
@@ -508,6 +511,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   englishText: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
@@ -515,6 +519,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   japaneseText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 24,
     fontWeight: '700',
     color: colors.white,
@@ -529,6 +534,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   hintText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: colors.gray[400],
   },
@@ -540,19 +546,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   hintTextBack: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
   },
   favoriteButton: {
     marginTop: 24,
-    padding: 12,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: colors.white,
-    
-    
-    
-    
-    
+    borderWidth: 1.25,
+    borderColor: theme.accentGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navigation: {
     flexDirection: 'row',
@@ -563,21 +570,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   navButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: colors.white,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     alignItems: 'center',
     justifyContent: 'center',
-    
-    
-    
-    
-    
   },
   navButtonDisabled: {
     backgroundColor: colors.gray[100],
-    
-    
+    borderColor: colors.gray[200],
   },
 });

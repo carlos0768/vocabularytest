@@ -181,6 +181,8 @@ struct WordListView: View {
                                     dividerLine
                                 }
                             }
+                            .padding(.horizontal, 12)
+                            .solidSurface(tone: .surface, depth: .standard, cornerRadius: 18)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -201,11 +203,11 @@ struct WordListView: View {
         .sheet(isPresented: $showFilterSheet) {
             filterSheet
         }
-        .navigationDestination(item: $selectedWord) { word in
-            WordDetailView(
+        .overlay {
+            WordDetailModalOverlay(
                 project: project,
-                wordID: word.id,
-                viewModel: viewModel
+                viewModel: viewModel,
+                selectedWord: $selectedWord
             )
         }
         .overlay(alignment: .bottom) {
@@ -215,14 +217,8 @@ struct WordListView: View {
                         withAnimation { selectMode = false; selectedWordIds.removeAll() }
                     } label: {
                         Text("キャンセル")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MerkenTheme.border, lineWidth: 1))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SolidButtonStyle(.surface, size: .medium, cornerRadius: 14))
 
                     Button {
                         showBulkDeleteConfirm = true
@@ -233,12 +229,8 @@ struct WordListView: View {
                             Text(selectedWordIds.isEmpty ? "削除" : "\(selectedWordIds.count)語を削除")
                                 .font(.system(size: 15, weight: .bold))
                         }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(selectedWordIds.isEmpty ? MerkenTheme.danger.opacity(0.5) : MerkenTheme.danger, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SolidButtonStyle(.danger, size: .medium, expands: true, cornerRadius: 14))
                     .disabled(selectedWordIds.isEmpty)
                 }
                 .padding(.horizontal, 20)
@@ -273,36 +265,20 @@ struct WordListView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(headerTitle)
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                Text("\(viewModel.words.count)語")
-                    .font(.system(size: 14))
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-            Spacer()
+        SolidPageHeader(
+            kicker: "WORDS",
+            title: headerTitle,
+            subtitle: "\(viewModel.words.count)語"
+        ) {
             Button {
                 editorMode = .create
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .bold))
                     Text("追加")
-                        .font(.system(size: 14, weight: .bold))
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(MerkenTheme.accentBlue, in: .capsule)
-                .overlay(alignment: .bottom) {
-                    Capsule()
-                        .fill(MerkenTheme.accentBlueStrong)
-                        .frame(height: 2)
-                }
-                .clipShape(.capsule)
             }
+            .buttonStyle(SolidButtonStyle(.inverse, size: .small, cornerRadius: 16))
         }
     }
 
@@ -380,18 +356,13 @@ struct WordListView: View {
 
     private func toolbarIconLabel(icon: String, isActive: Bool) -> some View {
         Image(systemName: icon)
-            .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(isActive ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+            .font(.system(size: 16, weight: .black))
+            .foregroundStyle(isActive ? MerkenTheme.inverseText : MerkenTheme.solidInk)
             .frame(width: 36, height: 36)
-            .background(
-                isActive ? MerkenTheme.accentBlue.opacity(0.12) : MerkenTheme.surface,
-                in: .circle
-            )
-            .overlay(
-                Circle().stroke(
-                    isActive ? MerkenTheme.accentBlue.opacity(0.35) : MerkenTheme.borderLight,
-                    lineWidth: 1
-                )
+            .solidSurface(
+                tone: isActive ? .inverse : .surface,
+                depth: .small,
+                cornerRadius: 18
             )
     }
 
@@ -430,7 +401,7 @@ struct WordListView: View {
                         Label("ブックマークのみ", systemImage: "bookmark.fill")
                             .foregroundStyle(MerkenTheme.primaryText)
                     }
-                    .tint(MerkenTheme.accentBlue)
+                    .tint(MerkenTheme.accentGreen)
                 } header: {
                     Text("ブックマーク")
                 }
@@ -554,14 +525,11 @@ struct WordListView: View {
 
         return Button { selectedFilter = filter } label: {
             HStack(spacing: 4) {
-                Text(label).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                Text("\(count)").font(.system(size: 12, weight: .bold)).monospacedDigit()
+                Text(label)
+                Text("\(count)").monospacedDigit()
             }
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .foregroundStyle(isActive ? .white : MerkenTheme.secondaryText)
-            .background(isActive ? MerkenTheme.accentBlue : MerkenTheme.surface, in: .capsule)
-            .overlay(Capsule().stroke(isActive ? Color.clear : MerkenTheme.borderLight, lineWidth: 1))
         }
+        .buttonStyle(SolidButtonStyle(isActive ? .inverse : .surface, size: .small, cornerRadius: 16))
     }
 
     // MARK: - Status Filter Tabs (stats widget entry point)
@@ -607,19 +575,13 @@ struct WordListView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "tray")
-                .font(.system(size: 28))
-                .foregroundStyle(MerkenTheme.mutedText)
-            Text(searchText.isEmpty
-                 ? "単語がありません"
-                 : "「\(searchText)」に一致する単語がありません")
-                .font(.system(size: 14))
-                .foregroundStyle(MerkenTheme.secondaryText)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
+        SolidEmptyState(
+            icon: "tray",
+            title: "単語がありません",
+            message: searchText.isEmpty
+                ? "スキャンか手入力で単語を追加してください。"
+                : "「\(searchText)」に一致する単語がありません。"
+        )
     }
 
     // MARK: - Word Row
@@ -721,14 +683,8 @@ struct WordListView: View {
 
         return Group {
             if let japanesePos {
-                (Text(japanesePos + " ")
-                    .font(.system(size: 12))
-                    .foregroundColor(MerkenTheme.mutedText)
-                 +
-                 Text(word.japanese)
+                Text(inlineDefinitionAttributedString(pos: japanesePos, meaning: word.japanese))
                     .font(.system(size: 14))
-                    .foregroundColor(MerkenTheme.secondaryText)
-                )
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
             } else {
@@ -739,6 +695,23 @@ struct WordListView: View {
                     .multilineTextAlignment(.leading)
             }
         }
+    }
+
+    private func inlineDefinitionAttributedString(pos: String, meaning: String) -> AttributedString {
+        let combined = "\(pos) \(meaning)"
+        var attributed = AttributedString(combined)
+
+        if let posRange = attributed.range(of: pos) {
+            attributed[posRange].font = UIFont.systemFont(ofSize: 12)
+            attributed[posRange].foregroundColor = UIColor(MerkenTheme.mutedText)
+        }
+
+        if let meaningRange = attributed.range(of: meaning) {
+            attributed[meaningRange].font = UIFont.systemFont(ofSize: 14)
+            attributed[meaningRange].foregroundColor = UIColor(MerkenTheme.secondaryText)
+        }
+
+        return attributed
     }
 
     private func posTagsToJapanese(_ posString: String) -> String {

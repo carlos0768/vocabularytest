@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { InteractionManager, StyleSheet, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import colors from '../../constants/colors';
+import theme from '../../constants/theme';
 import type { WordStatus } from '../../shared/types';
 
 const BOX_SIZE = 13;
-const BORDER_RADIUS = 3;
+const BORDER_RADIUS = 4;
 const KEY_TIER2 = 'notion_cb_mid_';
 const KEY_FROM_MASTERED = 'notion_cb_fromM_';
 const KEY_WALKBACK = 'notion_cb_walk_';
@@ -176,7 +176,7 @@ export const NotionCheckbox = React.memo(function NotionCheckbox({
       onPress={handleTap}
       activeOpacity={0.6}
       style={styles.container}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
       <View style={styles.stack}>
         <View style={[styles.box, filledCount >= 1 && styles.boxFilled]} />
@@ -189,28 +189,28 @@ export const NotionCheckbox = React.memo(function NotionCheckbox({
 
 const styles = StyleSheet.create({
   container: {
-    width: 34,
+    width: 44,
+    minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stack: {
     width: BOX_SIZE,
-    borderRadius: BORDER_RADIUS,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    overflow: 'hidden',
+    gap: 4,
   },
   box: {
-    width: BOX_SIZE - 2,
-    height: BOX_SIZE - 2,
+    width: BOX_SIZE,
+    height: BOX_SIZE,
+    borderRadius: BORDER_RADIUS,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     backgroundColor: 'transparent',
   },
   boxMiddle: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.gray[200],
+    borderTopWidth: 1.25,
+    borderBottomWidth: 1.25,
   },
   boxFilled: {
-    backgroundColor: colors.gray[900],
+    backgroundColor: theme.solidInk,
   },
 });

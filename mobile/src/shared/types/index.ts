@@ -23,6 +23,7 @@ export interface Word {
   japanese: string;
   japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
+  lexiconSenseId?: string;
   cefrLevel?: string;
   distractors: string[];
   exampleSentence?: string;
@@ -63,6 +64,7 @@ export interface AIWordExtraction {
   japanese: string;
   japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
+  lexiconSenseId?: string;
   cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];

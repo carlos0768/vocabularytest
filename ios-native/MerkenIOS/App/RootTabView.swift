@@ -12,14 +12,8 @@ private struct RootTabItem: Identifiable {
 private struct LiquidBarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1)
-            .brightness(configuration.isPressed ? 0.02 : 0)
-            .overlay {
-                if configuration.isPressed {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.18))
-                }
-            }
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .opacity(configuration.isPressed ? 0.74 : 1)
             .animation(.spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
     }
 }
@@ -33,10 +27,10 @@ struct RootTabView: View {
     @State private var keyboardVisible = false
 
     private let tabItems: [RootTabItem] = [
-        .init(tab: 0, title: "ホーム", systemImage: "house.fill"),
-        .init(tab: 1, title: "共有", systemImage: "person.2.fill"),
-        .init(tab: 3, title: "進歩", systemImage: "chart.bar.fill"),
-        .init(tab: 4, title: "設定", systemImage: "gearshape.fill")
+        .init(tab: 0, title: "ホーム", systemImage: "house"),
+        .init(tab: 1, title: "共有", systemImage: "point.3.connected.trianglepath.dotted"),
+        .init(tab: 3, title: "進歩", systemImage: "chart.line.uptrend.xyaxis"),
+        .init(tab: 4, title: "アカウント", systemImage: "person")
     ]
 
     init() {
@@ -75,7 +69,7 @@ struct RootTabView: View {
                 }
                 .tint(MerkenTheme.accentBlue)
                 .toolbar(.hidden, for: .tabBar)
-                .safeAreaPadding(.bottom, appState.tabBarVisible ? 106 : 0)
+                .safeAreaPadding(.bottom, appState.tabBarVisible ? 90 : 0)
             } else {
                 NavigationStack {
                     RootAuthLandingView(
@@ -144,36 +138,40 @@ struct RootTabView: View {
     }
 
     private var bottomNavigationBar: some View {
-        HStack(alignment: .bottom, spacing: 12) {
-            sharedTabBar
-            scanButton
+        let content = HStack(alignment: .center, spacing: 2) {
+            tabButton(for: tabItems[0])
+            tabButton(for: tabItems[1])
+            centerScanButton
+            tabButton(for: tabItems[2])
+            tabButton(for: tabItems[3])
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
-        .padding(.bottom, 0)
-        .background(Color.clear)
-    }
+        .frame(maxWidth: .infinity)
+        .frame(height: 60)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
 
-    private var sharedTabBar: some View {
-        let shape = Capsule(style: .continuous)
-        let baseBar = HStack(spacing: 6) {
-            ForEach(tabItems) { item in
-                tabButton(for: item)
+        return Group {
+            if #available(iOS 26.0, *) {
+                GlassEffectContainer(spacing: 8) {
+                    content
+                        .glassEffect(
+                            .regular.tint(Color.white.opacity(0.16)).interactive(),
+                            in: .rect(cornerRadius: 30)
+                        )
+                }
+            } else {
+                content
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                            .stroke(Color.white.opacity(0.48), lineWidth: 1)
+                    )
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity)
-        .frame(height: 70)
-
-        return baseBar
-            .background(.ultraThinMaterial, in: shape)
-            .overlay(
-                shape.stroke(Color.white.opacity(0.32), lineWidth: 1)
-            )
-            .clipShape(shape)
-            .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
-            .allowsHitTesting(!showingScanFlow)
+        .shadow(color: Color.black.opacity(0.14), radius: 16, x: 0, y: 8)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 14)
+        .allowsHitTesting(!showingScanFlow || appState.tabBarVisible)
     }
 
     private func tabButton(for item: RootTabItem) -> some View {
@@ -187,27 +185,21 @@ struct RootTabView: View {
                 appState.selectedTab = item.tab
             }
         } label: {
-            VStack(spacing: 2) {
+            VStack(spacing: 3) {
                 Image(systemName: item.systemImage)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
                 Text(item.title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 9, weight: isSelected ? .semibold : .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-            .foregroundStyle(isSelected ? MerkenTheme.primaryText : MerkenTheme.secondaryText)
+            .foregroundStyle(isSelected ? MerkenTheme.solidInk : MerkenTheme.mutedText)
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .frame(height: 50)
             .background {
                 if isSelected {
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.58))
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .stroke(Color.white.opacity(0.38), lineWidth: 1)
-                        )
-                        .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
+                    Capsule()
+                        .fill(MerkenTheme.selectedGlassFill)
                 }
             }
             .contentShape(.rect)
@@ -216,42 +208,36 @@ struct RootTabView: View {
         .accessibilityLabel(item.title)
     }
 
-    private var scanButton: some View {
+    private var centerScanButton: some View {
         Button {
             MerkenHaptic.selection()
             withAnimation(MerkenSpring.snappy) {
                 showingScanFlow.toggle()
             }
         } label: {
-            ZStack {
-                Image(systemName: "plus")
-                    .opacity(showingScanFlow ? 0 : 1)
-                    .scaleEffect(showingScanFlow ? 0.55 : 1)
-                    .rotationEffect(.degrees(showingScanFlow ? 90 : 0))
-
-                Image(systemName: "xmark")
-                    .opacity(showingScanFlow ? 1 : 0)
-                    .scaleEffect(showingScanFlow ? 1 : 0.55)
-                    .rotationEffect(.degrees(showingScanFlow ? 0 : -90))
-            }
-            .font(.system(size: 26, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: 70, height: 70)
-            .background(
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.black.opacity(0.96), Color.black.opacity(0.82)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            VStack(spacing: 3) {
+                ZStack {
+                    Circle()
+                        .fill(MerkenTheme.inverseSurface)
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Circle()
+                                .stroke(MerkenTheme.inverseText.opacity(0.24), lineWidth: 1)
                         )
-                    )
-            )
-            .overlay(
-                Circle()
-                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 8)
+
+                    Image(systemName: showingScanFlow ? "xmark" : "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.inverseText)
+                        .rotationEffect(.degrees(showingScanFlow ? 90 : 0))
+                }
+
+                Text("スキャン")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.solidInk)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .contentShape(.rect)
         }
         .buttonStyle(LiquidBarButtonStyle())
         .accessibilityLabel(showingScanFlow ? "閉じる" : "スキャン")
@@ -264,82 +250,415 @@ private struct RootAuthLandingView: View {
 
     var body: some View {
         ZStack {
-            AppBackground()
+            PaperDotBackground()
 
-            VStack(spacing: 0) {
-                Spacer(minLength: 24)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 26) {
+                    landingHeader
 
-                ZStack {
-                    RoundedRectangle(cornerRadius: 44, style: .continuous)
-                        .fill(Color.black)
-                        .frame(width: 212, height: 430)
-                        .rotationEffect(.degrees(-10))
-                        .offset(x: 86, y: -10)
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Rectangle()
+                                .fill(MerkenTheme.accentGreen)
+                                .frame(width: 20, height: 1.5)
+                            Text("AI VOCABULARY NOTEBOOK")
+                                .font(.system(size: 11, weight: .black, design: .monospaced))
+                                .tracking(1.2)
+                                .foregroundStyle(MerkenTheme.accentGreen)
+                        }
 
-                    RoundedRectangle(cornerRadius: 36, style: .continuous)
-                        .fill(Color.white)
-                        .frame(width: 186, height: 390)
-                        .rotationEffect(.degrees(-10))
-                        .overlay(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Image(systemName: "applelogo")
-                                    Text("Merken")
-                                        .font(.system(size: 18, weight: .bold))
-                                }
-                                .foregroundStyle(MerkenTheme.primaryText)
-                                .padding(.top, 28)
-                                .padding(.horizontal, 18)
+                        VStack(alignment: .leading, spacing: -2) {
+                            Text("手入力ゼロで、")
+                                .font(.system(size: 42, weight: .black))
+                            Text("単語帳。")
+                                .font(.system(size: 42, weight: .black))
+                                .foregroundStyle(MerkenTheme.accentGreen)
+                        }
+                        .foregroundStyle(MerkenTheme.solidInk)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.86)
 
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .fill(MerkenTheme.background)
-                                    .frame(height: 220)
-                                    .overlay {
-                                        VStack(spacing: 16) {
-                                            Image(systemName: "camera.viewfinder")
-                                                .font(.system(size: 44, weight: .medium))
-                                                .foregroundStyle(MerkenTheme.accentBlue)
-                                            Text("スキャンして作成")
-                                                .font(.system(size: 18, weight: .bold))
-                                                .foregroundStyle(MerkenTheme.primaryText)
-                                        }
-                                    }
-                                    .padding(.horizontal, 14)
+                        Text("教科書・ノート・プリントを撮影するだけ。AIが英単語、和訳、例文、発音記号、クイズ素材を作り、あなた専用の単語帳として保存できます。")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                            .lineSpacing(7)
+                    }
+
+                    HStack(spacing: 14) {
+                        Button(action: onGetStarted) {
+                            HStack(spacing: 9) {
+                                Text("無料で始める")
+                                Image(systemName: "arrow.right")
                             }
                         }
-                }
-                .frame(height: 360)
+                        .buttonStyle(PrimaryGlassButton())
 
-                Spacer(minLength: 28)
-
-                VStack(spacing: 20) {
-                    Text("英語学習を\nもっと簡単に")
-                        .font(.system(size: 34, weight: .black))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(MerkenTheme.primaryText)
-
-                    Button(action: onGetStarted) {
-                        Text("はじめる")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
-                            .background(Color.black, in: Capsule())
+                        Button(action: onSignIn) {
+                            HStack(spacing: 7) {
+                                Text("ログイン")
+                                Image(systemName: "arrow.right")
+                            }
+                            .font(.system(size: 15, weight: .black))
+                            .foregroundStyle(MerkenTheme.solidInk)
+                            .padding(.vertical, 13)
+                            .overlay(alignment: .bottom) {
+                                MerkenTheme.solidInk.frame(height: 1.5)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
 
+                    HStack(alignment: .top, spacing: 26) {
+                        landingMetric(value: "4", label: "抽出モード")
+                        landingMetric(value: "3回/日", label: "無料スキャン")
+                        landingMetric(value: "100語", label: "無料保存枠")
+                    }
+                    .padding(.top, 6)
+
+                    landingHeroMock
+
+                    landingTagRow
+
+                    howItWorksPreview
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 36)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var landingHeader: some View {
+        HStack(alignment: .center) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text("MERKEN")
+                    .font(.system(size: 21, weight: .black))
+                    .tracking(5)
+                    .foregroundStyle(MerkenTheme.solidInk)
+                Rectangle()
+                    .fill(MerkenTheme.accentGreen)
+                    .frame(width: 5, height: 5)
+            }
+
+            Spacer()
+
+            Button(action: onGetStarted) {
+                HStack(spacing: 8) {
+                    Text("無料で始める")
+                        .font(.system(size: 13, weight: .black))
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .black))
+                }
+                .foregroundStyle(MerkenTheme.inverseText)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(MerkenTheme.inverseSurface, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.bottom, 18)
+        .overlay(alignment: .bottom) {
+            MerkenTheme.solidInk.frame(height: 1.5)
+        }
+    }
+
+    private func landingMetric(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value)
+                .font(.system(size: 24, weight: .black))
+                .foregroundStyle(MerkenTheme.solidInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(MerkenTheme.secondaryText)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var landingHeroMock: some View {
+        ZStack(alignment: .bottom) {
+            notebookMock
+                .frame(width: 190, height: 220)
+                .rotationEffect(.degrees(-4))
+                .offset(x: -72, y: 14)
+
+            phoneQuizMock
+                .frame(width: 178, height: 286)
+                .rotationEffect(.degrees(6))
+                .offset(x: 66, y: 0)
+
+            Text("AI 抽出")
+                .font(.system(size: 10, weight: .black, design: .monospaced))
+                .foregroundStyle(MerkenTheme.inverseText)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(MerkenTheme.inverseSurface, in: Capsule())
+                .offset(x: -136, y: -22)
+
+            Text("+ 単語帳へ")
+                .font(.system(size: 10, weight: .black))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(MerkenTheme.accentGreen, in: Capsule())
+                .offset(x: 64, y: -212)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 306)
+    }
+
+    private var notebookMock: some View {
+        ZStack(alignment: .topLeading) {
+            MerkenTheme.notebookPaper
+                .overlay {
+                    VStack(spacing: 18) {
+                        ForEach(0..<7, id: \.self) { _ in
+                            MerkenTheme.solidInk.opacity(0.08).frame(height: 1)
+                        }
+                    }
+                    .padding(.top, 28)
+                }
+            Rectangle()
+                .fill(Color(red: 232 / 255, green: 180 / 255, blue: 184 / 255))
+                .frame(width: 1)
+                .padding(.leading, 22)
+
+            VStack(alignment: .leading, spacing: 11) {
+                Text("Lesson 7 - Reading")
+                    .font(.system(size: 12, weight: .black))
+                Text("The pattern was")
+                highlightedWord("ubiquitous", color: Color(red: 232 / 255, green: 199 / 255, blue: 130 / 255))
+                Text("in modern")
+                highlightedWord("architecture", color: MerkenTheme.accentGreenLight)
+            }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(MerkenTheme.solidInk)
+            .padding(.leading, 42)
+            .padding(.top, 44)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 10)
+        .overlay(alignment: .topLeading) {
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    MerkenTheme.solidInk.frame(width: 28, height: 2)
+                    Spacer()
+                }
+                MerkenTheme.solidInk.frame(width: 2, height: 28)
+            }
+            .offset(x: -8, y: -8)
+        }
+    }
+
+    private func highlightedWord(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 14, weight: .black))
+            .padding(.horizontal, 4)
+            .background(color, in: RoundedRectangle(cornerRadius: 2, style: .continuous))
+    }
+
+    private var phoneQuizMock: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(MerkenTheme.inverseSurface)
+
+            VStack(spacing: 10) {
+                Capsule()
+                    .fill(MerkenTheme.inverseText.opacity(0.22))
+                    .frame(width: 78, height: 18)
+                    .padding(.top, 10)
+
+                Text("somewhat")
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundStyle(MerkenTheme.solidInk)
+
+                VStack(spacing: 7) {
+                    quizChoice("A", "莫大な、優しい", tone: .neutral)
+                    quizChoice("B", "適度な、ほどよい", tone: .correct)
+                    quizChoice("C", "鮮やかな、活発な", tone: .wrong)
+                    quizChoice("D", "危険な、不安定な", tone: .neutral)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .padding(8)
+        }
+        .shadow(color: Color.black.opacity(0.24), radius: 20, x: 0, y: 12)
+    }
+
+    private enum QuizChoiceTone {
+        case neutral
+        case correct
+        case wrong
+    }
+
+    private func quizChoice(_ prefix: String, _ text: String, tone: QuizChoiceTone) -> some View {
+        let background: Color = switch tone {
+        case .neutral: MerkenTheme.surfaceAlt
+        case .correct: Color(red: 84 / 255, green: 203 / 255, blue: 116 / 255)
+        case .wrong: Color(red: 241 / 255, green: 103 / 255, blue: 98 / 255)
+        }
+        let foreground: Color = tone == .neutral ? MerkenTheme.secondaryText : .white
+        let prefixBackground: Color = tone == .neutral ? MerkenTheme.surface : .white.opacity(0.22)
+
+        return HStack(spacing: 8) {
+            Text(prefix)
+                .font(.system(size: 10, weight: .black))
+                .frame(width: 18, height: 18)
+                .background(prefixBackground, in: Circle())
+            Text(text)
+                .font(.system(size: 10, weight: .bold))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(foreground)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+        .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var landingTagRow: some View {
+        VStack(spacing: 12) {
+            MerkenTheme.solidInk.frame(height: 1.5)
+            let tags = ["教科書", "プリント", "ノート", "英検対策", "熟語・イディオム", "保存済み復習", "フラッシュカード"]
+            LandingFlowLayout(spacing: 14, rowSpacing: 9) {
+                ForEach(tags, id: \.self) { tag in
                     HStack(spacing: 6) {
-                        Text("すでにアカウントをお持ちですか？")
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        Button("ログイン", action: onSignIn)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text(tag)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(tag == "熟語・イディオム" || tag == "フラッシュカード" ? MerkenTheme.solidInk : MerkenTheme.secondaryText)
+                        Rectangle()
+                            .fill(MerkenTheme.accentGreen)
+                            .frame(width: 4, height: 4)
                     }
-                    .font(.system(size: 16, weight: .medium))
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 34)
             }
         }
+    }
+
+    private var howItWorksPreview: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 8) {
+                Text("01 /")
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                Text("HOW IT WORKS")
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .tracking(1.1)
+                    .foregroundStyle(MerkenTheme.accentGreen)
+            }
+
+            Text("撮る、確認する、\n覚える。")
+                .font(.system(size: 25, weight: .black))
+                .foregroundStyle(MerkenTheme.solidInk)
+
+            VStack(spacing: 0) {
+                howStep(number: "01", title: "撮る", detail: "ノート、教科書、プリントをカメラで撮影するか、写真から選びます。", icon: "camera")
+                howStep(number: "02", title: "抽出する", detail: "AIが英単語、和訳、品詞、例文、発音記号の候補を作ります。", icon: "sparkles")
+                howStep(number: "03", title: "確認して保存", detail: "抽出結果を確認し、必要なら編集して自分の単語帳へ追加します。", icon: "checkmark")
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 0)
+                    .stroke(MerkenTheme.solidInk, lineWidth: 1.5)
+            )
+        }
+        .padding(.top, 12)
+    }
+
+    private func howStep(number: String, title: String, detail: String, icon: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(number)
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.accentGreen)
+                Text(title)
+                    .font(.system(size: 20, weight: .black))
+                    .foregroundStyle(MerkenTheme.solidInk)
+                Text(detail)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MerkenTheme.secondaryText)
+                    .lineSpacing(3)
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(MerkenTheme.solidInk)
+                .frame(width: 48, height: 48)
+                .background(MerkenTheme.notebookPaper, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(MerkenTheme.solidInk, lineWidth: 1.25)
+                )
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(MerkenTheme.paperBackground)
+        .overlay(alignment: .bottom) {
+            MerkenTheme.solidInk.frame(height: number == "03" ? 0 : 1.5)
+        }
+    }
+}
+
+private struct LandingFlowLayout: Layout {
+    var spacing: CGFloat = 8
+    var rowSpacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        layout(subviews: subviews, containerWidth: proposal.width ?? .infinity).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = layout(subviews: subviews, containerWidth: bounds.width)
+        for (index, position) in result.positions.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
+                proposal: ProposedViewSize(result.sizes[index])
+            )
+        }
+    }
+
+    private struct LayoutResult {
+        var positions: [CGPoint]
+        var sizes: [CGSize]
+        var size: CGSize
+    }
+
+    private func layout(subviews: Subviews, containerWidth: CGFloat) -> LayoutResult {
+        var positions: [CGPoint] = []
+        var sizes: [CGSize] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var maxWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            sizes.append(size)
+
+            if x + size.width > containerWidth, x > 0 {
+                x = 0
+                y += rowHeight + rowSpacing
+                rowHeight = 0
+            }
+
+            positions.append(CGPoint(x: x, y: y))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            maxWidth = max(maxWidth, x)
+        }
+
+        return LayoutResult(
+            positions: positions,
+            sizes: sizes,
+            size: CGSize(width: maxWidth, height: y + rowHeight)
+        )
     }
 }
 
@@ -348,39 +667,74 @@ private struct RootSignInView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var email = ""
     @State private var password = ""
+    @State private var showingSignUp = false
+
+    private var isSignInDisabled: Bool {
+        appState.isSigningIn
+            || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || password.isEmpty
+    }
 
     var body: some View {
         ZStack {
             AppBackground()
 
-            LinearGradient(
-                colors: [
-                    MerkenTheme.accentBlue.opacity(0.06),
-                    Color.clear,
-                    MerkenTheme.accentBlue.opacity(0.03)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .black))
+                                .foregroundStyle(MerkenTheme.solidInk)
+                                .frame(width: 40, height: 40)
+                                .background(MerkenTheme.surface, in: Circle())
+                                .overlay(Circle().stroke(MerkenTheme.solidInk, lineWidth: 1.5))
+                        }
+                        .buttonStyle(.plain)
 
-            VStack {
-                Spacer()
+                        Spacer()
 
-                VStack(spacing: 24) {
-                    Text("MERKEN")
-                        .font(.system(size: 14, weight: .black))
-                        .tracking(3)
-                        .foregroundStyle(MerkenTheme.accentBlue)
+                        Text("N")
+                            .font(.system(size: 16, weight: .black))
+                            .foregroundStyle(MerkenTheme.inverseText)
+                            .frame(width: 40, height: 40)
+                            .background(MerkenTheme.inverseSurface, in: Circle())
+                    }
 
-                    Text("おかえりなさい")
-                        .font(.system(size: 34, weight: .black))
-                        .foregroundStyle(MerkenTheme.primaryText)
+                    VStack(spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Text("MERKEN")
+                                .font(.system(size: 34, weight: .black))
+                                .tracking(5)
+                            Rectangle()
+                                .fill(MerkenTheme.accentGreen)
+                                .frame(width: 5, height: 5)
+                        }
+                        .foregroundStyle(MerkenTheme.solidInk)
 
-                    VStack(spacing: 18) {
-                        signInField(label: "メールアドレス", systemImage: "envelope") {
+                        Text("単語を覚えるためのノート")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 12)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("ログイン")
+                            .font(.system(size: 27, weight: .black))
+                            .foregroundStyle(MerkenTheme.solidInk)
+
+                        Text("アカウントに接続して、続きから始める。")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+
+                    VStack(alignment: .leading, spacing: 13) {
+                        signInField(label: "メールアドレス") {
                             MerkenPlaceholderTextField(
-                                placeholder: "name@example.com",
+                                placeholder: "kenta@example.com",
                                 text: $email,
                                 keyboardType: .emailAddress,
                                 textInputAutocapitalization: .never,
@@ -388,9 +742,16 @@ private struct RootSignInView: View {
                             )
                         }
 
-                        signInField(label: "パスワード", systemImage: "lock") {
-                            MerkenPlaceholderSecureField(placeholder: "パスワードを入力", text: $password)
+                        signInField(label: "パスワード") {
+                            MerkenPlaceholderSecureField(placeholder: "パスワード", text: $password)
                         }
+
+                        Button("パスワードをお忘れですか？") {}
+                            .font(.system(size: 13, weight: .black))
+                            .foregroundStyle(MerkenTheme.accentGreen)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .buttonStyle(.plain)
+                            .padding(.top, 2)
                     }
 
                     if let message = appState.authErrorMessage, !message.isEmpty {
@@ -424,44 +785,52 @@ private struct RootSignInView: View {
                                 ProgressView()
                                     .tint(.white)
                             }
-                            Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
-                                .font(.system(size: 16, weight: .bold))
+                            Text(appState.isSigningIn ? "ログイン中..." : "ログイン")
+                                .font(.system(size: 16, weight: .black))
                         }
                     }
-                    .disabled(appState.isSigningIn)
-                    .opacity(appState.isSigningIn ? 0.7 : 1)
+                    .disabled(isSignInDisabled)
+                    .opacity(isSignInDisabled ? 0.45 : 1)
                     .buttonStyle(PrimaryGlassButton())
 
-                    HStack(spacing: 6) {
-                        Text("アカウントをお持ちでない方は")
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        Button("新規登録") {
-                            dismiss()
-                        }
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
+                    HStack(spacing: 12) {
+                        Rectangle().fill(MerkenTheme.border).frame(height: 1)
+                        Text("または")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Rectangle().fill(MerkenTheme.border).frame(height: 1)
                     }
-                    .font(.system(size: 15, weight: .medium))
-                }
-                .padding(.horizontal, 24)
 
-                Spacer()
+                    Button {
+                        showingSignUp = true
+                    } label: {
+                        Label("新規登録する", systemImage: "person.badge.plus")
+                            .font(.system(size: 15, weight: .black))
+                            .foregroundStyle(MerkenTheme.solidInk)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                    }
+                    .buttonStyle(GhostGlassButton())
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 18)
+                .padding(.bottom, 36)
             }
+            .scrollIndicators(.hidden)
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(isPresented: $showingSignUp) {
+            SignUpView()
+                .environmentObject(appState)
+        }
     }
 
-    private func signInField<Content: View>(label: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+    private func signInField<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                Text(label)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-            }
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(MerkenTheme.secondaryText)
 
             content()
                 .solidTextField()

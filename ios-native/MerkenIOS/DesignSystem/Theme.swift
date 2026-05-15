@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Theme Mode
 
@@ -41,6 +42,16 @@ final class ThemeManager: ObservableObject {
 // MARK: - MerkenTheme (adaptive colors)
 
 enum MerkenTheme {
+    private static func uiColor(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat, _ alpha: CGFloat = 1) -> UIColor {
+        UIColor(red: red, green: green, blue: blue, alpha: alpha)
+    }
+
+    private static func adaptiveColor(light: UIColor, dark: UIColor) -> Color {
+        Color(UIColor { traits in
+            traits.userInterfaceStyle == .dark ? dark : light
+        })
+    }
+
     // Backgrounds
     static let background = Color("ThemeBackground")
     static let surface = Color("ThemeSurface")
@@ -50,10 +61,60 @@ enum MerkenTheme {
     static let border = Color("ThemeBorder")
     static let borderLight = Color("ThemeBorderLight")
 
-    // Accent — Black
-    static let accentBlue = Color(red: 0.10, green: 0.10, blue: 0.10)  // #1a1a1a
-    static let accentBlueStrong = Color(red: 0.05, green: 0.05, blue: 0.05)  // #0d0d0d
-    static let accentBlueLight = Color(red: 0.10, green: 0.10, blue: 0.10).opacity(0.1)
+    // Accent — Web solid ink, adapted for dark mode
+    static let solidInk = adaptiveColor(
+        light: uiColor(0.10, 0.10, 0.10),
+        dark: uiColor(0.94, 0.95, 0.96)
+    )
+    static let solidBorder = adaptiveColor(
+        light: uiColor(0.10, 0.10, 0.10),
+        dark: uiColor(0.78, 0.82, 0.88)
+    )
+    static let solidShadow = adaptiveColor(
+        light: uiColor(0.10, 0.10, 0.10),
+        dark: uiColor(0.02, 0.03, 0.04)
+    )
+    static let inverseSurface = adaptiveColor(
+        light: uiColor(0.10, 0.10, 0.10),
+        dark: uiColor(0.94, 0.95, 0.96)
+    )
+    static let inverseText = adaptiveColor(
+        light: uiColor(1, 1, 1),
+        dark: uiColor(0.06, 0.07, 0.09)
+    )
+    static let selectedGlassFill = adaptiveColor(
+        light: uiColor(1, 1, 1, 0.36),
+        dark: uiColor(1, 1, 1, 0.14)
+    )
+    static let accentBlue = adaptiveColor(
+        light: uiColor(0.10, 0.10, 0.10),
+        dark: uiColor(37 / 255, 99 / 255, 235 / 255)
+    )
+    static let accentBlueStrong = adaptiveColor(
+        light: uiColor(0.05, 0.05, 0.05),
+        dark: uiColor(29 / 255, 78 / 255, 216 / 255)
+    )
+    static let accentBlueLight = adaptiveColor(
+        light: uiColor(0.10, 0.10, 0.10, 0.10),
+        dark: uiColor(37 / 255, 99 / 255, 235 / 255, 0.18)
+    )
+    static let accentGreen = Color(red: 21 / 255, green: 128 / 255, blue: 61 / 255)  // #15803d
+    static let accentGreenInk = adaptiveColor(
+        light: uiColor(20 / 255, 83 / 255, 45 / 255),
+        dark: uiColor(134 / 255, 239 / 255, 172 / 255)
+    )
+    static let accentGreenLight = adaptiveColor(
+        light: uiColor(220 / 255, 252 / 255, 231 / 255),
+        dark: uiColor(12 / 255, 45 / 255, 29 / 255)
+    )
+    static let paperBackground = adaptiveColor(
+        light: uiColor(243 / 255, 240 / 255, 233 / 255),
+        dark: uiColor(13 / 255, 15 / 255, 19 / 255)
+    )
+    static let notebookPaper = adaptiveColor(
+        light: uiColor(1.0, 253 / 255, 247 / 255),
+        dark: uiColor(23 / 255, 26 / 255, 32 / 255)
+    )
 
     // Chart/Stats accent — original blue for data visualizations
     static let chartBlue = Color(red: 0.075, green: 0.498, blue: 0.925)  // #137fec

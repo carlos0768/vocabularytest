@@ -154,14 +154,10 @@ final class HomeViewModel: ObservableObject {
             if !a.isFavorite && b.isFavorite { return false }
             return a.createdAt > b.createdAt
         }
-        self.sharedProjects = projects
-            .filter { $0.importedFromShareId != nil }
-            .sorted(by: homeOrder)
-            .prefix(8).map { $0 }
+        self.sharedProjects = []
         self.myProjects = projects
-            .filter { $0.importedFromShareId == nil }
             .sorted(by: homeOrder)
-            .prefix(8).map { $0 }
+            .prefix(5).map { $0 }
     }
 
     private func clearLoadedContent() {

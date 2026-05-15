@@ -230,6 +230,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
+    fontFamily: 'NotoSansJP_800ExtraBold',
     fontSize: 20,
     fontWeight: '800',
     color: colors.gray[900],
@@ -243,6 +244,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[100],
   },
   subtitle: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     lineHeight: 21,
     color: colors.gray[600],
@@ -273,11 +275,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modeTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 16,
     fontWeight: '700',
     color: colors.gray[900],
   },
   modeDescription: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     lineHeight: 19,
     color: colors.gray[600],
@@ -292,6 +296,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   proBadgeText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 11,
     fontWeight: '700',
     color: colors.white,
@@ -318,6 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.amber[50],
   },
   levelLabel: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 15,
     fontWeight: '700',
     color: colors.gray[900],
@@ -344,11 +350,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   footerButtonText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 15,
     fontWeight: '700',
     color: colors.white,
   },
   footerButtonSecondaryText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 15,
     fontWeight: '700',
     color: colors.gray[800],

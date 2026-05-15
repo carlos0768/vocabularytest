@@ -210,12 +210,14 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   title: {
+    fontFamily: 'NotoSansJP_900Black',
     fontSize: 34,
     fontWeight: '900',
     color: theme.primaryText,
     marginBottom: 8,
   },
   subtitle: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.body,
     color: theme.secondaryText,
     marginBottom: 32,
@@ -230,6 +232,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   errorBannerText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     lineHeight: 19,
     color: theme.danger,
@@ -245,6 +248,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   forgotPasswordText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: theme.chartBlue,
   },
@@ -259,6 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.border,
   },
   dividerText: {
+    fontFamily: 'NotoSansJP_400Regular',
     paddingHorizontal: 16,
     fontSize: 14,
     color: theme.mutedText,
@@ -269,10 +274,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   signupText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: theme.secondaryText,
   },
   signupLink: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 14,
     color: theme.chartBlue,
     fontWeight: '600',

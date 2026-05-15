@@ -53,7 +53,7 @@ struct VocabularyTypeCycleButton: View {
 
     private var backgroundColor: Color {
         switch vocabularyType {
-        case .active: return MerkenTheme.accentBlue
+        case .active: return MerkenTheme.accentGreen
         case .passive: return MerkenTheme.secondaryText.opacity(0.5)
         case nil: return Color.clear
         }

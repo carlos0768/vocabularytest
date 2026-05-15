@@ -62,6 +62,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   input: {
+    fontFamily: 'NotoSansJP_400Regular',
     flex: 1,
     fontSize: theme.fontSize.body,
     color: theme.primaryText,

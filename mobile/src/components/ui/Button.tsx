@@ -9,6 +9,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import colors from '../../constants/colors';
+import theme from '../../constants/theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -42,19 +43,23 @@ export function Button({
     switch (variant) {
       case 'primary':
         return {
-          backgroundColor: '#1a1a1a',
+          backgroundColor: theme.solidInk,
+          borderColor: theme.solidInk,
         };
       case 'secondary':
         return {
-          backgroundColor: colors.gray[100],
+          backgroundColor: colors.white,
+          borderColor: theme.solidInk,
         };
       case 'ghost':
         return {
           backgroundColor: 'transparent',
+          borderColor: 'transparent',
         };
       case 'danger':
         return {
-          backgroundColor: colors.red[600],
+          backgroundColor: theme.danger,
+          borderColor: theme.danger,
         };
     }
   };
@@ -65,7 +70,7 @@ export function Button({
       case 'danger':
         return colors.white;
       case 'secondary':
-        return colors.gray[900];
+        return theme.solidInk;
       case 'ghost':
         return colors.gray[600];
     }
@@ -76,17 +81,17 @@ export function Button({
       case 'sm':
         return {
           paddingHorizontal: 12,
-          paddingVertical: 6,
+          paddingVertical: 7,
         };
       case 'md':
         return {
           paddingHorizontal: 16,
-          paddingVertical: 10,
+          paddingVertical: 11,
         };
       case 'lg':
         return {
-          paddingHorizontal: 24,
-          paddingVertical: 14,
+          paddingHorizontal: 20,
+          paddingVertical: 13,
         };
     }
   };
@@ -146,9 +151,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
+    borderWidth: 1.25,
+    shadowColor: theme.solidShadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 2, height: 2 },
+    shadowRadius: 0,
+    elevation: 2,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   disabled: {
     opacity: 0.5,

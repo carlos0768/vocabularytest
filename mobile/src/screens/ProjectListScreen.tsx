@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   InteractionManager,
-  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -18,10 +17,9 @@ import {
   ArrowUpDown,
   Clock,
   ListFilter,
-  Plus,
   Sparkles,
 } from 'lucide-react-native';
-import { SolidCard, SearchBar, SortChips, Input, Button } from '../components/ui';
+import { SolidCard, SearchBar, SortChips } from '../components/ui';
 import type { SortChipOption } from '../components/ui';
 import { ProjectListSkeleton } from '../components/ui/ScreenSkeleton';
 import theme, { getThumbnailColor } from '../constants/theme';
@@ -61,14 +59,10 @@ export function ProjectListScreen() {
   } = useAuth();
 
   const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('newest');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newProjectTitle, setNewProjectTitle] = useState('');
-  const [creating, setCreating] = useState(false);
   const isFirstLoadRef = useRef(true);
 
   const migratedUserIdRef = useRef<string | null>(null);
@@ -95,7 +89,6 @@ export function ProjectListScreen() {
         if (!isAuthenticated) migratedUserIdRef.current = null;
 
         const activeUserId = await resolveActiveUserId();
-        setCurrentUserId(activeUserId);
 
         const projects = await repository.getProjects(activeUserId);
 
@@ -152,32 +145,6 @@ export function ProjectListScreen() {
     setRefreshing(true);
     void loadProjects(false);
   }, [loadProjects]);
-
-  const handleCreateProject = useCallback(async () => {
-    const title = newProjectTitle.trim();
-    if (!title) {
-      Alert.alert('単語帳名を入力してください');
-      return;
-    }
-    setCreating(true);
-    try {
-      const userId = currentUserId ?? (await resolveActiveUserId());
-      const createdProject = await repository.createProject({
-        userId,
-        title,
-        sourceLabels: [],
-      });
-      setShowCreateModal(false);
-      setNewProjectTitle('');
-      await loadProjects(false);
-      navigation.navigate('Project', { projectId: createdProject.id });
-    } catch (error) {
-      console.error('Failed to create project:', error);
-      Alert.alert('エラー', '単語帳の作成に失敗しました。');
-    } finally {
-      setCreating(false);
-    }
-  }, [currentUserId, loadProjects, navigation, newProjectTitle, repository, resolveActiveUserId]);
 
   // Filter & sort
   const displayedSummaries = useMemo(() => {
@@ -245,16 +212,8 @@ export function ProjectListScreen() {
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyTitle}>単語帳がありません</Text>
             <Text style={styles.emptyText}>
-              右下の＋ボタンからスキャンするか、下のボタンから手動で作成してください。
+              下部中央のスキャンボタンから単語帳を作成できます。
             </Text>
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => setShowCreateModal(true)}
-              activeOpacity={0.8}
-            >
-              <Plus size={16} color={theme.white} />
-              <Text style={styles.emptyButtonText}>単語帳を作る</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.projectList}>
@@ -272,34 +231,6 @@ export function ProjectListScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Create project modal */}
-      <Modal
-        visible={showCreateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCreateModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>新しい単語帳</Text>
-            <Input
-              label="単語帳名"
-              value={newProjectTitle}
-              onChangeText={setNewProjectTitle}
-              placeholder="例: 英検準2級"
-              autoFocus
-            />
-            <View style={styles.modalButtons}>
-              <Button variant="secondary" onPress={() => setShowCreateModal(false)}>
-                キャンセル
-              </Button>
-              <Button onPress={handleCreateProject} loading={creating}>
-                作成
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -340,11 +271,11 @@ const ProjectCardRow = React.memo(function ProjectCardRow({
                 <Text style={styles.statusText}>習得 {summary.masteredWords}</Text>
               </View>
               <View style={styles.statusDot}>
-                <View style={[styles.dot, { backgroundColor: theme.primaryText }]} />
+                <View style={[styles.dot, { backgroundColor: theme.warning }]} />
                 <Text style={styles.statusText}>学習 {summary.learningWords}</Text>
               </View>
               <View style={styles.statusDot}>
-                <View style={[styles.dot, { backgroundColor: theme.mutedText }]} />
+                <View style={[styles.dot, { backgroundColor: theme.borderLight }]} />
                 <Text style={styles.statusText}>未学習 {summary.newWords}</Text>
               </View>
             </View>
@@ -367,6 +298,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   title: {
+    fontFamily: 'NotoSansJP_900Black',
     fontSize: theme.fontSize.largeTitle,
     fontWeight: '900',
     color: theme.primaryText,
@@ -388,11 +320,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionLabel: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: theme.fontSize.subheadline,
     fontWeight: '500',
     color: theme.secondaryText,
   },
   sectionCount: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: theme.fontSize.subheadline,
     fontWeight: '500',
     color: theme.secondaryText,
@@ -408,30 +342,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: theme.fontSize.title2,
     fontWeight: '700',
     color: theme.primaryText,
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.callout,
     color: theme.secondaryText,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: theme.accentBlack,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: theme.radius.full,
-    marginTop: 4,
-  },
-  emptyButtonText: {
-    color: theme.white,
-    fontSize: theme.fontSize.callout,
-    fontWeight: '600',
   },
   projectList: {
     paddingHorizontal: 16,
@@ -443,48 +364,53 @@ const styles = StyleSheet.create({
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
   },
   thumbnail: {
     width: 56,
     height: 56,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbnailText: {
-    fontSize: 22,
+    fontFamily: 'Lexend_700Bold',
+    fontSize: 20,
     fontWeight: '700',
     color: theme.white,
   },
   cardInfo: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
   cardTitle: {
-    fontSize: theme.fontSize.headline,
+    fontFamily: 'NotoSansJP_700Bold',
+    fontSize: 16,
     fontWeight: '700',
     color: theme.primaryText,
   },
   wordCountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    gap: 4,
   },
   wordCountNumber: {
+    fontFamily: 'Lexend_900Black',
     fontSize: 22,
     fontWeight: '900',
     color: theme.primaryText,
+    fontVariant: ['tabular-nums'],
   },
   wordCountLabel: {
-    fontSize: theme.fontSize.subheadline,
-    fontWeight: '500',
+    fontFamily: 'Lexend_700Bold',
+    fontSize: 13,
+    fontWeight: '700',
     color: theme.secondaryText,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 2,
   },
   statusDot: {
     flexDirection: 'row',
@@ -497,30 +423,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: theme.fontSize.footnote,
-    fontWeight: '500',
+    fontFamily: 'NotoSansJP_400Regular',
+    fontSize: 12,
     color: theme.secondaryText,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.3)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: theme.white,
-    borderRadius: theme.radius.xl,
-    padding: 20,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: theme.primaryText,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
   },
 });

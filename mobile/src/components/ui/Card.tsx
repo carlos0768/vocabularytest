@@ -55,6 +55,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   title: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 16,
     fontWeight: '600',
     color: colors.gray[900],

@@ -219,12 +219,14 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   title: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
     marginBottom: 8,
   },
   subtitle: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 16,
     color: colors.gray[500],
     marginBottom: 32,
@@ -239,6 +241,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   errorBannerText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     lineHeight: 19,
     color: colors.red[700],
@@ -250,6 +253,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   terms: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: colors.gray[400],
     textAlign: 'center',
@@ -267,6 +271,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[200],
   },
   dividerText: {
+    fontFamily: 'NotoSansJP_400Regular',
     paddingHorizontal: 16,
     fontSize: 14,
     color: colors.gray[400],
@@ -277,10 +282,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   loginText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[600],
   },
   loginLink: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 14,
     color: '#1a1a1a',
     fontWeight: '600',

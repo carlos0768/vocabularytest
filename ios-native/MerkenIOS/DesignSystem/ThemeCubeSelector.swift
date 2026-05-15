@@ -15,12 +15,12 @@ struct ThemeCubeSelector: View {
                 } label: {
                     Text(themeMode.label)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(mode == themeMode ? .white : MerkenTheme.mutedText)
+                        .foregroundStyle(mode == themeMode ? MerkenTheme.inverseText : MerkenTheme.mutedText)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                         .background(
                             mode == themeMode
-                                ? MerkenTheme.accentBlue
+                                ? MerkenTheme.inverseSurface
                                 : Color.clear,
                             in: .capsule
                         )

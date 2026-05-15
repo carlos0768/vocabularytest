@@ -70,6 +70,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   text: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: theme.fontSize.body,
     fontWeight: '600',
   },

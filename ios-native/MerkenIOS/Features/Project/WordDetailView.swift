@@ -1,9 +1,16 @@
 import SwiftUI
 import AVFoundation
 
+enum WordDetailPresentation {
+    case page
+    case modal
+}
+
 struct WordDetailView: View {
     let project: Project
     let wordID: String
+    let presentation: WordDetailPresentation
+    let onClose: (() -> Void)?
 
     @ObservedObject var viewModel: ProjectDetailViewModel
     @EnvironmentObject private var appState: AppState
@@ -11,10 +18,19 @@ struct WordDetailView: View {
     @StateObject private var speechPlayer = WordSpeechPlayer()
     @State private var editorMode: WordEditorSheet.Mode?
     @State private var currentWordID: String
+    @State private var showingDeleteConfirm = false
 
-    init(project: Project, wordID: String, viewModel: ProjectDetailViewModel) {
+    init(
+        project: Project,
+        wordID: String,
+        viewModel: ProjectDetailViewModel,
+        presentation: WordDetailPresentation = .page,
+        onClose: (() -> Void)? = nil
+    ) {
         self.project = project
         self.wordID = wordID
+        self.presentation = presentation
+        self.onClose = onClose
         self._viewModel = ObservedObject(wrappedValue: viewModel)
         self._currentWordID = State(initialValue: wordID)
     }
@@ -38,6 +54,26 @@ struct WordDetailView: View {
     }
 
     var body: some View {
+        Group {
+            switch presentation {
+            case .page:
+                pageBody
+            case .modal:
+                modalBody
+            }
+        }
+        .sheet(item: $editorMode, content: editorSheet)
+        .alert("この単語を削除しますか？", isPresented: $showingDeleteConfirm) {
+            Button("キャンセル", role: .cancel) {}
+            Button("削除", role: .destructive) {
+                Task { await deleteCurrentWord() }
+            }
+        } message: {
+            Text("この操作は取り消せません。")
+        }
+    }
+
+    private var pageBody: some View {
         ZStack(alignment: .bottomTrailing) {
             AppBackground()
 
@@ -175,7 +211,506 @@ struct WordDetailView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
         }
-        .sheet(item: $editorMode, content: editorSheet)
+    }
+
+    private var modalBody: some View {
+        Group {
+            if let word = currentWord {
+                ViewThatFits(in: .vertical) {
+                    modalContent(for: word)
+
+                    ScrollView {
+                        modalContent(for: word)
+                    }
+                    .disableTopScrollEdgeEffectIfAvailable()
+                }
+            } else {
+                modalNotFound
+            }
+        }
+        .background(modalPaper)
+    }
+
+    // MARK: - Web Modal Presentation
+
+    private func modalContent(for word: Word) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            modalHeader(for: word)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+
+            if let errorMessage = viewModel.errorMessage, !errorMessage.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(errorMessage)
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(MerkenTheme.danger)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+            }
+
+            modalWordHero(for: word)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 18)
+
+            modalDivider
+
+            modalMeaningSection(for: word)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+
+            modalDivider
+
+            modalExampleSection(for: word)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+
+            if let related = nonEmptyRelatedWords(for: word), !related.isEmpty {
+                modalDivider
+                modalRelatedSection(related)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+            }
+
+            if let patterns = nonEmptyUsagePatterns(for: word), !patterns.isEmpty {
+                modalDivider
+                modalUsageSection(patterns)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+            }
+
+            if let sections = word.customSections, !sections.isEmpty {
+                ForEach(sections) { section in
+                    modalDivider
+                    modalCustomSection(section)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                }
+            }
+        }
+        .padding(.top, 16)
+        .padding(.bottom, 24)
+    }
+
+    private var modalPaper: Color {
+        MerkenTheme.notebookPaper
+    }
+
+    private var modalDivider: some View {
+        Rectangle()
+            .fill(MerkenTheme.border)
+            .frame(height: 1)
+            .frame(maxWidth: .infinity)
+    }
+
+    private func modalHeader(for word: Word) -> some View {
+        HStack(spacing: 8) {
+            modalCircleButton(systemName: "xmark", accessibilityLabel: "閉じる") {
+                closeDetail()
+            }
+
+            Spacer()
+
+            modalCircleButton(systemName: "pencil", accessibilityLabel: "編集") {
+                editorMode = .edit(existing: word)
+            }
+
+            modalCircleButton(systemName: "trash", tint: MerkenTheme.danger, accessibilityLabel: "削除") {
+                showingDeleteConfirm = true
+            }
+        }
+    }
+
+    private func modalCircleButton(
+        systemName: String,
+        tint: Color = MerkenTheme.solidInk,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        let shape = Circle()
+        return Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 36, height: 36)
+                .background(MerkenTheme.surface, in: shape)
+                .overlay(shape.stroke(MerkenTheme.solidBorder, lineWidth: 1.25))
+                .background(shape.fill(MerkenTheme.solidShadow).offset(x: 2, y: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func modalWordHero(for word: Word) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Text(word.english)
+                    .font(.system(size: 28, weight: .black))
+                    .foregroundStyle(MerkenTheme.solidInk)
+                    .lineSpacing(1)
+                    .lineLimit(5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                modalStatusPill(for: word.status)
+                    .padding(.top, 2)
+            }
+
+            HStack(alignment: .center, spacing: 8) {
+                modalPronunciationButton(for: word)
+                    .layoutPriority(1)
+
+                Spacer(minLength: 0)
+
+                modalVocabularyTypeButton(for: word)
+
+                Button {
+                    Task { await toggleFavorite(for: word) }
+                } label: {
+                    Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(MerkenTheme.accentGreen)
+                        .frame(width: 28, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("お気に入り切替")
+            }
+        }
+    }
+
+    private func modalStatusPill(for status: WordStatus) -> some View {
+        let style = modalStatusStyle(for: status)
+        return Text(style.label)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(style.foreground)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(style.background, in: Capsule())
+            .overlay(Capsule().stroke(style.border, lineWidth: 1.25))
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func modalStatusStyle(for status: WordStatus) -> (label: String, foreground: Color, background: Color, border: Color) {
+        switch status {
+        case .new:
+            return ("未学習", MerkenTheme.mutedText, MerkenTheme.surface, MerkenTheme.border)
+        case .review:
+            return ("学習中", MerkenTheme.chartBlue, MerkenTheme.chartBlue.opacity(0.1), MerkenTheme.chartBlue)
+        case .mastered:
+            return ("習得済", MerkenTheme.success, MerkenTheme.successLight, MerkenTheme.success)
+        }
+    }
+
+    private func modalPronunciationButton(for word: Word) -> some View {
+        Button {
+            speechPlayer.speak(word.english)
+            MerkenHaptic.light()
+        } label: {
+            HStack(spacing: 8) {
+                Text(trimmed(word.pronunciation) ?? "―")
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.solidInk)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(MerkenTheme.solidInk)
+            }
+            .padding(.horizontal, 15)
+            .frame(minHeight: 36)
+            .background(MerkenTheme.surface, in: Capsule())
+            .overlay(Capsule().stroke(MerkenTheme.solidBorder, lineWidth: 1.25))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("発音を再生")
+    }
+
+    private func modalVocabularyTypeButton(for word: Word) -> some View {
+        let vocabularyType = word.vocabularyType
+        let label = vocabularyTypeLabel(for: vocabularyType)
+        let foreground = vocabularyType == .passive ? MerkenTheme.mutedText : MerkenTheme.accentGreen
+        let border = vocabularyType == .passive ? MerkenTheme.mutedText.opacity(0.5) : MerkenTheme.accentGreen
+        let background: Color = {
+            switch vocabularyType {
+            case .active:
+                return Color(red: 236 / 255, green: 253 / 255, blue: 245 / 255)
+            case .passive:
+                return MerkenTheme.mutedText.opacity(0.08)
+            case nil:
+                return .white
+            }
+        }()
+
+        return Button {
+            Task { await cycleVocabularyType(for: word) }
+        } label: {
+            HStack(spacing: 6) {
+                Text(vocabularyTypeShortLabel(for: vocabularyType))
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundStyle(.white)
+                    .frame(width: 20, height: 20)
+                    .background(vocabularyTypeDotColor(for: vocabularyType), in: Circle())
+
+                Text(label)
+                    .font(.system(size: 12, weight: .bold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 11)
+            .frame(height: 32)
+            .background(background, in: Capsule())
+            .overlay(Capsule().stroke(border, lineWidth: 1.25))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("語彙モード: \(label)")
+    }
+
+    private func modalMeaningSection(for word: Word) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            modalSectionHeading("MEANING")
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                let posLabels = partOfSpeechLabels(for: word)
+                if !posLabels.isEmpty {
+                    Text("(\(posLabels.joined(separator: "・")))")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                }
+
+                Text(word.japanese)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(MerkenTheme.solidInk)
+                    .lineSpacing(3)
+            }
+        }
+    }
+
+    private func modalExampleSection(for word: Word) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                modalSectionHeading("EXAMPLE")
+                Spacer()
+                Text("例文")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+
+            if let exampleSentence = trimmed(word.exampleSentence) {
+                let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Text(modalHighlightedAttributedString(exampleSentence, keyword: word.english))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(MerkenTheme.solidInk)
+                            .lineSpacing(4)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Button {
+                            speechPlayer.speak(exampleSentence)
+                            MerkenHaptic.light()
+                        } label: {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(MerkenTheme.mutedText)
+                                .frame(width: 36, height: 36)
+                                .background(MerkenTheme.surface, in: Circle())
+                                .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.25))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("例文を再生")
+                    }
+
+                    if let exampleSentenceJa = trimmed(word.exampleSentenceJa) {
+                        Text(exampleSentenceJa)
+                            .font(.system(size: 13))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .lineSpacing(3)
+                    }
+                }
+                .padding(16)
+                .background(MerkenTheme.surface, in: shape)
+                .overlay(shape.stroke(MerkenTheme.solidBorder, lineWidth: 1.25))
+                .background(shape.fill(MerkenTheme.accentGreen).offset(x: 3, y: 3))
+            } else {
+                Text("例文はまだ生成されていません")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 15)
+                    .background(MerkenTheme.surfaceAlt, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(MerkenTheme.border, lineWidth: 1.25)
+                    )
+            }
+        }
+    }
+
+    private func modalRelatedSection(_ relatedWords: [RelatedWord]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            modalSectionHeading("RELATED")
+
+            FlowLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(Array(relatedWords.enumerated()), id: \.offset) { _, item in
+                    Text(item.term)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(MerkenTheme.solidInk)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(MerkenTheme.surface, in: Capsule())
+                        .overlay(Capsule().stroke(MerkenTheme.border, lineWidth: 1.25))
+                }
+            }
+        }
+    }
+
+    private func modalUsageSection(_ patterns: [UsagePattern]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            modalSectionHeading("USAGE")
+
+            VStack(spacing: 12) {
+                ForEach(Array(patterns.enumerated()), id: \.offset) { _, pattern in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(pattern.pattern)
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundStyle(MerkenTheme.solidInk)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Text(pattern.meaningJa)
+                            .font(.system(size: 12))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(MerkenTheme.surfaceAlt, in: UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 10, topTrailingRadius: 10, style: .continuous))
+                    .overlay(alignment: .leading) {
+                        Rectangle()
+                            .fill(MerkenTheme.accentGreen)
+                            .frame(width: 3)
+                    }
+                }
+            }
+        }
+    }
+
+    private func modalCustomSection(_ section: CustomSection) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            modalSectionHeading(section.title)
+
+            Text(section.content.isEmpty ? "—" : section.content)
+                .font(.system(size: 13))
+                .foregroundStyle(MerkenTheme.solidInk)
+                .lineSpacing(6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func modalSectionHeading(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .black, design: .monospaced))
+            .textCase(.uppercase)
+            .foregroundStyle(MerkenTheme.mutedText)
+    }
+
+    private var modalNotFound: some View {
+        VStack(spacing: 14) {
+            Text("単語が見つかりません")
+                .font(.system(size: 20, weight: .black))
+                .foregroundStyle(MerkenTheme.solidInk)
+
+            modalTextButton(title: "戻る") {
+                closeDetail()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+
+    private func modalTextButton(title: String, action: @escaping () -> Void) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        return Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(MerkenTheme.solidInk)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 10)
+                .background(MerkenTheme.surface, in: shape)
+                .overlay(shape.stroke(MerkenTheme.solidBorder, lineWidth: 1.25))
+                .background(shape.fill(MerkenTheme.solidShadow).offset(x: 2, y: 2))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func modalHighlightedAttributedString(_ sentence: String, keyword: String) -> AttributedString {
+        var attributed = AttributedString(sentence)
+        let keywordLower = keyword.lowercased()
+        let sentenceLower = sentence.lowercased()
+        var searchStart = sentenceLower.startIndex
+
+        while searchStart < sentenceLower.endIndex,
+              let matchRange = sentenceLower.range(
+                  of: keywordLower,
+                  options: .caseInsensitive,
+                  range: searchStart..<sentenceLower.endIndex
+              ) {
+            let attrStart = attributed.index(
+                attributed.startIndex,
+                offsetByCharacters: sentenceLower.distance(from: sentenceLower.startIndex, to: matchRange.lowerBound)
+            )
+            let attrEnd = attributed.index(
+                attrStart,
+                offsetByCharacters: sentenceLower.distance(from: matchRange.lowerBound, to: matchRange.upperBound)
+            )
+            attributed[attrStart..<attrEnd].backgroundColor = UIColor(Color(red: 236 / 255, green: 253 / 255, blue: 245 / 255))
+            attributed[attrStart..<attrEnd].foregroundColor = UIColor(MerkenTheme.solidInk)
+            attributed[attrStart..<attrEnd].font = UIFont.systemFont(ofSize: 15, weight: .black)
+
+            searchStart = matchRange.upperBound
+        }
+        return attributed
+    }
+
+    private func vocabularyTypeShortLabel(for vocabularyType: VocabularyType?) -> String {
+        switch vocabularyType {
+        case .active: return "A"
+        case .passive: return "P"
+        case nil: return "—"
+        }
+    }
+
+    private func vocabularyTypeLabel(for vocabularyType: VocabularyType?) -> String {
+        switch vocabularyType {
+        case .active: return "Active"
+        case .passive: return "Passive"
+        case nil: return "未設定"
+        }
+    }
+
+    private func vocabularyTypeDotColor(for vocabularyType: VocabularyType?) -> Color {
+        switch vocabularyType {
+        case .active: return MerkenTheme.accentGreen
+        case .passive: return MerkenTheme.mutedText.opacity(0.7)
+        case nil: return MerkenTheme.mutedText
+        }
+    }
+
+    private func closeDetail() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
+    @MainActor
+    private func deleteCurrentWord() async {
+        guard let word = currentWord else { return }
+        await viewModel.deleteWord(wordId: word.id, projectId: project.id, using: appState)
+        closeDetail()
     }
 
     // MARK: - Word Header
@@ -275,7 +810,7 @@ struct WordDetailView: View {
             } label: {
                 Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
                     .font(.system(size: 20))
-                    .foregroundStyle(word.isFavorite ? Color.yellow : MerkenTheme.mutedText)
+                    .foregroundStyle(word.isFavorite ? MerkenTheme.accentGreen : MerkenTheme.mutedText)
             }
             .buttonStyle(.plain)
         }
@@ -289,13 +824,8 @@ struct WordDetailView: View {
 
         return Group {
             if let posText {
-                (Text(posText + " ")
+                Text(meaningAttributedString(posText: posText, meaning: word.japanese))
                     .font(.system(size: 17))
-                    .foregroundColor(MerkenTheme.mutedText)
-                 + Text(word.japanese)
-                    .font(.system(size: 17))
-                    .foregroundColor(MerkenTheme.primaryText)
-                )
                 .lineSpacing(3)
             } else {
                 Text(word.japanese)
@@ -304,6 +834,21 @@ struct WordDetailView: View {
                     .lineSpacing(3)
             }
         }
+    }
+
+    private func meaningAttributedString(posText: String, meaning: String) -> AttributedString {
+        let combined = "\(posText) \(meaning)"
+        var attributed = AttributedString(combined)
+
+        if let posRange = attributed.range(of: posText) {
+            attributed[posRange].foregroundColor = UIColor(MerkenTheme.mutedText)
+        }
+
+        if let meaningRange = attributed.range(of: meaning) {
+            attributed[meaningRange].foregroundColor = UIColor(MerkenTheme.primaryText)
+        }
+
+        return attributed
     }
 
     // MARK: - Example Section（データがなくても常に表示）
@@ -376,44 +921,6 @@ struct WordDetailView: View {
             searchStart = matchRange.upperBound
         }
         return attributed
-    }
-
-    private func highlightedSentence(_ sentence: String, keyword: String) -> Text {
-        // 単語のベース形（先頭大文字対応・複数形・ing形なども部分一致でヒット）
-        let keywordLower = keyword.lowercased()
-        let sentenceLower = sentence.lowercased()
-
-        var result = Text("")
-        var searchStart = sentence.startIndex
-
-        while searchStart < sentence.endIndex {
-            guard let matchRange = sentenceLower.range(
-                of: keywordLower,
-                options: [.caseInsensitive],
-                range: searchStart..<sentence.endIndex
-            ) else {
-                // 残りをそのまま追加
-                let remaining = String(sentence[searchStart...])
-                result = result + Text(remaining).foregroundColor(MerkenTheme.primaryText)
-                break
-            }
-
-            // マッチ前のテキスト
-            let before = String(sentence[searchStart..<matchRange.lowerBound])
-            if !before.isEmpty {
-                result = result + Text(before).foregroundColor(MerkenTheme.primaryText)
-            }
-
-            // ハイライト部分
-            let match = String(sentence[matchRange])
-            result = result + Text(match)
-                .bold()
-                .foregroundColor(MerkenTheme.accentBlue)
-
-            searchStart = matchRange.upperBound
-        }
-
-        return result
     }
 
     // MARK: - Related Words (grouped by relation)
@@ -668,6 +1175,107 @@ struct WordDetailView: View {
                     )
                 }
             }
+        }
+    }
+}
+
+struct WordDetailModalOverlay: View {
+    let project: Project
+    @ObservedObject var viewModel: ProjectDetailViewModel
+    @Binding var selectedWord: Word?
+
+    var body: some View {
+        Group {
+            if let word = selectedWord {
+                GeometryReader { proxy in
+                    let width = min(max(proxy.size.width - 32, 0), 480)
+                    let height = min(proxy.size.height * 0.70, 560)
+                    let panelShape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+
+                    ZStack {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .ignoresSafeArea()
+
+                        Rectangle()
+                            .fill(Color.black.opacity(0.45))
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                MerkenHaptic.light()
+                                selectedWord = nil
+                            }
+
+                        VStack {
+                            Spacer(minLength: 40)
+
+                            WordDetailView(
+                                project: project,
+                                wordID: word.id,
+                                viewModel: viewModel,
+                                presentation: .modal,
+                                onClose: {
+                                    selectedWord = nil
+                                }
+                            )
+                            .frame(width: width, height: height)
+                            .background(MerkenTheme.notebookPaper, in: panelShape)
+                            .clipShape(panelShape)
+                            .background(panelShape.fill(MerkenTheme.solidShadow).offset(x: 4, y: 5))
+                            .overlay(panelShape.stroke(MerkenTheme.solidBorder, lineWidth: 1.5))
+
+                            Spacer(minLength: 40)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.horizontal, 16)
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .zIndex(120)
+            }
+        }
+        .animation(.easeOut(duration: 0.16), value: selectedWord?.id)
+    }
+}
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    var lineSpacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? 0
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + lineSpacing
+                rowHeight = 0
+            }
+            x += size.width + (x > 0 ? spacing : 0)
+            rowHeight = max(rowHeight, size.height)
+        }
+
+        return CGSize(width: maxWidth, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + lineSpacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }

@@ -3,6 +3,15 @@ import OSLog
 
 @MainActor
 final class SharedProjectDetailViewModel: ObservableObject {
+    private struct SharedProjectDetailCacheEntry {
+        var project: Project
+        var words: [Word]
+        var accessRole: SharedProjectAccessRole
+        var collaboratorCount: Int
+    }
+
+    private static var cache: [String: SharedProjectDetailCacheEntry] = [:]
+
     @Published private(set) var project: Project?
     @Published private(set) var words: [Word] = []
     @Published private(set) var accessRole: SharedProjectAccessRole = .editor
@@ -25,8 +34,56 @@ final class SharedProjectDetailViewModel: ObservableObject {
         }
     }
 
-    func load(projectId: String, using state: AppState) async {
-        loading = true
+    @discardableResult
+    private func seedFromCache(projectId: String) -> Bool {
+        if let cached = Self.cache[projectId] {
+            apply(cached)
+            return true
+        }
+
+        guard let snapshot = SharedProjectPersistentCache.loadDetail(projectId: projectId) else { return false }
+        let cached = SharedProjectDetailCacheEntry(
+            project: snapshot.project,
+            words: snapshot.words,
+            accessRole: snapshot.accessRole,
+            collaboratorCount: snapshot.collaboratorCount
+        )
+        Self.cache[projectId] = cached
+        apply(cached)
+        return true
+    }
+
+    private func apply(_ cached: SharedProjectDetailCacheEntry) {
+        project = cached.project
+        words = cached.words
+        accessRole = cached.accessRole
+        collaboratorCount = cached.collaboratorCount
+        errorMessage = nil
+    }
+
+    private func updateCache(projectId: String) {
+        guard let project else { return }
+        let cached = SharedProjectDetailCacheEntry(
+            project: project,
+            words: words,
+            accessRole: accessRole,
+            collaboratorCount: collaboratorCount
+        )
+        Self.cache[projectId] = cached
+        SharedProjectPersistentCache.saveDetail(
+            SharedProjectPersistentCache.DetailSnapshot(
+                project: project,
+                words: words,
+                accessRole: accessRole,
+                collaboratorCount: collaboratorCount
+            ),
+            projectId: projectId
+        )
+    }
+
+    func load(projectId: String, using state: AppState, allowCachedSeed: Bool = true) async {
+        let hadCache = allowCachedSeed && seedFromCache(projectId: projectId)
+        loading = !hadCache
         defer { loading = false }
 
         do {
@@ -40,12 +97,15 @@ final class SharedProjectDetailViewModel: ObservableObject {
             words = detail.words.sorted { $0.createdAt < $1.createdAt }
             accessRole = detail.accessRole
             collaboratorCount = detail.collaboratorCount
+            updateCache(projectId: projectId)
             errorMessage = nil
         } catch {
             if error.isCancellationError {
                 return
             }
-            errorMessage = error.localizedDescription
+            if !hadCache {
+                errorMessage = error.localizedDescription
+            }
             logger.error("Shared project detail load failed: \(error.localizedDescription)")
         }
     }
@@ -67,6 +127,7 @@ final class SharedProjectDetailViewModel: ObservableObject {
             }
             words.append(created)
             words.sort { $0.createdAt < $1.createdAt }
+            updateCache(projectId: projectId)
             errorMessage = nil
             state.bumpDataVersion()
         } catch {
@@ -99,6 +160,7 @@ final class SharedProjectDetailViewModel: ObservableObject {
                 words[index] = updated
             }
             words.sort { $0.createdAt < $1.createdAt }
+            updateCache(projectId: projectId)
             errorMessage = nil
             state.bumpDataVersion()
         } catch {
@@ -124,6 +186,7 @@ final class SharedProjectDetailViewModel: ObservableObject {
                 )
             }
             words.removeAll { $0.id == wordId }
+            updateCache(projectId: projectId)
             errorMessage = nil
             state.bumpDataVersion()
         } catch {
@@ -153,7 +216,7 @@ final class SharedProjectDetailViewModel: ObservableObject {
                         projectId: newProject.id,
                         english: word.english,
                         japanese: word.japanese,
-                        distractors: word.distractors ?? [],
+                        distractors: word.distractors,
                         exampleSentence: word.exampleSentence,
                         exampleSentenceJa: word.exampleSentenceJa,
                         pronunciation: word.pronunciation,
@@ -190,7 +253,7 @@ final class SharedProjectDetailViewModel: ObservableObject {
                 )
             }
             state.bumpDataVersion()
-            await load(projectId: projectId, using: state)
+            await load(projectId: projectId, using: state, allowCachedSeed: false)
         } catch {
             if error.isCancellationError {
                 return

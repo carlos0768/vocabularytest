@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var themeManager: ThemeManager
     @Environment(\.openURL) private var openURL
 
     @State private var email = ""
@@ -10,6 +11,7 @@ struct SettingsView: View {
     @State private var showingContact = false
     @State private var showingTerms = false
     @State private var showingPrivacy = false
+    @State private var showingTokusho = false
     @State private var showingSignOutAlert = false
     @State private var isPurchasing = false
     @State private var isRestoring = false
@@ -25,11 +27,11 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            AppBackground()
+            PaperDotBackground()
 
             ScrollViewReader { scrollProxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 14) {
                         Color.clear
                             .frame(height: 0)
                             .id("settingsTop")
@@ -53,20 +55,34 @@ struct SettingsView: View {
                         profileHeroCard
 
                         if isLoggedInAndActive {
-                            settingsSection(title: "プロフィール") {
-                                usernameRow
+                            if !appState.isPro {
+                                upgradeBanner
+                            } else {
+                                settingsSection(title: "アカウント") {
+                                    accountRows
+                                }
                             }
 
-                            settingsSection(title: "アカウント") {
-                                accountRows
+                            settingsSection(title: "表示") {
+                                displayRows
                             }
 
                             settingsSection(title: "サポート") {
                                 supportRows
                             }
+
+                            logoutButton
                         } else {
                             settingsSection(title: "アカウント") {
                                 guestAuthSection
+                            }
+
+                            settingsSection(title: "表示") {
+                                displayRows
+                            }
+
+                            settingsSection(title: "サポート") {
+                                supportRows
                             }
                         }
 
@@ -107,6 +123,9 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $showingPrivacy) {
             PrivacyView()
         }
+        .navigationDestination(isPresented: $showingTokusho) {
+            TokushoView()
+        }
         .task(id: appState.isLoggedIn) {
             guard appState.isLoggedIn else { return }
             if appState.aiPreference == nil {
@@ -140,18 +159,14 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             content()
         }
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
-        )
+        .solidSurface(tone: .surface, depth: .small, cornerRadius: 12)
     }
 
     private func settingsSection<Content: View>(
         title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             sectionHeader(title: title)
             settingsGroup(content: content)
         }
@@ -160,87 +175,185 @@ struct SettingsView: View {
     private var settingsDivider: some View {
         Divider()
             .overlay(MerkenTheme.borderLight)
-            .padding(.leading, 52)
+            .padding(.leading, 48)
     }
 
     private var headerSection: some View {
-        Text("設定")
-            .font(.system(size: 28, weight: .bold))
-            .foregroundStyle(MerkenTheme.primaryText)
-    }
-
-    private var profileHeroCard: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(MerkenTheme.background)
-                Image(systemName: appState.isLoggedIn ? "person.crop.circle" : "person")
-                    .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(MerkenTheme.primaryText)
-            }
-            .frame(width: 62, height: 62)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(profilePrimaryText)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Text(profileSecondaryText)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .lineLimit(2)
-            }
-
-            Spacer(minLength: 0)
-
-            planBadge
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 18)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(MerkenTheme.border, lineWidth: 1.5)
+        SolidPageHeader(
+            kicker: "ACCOUNT",
+            title: "設定"
         )
     }
 
-    private var profilePrimaryText: String {
+    private var profileHeroCard: some View {
+        SolidSurface(tone: .surface, depth: .small, cornerRadius: 14, padding: 14) {
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    avatarView
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(profilePrimaryText)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(MerkenTheme.solidInk)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+
+                        Text(profileSecondaryText)
+                            .font(.system(size: 11, weight: .medium, design: appState.isLoggedIn ? .monospaced : .default))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+
+                        planBadge
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isLoggedInAndActive && !isEditingUsername {
+                        Button {
+                            usernameInput = appState.username ?? ""
+                            isEditingUsername = true
+                        } label: {
+                            Label("変更", systemImage: "pencil")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .buttonStyle(SolidButtonStyle(.surface, size: .small, cornerRadius: 8))
+                        .disabled(appState.isLoadingProfile)
+                    } else if !appState.isLoggedIn {
+                        planLabel("ログイン")
+                    }
+                }
+
+                if isLoggedInAndActive && isEditingUsername {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Divider()
+                            .overlay(MerkenTheme.borderLight)
+                            .padding(.top, 12)
+
+                        HStack {
+                            Text("USERNAME")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .tracking(0.8)
+                                .foregroundStyle(MerkenTheme.mutedText)
+                            Spacer()
+                            Text("\(usernameInput.count)/20")
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+
+                        MerkenPlaceholderTextField(placeholder: "ユーザー名を入力", text: $usernameInput)
+                            .solidTextField(cornerRadius: 10)
+                            .font(.system(size: 15, weight: .bold))
+                            .onChange(of: usernameInput) { _, newValue in
+                                if newValue.count > 20 {
+                                    usernameInput = String(newValue.prefix(20))
+                                }
+                            }
+
+                        if let errorMessage = appState.profileErrorMessage, !errorMessage.isEmpty {
+                            Text(errorMessage)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(MerkenTheme.danger)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(MerkenTheme.danger.opacity(0.08), in: .rect(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(MerkenTheme.danger, lineWidth: 1)
+                                )
+                        }
+
+                        HStack(spacing: 8) {
+                            Button {
+                                let trimmed = usernameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !trimmed.isEmpty else { return }
+                                Task {
+                                    let success = await appState.setUsername(trimmed)
+                                    if success {
+                                        isEditingUsername = false
+                                    }
+                                }
+                            } label: {
+                                Text(appState.isSavingProfile ? "保存中..." : "保存")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(SolidButtonStyle(.inverse, size: .small, expands: true, cornerRadius: 9))
+                            .disabled(appState.isSavingProfile || usernameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                            Button {
+                                isEditingUsername = false
+                                usernameInput = appState.username ?? ""
+                            } label: {
+                                Text("キャンセル")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(SolidButtonStyle(.surface, size: .small, expands: true, cornerRadius: 9))
+                            .disabled(appState.isSavingProfile)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var avatarView: some View {
+        ZStack {
+            if appState.isLoggedIn {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.34, green: 0.76, blue: 0.72),
+                        Color(red: 0.29, green: 0.43, blue: 0.86)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                Text(profileInitial)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.white)
+            } else {
+                MerkenTheme.surfaceAlt
+                Image(systemName: "person")
+                    .font(.system(size: 27, weight: .bold))
+                    .foregroundStyle(MerkenTheme.solidInk)
+            }
+        }
+        .frame(width: 56, height: 56)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(MerkenTheme.solidInk, lineWidth: MerkenSolid.borderWidth))
+    }
+
+    private var profileInitial: String {
+        let source: String
         if let username = appState.username, !username.isEmpty {
-            return username
+            source = username
+        } else if let email = appState.session?.email, !email.isEmpty {
+            source = email
+        } else {
+            source = "?"
         }
-        if let email = appState.session?.email, !email.isEmpty {
-            return email
+        return String(source.prefix(1)).uppercased()
+    }
+
+    private var profilePrimaryText: String {
+        if appState.isLoggedIn {
+            if let username = appState.username, !username.isEmpty {
+                return username
+            }
+            return appState.isLoadingProfile ? "読み込み中..." : "ユーザー名未設定"
         }
-        return appState.isLoggedIn ? "ログイン中" : "サインインして同期を有効化"
+        return "ゲスト"
     }
 
     private var profileSecondaryText: String {
-        if appState.isLoggedIn {
-            if appState.isPro {
-                if let email = appState.session?.email, !email.isEmpty {
-                    let showsUsername = !(appState.username ?? "").isEmpty
-                    if showsUsername {
-                        return email
-                    }
-                }
-                return "メールアドレスでクラウド同期しています"
-            }
-            return "この端末で学習データを管理しています"
+        if let email = appState.session?.email, !email.isEmpty {
+            return email
         }
-        return "アカウントを作成するとクラウド同期を使えます"
+        return appState.isLoggedIn ? "クラウド同期中" : "ログインでクラウド同期"
     }
 
     private var planBadge: some View {
         Group {
-            if appState.isPro {
-                proChip
-            } else if appState.isLoggedIn {
-                planLabel("Free")
-            } else {
-                planLabel("Guest")
-            }
+            planLabel(appState.isLoggedIn ? (appState.isPro ? "PRO PLAN" : "FREE PLAN") : "GUEST")
         }
     }
 
@@ -252,31 +365,152 @@ struct SettingsView: View {
 
     private var supportRows: some View {
         Group {
-            settingsNavRow(icon: "envelope", title: "お問い合わせ") {
-                showingContact = true
-            }
-            settingsDivider
             settingsNavRow(icon: "doc.text", title: "利用規約") {
                 showingTerms = true
             }
             settingsDivider
-            settingsNavRow(icon: "hand.raised", title: "プライバシーポリシー") {
+            settingsNavRow(icon: "shield", title: "プライバシーポリシー") {
                 showingPrivacy = true
             }
-
             settingsDivider
-
-            settingsActionRow(icon: "rectangle.portrait.and.arrow.right", title: "ログアウト", color: MerkenTheme.danger) {
-                showingSignOutAlert = true
+            settingsNavRow(icon: "storefront", title: "特定商取引法に基づく表記") {
+                showingTokusho = true
+            }
+            settingsDivider
+            settingsNavRow(icon: "envelope", title: "お問い合わせ") {
+                showingContact = true
             }
         }
     }
 
     private func sectionHeader(title: String) -> some View {
         Text(title)
-            .font(.system(size: 15, weight: .bold))
-            .foregroundStyle(MerkenTheme.secondaryText)
-            .padding(.horizontal, 2)
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .tracking(0.8)
+            .foregroundStyle(MerkenTheme.mutedText)
+            .padding(.horizontal, 4)
+    }
+
+    private var upgradeBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                purchaseProSubscription()
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text("UPGRADE")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .tracking(0.6)
+                                .foregroundStyle(MerkenTheme.accentGreen)
+                            Circle()
+                                .fill(MerkenTheme.mutedText)
+                                .frame(width: 3, height: 3)
+                            Text("¥300/月")
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundStyle(MerkenTheme.mutedText)
+                        }
+
+                        Text("Pro でぜんぶ使う")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(MerkenTheme.solidInk)
+
+                        Text("スキャン無制限・クラウド同期・デバイス無制限")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(isPurchasing ? "処理中" : "見る")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(MerkenTheme.inverseText)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .solidSurface(
+                            tone: .inverse,
+                            depth: .small,
+                            cornerRadius: 8,
+                            shadowColor: MerkenTheme.accentGreen
+                        )
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .solidSurface(
+                    tone: .surface,
+                    depth: .small,
+                    cornerRadius: 12,
+                    shadowColor: MerkenTheme.accentGreen
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isPurchasing || isRestoring)
+
+            if let purchaseErrorMessage {
+                Text(purchaseErrorMessage)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(MerkenTheme.danger)
+            }
+
+            if let purchaseSuccessMessage {
+                Text(purchaseSuccessMessage)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(MerkenTheme.success)
+            }
+        }
+    }
+
+    private var displayRows: some View {
+        HStack(spacing: 10) {
+            settingsIcon("paintpalette", color: MerkenTheme.solidInk)
+
+            Text("テーマ")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(MerkenTheme.solidInk)
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 4) {
+                ForEach(ThemeMode.allCases, id: \.self) { mode in
+                    Button {
+                        themeManager.mode = mode
+                    } label: {
+                        Text(mode.label)
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    }
+                    .buttonStyle(
+                        SolidButtonStyle(
+                            themeManager.mode == mode ? .inverse : .surface,
+                            size: .small,
+                            cornerRadius: 6
+                        )
+                    )
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+    }
+
+    private var logoutButton: some View {
+        Button {
+            showingSignOutAlert = true
+        } label: {
+            Text("ログアウト")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(MerkenTheme.danger)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(MerkenTheme.surface, in: .rect(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(MerkenTheme.danger, lineWidth: MerkenSolid.borderWidth)
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Username
@@ -320,12 +554,8 @@ struct SettingsView: View {
                             }
                         } label: {
                             Text(appState.isSavingProfile ? "保存中..." : "保存")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(MerkenTheme.accentBlue, in: .capsule)
                         }
+                        .buttonStyle(SolidButtonStyle(.inverse, size: .small, cornerRadius: 16))
                         .disabled(appState.isSavingProfile || usernameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                         Button {
@@ -333,12 +563,8 @@ struct SettingsView: View {
                             usernameInput = appState.username ?? ""
                         } label: {
                             Text("キャンセル")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(MerkenTheme.secondaryText)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(MerkenTheme.surfaceAlt, in: .capsule)
                         }
+                        .buttonStyle(SolidButtonStyle(.surface, size: .small, cornerRadius: 16))
                         .disabled(appState.isSavingProfile)
                     }
                 }
@@ -364,11 +590,7 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(MerkenTheme.background, in: .rect(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(MerkenTheme.border, lineWidth: 1)
-                    )
+                    .solidSurface(tone: .surfaceAlt, depth: .flat, cornerRadius: 12)
                 }
                 .buttonStyle(.plain)
                 .disabled(appState.isLoadingProfile)
@@ -397,17 +619,17 @@ struct SettingsView: View {
     }
 
     private var proPlanBlock: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 11) {
             HStack(spacing: 14) {
-                settingsIcon("creditcard.fill", color: MerkenTheme.accentBlue)
+                settingsIcon("creditcard.fill", color: MerkenTheme.solidInk)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Merken Pro")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(MerkenTheme.primaryText)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(MerkenTheme.solidInk)
                     Text("¥300/月")
-                        .font(.system(size: 12))
-                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(MerkenTheme.mutedText)
                 }
 
                 Spacer(minLength: 0)
@@ -415,10 +637,10 @@ struct SettingsView: View {
 
             if let subscription = appState.subscription,
                let label = subscription.displayDateLabel,
-               let displayDate = subscription.displayDateValue {
+                let displayDate = subscription.displayDateValue {
                 let formatted = displayDate.formatted(.dateTime.year().month().day())
                 Text("\(label): \(formatted)")
-                    .font(.system(size: 11))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
 
@@ -433,12 +655,12 @@ struct SettingsView: View {
                         Text("App Storeで管理")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundStyle(MerkenTheme.accentBlue)
                 }
+                .buttonStyle(SolidButtonStyle(.surface, size: .small, cornerRadius: 14))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
     }
 
     private var freePlanBlock: some View {
@@ -448,11 +670,11 @@ struct SettingsView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Free プラン")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(MerkenTheme.primaryText)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(MerkenTheme.solidInk)
                     Text("Free - 3回/日スキャン, 50語まで")
-                        .font(.system(size: 12))
-                        .foregroundStyle(MerkenTheme.secondaryText)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(MerkenTheme.mutedText)
                 }
 
                 Spacer(minLength: 0)
@@ -476,22 +698,16 @@ struct SettingsView: View {
                     purchaseProSubscription()
                 } label: {
                     Text(isPurchasing ? "購入処理中..." : "¥300/月で始める")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
                 }
+                .buttonStyle(SolidButtonStyle(.inverse, size: .medium, expands: true, cornerRadius: 14))
                 .disabled(isPurchasing || isRestoring)
 
                 Button {
                     restoreProSubscription()
                 } label: {
                     Text(isRestoring ? "復元中..." : "購入を復元")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(SolidButtonStyle(.surface, size: .small, expands: true, cornerRadius: 14))
                 .disabled(isPurchasing || isRestoring)
 
                 if let purchaseErrorMessage {
@@ -507,22 +723,22 @@ struct SettingsView: View {
                 }
             }
             .padding(12)
-            .background(MerkenTheme.background, in: .rect(cornerRadius: 14))
+            .solidSurface(tone: .surfaceAlt, depth: .small, cornerRadius: 14)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
     }
 
     // MARK: - Navigation Row
 
     private func settingsNavRow(icon: String, title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 14) {
-                settingsIcon(icon, color: MerkenTheme.accentBlue)
+            HStack(spacing: 10) {
+                settingsIcon(icon, color: MerkenTheme.solidInk)
 
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.primaryText)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(MerkenTheme.solidInk)
 
                 Spacer()
 
@@ -530,15 +746,15 @@ struct SettingsView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
     }
 
     private func settingsInfoRow(icon: String, title: String, subtitle: String, trailingText: String) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             settingsIcon(icon, color: MerkenTheme.primaryText.opacity(0.88), filled: false)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -556,23 +772,23 @@ struct SettingsView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(MerkenTheme.mutedText)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
     }
 
     private func settingsActionRow(icon: String, title: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 14) {
+            HStack(spacing: 10) {
                 settingsIcon(icon, color: color, filled: false)
 
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(color)
 
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -646,13 +862,9 @@ struct SettingsView: View {
                     }
                     Image(systemName: "arrow.right.circle.fill")
                     Text(appState.isSigningIn ? "サインイン中..." : "サインイン")
-                        .font(.system(size: 14, weight: .bold))
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(MerkenTheme.accentBlue, in: .capsule)
             }
+            .buttonStyle(SolidButtonStyle(.inverse, size: .medium, expands: true, cornerRadius: 16))
             .disabled(appState.isSigningIn)
             .opacity(appState.isSigningIn ? 0.7 : 1)
             .accessibilityIdentifier("signInButton")
@@ -689,7 +901,7 @@ struct SettingsView: View {
                 .foregroundStyle(MerkenTheme.success)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .background(MerkenTheme.success.opacity(0.10), in: Capsule())
+                .solidSurface(tone: .success, depth: .flat, cornerRadius: 14)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -716,11 +928,7 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(14)
-        .background(MerkenTheme.warning.opacity(0.08), in: .rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(MerkenTheme.warning.opacity(0.3), lineWidth: 1.5)
-        )
+        .solidSurface(tone: .warning, depth: .small, cornerRadius: 16)
     }
 
     private func authErrorBanner(_ message: String) -> some View {
@@ -734,23 +942,21 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(14)
-        .background(MerkenTheme.warning.opacity(0.08), in: .rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(MerkenTheme.warning.opacity(0.3), lineWidth: 1.5)
-        )
+        .solidSurface(tone: .warning, depth: .small, cornerRadius: 16)
     }
 
     // MARK: - Small Components
 
     private func settingsIcon(_ name: String, color: Color, filled: Bool = false) -> some View {
         Image(systemName: name)
-            .font(.system(size: 14, weight: .semibold))
+            .font(.system(size: 13, weight: .bold))
             .foregroundStyle(filled ? Color.white : color)
-            .frame(width: 32, height: 32)
-            .background(
-                (filled ? color : color.opacity(0.12)),
-                in: .circle
+            .frame(width: 26, height: 26)
+            .solidSurface(
+                tone: filled ? .inverse : .surfaceAlt,
+                depth: .flat,
+                cornerRadius: 7,
+                borderColor: color.opacity(filled ? 1 : 0.45)
             )
     }
 
@@ -761,19 +967,26 @@ struct SettingsView: View {
             Text("Pro")
                 .font(.system(size: 11, weight: .bold))
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(MerkenTheme.inverseText)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(MerkenTheme.primaryText, in: .capsule)
+        .solidSurface(tone: .inverse, depth: .flat, cornerRadius: 12)
     }
 
     private func planLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(MerkenTheme.mutedText)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(MerkenTheme.mutedText.opacity(0.12), in: .capsule)
+        HStack(spacing: 4) {
+            if text != "GUEST" && text != "ログイン" {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            Text(text)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .tracking(0.5)
+        }
+        .foregroundStyle(text == "GUEST" ? MerkenTheme.mutedText : .white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .solidSurface(tone: text == "GUEST" ? .surfaceAlt : .inverse, depth: .flat, cornerRadius: 4)
     }
 
     private func statusDot(color: Color, text: String) -> some View {
@@ -790,10 +1003,10 @@ struct SettingsView: View {
     private func featureChip(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(MerkenTheme.accentBlue)
+            .foregroundStyle(MerkenTheme.accentGreen)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(MerkenTheme.accentBlue.opacity(0.10), in: .capsule)
+            .solidSurface(tone: .surfaceAlt, depth: .flat, cornerRadius: 12)
     }
 
     private func upgradeFeatureRow(_ text: String) -> some View {

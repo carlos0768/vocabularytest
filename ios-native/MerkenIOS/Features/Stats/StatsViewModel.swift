@@ -20,6 +20,13 @@ struct WeeklyAccuracyDay: Identifiable {
     var id: Date { date }
 }
 
+struct ActivityHistoryDay: Identifiable {
+    let date: Date
+    let quizCount: Int
+
+    var id: Date { date }
+}
+
 @MainActor
 final class StatsViewModel: ObservableObject {
     @Published private(set) var totalWords = 0
@@ -36,6 +43,7 @@ final class StatsViewModel: ObservableObject {
     @Published private(set) var wrongAnswersCount = 0
     @Published private(set) var masteryHistory: [MasteryDataPoint] = []
     @Published private(set) var weeklyAccuracy: [WeeklyAccuracyDay] = []
+    @Published private(set) var activityHistory: [ActivityHistoryDay] = []
     @Published private(set) var loading = false
     @Published var errorMessage: String?
 
@@ -134,6 +142,35 @@ final class StatsViewModel: ObservableObject {
         }
     }
 
+    private static func buildActivityHistory(from store: QuizStatsStore, weeks: Int = 12) -> [ActivityHistoryDay] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ja_JP")
+
+        let keyFormatter = DateFormatter()
+        keyFormatter.calendar = calendar
+        keyFormatter.locale = Locale(identifier: "en_US_POSIX")
+        keyFormatter.dateFormat = "yyyy-MM-dd"
+
+        let dayCount = weeks * 7
+        let today = calendar.startOfDay(for: Date())
+        let statsByDay = Dictionary(
+            uniqueKeysWithValues: store.allStats(days: dayCount).map { stats in
+                (stats.date, stats)
+            }
+        )
+
+        return (0..<dayCount).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else {
+                return nil
+            }
+            let key = keyFormatter.string(from: date)
+            return ActivityHistoryDay(
+                date: date,
+                quizCount: statsByDay[key]?.totalAnswered ?? 0
+            )
+        }
+    }
+
     func load(using state: AppState) async {
         loading = true
         defer { loading = false }
@@ -167,6 +204,7 @@ final class StatsViewModel: ObservableObject {
                 streakDays = state.quizStatsStore.streakDays()
                 wrongAnswersCount = today.totalAnswered - today.correctAnswered
                 weeklyAccuracy = Self.buildWeeklyAccuracy(from: state.quizStatsStore)
+                activityHistory = Self.buildActivityHistory(from: state.quizStatsStore)
             } else {
                 todayMasteredWords = 0
                 todayAnswered = 0
@@ -175,6 +213,7 @@ final class StatsViewModel: ObservableObject {
                 streakDays = 0
                 wrongAnswersCount = 0
                 weeklyAccuracy = []
+                activityHistory = []
             }
 
             // Build mastery history (last 7 days)

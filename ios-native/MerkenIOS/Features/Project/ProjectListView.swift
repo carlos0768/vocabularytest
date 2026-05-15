@@ -33,10 +33,11 @@ struct GeneratingProjectCard: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(16)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(MerkenTheme.accentBlue.opacity(0.3), lineWidth: 1)
+        .solidSurface(
+            tone: .surface,
+            depth: .small,
+            cornerRadius: 16,
+            borderColor: MerkenTheme.solidInk
         )
     }
 
@@ -103,8 +104,6 @@ struct ProjectListView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = ProjectListViewModel()
 
-    @State private var showingCreateSheet = false
-    @State private var newProjectTitle = ""
     @State private var selectedProject: Project?
     @State private var searchText = ""
     @State private var sortOrder: ProjectSortOrder = .recentlyUsed
@@ -207,11 +206,6 @@ struct ProjectListView: View {
         }
         .navigationDestination(item: $selectedProject) { project in
             ProjectDetailView(project: project)
-        }
-        .sheet(isPresented: $showingCreateSheet) {
-            createProjectSheet
-                .presentationDetents([.height(280)])
-                .presentationDragIndicator(.visible)
         }
         .alert("この単語帳を削除しますか？", isPresented: Binding(
             get: { projectToDelete != nil },
@@ -321,13 +315,11 @@ struct ProjectListView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("マイ単語帳")
-                .font(.system(size: 31.2, weight: .black))
-                .foregroundStyle(MerkenTheme.primaryText)
-                .tracking(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        SolidPageHeader(
+            kicker: "LIBRARY",
+            title: "マイ単語帳",
+            subtitle: "撮影した教材から作った単語帳を管理します。"
+        )
     }
 
     // MARK: - Search Bar
@@ -350,41 +342,16 @@ struct ProjectListView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(ProjectSortOrder.allCases, id: \.self) { order in
-                    let isActive = sortOrder == order
-                    Button {
+                    SolidChip(
+                        title: sortChipTitle(for: order),
+                        systemImage: chipIcon(for: order),
+                        isSelected: sortOrder == order
+                    ) {
                         sortOrder = order
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: chipIcon(for: order))
-                                .font(.system(size: 13, weight: .semibold))
-
-                            Text(sortChipTitle(for: order))
-                                .font(.system(size: 14, weight: .bold))
-                                .lineLimit(1)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .frame(minWidth: 108, alignment: .leading)
-                        .foregroundStyle(isActive ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(MerkenTheme.surface)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(
-                                    isActive
-                                        ? MerkenTheme.accentBlue.opacity(0.22)
-                                        : MerkenTheme.borderLight,
-                                    lineWidth: 1
-                                )
-                        )
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 4)
         }
     }
 
@@ -414,20 +381,15 @@ struct ProjectListView: View {
                         Text("単語帳がありません")
                             .font(.headline)
                             .foregroundStyle(MerkenTheme.primaryText)
-                        Text("「+ 新規スキャン」から単語帳を追加してください。")
+                        Text("スキャンから単語帳を追加してください。")
                             .font(.subheadline)
                             .foregroundStyle(MerkenTheme.secondaryText)
                     }
                 }
             } else {
                 HStack {
-                    Text("すべてのマイ単語帳")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(MerkenTheme.primaryText)
+                    SolidSectionTitle("すべてのマイ単語帳", count: filteredProjects.count)
                     Spacer()
-                    Text("\(filteredProjects.count)件")
-                        .font(.system(size: 12))
-                        .foregroundStyle(MerkenTheme.mutedText)
                 }
 
                 projectGrid(filteredProjects)
@@ -488,6 +450,10 @@ struct ProjectListView: View {
             }
             .frame(width: thumbSize, height: thumbSize)
             .clipShape(.rect(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(MerkenTheme.solidInk, lineWidth: 1.25)
+            )
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(project.title)
@@ -508,7 +474,7 @@ struct ProjectListView: View {
 
                 HStack(spacing: 12) {
                     projectListMetric(color: MerkenTheme.success, text: "習得 \(masteredCount)")
-                    projectListMetric(color: MerkenTheme.accentBlue, text: "学習 \(reviewCount)")
+                    projectListMetric(color: MerkenTheme.warning, text: "学習 \(reviewCount)")
                     projectListMetric(color: MerkenTheme.borderLight, text: "未学習 \(newCount)")
                 }
                 .padding(.top, 2)
@@ -516,13 +482,11 @@ struct ProjectListView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(16)
-        .background(MerkenTheme.surface, in: .rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    project.isFavorite ? MerkenTheme.accentBlue.opacity(0.55) : MerkenTheme.border,
-                    lineWidth: project.isFavorite ? 1.5 : 1
-                )
+        .solidSurface(
+            tone: .surface,
+            depth: .standard,
+            cornerRadius: 16,
+            borderColor: project.isFavorite ? MerkenTheme.accentGreen : MerkenTheme.solidInk
         )
     }
 
@@ -544,38 +508,4 @@ struct ProjectListView: View {
         GeneratingProjectCard(context: context)
     }
 
-    // MARK: - Create Sheet
-
-    private var createProjectSheet: some View {
-        NavigationStack {
-            ZStack {
-                AppBackground()
-
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("新しい単語帳")
-                        .font(.title3.bold())
-                        .foregroundStyle(MerkenTheme.primaryText)
-                    TextField("例: TOEFL Essential", text: $newProjectTitle)
-                        .textFieldStyle(.plain)
-                        .solidTextField(cornerRadius: 16)
-                        .accessibilityIdentifier("projectTitleField")
-
-                    Button("作成") {
-                        Task {
-                            await viewModel.createProject(title: newProjectTitle, using: appState)
-                            if viewModel.errorMessage == nil {
-                                newProjectTitle = ""
-                                showingCreateSheet = false
-                            }
-                        }
-                    }
-                    .buttonStyle(PrimaryGlassButton())
-                    .accessibilityIdentifier("submitCreateProjectButton")
-
-                    Spacer()
-                }
-                .padding(16)
-            }
-        }
-    }
 }

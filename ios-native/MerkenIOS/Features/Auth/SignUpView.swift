@@ -10,30 +10,62 @@ struct SignUpView: View {
     @State private var showOTPView = false
     @State private var validationError: String?
 
+    private var isSubmitDisabled: Bool {
+        appState.isSigningUp
+            || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || password.isEmpty
+            || confirmPassword.isEmpty
+    }
+
     var body: some View {
         ZStack {
             AppBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    closeButton
-                        .padding(.top, 6)
+                    HStack {
+                        closeButton
+
+                        Spacer()
+
+                        Text("1/2")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(MerkenTheme.secondaryText)
+                    }
+                    .padding(.top, 6)
+
+                    VStack(spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Text("MERKEN")
+                                .font(.system(size: 34, weight: .black))
+                                .tracking(5)
+                            Rectangle()
+                                .fill(MerkenTheme.accentGreen)
+                                .frame(width: 5, height: 5)
+                        }
+                        .foregroundStyle(MerkenTheme.solidInk)
+
+                        Text("単語を覚えるためのノート")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                    }
+                    .frame(maxWidth: .infinity)
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("アカウント登録")
-                            .font(.system(size: 34, weight: .black))
-                            .foregroundStyle(MerkenTheme.primaryText)
+                        Text("新規登録")
+                            .font(.system(size: 27, weight: .black))
+                            .foregroundStyle(MerkenTheme.solidInk)
 
-                        Text("メールアドレスで登録して、単語帳と学習データを同期します。")
-                            .font(.system(size: 15, weight: .medium))
+                        Text("メールアドレスとパスワードでアカウントを作成します。")
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(MerkenTheme.secondaryText)
                             .lineSpacing(2)
                     }
 
-                    VStack(alignment: .leading, spacing: 18) {
-                        authField(label: "メールアドレス", systemImage: "envelope") {
+                    VStack(alignment: .leading, spacing: 13) {
+                        authField(label: "メールアドレス") {
                             MerkenPlaceholderTextField(
-                                placeholder: "name@example.com",
+                                placeholder: "kenta@example.com",
                                 text: $email,
                                 keyboardType: .emailAddress,
                                 textInputAutocapitalization: .never,
@@ -41,17 +73,13 @@ struct SignUpView: View {
                             )
                         }
 
-                        authField(label: "パスワード", systemImage: "lock") {
-                            MerkenPlaceholderSecureField(placeholder: "8文字以上で入力", text: $password)
+                        authField(label: "パスワード") {
+                            MerkenPlaceholderSecureField(placeholder: "8文字以上", text: $password)
                         }
 
-                        authField(label: "パスワード確認", systemImage: "checkmark.shield") {
+                        authField(label: "パスワード（確認）") {
                             MerkenPlaceholderSecureField(placeholder: "もう一度入力", text: $confirmPassword)
                         }
-
-                        Text("登録後に認証コードをメールで送信します。")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(MerkenTheme.secondaryText)
 
                         if let error = validationError {
                             authErrorBanner(error)
@@ -70,36 +98,43 @@ struct SignUpView: View {
                                         .tint(.white)
                                 }
                                 Text(appState.isSigningUp ? "送信中..." : "認証コードを送信")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 16, weight: .black))
                             }
                         }
-                        .disabled(appState.isSigningUp)
-                        .opacity(appState.isSigningUp ? 0.7 : 1)
+                        .disabled(isSubmitDisabled)
+                        .opacity(isSubmitDisabled ? 0.45 : 1)
                         .buttonStyle(PrimaryGlassButton())
                     }
-                    .padding(22)
-                    .background(MerkenTheme.surface.opacity(0.98), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(MerkenTheme.border.opacity(0.7), lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.04), radius: 12, y: 8)
+
+                    HStack(spacing: 12) {
+                        Rectangle().fill(MerkenTheme.border).frame(height: 1)
+                        Text("または")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                        Rectangle().fill(MerkenTheme.border).frame(height: 1)
+                    }
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Label("ログインする", systemImage: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 15, weight: .black))
+                            .foregroundStyle(MerkenTheme.solidInk)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                    }
+                    .buttonStyle(GhostGlassButton())
 
                     HStack(spacing: 6) {
-                        Text("すでにアカウントをお持ちですか？")
-                            .foregroundStyle(MerkenTheme.secondaryText)
-                        Button("ログイン") {
-                            dismiss()
-                        }
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(MerkenTheme.accentBlue)
+                        Text("登録後に認証コードをメールで送信します。")
+                            .foregroundStyle(MerkenTheme.mutedText)
                     }
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 22)
                 .padding(.top, 12)
-                .padding(.bottom, 28)
+                .padding(.bottom, 36)
             }
             .scrollIndicators(.hidden)
         }
@@ -121,34 +156,21 @@ struct SignUpView: View {
         Button {
             dismiss()
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                Text("閉じる")
-                    .font(.system(size: 14, weight: .semibold))
-            }
-            .foregroundStyle(MerkenTheme.mutedText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(MerkenTheme.surface.opacity(0.9), in: Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(MerkenTheme.borderLight, lineWidth: 1)
-            )
+            Image(systemName: "chevron.left")
+                .font(.system(size: 16, weight: .black))
+                .foregroundStyle(MerkenTheme.solidInk)
+                .frame(width: 40, height: 40)
+                .background(MerkenTheme.surface, in: Circle())
+                .overlay(Circle().stroke(MerkenTheme.solidInk, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
     }
 
-    private func authField<Content: View>(label: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+    private func authField<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(MerkenTheme.accentBlue)
-                Text(label)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-            }
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(MerkenTheme.secondaryText)
 
             content()
                 .solidTextField()

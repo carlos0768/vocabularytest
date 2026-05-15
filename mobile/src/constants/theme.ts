@@ -1,8 +1,19 @@
-// Design tokens matching iOS MerkenTheme (Theme.swift + GlassSurface.swift)
+// Design tokens matching current iOS/Web mobile parity UI.
 // This is the source of truth for all UI colors in the RN app.
 
 export const theme = {
-  // Accent — iOS uses black, NOT blue, as primary accent
+  // Solid UI
+  solidInk: '#1a1a1a',
+  solidBorder: '#1a1a1a',
+  solidShadow: '#1a1a1a',
+  notebookPaper: '#faf7f1',
+
+  // Accent — green is reserved for bookmarks, links, progress, and positive actions
+  accentGreen: '#15803d',
+  accentGreenInk: '#14532d',
+  accentGreenBg: '#dcfce7',
+
+  // Primary ink
   accentBlack: '#1a1a1a',
   accentBlackLight: '#0d0d0d',
 
@@ -11,12 +22,12 @@ export const theme = {
   chartBlueBg: 'rgba(19,127,236,0.10)',
 
   // Semantic status colors
-  success: '#21c559',
-  successBg: 'rgba(33,197,89,0.10)',
+  success: '#16a34a',
+  successBg: '#bbf7d0',
   warning: '#f59e0b',
-  warningBg: 'rgba(245,158,11,0.10)',
-  danger: '#f05a5a',
-  dangerBg: 'rgba(240,90,90,0.10)',
+  warningBg: '#fef3c7',
+  danger: '#dc2626',
+  dangerBg: '#fecaca',
 
   // Surfaces
   surface: '#ffffff',
@@ -62,9 +73,24 @@ export const theme = {
     largeTitle: 31.2,
   },
 
+  // Web parity typography: --font-display = Lexend, --font-body = Noto Sans JP
+  fontFamily: {
+    body: 'NotoSansJP_400Regular',
+    bodyMedium: 'NotoSansJP_500Medium',
+    bodySemiBold: 'NotoSansJP_600SemiBold',
+    bodyBold: 'NotoSansJP_700Bold',
+    bodyExtraBold: 'NotoSansJP_800ExtraBold',
+    bodyBlack: 'NotoSansJP_900Black',
+    display: 'Lexend_700Bold',
+    displayExtraBold: 'Lexend_800ExtraBold',
+    displayBlack: 'Lexend_900Black',
+    mono: 'monospace',
+  },
+
   // Corner radii
   radius: {
     sm: 8,
+    solidSm: 10,
     md: 12,
     lg: 16,
     xl: 20,

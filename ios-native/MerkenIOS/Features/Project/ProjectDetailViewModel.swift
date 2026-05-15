@@ -3,6 +3,13 @@ import OSLog
 
 @MainActor
 final class ProjectDetailViewModel: ObservableObject {
+    private struct ProjectDetailCacheEntry {
+        var project: Project?
+        var words: [Word]
+    }
+
+    private static var cache: [String: ProjectDetailCacheEntry] = [:]
+
     @Published private(set) var words: [Word] = []
     /// Notionチェックの「学習中2マス目」だけは UserDefaults 依存のため、ここを進めて行を再描画する
     @Published private(set) var notionUIRevision: Int = 0
@@ -27,8 +34,22 @@ final class ProjectDetailViewModel: ObservableObject {
         }
     }
 
-    func load(projectId: String, using state: AppState) async {
-        loading = true
+    @discardableResult
+    private func seedFromCache(projectId: String) -> Bool {
+        guard let cached = Self.cache[projectId] else { return false }
+        projectMetadata = cached.project
+        words = cached.words
+        errorMessage = nil
+        return true
+    }
+
+    private func updateCache(projectId: String) {
+        Self.cache[projectId] = ProjectDetailCacheEntry(project: projectMetadata, words: words)
+    }
+
+    func load(projectId: String, using state: AppState, allowCachedSeed: Bool = true) async {
+        let hadCache = allowCachedSeed && seedFromCache(projectId: projectId)
+        loading = !hadCache
         defer { loading = false }
 
         do {
@@ -36,9 +57,10 @@ final class ProjectDetailViewModel: ObservableObject {
             async let wordsTask = state.activeRepository.fetchWords(projectId: projectId)
 
             let (projects, loadedWords) = try await (projectsTask, wordsTask)
-            projectMetadata = projects.first(where: { $0.id == projectId })
+            projectMetadata = projects.first(where: { $0.id == projectId }) ?? projectMetadata
             NotionCheckboxProgress.reconcileAfterLoad(words: loadedWords)
             words = loadedWords
+            updateCache(projectId: projectId)
             errorMessage = nil
         } catch {
             if error.isCancellationError {
@@ -63,6 +85,7 @@ final class ProjectDetailViewModel: ObservableObject {
             if !created.isEmpty {
                 words.append(contentsOf: created)
                 words.sort { $0.createdAt < $1.createdAt }
+                updateCache(projectId: projectId)
             }
             state.bumpDataVersion()
             errorMessage = nil
@@ -80,7 +103,7 @@ final class ProjectDetailViewModel: ObservableObject {
         wordId: String,
         patch: WordPatch,
         broadcastChanges: Bool = true,
-        projectId _: String,
+        projectId: String,
         using state: AppState
     ) async {
         let previousEnglish = words.first(where: { $0.id == wordId })?.english
@@ -102,10 +125,12 @@ final class ProjectDetailViewModel: ObservableObject {
             var updated = words[index]
             apply(effectivePatch, to: &updated)
             words[index] = updated
+            updateCache(projectId: projectId)
         }
 
         do {
             try await state.activeRepository.updateWord(id: wordId, patch: effectivePatch)
+            updateCache(projectId: projectId)
             if broadcastChanges {
                 state.bumpDataVersion()
             }
@@ -118,16 +143,18 @@ final class ProjectDetailViewModel: ObservableObject {
             // Rollback on failure
             if let snapshot, let index = words.firstIndex(where: { $0.id == wordId }) {
                 words[index] = snapshot
+                updateCache(projectId: projectId)
             }
             errorMessage = error.localizedDescription
             logger.error("Update word failed: \(error.localizedDescription)")
         }
     }
 
-    func deleteWord(wordId: String, projectId _: String, using state: AppState) async {
+    func deleteWord(wordId: String, projectId: String, using state: AppState) async {
         do {
             try await state.activeRepository.deleteWord(id: wordId)
             words.removeAll { $0.id == wordId }
+            updateCache(projectId: projectId)
             state.bumpDataVersion()
             errorMessage = nil
         } catch {
@@ -143,6 +170,7 @@ final class ProjectDetailViewModel: ObservableObject {
     func deleteProject(id: String, using state: AppState) async {
         do {
             try await state.activeRepository.deleteProject(id: id)
+            Self.cache.removeValue(forKey: id)
             state.bumpDataVersion()
             errorMessage = nil
         } catch {
@@ -165,6 +193,7 @@ final class ProjectDetailViewModel: ObservableObject {
                 projectMetadata.title = trimmedTitle
                 self.projectMetadata = projectMetadata
             }
+            updateCache(projectId: id)
             state.bumpDataVersion()
             errorMessage = nil
         } catch {
@@ -184,6 +213,7 @@ final class ProjectDetailViewModel: ObservableObject {
                 projectMetadata.iconImage = iconImage
                 self.projectMetadata = projectMetadata
             }
+            updateCache(projectId: id)
             state.bumpDataVersion()
             errorMessage = nil
         } catch {

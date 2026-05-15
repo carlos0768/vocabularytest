@@ -34,7 +34,8 @@ struct SharedProjectListView: View {
                         }
                     }
 
-                    listContext
+                    sharedHeader
+                        .padding(.top, -28)
 
                     publicProjectContent
                 }
@@ -70,20 +71,52 @@ struct SharedProjectListView: View {
 
             Spacer(minLength: 0)
 
-            if viewModel.loading && viewModel.allPublicProjects.isEmpty {
+            if viewModel.loading && viewModel.allSharedProjects.isEmpty {
                 ProgressView()
                     .controlSize(.small)
             } else {
-                Text("\(viewModel.allPublicProjects.count)件")
+                Text("\(viewModel.allSharedProjects.count)件")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(MerkenTheme.mutedText)
             }
         }
     }
 
+    private var sharedHeader: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SolidPageHeader(
+                kicker: "COMMUNITY",
+                title: "共有単語帳",
+                subtitle: "みんなが作った単語帳をインポートして、自分の学習に取り込めます。"
+            )
+
+            HStack(spacing: 8) {
+                SolidChip(title: "すべて", count: viewModel.allSharedProjects.count, isSelected: true) {}
+                SolidChip(title: "参加中", count: viewModel.joinedProjects.count, isSelected: false) {}
+                SolidChip(title: "公開中", count: viewModel.publicProjectCount, isSelected: false) {}
+            }
+        }
+    }
+
+    private func sharedFilterChip(title: String, count: Int, selected: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+            Text("\(count)")
+        }
+        .font(.system(size: 12, weight: .black))
+        .foregroundStyle(selected ? MerkenTheme.inverseText : MerkenTheme.solidInk)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 9)
+        .background(selected ? MerkenTheme.inverseSurface : MerkenTheme.surface, in: Capsule())
+        .overlay(
+            Capsule()
+                .stroke(selected ? MerkenTheme.solidBorder : MerkenTheme.border, lineWidth: 1.2)
+        )
+    }
+
     @ViewBuilder
     private var publicProjectContent: some View {
-        if viewModel.loading && viewModel.allPublicProjects.isEmpty {
+        if viewModel.loading && viewModel.allSharedProjects.isEmpty {
             SolidCard(bordered: false) {
                 HStack(spacing: 10) {
                     ProgressView()
@@ -93,15 +126,15 @@ struct SharedProjectListView: View {
                         .foregroundStyle(MerkenTheme.secondaryText)
                 }
             }
-        } else if viewModel.allPublicProjects.isEmpty {
+        } else if viewModel.allSharedProjects.isEmpty {
             SolidCard(bordered: false) {
-                Text("まだ公開中の単語帳はありません。")
+                Text("表示できる共有単語帳はまだありません。")
                     .font(.system(size: 14))
                     .foregroundStyle(MerkenTheme.secondaryText)
             }
         } else {
             LazyVStack(spacing: 12) {
-                ForEach(viewModel.allPublicProjects) { item in
+                ForEach(viewModel.allSharedProjects) { item in
                     Button {
                         selectedProject = item
                     } label: {
@@ -119,106 +152,99 @@ private struct SharedProjectCard: View {
     let item: SharedProjectSummary
     let colorScheme: ColorScheme
 
-    private var badge: SharedProjectCardBadge? {
+    private var badgeTitle: String {
         switch item.accessRole {
         case .owner:
-            if item.project.shareScope == .publicListed {
-                return SharedProjectCardBadge(
-                    title: "公開中",
-                    foreground: MerkenTheme.success,
-                    background: MerkenTheme.success.opacity(0.12)
-                )
-            }
-
-            return SharedProjectCardBadge(
-                title: "共有中",
-                foreground: MerkenTheme.accentBlue,
-                background: MerkenTheme.accentBlue.opacity(0.12)
-            )
+            return item.project.shareScope == .publicListed ? "公開中" : "共有中"
         case .editor:
-            return SharedProjectCardBadge(
-                title: "共同編集",
-                foreground: MerkenTheme.accentBlue,
-                background: MerkenTheme.accentBlue.opacity(0.12)
-            )
+            return "共同編集"
         case .viewer:
-            return nil
+            return "共有中"
         }
     }
 
-    private var summaryText: String {
+    private var badgeColor: Color {
         switch item.accessRole {
         case .owner:
-            return item.project.shareScope == .publicListed
-                ? "公開一覧に表示され、編集もできます。"
-                : "招待したメンバーと共同編集できます。"
+            return item.project.shareScope == .publicListed ? MerkenTheme.success : MerkenTheme.chartBlue
         case .editor:
-            return "参加済み。内容は最新状態に追従します。"
+            return MerkenTheme.chartBlue
         case .viewer:
-            return "公開ページからそのまま閲覧できます。"
+            return MerkenTheme.solidInk.opacity(0.22)
+        }
+    }
+
+    private var ownerLabel: String {
+        switch item.accessRole {
+        case .owner:
+            return "自分"
+        case .editor, .viewer:
+            guard let ownerUsername = item.ownerUsername?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !ownerUsername.isEmpty else {
+                return "共有ユーザー"
+            }
+            return "@\(ownerUsername)"
         }
     }
 
     var body: some View {
-        SolidCard(padding: 0, bordered: false) {
-            HStack(spacing: 12) {
-                thumbnail
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        HStack(spacing: 13) {
+            thumbnail
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(MerkenTheme.solidInk, lineWidth: MerkenSolid.borderWidth)
+                )
 
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text(item.project.title)
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(MerkenTheme.primaryText)
-                            .lineLimit(2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.project.title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(MerkenTheme.solidInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Spacer(minLength: 4)
-
-                        if let badge {
-                            Text(badge.title)
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(badge.foreground)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(badge.background, in: Capsule())
-                        }
-                    }
-
-                    if let ownerName = item.ownerUsername, !ownerName.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 10, weight: .semibold))
-                            Text(ownerName)
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundStyle(MerkenTheme.accentBlue)
-                    }
-
-                    HStack(spacing: 10) {
-                        SharedProjectMetricLabel(
-                            icon: "text.book.closed.fill",
-                            text: "\(item.wordCount)語"
-                        )
-
-                        Circle()
-                            .fill(MerkenTheme.border)
-                            .frame(width: 4, height: 4)
-
-                        SharedProjectMetricLabel(
-                            icon: "person.2.fill",
-                            text: "\(item.collaboratorCount)人"
-                        )
-                    }
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(item.wordCount)")
+                        .font(.system(size: 18, weight: .heavy))
+                        .monospacedDigit()
+                        .foregroundStyle(MerkenTheme.solidInk)
+                    Text("語")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(MerkenTheme.mutedText)
                 }
 
-                Spacer(minLength: 0)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(MerkenTheme.mutedText)
+                HStack(spacing: 10) {
+                    sharedProjectMetric(color: badgeColor, text: badgeTitle)
+                    sharedProjectMetric(color: MerkenTheme.solidInk.opacity(0.22), text: "メンバー \(item.collaboratorCount)")
+                    sharedProjectMetric(color: MerkenTheme.chartBlue.opacity(0.65), text: ownerLabel)
+                }
+                .padding(.top, 1)
             }
-            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .padding(13)
+        .solidSurface(
+            tone: .surface,
+            depth: .small,
+            cornerRadius: 14,
+            borderColor: MerkenTheme.solidInk,
+            shadowOffset: CGSize(width: 2.5, height: 2.5)
+        )
+    }
+
+    private func sharedProjectMetric(color: Color, text: String) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+
+            Text(text)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(MerkenTheme.mutedText)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 
@@ -234,30 +260,9 @@ private struct SharedProjectCard: View {
                 MerkenTheme.placeholderColor(for: item.project.id, isDark: colorScheme == .dark)
 
                 Text(String(item.project.title.prefix(1)))
-                    .font(.system(size: 26, weight: .black))
-                    .foregroundStyle(.white.opacity(0.92))
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
             }
         }
     }
-}
-
-private struct SharedProjectMetricLabel: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-            Text(text)
-                .font(.system(size: 12, weight: .semibold))
-        }
-        .foregroundStyle(MerkenTheme.secondaryText)
-    }
-}
-
-private struct SharedProjectCardBadge {
-    let title: String
-    let foreground: Color
-    let background: Color
 }

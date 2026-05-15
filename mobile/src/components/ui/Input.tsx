@@ -50,12 +50,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 14,
     fontWeight: '500',
     color: colors.gray[700],
     marginBottom: 6,
   },
   input: {
+    fontFamily: 'NotoSansJP_400Regular',
     backgroundColor: colors.gray[50],
     borderWidth: 1,
     borderColor: colors.gray[200],
@@ -73,6 +75,7 @@ const styles = StyleSheet.create({
     borderColor: colors.red[500],
   },
   error: {
+    fontFamily: 'NotoSansJP_400Regular',
     marginTop: 4,
     fontSize: 12,
     color: colors.red[600],

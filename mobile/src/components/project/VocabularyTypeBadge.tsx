@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gray[300],
   },
   label: {
+    fontFamily: 'NotoSansJP_900Black',
     fontSize: 11,
     fontWeight: '900',
   },

@@ -46,12 +46,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: theme.fontSize.title2,
     fontWeight: '700',
     color: theme.primaryText,
     marginTop: 8,
   },
   message: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.callout,
     color: theme.secondaryText,
     textAlign: 'center',

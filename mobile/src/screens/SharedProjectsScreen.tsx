@@ -17,6 +17,7 @@ import theme, { getThumbnailColor } from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import {
   fetchSharedProjects,
+  loadCachedSharedProjects,
   type SharedProjectSummary,
 } from '../lib/shared-projects';
 import type { SharedStackParamList } from '../types';
@@ -25,13 +26,15 @@ type NavigationProp = NativeStackNavigationProp<SharedStackParamList>;
 
 export function SharedProjectsScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { session, isAuthenticated } = useAuth();
+  const { session, user, isAuthenticated } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [publicProjects, setPublicProjects] = useState<SharedProjectSummary[]>([]);
   const [ownedProjects, setOwnedProjects] = useState<SharedProjectSummary[]>([]);
+  const [joinedProjects, setJoinedProjects] = useState<SharedProjectSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const cacheScope = user?.id ?? 'anonymous';
 
   const loadData = useCallback(
     async (showSpinner = true) => {
@@ -39,20 +42,31 @@ export function SharedProjectsScreen() {
         setLoading(false);
         return;
       }
-      if (showSpinner) setLoading(true);
+
+      const cached = await loadCachedSharedProjects(cacheScope);
+      if (cached) {
+        setOwnedProjects(cached.owned ?? []);
+        setJoinedProjects(cached.joined ?? []);
+        setPublicProjects(cached.publicProjects ?? []);
+        setLoading(false);
+      } else if (showSpinner) {
+        setLoading(true);
+      }
+
       setError(null);
       try {
-        const result = await fetchSharedProjects(session.access_token);
+        const result = await fetchSharedProjects(session.access_token, cacheScope);
         setPublicProjects(result.publicProjects ?? []);
         setOwnedProjects(result.owned ?? []);
+        setJoinedProjects(result.joined ?? []);
       } catch (e) {
-        setError(e instanceof Error ? e.message : '取得に失敗しました。');
+        if (!cached) setError(e instanceof Error ? e.message : '取得に失敗しました。');
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [isAuthenticated, session?.access_token]
+    [cacheScope, isAuthenticated, session?.access_token]
   );
 
   useFocusEffect(
@@ -70,7 +84,10 @@ export function SharedProjectsScreen() {
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Text style={styles.title}>共有</Text>
+        <View style={styles.headerBlock}>
+          <Text style={styles.kicker}>SHARED BOOKSHELF</Text>
+          <Text style={styles.title}>共有単語帳</Text>
+        </View>
         <LoginGateView
           title="ログインが必要です"
           message="共有単語帳を閲覧するにはログインしてください。"
@@ -86,7 +103,7 @@ export function SharedProjectsScreen() {
   // Deduplicate: owned projects may also appear in public list
   const seen = new Set<string>();
   const allProjects: SharedProjectSummary[] = [];
-  for (const p of [...ownedProjects, ...publicProjects]) {
+  for (const p of [...ownedProjects, ...joinedProjects, ...publicProjects]) {
     if (!seen.has(p.id)) {
       seen.add(p.id);
       allProjects.push(p);
@@ -106,12 +123,14 @@ export function SharedProjectsScreen() {
           />
         }
       >
-        {/* Title */}
-        <Text style={styles.title}>共有</Text>
+        <View style={styles.headerBlock}>
+          <Text style={styles.kicker}>SHARED BOOKSHELF</Text>
+          <Text style={styles.title}>共有単語帳</Text>
+        </View>
 
         {/* Context header */}
         <View style={styles.contextHeader}>
-          <Text style={styles.contextLabel}>公開単語帳</Text>
+          <Text style={styles.contextLabel}>Webと同じ共有ライブラリ</Text>
           <View style={styles.contextCountWrap}>
             {loading ? (
               <ActivityIndicator size="small" color={theme.secondaryText} />
@@ -165,7 +184,7 @@ function SharedProjectCard({
   const bgColor = getThumbnailColor(project.id);
   const title = project.title ?? '無題';
   const initial = title.charAt(0) || '?';
-  const badgeLabel = project.accessRole === 'owner' ? '公開中' : '共有中';
+  const badgeLabel = project.accessRole === 'owner' ? '公開中' : project.accessRole === 'editor' ? '編集可' : '共有中';
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
@@ -211,14 +230,26 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 20,
+    paddingTop: 4,
+  },
+  headerBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 12,
+    gap: 2,
+  },
+  kicker: {
+    fontFamily: 'NotoSansJP_900Black',
+    fontSize: 11,
+    fontWeight: '900',
+    color: theme.mutedText,
+    letterSpacing: 0,
   },
   title: {
+    fontFamily: 'NotoSansJP_900Black',
     fontSize: theme.fontSize.title1,
-    fontWeight: '700',
+    fontWeight: '900',
     color: theme.primaryText,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
   },
   contextHeader: {
     flexDirection: 'row',
@@ -228,8 +259,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   contextLabel: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: theme.fontSize.subheadline,
-    fontWeight: '500',
+    fontWeight: '700',
     color: theme.secondaryText,
   },
   contextCountWrap: {
@@ -237,6 +269,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   contextCount: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: theme.fontSize.subheadline,
     fontWeight: '500',
     color: theme.secondaryText,
@@ -254,16 +287,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.callout,
     color: theme.danger,
     textAlign: 'center',
   },
   emptyWrap: {
     alignItems: 'center',
-    paddingVertical: 48,
+    marginHorizontal: 16,
+    paddingVertical: 36,
+    borderWidth: 1.25,
+    borderColor: theme.solidBorder,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.surface,
     gap: 12,
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.callout,
     color: theme.secondaryText,
   },
@@ -272,7 +312,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    padding: 14,
+    padding: 12,
   },
   cardRow: {
     flexDirection: 'row',
@@ -280,13 +320,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   thumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 58,
+    height: 58,
+    borderRadius: 12,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbnailText: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 24,
     fontWeight: '700',
     color: theme.white,
@@ -301,6 +344,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 17,
     fontWeight: '700',
     color: theme.primaryText,
@@ -309,23 +353,24 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: theme.radius.full,
+    borderRadius: theme.radius.solidSm,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
   },
   badgeOwner: {
-    backgroundColor: theme.chartBlueBg,
+    backgroundColor: theme.accentGreenBg,
   },
   badgeViewer: {
-    backgroundColor: theme.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.border,
+    backgroundColor: theme.surface,
   },
   badgeText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 11,
     fontWeight: '600',
     color: theme.secondaryText,
   },
   badgeTextOwner: {
-    color: theme.chartBlue,
+    color: theme.accentGreenInk,
   },
   cardMeta: {
     flexDirection: 'row',
@@ -338,6 +383,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   metaText: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: theme.fontSize.footnote,
     fontWeight: '500',
     color: theme.mutedText,

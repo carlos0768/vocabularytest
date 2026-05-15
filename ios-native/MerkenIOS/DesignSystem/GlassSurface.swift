@@ -42,29 +42,36 @@ struct CameraAreaGlassOverlay: View {
     }
 }
 
-// MARK: - Solid Card (Web版の border-2 + border-b-4 3Dカード)
+// MARK: - Solid compatibility wrappers
 
 struct SolidCard<Content: View>: View {
     let content: Content
     let cardPadding: CGFloat
     let bordered: Bool
+    let cornerRadius: CGFloat
 
-    init(padding: CGFloat = 16, bordered: Bool = true, @ViewBuilder content: () -> Content) {
+    init(
+        padding: CGFloat = 16,
+        bordered: Bool = true,
+        cornerRadius: CGFloat = 18,
+        @ViewBuilder content: () -> Content
+    ) {
         self.cardPadding = padding
         self.bordered = bordered
+        self.cornerRadius = cornerRadius
         self.content = content()
     }
 
     var body: some View {
-        content
-            .padding(cardPadding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(MerkenTheme.border, lineWidth: 1.5)
-                    .opacity(bordered ? 1 : 0)
-            )
+        SolidSurface(
+            tone: .surface,
+            depth: bordered ? .standard : .flat,
+            cornerRadius: cornerRadius,
+            padding: cardPadding,
+            showsBorder: bordered
+        ) {
+            content
+        }
     }
 }
 
@@ -78,18 +85,14 @@ struct SolidPane<Content: View>: View {
     }
 
     var body: some View {
-        content
-            .padding(12)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(MerkenTheme.border)
-                    .offset(y: 2)
-            )
+        SolidSurface(
+            tone: .surface,
+            depth: .small,
+            cornerRadius: cornerRadius,
+            padding: 12
+        ) {
+            content
+        }
     }
 }
 
@@ -102,41 +105,25 @@ typealias GlassPane = SolidPane
 
 struct PrimaryGlassButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(
-                MerkenTheme.accentBlue,
-                in: .rect(cornerRadius: 20)
-            )
-            .overlay(alignment: .bottom) {
-                UnevenRoundedRectangle(bottomLeadingRadius: 20, bottomTrailingRadius: 20)
-                    .fill(MerkenTheme.accentBlueStrong)
-                    .frame(height: 3)
-            }
-            .clipShape(.rect(cornerRadius: 20))
-            .opacity(configuration.isPressed ? 0.85 : 1)
+        SolidButtonStyle(
+            .inverse,
+            size: .medium,
+            expands: true,
+            cornerRadius: 16
+        )
+        .makeBody(configuration: configuration)
     }
 }
 
 struct GhostGlassButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundStyle(MerkenTheme.secondaryText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(MerkenTheme.surface, in: .capsule)
-            .overlay(
-                Capsule().stroke(MerkenTheme.border, lineWidth: 1.5)
-            )
-            .background(
-                Capsule().fill(MerkenTheme.border).offset(y: 1)
-            )
-            .opacity(configuration.isPressed ? 0.85 : 1)
+        SolidButtonStyle(
+            .surface,
+            size: .medium,
+            expands: false,
+            cornerRadius: 16
+        )
+        .makeBody(configuration: configuration)
     }
 }
 
@@ -148,11 +135,11 @@ struct SolidTextField: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(MerkenTheme.borderLight, lineWidth: 1.5)
+            .padding(.vertical, 13)
+            .solidSurface(
+                tone: .surface,
+                depth: .flat,
+                cornerRadius: cornerRadius
             )
     }
 }

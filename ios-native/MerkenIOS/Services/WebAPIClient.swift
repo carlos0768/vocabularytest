@@ -413,6 +413,12 @@ private struct SharedProjectsResponse: Decodable {
     }
 }
 
+private struct PublicSharedProjectsResponse: Decodable {
+    let items: [SharedProjectSummaryDTO]?
+    let nextCursor: String?
+    let error: String?
+}
+
 private struct SharedProjectJoinRequest: Encodable {
     let codeOrLink: String
 }
@@ -622,6 +628,53 @@ actor WebAPIClient {
             collaboratorCount: dto.collaboratorCount ?? 1,
             ownerUsername: dto.ownerUsername
         )
+    }
+
+    private func publicSharedProjectsPath(limit: Int, cursor: String?) -> String {
+        var components = URLComponents()
+        components.path = "/api/shared-projects/public"
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: "\(limit)")
+        ]
+        if let cursor, !cursor.isEmpty {
+            components.queryItems?.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+        return components.string ?? "/api/shared-projects/public?limit=\(limit)"
+    }
+
+    private func fetchPublicSharedProjects(
+        bearerToken: String,
+        pageSize: Int = 24,
+        maxPages: Int = 12
+    ) async throws -> [SharedProjectSummary] {
+        var cursor: String?
+        var items: [SharedProjectSummary] = []
+        var page = 0
+
+        repeat {
+            let (data, http) = try await sendRequest(
+                method: "GET",
+                path: publicSharedProjectsPath(limit: pageSize, cursor: cursor),
+                bearerToken: bearerToken,
+                timeout: 20
+            )
+
+            switch http.statusCode {
+            case 200 ... 299:
+                break
+            default:
+                throw WebAPIError.serverError(
+                    decodeErrorMessage(from: data, fallback: "公開単語帳一覧の取得に失敗しました。")
+                )
+            }
+
+            let decoded = try makeSupabaseJSONDecoder().decode(PublicSharedProjectsResponse.self, from: data)
+            items.append(contentsOf: (decoded.items ?? []).map(mapSharedProjectSummary(from:)))
+            cursor = decoded.nextCursor
+            page += 1
+        } while cursor != nil && page < maxPages
+
+        return items
     }
 
     func extractWords(
@@ -1306,10 +1359,17 @@ actor WebAPIClient {
             guard decoded.success else {
                 throw WebAPIError.serverError(decoded.error ?? "共有単語帳一覧の取得に失敗しました。")
             }
+            let publicProjects: [SharedProjectSummary]
+            do {
+                publicProjects = try await fetchPublicSharedProjects(bearerToken: bearerToken)
+            } catch {
+                logger.error("Public shared projects load failed: \(error.localizedDescription)")
+                publicProjects = (decoded.publicProjects ?? []).map(mapSharedProjectSummary(from:))
+            }
             return SharedProjectCatalog(
                 owned: (decoded.owned ?? []).map(mapSharedProjectSummary(from:)),
                 joined: (decoded.joined ?? []).map(mapSharedProjectSummary(from:)),
-                publicProjects: (decoded.publicProjects ?? []).map(mapSharedProjectSummary(from:))
+                publicProjects: publicProjects
             )
         } catch let error as WebAPIError {
             throw error

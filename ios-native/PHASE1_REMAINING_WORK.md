@@ -3,6 +3,12 @@
 最終更新: 2026-02-21
 対象: `/Users/haradakarurosukei/Desktop/Working/englishvo/ios-native`
 
+## 2026-05-10 注意
+
+この文書はPhase 1時点の残作業メモです。現在の `codex/ios-mobile-responsive` ブランチでは、Webモバイル版へのUI寄せと共有単語帳キャッシュを含む大規模なiOS更新が入っています。
+
+現時点の実装状態、変更範囲、QA観点は `IOS_WEB_PARITY_CHANGELOG.md` を優先して参照してください。
+
 ## 1. 目的
 - Phase 1（Home / Projects / 4択Quiz / Auth / Guest+Proデータ運用）を完了判定に持っていくための残タスクを、実装ベースで明確化する。
 - 「何を直すか」だけでなく、「どのファイルに」「どの順番で」「何をもって完了とするか」を固定する。

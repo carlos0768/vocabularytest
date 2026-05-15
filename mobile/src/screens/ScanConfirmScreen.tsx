@@ -345,6 +345,7 @@ const styles = StyleSheet.create({
     marginLeft: -6,
   },
   headerTitle: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
@@ -374,18 +375,21 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   addingInfoText: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 14,
     color: '#0d0d0d',
     textAlign: 'center',
     fontWeight: '500',
   },
   label: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 14,
     fontWeight: '500',
     color: colors.gray[700],
     marginBottom: 6,
   },
   titleInput: {
+    fontFamily: 'NotoSansJP_400Regular',
     backgroundColor: colors.gray[50],
     borderWidth: 1,
     borderColor: colors.gray[200],
@@ -401,6 +405,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   wordCountLabel: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 14,
     fontWeight: '500',
     color: colors.gray[500],
@@ -421,11 +426,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   wordEnglish: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 16,
     fontWeight: '500',
     color: colors.gray[900],
   },
   wordJapanese: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
     marginTop: 4,
@@ -443,6 +450,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   distractorText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: colors.gray[500],
   },
@@ -463,12 +471,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   editLabel: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 12,
     fontWeight: '500',
     color: colors.gray[500],
     marginBottom: 4,
   },
   editInput: {
+    fontFamily: 'NotoSansJP_400Regular',
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.gray[200],
@@ -486,6 +496,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     textAlign: 'center',
     color: colors.gray[400],
     fontSize: 14,

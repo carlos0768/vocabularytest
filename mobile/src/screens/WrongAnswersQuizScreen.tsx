@@ -270,6 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   loadingText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
   },
@@ -291,6 +292,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gray[200],
   },
   progressLabel: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 14,
     fontWeight: '700',
     color: colors.gray[700],
@@ -319,21 +321,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   questionLabel: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 14,
     fontWeight: '700',
     color: colors.gray[500],
   },
   questionWord: {
+    fontFamily: 'NotoSansJP_800ExtraBold',
     fontSize: 32,
     fontWeight: '800',
     color: colors.gray[900],
   },
   questionHint: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     lineHeight: 21,
     color: colors.gray[600],
   },
   questionMeta: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 13,
     color: colors.orange[700],
     fontWeight: '600',
@@ -355,12 +361,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyTitle: {
+    fontFamily: 'NotoSansJP_800ExtraBold',
     fontSize: 22,
     fontWeight: '800',
     color: colors.gray[900],
     textAlign: 'center',
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     lineHeight: 21,
     color: colors.gray[600],
@@ -387,16 +395,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.amber[100],
   },
   completeTitle: {
+    fontFamily: 'NotoSansJP_800ExtraBold',
     fontSize: 24,
     fontWeight: '800',
     color: colors.gray[900],
   },
   completeScore: {
+    fontFamily: 'Lexend_800ExtraBold',
     fontSize: 28,
     fontWeight: '800',
     color: '#0d0d0d',
   },
   completeMessage: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 15,
     color: colors.gray[600],
   },

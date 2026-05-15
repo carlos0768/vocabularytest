@@ -166,6 +166,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
   },
@@ -176,6 +177,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   progressText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
   },
@@ -226,6 +228,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   englishText: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],
@@ -237,11 +240,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   hintText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     color: colors.gray[400],
     marginTop: 8,
   },
   smallTopText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     color: colors.gray[400],
     marginBottom: 8,
@@ -249,6 +254,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   japaneseText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 28,
     fontWeight: '700',
     color: colors.gray[900],

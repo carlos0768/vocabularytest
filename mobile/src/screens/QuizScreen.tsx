@@ -9,10 +9,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, Flag, RotateCcw, Trophy } from 'lucide-react-native';
+import { ArrowLeft, X, Bookmark, RotateCcw, Trophy } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { QuizOption } from '../components/quiz';
 import colors from '../constants/colors';
+import theme from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { useTabBar } from '../hooks/use-tab-bar';
 import { getRepository } from '../lib/db';
@@ -280,11 +281,11 @@ export function QuizScreen() {
       {/* Word display — no border */}
       <View style={styles.questionArea}>
         <Text style={styles.questionWord}>{currentQuestion.word.english}</Text>
-        <TouchableOpacity style={styles.flagButton} onPress={() => void handleToggleFavorite()}>
-          <Flag
+        <TouchableOpacity style={[styles.flagButton, currentQuestion.word.isFavorite && styles.flagButtonActive]} onPress={() => void handleToggleFavorite()}>
+          <Bookmark
             size={18}
-            color={currentQuestion.word.isFavorite ? colors.orange[600] : colors.gray[400]}
-            fill={currentQuestion.word.isFavorite ? colors.orange[600] : 'transparent'}
+            color={currentQuestion.word.isFavorite ? theme.accentGreen : colors.gray[400]}
+            fill={currentQuestion.word.isFavorite ? theme.accentGreen : 'transparent'}
           />
         </TouchableOpacity>
       </View>
@@ -345,6 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   loadingText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
   },
@@ -361,6 +363,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    width: 36,
+    height: 36,
+  },
   progressTrack: {
     flex: 1,
     height: 6,
@@ -374,6 +387,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[900],
   },
   progressLabel: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 13,
     fontWeight: '600',
     color: colors.gray[500],
@@ -388,13 +402,25 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   questionWord: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 36,
     fontWeight: '700',
     color: colors.gray[900],
     textAlign: 'center',
   },
   flagButton: {
-    padding: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1.25,
+    borderColor: colors.gray[200],
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+  },
+  flagButtonActive: {
+    borderColor: theme.accentGreen,
+    backgroundColor: theme.accentGreenBg,
   },
   optionsList: {
     gap: 8,
@@ -408,11 +434,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   exampleText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[800],
     lineHeight: 20,
   },
   exampleJa: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     color: colors.gray[500],
     lineHeight: 18,
@@ -423,6 +451,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   answerHint: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     lineHeight: 21,
     color: colors.gray[600],
@@ -434,12 +463,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 22,
     fontWeight: '700',
     color: colors.gray[900],
     textAlign: 'center',
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     lineHeight: 21,
     color: colors.gray[600],
@@ -465,16 +496,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.amber[50],
   },
   completeTitle: {
+    fontFamily: 'NotoSansJP_800ExtraBold',
     fontSize: 26,
     fontWeight: '800',
     color: colors.gray[900],
   },
   completeScore: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 22,
     fontWeight: '700',
     color: colors.gray[900],
   },
   completeMessage: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 15,
     color: colors.gray[600],
   },

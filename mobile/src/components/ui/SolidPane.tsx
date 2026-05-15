@@ -15,9 +15,9 @@ export function SolidPane({ children, style }: SolidPaneProps) {
 const styles = StyleSheet.create({
   pane: {
     backgroundColor: theme.surface,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1.5,
-    borderColor: theme.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1.25,
+    borderColor: theme.solidBorder,
     padding: theme.spacing.lg,
   },
 });

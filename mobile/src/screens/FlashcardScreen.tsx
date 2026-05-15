@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
-  Flag,
+  Bookmark,
   Volume2,
   Trash2,
   Pencil,
@@ -285,7 +285,7 @@ export function FlashcardScreen() {
                     <View style={s.tagsWrap}>
                       {currentWord.relatedWords.slice(0, 6).map((rw, i) => (
                         <View key={i} style={s.relTag}>
-                          <Text style={s.relTagText}>{typeof rw === 'string' ? rw : rw.word}</Text>
+                          <Text style={s.relTagText}>{typeof rw === 'string' ? rw : rw.term}</Text>
                         </View>
                       ))}
                     </View>
@@ -303,8 +303,12 @@ export function FlashcardScreen() {
         <TouchableOpacity style={s.actionBtn} onPress={handleSpeak}>
           <Languages size={20} color={theme.secondaryText} />
         </TouchableOpacity>
-        <TouchableOpacity style={s.actionBtn} onPress={handleToggleFavorite}>
-          <Flag size={20} color={currentWord.isFavorite ? '#f97316' : theme.secondaryText} fill={currentWord.isFavorite ? '#f97316' : 'transparent'} />
+        <TouchableOpacity style={[s.actionBtn, currentWord.isFavorite && s.actionBtnActive]} onPress={handleToggleFavorite}>
+          <Bookmark
+            size={19}
+            color={currentWord.isFavorite ? theme.accentGreen : theme.secondaryText}
+            fill={currentWord.isFavorite ? theme.accentGreen : 'transparent'}
+          />
         </TouchableOpacity>
         <TouchableOpacity style={s.actionBtn} onPress={handleSpeak}>
           <Search size={20} color={theme.secondaryText} />
@@ -336,13 +340,13 @@ export function FlashcardScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background },
-  loadingText: { marginTop: 12, fontSize: 14, color: theme.secondaryText },
+  loadingText: { fontFamily: 'NotoSansJP_400Regular', marginTop: 12, fontSize: 14, color: theme.secondaryText },
 
   // Header
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8 },
   closeBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   progressPill: { backgroundColor: theme.surfaceAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: theme.borderLight },
-  progressText: { fontSize: 14, fontWeight: '600', color: theme.secondaryText, fontVariant: ['tabular-nums'] },
+  progressText: { fontFamily: 'NotoSansJP_600SemiBold', fontSize: 14, fontWeight: '600', color: theme.secondaryText, fontVariant: ['tabular-nums'] },
 
   // Progress bar
   progressBar: { height: 3, backgroundColor: theme.borderLight, marginHorizontal: 16 },
@@ -352,45 +356,46 @@ const s = StyleSheet.create({
   cardArea: { flex: 1, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
   cardWrap: { flex: 1 },
   cardTouchable: { flex: 1 },
-  card: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 20, padding: 20, borderWidth: 1.5, borderColor: theme.border },
+  card: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 18, padding: 20, borderWidth: 1.5, borderColor: theme.solidInk },
   cardFront: { backgroundColor: theme.white },
   cardBack: { backgroundColor: theme.accentBlack },
 
   // Front card content
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   modeBadge: { backgroundColor: theme.surfaceAlt, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  modeBadgeText: { fontSize: 12, fontWeight: '600', color: theme.secondaryText },
+  modeBadgeText: { fontFamily: 'NotoSansJP_600SemiBold', fontSize: 12, fontWeight: '600', color: theme.secondaryText },
   masteryRow: { flexDirection: 'row', gap: 4, marginTop: 12 },
   masteryDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.borderLight },
   masteryDotFilled: { backgroundColor: theme.success },
   cardCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, width: '100%' },
-  englishText: { fontSize: 32, fontWeight: '700', color: theme.primaryText, textAlign: 'center' },
+  englishText: { fontFamily: 'Lexend_700Bold', fontSize: 32, fontWeight: '700', color: theme.primaryText, textAlign: 'center' },
   pronunciationText: { fontSize: 15, color: theme.mutedText, fontFamily: 'monospace', textAlign: 'center' },
   posRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
   posTag: { backgroundColor: 'rgba(26,26,26,0.06)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  posTagText: { fontSize: 11, fontWeight: '600', color: theme.secondaryText },
-  hintText: { fontSize: 12, color: theme.mutedText, textAlign: 'center', marginTop: 8 },
+  posTagText: { fontFamily: 'NotoSansJP_600SemiBold', fontSize: 11, fontWeight: '600', color: theme.secondaryText },
+  hintText: { fontFamily: 'NotoSansJP_400Regular', fontSize: 12, color: theme.mutedText, textAlign: 'center', marginTop: 8 },
 
   // Back card content
   backContent: { paddingTop: 20, paddingBottom: 40, gap: 16 },
-  japaneseText: { fontSize: 28, fontWeight: '700', color: theme.white, textAlign: 'center' },
-  backEnglish: { fontSize: 18, fontWeight: '500', color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
+  japaneseText: { fontFamily: 'NotoSansJP_700Bold', fontSize: 28, fontWeight: '700', color: theme.white, textAlign: 'center' },
+  backEnglish: { fontFamily: 'Lexend_700Bold', fontSize: 18, fontWeight: '500', color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
   backPronunciation: { fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', textAlign: 'center' },
   exampleSection: { gap: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)' },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 },
-  exampleText: { fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 20 },
-  exampleJa: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 18 },
+  sectionLabel: { fontFamily: 'NotoSansJP_700Bold', fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 },
+  exampleText: { fontFamily: 'NotoSansJP_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 20 },
+  exampleJa: { fontFamily: 'NotoSansJP_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 18 },
   tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   relTag: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
-  relTagText: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
-  hintTextBack: { position: 'absolute', bottom: 16, alignSelf: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)' },
+  relTagText: { fontFamily: 'NotoSansJP_500Medium', fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
+  hintTextBack: { fontFamily: 'NotoSansJP_400Regular', position: 'absolute', bottom: 16, alignSelf: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)' },
 
   // Action buttons (Web-style row)
-  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, paddingVertical: 8 },
-  actionBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.borderLight, alignItems: 'center', justifyContent: 'center' },
+  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, paddingVertical: 8 },
+  actionBtn: { width: 42, height: 42, borderRadius: 12, backgroundColor: theme.surface, borderWidth: 1.25, borderColor: theme.solidInk, alignItems: 'center', justifyContent: 'center' },
+  actionBtnActive: { backgroundColor: theme.accentGreenBg, borderColor: theme.accentGreen },
 
   // Navigation row
-  navRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingBottom: 16, paddingTop: 4 },
-  navBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.borderLight, alignItems: 'center', justifyContent: 'center' },
+  navRow: { flexDirection: 'row', justifyContent: 'center', gap: 14, paddingBottom: 16, paddingTop: 4 },
+  navBtn: { width: 48, height: 48, borderRadius: 14, backgroundColor: theme.surface, borderWidth: 1.25, borderColor: theme.solidInk, alignItems: 'center', justifyContent: 'center' },
   navBtnDisabled: { opacity: 0.4 },
 });

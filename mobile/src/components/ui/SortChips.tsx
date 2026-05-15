@@ -51,18 +51,18 @@ export function SortChips({ options, activeKey, onSelect }: SortChipsProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 6,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
-    borderWidth: 1.5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 11,
+    borderWidth: 1.25,
     borderColor: theme.border,
     backgroundColor: theme.surface,
-    minWidth: 108,
+    minWidth: 86,
     justifyContent: 'center',
   },
   chipActive: {
@@ -70,10 +70,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.white,
   },
   iconWrap: {
-    marginRight: 6,
+    marginRight: 4,
   },
   label: {
-    fontSize: theme.fontSize.callout,
+    fontFamily: 'NotoSansJP_500Medium',
+    fontSize: 12,
     fontWeight: '500',
     color: theme.secondaryText,
   },

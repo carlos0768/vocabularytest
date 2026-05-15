@@ -9,12 +9,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, Flag, ChevronRight, RotateCcw, Trophy } from 'lucide-react-native';
+import { X, Bookmark, ChevronRight, RotateCcw, Trophy } from 'lucide-react-native';
 import { QuizOption } from '../components/quiz';
 import { getRepository } from '../lib/db';
 import { useAuth } from '../hooks/use-auth';
 import { getGuestUserId, shuffleArray, updateDailyStats } from '../lib/utils';
 import colors from '../constants/colors';
+import theme from '../constants/theme';
 import type { RootStackParamList, Word, QuizQuestion } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -206,7 +207,7 @@ export function FavoritesQuizScreen() {
           <X size={24} color={colors.gray[600]} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Flag size={16} color={colors.orange[500]} />
+          <Bookmark size={16} color={theme.accentGreen} fill={theme.accentGreen} />
           <Text style={styles.progress}>
             {currentIndex + 1} / {questions.length}
           </Text>
@@ -273,6 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   loadingText: {
+    fontFamily: 'NotoSansJP_400Regular',
     marginTop: 16,
     fontSize: 14,
     color: colors.gray[600],
@@ -296,6 +298,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   progress: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
   },
@@ -308,7 +311,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.orange[500],
+    backgroundColor: theme.accentGreen,
     borderRadius: 2,
   },
   questionContainer: {
@@ -318,11 +321,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   questionLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
     marginBottom: 12,
   },
   questionWord: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 32,
     fontWeight: '700',
     color: colors.gray[900],
@@ -340,12 +345,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#333333',
-    paddingVertical: 16,
+    backgroundColor: theme.solidInk,
+    paddingVertical: 14,
     borderRadius: 12,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     gap: 4,
   },
   nextButtonText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 16,
     fontWeight: '600',
     color: colors.white,
@@ -367,6 +375,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   completeTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 24,
     fontWeight: '700',
     color: colors.gray[900],
@@ -382,11 +391,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   resultStatValue: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 32,
     fontWeight: '700',
     color: colors.gray[900],
   },
   resultStatLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: colors.gray[500],
     marginTop: 4,
@@ -414,6 +425,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   retryButtonText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 16,
     fontWeight: '600',
     color: '#1a1a1a',
@@ -427,6 +439,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#333333',
   },
   doneButtonText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 16,
     fontWeight: '600',
     color: colors.white,

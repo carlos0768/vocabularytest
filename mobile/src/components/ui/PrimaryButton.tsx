@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   text: {
+    fontFamily: 'NotoSansJP_700Bold',
     color: theme.white,
     fontSize: theme.fontSize.headline,
     fontWeight: '700',

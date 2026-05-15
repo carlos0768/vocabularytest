@@ -25,7 +25,7 @@ struct MerkenIOSApp: App {
                 .environmentObject(appState)
                 .environmentObject(themeManager)
                 .modelContainer(modelContainer)
-                .preferredColorScheme(.light)
+                .preferredColorScheme(themeManager.preferredColorScheme)
                 .task {
                     await appState.bootstrap()
                 }

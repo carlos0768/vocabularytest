@@ -254,6 +254,7 @@ const styles = StyleSheet.create({
     marginLeft: -6,
   },
   headerTitle: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
@@ -289,17 +290,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   heroBadgeText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 12,
     fontWeight: '700',
     color: colors.orange[700],
   },
   heroTitle: {
+    fontFamily: 'NotoSansJP_800ExtraBold',
     fontSize: 24,
     lineHeight: 32,
     fontWeight: '800',
     color: colors.gray[900],
   },
   heroText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     lineHeight: 22,
     color: colors.gray[700],
@@ -328,15 +332,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statusTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 16,
     fontWeight: '700',
     color: colors.gray[900],
   },
   statusSubtitle: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     color: colors.gray[600],
   },
   statusMeta: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     color: colors.gray[500],
   },
@@ -354,6 +361,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 16,
     fontWeight: '700',
     color: colors.gray[900],
@@ -367,6 +375,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   featureText: {
+    fontFamily: 'NotoSansJP_400Regular',
     flex: 1,
     fontSize: 14,
     lineHeight: 21,
@@ -386,11 +395,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   warningTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 14,
     fontWeight: '700',
     color: colors.red[700],
   },
   warningText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     lineHeight: 20,
     color: colors.red[700],
@@ -402,11 +413,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loginTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 16,
     fontWeight: '700',
     color: colors.gray[900],
   },
   loginText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     lineHeight: 21,
     color: colors.gray[600],

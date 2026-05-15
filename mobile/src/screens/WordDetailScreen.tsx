@@ -34,7 +34,7 @@ type WordDetailRoute = RouteProp<HomeStackParamList, 'WordDetail'>;
 
 const STATUS_MAP: Record<string, { text: string; color: string; bg: string; borderColor: string }> = {
   new: { text: '未学習', color: theme.secondaryText, bg: theme.white, borderColor: theme.border },
-  review: { text: '学習中', color: theme.chartBlue, bg: theme.chartBlueBg, borderColor: theme.chartBlue },
+  review: { text: '学習中', color: theme.warning, bg: theme.warningBg, borderColor: theme.warning },
   mastered: { text: '習得済', color: theme.success, bg: theme.successBg, borderColor: theme.success },
 };
 
@@ -128,8 +128,8 @@ export function WordDetailScreen() {
             <TouchableOpacity onPress={handleToggleFavorite} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Bookmark
                 size={22}
-                color={word.isFavorite ? theme.primaryText : theme.mutedText}
-                fill={word.isFavorite ? theme.primaryText : 'transparent'}
+                color={word.isFavorite ? theme.accentGreen : theme.mutedText}
+                fill={word.isFavorite ? theme.accentGreen : 'transparent'}
                 strokeWidth={1.8}
               />
             </TouchableOpacity>
@@ -186,7 +186,7 @@ export function WordDetailScreen() {
                 {word.relatedWords.map((rw, i) => (
                   <View key={i} style={s.tag}>
                     <Text style={s.tagText}>
-                      {typeof rw === 'string' ? rw : `${rw.word} (${rw.type})`}
+                      {typeof rw === 'string' ? rw : `${rw.term}${rw.relation ? ` (${rw.relation})` : ''}`}
                     </Text>
                   </View>
                 ))}
@@ -256,6 +256,7 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   englishWord: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 32,
     fontWeight: '700',
     color: theme.primaryText,
@@ -269,6 +270,7 @@ const s = StyleSheet.create({
     marginLeft: 12,
   },
   statusText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -325,10 +327,12 @@ const s = StyleSheet.create({
     paddingVertical: 16,
   },
   posPrefix: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 16,
     color: theme.mutedText,
   },
   meaningText: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 18,
     fontWeight: '500',
     color: theme.primaryText,
@@ -341,6 +345,7 @@ const s = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 15,
     fontWeight: '700',
     color: theme.primaryText,
@@ -355,6 +360,7 @@ const s = StyleSheet.create({
     gap: 12,
   },
   exampleText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 17,
     color: theme.primaryText,
     lineHeight: 26,
@@ -367,11 +373,13 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   exampleJa: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 15,
     color: theme.secondaryText,
     lineHeight: 22,
   },
   emptyLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: theme.mutedText,
     fontStyle: 'italic',
@@ -396,6 +404,7 @@ const s = StyleSheet.create({
     borderColor: theme.borderLight,
   },
   tagText: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 13,
     fontWeight: '500',
     color: theme.secondaryText,
@@ -405,11 +414,13 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   usagePattern: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 15,
     fontWeight: '600',
     color: theme.primaryText,
   },
   usageMeaning: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 13,
     color: theme.secondaryText,
   },

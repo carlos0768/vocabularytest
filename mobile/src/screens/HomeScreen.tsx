@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronRight, Flame, LogIn } from 'lucide-react-native';
+import { BookOpen, Camera, ChevronRight, LogIn, Sparkles } from 'lucide-react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { SolidCard, IconBadge } from '../components/ui';
 import { HomeScreenSkeleton } from '../components/ui/ScreenSkeleton';
@@ -170,7 +170,8 @@ export function HomeScreen() {
     void loadData(false);
   }, [loadData]);
 
-  const { projectSummaries, totalWords, masteredCount, reviewCount, newCount, streakDays, dueWordCount, reviewCompletedCount } = data;
+  const { projectSummaries, totalWords, masteredCount, reviewCount, newCount, dueWordCount, reviewCompletedCount } = data;
+  const visibleProjectSummaries = projectSummaries.slice(0, 5);
   const masteryPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
 
   // Navigate to first project's quiz for review
@@ -200,8 +201,9 @@ export function HomeScreen() {
           />
         }
       >
-        {/* Logo title */}
+        <Text style={styles.kicker}>DASHBOARD</Text>
         <Text style={styles.logo}>MERKEN</Text>
+        <Text style={styles.subtitle}>今日の復習、単語帳、スキャン状況をまとめて確認できます。</Text>
 
         {/* Two-column cards */}
         <View style={styles.twoCol}>
@@ -260,13 +262,20 @@ export function HomeScreen() {
         {/* Projects section */}
         {projectSummaries.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <View style={styles.emptyIcon}>
-              <Text style={styles.emptyIconText}>📖</Text>
-            </View>
-            <Text style={styles.emptyTitle}>単語帳がありません</Text>
-            <Text style={styles.emptyText}>
-              右下のスキャンボタンから{'\n'}ノートやプリントを撮影しましょう。
-            </Text>
+            <SolidCard style={styles.emptyHero}>
+              <View style={styles.emptyHeroIcon}>
+                <BookOpen size={30} color={theme.accentGreen} strokeWidth={2.4} />
+              </View>
+              <Text style={styles.emptyTitle}>最初の単語帳を作成</Text>
+              <Text style={styles.emptyText}>
+                スキャン、手入力、共有単語帳の取り込みから学習を始められます。
+              </Text>
+              <View style={styles.emptyGuideRow}>
+                <GuideChip icon={<Camera size={14} color={theme.solidInk} />} text="ノートを撮影" />
+                <GuideChip icon={<Sparkles size={14} color={theme.solidInk} />} text="AIで抽出" />
+                <GuideChip icon={<BookOpen size={14} color={theme.solidInk} />} text="復習へ" />
+              </View>
+            </SolidCard>
             {!isAuthenticated && (
               <TouchableOpacity
                 style={styles.loginChip}
@@ -288,7 +297,7 @@ export function HomeScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.projectList}>
-              {projectSummaries.map((s) => (
+              {visibleProjectSummaries.map((s) => (
                 <FeaturedProjectCard
                   key={s.project.id}
                   summary={s}
@@ -409,7 +418,7 @@ const FeaturedProjectCard = React.memo(function FeaturedProjectCard({
             </View>
             <View style={styles.statusRow}>
               <StatusDot color={theme.success} label={`習得 ${summary.masteredWords}`} />
-              <StatusDot color={theme.chartBlue} label={`学習 ${summary.learningWords}`} />
+              <StatusDot color={theme.warning} label={`学習 ${summary.learningWords}`} />
               <StatusDot color={theme.borderLight} label={`未学習 ${summary.newWords}`} />
             </View>
           </View>
@@ -424,6 +433,15 @@ function StatusDot({ color, label }: { color: string; label: string }) {
     <View style={styles.statusDotRow}>
       <View style={[styles.dot, { backgroundColor: color }]} />
       <Text style={styles.statusDotText}>{label}</Text>
+    </View>
+  );
+}
+
+function GuideChip({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <View style={styles.guideChip}>
+      {icon}
+      <Text style={styles.guideChipText}>{text}</Text>
     </View>
   );
 }
@@ -443,13 +461,32 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   logo: {
+    fontFamily: 'Lexend_900Black',
     fontSize: 31.2,
     fontWeight: '900',
     color: theme.primaryText,
     letterSpacing: 2,
     paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  kicker: {
+    fontFamily: 'NotoSansJP_900Black',
+    fontSize: 10,
+    fontWeight: '900',
+    color: theme.accentGreen,
+    letterSpacing: 1.4,
+    paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 12,
+  },
+  subtitle: {
+    fontFamily: 'NotoSansJP_600SemiBold',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+    color: theme.secondaryText,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
   },
 
   // Two-column cards
@@ -465,6 +502,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   goalLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: theme.secondaryText,
     marginBottom: 6,
@@ -475,17 +513,20 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   goalValue: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 32,
     fontWeight: '700',
     color: theme.accentBlack,
     fontVariant: ['tabular-nums'],
   },
   goalSuffix: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 14,
     fontWeight: '500',
     color: theme.primaryText,
   },
   goalProgress: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 12,
     fontWeight: '500',
     color: theme.secondaryText,
@@ -493,12 +534,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   goalComplete: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 24,
     fontWeight: '700',
     color: theme.success,
     marginTop: 4,
   },
   goalNone: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 16,
     fontWeight: '600',
     color: theme.secondaryText,
@@ -511,6 +554,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   goalActionText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 17,
     fontWeight: '700',
     color: theme.accentBlack,
@@ -528,12 +572,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   donutPercent: {
+    fontFamily: 'Lexend_900Black',
     fontSize: 18,
     fontWeight: '900',
     color: theme.primaryText,
     fontVariant: ['tabular-nums'],
   },
   donutLabel: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 10,
     fontWeight: '500',
     color: theme.secondaryText,
@@ -554,11 +600,13 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   legendItemLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 10,
     color: theme.secondaryText,
     flex: 1,
   },
   legendItemCount: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 10,
     fontWeight: '700',
     color: theme.primaryText,
@@ -588,12 +636,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   miniStatValue: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 14,
     fontWeight: '700',
     color: theme.primaryText,
     fontVariant: ['tabular-nums'],
   },
   miniStatLabel: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 10,
     color: theme.mutedText,
   },
@@ -605,32 +655,61 @@ const styles = StyleSheet.create({
 
   // Empty state
   emptyWrap: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 32,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 12,
   },
-  emptyIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: theme.chartBlueBg,
+  emptyHero: {
+    padding: 18,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyHeroIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
+    backgroundColor: theme.accentGreenBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyIconText: {
-    fontSize: 48,
-  },
   emptyTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontFamily: 'NotoSansJP_900Black',
+    fontSize: 20,
+    fontWeight: '900',
     color: theme.primaryText,
+    textAlign: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontFamily: 'NotoSansJP_400Regular',
+    fontSize: 13,
     color: theme.secondaryText,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  emptyGuideRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  guideChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
+    borderRadius: 999,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  guideChipText: {
+    fontFamily: 'NotoSansJP_800ExtraBold',
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.solidInk,
   },
   loginChip: {
     flexDirection: 'row',
@@ -642,6 +721,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(19,127,236,0.08)',
   },
   loginChipText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 14,
     fontWeight: '600',
     color: theme.accentBlack,
@@ -659,11 +739,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 22,
     fontWeight: '700',
     color: theme.primaryText,
   },
   manageBtn: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 14,
     color: theme.accentBlack,
     fontWeight: '500',
@@ -687,6 +769,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   thumbnailText: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 20,
     fontWeight: '700',
     color: theme.white,
@@ -696,6 +779,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   projectTitle: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 16,
     fontWeight: '700',
     color: theme.primaryText,
@@ -706,12 +790,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   wordCountNumber: {
+    fontFamily: 'Lexend_900Black',
     fontSize: 22,
     fontWeight: '900',
     color: theme.primaryText,
     fontVariant: ['tabular-nums'],
   },
   wordCountSuffix: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 13,
     fontWeight: '700',
     color: theme.secondaryText,
@@ -732,6 +818,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusDotText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: theme.secondaryText,
   },

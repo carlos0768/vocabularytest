@@ -12,9 +12,20 @@ struct FavoritesView: View {
             } else if viewModel.filteredWords.isEmpty {
                 emptyState
             } else {
-                VStack(spacing: 0) {
-                    sortBar
-                    wordList
+                ZStack {
+                    AppBackground()
+                    VStack(alignment: .leading, spacing: 12) {
+                        SolidPageHeader(
+                            kicker: "BOOKMARKS",
+                            title: "苦手単語",
+                            subtitle: "復習したい単語を一覧で確認します。"
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+
+                        sortBar
+                        wordList
+                    }
                 }
             }
         }
@@ -29,35 +40,14 @@ struct FavoritesView: View {
     private var sortBar: some View {
         HStack(spacing: 8) {
             ForEach(FavoritesViewModel.SortMode.allCases, id: \.self) { mode in
-                Button {
+                SolidChip(
+                    title: mode.rawValue,
+                    systemImage: mode == .alphabetical ? "textformat.abc" : "line.3.horizontal.decrease",
+                    isSelected: viewModel.sortMode == mode
+                ) {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         viewModel.sortMode = mode
                     }
-                } label: {
-                    HStack(spacing: 4) {
-                        if mode == .alphabetical {
-                            Image(systemName: "textformat.abc")
-                                .font(.system(size: 11))
-                        } else if mode == .status {
-                            Image(systemName: "line.3.horizontal.decrease")
-                                .font(.system(size: 11))
-                        }
-                        Text(mode.rawValue)
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .foregroundStyle(viewModel.sortMode == mode ? .white : MerkenTheme.secondaryText)
-                    .background(
-                        viewModel.sortMode == mode ? MerkenTheme.accentBlue : MerkenTheme.surface,
-                        in: .capsule
-                    )
-                    .overlay(
-                        Capsule().stroke(
-                            viewModel.sortMode == mode ? Color.clear : MerkenTheme.borderLight,
-                            lineWidth: 1
-                        )
-                    )
                 }
             }
             Spacer()
@@ -67,22 +57,24 @@ struct FavoritesView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bookmark.slash")
-                .font(.system(size: 48))
-                .foregroundStyle(MerkenTheme.mutedText)
-            Text(viewModel.searchText.isEmpty
-                 ? "苦手単語がありません"
-                 : "該当する単語がありません")
-                .font(.headline)
-                .foregroundStyle(MerkenTheme.secondaryText)
-            if viewModel.searchText.isEmpty {
-                Text("単語帳の中でハートをタップして苦手単語に追加できます。")
-                    .font(.subheadline)
-                    .foregroundStyle(MerkenTheme.mutedText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+        ZStack {
+            AppBackground()
+            VStack(alignment: .leading, spacing: 20) {
+                SolidPageHeader(
+                    kicker: "BOOKMARKS",
+                    title: "苦手単語",
+                    subtitle: "復習したい単語を一覧で確認します。"
+                )
+
+                SolidEmptyState(
+                    icon: "bookmark.slash",
+                    title: viewModel.searchText.isEmpty ? "苦手単語がありません" : "該当する単語がありません",
+                    message: viewModel.searchText.isEmpty
+                        ? "単語帳の中でブックマークして苦手単語に追加できます。"
+                        : "検索条件を変えてもう一度試してください。"
+                )
             }
+            .padding(16)
         }
     }
 
@@ -108,7 +100,7 @@ struct FavoritesView: View {
                                 }
                             } label: {
                                 Image(systemName: "bookmark.fill")
-                                    .foregroundStyle(MerkenTheme.danger)
+                                    .foregroundStyle(MerkenTheme.accentGreen)
                             }
                         }
                     }

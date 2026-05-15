@@ -101,43 +101,23 @@ struct SharedProjectDetailView: View {
         .task(id: "\(summary.project.id)-\(appState.dataVersion)") {
             await viewModel.load(projectId: summary.project.id, using: appState)
         }
+        .background(PaperDotBackground().ignoresSafeArea())
     }
 
     // MARK: - Header (same as ProjectDetailView)
 
     private var headerBar: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 40, height: 40)
-                        .background(Color.white.opacity(0.2), in: .circle)
-                }
-
-                VStack(spacing: 1) {
-                    Text(project.title)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    Text("\(viewModel.words.count)語")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .monospacedDigit()
-                }
-                .frame(maxWidth: .infinity)
-
-                // Spacer to balance back button
-                Color.clear.frame(width: 40, height: 40)
+        HStack {
+            SolidIconButton(systemImage: "chevron.left", size: 38) {
+                dismiss()
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 20)
+
+            Spacer()
         }
-        .background(headerGradient.ignoresSafeArea(edges: .top))
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
+        .background(MerkenTheme.paperBackground.ignoresSafeArea(edges: .top))
     }
 
     private var headerGradient: some View {
@@ -148,24 +128,217 @@ struct SharedProjectDetailView: View {
 
     private var scrollContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 if let errorMessage = viewModel.errorMessage {
                     SolidCard {
                         Text(errorMessage)
                             .foregroundStyle(MerkenTheme.warning)
                     }
+                    .padding(.horizontal, 20)
                 }
 
-                notionWordListSection
+                sharedHeroPanel
+                sharedPreviewHeader
+                sharedWordPreviewList
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 100)
+            .padding(.top, 4)
+            .padding(.bottom, 130)
         }
         .scrollIndicators(.hidden)
         .refreshable {
             await viewModel.load(projectId: summary.project.id, using: appState)
         }
+    }
+
+    private var ownerLabel: String {
+        "共有ユーザー"
+    }
+
+    private var sharedHeroPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "globe")
+                    .font(.system(size: 13, weight: .black))
+                Text("SHARED")
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .tracking(1)
+            }
+            .foregroundStyle(MerkenTheme.mutedText)
+
+            Text(project.title)
+                .font(.system(size: 22, weight: .black))
+                .foregroundStyle(MerkenTheme.solidInk)
+                .lineLimit(3)
+                .minimumScaleFactor(0.82)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 6) {
+                Text(String(ownerLabel.prefix(1)))
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.solidInk)
+                    .frame(width: 22, height: 22)
+                    .background(MerkenTheme.surfaceAlt, in: Circle())
+                    .overlay(Circle().stroke(MerkenTheme.solidInk, lineWidth: 1))
+
+                Text(ownerLabel)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.mutedText)
+
+                Text("·")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+
+                Text(project.createdAt.formatted(.dateTime.locale(Locale(identifier: "ja_JP")).year().month().day()))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            Rectangle()
+                .stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .foregroundStyle(MerkenTheme.border)
+                .frame(height: 1)
+                .padding(.top, 2)
+
+            HStack(spacing: 18) {
+                sharedStat(label: "単語数", value: "\(viewModel.words.count)", suffix: "語")
+                sharedStat(label: "メンバー", value: "\(viewModel.collaboratorCount)", suffix: "人")
+            }
+        }
+        .padding(16)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 1.0, green: 248 / 255, blue: 236 / 255),
+                    MerkenTheme.surface
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(MerkenTheme.solidBorder, lineWidth: 1.25)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(MerkenTheme.solidShadow)
+                .offset(x: 3, y: 4)
+        )
+        .padding(.horizontal, 18)
+    }
+
+    private func sharedStat(label: String, value: String, suffix: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 9, weight: .black, design: .monospaced))
+                .tracking(0.6)
+                .foregroundStyle(MerkenTheme.mutedText)
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundStyle(MerkenTheme.solidInk)
+                    .monospacedDigit()
+                Text(suffix)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var sharedPreviewHeader: some View {
+        HStack {
+            Text("単語プレビュー · 全 \(viewModel.words.count) 語")
+                .font(.system(size: 10, weight: .black, design: .monospaced))
+                .tracking(0.8)
+                .foregroundStyle(MerkenTheme.mutedText)
+
+            Spacer()
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 6)
+    }
+
+    private var sharedWordPreviewList: some View {
+        VStack(spacing: 4) {
+            if viewModel.loading && viewModel.words.isEmpty {
+                HStack {
+                    Spacer()
+                    ProgressView().controlSize(.small)
+                    Text("読み込み中...")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                    Spacer()
+                }
+                .padding(.vertical, 28)
+            } else if viewModel.words.isEmpty {
+                Text("単語がありません")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+            } else {
+                ForEach(Array(viewModel.words.enumerated()), id: \.element.id) { index, word in
+                    sharedPreviewRow(word: word, index: index)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+    }
+
+    private func sharedPreviewRow(word: Word, index: Int) -> some View {
+        let selected = selectedIds.contains(word.id)
+        return Button {
+            guard selectMode else { return }
+            if selected {
+                selectedIds.remove(word.id)
+            } else {
+                selectedIds.insert(word.id)
+            }
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(selectMode && selected ? "✓" : String(format: "%02d", index + 1))
+                    .font(.system(size: 9, weight: .black, design: .monospaced))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .frame(width: 20, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(word.english)
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundStyle(MerkenTheme.solidInk)
+                        .lineLimit(1)
+
+                    HStack(spacing: 6) {
+                        if let pos = word.partOfSpeechTags?.first, !pos.isEmpty {
+                            Text(pos)
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .italic()
+                                .foregroundStyle(MerkenTheme.mutedText)
+                                .lineLimit(1)
+                        }
+
+                        Text(word.japanese)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(MerkenTheme.mutedText)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(selected ? MerkenTheme.solidInk : MerkenTheme.border, lineWidth: 1.25)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Word List Section
@@ -220,6 +393,8 @@ struct SharedProjectDetailView: View {
                 }
             }
         }
+        .padding(14)
+        .solidSurface(tone: .surface, depth: .standard, cornerRadius: 18)
     }
 
     // MARK: - Toolbar
@@ -277,11 +452,10 @@ struct SharedProjectDetailView: View {
 
     private func toolbarIconLabel(icon: String, isActive: Bool) -> some View {
         Image(systemName: icon)
-            .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(isActive ? MerkenTheme.accentBlue : MerkenTheme.secondaryText)
+            .font(.system(size: 16, weight: .black))
+            .foregroundStyle(isActive ? MerkenTheme.inverseText : MerkenTheme.solidInk)
             .frame(width: 36, height: 36)
-            .background(isActive ? MerkenTheme.accentBlue.opacity(0.12) : MerkenTheme.surface, in: .circle)
-            .overlay(Circle().stroke(isActive ? MerkenTheme.accentBlue.opacity(0.35) : MerkenTheme.borderLight, lineWidth: 1))
+            .solidSurface(tone: isActive ? .inverse : .surface, depth: .small, cornerRadius: 18)
     }
 
     // MARK: - Search Bar
@@ -538,90 +712,86 @@ struct SharedProjectDetailView: View {
     // MARK: - Bottom Action Bar
 
     private var bottomActionBar: some View {
-        HStack(spacing: 10) {
-            if viewModel.importedProjectId != nil {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                    Text("追加済み")
-                        .font(.system(size: 15, weight: .bold))
-                }
-                .foregroundStyle(MerkenTheme.success)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(MerkenTheme.success.opacity(0.12), in: .capsule)
-            } else if selectMode {
-                Button {
-                    selectMode = false
-                    selectedIds = []
-                } label: {
-                    Text("キャンセル")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .background(MerkenTheme.surface, in: .rect(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(MerkenTheme.border, lineWidth: 1.5))
-                }
-
-                Button {
-                    let selected = viewModel.words.filter { selectedIds.contains($0.id) }
-                    Task {
-                        await viewModel.importToLocal(
-                            title: project.title,
-                            words: selected,
-                            sourceShareId: project.shareId ?? project.id,
-                            using: appState
-                        )
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                if viewModel.importedProjectId != nil {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16, weight: .black))
+                        Text("追加済み — 単語帳を開く")
+                            .font(.system(size: 15, weight: .black))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .solidSurface(tone: .inverse, depth: .small, cornerRadius: 14)
+                } else if selectMode {
+                    Button {
                         selectMode = false
                         selectedIds = []
+                    } label: {
+                        Text("キャンセル")
                     }
-                } label: {
-                    HStack(spacing: 6) {
-                        if viewModel.importing {
-                            ProgressView().progressViewStyle(.circular).tint(.white)
-                        } else {
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.system(size: 15, weight: .bold))
+                    .buttonStyle(SolidButtonStyle(.surface, size: .medium, cornerRadius: 12))
+
+                    Button {
+                        let selected = viewModel.words.filter { selectedIds.contains($0.id) }
+                        Task {
+                            await viewModel.importToLocal(
+                                title: project.title,
+                                words: selected,
+                                sourceShareId: project.shareId ?? project.id,
+                                using: appState
+                            )
+                            selectMode = false
+                            selectedIds = []
                         }
-                        Text(viewModel.importing ? "追加中..." : "選択した \(selectedIds.count)語を追加")
-                            .font(.system(size: 15, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(selectedIds.isEmpty ? MerkenTheme.border : MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
-                }
-                .disabled(viewModel.importing || selectedIds.isEmpty)
-            } else {
-                Button {
-                    showImportSheet = true
-                } label: {
-                    HStack(spacing: 6) {
-                        if viewModel.importing {
-                            ProgressView().progressViewStyle(.circular).tint(.white)
-                        } else {
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.system(size: 15, weight: .bold))
+                    } label: {
+                        HStack(spacing: 6) {
+                            if viewModel.importing {
+                                ProgressView().progressViewStyle(.circular).tint(.white)
+                            } else {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 15, weight: .bold))
+                            }
+                            Text(viewModel.importing ? "追加中..." : "選択した \(selectedIds.count)語を追加")
                         }
-                        Text(viewModel.importing ? "追加中..." : "単語帳として追加")
-                            .font(.system(size: 15, weight: .bold))
                     }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(MerkenTheme.accentBlue, in: .rect(cornerRadius: 14))
+                    .buttonStyle(SolidButtonStyle(.inverse, size: .medium, expands: true, cornerRadius: 12))
+                    .disabled(viewModel.importing || selectedIds.isEmpty)
+                } else {
+                    Button {
+                        showImportSheet = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            if viewModel.importing {
+                                ProgressView().progressViewStyle(.circular).tint(.white)
+                            } else {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 15, weight: .bold))
+                            }
+                            Text(viewModel.importing ? "追加中..." : "\(viewModel.words.count)語をインポート")
+                        }
+                    }
+                    .buttonStyle(SolidButtonStyle(.inverse, size: .large, expands: true, cornerRadius: 14))
+                    .disabled(viewModel.importing || viewModel.words.isEmpty)
                 }
-                .disabled(viewModel.importing || viewModel.words.isEmpty)
             }
+
+            Text("オリジナルは変更されません")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(MerkenTheme.mutedText)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
         .background(
-            MerkenTheme.background
-                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: -4)
-                .ignoresSafeArea(.container, edges: .bottom)
+            LinearGradient(
+                colors: [MerkenTheme.paperBackground.opacity(0), MerkenTheme.paperBackground, MerkenTheme.paperBackground],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(.container, edges: .bottom)
         )
     }
 
@@ -733,19 +903,7 @@ struct SharedProjectDetailView: View {
     }
 
     private func emptyPlaceholder(text: String) -> some View {
-        HStack {
-            Spacer()
-            VStack(spacing: 6) {
-                Image(systemName: "tray")
-                    .font(.system(size: 22))
-                    .foregroundStyle(MerkenTheme.mutedText)
-                Text(text)
-                    .font(.system(size: 13))
-                    .foregroundStyle(MerkenTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.vertical, 24)
-            Spacer()
-        }
+        SolidEmptyState(icon: "tray", title: "単語がありません", message: text)
+            .padding(.vertical, 8)
     }
 }

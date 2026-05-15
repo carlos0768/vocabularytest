@@ -11,7 +11,7 @@ import {
   Home,
   Users,
   BarChart3,
-  Settings,
+  User,
   Plus,
 } from 'lucide-react-native';
 import theme from '../../constants/theme';
@@ -21,7 +21,7 @@ const TAB_ICONS: Record<string, typeof Home> = {
   HomeTab: Home,
   SharedTab: Users,
   StatsTab: BarChart3,
-  SettingsTab: Settings,
+  SettingsTab: User,
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -52,19 +52,19 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   if (!isOnRootScreen) return null;
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {/* Floating scan button */}
       <TouchableOpacity
-        style={[styles.fab, { bottom: 60 + Math.max(insets.bottom, 8) }]}
+        style={styles.fab}
         activeOpacity={0.85}
         onPress={() => handleOpenScan()}
         accessibilityLabel="スキャン"
       >
-        <Plus size={28} color={theme.white} strokeWidth={2.5} />
+        <Plus size={26} color={theme.white} strokeWidth={2.6} />
       </TouchableOpacity>
 
       {/* Full-width tab bar */}
-      <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <View style={styles.bar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
           const Icon = TAB_ICONS[route.name] ?? Home;
@@ -113,27 +113,42 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 8,
     left: 0,
     right: 0,
+    alignItems: 'center',
   },
   fab: {
     position: 'absolute',
-    right: 20,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.accentBlack,
+    bottom: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: theme.solidInk,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+    shadowColor: theme.solidShadow,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   bar: {
     flexDirection: 'row',
-    backgroundColor: theme.white,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderLight,
+    width: '88%',
+    backgroundColor: 'rgba(255,255,255,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(26,26,26,0.10)',
+    borderRadius: 28,
     paddingTop: 8,
+    paddingBottom: 7,
+    paddingHorizontal: 8,
+    shadowColor: theme.solidShadow,
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 6,
   },
   tab: {
     flex: 1,
@@ -143,6 +158,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabLabel: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 11,
     fontWeight: '500',
     color: theme.mutedText,

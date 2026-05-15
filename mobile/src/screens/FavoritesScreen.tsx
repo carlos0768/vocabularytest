@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, BookmarkX, Heart, Layers, Play } from 'lucide-react-native';
+import { ArrowLeft, Bookmark, BookmarkX, Layers, Play } from 'lucide-react-native';
 import { SolidCard, SortChips } from '../components/ui';
 import type { SortChipOption } from '../components/ui';
 import { getRepository } from '../lib/db';
@@ -36,7 +36,7 @@ const SORT_OPTIONS: SortChipOption[] = [
 
 const STATUS_LABELS: Record<string, { text: string; color: string; bg: string }> = {
   new: { text: '未学習', color: theme.mutedText, bg: theme.surfaceAlt },
-  review: { text: '学習中', color: theme.chartBlue, bg: theme.chartBlueBg },
+  review: { text: '学習中', color: theme.warning, bg: theme.warningBg },
   mastered: { text: '習得済', color: theme.success, bg: theme.successBg },
 };
 
@@ -168,7 +168,7 @@ export function FavoritesScreen() {
                         </Text>
                       </View>
                       <TouchableOpacity onPress={() => handleToggleFavorite(word.id)} style={styles.heartBtn}>
-                        <Heart size={18} color={theme.danger} fill={theme.danger} />
+                        <Bookmark size={18} color={theme.accentGreen} fill={theme.accentGreen} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -226,12 +226,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.white,
   },
   title: {
+    fontFamily: 'NotoSansJP_700Bold',
     flex: 1,
     fontSize: theme.fontSize.title2,
     fontWeight: '700',
     color: theme.primaryText,
   },
   count: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: theme.fontSize.subheadline,
     fontWeight: '500',
     color: theme.secondaryText,
@@ -253,11 +255,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyTitle: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: theme.fontSize.headline,
     fontWeight: '600',
     color: theme.primaryText,
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.callout,
     color: theme.secondaryText,
     textAlign: 'center',
@@ -279,11 +283,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   wordEnglish: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: theme.fontSize.headline,
     fontWeight: '600',
     color: theme.primaryText,
   },
   wordJapanese: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.subheadline,
     color: theme.secondaryText,
   },
@@ -297,6 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.full,
   },
   statusText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -326,6 +333,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quizBtnText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: theme.fontSize.headline,
     fontWeight: '700',
     color: theme.white,
@@ -343,6 +351,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   flashcardBtnText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: theme.fontSize.headline,
     fontWeight: '700',
     color: theme.primaryText,

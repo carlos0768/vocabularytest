@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   title: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 16,
     fontWeight: '500',
     color: colors.gray[900],
@@ -73,6 +74,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   closeButtonText: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 14,
     color: colors.gray[700],
     textAlign: 'center',

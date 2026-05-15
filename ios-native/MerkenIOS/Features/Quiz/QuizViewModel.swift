@@ -28,6 +28,7 @@ final class QuizViewModel: ObservableObject {
     @Published private(set) var isRevealed = false
     @Published private(set) var correctCount = 0
     @Published private(set) var questions: [QuizQuestion] = []
+    @Published private(set) var answerResults: [Bool?] = []
 
     // ── Non-published backing store ──
     // sourceWords is large (2000+) — never @Published to avoid re-render storms
@@ -111,6 +112,7 @@ final class QuizViewModel: ObservableObject {
                 }
 
                 self.questions = generated
+                self.answerResults = Array(repeating: nil, count: generated.count)
                 self.currentIndex = 0
                 self.selectedIndex = nil
                 self.isRevealed = false
@@ -147,6 +149,10 @@ final class QuizViewModel: ObservableObject {
             MerkenHaptic.heavy()
         }
 
+        if answerResults.indices.contains(currentIndex) {
+            answerResults[currentIndex] = isCorrect
+        }
+
         let patch = QuizEngine.statusPatch(for: question.word, isCorrect: isCorrect)
         pendingWordPatches[question.word.id] = patch
     }
@@ -171,6 +177,10 @@ final class QuizViewModel: ObservableObject {
 
         if isCorrect {
             correctCount += 1
+        }
+
+        if answerResults.indices.contains(currentIndex) {
+            answerResults[currentIndex] = isCorrect
         }
 
         let patch = QuizEngine.statusPatch(for: question.word, isCorrect: isCorrect)
@@ -215,6 +225,7 @@ final class QuizViewModel: ObservableObject {
         }
         await load(projectId: projectId, using: state)
         questions = []
+        answerResults = []
         currentIndex = 0
         selectedIndex = nil
         isRevealed = false

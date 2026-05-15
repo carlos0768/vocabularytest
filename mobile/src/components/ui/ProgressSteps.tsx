@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
+    fontFamily: 'NotoSansJP_400Regular',
     flex: 1,
     fontSize: 14,
     color: colors.gray[900],

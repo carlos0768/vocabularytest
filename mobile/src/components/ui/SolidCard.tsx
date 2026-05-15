@@ -7,6 +7,7 @@ interface SolidCardProps {
   style?: StyleProp<ViewStyle>;
   bordered?: boolean;
   highlighted?: boolean;
+  flat?: boolean;
 }
 
 /** Rounded card with border + subtle shadow — matches iOS SolidCard */
@@ -15,6 +16,7 @@ export function SolidCard({
   style,
   bordered = true,
   highlighted = false,
+  flat = false,
 }: SolidCardProps) {
   return (
     <View
@@ -22,6 +24,7 @@ export function SolidCard({
         styles.card,
         bordered && styles.bordered,
         highlighted && styles.highlighted,
+        !flat && styles.shadow,
         style,
       ]}
     >
@@ -33,15 +36,22 @@ export function SolidCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.surface,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.lg,
   },
   bordered: {
-    borderWidth: 1.5,
-    borderColor: theme.border,
+    borderWidth: 1.25,
+    borderColor: theme.solidBorder,
   },
   highlighted: {
-    borderColor: theme.chartBlue,
-    borderWidth: 1.5,
+    borderColor: theme.accentGreen,
+    borderWidth: 1.25,
+  },
+  shadow: {
+    shadowColor: theme.solidShadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 2.5, height: 3 },
+    shadowRadius: 0,
+    elevation: 3,
   },
 });

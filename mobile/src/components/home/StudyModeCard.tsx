@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.purple[500],
   },
   badgeText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 10,
     fontWeight: '600',
     color: colors.white,
@@ -138,11 +139,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 14,
     fontWeight: '600',
     color: colors.gray[900],
   },
   description: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 12,
     color: colors.gray[500],
     marginTop: 2,

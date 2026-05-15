@@ -28,7 +28,7 @@ import {
   User,
   X,
 } from 'lucide-react-native';
-import { SolidCard, PrimaryButton } from '../components/ui';
+import { Button, SolidCard } from '../components/ui';
 import theme from '../constants/theme';
 import { useAuth } from '../hooks/use-auth';
 import { WEB_APP_BASE_URL, withWebAppBase } from '../lib/web-base-url';
@@ -145,8 +145,10 @@ export function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Title */}
-        <Text style={styles.title}>設定</Text>
+        <View style={styles.headerBlock}>
+          <Text style={styles.kicker}>ACCOUNT</Text>
+          <Text style={styles.title}>アカウント</Text>
+        </View>
 
         {/* Config error */}
         {configError ? (
@@ -177,7 +179,7 @@ export function SettingsScreen() {
             <View style={styles.heroTrail}>
               <View style={styles.storageBadge}>
                 {isPro
-                  ? <Cloud size={12} color={theme.chartBlue} />
+                  ? <Cloud size={12} color={theme.accentGreen} />
                   : <HardDrive size={12} color={theme.secondaryText} />
                 }
                 <Text style={styles.storageBadgeText}>{isPro ? 'Cloud' : 'Local'}</Text>
@@ -214,14 +216,15 @@ export function SettingsScreen() {
                   secureTextEntry
                 />
               </View>
-              <PrimaryButton
-                title="サインイン"
+              <Button
                 icon={<ArrowRight size={16} color={theme.white} />}
                 onPress={() => navigation.navigate('Login')}
-              />
+              >
+                サインイン
+              </Button>
               <View style={styles.featureChips}>
                 <View style={styles.featureChip}>
-                  <Cloud size={12} color={theme.chartBlue} />
+                  <Cloud size={12} color={theme.accentGreen} />
                   <Text style={styles.featureChipText}>クラウド同期</Text>
                 </View>
                 <View style={styles.featureChip}>
@@ -257,7 +260,7 @@ export function SettingsScreen() {
                 />
                 <TouchableOpacity style={styles.usernameBtn} onPress={handleSaveUsername} disabled={savingUsername}>
                   {savingUsername
-                    ? <ActivityIndicator size="small" color={theme.chartBlue} />
+                    ? <ActivityIndicator size="small" color={theme.accentGreen} />
                     : <Check size={16} color={theme.success} />
                   }
                 </TouchableOpacity>
@@ -290,6 +293,7 @@ export function SettingsScreen() {
           <SettingsRow
             icon={<Mail size={16} color={theme.secondaryText} />}
             label="お問い合わせ"
+            value="バグ報告・質問はこちら"
             trailing={<ExternalLink size={14} color={theme.mutedText} />}
             onPress={() => Linking.openURL('mailto:support@merken.jp')}
           />
@@ -297,6 +301,7 @@ export function SettingsScreen() {
           <SettingsRow
             icon={<ExternalLink size={16} color={theme.secondaryText} />}
             label="利用規約"
+            value="アプリとWeb共通の利用条件"
             trailing={<ExternalLink size={14} color={theme.mutedText} />}
             onPress={() => void openExternal('/terms')}
           />
@@ -304,6 +309,7 @@ export function SettingsScreen() {
           <SettingsRow
             icon={<ExternalLink size={16} color={theme.secondaryText} />}
             label="プライバシーポリシー"
+            value="データ保護方針"
             trailing={<ExternalLink size={14} color={theme.mutedText} />}
             onPress={() => void openExternal('/privacy')}
           />
@@ -367,21 +373,36 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingBottom: 20,
+    paddingTop: 4,
+  },
+  headerBlock: {
+    paddingTop: 4,
+    paddingBottom: 12,
+    gap: 2,
+  },
+  kicker: {
+    fontFamily: 'NotoSansJP_900Black',
+    fontSize: 11,
+    fontWeight: '900',
+    color: theme.mutedText,
+    letterSpacing: 0,
   },
   title: {
+    fontFamily: 'NotoSansJP_900Black',
     fontSize: theme.fontSize.title1,
-    fontWeight: '700',
+    fontWeight: '900',
     color: theme.primaryText,
-    paddingTop: 16,
-    paddingBottom: 16,
   },
   warningBanner: {
     backgroundColor: theme.warningBg,
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.solidSm,
+    borderWidth: 1.25,
+    borderColor: theme.warning,
     padding: 12,
     marginBottom: 12,
   },
   warningText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.subheadline,
     color: theme.warning,
   },
@@ -396,8 +417,10 @@ const styles = StyleSheet.create({
   avatarCircle: {
     width: 62,
     height: 62,
-    borderRadius: 31,
+    borderRadius: 16,
     backgroundColor: theme.accentBlack,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -409,35 +432,36 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: theme.radius.full,
+    borderRadius: theme.radius.solidSm,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
   },
   planBadgePro: {
-    backgroundColor: theme.chartBlueBg,
+    backgroundColor: theme.accentGreenBg,
   },
   planBadgeFree: {
-    backgroundColor: theme.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.border,
+    backgroundColor: theme.surface,
   },
   planBadgeGuest: {
-    backgroundColor: theme.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.border,
+    backgroundColor: theme.surface,
   },
   planBadgeText: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 11,
     fontWeight: '700',
     color: theme.secondaryText,
   },
   planBadgeTextPro: {
-    color: theme.chartBlue,
+    color: theme.accentGreenInk,
   },
   heroName: {
+    fontFamily: 'NotoSansJP_700Bold',
     fontSize: 20,
     fontWeight: '700',
     color: theme.primaryText,
   },
   heroSub: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: theme.fontSize.subheadline,
     color: theme.secondaryText,
     lineHeight: 18,
@@ -451,12 +475,13 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.borderLight,
+    borderRadius: theme.radius.solidSm,
+    backgroundColor: theme.surface,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
   },
   storageBadgeText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 11,
     fontWeight: '600',
     color: theme.secondaryText,
@@ -466,9 +491,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
+    fontFamily: 'NotoSansJP_900Black',
     fontSize: theme.fontSize.body,
-    fontWeight: '700',
-    color: theme.secondaryText,
+    fontWeight: '900',
+    color: theme.solidInk,
     marginBottom: 2,
   },
   row: {
@@ -481,27 +507,31 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.surfaceAlt,
+    backgroundColor: theme.surface,
   },
   rowContent: {
     flex: 1,
     gap: 1,
   },
   rowLabel: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: theme.fontSize.body,
     fontWeight: '600',
     color: theme.primaryText,
   },
   rowValue: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: theme.fontSize.subheadline,
     fontWeight: '500',
     color: theme.secondaryText,
   },
   divider: {
     height: 1,
-    backgroundColor: theme.borderLight,
+    backgroundColor: theme.border,
     marginLeft: 44,
   },
   loginForm: {
@@ -511,14 +541,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: theme.surfaceAlt,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.borderLight,
+    backgroundColor: theme.surface,
+    borderRadius: theme.radius.solidSm,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   loginInput: {
+    fontFamily: 'NotoSansJP_400Regular',
     flex: 1,
     fontSize: theme.fontSize.body,
     color: theme.primaryText,
@@ -535,12 +566,13 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.borderLight,
+    borderRadius: theme.radius.solidSm,
+    backgroundColor: theme.surface,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
   },
   featureChipText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 11,
     fontWeight: '600',
     color: theme.secondaryText,
@@ -551,12 +583,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   usernameInput: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
     color: theme.primaryText,
-    borderWidth: 1,
-    borderColor: theme.border,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -566,9 +599,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
+    borderWidth: 1.25,
+    borderColor: theme.solidInk,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.surfaceAlt,
+    backgroundColor: theme.surface,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -576,17 +611,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.solidSm,
     borderWidth: 1.5,
-    borderColor: theme.dangerBg,
+    borderColor: theme.danger,
     marginBottom: 12,
   },
   logoutText: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: theme.fontSize.body,
     fontWeight: '600',
     color: theme.danger,
   },
   version: {
+    fontFamily: 'NotoSansJP_400Regular',
     textAlign: 'center',
     fontSize: theme.fontSize.footnote,
     color: theme.mutedText,

@@ -73,359 +73,291 @@ struct FlashcardCardView: View {
 
     private var masteryInfo: (level: Int, label: String, color: Color) {
         let rep = word.repetition
-        if rep == 0 { return (0, "新規", MerkenTheme.mutedText) }
-        if rep <= 2 { return (1, "学習中", .orange) }
-        if rep <= 5 { return (2, "定着中", MerkenTheme.accentBlue) }
-        return (3, "マスター", .green)
+        if rep == 0 { return (0, "新規", MerkenTheme.success) }
+        if rep <= 2 { return (1, "学習中", MerkenTheme.success) }
+        if rep <= 5 { return (2, "定着中", MerkenTheme.success) }
+        return (3, "マスター", MerkenTheme.success)
     }
 
     // MARK: - Front: English
 
     private var englishFrontFace: some View {
-        cardBase {
-            VStack(spacing: 12) {
-                Spacer()
-
-                // Mastery dots
-                masteryDots
-
-                Text(word.english)
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.5)
-
-                if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
-                    Text(pronunciation)
-                        .font(.system(.callout, design: .monospaced))
-                        .foregroundStyle(MerkenTheme.secondaryText)
-                }
-
-                // Part of speech tags
-                if let tags = word.partOfSpeechTags, !tags.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(tags, id: \.self) { tag in
-                            Text(tag)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(MerkenTheme.accentBlue)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(MerkenTheme.accentBlue.opacity(0.12), in: Capsule())
-                        }
-                    }
-                }
-
-                Spacer()
-
-                Text("タップして裏面を見る")
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-            .padding(24)
-        }
+        frontFace(
+            primary: word.english,
+            pronunciation: word.pronunciation,
+            showsSpeakButton: true,
+            hint: "タップで意味を見る"
+        )
     }
 
     // MARK: - Front: Japanese
 
     private var japaneseFrontFace: some View {
-        cardBase {
-            VStack(spacing: 12) {
-                Spacer()
-
-                Text(word.japanese)
-                    .font(.title.bold())
-                    .foregroundStyle(MerkenTheme.primaryText)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.5)
-
-                Spacer()
-
-                Text("タップして英語を表示")
-                    .font(.caption)
-                    .foregroundStyle(MerkenTheme.mutedText)
-            }
-            .padding(24)
-        }
+        frontFace(
+            primary: word.japanese,
+            pronunciation: nil,
+            showsSpeakButton: false,
+            hint: "タップで英語を見る"
+        )
     }
 
     // MARK: - Rich Back: Japanese (default back)
 
     private var japaneseRichFace: some View {
+        backFace(primary: word.japanese, secondary: word.english, pronunciation: word.pronunciation)
+    }
+
+    // MARK: - Rich Back: English (for jp-first mode)
+
+    private var englishRichFace: some View {
+        backFace(primary: word.english, secondary: word.japanese, pronunciation: word.pronunciation)
+    }
+
+    // MARK: - Shared Components
+
+    private var primaryPartOfSpeech: String? {
+        guard let first = word.partOfSpeechTags?.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !first.isEmpty else {
+            return nil
+        }
+        return first.uppercased()
+    }
+
+    private var statusLabel: String {
+        switch word.status {
+        case .new: return "未学習"
+        case .review: return "学習中"
+        case .mastered: return "習得"
+        }
+    }
+
+    private var statusColor: Color {
+        switch word.status {
+        case .new: return MerkenTheme.mutedText
+        case .review: return MerkenTheme.chartBlue
+        case .mastered: return MerkenTheme.success
+        }
+    }
+
+    private func frontFace(
+        primary: String,
+        pronunciation: String?,
+        showsSpeakButton: Bool,
+        hint: String
+    ) -> some View {
+        cardBase {
+            VStack(spacing: 0) {
+                HStack(alignment: .top) {
+                    posBadge
+                    Spacer(minLength: 12)
+                    favoriteIndicator
+                }
+
+                Spacer(minLength: 18)
+
+                VStack(spacing: 10) {
+                    Text(pronunciation?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(MerkenTheme.mutedText)
+                        .frame(height: 16)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+
+                    Text(primary)
+                        .font(.system(size: primary.count > 16 ? 34 : 40, weight: .black, design: .rounded))
+                        .foregroundStyle(MerkenTheme.solidInk)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.55)
+
+                    if showsSpeakButton {
+                        speakPill
+                            .padding(.top, 2)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                Spacer(minLength: 18)
+
+                Rectangle()
+                    .fill(MerkenTheme.border.opacity(0.65))
+                    .frame(height: 1)
+                    .padding(.bottom, 12)
+
+                HStack(alignment: .center) {
+                    masteryDots(onDark: false)
+                    Spacer(minLength: 10)
+                    statusBadge
+                }
+
+                Text(hint)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .padding(.top, 10)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 22)
+            .padding(.bottom, 18)
+        }
+    }
+
+    private func backFace(primary: String, secondary: String, pronunciation: String?) -> some View {
         richCardBase {
             GeometryReader { geo in
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 10)
+
                         VStack(spacing: 12) {
-                            Text(word.japanese)
-                                .font(.title.bold())
+                            Text(primary)
+                                .font(.system(size: 30, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                                 .multilineTextAlignment(.center)
-                                .staggerIn(index: 0, isVisible: true)
+                                .lineLimit(4)
+                                .minimumScaleFactor(0.62)
 
-                            VStack(spacing: 4) {
-                                Text(word.english)
-                                    .font(.callout)
+                            Text(secondary)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.6))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.75)
+
+                            if let pronunciation = trimmed(pronunciation) {
+                                Text(pronunciation)
+                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                                     .foregroundStyle(.white.opacity(0.5))
-
-                                if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
-                                    Text(pronunciation)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .foregroundStyle(.white.opacity(0.4))
-                                }
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
                             }
-                            .staggerIn(index: 1, isVisible: true)
+
+                            if let example = trimmed(word.exampleSentence) {
+                                exampleBox(example: example, exampleJa: trimmed(word.exampleSentenceJa))
+                                    .padding(.top, 4)
+                            }
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: max(geo.size.height * 0.42, 220), alignment: .center)
 
-                        // Supplemental info below
-                        dividerLine
-                            .staggerIn(index: 1, isVisible: true)
+                        Spacer(minLength: 18)
 
-                    // Example sentence
-                    if let example = word.exampleSentence, !example.isEmpty {
-                        infoSection(title: "例文", index: 2) {
-                            Text(highlightedExample(example))
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.9))
-                                .lineSpacing(4)
+                        Rectangle()
+                            .fill(.white.opacity(0.1))
+                            .frame(height: 1)
+                            .padding(.bottom, 12)
 
-                            if let exJa = word.exampleSentenceJa, !exJa.isEmpty {
-                                Text(exJa)
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.5))
-                                    .padding(.top, 2)
-                            }
+                        HStack {
+                            masteryDots(onDark: true)
                         }
-                    }
+                        .frame(maxWidth: .infinity)
 
-                    // Related words
-                    if let related = word.relatedWords, !related.isEmpty {
-                        infoSection(title: "関連語", index: 3) {
-                            FlashcardFlowLayout(spacing: 8) {
-                                ForEach(related.prefix(6), id: \.term) { rw in
-                                    HStack(spacing: 4) {
-                                        Text(rw.term)
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundStyle(.white.opacity(0.9))
-                                        if !rw.relation.isEmpty {
-                                            Text("(\(rw.relation))")
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(.white.opacity(0.4))
-                                        }
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(.white.opacity(0.15), in: Capsule())
-                                }
-                            }
-                        }
+                        Text("タップで戻る")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .padding(.top, 10)
                     }
-
-                    // Usage patterns
-                    if let patterns = word.usagePatterns, !patterns.isEmpty {
-                        infoSection(title: "用法", index: 4) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(patterns.prefix(3), id: \.pattern) { up in
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(up.pattern)
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(.white.opacity(0.9))
-                                        Text(up.meaningJa)
-                                            .font(.system(size: 12))
-                                            .foregroundStyle(.white.opacity(0.5))
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Learning stats
-                    if word.lastReviewedAt != nil || word.repetition > 0 {
-                        learningStats
-                            .staggerIn(index: 5, isVisible: true)
-                    }
-                    }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 22)
+                    .padding(.bottom, 18)
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
                 }
                 .simultaneousGesture(swipeGesture)
             }
         }
     }
 
-    // MARK: - Rich Back: English (for jp-first mode)
-
-    private var englishRichFace: some View {
-        richCardBase {
-            GeometryReader { geo in
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 16) {
-                    VStack(spacing: 12) {
-                        Text(word.english)
-                            .font(.largeTitle.bold())
-                            .foregroundStyle(.white)
-                            .multilineTextAlignment(.center)
-                            .staggerIn(index: 0, isVisible: true)
-
-                        if let pronunciation = word.pronunciation, !pronunciation.isEmpty {
-                            Text(pronunciation)
-                                .font(.system(.callout, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.6))
-                                .staggerIn(index: 1, isVisible: true)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: max(geo.size.height * 0.42, 220), alignment: .center)
-
-                    dividerLine
-                        .staggerIn(index: 1, isVisible: true)
-
-                    // Same rich content as japanese back
-                    if let example = word.exampleSentence, !example.isEmpty {
-                        infoSection(title: "例文", index: 2) {
-                            Text(highlightedExample(example))
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.9))
-                                .lineSpacing(4)
-
-                            if let exJa = word.exampleSentenceJa, !exJa.isEmpty {
-                                Text(exJa)
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.5))
-                                    .padding(.top, 2)
-                            }
-                        }
-                    }
-
-                    if let related = word.relatedWords, !related.isEmpty {
-                        infoSection(title: "関連語", index: 3) {
-                            FlashcardFlowLayout(spacing: 8) {
-                                ForEach(related.prefix(6), id: \.term) { rw in
-                                    HStack(spacing: 4) {
-                                        Text(rw.term)
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundStyle(.white.opacity(0.9))
-                                        if !rw.relation.isEmpty {
-                                            Text("(\(rw.relation))")
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(.white.opacity(0.4))
-                                        }
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(.white.opacity(0.15), in: Capsule())
-                                }
-                            }
-                        }
-                    }
-
-                    if let patterns = word.usagePatterns, !patterns.isEmpty {
-                        infoSection(title: "用法", index: 4) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(patterns.prefix(3), id: \.pattern) { up in
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(up.pattern)
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(.white.opacity(0.9))
-                                        Text(up.meaningJa)
-                                            .font(.system(size: 12))
-                                            .foregroundStyle(.white.opacity(0.5))
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if word.lastReviewedAt != nil || word.repetition > 0 {
-                        learningStats
-                            .staggerIn(index: 5, isVisible: true)
-                    }
-
-                    Spacer(minLength: 8)
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
-            }
-            .simultaneousGesture(swipeGesture)
+    private var posBadge: some View {
+        Group {
+            if let primaryPartOfSpeech {
+                Text(primaryPartOfSpeech)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .tracking(0.35)
+                    .foregroundStyle(MerkenTheme.solidInk)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(MerkenTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(MerkenTheme.solidBorder, lineWidth: 1)
+                    )
+            } else {
+                Color.clear.frame(width: 1, height: 22)
             }
         }
     }
 
-    // MARK: - Shared Components
+    private var favoriteIndicator: some View {
+        Image(systemName: word.isFavorite ? "bookmark.fill" : "bookmark")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundStyle(word.isFavorite ? MerkenTheme.accentGreen : MerkenTheme.mutedText)
+            .frame(width: 30, height: 28, alignment: .topTrailing)
+    }
 
-    private var masteryDots: some View {
+    private var speakPill: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: 13, weight: .bold))
+            Text("発音")
+                .font(.system(size: 12, weight: .bold))
+        }
+        .foregroundStyle(MerkenTheme.solidInk)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 7)
+        .solidSurface(tone: .surface, depth: .small, cornerRadius: 18)
+    }
+
+    private var statusBadge: some View {
+        Text(statusLabel)
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundStyle(statusColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(MerkenTheme.surface, in: Capsule())
+            .overlay(Capsule().stroke(statusColor, lineWidth: 1))
+    }
+
+    private func masteryDots(onDark: Bool) -> some View {
         let info = masteryInfo
-        return HStack(spacing: 4) {
+        return HStack(spacing: 5) {
+            Text("MASTERY")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .tracking(0.35)
+                .foregroundStyle(onDark ? .white.opacity(0.5) : MerkenTheme.mutedText)
+                .padding(.trailing, 2)
+
             ForEach(0..<4, id: \.self) { i in
                 Circle()
-                    .fill(i <= info.level ? info.color : MerkenTheme.border)
-                    .frame(width: 6, height: 6)
-            }
-            Text(info.label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(info.color)
-                .padding(.leading, 2)
-        }
-    }
-
-    private var dividerLine: some View {
-        RoundedRectangle(cornerRadius: 1)
-            .fill(.white.opacity(0.2))
-            .frame(width: 40, height: 2)
-    }
-
-    private var learningStats: some View {
-        HStack(spacing: 12) {
-            Label("\(word.repetition)回正答", systemImage: "checkmark.circle")
-            if let lastReview = word.lastReviewedAt {
-                Label(formatDate(lastReview), systemImage: "clock")
+                    .fill(i < info.level ? info.color : (onDark ? .white.opacity(0.16) : MerkenTheme.solidInk.opacity(0.08)))
+                    .frame(width: 10, height: 10)
+                    .overlay(
+                        Circle()
+                            .stroke(i < info.level ? info.color : (onDark ? .white.opacity(0.2) : MerkenTheme.border), lineWidth: 1)
+                    )
             }
         }
-        .font(.system(size: 11))
-        .foregroundStyle(.white.opacity(0.35))
-    }
-
-    private func infoSection<Content: View>(title: String, index: Int, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.white.opacity(0.4))
-                .textCase(.uppercase)
-                .tracking(1.5)
-
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .staggerIn(index: index, isVisible: true)
     }
 
     // MARK: - Card Bases
 
     private func cardBase<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+
+        return content()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(3.0 / 4.0, contentMode: .fit)
-            .background(MerkenTheme.surface, in: .rect(cornerRadius: 24))
-            .overlay(RoundedRectangle(cornerRadius: 24).stroke(MerkenTheme.border, lineWidth: 2))
+            .background(MerkenTheme.notebookPaper, in: shape)
+            .overlay(shape.stroke(MerkenTheme.solidBorder, lineWidth: 1.5))
+            .background(shape.fill(MerkenTheme.solidShadow).offset(x: 4, y: 4))
     }
 
     private func richCardBase<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+
+        return content()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(3.0 / 4.0, contentMode: .fit)
-            .background(
-                LinearGradient(
-                    colors: [MerkenTheme.accentBlue, MerkenTheme.accentBlue.opacity(0.85)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: .rect(cornerRadius: 24)
-            )
-            .overlay(RoundedRectangle(cornerRadius: 24).stroke(.white.opacity(0.15), lineWidth: 1))
-            .shadow(color: MerkenTheme.accentBlue.opacity(0.3), radius: 12, y: 6)
+            .background(MerkenTheme.solidShadow, in: shape)
+            .overlay(shape.stroke(MerkenTheme.solidBorder, lineWidth: 1.5))
+            .background(shape.fill(.black.opacity(0.3)).offset(x: 4, y: 4))
     }
 
     // MARK: - Helpers
@@ -439,10 +371,35 @@ struct FlashcardCardView: View {
         return attributed
     }
 
-    private func formatDate(_ date: Date) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "M/d"
-        return df.string(from: date)
+    private func exampleBox(example: String, exampleJa: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("例文")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.5)
+                .foregroundStyle(.white.opacity(0.5))
+                .textCase(.uppercase)
+
+            Text(highlightedExample(example))
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(.white.opacity(0.9))
+                .lineSpacing(4)
+
+            if let exampleJa {
+                Text(exampleJa)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .lineSpacing(3)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func trimmed(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private var swipeGesture: some Gesture {
@@ -491,47 +448,5 @@ struct FlashcardCardView: View {
             dragOffset = 0
             action()
         }
-    }
-}
-
-// MARK: - Flow Layout (for tags/chips)
-
-struct FlashcardFlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = arrange(proposal: proposal, subviews: subviews)
-        return result.size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = arrange(proposal: proposal, subviews: subviews)
-        for (index, position) in result.positions.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
-        }
-    }
-
-    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
-        let maxWidth = proposal.width ?? .infinity
-        var positions: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var maxX: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth, x > 0 {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            positions.append(CGPoint(x: x, y: y))
-            rowHeight = max(rowHeight, size.height)
-            x += size.width + spacing
-            maxX = max(maxX, x - spacing)
-        }
-
-        return (CGSize(width: maxX, height: y + rowHeight), positions)
     }
 }

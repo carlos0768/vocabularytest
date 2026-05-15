@@ -209,6 +209,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   headerTitle: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 16,
     fontWeight: '600',
     color: colors.gray[900],
@@ -230,6 +231,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.gray[100],
   },
   statsText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[600],
   },
@@ -243,6 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   quizButtonText: {
+    fontFamily: 'NotoSansJP_600SemiBold',
     fontSize: 14,
     fontWeight: '600',
     color: colors.white,
@@ -273,6 +276,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   wordEnglish: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 18,
     fontWeight: '600',
     color: colors.gray[900],
@@ -284,11 +288,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   wrongCountText: {
+    fontFamily: 'Lexend_700Bold',
     fontSize: 12,
     fontWeight: '500',
     color: colors.red[700],
   },
   wordJapanese: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
     marginTop: 4,
@@ -312,12 +318,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyTitle: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 18,
     fontWeight: '500',
     color: colors.gray[900],
     marginBottom: 8,
   },
   emptyText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
     textAlign: 'center',

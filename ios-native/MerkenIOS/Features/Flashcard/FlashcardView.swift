@@ -6,7 +6,6 @@ struct FlashcardView: View {
 
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel: FlashcardViewModel
-    @State private var dictionaryURL: URL?
     @State private var showingDeleteConfirm = false
     @State private var showingEditSheet = false
     @State private var editEnglish = ""
@@ -59,9 +58,6 @@ struct FlashcardView: View {
         .task(id: project.id) {
             guard preloadedWords == nil || preloadedWords?.isEmpty == true else { return }
             await viewModel.load(projectId: project.id, using: appState)
-        }
-        .sheet(item: $dictionaryURL) { url in
-            SafariView(url: url)
         }
         .alert("この単語を削除しますか？", isPresented: $showingDeleteConfirm) {
             Button("削除", role: .destructive) {
@@ -152,16 +148,8 @@ struct FlashcardView: View {
                         viewModel.toggleDirection()
                     } label: {
                         Text(viewModel.japaneseFirst ? "日→英" : "英→日")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(viewModel.japaneseFirst ? .white : MerkenTheme.secondaryText)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                viewModel.japaneseFirst ? MerkenTheme.accentBlue : MerkenTheme.surface,
-                                in: Capsule()
-                            )
-                            .overlay(Capsule().stroke(MerkenTheme.border, lineWidth: 1))
                     }
+                    .buttonStyle(SolidButtonStyle(viewModel.japaneseFirst ? .inverse : .surface, size: .small, cornerRadius: 16))
 
                     Spacer()
 
@@ -272,33 +260,9 @@ struct FlashcardView: View {
 
                 Spacer(minLength: 18).fixedSize()
 
-                // Action buttons (small) — matches Web layout
+                // Action chips — edit, pronunciation, status, favorite, delete
                 HStack(spacing: 12) {
-                    // Translate toggle
-                    actionButton(
-                        icon: "textformat",
-                        active: viewModel.japaneseFirst
-                    ) {
-                        viewModel.toggleDirection()
-                    }
-
-                    // Favorite / bookmark
-                    actionButton(
-                        icon: viewModel.currentWord?.isFavorite == true ? "bookmark.fill" : "bookmark",
-                        active: viewModel.currentWord?.isFavorite == true,
-                        activeColor: MerkenTheme.danger
-                    ) {
-                        MerkenHaptic.medium()
-                        Task { await viewModel.toggleFavorite(using: appState) }
-                    }
-
-                    // Dictionary
-                    actionButton(icon: "book", active: false) {
-                        dictionaryURL = viewModel.dictionaryURL
-                    }
-
-                    // Edit
-                    actionButton(icon: "pencil", active: false) {
+                    actionChip(icon: "pencil", label: "編集") {
                         if let word = viewModel.currentWord {
                             editEnglish = word.english
                             editJapanese = word.japanese
@@ -306,8 +270,28 @@ struct FlashcardView: View {
                         }
                     }
 
-                    // Delete
-                    actionButton(icon: "trash", active: false, activeColor: MerkenTheme.danger) {
+                    actionChip(icon: "speaker.wave.2.fill", label: "発音") {
+                        viewModel.speakEnglish()
+                    }
+
+                    actionChip(
+                        icon: "checkmark.circle",
+                        label: statusLabel(for: viewModel.currentWord?.status ?? .new),
+                        tint: statusColor(for: viewModel.currentWord?.status ?? .new)
+                    ) {
+                        Task { await viewModel.cycleStatus(using: appState) }
+                    }
+
+                    actionChip(
+                        icon: viewModel.currentWord?.isFavorite == true ? "bookmark.fill" : "bookmark",
+                        label: "お気に入り",
+                        tint: viewModel.currentWord?.isFavorite == true ? MerkenTheme.accentGreen : MerkenTheme.solidInk
+                    ) {
+                        MerkenHaptic.medium()
+                        Task { await viewModel.toggleFavorite(using: appState) }
+                    }
+
+                    actionChip(icon: "trash", label: "削除", tint: MerkenTheme.danger) {
                         showingDeleteConfirm = true
                     }
                 }
@@ -349,23 +333,47 @@ struct FlashcardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private func actionButton(
+    private func actionChip(
         icon: String,
-        active: Bool,
-        activeColor: Color = MerkenTheme.accentBlue,
+        label: String,
+        tint: Color = MerkenTheme.solidInk,
         action: @escaping () -> Void
     ) -> some View {
         Button {
             MerkenHaptic.light()
             action()
         } label: {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(active ? activeColor : MerkenTheme.mutedText)
-                .frame(width: 44, height: 44)
-                .background(MerkenTheme.surface, in: .circle)
-                .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1))
-                .shadow(color: MerkenTheme.border.opacity(0.3), radius: 2, y: 1)
+            VStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .black))
+                    .foregroundStyle(tint)
+                    .frame(width: 42, height: 42)
+                    .solidSurface(tone: .surface, depth: .small, cornerRadius: 21)
+
+                Text(label)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(MerkenTheme.mutedText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(width: 54)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func statusLabel(for status: WordStatus) -> String {
+        switch status {
+        case .new: return "未学習"
+        case .review: return "学習中"
+        case .mastered: return "習得"
+        }
+    }
+
+    private func statusColor(for status: WordStatus) -> Color {
+        switch status {
+        case .new: return MerkenTheme.mutedText
+        case .review: return MerkenTheme.chartBlue
+        case .mastered: return MerkenTheme.success
         }
     }
 
@@ -385,12 +393,10 @@ struct FlashcardView: View {
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(enabled ? MerkenTheme.accentBlue : MerkenTheme.mutedText)
+                .font(.system(size: 22, weight: .black))
+                .foregroundStyle(enabled ? MerkenTheme.solidInk : MerkenTheme.mutedText)
                 .frame(width: 56, height: 56)
-                .background(MerkenTheme.surface, in: .circle)
-                .overlay(Circle().stroke(MerkenTheme.border, lineWidth: 1.5))
-                .shadow(color: MerkenTheme.border.opacity(0.5), radius: 0, y: 2)
+                .solidSurface(tone: enabled ? .surface : .muted, depth: .small, cornerRadius: 28)
                 .scaleEffect(pressedButton == icon ? 0.85 : 1.0)
         }
         .disabled(!enabled)

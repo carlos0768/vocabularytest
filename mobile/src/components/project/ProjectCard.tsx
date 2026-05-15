@@ -114,6 +114,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metaText: {
+    fontFamily: 'NotoSansJP_400Regular',
     fontSize: 14,
     color: colors.gray[500],
   },
@@ -142,6 +143,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   menuItemText: {
+    fontFamily: 'NotoSansJP_500Medium',
     fontSize: 15,
     color: colors.red[600],
     fontWeight: '500',

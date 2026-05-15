@@ -229,13 +229,11 @@ struct Quiz2View: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
-            .background(
-                isSelected ? lightColor : MerkenTheme.surface,
-                in: .rect(cornerRadius: 16)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? color : MerkenTheme.border, lineWidth: 2)
+            .solidSurface(
+                tone: isSelected ? .surfaceAlt : .surface,
+                depth: .small,
+                cornerRadius: 16,
+                borderColor: isSelected ? color : MerkenTheme.solidInk
             )
         }
         .disabled(viewModel.isSubmittingGrade)
