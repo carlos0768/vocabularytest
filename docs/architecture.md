@@ -41,6 +41,8 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | Directory | Responsibility |
 |-----------|---------------|
 | `src/app/` | Next.js App Router pages and API routes |
+| `src/app/favorites/` | Saved words page. Lists favorited words across projects, opens word detail in-place, and links to saved-word flashcard/quiz flows. |
+| `src/app/quiz/[projectId]/favorites/` | Pro-only saved-word quiz page. Uses `src/lib/quiz/` question generation and persists generated word-order quiz caches through the repository layer. |
 | `src/app/api/extract/` | Image OCR and word extraction (core scan flow) |
 | `src/app/api/scan-jobs/` | Async scan pipeline for iOS (create, process, list) |
 | `src/app/api/subscription/` | Stripe + AppStore subscription management + webhooks |
@@ -70,7 +72,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/lib/scan/` | Pure helpers for scan mode/provider selection, scan job payloads, persistence boundaries, side effects, example generation, image extraction, quiz prefill, and post-processing |
 | `src/lib/home/` | Home page pure selectors/session/progress helpers. Latest UI remains in `src/app/page.tsx`. |
 | `src/lib/project/` | Project page pure selectors/progress/result helpers. Latest UI remains in `src/app/project/[id]/page.tsx`. |
-| `src/lib/quiz/` | Quiz state, question generation, and progress helpers used by `src/app/quiz/[projectId]/page.tsx`. |
+| `src/lib/quiz/` | Quiz state, question generation, word-order cache normalization, and progress helpers used by `src/app/quiz/[projectId]/page.tsx` and `src/app/quiz/[projectId]/favorites/page.tsx`. |
 | `src/lib/stripe/` | Stripe payment client and config (server-side only) |
 | `src/lib/supabase/` | Supabase clients: browser singleton, server, route handler, middleware |
 | `src/lib/schemas/` | Zod validation schemas for AI responses |

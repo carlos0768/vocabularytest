@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type {
   Word,
   QuizQuestion,
+  WordOrderQuizCache,
   WordOrderQuizQuestion,
   SubscriptionStatus,
 } from '@/types';
@@ -293,7 +294,7 @@ export default function FavoritesQuizPage() {
       }
 
       const targetsById = new Map(targets.map((w) => [w.id, w]));
-      const generated = new Map<string, unknown>();
+      const generated = new Map<string, WordOrderQuizCache>();
       for (const result of data.results as Array<{ wordId?: unknown; quiz?: unknown }>) {
         if (typeof result.wordId !== 'string') continue;
         const word = targetsById.get(result.wordId);
@@ -309,7 +310,7 @@ export default function FavoritesQuizPage() {
 
       return words.map((w) => {
         const quiz = generated.get(w.id);
-        return quiz ? { ...w, wordOrderQuiz: quiz as Word['wordOrderQuiz'] } : w;
+        return quiz ? { ...w, wordOrderQuiz: quiz } : w;
       });
     } catch {
       return words;
