@@ -16,7 +16,7 @@ const NO_SHELL_PATHS = [
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
   '/quick-response/', '/scan/confirm',
-  '/subscription', '/collections/new', '/word/',
+  '/subscription', '/collections/new', '/word/', '/favorites',
 ];
 
 const DESKTOP_AD_PLACEMENTS = [

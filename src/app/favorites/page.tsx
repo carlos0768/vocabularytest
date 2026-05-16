@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getGuestUserId } from '@/lib/utils';
@@ -39,6 +40,9 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
   const [activeSort, setActiveSort] = useState<SortKey>('alpha');
   const [error, setError] = useState<string | null>(null);
+  const [selectedWord, setSelectedWord] = useState<FavoriteWord | null>(null);
+  const [deleteWordTarget, setDeleteWordTarget] = useState<FavoriteWord | null>(null);
+  const [deleteWordLoading, setDeleteWordLoading] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -111,11 +115,27 @@ export default function FavoritesPage() {
 
   const handleToggleFavorite = async (word: FavoriteWord) => {
     setFavorites((prev) => prev.filter((item) => item.id !== word.id));
+    if (selectedWord?.id === word.id) setSelectedWord(null);
     try {
       await repository.updateWord(word.id, { isFavorite: false });
     } catch (toggleError) {
       console.error('Failed to remove favorite:', toggleError);
       setFavorites((prev) => [...prev, word]);
+    }
+  };
+
+  const handleConfirmWordDelete = async () => {
+    if (!deleteWordTarget || deleteWordLoading) return;
+    setDeleteWordLoading(true);
+    try {
+      await repository.deleteWord(deleteWordTarget.id);
+      setFavorites((prev) => prev.filter((w) => w.id !== deleteWordTarget.id));
+      if (selectedWord?.id === deleteWordTarget.id) setSelectedWord(null);
+      setDeleteWordTarget(null);
+    } catch (deleteError) {
+      console.error('Failed to delete word:', deleteError);
+    } finally {
+      setDeleteWordLoading(false);
     }
   };
 
@@ -183,19 +203,27 @@ export default function FavoritesPage() {
           { k: 'status', label: 'ステータス順' },
           { k: 'project', label: '単語帳順' },
         ] as const).map((c) => (
-          <button
-            key={c.k}
-            type="button"
-            onClick={() => setActiveSort(c.k)}
-            className="shrink-0 whitespace-nowrap rounded-full px-[11px] py-1.5 text-[11px] font-bold"
-            style={{
-              background: c.k === activeSort ? 'var(--solid-ink)' : '#fff',
-              color: c.k === activeSort ? '#fff' : 'var(--solid-ink)',
-              border: `1.25px solid ${c.k === activeSort ? 'var(--solid-ink)' : 'var(--color-border)'}`,
-            }}
-          >
-            {c.label}
-          </button>
+          <div key={c.k} className="relative shrink-0">
+            {c.k === activeSort && (
+              <div
+                className="pointer-events-none absolute inset-0 rounded-full bg-[var(--solid-ink)]"
+                style={{ transform: 'translate(2px, 2px)' }}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setActiveSort(c.k)}
+              className="relative whitespace-nowrap rounded-full border-[1.25px] px-[11px] py-1.5 text-[11px] font-bold transition-all duration-100 active:translate-x-px active:translate-y-px"
+              style={{
+                background: c.k === activeSort ? 'var(--solid-ink)' : '#fff',
+                color: c.k === activeSort ? '#fff' : 'var(--solid-ink)',
+                borderColor: c.k === activeSort ? 'var(--solid-ink)' : 'var(--color-border)',
+                boxShadow: c.k !== activeSort ? '2px 2px 0 var(--color-border)' : undefined,
+              }}
+            >
+              {c.label}
+            </button>
+          </div>
         ))}
       </div>
 
@@ -213,31 +241,114 @@ export default function FavoritesPage() {
           </div>
         ) : (
           sortedFavorites.map((word) => (
-            <div
-              key={word.id}
-              className="flex items-center gap-2.5 rounded-[10px] border-[1.25px] bg-white px-3 py-[11px]"
-              style={{ borderColor: 'var(--color-border)' }}
-            >
-              <Link href={`/word/${word.id}?from=${returnPath}`} className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">
-                    {word.english}
-                  </span>
-                  {word.partOfSpeechTags?.[0] && (
-                    <span className="font-mono text-[9px] text-[var(--color-muted)]">{word.partOfSpeechTags[0]}</span>
-                  )}
-                </div>
-                <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
-                <div className="mt-[3px] truncate font-mono text-[9px] text-[var(--color-muted)]">{word.projectTitle}</div>
-              </Link>
-              <StatusPill kind={word.status} />
-              <button type="button" onClick={() => void handleToggleFavorite(word)} className="inline-flex text-[var(--color-accent)]" aria-label="保存済みから外す">
-                <Icon name="bookmark" size={15} filled />
-              </button>
+            <div key={word.id} className="relative">
+              <div className="absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
+              <div
+                className="relative flex items-center gap-2.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-[11px]"
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelectedWord(word)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">
+                      {word.english}
+                    </span>
+                    {word.partOfSpeechTags?.[0] && (
+                      <span className="font-mono text-[9px] text-[var(--color-muted)]">{word.partOfSpeechTags[0]}</span>
+                    )}
+                  </div>
+                  <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
+                  <div className="mt-[3px] truncate font-mono text-[9px] text-[var(--color-muted)]">{word.projectTitle}</div>
+                </button>
+                <StatusPill kind={word.status} />
+                <button type="button" onClick={() => void handleToggleFavorite(word)} className="inline-flex text-[var(--color-accent)]" aria-label="保存済みから外す">
+                  <Icon name="bookmark" size={15} filled />
+                </button>
+              </div>
             </div>
           ))
         )}
       </div>
+      {selectedWord && (
+        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+            onClick={() => setSelectedWord(null)}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
+            <div
+              className="w-full overflow-y-auto"
+              style={{
+                maxWidth: 480,
+                maxHeight: '80dvh',
+                background: '#faf7f1',
+                border: '1.5px solid var(--solid-ink)',
+                borderRadius: 20,
+                boxShadow: '4px 5px 0 var(--solid-ink)',
+              }}
+            >
+              <WordDetailView
+                wordId={selectedWord.id}
+                variant="modal"
+                initialWord={selectedWord}
+                onClose={() => setSelectedWord(null)}
+                onWordUpdated={(updated) => {
+                  setFavorites((prev) => prev.map((w) => (w.id === updated.id ? { ...updated, projectTitle: (prev.find((x) => x.id === updated.id)?.projectTitle ?? '') } : w)));
+                  setSelectedWord((current) => current ? { ...updated, projectTitle: current.projectTitle } : null);
+                }}
+                onDelete={(wordId) => setDeleteWordTarget(favorites.find((w) => w.id === wordId) ?? null)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteWordTarget && (
+        <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="閉じる"
+            onClick={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-5">
+            <div
+              className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
+              style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+            >
+              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">DELETE</div>
+              <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">単語を削除しますか？</h2>
+              <p className="mt-2 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+                {deleteWordTarget.english} が削除されます。この操作は取り消せません。
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
+                  disabled={deleteWordLoading}
+                  className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmWordDelete()}
+                  disabled={deleteWordLoading}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-60"
+                  style={{ background: 'var(--color-error, #cc4d59)' }}
+                >
+                  {deleteWordLoading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+                  削除する
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
