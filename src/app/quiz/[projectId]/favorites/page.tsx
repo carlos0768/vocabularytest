@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { Button } from '@/components/ui/button';
-import { QuizOption } from '@/components/quiz';
+import { SolidButton } from '@/components/redesign/SolidPage';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, getGuestUserId } from '@/lib/utils';
@@ -17,6 +16,83 @@ function parseFavoriteQuizQuestionCount(value: string | null): number {
   if (!value) return DEFAULT_QUESTION_COUNT;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_QUESTION_COUNT;
+}
+
+function DSQuizOption({
+  label,
+  index,
+  isSelected,
+  isCorrect,
+  isRevealed,
+  onSelect,
+  disabled,
+}: {
+  label: string;
+  index: number;
+  isSelected: boolean;
+  isCorrect: boolean;
+  isRevealed: boolean;
+  onSelect: () => void;
+  disabled: boolean;
+}) {
+  const isCorrectAnswer = isRevealed && isCorrect;
+  const isWrongAnswer = isRevealed && isSelected && !isCorrect;
+  const isInactive = isRevealed && !isSelected && !isCorrect;
+
+  let faceBg = '#fff';
+  let borderColor = 'var(--solid-ink)';
+  let shadowColor = 'var(--solid-ink)';
+  let textColor = 'var(--solid-ink)';
+  let badgeBg = '#fff';
+  let badgeColor = 'var(--solid-ink)';
+  let icon: ReactNode = null;
+
+  if (isCorrectAnswer) {
+    faceBg = 'rgba(61,122,78,0.08)';
+    shadowColor = 'var(--color-success)';
+    badgeBg = 'var(--color-success)';
+    badgeColor = '#fff';
+    icon = <Icon name="check" size={18} className="text-[var(--color-success)]" />;
+  } else if (isWrongAnswer) {
+    faceBg = 'rgba(184,72,72,0.08)';
+    shadowColor = 'var(--color-error)';
+    badgeBg = 'var(--color-error)';
+    badgeColor = '#fff';
+    icon = <Icon name="close" size={18} className="text-[var(--color-error)]" />;
+  } else if (isInactive) {
+    borderColor = 'var(--color-border)';
+    shadowColor = 'var(--color-border)';
+    textColor = 'var(--color-muted)';
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
+      className="relative w-full text-left disabled:cursor-not-allowed"
+    >
+      <div
+        className="absolute inset-0 rounded-xl"
+        style={{ transform: 'translate(2.5px, 2.5px)', background: shadowColor }}
+      />
+      <div
+        className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] px-3.5 py-3.5"
+        style={{ background: faceBg, borderColor }}
+      >
+        <div
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-[1.25px] border-[var(--solid-ink)] font-mono text-[11px] font-bold"
+          style={{ background: badgeBg, color: badgeColor }}
+        >
+          {String.fromCharCode(65 + index)}
+        </div>
+        <div className="flex-1 text-[15px] font-semibold leading-[1.35]" style={{ color: textColor }}>
+          {label}
+        </div>
+        {icon}
+      </div>
+    </button>
+  );
 }
 
 export default function FavoritesQuizPage() {
@@ -36,64 +112,43 @@ export default function FavoritesQuizPage() {
     router.replace(returnPath || `/project/${projectId}`);
   }, [router, returnPath, projectId]);
 
-  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]); // Store all favorite words for restart
+  const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
-  const [results, setResults] = useState<{ correct: number; total: number }>({
-    correct: 0,
-    total: 0,
-  });
+  const [results, setResults] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
+  const [answerResults, setAnswerResults] = useState<(boolean | null)[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isTransitioning, setIsTransitioning] = useState(false); // 連打防止
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const quizDirection: 'en-to-ja' | 'ja-to-en' = 'en-to-ja';
 
-  // Get repository based on subscription status
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
-  // Generate quiz questions from favorite words only
   const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
-    // Take up to count questions per session
     const selected = shuffleArray(words).slice(0, count);
 
     return selected.map((word) => {
       if (direction === 'ja-to-en') {
-        // Japanese → English: use other English words as distractors
         const otherWords = words.filter(w => w.id !== word.id);
-        const englishDistractors = shuffleArray(otherWords)
-          .slice(0, 3)
-          .map(w => w.english);
+        const englishDistractors = shuffleArray(otherWords).slice(0, 3).map(w => w.english);
         const allOptions = [word.english, ...englishDistractors];
         const shuffled = shuffleArray(allOptions);
         const correctIndex = shuffled.indexOf(word.english);
-
-        return {
-          word,
-          options: shuffled,
-          correctIndex,
-        };
+        return { word, options: shuffled, correctIndex };
       } else {
-        // English → Japanese: use pre-generated Japanese distractors
         const allOptions = [word.japanese, ...word.distractors];
         const shuffled = shuffleArray(allOptions);
         const correctIndex = shuffled.indexOf(word.japanese);
-
-        return {
-          word,
-          options: shuffled,
-          correctIndex,
-        };
+        return { word, options: shuffled, correctIndex };
       }
     });
   }, []);
 
-  // Load words and create questions
   useEffect(() => {
-    // Wait for auth to be ready
     if (authLoading) return;
 
     if (!isPro) {
@@ -108,9 +163,7 @@ export default function FavoritesQuizPage() {
 
           try {
             const localProject = await repository.getProject(projectId);
-            if (localProject?.userId === ownerUserId) {
-              return true;
-            }
+            if (localProject?.userId === ownerUserId) return true;
           } catch (error) {
             console.error('Project ownership check failed (local):', error);
           }
@@ -130,7 +183,6 @@ export default function FavoritesQuizPage() {
         let favoriteWords: Word[];
 
         if (projectId === 'all') {
-          // 全単語帳横断でお気に入り単語を取得
           const userId = user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
           const allWords = await Promise.all(projects.map(p => repository.getWords(p.id)));
@@ -150,10 +202,11 @@ export default function FavoritesQuizPage() {
           return;
         }
 
-        setAllFavoriteWords(favoriteWords); // Store all favorite words for restart
+        setAllFavoriteWords(favoriteWords);
 
         const generated = generateQuestions(favoriteWords, questionCount, quizDirection);
         setQuestions(generated);
+        setAnswerResults(Array.from({ length: generated.length }, () => null));
       } catch (error) {
         console.error('Failed to load words:', error);
         backToProject();
@@ -162,57 +215,53 @@ export default function FavoritesQuizPage() {
       }
     };
 
-    loadWords();
+    void loadWords();
   }, [projectId, repository, router, generateQuestions, authLoading, isPro, questionCount, quizDirection, user, backToProject]);
 
-  const currentQuestion = questions[currentIndex];
+  const currentQuestion = questions[currentIndex] as (typeof questions[0] & { options: string[]; correctIndex: number }) | undefined;
 
-  // Handle option selection
   const handleSelect = async (index: number) => {
-    if (isRevealed || selectedIndex !== null) return;
+    if (isRevealed || selectedIndex !== null || !currentQuestion) return;
 
     setSelectedIndex(index);
     setIsRevealed(true);
 
     const isCorrect = index === currentQuestion.correctIndex;
 
-    // Update results
-    setResults((prev) => ({
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      total: prev.total + 1,
-    }));
-
-    // Advance is controlled by the Next button to avoid skipping too fast
+    setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
+    setAnswerResults((prev) => {
+      const next = [...prev];
+      next[currentIndex] = isCorrect;
+      return next;
+    });
   };
 
-  // Move to next question
   const moveToNext = () => {
-    if (isTransitioning) return; // 連打防止
+    if (isTransitioning) return;
     setIsTransitioning(true);
-    
+
     if (currentIndex + 1 >= questions.length) {
       setIsComplete(true);
     } else {
       setCurrentIndex((prev) => prev + 1);
       setSelectedIndex(null);
       setIsRevealed(false);
-      setIsTransitioning(false); // 次の問題に移ったらリセット
+      setIsTransitioning(false);
     }
   };
 
-  // Restart quiz with new random questions from all favorite words
   const handleRestart = () => {
-    // Use allFavoriteWords to get completely new random questions
     const regenerated = generateQuestions(allFavoriteWords, questionCount, quizDirection);
     setQuestions(regenerated);
     setCurrentIndex(0);
     setSelectedIndex(null);
     setIsRevealed(false);
     setResults({ correct: 0, total: 0 });
+    setAnswerResults(Array.from({ length: regenerated.length }, () => null));
     setIsComplete(false);
+    setIsTransitioning(false);
   };
 
-  // Toggle favorite status
   const handleToggleFavorite = async () => {
     if (!currentQuestion) return;
     const word = currentQuestion.word;
@@ -220,201 +269,177 @@ export default function FavoritesQuizPage() {
     await repository.updateWord(word.id, { isFavorite: newFavorite });
     setQuestions((prev) =>
       prev.map((q, i) =>
-        i === currentIndex
-          ? { ...q, word: { ...q.word, isFavorite: newFavorite } }
-          : q
+        i === currentIndex ? { ...q, word: { ...q.word, isFavorite: newFavorite } } : q
       )
     );
   };
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-warning)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">保存済みクイズを準備中...</p>
-        </div>
+      <div className="fixed inset-0 z-30 flex items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
+        <Icon name="progress_activity" size={22} className="animate-spin text-[var(--color-muted)]" />
+        <span className="ml-2 text-sm text-[var(--color-muted)]">保存済みクイズを準備中...</span>
       </div>
     );
   }
 
-  // Quiz complete screen
   if (isComplete) {
-    const percentage = Math.round((results.correct / results.total) * 100);
+    const percentage = results.total > 0 ? Math.round((results.correct / results.total) * 100) : 0;
+    const message =
+      percentage === 100 ? '全問正解！素晴らしい！'
+      : percentage >= 80 ? 'よくできました！'
+      : percentage >= 60 ? '頑張りました！繰り返し練習しましょう'
+      : '保存した単語をもう一度確認しましょう';
 
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
-        {/* Header */}
-        <header className="sticky top-0 p-4">
-          <button
-            onClick={backToProject}
-            className="p-2 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
-          >
-            <Icon name="close" size={24} />
-          </button>
-        </header>
-
-        {/* Results */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="bg-[var(--color-surface)] rounded-[var(--radius-2xl)] shadow-card p-8 w-full max-w-sm text-center border border-[var(--color-border)]">
-            <div className="w-20 h-20 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Icon name="emoji_events" size={40} className="text-[var(--color-warning)]" />
+      <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
+        <button
+          type="button"
+          onClick={backToProject}
+          className="absolute left-4 inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+          style={{ top: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
+        >
+          <Icon name="close" size={22} />
+        </button>
+        <div className="w-full max-w-sm px-6">
+          <div className="w-full rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center shadow-[3px_4px_0_var(--solid-ink)]">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(61,122,78,0.08)]">
+              <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
             </div>
-
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
-              保存済みクイズ完了！
-            </h1>
-
-            <div className="mb-6">
-              <p className="text-5xl font-bold text-[var(--color-warning)] mb-1">
-                {percentage}%
-              </p>
-              <p className="text-[var(--color-muted)]">
-                {results.total}問中 {results.correct}問正解
-              </p>
-            </div>
-
-            {/* Performance message */}
-            <p className="text-[var(--color-muted)] mb-8">
-              {percentage === 100
-                ? '全問正解！素晴らしい！'
-                : percentage >= 80
-                ? 'よくできました！'
-                : percentage >= 60
-                ? '頑張りました！繰り返し練習しましょう'
-                : '保存した単語をもう一度確認しましょう'}
-            </p>
-
+            <h1 className="mb-2 font-display text-2xl font-black text-[var(--solid-ink)]">クイズ完了!</h1>
+            <p className="mb-1 font-mono text-5xl font-black text-[var(--color-success)]">{percentage}%</p>
+            <p className="mb-6 text-[var(--color-muted)]">{results.total}問中 {results.correct}問正解</p>
+            <p className="mb-8 text-[var(--solid-ink)]">{message}</p>
             <div className="space-y-3">
-              <Button onClick={handleRestart} className="w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" size="lg">
-                <Icon name="refresh" size={20} className="mr-2" />
-                もう一度
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={backToProject}
-                className="w-full"
-                size="lg"
-              >
-                単語一覧に戻る
-              </Button>
+              <SolidButton variant="inverse" onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
+              <SolidButton onClick={backToProject} className="w-full justify-center">単語一覧に戻る</SolidButton>
             </div>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
+  const total = questions.length;
+
   return (
-    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
+    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
       {/* Header */}
-      <header className="sticky top-0 flex-shrink-0 py-4 px-6 w-full">
-        <div className="mx-auto w-full max-w-lg flex items-center justify-between gap-3">
-          <button
-            onClick={backToProject}
-            className="p-2 shrink-0 hover:bg-[var(--color-primary-light)] rounded-full transition-colors"
-          >
-            <Icon name="close" size={24} />
-          </button>
-
-          {/* Title badge */}
-          <div className="flex items-center gap-2 bg-[var(--color-warning-light)] px-3 py-1 rounded-full min-w-0">
-            <Icon name="flag" size={16} filled className="text-[var(--color-warning)] shrink-0" />
-            <span className="text-sm font-medium text-[var(--color-warning)] truncate">保存済みクイズ</span>
-          </div>
-
-          {/* Progress indicator */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-sm text-[var(--color-muted)] tabular-nums">
-              {currentIndex + 1} / {questions.length}
-            </span>
-            <div className="w-24 h-2 bg-[var(--color-border-light)] rounded-full overflow-hidden">
+      <div
+        className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5"
+        style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
+      >
+        <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
+          <Icon name="close" size={22} />
+        </button>
+        <div className="flex flex-1 items-center gap-2">
+          <div className="flex flex-1 gap-[3px]">
+            {Array.from({ length: total }).map((_, i) => (
               <div
-                className="h-full bg-[var(--color-warning)] transition-all duration-300"
+                key={i}
+                className="h-[5px] flex-1 rounded-sm"
                 style={{
-                  width: `${((currentIndex + 1) / questions.length) * 100}%`,
+                  background:
+                    i < currentIndex
+                      ? answerResults[i] === true
+                        ? 'var(--color-success)'
+                        : answerResults[i] === false
+                          ? 'var(--color-error)'
+                          : 'rgba(26,26,26,0.1)'
+                      : i === currentIndex
+                        ? 'var(--solid-ink)'
+                        : 'rgba(26,26,26,0.1)',
+                  border: i === currentIndex ? '0.5px solid var(--solid-ink)' : 'none',
                 }}
               />
-            </div>
+            ))}
           </div>
-        </div>
-      </header>
-
-      {/* Question */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
-        <div className="mx-auto w-full max-w-lg px-6 py-6 flex flex-col flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        {/* Mode badge */}
-        <div className="flex justify-center mb-2">
-          <span className="px-3 py-1 text-xs font-medium rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)]">
-            {quizDirection === 'en-to-ja' ? '英→日' : '日→英'}
+          <span className="font-mono text-[11px] font-bold tabular-nums text-[var(--solid-ink)]">
+            {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
+        <button
+          type="button"
+          onClick={() => void handleToggleFavorite()}
+          className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+        >
+          <Icon name="bookmark" size={19} filled={currentQuestion?.word.isFavorite ?? false} />
+        </button>
+      </div>
 
-        {/* Question word */}
-        <div className="flex-shrink-0 flex flex-col items-center justify-center py-4">
-          <h1 className="text-4xl font-bold text-[var(--color-foreground)] text-center mb-4">
-            {quizDirection === 'en-to-ja' ? currentQuestion?.word.english : currentQuestion?.word.japanese}
-          </h1>
-          {/* Favorite button */}
-          <button
-            onClick={handleToggleFavorite}
-            className="p-2 rounded-full hover:bg-[var(--color-primary-light)] transition-colors"
-            aria-label={currentQuestion?.word.isFavorite ? '保存済みから外す' : '保存済みに追加'}
-          >
-            <Icon
-              name="flag"
-              size={24}
-              filled={currentQuestion?.word.isFavorite}
-              className={`transition-colors ${
-                currentQuestion?.word.isFavorite
-                  ? 'text-[var(--color-warning)]'
-                  : 'text-[var(--color-muted)]'
-              }`}
-            />
-          </button>
+      {/* Main content */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
+        <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          意味を選ぼう
+        </div>
+
+        {/* Word display */}
+        <div className="relative">
+          <div className="absolute inset-0 rounded-[18px] translate-x-[3px] translate-y-[4px] bg-[var(--solid-ink)]" />
+          <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
+            <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
+              {quizDirection === 'en-to-ja' ? currentQuestion?.word.english : currentQuestion?.word.japanese}
+            </div>
+            <div className="mt-2.5 flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  if (currentQuestion?.word.english) {
+                    window.speechSynthesis.cancel();
+                    const utt = new SpeechSynthesisUtterance(currentQuestion.word.english);
+                    utt.lang = 'en-US'; utt.rate = 0.9;
+                    window.speechSynthesis.speak(utt);
+                  }
+                }}
+                className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
+              >
+                <Icon name="volume_up" size={12} /> 読み上げ
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Options */}
-        <div className="flex-shrink-0 space-y-3 mb-4">
-          {currentQuestion?.options.map((option, index) => (
-            <QuizOption
-              key={index}
+        <div className="mt-[18px] flex flex-col gap-2">
+          {currentQuestion?.options.map((option, i) => (
+            <DSQuizOption
+              key={i}
               label={option}
-              index={index}
-              isSelected={selectedIndex === index}
-              isCorrect={index === currentQuestion.correctIndex}
+              index={i}
+              isSelected={selectedIndex === i}
+              isCorrect={i === currentQuestion.correctIndex}
               isRevealed={isRevealed}
-              onSelect={() => handleSelect(index)}
+              onSelect={() => void handleSelect(i)}
               disabled={isRevealed}
             />
           ))}
         </div>
 
-        {/* Example sentence (shown after answering, Pro feature) */}
+        {/* Example sentence */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
-          <div className="flex-shrink-0 mb-4 p-4 bg-[var(--color-warning-light)] rounded-[var(--radius-lg)]">
-            <p className="text-sm font-medium text-[var(--color-foreground)] mb-1">例文</p>
-            <p className="text-[var(--color-foreground)] italic">{currentQuestion.word.exampleSentence}</p>
+          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+            <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+              {currentQuestion.word.exampleSentence}
+            </div>
             {currentQuestion.word.exampleSentenceJa && (
-              <p className="text-sm text-[var(--color-warning)] mt-1">{currentQuestion.word.exampleSentenceJa}</p>
+              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{currentQuestion.word.exampleSentenceJa}</div>
             )}
           </div>
         )}
+      </div>
 
-        {/* Next button (shown after answering) */}
-        {isRevealed && (
-          <Button 
-            onClick={moveToNext} 
-            disabled={isTransitioning}
-            className="flex-shrink-0 w-full bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/90" 
-            size="lg"
-          >
+      {/* Bottom CTA */}
+      {isRevealed && (
+        <div
+          className="shrink-0 bg-[var(--color-background)] px-5 pt-3"
+          style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))' }}
+        >
+          <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ
-            <Icon name="chevron_right" size={20} className="ml-1" />
-          </Button>
-        )}
+          </SolidButton>
         </div>
-      </main>
+      )}
     </div>
   );
 }
