@@ -8,6 +8,13 @@ export type QuizQuestionCountInput = {
   isValidInput: boolean;
 };
 
+export type QuizAdvanceState = {
+  isComplete: boolean;
+  nextIndex: number;
+  resetAnswerState: boolean;
+  isTransitioning: false;
+};
+
 export function calculateQuizScorePercentage(results: QuizResults): number {
   return Math.round((results.correct / results.total) * 100);
 }
@@ -30,6 +37,17 @@ export function getQuizCompletionMessage(percentage: number): string {
 
 export function calculateQuizProgressPercentage(currentIndex: number, questionCount: number): number {
   return ((currentIndex + 1) / questionCount) * 100;
+}
+
+export function getQuizAdvanceState(currentIndex: number, questionCount: number): QuizAdvanceState {
+  const isComplete = currentIndex + 1 >= questionCount;
+
+  return {
+    isComplete,
+    nextIndex: isComplete ? currentIndex : currentIndex + 1,
+    resetAnswerState: !isComplete,
+    isTransitioning: false,
+  };
 }
 
 export function parseQuizQuestionCountInput(

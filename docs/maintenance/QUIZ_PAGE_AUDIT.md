@@ -8,6 +8,8 @@
 
 今回の棚卸しは docs-only。コード、API、型、schema、package-lock、migration は変更していない。
 
+追記 2026-05-16: 完了画面から `もう一度` を押した後、1問目回答後に「次へ」が押せなくなる問題を調査・修正した。原因は最後の `moveToNext()` で二重遷移防止の `isTransitioning` が `true` のまま完了画面へ移り、restart時にも解除されていなかったこと。`getQuizAdvanceState()` のunit testで、完了時もtransition lockを解除する前提を固定した。
+
 ## 確認した現状
 
 - `git status --short --branch`: `## main...origin/main [ahead 52, behind 259]`
@@ -47,6 +49,7 @@
 - Header progress barは `(currentIndex + 1) / questions.length`。
 - 結果は `{ correct, total }` を回答時に加算し、完了画面でpercentageと文言を出す。
 - `moveToNext()` が最後の問題で `isComplete` にし、それ以外はindexと回答UI stateを初期化する。
+- 2026-05-16 修正: 最後の問題で `isTransitioning` を解除してから完了画面に移る。`もう一度` でも `isTransitioning` を必ず `false` に戻す。これにより完了後リスタートの1問目で「次へ」がdisabledのまま残る退行を防ぐ。
 - review mode完了時は `goToNextReviewQuiz()` で同一ページへ `_rs` つき再遷移する。
 
 ### spaced repetition保存

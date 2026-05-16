@@ -25,6 +25,7 @@ import {
 } from '@/lib/quiz/word-order';
 import {
   calculateQuizScorePercentage,
+  getQuizAdvanceState,
   getQuizCompletionMessage,
 } from '@/lib/quiz/quiz-progress';
 import { useAuth } from '@/hooks/use-auth';
@@ -744,8 +745,10 @@ export default function QuizPage() {
   const moveToNext = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
-    if (currentIndex + 1 >= questions.length) {
+    const advanceState = getQuizAdvanceState(currentIndex, questions.length);
+    if (advanceState.isComplete) {
       setIsComplete(true);
+      setIsTransitioning(advanceState.isTransitioning);
       // Onboarding: any quiz completion advances to 'completed'.
       if (onboardingStep === 'signed_up' || onboardingStep === 'first_scan_done') {
         void setOnboardingStep('completed');
@@ -753,14 +756,16 @@ export default function QuizPage() {
         window.setTimeout(() => setPwaPromptOpen(true), 700);
       }
     } else {
-      setCurrentIndex((prev) => prev + 1);
-      setSelectedIndex(null);
-      setWordOrderSelectedTokens([]);
-      setWordOrderResult(null);
-      setIsRevealed(false);
-      setTypeInAnswer('');
-      setTypeInResult(null);
-      setIsTransitioning(false);
+      setCurrentIndex(advanceState.nextIndex);
+      if (advanceState.resetAnswerState) {
+        setSelectedIndex(null);
+        setWordOrderSelectedTokens([]);
+        setWordOrderResult(null);
+        setIsRevealed(false);
+        setTypeInAnswer('');
+        setTypeInResult(null);
+      }
+      setIsTransitioning(advanceState.isTransitioning);
     }
   };
 
@@ -771,6 +776,7 @@ export default function QuizPage() {
     else setQuestions(generateQuestions(allWords, count, quizDirection));
     setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null); setIsRevealed(false);
     setTypeInAnswer(''); setTypeInResult(null);
+    setIsTransitioning(false);
     setResults({ correct: 0, total: 0 }); setAnswerResults([]); setIsComplete(false);
   };
 

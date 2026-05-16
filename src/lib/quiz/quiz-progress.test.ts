@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   calculateQuizProgressPercentage,
   calculateQuizScorePercentage,
+  getQuizAdvanceState,
   getQuizCompletionMessage,
   parseQuizQuestionCountInput,
 } from './quiz-progress';
@@ -24,6 +25,24 @@ test('calculateQuizProgressPercentage matches current index over question count'
   assert.equal(calculateQuizProgressPercentage(0, 10), ((0 + 1) / 10) * 100);
   assert.equal(calculateQuizProgressPercentage(4, 10), ((4 + 1) / 10) * 100);
   assert.equal(calculateQuizProgressPercentage(9, 10), ((9 + 1) / 10) * 100);
+});
+
+test('getQuizAdvanceState releases the transition lock when the quiz completes', () => {
+  assert.deepEqual(getQuizAdvanceState(9, 10), {
+    isComplete: true,
+    nextIndex: 9,
+    resetAnswerState: false,
+    isTransitioning: false,
+  });
+});
+
+test('getQuizAdvanceState advances and resets answer state before the final question', () => {
+  assert.deepEqual(getQuizAdvanceState(3, 10), {
+    isComplete: false,
+    nextIndex: 4,
+    resetAnswerState: true,
+    isTransitioning: false,
+  });
 });
 
 test('parseQuizQuestionCountInput only validates inputCount within 1 to maxQuestions', () => {

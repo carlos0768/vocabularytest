@@ -171,31 +171,39 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!;
-      setProcessingLabel(`画像 ${index + 1}/${files.length} を解析中...`);
-      const base64 = await processImageToBase64(file, 'default');
-      const res = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode, eikenLevel: null }),
-      });
-      const result = await res.json().catch(() => ({})) as {
-        success?: boolean;
-        words?: unknown[];
-        sourceLabels?: unknown[];
-        lexiconEntries?: unknown[];
-        error?: string;
-      };
+      try {
+        setProcessingLabel(`画像 ${index + 1}/${files.length} を解析中...`);
+        const base64 = await processImageToBase64(file, 'default');
+        const res = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, mode, eikenLevel: null }),
+        });
+        const result = await res.json().catch(() => ({})) as {
+          success?: boolean;
+          words?: unknown[];
+          sourceLabels?: unknown[];
+          lexiconEntries?: unknown[];
+          error?: string;
+        };
 
-      if (!res.ok || !result.success) {
-        throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
+        if (!res.ok || !result.success) {
+          throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
+        }
+
+        allWords.push(...(Array.isArray(result.words) ? result.words : []));
+        allSourceLabels = uniqueStrings([...allSourceLabels, ...(Array.isArray(result.sourceLabels) ? result.sourceLabels : [])]);
+        allLexiconEntries = mergeLexiconEntries(
+          allLexiconEntries,
+          Array.isArray(result.lexiconEntries) ? result.lexiconEntries : [],
+        );
+      } catch (error) {
+        console.error('[ScanCaptureModal] Failed to extract one image from multi-image scan', {
+          index,
+          fileName: file.name,
+          error,
+        });
       }
-
-      allWords.push(...(Array.isArray(result.words) ? result.words : []));
-      allSourceLabels = uniqueStrings([...allSourceLabels, ...(Array.isArray(result.sourceLabels) ? result.sourceLabels : [])]);
-      allLexiconEntries = mergeLexiconEntries(
-        allLexiconEntries,
-        Array.isArray(result.lexiconEntries) ? result.lexiconEntries : [],
-      );
     }
 
     if (allWords.length === 0) {
