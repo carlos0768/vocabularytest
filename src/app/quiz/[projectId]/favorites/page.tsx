@@ -1,16 +1,31 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { shuffleArray, getGuestUserId } from '@/lib/utils';
+import {
+  generateQuizQuestions,
+  applyWordOrderQuestionsToPendingQuiz,
+} from '@/lib/quiz/quiz-state';
+import {
+  WORD_ORDER_BLANK_TOKEN,
+  isWordOrderEligible,
+  normalizeWordOrderQuizCache,
+} from '@/lib/quiz/word-order';
 import { useAuth } from '@/hooks/use-auth';
-import type { Word, QuizQuestion, SubscriptionStatus } from '@/types';
+import type {
+  Word,
+  QuizQuestion,
+  WordOrderQuizQuestion,
+  SubscriptionStatus,
+} from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
+const WORD_ORDER_API_CHUNK_SIZE = 30;
 
 function parseFavoriteQuizQuestionCount(value: string | null): number {
   if (!value) return DEFAULT_QUESTION_COUNT;
@@ -18,6 +33,20 @@ function parseFavoriteQuizQuestionCount(value: string | null): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_QUESTION_COUNT;
 }
 
+function chipKey(token: string): string {
+  return token.trim().toLowerCase();
+}
+
+function tokensMatch(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((token, index) => chipKey(token) === chipKey(right[index] ?? ''));
+}
+
+function isWordOrderQuestion(question: QuizQuestion | undefined): question is WordOrderQuizQuestion {
+  return question?.type === 'word-order';
+}
+
+/* ---------- DS-styled option card ---------- */
 function DSQuizOption({
   label,
   index,
@@ -95,6 +124,113 @@ function DSQuizOption({
   );
 }
 
+/* ---------- DS-styled word-order panel ---------- */
+function DSWordOrderPanel({
+  question,
+  selectedTokens,
+  result,
+  isRevealed,
+  onSelectToken,
+  onRemoveToken,
+  onSubmit,
+}: {
+  question: WordOrderQuizQuestion;
+  selectedTokens: string[];
+  result: 'correct' | 'wrong' | null;
+  isRevealed: boolean;
+  onSelectToken: (token: string) => void;
+  onRemoveToken: (index: number) => void;
+  onSubmit: () => void;
+}) {
+  const selectedKeys = new Set(selectedTokens.map(chipKey));
+  const availableTokens = question.options.filter((token) => !selectedKeys.has(chipKey(token)));
+  const isReady = selectedTokens.length === question.answerTokens.length;
+  const sentenceItems = question.sentenceTokens.map((token, index) => ({
+    token,
+    index,
+    answerIndex: token === WORD_ORDER_BLANK_TOKEN
+      ? question.sentenceTokens
+        .slice(0, index + 1)
+        .filter((item) => item === WORD_ORDER_BLANK_TOKEN).length - 1
+      : null,
+  }));
+
+  return (
+    <div className="mt-[18px] space-y-4">
+      <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white p-4 shadow-[2px_3px_0_var(--solid-ink)]">
+        <div className="flex min-h-[76px] flex-wrap items-center gap-2">
+          {sentenceItems.map(({ token, index, answerIndex }) => {
+            if (token !== WORD_ORDER_BLANK_TOKEN) {
+              return (
+                <span
+                  key={`${token}-${index}`}
+                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
+                >
+                  {token}
+                </span>
+              );
+            }
+
+            const selected = answerIndex === null ? undefined : selectedTokens[answerIndex];
+
+            return (
+              <button
+                key={`blank-${index}`}
+                type="button"
+                onClick={() => selected && answerIndex !== null && onRemoveToken(answerIndex)}
+                disabled={isRevealed || !selected}
+                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-[1.5px] border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-default"
+              >
+                {selected || ''}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {availableTokens.map((token) => (
+          <button
+            key={token}
+            type="button"
+            onClick={() => onSelectToken(token)}
+            disabled={isRevealed || selectedTokens.length >= question.answerTokens.length}
+            className="relative min-h-12 rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)] disabled:shadow-[2px_3px_0_var(--color-border)]"
+          >
+            {token}
+          </button>
+        ))}
+      </div>
+
+      {!isRevealed && (
+        <SolidButton
+          variant="inverse"
+          onClick={onSubmit}
+          disabled={!isReady}
+          className="w-full justify-center"
+        >
+          回答する
+        </SolidButton>
+      )}
+
+      {isRevealed && (
+        <div
+          className="rounded-xl border p-3 text-center"
+          style={{
+            borderColor: result === 'correct' ? 'var(--color-success)' : 'var(--color-error)',
+            background: result === 'correct' ? 'rgba(61,122,78,0.08)' : 'rgba(184,72,72,0.08)',
+          }}
+        >
+          <p className="text-sm font-bold text-[var(--solid-ink)]">
+            {result === 'correct' ? '正解' : '不正解'}
+          </p>
+          <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">{question.word.english}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FavoritesQuizPage() {
   const router = useRouter();
   const params = useParams();
@@ -115,38 +251,70 @@ export default function FavoritesQuizPage() {
   const [allFavoriteWords, setAllFavoriteWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const currentIndexRef = useRef(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [wordOrderSelectedTokens, setWordOrderSelectedTokens] = useState<string[]>([]);
+  const [wordOrderResult, setWordOrderResult] = useState<'correct' | 'wrong' | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [results, setResults] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
   const [answerResults, setAnswerResults] = useState<(boolean | null)[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const quizDirection: 'en-to-ja' | 'ja-to-en' = 'en-to-ja';
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
-  const generateQuestions = useCallback((words: Word[], count: number, direction: 'en-to-ja' | 'ja-to-en' = 'en-to-ja'): QuizQuestion[] => {
-    const selected = shuffleArray(words).slice(0, count);
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
-    return selected.map((word) => {
-      if (direction === 'ja-to-en') {
-        const otherWords = words.filter(w => w.id !== word.id);
-        const englishDistractors = shuffleArray(otherWords).slice(0, 3).map(w => w.english);
-        const allOptions = [word.english, ...englishDistractors];
-        const shuffled = shuffleArray(allOptions);
-        const correctIndex = shuffled.indexOf(word.english);
-        return { word, options: shuffled, correctIndex };
-      } else {
-        const allOptions = [word.japanese, ...word.distractors];
-        const shuffled = shuffleArray(allOptions);
-        const correctIndex = shuffled.indexOf(word.japanese);
-        return { word, options: shuffled, correctIndex };
-      }
-    });
+  const needsWordOrderQuiz = useCallback((w: Word) => {
+    if (!isWordOrderEligible(w)) return false;
+    return !normalizeWordOrderQuizCache(w, w.wordOrderQuiz);
   }, []);
+
+  const applyGeneratedWordOrderQuizzes = useCallback(async (words: Word[]): Promise<Word[]> => {
+    const targets = words.filter(needsWordOrderQuiz).slice(0, WORD_ORDER_API_CHUNK_SIZE);
+    if (targets.length === 0) return words;
+
+    try {
+      const response = await fetch('/api/generate-word-order-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          words: targets.map((w) => ({ id: w.id, english: w.english, japanese: w.japanese })),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success || !Array.isArray(data.results)) {
+        throw new Error(data?.error || 'failed');
+      }
+
+      const targetsById = new Map(targets.map((w) => [w.id, w]));
+      const generated = new Map<string, unknown>();
+      for (const result of data.results as Array<{ wordId?: unknown; quiz?: unknown }>) {
+        if (typeof result.wordId !== 'string') continue;
+        const word = targetsById.get(result.wordId);
+        if (!word) continue;
+        const quiz = normalizeWordOrderQuizCache(word, result.quiz);
+        if (quiz) generated.set(word.id, quiz);
+      }
+      if (generated.size === 0) return words;
+
+      await Promise.all([...generated.entries()].map(([wordId, wordOrderQuiz]) =>
+        repository.updateWord(wordId, { wordOrderQuiz }).catch(() => {})
+      ));
+
+      return words.map((w) => {
+        const quiz = generated.get(w.id);
+        return quiz ? { ...w, wordOrderQuiz: quiz as Word['wordOrderQuiz'] } : w;
+      });
+    } catch {
+      return words;
+    }
+  }, [needsWordOrderQuiz, repository]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -160,23 +328,16 @@ export default function FavoritesQuizPage() {
       try {
         const ensureProjectAccess = async (): Promise<boolean> => {
           const ownerUserId = user ? user.id : getGuestUserId();
-
           try {
             const localProject = await repository.getProject(projectId);
             if (localProject?.userId === ownerUserId) return true;
-          } catch (error) {
-            console.error('Project ownership check failed (local):', error);
-          }
-
+          } catch { /* continue */ }
           if (user) {
             try {
               const remoteProject = await remoteRepository.getProject(projectId);
               return remoteProject?.userId === ownerUserId;
-            } catch (error) {
-              console.error('Project ownership check failed (remote):', error);
-            }
+            } catch { /* continue */ }
           }
-
           return false;
         };
 
@@ -189,26 +350,32 @@ export default function FavoritesQuizPage() {
           favoriteWords = allWords.flat().filter(w => w.isFavorite);
         } else {
           const hasAccess = await ensureProjectAccess();
-          if (!hasAccess) {
-            backToProject();
-            return;
-          }
+          if (!hasAccess) { backToProject(); return; }
           const words = await repository.getWords(projectId);
           favoriteWords = words.filter((w) => w.isFavorite);
         }
 
-        if (favoriteWords.length === 0) {
-          backToProject();
-          return;
-        }
+        if (favoriteWords.length === 0) { backToProject(); return; }
 
         setAllFavoriteWords(favoriteWords);
 
-        const generated = generateQuestions(favoriteWords, questionCount, quizDirection);
+        const generated = generateQuizQuestions(favoriteWords, questionCount, 'en-to-ja', shuffleArray, {
+          allowPendingWordOrderFallback: true,
+        });
         setQuestions(generated);
         setAnswerResults(Array.from({ length: generated.length }, () => null));
-      } catch (error) {
-        console.error('Failed to load words:', error);
+
+        // background: generate word-order quiz data for eligible words that lack it
+        const wordOrderTargets = favoriteWords.filter(needsWordOrderQuiz);
+        if (wordOrderTargets.length > 0) {
+          void applyGeneratedWordOrderQuizzes(favoriteWords).then((updatedWords) => {
+            setAllFavoriteWords(updatedWords);
+            setQuestions((prev) =>
+              applyWordOrderQuestionsToPendingQuiz(prev, updatedWords, currentIndexRef.current)
+            );
+          });
+        }
+      } catch {
         backToProject();
       } finally {
         setLoading(false);
@@ -216,18 +383,45 @@ export default function FavoritesQuizPage() {
     };
 
     void loadWords();
-  }, [projectId, repository, router, generateQuestions, authLoading, isPro, questionCount, quizDirection, user, backToProject]);
+  }, [projectId, repository, router, authLoading, isPro, questionCount, user, backToProject, needsWordOrderQuiz, applyGeneratedWordOrderQuizzes]);
 
-  const currentQuestion = questions[currentIndex] as (typeof questions[0] & { options: string[]; correctIndex: number }) | undefined;
+  const currentQuestion = questions[currentIndex];
+  const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
 
-  const handleSelect = async (index: number) => {
-    if (isRevealed || selectedIndex !== null || !currentQuestion) return;
+  const handleSelect = (index: number) => {
+    if (isRevealed || selectedIndex !== null || !currentQuestion || currentIsWordOrder) return;
 
     setSelectedIndex(index);
     setIsRevealed(true);
 
-    const isCorrect = index === currentQuestion.correctIndex;
+    const mcQuestion = currentQuestion as { correctIndex: number };
+    const isCorrect = index === mcQuestion.correctIndex;
+    setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
+    setAnswerResults((prev) => {
+      const next = [...prev];
+      next[currentIndex] = isCorrect;
+      return next;
+    });
+  };
 
+  const handleWordOrderTokenSelect = (token: string) => {
+    if (isRevealed || !currentIsWordOrder) return;
+    const woQuestion = currentQuestion as WordOrderQuizQuestion;
+    if (wordOrderSelectedTokens.length >= woQuestion.answerTokens.length) return;
+    setWordOrderSelectedTokens((prev) => [...prev, token]);
+  };
+
+  const handleWordOrderTokenRemove = (index: number) => {
+    if (isRevealed) return;
+    setWordOrderSelectedTokens((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleWordOrderSubmit = () => {
+    if (isRevealed || !currentIsWordOrder) return;
+    const woQuestion = currentQuestion as WordOrderQuizQuestion;
+    const isCorrect = tokensMatch(wordOrderSelectedTokens, woQuestion.answerTokens);
+    setWordOrderResult(isCorrect ? 'correct' : 'wrong');
+    setIsRevealed(true);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
     setAnswerResults((prev) => {
       const next = [...prev];
@@ -245,16 +439,22 @@ export default function FavoritesQuizPage() {
     } else {
       setCurrentIndex((prev) => prev + 1);
       setSelectedIndex(null);
+      setWordOrderSelectedTokens([]);
+      setWordOrderResult(null);
       setIsRevealed(false);
       setIsTransitioning(false);
     }
   };
 
   const handleRestart = () => {
-    const regenerated = generateQuestions(allFavoriteWords, questionCount, quizDirection);
+    const regenerated = generateQuizQuestions(allFavoriteWords, questionCount, 'en-to-ja', shuffleArray, {
+      allowPendingWordOrderFallback: true,
+    });
     setQuestions(regenerated);
     setCurrentIndex(0);
     setSelectedIndex(null);
+    setWordOrderSelectedTokens([]);
+    setWordOrderResult(null);
     setIsRevealed(false);
     setResults({ correct: 0, total: 0 });
     setAnswerResults(Array.from({ length: regenerated.length }, () => null));
@@ -268,9 +468,7 @@ export default function FavoritesQuizPage() {
     const newFavorite = !word.isFavorite;
     await repository.updateWord(word.id, { isFavorite: newFavorite });
     setQuestions((prev) =>
-      prev.map((q, i) =>
-        i === currentIndex ? { ...q, word: { ...q.word, isFavorite: newFavorite } } : q
-      )
+      prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, isFavorite: newFavorite } } : q)
     );
   };
 
@@ -370,7 +568,7 @@ export default function FavoritesQuizPage() {
       {/* Main content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
         <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          意味を選ぼう
+          {currentIsWordOrder ? '語順を完成' : '意味を選ぼう'}
         </div>
 
         {/* Word display */}
@@ -378,42 +576,58 @@ export default function FavoritesQuizPage() {
           <div className="absolute inset-0 rounded-[18px] translate-x-[3px] translate-y-[4px] bg-[var(--solid-ink)]" />
           <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
             <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
-              {quizDirection === 'en-to-ja' ? currentQuestion?.word.english : currentQuestion?.word.japanese}
+              {currentIsWordOrder
+                ? (currentQuestion as WordOrderQuizQuestion).word.japanese
+                : currentQuestion?.word.english}
             </div>
-            <div className="mt-2.5 flex justify-center">
-              <button
-                type="button"
-                onClick={() => {
-                  if (currentQuestion?.word.english) {
-                    window.speechSynthesis.cancel();
-                    const utt = new SpeechSynthesisUtterance(currentQuestion.word.english);
-                    utt.lang = 'en-US'; utt.rate = 0.9;
-                    window.speechSynthesis.speak(utt);
-                  }
-                }}
-                className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
-              >
-                <Icon name="volume_up" size={12} /> 読み上げ
-              </button>
-            </div>
+            {!currentIsWordOrder && (
+              <div className="mt-2.5 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentQuestion?.word.english) {
+                      window.speechSynthesis.cancel();
+                      const utt = new SpeechSynthesisUtterance(currentQuestion.word.english);
+                      utt.lang = 'en-US'; utt.rate = 0.9;
+                      window.speechSynthesis.speak(utt);
+                    }
+                  }}
+                  className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
+                >
+                  <Icon name="volume_up" size={12} /> 読み上げ
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Options */}
-        <div className="mt-[18px] flex flex-col gap-2">
-          {currentQuestion?.options.map((option, i) => (
-            <DSQuizOption
-              key={i}
-              label={option}
-              index={i}
-              isSelected={selectedIndex === i}
-              isCorrect={i === currentQuestion.correctIndex}
-              isRevealed={isRevealed}
-              onSelect={() => void handleSelect(i)}
-              disabled={isRevealed}
-            />
-          ))}
-        </div>
+        {/* Word-order panel or multiple-choice options */}
+        {currentIsWordOrder ? (
+          <DSWordOrderPanel
+            question={currentQuestion as WordOrderQuizQuestion}
+            selectedTokens={wordOrderSelectedTokens}
+            result={wordOrderResult}
+            isRevealed={isRevealed}
+            onSelectToken={handleWordOrderTokenSelect}
+            onRemoveToken={handleWordOrderTokenRemove}
+            onSubmit={handleWordOrderSubmit}
+          />
+        ) : (
+          <div className="mt-[18px] flex flex-col gap-2">
+            {(currentQuestion as { options?: string[] })?.options?.map((option, i) => (
+              <DSQuizOption
+                key={i}
+                label={option}
+                index={i}
+                isSelected={selectedIndex === i}
+                isCorrect={i === (currentQuestion as { correctIndex: number }).correctIndex}
+                isRevealed={isRevealed}
+                onSelect={() => handleSelect(i)}
+                disabled={isRevealed}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Example sentence */}
         {isRevealed && currentQuestion?.word.exampleSentence && (
