@@ -60,7 +60,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/app/api/search/semantic/` | Semantic search via embeddings |
 | `src/app/api/similar-cache/rebuild/` | Rebuild similar word cache |
 | `src/components/` | React components split by feature domain |
-| `src/components/ui/` | Reusable UI primitives (Button, Icon, AppShell) |
+| `src/components/ui/` | Reusable UI primitives (Button, Icon, AppShell, PersistentAppShell) |
 | `src/components/home/` | Home page modals (ScanModeModal, ProcessingModal) |
 | `src/hooks/` | Custom React hooks -- state management layer |
 | `src/lib/ai/` | AI integration: prompts, config, provider abstraction |
