@@ -18,6 +18,11 @@ import {
 } from '@/lib/scan/mode-provider';
 import { buildClientLocalScanJobResultPayload } from '@/lib/scan/job-result-payload';
 import {
+  buildScanJobNoWordsErrorMessage,
+  buildScanJobProcessingInput,
+  type ScanJobProcessSaveMode,
+} from '@/lib/scan/job-processing-input';
+import {
   buildServerCloudMergedProjectSourceLabels,
   buildServerCloudProjectInsertPayload,
   buildServerCloudWordsInsertPayload,
@@ -103,7 +108,7 @@ type ExtractionWarningCode =
   | 'grammar_not_found'
   | 'example_generation_partial_failure'
   | 'example_generation_failed';
-type ScanJobSaveMode = 'server_cloud' | 'client_local';
+type ScanJobSaveMode = ScanJobProcessSaveMode;
 
 type ExtractionLikeResult =
   | { success: true; data: { words: unknown[]; sourceLabels?: unknown[] } }
@@ -735,9 +740,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const timing = createTimingMetrics();
 
       try {
-        // Collect all image paths (support both single and multiple)
-        const imagePaths: string[] = job.image_paths || (job.image_path ? [job.image_path] : []);
-        const saveMode: ScanJobSaveMode = job.save_mode === 'client_local' ? 'client_local' : 'server_cloud';
+        const { imagePaths, saveMode } = buildScanJobProcessingInput(job);
         const targetProjectId: string | null =
           typeof job.target_project_id === 'string' && job.target_project_id.length > 0
             ? job.target_project_id
@@ -866,7 +869,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       timing.parseValidationMs = Date.now() - parseStart;
 
       if (dedupedWords.length === 0) {
-        const errorMessage = firstExtractionError || 'No words found in any image';
+        const errorMessage = buildScanJobNoWordsErrorMessage(firstExtractionError);
         timing.totalMs = Date.now() - processingStartedAt;
         timing.imageCount = imagePaths.length;
         timing.wordCount = 0;

@@ -141,13 +141,21 @@
 - `GENERIC_JA_DISTRACTOR_POOL` / `GENERIC_EN_DISTRACTOR_POOL`: distractor不足時のfallback pool。
 - `generateQuizQuestions()`: priority順の出題選定、en-to-ja / ja-to-enの4択生成、stored distractors利用、placeholder時の他単語fallback、重複除外、generic fallback、correctIndex計算。
 
+## 2026-05-22 update: 追加で切り出し済みのQuiz helper
+
+- `src/lib/quiz/quiz-answer.ts`
+  - active vocabulary / quiz directionに応じたtype-in正解選択。
+  - trim + lower-case完全一致のtype-in判定。
+  - 正誤からword status / spaced repetition update / wrong answer記録情報を作るplan builder。
+- `src/lib/quiz/background-distractors.ts`
+  - `/api/generate-quiz-distractors` の `results` から distractor map、example map、成功ID集合を作るresponse parser。
+
 まだpage側に残る責務:
 
 - sessionStorageへの保存/復元payload全体。
 - questionCount clampやrestart/select countの進行制御。
-- background distractor API呼び出しとrepository保存。
-- 回答判定、score更新、wrong answer記録、spaced repetition保存。
-- active vocab type-in modeの正解選択。
+- background distractor API呼び出し、retry、repository保存。
+- score更新、recordCorrect/recordWrong/recordActivity呼び出し、repository update実行。
 
 ## 次に実装するなら安全そうな小タスク
 
@@ -158,6 +166,7 @@
 2. Type-in answer判定helperをpure helperへ出す
    - active/passive、quizDirection、trim/lower-case完全一致の判定だけを固定する。
    - recordWrongAnswer、repository.updateWord、UI componentには触れない。
+   - 2026-05-22: `src/lib/quiz/quiz-answer.ts` へ実装済み。
 
 3. Quiz sessionStorage persist/restore parserをStorage-like helperへ出す
    - `QuizPersistState` のserialize/parse、TTL、count clamp、invalid snapshot削除判断を固定する。
@@ -166,10 +175,12 @@
 4. Answer side-effect plan builderをpure helperへ出す
    - 正解/不正解から `recordProjectId`、wrong answer記録要否、spaced repetition update payloadを作るだけにする。
    - 実際の `repository.updateWord()` と `recordWrongAnswer()` 呼び出し順はpage側に残す。
+   - 2026-05-22: `src/lib/quiz/quiz-answer.ts` へ実装済み。実副作用の呼び出しはpage側に維持。
 
 5. Background distractor response parserをpure helperへ出す
    - API responseからdistractor/example mapとsucceeded idsを作るだけにする。
    - fetch、timeout、retry、repository.updateWord、API route、promptには触れない。
+   - 2026-05-22: `src/lib/quiz/background-distractors.ts` へ実装済み。
 
 ## 次回作業時の注意
 

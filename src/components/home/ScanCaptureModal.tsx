@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
-import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
+import { processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import {
   addHomeImmediateScanResult,
@@ -12,13 +12,14 @@ import {
   createHomeImmediateScanResultAccumulator,
   hasNoHomeImmediateScanWords,
 } from '@/lib/home/home-immediate-scan-results';
+import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
+import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
 import {
   prepareScanConfirmForNewProject,
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
 import type { ExtractMode } from '@/app/api/extract/route';
-import type { LexiconEntry } from '@/types';
 
 interface ScanCaptureModalProps {
   isOpen: boolean;
@@ -63,19 +64,6 @@ function subToExtractMode(sub: SubOption): ExtractMode {
   return 'all';
 }
 
-function randomSuffix(): string {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-}
-
-function uploadExtensionFor(file: File): string {
-  if (file.type === 'image/png') return '.png';
-  if (file.type === 'image/webp') return '.webp';
-  if (file.type === 'image/gif') return '.gif';
-  return '.jpg';
-}
-
 export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
@@ -94,55 +82,15 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
 
-    const uploadedPaths: string[] = [];
-    try {
-      for (let index = 0; index < files.length; index++) {
-        const file = files[index]!;
-        setProcessingLabel(`画像 ${index + 1}/${files.length} をアップロード中...`);
-        const processedFile = await processImageFile(file, 'default');
-        const ext = uploadExtensionFor(processedFile);
-        const imagePath = `${session.user.id}/${Date.now()}-${index}-${randomSuffix()}${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('scan-images')
-          .upload(imagePath, processedFile, {
-            contentType: processedFile.type || 'image/jpeg',
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
-        }
-        uploadedPaths.push(imagePath);
-      }
-
-      const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
-      setProcessingLabel('スキャンを送信中...');
-      const res = await fetch('/api/scan-jobs/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          imagePaths: uploadedPaths,
-          projectTitle: `スキャン ${dateLabel}`,
-          scanMode: subToExtractMode(activeSub),
-          eikenLevel: null,
-          targetProjectId: targetProjectId || undefined,
-          clientPlatform: 'web',
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
-      }
-    } catch (error) {
-      if (uploadedPaths.length > 0) {
-        await supabase.storage.from('scan-images').remove(uploadedPaths);
-      }
-      throw error;
-    }
+    await createHomeBackgroundScanJob({
+      files,
+      userId: session.user.id,
+      accessToken: session.access_token,
+      storage: supabase.storage,
+      scanMode: subToExtractMode(activeSub),
+      targetProjectId,
+      onProgress: setProcessingLabel,
+    });
   };
 
   const extractImagesImmediately = async (files: readonly File[]) => {
@@ -159,23 +107,12 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64, mode, eikenLevel: null }),
         });
-        const result = await res.json().catch(() => ({})) as {
-          success?: boolean;
-          words?: unknown[];
-          sourceLabels?: unknown[];
-          lexiconEntries?: LexiconEntry[];
-          error?: string;
-        };
-
-        if (!res.ok || !result.success) {
-          throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
+        const parsed = await readHomeImmediateScanExtractResponse(res, { imageIndex: index });
+        if (!parsed.ok) {
+          throw new Error(parsed.error);
         }
 
-        accumulator = addHomeImmediateScanResult(accumulator, {
-          words: result.words,
-          sourceLabels: result.sourceLabels,
-          lexiconEntries: result.lexiconEntries,
-        });
+        accumulator = addHomeImmediateScanResult(accumulator, parsed.result);
       } catch (error) {
         console.error('[ScanCaptureModal] Failed to extract one image from multi-image scan', {
           index,
