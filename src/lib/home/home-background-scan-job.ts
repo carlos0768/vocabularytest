@@ -1,10 +1,12 @@
 import type { ExtractMode } from '@/lib/scan/mode-provider';
 
+export type HomeBackgroundScanEikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
+
 export interface HomeBackgroundScanJobCreatePayload {
   imagePaths: string[];
   projectTitle: string;
   scanMode: ExtractMode;
-  eikenLevel: string | null;
+  eikenLevel: HomeBackgroundScanEikenLevel;
   targetProjectId?: string;
   clientPlatform: 'web';
 }
@@ -12,6 +14,7 @@ export interface HomeBackgroundScanJobCreatePayload {
 export function buildHomeBackgroundScanJobCreatePayload(params: {
   imagePaths: readonly string[];
   scanMode: ExtractMode;
+  eikenLevel?: HomeBackgroundScanEikenLevel;
   targetProjectId?: string | null;
   now?: Date;
 }): HomeBackgroundScanJobCreatePayload {
@@ -24,7 +27,7 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
     imagePaths: [...params.imagePaths],
     projectTitle: `スキャン ${dateLabel}`,
     scanMode: params.scanMode,
-    eikenLevel: null,
+    eikenLevel: params.scanMode === 'eiken' ? params.eikenLevel ?? null : null,
     targetProjectId: params.targetProjectId || undefined,
     clientPlatform: 'web',
   };

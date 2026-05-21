@@ -1,5 +1,8 @@
 import type { ExtractMode } from '@/lib/scan/mode-provider';
-import { buildHomeBackgroundScanJobCreatePayload } from '@/lib/home/home-background-scan-job';
+import {
+  type HomeBackgroundScanEikenLevel,
+  buildHomeBackgroundScanJobCreatePayload,
+} from '@/lib/home/home-background-scan-job';
 import {
   type HomeBackgroundScanUploadImage,
   prepareHomeBackgroundScanUploadImage,
@@ -44,6 +47,7 @@ export async function createHomeBackgroundScanJob(params: {
   accessToken: string;
   storage: HomeBackgroundScanStorageClient;
   scanMode: ExtractMode;
+  eikenLevel?: HomeBackgroundScanEikenLevel;
   targetProjectId?: string | null;
   onProgress?: (label: string) => void;
   fetcher?: HomeBackgroundScanFetch;
@@ -88,6 +92,7 @@ export async function createHomeBackgroundScanJob(params: {
       body: JSON.stringify(buildHomeBackgroundScanJobCreatePayload({
         imagePaths: uploadedPaths,
         scanMode: params.scanMode,
+        eikenLevel: params.eikenLevel,
         targetProjectId: params.targetProjectId,
       })),
     });

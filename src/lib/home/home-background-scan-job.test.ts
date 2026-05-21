@@ -42,3 +42,21 @@ test('buildHomeBackgroundScanJobCreatePayload omits targetProjectId for a new pr
   });
   assert.equal(JSON.stringify(payload).includes('targetProjectId'), false);
 });
+
+test('buildHomeBackgroundScanJobCreatePayload includes eikenLevel only for eiken scans', () => {
+  const eikenPayload = buildHomeBackgroundScanJobCreatePayload({
+    imagePaths: ['user-1/scan-1.jpg'],
+    scanMode: 'eiken',
+    eikenLevel: '2',
+    now: new Date(2026, 0, 9),
+  });
+  const nonEikenPayload = buildHomeBackgroundScanJobCreatePayload({
+    imagePaths: ['user-1/scan-1.jpg'],
+    scanMode: 'all',
+    eikenLevel: '2',
+    now: new Date(2026, 0, 9),
+  });
+
+  assert.equal(eikenPayload.eikenLevel, '2');
+  assert.equal(nonEikenPayload.eikenLevel, null);
+});

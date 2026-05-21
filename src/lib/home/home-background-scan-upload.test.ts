@@ -38,7 +38,8 @@ test('createHomeBackgroundScanJob uploads prepared images and creates a scan job
     userId: 'user-1',
     accessToken: 'token-1',
     storage: { from: () => bucket },
-    scanMode: 'all',
+    scanMode: 'eiken',
+    eikenLevel: 'pre2',
     targetProjectId: 'project-1',
     onProgress: (label) => progressLabels.push(label),
     prepareUploadImage: async ({ file, index }) => ({
@@ -76,8 +77,8 @@ test('createHomeBackgroundScanJob uploads prepared images and creates a scan job
   assert.deepEqual({ ...requestBody, projectTitle: '<dynamic>' }, {
     imagePaths: ['user-1/prepared-0.jpg', 'user-1/prepared-1.jpg'],
     projectTitle: '<dynamic>',
-    scanMode: 'all',
-    eikenLevel: null,
+    scanMode: 'eiken',
+    eikenLevel: 'pre2',
     targetProjectId: 'project-1',
     clientPlatform: 'web',
   });
