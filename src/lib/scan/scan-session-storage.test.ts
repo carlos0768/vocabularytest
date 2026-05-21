@@ -7,6 +7,7 @@ import {
   getScanConfirmProjectDraft,
   hasScanConfirmExistingProject,
   prepareScanConfirmForExistingProject,
+  prepareScanConfirmForNewProject,
   saveScanConfirmProjectDraft,
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
@@ -113,6 +114,27 @@ test('prepareScanConfirmForExistingProject clears stale project scan-to-add meta
     SCAN_CONFIRM_SESSION_KEYS.projectIcon,
     SCAN_CONFIRM_SESSION_KEYS.sourceLabels,
     SCAN_CONFIRM_SESSION_KEYS.lexiconEntries,
+  ]);
+});
+
+test('prepareScanConfirmForNewProject clears stale draft and existing project target', () => {
+  const storage = new MemoryStorage({
+    [SCAN_CONFIRM_SESSION_KEYS.projectName]: 'Old Project',
+    [SCAN_CONFIRM_SESSION_KEYS.projectIcon]: 'data:image/png;base64,icon',
+    [SCAN_CONFIRM_SESSION_KEYS.existingProjectId]: 'existing-project',
+    [SCAN_CONFIRM_SESSION_KEYS.extractedWords]: '[{"english":"fresh"}]',
+  });
+
+  prepareScanConfirmForNewProject(storage);
+
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.projectName), null);
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.projectIcon), null);
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.existingProjectId), null);
+  assert.equal(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.extractedWords), '[{"english":"fresh"}]');
+  assert.deepEqual(storage.removedKeys, [
+    SCAN_CONFIRM_SESSION_KEYS.projectName,
+    SCAN_CONFIRM_SESSION_KEYS.projectIcon,
+    SCAN_CONFIRM_SESSION_KEYS.existingProjectId,
   ]);
 });
 

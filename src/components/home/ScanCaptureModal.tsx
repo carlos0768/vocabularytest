@@ -6,7 +6,19 @@ import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
+import {
+  addHomeImmediateScanResult,
+  buildHomeImmediateScanConfirmResultPayload,
+  createHomeImmediateScanResultAccumulator,
+  hasNoHomeImmediateScanWords,
+} from '@/lib/home/home-immediate-scan-results';
+import {
+  prepareScanConfirmForNewProject,
+  saveScanConfirmResultPayload,
+  setScanConfirmExistingProject,
+} from '@/lib/scan/scan-session-storage';
 import type { ExtractMode } from '@/app/api/extract/route';
+import type { LexiconEntry } from '@/types';
 
 interface ScanCaptureModalProps {
   isOpen: boolean;
@@ -49,36 +61,6 @@ function subToExtractMode(sub: SubOption): ExtractMode {
   if (sub === 'eiken') return 'eiken';
   if (sub === 'idiom') return 'idiom';
   return 'all';
-}
-
-function uniqueStrings(values: readonly unknown[]): string[] {
-  return Array.from(new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0)));
-}
-
-function lexiconEntryKey(entry: unknown, fallbackIndex: number): string {
-  if (entry && typeof entry === 'object') {
-    const record = entry as Record<string, unknown>;
-    if (typeof record.id === 'string' && record.id.length > 0) return `id:${record.id}`;
-    if (typeof record.headword === 'string' && record.headword.length > 0) {
-      return `headword:${record.headword.toLowerCase()}`;
-    }
-  }
-
-  try {
-    return `json:${JSON.stringify(entry)}`;
-  } catch {
-    return `index:${fallbackIndex}`;
-  }
-}
-
-function mergeLexiconEntries(existing: readonly unknown[], incoming: readonly unknown[]): unknown[] {
-  const merged = new Map<string, unknown>();
-
-  [...existing, ...incoming].forEach((entry, index) => {
-    merged.set(lexiconEntryKey(entry, index), entry);
-  });
-
-  return Array.from(merged.values());
 }
 
 function randomSuffix(): string {
@@ -164,9 +146,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
   };
 
   const extractImagesImmediately = async (files: readonly File[]) => {
-    const allWords: unknown[] = [];
-    let allSourceLabels: string[] = [];
-    let allLexiconEntries: unknown[] = [];
+    let accumulator = createHomeImmediateScanResultAccumulator();
     const mode = subToExtractMode(activeSub);
 
     for (let index = 0; index < files.length; index++) {
@@ -183,7 +163,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           success?: boolean;
           words?: unknown[];
           sourceLabels?: unknown[];
-          lexiconEntries?: unknown[];
+          lexiconEntries?: LexiconEntry[];
           error?: string;
         };
 
@@ -191,12 +171,11 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
         }
 
-        allWords.push(...(Array.isArray(result.words) ? result.words : []));
-        allSourceLabels = uniqueStrings([...allSourceLabels, ...(Array.isArray(result.sourceLabels) ? result.sourceLabels : [])]);
-        allLexiconEntries = mergeLexiconEntries(
-          allLexiconEntries,
-          Array.isArray(result.lexiconEntries) ? result.lexiconEntries : [],
-        );
+        accumulator = addHomeImmediateScanResult(accumulator, {
+          words: result.words,
+          sourceLabels: result.sourceLabels,
+          lexiconEntries: result.lexiconEntries,
+        });
       } catch (error) {
         console.error('[ScanCaptureModal] Failed to extract one image from multi-image scan', {
           index,
@@ -206,19 +185,18 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
       }
     }
 
-    if (allWords.length === 0) {
+    if (hasNoHomeImmediateScanWords(accumulator)) {
       throw new Error('画像から単語を読み取れませんでした');
     }
 
-    sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
-    sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
-    sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
-    sessionStorage.removeItem('scanvocab_project_name');
-    sessionStorage.removeItem('scanvocab_project_icon');
+    saveScanConfirmResultPayload(
+      sessionStorage,
+      buildHomeImmediateScanConfirmResultPayload(accumulator),
+    );
     if (targetProjectId) {
-      sessionStorage.setItem('scanvocab_existing_project_id', targetProjectId);
+      setScanConfirmExistingProject(sessionStorage, targetProjectId);
     } else {
-      sessionStorage.removeItem('scanvocab_existing_project_id');
+      prepareScanConfirmForNewProject(sessionStorage);
     }
   };
 

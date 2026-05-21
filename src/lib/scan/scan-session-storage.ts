@@ -66,6 +66,12 @@ export function prepareScanConfirmForExistingProject(
   storage.removeItem(SCAN_CONFIRM_SESSION_KEYS.lexiconEntries);
 }
 
+export function prepareScanConfirmForNewProject(storage: ScanConfirmStorage): void {
+  storage.removeItem(SCAN_CONFIRM_SESSION_KEYS.projectName);
+  storage.removeItem(SCAN_CONFIRM_SESSION_KEYS.projectIcon);
+  storage.removeItem(SCAN_CONFIRM_SESSION_KEYS.existingProjectId);
+}
+
 export function hasScanConfirmExistingProject(storage: ScanConfirmStorage): boolean {
   return Boolean(storage.getItem(SCAN_CONFIRM_SESSION_KEYS.existingProjectId));
 }
