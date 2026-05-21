@@ -6,7 +6,17 @@ import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
-import type { ExtractMode } from '@/app/api/extract/route';
+import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
+
+const EIKEN_LEVEL_OPTIONS: { value: Exclude<EikenLevel, null>; label: string }[] = [
+  { value: '5', label: '5級' },
+  { value: '4', label: '4級' },
+  { value: '3', label: '3級' },
+  { value: 'pre2', label: '準2級' },
+  { value: '2', label: '2級' },
+  { value: 'pre1', label: '準1級' },
+  { value: '1', label: '1級' },
+];
 
 interface ScanCaptureModalProps {
   isOpen: boolean;
@@ -99,6 +109,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>(targetProjectId ? 'vocab' : (defaultMode ?? 'vocab'));
   const [activeSub, setActiveSub] = useState<SubOption>('all');
+  const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
@@ -145,7 +156,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           imagePaths: uploadedPaths,
           projectTitle: `スキャン ${dateLabel}`,
           scanMode: subToExtractMode(activeSub),
-          eikenLevel: null,
+          eikenLevel: activeSub === 'eiken' ? eikenLevel : null,
           targetProjectId: targetProjectId || undefined,
           clientPlatform: 'web',
         }),
@@ -177,7 +188,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
         const res = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, mode, eikenLevel: null }),
+          body: JSON.stringify({ image: base64, mode, eikenLevel: activeSub === 'eiken' ? eikenLevel : null }),
         });
         const result = await res.json().catch(() => ({})) as {
           success?: boolean;
@@ -395,7 +406,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
                     <button
                       key={s.k}
                       type="button"
-                      onClick={() => setActiveSub(s.k)}
+                      onClick={() => { setActiveSub(s.k); if (s.k !== 'eiken') setEikenLevel(null); }}
                       className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                       style={{
                         background: on ? 'var(--solid-ink)' : '#fff',
@@ -423,33 +434,75 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
                   );
                 })}
               </div>
+
+              {/* EIKEN level picker (shown when eiken sub-option is selected) */}
+              {activeSub === 'eiken' && (
+                <div className="mt-2.5 pt-2.5" style={{ borderTop: '1px dashed var(--solid-ink)' }}>
+                  <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                    級を選択
+                  </div>
+                  <div className="flex flex-wrap gap-[5px]">
+                    {EIKEN_LEVEL_OPTIONS.map(lvl => {
+                      const on = eikenLevel === lvl.value;
+                      return (
+                        <button
+                          key={lvl.value}
+                          type="button"
+                          onClick={() => setEikenLevel(lvl.value)}
+                          className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
+                          style={{
+                            background: on ? 'var(--solid-ink)' : '#fff',
+                            color: on ? '#fff' : 'var(--solid-ink)',
+                          }}
+                        >
+                          <span
+                            className="inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center rounded-full"
+                            style={{ border: on ? '1.25px solid #fff' : '1.25px solid var(--solid-ink)' }}
+                          >
+                            {on && <span className="h-[6px] w-[6px] rounded-full bg-white" />}
+                          </span>
+                          {lvl.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!eikenLevel && (
+                    <p className="mt-1.5 text-[10px] text-[var(--color-muted)]">級を選んでからスキャンを開始してください</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* Camera / Library buttons */}
-          <div className="flex gap-2.5">
-            <button type="button" onClick={handleCamera} className="relative flex-1">
-              <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-              <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-white">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-                <span className="text-[13px] font-bold">カメラで撮影</span>
+          {(() => {
+            const scanDisabled = activeSub === 'eiken' && !eikenLevel;
+            return (
+              <div className="flex gap-2.5">
+                <button type="button" onClick={handleCamera} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
+                  <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
+                  <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-white">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    <span className="text-[13px] font-bold">カメラで撮影</span>
+                  </div>
+                </button>
+                <button type="button" onClick={handleLibrary} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
+                  <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
+                  <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white py-4 text-[var(--solid-ink)]">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5" width="18" height="14" rx="2"/>
+                      <path d="M3 16l5-5 4 4 3-3 6 6"/>
+                    </svg>
+                    <span className="text-[13px] font-bold">写真から選ぶ</span>
+                    <span className="text-[10px] font-bold text-[var(--color-muted)]">複数枚可</span>
+                  </div>
+                </button>
               </div>
-            </button>
-            <button type="button" onClick={handleLibrary} className="relative flex-1">
-              <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-              <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white py-4 text-[var(--solid-ink)]">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="5" width="18" height="14" rx="2"/>
-                  <path d="M3 16l5-5 4 4 3-3 6 6"/>
-                </svg>
-                <span className="text-[13px] font-bold">写真から選ぶ</span>
-                <span className="text-[10px] font-bold text-[var(--color-muted)]">複数枚可</span>
-              </div>
-            </button>
-          </div>
+            );
+          })()}
 
           {/* Error */}
           {errorMsg && (
