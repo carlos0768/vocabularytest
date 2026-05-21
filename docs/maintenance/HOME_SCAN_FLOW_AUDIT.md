@@ -257,6 +257,14 @@
 - grouping key、`job.result` JSON parse、`wordCount` 抽出、`grammar_not_found` warning判定、completed/failed/grammar warningのtitle/body/tag生成を担当する。
 - Notification API、permission request、service worker fallback、Push subscription有無判定、acknowledgeはまだ `src/app/page.tsx` に残っている。
 
+### 2026-05-22 update: `src/components/home/ScanCaptureModal.tsx`
+
+- 最新UIではHome/Projectのスキャン入口が `ScanCaptureModal` に寄っている。
+- Free即時scanのresult accumulator / response handlingは `src/lib/home/home-immediate-scan-results.ts` と `src/lib/home/home-immediate-scan-response.ts` に分離済み。
+- Pro background scanのjob create bodyは `src/lib/home/home-background-scan-job.ts` に分離済み。
+- Pro background uploadの画像準備は `src/lib/home/home-background-scan-upload-image.ts` に分離済み。
+- Pro background upload orchestration（Storage upload、失敗時cleanup、`/api/scan-jobs/create` 呼び出し）は `src/lib/home/home-background-scan-upload.ts` に分離済み。
+
 ## `page.tsx` に残る保守性リスク
 
 - scan mode選択、auth/word limit gating、PDF expansion、existing/new project分岐、immediate scan、background upload、Storage cleanup、modal/progress stateが1つのcomponentに残っている。
@@ -298,11 +306,13 @@
    - 対象: Home inline canvas圧縮、contentType、extension、path suffix前のblob準備。
    - `src/lib/image-utils.ts` との責務重複を解消する候補だが、file/blob/canvasを触るためTask 1-4より後にする。
    - 触らない: Storage bucket名、upload path形式、cleanup条件、`/api/scan-jobs/create` body。
+   - 2026-05-22: `ScanCaptureModal` 側では `src/lib/home/home-background-scan-upload-image.ts` へ実装済み。
 
 6. background upload orchestrationをhook/helperへ出す
    - 対象: Supabase session取得、Web Push subscription request、Storage upload、cleanup、job create、jobId反映。
    - 認証、Storage、API、UI stateが絡むため、最後に小さく切る。
    - 触らない: Pro判定、save_mode、scan API、DB migration、package-lock。
+   - 2026-05-22: `ScanCaptureModal` 側では session取得はUI側に残し、Storage upload、cleanup、job createを `src/lib/home/home-background-scan-upload.ts` へ実装済み。
 
 ## 最初に実装するべき一番安全なタスク
 

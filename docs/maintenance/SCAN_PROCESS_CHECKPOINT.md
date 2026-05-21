@@ -43,6 +43,10 @@
 - `src/lib/scan/post-processing.ts`
   - completed update後のlexicon resolution対象IDとpost-scan quiz prefill seed計算。
   - test: `src/lib/scan/post-processing.test.ts`
+- `src/lib/scan/job-processing-input.ts`
+  - `image_paths` / legacy `image_path` と `save_mode` のprocess入力正規化。
+  - no-words branchのfallback error message作成。
+  - test: `src/lib/scan/job-processing-input.test.ts`
 
 Task 1-7で強化されたroute-level contract:
 
@@ -64,7 +68,8 @@ Task 1-7で強化されたroute-level contract:
 - timing本体:
   - `TimingMetrics`、Google Sheets payload、Cloud Run timing summary、status別flushの組み立て。
 - batch orchestration:
-  - image path検証、provider key判定、parallel batch loop、`Promise.allSettled`、grammar warning集約、no words branch。
+  - provider key判定、parallel batch loop、`Promise.allSettled`、grammar warning集約、no words branch。
+  - image path / save modeの入力正規化だけは `src/lib/scan/job-processing-input.ts` へ分離済み。
 - extraction後の整形:
   - invalid Japanese除外、dedupe、sourceLabels merge、master-first lexicon解決、Japanese fallback、metrics logging。
 - `client_local` branchの副作用:

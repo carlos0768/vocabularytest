@@ -4,8 +4,21 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
-import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
+import { processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
+import {
+  addHomeImmediateScanResult,
+  buildHomeImmediateScanConfirmResultPayload,
+  createHomeImmediateScanResultAccumulator,
+  hasNoHomeImmediateScanWords,
+} from '@/lib/home/home-immediate-scan-results';
+import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
+import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
+import {
+  prepareScanConfirmForNewProject,
+  saveScanConfirmResultPayload,
+  setScanConfirmExistingProject,
+} from '@/lib/scan/scan-session-storage';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 const EIKEN_LEVEL_OPTIONS: { value: Exclude<EikenLevel, null>; label: string }[] = [
@@ -61,49 +74,6 @@ function subToExtractMode(sub: SubOption): ExtractMode {
   return 'all';
 }
 
-function uniqueStrings(values: readonly unknown[]): string[] {
-  return Array.from(new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0)));
-}
-
-function lexiconEntryKey(entry: unknown, fallbackIndex: number): string {
-  if (entry && typeof entry === 'object') {
-    const record = entry as Record<string, unknown>;
-    if (typeof record.id === 'string' && record.id.length > 0) return `id:${record.id}`;
-    if (typeof record.headword === 'string' && record.headword.length > 0) {
-      return `headword:${record.headword.toLowerCase()}`;
-    }
-  }
-
-  try {
-    return `json:${JSON.stringify(entry)}`;
-  } catch {
-    return `index:${fallbackIndex}`;
-  }
-}
-
-function mergeLexiconEntries(existing: readonly unknown[], incoming: readonly unknown[]): unknown[] {
-  const merged = new Map<string, unknown>();
-
-  [...existing, ...incoming].forEach((entry, index) => {
-    merged.set(lexiconEntryKey(entry, index), entry);
-  });
-
-  return Array.from(merged.values());
-}
-
-function randomSuffix(): string {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-}
-
-function uploadExtensionFor(file: File): string {
-  if (file.type === 'image/png') return '.png';
-  if (file.type === 'image/webp') return '.webp';
-  if (file.type === 'image/gif') return '.gif';
-  return '.jpg';
-}
-
 export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId }: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
@@ -123,61 +93,20 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
 
-    const uploadedPaths: string[] = [];
-    try {
-      for (let index = 0; index < files.length; index++) {
-        const file = files[index]!;
-        setProcessingLabel(`画像 ${index + 1}/${files.length} をアップロード中...`);
-        const processedFile = await processImageFile(file, 'default');
-        const ext = uploadExtensionFor(processedFile);
-        const imagePath = `${session.user.id}/${Date.now()}-${index}-${randomSuffix()}${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('scan-images')
-          .upload(imagePath, processedFile, {
-            contentType: processedFile.type || 'image/jpeg',
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
-        }
-        uploadedPaths.push(imagePath);
-      }
-
-      const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
-      setProcessingLabel('スキャンを送信中...');
-      const res = await fetch('/api/scan-jobs/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          imagePaths: uploadedPaths,
-          projectTitle: `スキャン ${dateLabel}`,
-          scanMode: subToExtractMode(activeSub),
-          eikenLevel: activeSub === 'eiken' ? eikenLevel : null,
-          targetProjectId: targetProjectId || undefined,
-          clientPlatform: 'web',
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
-      }
-    } catch (error) {
-      if (uploadedPaths.length > 0) {
-        await supabase.storage.from('scan-images').remove(uploadedPaths);
-      }
-      throw error;
-    }
+    await createHomeBackgroundScanJob({
+      files,
+      userId: session.user.id,
+      accessToken: session.access_token,
+      storage: supabase.storage,
+      scanMode: subToExtractMode(activeSub),
+      eikenLevel: activeSub === 'eiken' ? eikenLevel : null,
+      targetProjectId,
+      onProgress: setProcessingLabel,
+    });
   };
 
   const extractImagesImmediately = async (files: readonly File[]) => {
-    const allWords: unknown[] = [];
-    let allSourceLabels: string[] = [];
-    let allLexiconEntries: unknown[] = [];
+    let accumulator = createHomeImmediateScanResultAccumulator();
     const mode = subToExtractMode(activeSub);
 
     for (let index = 0; index < files.length; index++) {
@@ -190,24 +119,12 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64, mode, eikenLevel: activeSub === 'eiken' ? eikenLevel : null }),
         });
-        const result = await res.json().catch(() => ({})) as {
-          success?: boolean;
-          words?: unknown[];
-          sourceLabels?: unknown[];
-          lexiconEntries?: unknown[];
-          error?: string;
-        };
-
-        if (!res.ok || !result.success) {
-          throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
+        const parsed = await readHomeImmediateScanExtractResponse(res, { imageIndex: index });
+        if (!parsed.ok) {
+          throw new Error(parsed.error);
         }
 
-        allWords.push(...(Array.isArray(result.words) ? result.words : []));
-        allSourceLabels = uniqueStrings([...allSourceLabels, ...(Array.isArray(result.sourceLabels) ? result.sourceLabels : [])]);
-        allLexiconEntries = mergeLexiconEntries(
-          allLexiconEntries,
-          Array.isArray(result.lexiconEntries) ? result.lexiconEntries : [],
-        );
+        accumulator = addHomeImmediateScanResult(accumulator, parsed.result);
       } catch (error) {
         console.error('[ScanCaptureModal] Failed to extract one image from multi-image scan', {
           index,
@@ -217,19 +134,18 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
       }
     }
 
-    if (allWords.length === 0) {
+    if (hasNoHomeImmediateScanWords(accumulator)) {
       throw new Error('画像から単語を読み取れませんでした');
     }
 
-    sessionStorage.setItem('scanvocab_extracted_words', JSON.stringify(allWords));
-    sessionStorage.setItem('scanvocab_source_labels', JSON.stringify(allSourceLabels));
-    sessionStorage.setItem('scanvocab_lexicon_entries', JSON.stringify(allLexiconEntries));
-    sessionStorage.removeItem('scanvocab_project_name');
-    sessionStorage.removeItem('scanvocab_project_icon');
+    saveScanConfirmResultPayload(
+      sessionStorage,
+      buildHomeImmediateScanConfirmResultPayload(accumulator),
+    );
     if (targetProjectId) {
-      sessionStorage.setItem('scanvocab_existing_project_id', targetProjectId);
+      setScanConfirmExistingProject(sessionStorage, targetProjectId);
     } else {
-      sessionStorage.removeItem('scanvocab_existing_project_id');
+      prepareScanConfirmForNewProject(sessionStorage);
     }
   };
 
