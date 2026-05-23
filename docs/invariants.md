@@ -119,6 +119,14 @@ Source: `src/lib/db/hybrid-repository.ts` lines 107-113.
 
 **Consequence of violation**: New users cannot complete real registration, or existing users get surprising auth state changes.
 
+### INV-16: Flashcard progress restore must include newly added words
+
+`src/app/flashcard/[projectId]/page.tsx` may restore card order from `flashcard_session_*` or `flashcard_progress_*` storage records. Those records store historical `wordIds` for resume order only; they are not the source of truth for the current project word list.
+
+When repository-loaded words contain IDs that are missing from saved progress, the flashcard page must append those words to the restored list instead of dropping them.
+
+**Consequence of violation**: Words added to an existing wordbook can be present in IndexedDB/Supabase and visible in the project page, but missing from flashcards until progress storage is cleared.
+
 ---
 
 ## Candidate Invariants

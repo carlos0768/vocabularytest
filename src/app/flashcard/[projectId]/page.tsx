@@ -142,6 +142,27 @@ function sortFlashcardWords(wordList: Word[], order: FlashcardSortOrder): Word[]
   });
 }
 
+function restoreSavedWordOrder(wordList: Word[], savedWordIds: string[]): Word[] {
+  const byId = new Map(wordList.map(word => [word.id, word]));
+  const restored: Word[] = [];
+  const restoredIds = new Set<string>();
+
+  for (const id of savedWordIds) {
+    const word = byId.get(id);
+    if (!word || restoredIds.has(id)) continue;
+    restored.push(word);
+    restoredIds.add(id);
+  }
+
+  if (restored.length === 0) return [];
+
+  const newWords = sortFlashcardWords(
+    wordList.filter(word => !restoredIds.has(word.id)),
+    'mastery'
+  );
+  return [...restored, ...newWords];
+}
+
 /* ---------- Progress storage ---------- */
 const getProgressKey = (projectId: string, favoritesOnly: boolean) =>
   `flashcard_progress_${projectId}${favoritesOnly ? '_favorites' : ''}`;
@@ -259,8 +280,7 @@ export default function FlashcardPage() {
                   try { wordsData = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
                 }
               }
-              const byId = new Map(wordsData.map(w => [w.id, w]));
-              const ordered = progress.wordIds.map(id => byId.get(id)).filter(Boolean) as Word[];
+              const ordered = restoreSavedWordOrder(wordsData, progress.wordIds);
               if (ordered.length > 0) {
                 setWords(ordered);
                 setCurrentIndex(Math.min(progress.currentIndex, ordered.length - 1));
@@ -309,8 +329,7 @@ export default function FlashcardPage() {
         let finalWords = sorted;
 
         if (savedWordIds.length > 0) {
-          const byId = new Map(loadedWords.map(w => [w.id, w]));
-          const ordered = savedWordIds.map(id => byId.get(id)).filter(Boolean) as Word[];
+          const ordered = restoreSavedWordOrder(loadedWords, savedWordIds);
           if (ordered.length > 0) {
             finalWords = ordered;
             savedIndex = Math.min(savedIndex, ordered.length - 1);
