@@ -209,6 +209,30 @@ Notes:
 
 ---
 
+## Data Flow: Flashcard Word Loading and Resume
+
+`src/app/flashcard/[projectId]/page.tsx` owns the active flashcard word list in React state:
+
+```
+repository/get cache -> Word[] -> sort/restore order -> setWords(finalWords)
+```
+
+Load priority:
+
+1. Restore immediately from Home cache when available (`getCachedProjectWords()`).
+2. Load fresh words through the selected repository (`localRepository`, `hybridRepository`, or `readonlyRemoteRepository`).
+3. If a recent flashcard progress record exists, restore the previous sort mode and current card from saved progress.
+
+Progress is persisted in browser storage:
+
+- `flashcard_session_{projectId}` in `sessionStorage` for short-term resume.
+- `flashcard_progress_{projectId}` in `localStorage` for longer resume.
+- Favorites mode appends `_favorites` to the key.
+
+Important behavior: saved `wordIds` identify the previous current card and historical order, but they are not the source of truth for the current project word list. When words have been added to the project after progress was saved, the flashcard page must include those new words in the restored list. Current behavior sorts the full repository-loaded word list by saved `sortOrder` (`mastery` by default), then restores `currentIndex` to the same word ID when it still exists. This keeps newly added `new` words in the expected priority position for mastery order.
+
+---
+
 ## Repository Pattern
 
 Data storage is abstracted via `WordRepository` interface (defined in `shared/types/index.ts`, factory in `src/lib/db/index.ts`).

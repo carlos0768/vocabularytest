@@ -152,6 +152,36 @@ interface FlashcardProgress {
   wordIds: string[];
   currentIndex: number;
   savedAt: number;
+  sortOrder?: FlashcardSortOrder;
+}
+
+interface RestoredFlashcardProgress {
+  words: Word[];
+  currentIndex: number;
+  sortOrder: FlashcardSortOrder;
+}
+
+function getSavedSortOrder(progress: FlashcardProgress): FlashcardSortOrder {
+  return progress.sortOrder === 'partOfSpeech' ? 'partOfSpeech' : 'mastery';
+}
+
+function restoreFlashcardProgress(wordList: Word[], progress: FlashcardProgress): RestoredFlashcardProgress | null {
+  if (wordList.length === 0 || progress.wordIds.length === 0) return null;
+
+  const restoredSortOrder = getSavedSortOrder(progress);
+  const sortedWords = sortFlashcardWords(wordList, restoredSortOrder);
+  const currentWordId = progress.wordIds[progress.currentIndex];
+  const restoredIndex = currentWordId
+    ? sortedWords.findIndex(word => word.id === currentWordId)
+    : -1;
+
+  return {
+    words: sortedWords,
+    currentIndex: restoredIndex >= 0
+      ? restoredIndex
+      : Math.min(progress.currentIndex, sortedWords.length - 1),
+    sortOrder: restoredSortOrder,
+  };
 }
 
 export default function FlashcardPage() {
@@ -207,11 +237,11 @@ export default function FlashcardPage() {
   }, [projectId, favoritesOnly, collectionId]);
 
   const saveProgress = useCallback((wordList: Word[], index: number) => {
-    const progress: FlashcardProgress = { wordIds: wordList.map(w => w.id), currentIndex: index, savedAt: Date.now() };
+    const progress: FlashcardProgress = { wordIds: wordList.map(w => w.id), currentIndex: index, savedAt: Date.now(), sortOrder };
     const str = JSON.stringify(progress);
     localStorage.setItem(getProgressKey(projectId, favoritesOnly), str);
     sessionStorage.setItem(getSessionKey(projectId, favoritesOnly), str);
-  }, [projectId, favoritesOnly]);
+  }, [projectId, favoritesOnly, sortOrder]);
 
   const backToProject = useCallback(() => {
     if (words.length > 0) saveProgress(words, currentIndex);
@@ -259,11 +289,11 @@ export default function FlashcardPage() {
                   try { wordsData = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
                 }
               }
-              const byId = new Map(wordsData.map(w => [w.id, w]));
-              const ordered = progress.wordIds.map(id => byId.get(id)).filter(Boolean) as Word[];
-              if (ordered.length > 0) {
-                setWords(ordered);
-                setCurrentIndex(Math.min(progress.currentIndex, ordered.length - 1));
+              const restored = restoreFlashcardProgress(wordsData, progress);
+              if (restored) {
+                setSortOrder(restored.sortOrder);
+                setWords(restored.words);
+                setCurrentIndex(restored.currentIndex);
                 hasLoadedRef.current = true;
                 setLoading(false);
                 return;
@@ -274,14 +304,12 @@ export default function FlashcardPage() {
 
         /* Try localStorage progress */
         const localProgressStr = localStorage.getItem(getProgressKey(projectId, favoritesOnly));
-        let savedIndex = 0;
-        let savedWordIds: string[] = [];
+        let savedProgress: FlashcardProgress | null = null;
         if (localProgressStr) {
           try {
             const progress: FlashcardProgress = JSON.parse(localProgressStr);
             if (progress.savedAt > Date.now() - 7 * 24 * 60 * 60 * 1000) {
-              savedWordIds = progress.wordIds;
-              savedIndex = progress.currentIndex;
+              savedProgress = progress;
             }
           } catch { /* ignore */ }
         }
@@ -307,18 +335,19 @@ export default function FlashcardPage() {
 
         const sorted = sortFlashcardWords(loadedWords, 'mastery');
         let finalWords = sorted;
+        let finalIndex = 0;
 
-        if (savedWordIds.length > 0) {
-          const byId = new Map(loadedWords.map(w => [w.id, w]));
-          const ordered = savedWordIds.map(id => byId.get(id)).filter(Boolean) as Word[];
-          if (ordered.length > 0) {
-            finalWords = ordered;
-            savedIndex = Math.min(savedIndex, ordered.length - 1);
+        if (savedProgress) {
+          const restored = restoreFlashcardProgress(loadedWords, savedProgress);
+          if (restored) {
+            setSortOrder(restored.sortOrder);
+            finalWords = restored.words;
+            finalIndex = restored.currentIndex;
           }
         }
 
         setWords(finalWords);
-        setCurrentIndex(savedIndex);
+        setCurrentIndex(finalIndex);
         hasLoadedRef.current = true;
       } catch (error) {
         console.error('Failed to load flashcard words:', error);
