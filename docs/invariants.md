@@ -123,7 +123,7 @@ Source: `src/lib/db/hybrid-repository.ts` lines 107-113.
 
 `src/app/flashcard/[projectId]/page.tsx` may restore card order from `flashcard_session_*` or `flashcard_progress_*` storage records. Those records store historical `wordIds` for resume order only; they are not the source of truth for the current project word list.
 
-When repository-loaded words contain IDs that are missing from saved progress, the flashcard page must append those words to the restored list instead of dropping them.
+When repository-loaded words contain IDs that are missing from saved progress, the flashcard page must include those words after applying the active saved sort mode. In mastery order, newly added `new` words must participate in the normal priority sort rather than being forced to the end by stale progress.
 
 **Consequence of violation**: Words added to an existing wordbook can be present in IndexedDB/Supabase and visible in the project page, but missing from flashcards until progress storage is cleared.
 

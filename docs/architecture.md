@@ -221,7 +221,7 @@ Load priority:
 
 1. Restore immediately from Home cache when available (`getCachedProjectWords()`).
 2. Load fresh words through the selected repository (`localRepository`, `hybridRepository`, or `readonlyRemoteRepository`).
-3. If a recent flashcard progress record exists, restore the previous card order from saved `wordIds`.
+3. If a recent flashcard progress record exists, restore the previous sort mode and current card from saved progress.
 
 Progress is persisted in browser storage:
 
@@ -229,7 +229,7 @@ Progress is persisted in browser storage:
 - `flashcard_progress_{projectId}` in `localStorage` for longer resume.
 - Favorites mode appends `_favorites` to the key.
 
-Important behavior: saved `wordIds` represent the previous flashcard order, not the complete current project word set. When words have been added to the project after progress was saved, the flashcard page must merge those new words into the restored list. Current behavior restores saved IDs first and appends words that are not in the saved ID set, sorted by mastery priority.
+Important behavior: saved `wordIds` identify the previous current card and historical order, but they are not the source of truth for the current project word list. When words have been added to the project after progress was saved, the flashcard page must include those new words in the restored list. Current behavior sorts the full repository-loaded word list by saved `sortOrder` (`mastery` by default), then restores `currentIndex` to the same word ID when it still exists. This keeps newly added `new` words in the expected priority position for mastery order.
 
 ---
 

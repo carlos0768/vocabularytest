@@ -374,7 +374,7 @@ The following `localStorage` keys are used by the client:
 | `scanvocab_activity_history` | `src/lib/utils.ts` | 180-day activity heatmap |
 | `scanvocab_last_sync` | `src/lib/db/hybrid-repository.ts` | Last full sync timestamp |
 | `scanvocab_sync_user` | `src/lib/db/hybrid-repository.ts` | User ID of last sync |
-| `flashcard_progress_{projectId}` / `flashcard_progress_{projectId}_favorites` | `src/app/flashcard/[projectId]/page.tsx` | Flashcard resume order and index |
+| `flashcard_progress_{projectId}` / `flashcard_progress_{projectId}_favorites` | `src/app/flashcard/[projectId]/page.tsx` | Flashcard resume word IDs, current index, and sort order |
 | `merken_was_authenticated` | `src/hooks/use-auth.ts` | Session expiry detection |
 | `merken_sub_cache` | `src/hooks/use-auth.ts` | Subscription cache (1 hour TTL) |
 | `merken_activity_logged` | `src/hooks/use-auth.ts` | Daily activity deduplication |
@@ -390,7 +390,7 @@ The following `localStorage` keys are used by the client:
 | `scanvocab_existing_project_id` | `src/app/scan/confirm/page.tsx` | ID when adding to existing project |
 | `sentence_quiz_progress_{projectId}` | `src/app/scan/confirm/page.tsx` | Pre-generated sentence quiz |
 | `quiz_state_{projectId}` | `src/app/quiz/[projectId]/page.tsx` | Quiz resume state (30 min TTL) |
-| `flashcard_session_{projectId}` / `flashcard_session_{projectId}_favorites` | `src/app/flashcard/[projectId]/page.tsx` | Short-term flashcard resume order and index |
+| `flashcard_session_{projectId}` / `flashcard_session_{projectId}_favorites` | `src/app/flashcard/[projectId]/page.tsx` | Short-term flashcard resume word IDs, current index, and sort order |
 
 ---
 
