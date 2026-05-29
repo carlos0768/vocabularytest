@@ -1551,9 +1551,7 @@ function WordRow({
               </div>
             </div>
             <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
-            {word.isFavorite && (
-              <Icon name="bookmark" size={16} filled className="shrink-0 text-[var(--color-accent)]" />
-            )}
+            <BookmarkBadge active={word.isFavorite} />
           </div>
         </button>
       </div>
@@ -1613,6 +1611,20 @@ function VocabularyTypeBadge({
       title={`語彙モード: ${getVocabularyTypeLabel(vocabularyType)}`}
     >
       {getVocabularyTypeShortLabel(vocabularyType)}
+    </span>
+  );
+}
+
+function BookmarkBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center ${
+        active ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'
+      }`}
+      aria-label={active ? 'ブックマーク済み' : 'ブックマークなし'}
+      title={active ? 'ブックマーク済み' : 'ブックマークなし'}
+    >
+      <Icon name="bookmark" size={18} filled={active} />
     </span>
   );
 }
