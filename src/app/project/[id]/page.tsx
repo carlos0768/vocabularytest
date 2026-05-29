@@ -18,7 +18,11 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
-import { getNextVocabularyType } from '@/lib/vocabulary-type';
+import {
+  getNextVocabularyType,
+  getVocabularyTypeLabel,
+  getVocabularyTypeShortLabel,
+} from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
 import {
   countProjectWordStats,
@@ -1546,6 +1550,7 @@ function WordRow({
                 <span className="truncate">{word.japanese}</span>
               </div>
             </div>
+            <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
             {word.isFavorite && (
               <Icon name="bookmark" size={16} filled className="shrink-0 text-[var(--color-accent)]" />
             )}
@@ -1586,6 +1591,29 @@ function WordRow({
         </div>
       </div>
     </div>
+  );
+}
+
+function VocabularyTypeBadge({
+  vocabularyType,
+}: {
+  vocabularyType: VocabularyType | null | undefined;
+}) {
+  const toneClass =
+    vocabularyType === 'active'
+      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+      : vocabularyType === 'passive'
+        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-white'
+        : 'border-[var(--color-border)] bg-transparent text-[var(--color-muted)]';
+
+  return (
+    <span
+      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-black leading-none ${toneClass}`}
+      aria-label={`語彙モード: ${getVocabularyTypeLabel(vocabularyType)}`}
+      title={`語彙モード: ${getVocabularyTypeLabel(vocabularyType)}`}
+    >
+      {getVocabularyTypeShortLabel(vocabularyType)}
+    </span>
   );
 }
 
