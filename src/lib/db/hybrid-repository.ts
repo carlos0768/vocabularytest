@@ -65,6 +65,28 @@ const defaultDependencies: HybridRepositoryDependencies = {
 export class HybridWordRepository implements WordRepository {
   constructor(private readonly dependencies: HybridRepositoryDependencies = defaultDependencies) {}
 
+  private async pushLocalProjectToRemote(
+    db: ReturnType<HybridRepositoryDependencies['getDb']>,
+    project: Project,
+  ): Promise<void> {
+    await this.dependencies.remoteRepository.createProjectWithId(project);
+
+    try {
+      const localWords = await db.words.where('projectId').equals(project.id).toArray();
+      if (localWords.length > 0) {
+        await this.dependencies.remoteRepository.createWordsWithIds(localWords as Word[]);
+      }
+      console.log('[HybridRepo] Pushed local-only project to remote:', project.id);
+    } catch (error) {
+      try {
+        await this.dependencies.remoteRepository.deleteProject(project.id);
+      } catch (rollbackError) {
+        console.error('[HybridRepo] Failed to roll back remote project after word sync failure:', project.id, rollbackError);
+      }
+      throw error;
+    }
+  }
+
   // Get last sync timestamp
   getLastSync(): number | null {
     if (typeof localStorage === 'undefined') return null;
@@ -144,22 +166,21 @@ export class HybridWordRepository implements WordRepository {
           .map(item => item.entityId)
       );
 
-      const projectsToPush = localOnlyProjects.filter(p => pendingCreateProjectIds.has(p.id));
+      const shouldBootstrapRemoteFromLocal = remoteProjects.length === 0 && localProjects.length > 0;
+      const projectsToPush = shouldBootstrapRemoteFromLocal
+        ? localOnlyProjects
+        : localOnlyProjects.filter(p => pendingCreateProjectIds.has(p.id));
 
       for (const project of projectsToPush) {
         try {
-          await this.dependencies.remoteRepository.createProjectWithId(project as Project);
-          const localWords = await db.words.where('projectId').equals(project.id).toArray();
-          if (localWords.length > 0) {
-            await this.dependencies.remoteRepository.createWordsWithIds(localWords as Word[]);
-          }
-          console.log('[HybridRepo] Pushed local-only project to remote:', project.id);
+          await this.pushLocalProjectToRemote(db, project as Project);
         } catch (err) {
           console.error('[HybridRepo] Failed to push local-only project:', project.id, err);
+          if (shouldBootstrapRemoteFromLocal) throw err;
         }
       }
 
-      if (localOnlyProjects.length > projectsToPush.length) {
+      if (!shouldBootstrapRemoteFromLocal && localOnlyProjects.length > projectsToPush.length) {
         console.log('[HybridRepo] Skipped', localOnlyProjects.length - projectsToPush.length, 'local-only projects (deleted on another device)');
       }
 
@@ -171,8 +192,6 @@ export class HybridWordRepository implements WordRepository {
       // 5. Safety: skip local delete if remote is empty but local has data
       if (mergedProjects.length === 0 && localProjects.length > 0) {
         console.warn('[HybridRepo] Remote is empty but local has data — skipping destructive sync');
-        this.setLastSync(this.dependencies.now());
-        this.setSyncedUserId(userId);
         return;
       }
 
@@ -242,6 +261,14 @@ export class HybridWordRepository implements WordRepository {
       // 2. Detect deleted projects
       const remoteProjectIdSet = new Set(remoteProjectIds);
       const localProjects = await db.projects.where('userId').equals(userId).toArray();
+
+      if (remoteProjectIds.length === 0 && localProjects.length > 0) {
+        console.warn('[HybridRepo] Remote is empty during delta sync while local has data — falling back to full sync');
+        this.clearSyncData();
+        await this._fullSyncAll(userId);
+        return;
+      }
+
       const deletedProjectIds = localProjects
         .map(p => p.id)
         .filter(id => !remoteProjectIdSet.has(id));
