@@ -28,7 +28,7 @@ import {
   type ProjectWordActivenessFilter,
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
-import type { Project, ProjectShareScope, SubscriptionStatus, Word, WordStatus } from '@/types';
+import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
@@ -66,6 +66,7 @@ export default function ProjectPage() {
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
   const [bulkFavoriteLoading, setBulkFavoriteLoading] = useState(false);
+  const [bulkVocabularyTypeLoading, setBulkVocabularyTypeLoading] = useState<VocabularyType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -270,6 +271,41 @@ export default function ProjectPage() {
       showToast({ message: 'お気に入り更新に失敗しました', type: 'error' });
     } finally {
       setBulkFavoriteLoading(false);
+    }
+  };
+
+  const handleBulkSetVocabularyType = async (vocabularyType: VocabularyType) => {
+    if (selectedWordIds.size === 0 || bulkVocabularyTypeLoading) return;
+    const targets = words.filter((w) => selectedWordIds.has(w.id));
+    if (targets.length === 0) return;
+
+    setBulkVocabularyTypeLoading(vocabularyType);
+    setWords((prev) => prev.map((w) => (selectedWordIds.has(w.id) ? { ...w, vocabularyType } : w)));
+    try {
+      try {
+        sessionStorage.removeItem(`quiz_state_${projectId}`);
+      } catch {
+        /* ignore */
+      }
+      for (const w of targets) {
+        if (w.vocabularyType !== vocabularyType) {
+          await mutationRepository.updateWord(w.id, { vocabularyType });
+        }
+      }
+      invalidateHomeCache();
+      showToast({
+        message: `${targets.length}語を${vocabularyType === 'active' ? 'Active' : 'Passive'}に変更しました`,
+        type: 'success',
+      });
+    } catch (vocabularyTypeError) {
+      console.error('Failed to bulk update vocabulary type:', vocabularyTypeError);
+      setWords((prev) => prev.map((w) => {
+        const original = targets.find((t) => t.id === w.id);
+        return original ? { ...w, vocabularyType: original.vocabularyType } : w;
+      }));
+      showToast({ message: '語彙モードの更新に失敗しました', type: 'error' });
+    } finally {
+      setBulkVocabularyTypeLoading(null);
     }
   };
 
@@ -884,6 +920,7 @@ export default function ProjectPage() {
           filteredWords.filter((w) => selectedWordIds.has(w.id)).every((w) => w.isFavorite)
         }
         favoriteLoading={bulkFavoriteLoading}
+        vocabularyTypeLoading={bulkVocabularyTypeLoading}
         onCancel={handleExitSelectMode}
         onToggleSelectAll={() => {
           if (filteredWords.length === 0) return;
@@ -891,6 +928,7 @@ export default function ProjectPage() {
           setSelectedWordIds(allSel ? new Set() : new Set(filteredWords.map((w) => w.id)));
         }}
         onBulkFavorite={() => void handleBulkToggleFavorite()}
+        onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
         onBulkDelete={() => setBulkDeleteModalOpen(true)}
       />
 
@@ -1573,9 +1611,11 @@ function BulkActionBar({
   allSelected,
   allFavoriteInSelection,
   favoriteLoading,
+  vocabularyTypeLoading,
   onCancel,
   onToggleSelectAll,
   onBulkFavorite,
+  onBulkVocabularyType,
   onBulkDelete,
 }: {
   open: boolean;
@@ -1584,13 +1624,20 @@ function BulkActionBar({
   allSelected: boolean;
   allFavoriteInSelection: boolean;
   favoriteLoading: boolean;
+  vocabularyTypeLoading: VocabularyType | null;
   onCancel: () => void;
   onToggleSelectAll: () => void;
   onBulkFavorite: () => void;
+  onBulkVocabularyType: (vocabularyType: VocabularyType) => void;
   onBulkDelete: () => void;
 }) {
-  if (!open) return null;
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const hasSelection = selectedCount > 0;
+  const actionLoading = favoriteLoading || vocabularyTypeLoading !== null;
+  const showActionMenu = actionMenuOpen && hasSelection && !actionLoading;
+
+  if (!open) return null;
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-40 px-3 pt-3"
@@ -1634,19 +1681,69 @@ function BulkActionBar({
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onBulkFavorite}
-              disabled={!hasSelection || favoriteLoading}
-              aria-label={allFavoriteInSelection ? 'お気に入りから外す' : 'お気に入りに追加'}
-              className="inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
-            >
-              {favoriteLoading ? (
-                <Icon name="progress_activity" size={16} className="animate-spin" />
-              ) : (
-                <Icon name="bookmark" size={16} filled={allFavoriteInSelection && hasSelection} />
+            <div className="relative shrink-0">
+              {showActionMenu && (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-40 cursor-default bg-transparent"
+                    aria-label="一括操作メニューを閉じる"
+                    onClick={() => setActionMenuOpen(false)}
+                  />
+                  <div
+                    role="menu"
+                    className="absolute bottom-[44px] right-0 z-50 flex w-[148px] flex-col gap-2 pb-1"
+                  >
+                    <BulkActionMenuButton
+                      icon="bookmark"
+                      label="ブックマーク"
+                      filled={allFavoriteInSelection && hasSelection}
+                      loading={favoriteLoading}
+                      disabled={!hasSelection || actionLoading}
+                      onClick={() => {
+                        setActionMenuOpen(false);
+                        onBulkFavorite();
+                      }}
+                    />
+                    <BulkActionMenuButton
+                      icon="keyboard_alt"
+                      label="Active"
+                      loading={vocabularyTypeLoading === 'active'}
+                      disabled={!hasSelection || actionLoading}
+                      onClick={() => {
+                        setActionMenuOpen(false);
+                        onBulkVocabularyType('active');
+                      }}
+                    />
+                    <BulkActionMenuButton
+                      icon="visibility"
+                      label="Passive"
+                      loading={vocabularyTypeLoading === 'passive'}
+                      disabled={!hasSelection || actionLoading}
+                      onClick={() => {
+                        setActionMenuOpen(false);
+                        onBulkVocabularyType('passive');
+                      }}
+                    />
+                  </div>
+                </>
               )}
-            </button>
+              <button
+                type="button"
+                onClick={() => setActionMenuOpen((value) => !value)}
+                disabled={!hasSelection || actionLoading}
+                aria-label="一括操作メニュー"
+                aria-haspopup="menu"
+                aria-expanded={showActionMenu}
+                className="relative z-50 inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              >
+                {actionLoading ? (
+                  <Icon name="progress_activity" size={16} className="animate-spin" />
+                ) : (
+                  <Icon name="more_horiz" size={16} />
+                )}
+              </button>
+            </div>
             <button
               type="button"
               onClick={onBulkDelete}
@@ -1662,6 +1759,44 @@ function BulkActionBar({
         </div>
       </div>
     </div>
+  );
+}
+
+function BulkActionMenuButton({
+  icon,
+  label,
+  filled,
+  loading,
+  disabled,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  filled?: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-[38px] w-full items-center justify-between rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 text-[12px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none disabled:opacity-50"
+    >
+      <span>{label}</span>
+      {loading ? (
+        <Icon name="progress_activity" size={15} className="animate-spin" />
+      ) : (
+        <Icon
+          name={icon}
+          size={15}
+          filled={filled}
+          className={icon === 'bookmark' ? 'text-[var(--color-accent)]' : undefined}
+        />
+      )}
+    </button>
   );
 }
 
