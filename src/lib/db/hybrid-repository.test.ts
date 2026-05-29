@@ -307,7 +307,7 @@ test('FULL_SYNC_INTERVAL_MS is fixed to 1 hour', () => {
   assert.equal(FULL_SYNC_INTERVAL_MS, 60 * 60 * 1000);
 });
 
-test('fullSync does not delete local data when remote is empty and local data exists', async (t) => {
+test('fullSync bootstraps empty remote from local data before marking synced', async (t) => {
   const { storage, restore } = installLocalStorage();
   t.after(restore);
 
@@ -318,18 +318,69 @@ test('fullSync does not delete local data when remote is empty and local data ex
   const syncQueue = makeSyncQueue([]);
   const repository = makeRepository({
     getDb: () => db,
-    remoteRepository: makeRemoteRepository({ getProjectsResponses: [[]], calls }),
+    remoteRepository: makeRemoteRepository({
+      getProjectsResponses: [[], [localProject]],
+      remoteWords: [localWord],
+      calls,
+    }),
     syncQueue,
   });
 
   await repository.fullSync(USER_ID);
 
-  assert.deepEqual(calls, ['getProjects:user_123']);
-  assert.deepEqual(projectsTable.deleteCalls, []);
-  assert.deepEqual(wordsTable.deleteCalls, []);
-  assert.deepEqual(projectsTable.getRows(), [localProject]);
-  assert.deepEqual(wordsTable.getRows(), [localWord]);
-  assert.equal(syncQueue.clearCalls, 0);
+  assert.deepEqual(calls, [
+    'getProjects:user_123',
+    'createProjectWithId:local_project',
+    'createWordsWithIds:local_word',
+    'getProjects:user_123',
+    'getAllWordsByProjectIds:local_project',
+  ]);
+  assert.deepEqual(projectsTable.deleteCalls, [{ field: 'userId', values: [USER_ID] }]);
+  assert.deepEqual(wordsTable.deleteCalls, [{ field: 'projectId', values: [localProject.id] }]);
+  assert.deepEqual(projectsTable.bulkPutCalls, [[localProject]]);
+  assert.deepEqual(wordsTable.bulkPutCalls, [[localWord]]);
+  assert.equal(syncQueue.clearCalls, 1);
+  assert.equal(storage.getItem('scanvocab_sync_user'), USER_ID);
+  assert.equal(storage.getItem('scanvocab_last_sync'), String(FIXED_NOW));
+});
+
+test('delta sync falls back to local bootstrap when remote is empty but local data exists', async (t) => {
+  const { storage, restore } = installLocalStorage({
+    scanvocab_last_sync: String(FIXED_NOW - 2 * 60 * 60 * 1000),
+    scanvocab_sync_user: USER_ID,
+  });
+  t.after(restore);
+
+  const localProject = makeProject('local_project');
+  const localWord = makeWord('local_word', localProject.id);
+  const { db, projectsTable, wordsTable } = makeDb([localProject], [localWord]);
+  const calls: string[] = [];
+  const syncQueue = makeSyncQueue([]);
+  const repository = makeRepository({
+    getDb: () => db,
+    remoteRepository: makeRemoteRepository({
+      getProjectsResponses: [[], [localProject]],
+      remoteWords: [localWord],
+      calls,
+    }),
+    syncQueue,
+  });
+
+  await repository.fullSync(USER_ID);
+
+  assert.deepEqual(calls, [
+    'getProjectIds:user_123',
+    'getProjectsUpdatedSince:user_123',
+    'getProjects:user_123',
+    'createProjectWithId:local_project',
+    'createWordsWithIds:local_word',
+    'getProjects:user_123',
+    'getAllWordsByProjectIds:local_project',
+  ]);
+  assert.deepEqual(projectsTable.bulkDeleteCalls, []);
+  assert.deepEqual(projectsTable.deleteCalls, [{ field: 'userId', values: [USER_ID] }]);
+  assert.deepEqual(wordsTable.deleteCalls, [{ field: 'projectId', values: [localProject.id] }]);
+  assert.equal(syncQueue.clearCalls, 1);
   assert.equal(storage.getItem('scanvocab_sync_user'), USER_ID);
   assert.equal(storage.getItem('scanvocab_last_sync'), String(FIXED_NOW));
 });
