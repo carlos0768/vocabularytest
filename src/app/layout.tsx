@@ -8,7 +8,10 @@ import { StatsSync } from '@/components/StatsSync';
 import { HomeOpenLogger } from '@/components/analytics/HomeOpenLogger';
 import { PersistentAppShell } from '@/components/ui/PersistentAppShell';
 import { GooglePublisherTagScript } from '@/components/ads/GooglePublisherTagScript';
-import { ADSENSE_CLIENT_ID } from '@/lib/adsense';
+import {
+  ADSENSE_ACCOUNT_SIGNALS_ENABLED,
+  ADSENSE_CLIENT_ID,
+} from '@/lib/adsense';
 import './globals.css';
 
 const lexend = Lexend({
@@ -119,7 +122,7 @@ export default function RootLayout({
             }),
           }}
         />
-        {ADSENSE_CLIENT_ID && <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />}
+        {ADSENSE_ACCOUNT_SIGNALS_ENABLED && <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />}
       </head>
       <body
         className={`${lexend.variable} ${notoSansJP.variable} antialiased`}
