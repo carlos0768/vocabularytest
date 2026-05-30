@@ -12,6 +12,7 @@ import {
   createHomeImmediateScanResultAccumulator,
   hasNoHomeImmediateScanWords,
 } from '@/lib/home/home-immediate-scan-results';
+import { saveHomeGeneratingWordbook } from '@/lib/home/home-session-storage';
 import {
   prepareScanConfirmForNewProject,
   saveScanConfirmResultPayload,
@@ -95,6 +96,9 @@ export function DesktopScanView({
     : destination === 'new'
       ? null
       : destination;
+  const destinationProject = destinationProjectId
+    ? projectOptions.find((project) => project.id === destinationProjectId) ?? null
+    : null;
   const scanModes = selectedOptions;
   const eikenLevel = scanModes.includes('eiken') ? '3' : null;
 
@@ -132,6 +136,9 @@ export function DesktopScanView({
       }
 
       const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+      const projectTitle = targetProjectTitle
+        ?? destinationProject?.title
+        ?? (destinationProjectId ? '選択中の単語帳' : `スキャン ${dateLabel}`);
       setProcessingLabel('スキャンを送信中...');
       const res = await fetch('/api/scan-jobs/create', {
         method: 'POST',
@@ -141,7 +148,7 @@ export function DesktopScanView({
         },
         body: JSON.stringify({
           imagePaths: uploadedPaths,
-          projectTitle: targetProjectTitle ?? `スキャン ${dateLabel}`,
+          projectTitle,
           scanMode: scanModes[0] ?? 'all',
           scanModes,
           eikenLevel,
@@ -154,6 +161,12 @@ export function DesktopScanView({
         const errBody = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
       }
+
+      const result = await res.json().catch(() => ({})) as { jobId?: unknown };
+      return {
+        jobId: typeof result.jobId === 'string' ? result.jobId : undefined,
+        projectTitle,
+      };
     } catch (error) {
       if (uploadedPaths.length > 0) {
         await supabase.storage.from('scan-images').remove(uploadedPaths);
@@ -229,10 +242,16 @@ export function DesktopScanView({
 
     try {
       if (isPro) {
-        await createBackgroundScanJob(files);
-        setSuccessMsg('スキャンを送信しました。完了後に単語帳へ反映されます。');
-        setProcessing(false);
-        setProcessingLabel(null);
+        const scanJob = await createBackgroundScanJob(files);
+        if (scanJob.jobId) {
+          saveHomeGeneratingWordbook(sessionStorage, {
+            id: `generating-${Date.now()}`,
+            title: scanJob.projectTitle,
+            linkedJobId: scanJob.jobId,
+          });
+        }
+        setProcessingLabel('ホームへ移動中...');
+        router.push('/');
         return;
       }
 

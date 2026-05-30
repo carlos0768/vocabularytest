@@ -941,6 +941,7 @@ export default function ProjectPage() {
         isOpen={showScanCaptureModal}
         onClose={() => setShowScanCaptureModal(false)}
         targetProjectId={projectId}
+        targetProjectTitle={project.title}
       />
 
       <ProjectShareSheet

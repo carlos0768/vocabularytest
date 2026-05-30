@@ -13,6 +13,10 @@ import {
   hasNoHomeImmediateScanWords,
 } from '@/lib/home/home-immediate-scan-results';
 import {
+  saveHomeGeneratingWordbook,
+  type HomeGeneratingWordbookPayload,
+} from '@/lib/home/home-session-storage';
+import {
   prepareScanConfirmForNewProject,
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
@@ -29,6 +33,8 @@ interface ScanCaptureModalProps {
    * instead of creating a new one.
    */
   targetProjectId?: string;
+  targetProjectTitle?: string;
+  onBackgroundScanStarted?: (payload: HomeGeneratingWordbookPayload) => void;
 }
 
 type TopMode = 'vocab';
@@ -69,7 +75,14 @@ function uploadExtensionFor(file: File): string {
   return '.jpg';
 }
 
-export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId }: ScanCaptureModalProps) {
+export function ScanCaptureModal({
+  isOpen,
+  onClose,
+  defaultMode,
+  targetProjectId,
+  targetProjectTitle,
+  onBackgroundScanStarted,
+}: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>(targetProjectId ? 'vocab' : (defaultMode ?? 'vocab'));
@@ -120,6 +133,8 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
       }
 
       const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+      const projectTitle = targetProjectTitle
+        ?? (targetProjectId ? '選択中の単語帳' : `スキャン ${dateLabel}`);
       setProcessingLabel('スキャンを送信中...');
       const res = await fetch('/api/scan-jobs/create', {
         method: 'POST',
@@ -129,7 +144,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
         },
         body: JSON.stringify({
           imagePaths: uploadedPaths,
-          projectTitle: `スキャン ${dateLabel}`,
+          projectTitle,
           scanMode: selectedScanModes[0] ?? 'all',
           scanModes: selectedScanModes,
           eikenLevel: selectedEikenLevel,
@@ -142,6 +157,12 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
         const errBody = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
       }
+
+      const result = await res.json().catch(() => ({})) as { jobId?: unknown };
+      return {
+        jobId: typeof result.jobId === 'string' ? result.jobId : undefined,
+        projectTitle,
+      };
     } catch (error) {
       if (uploadedPaths.length > 0) {
         await supabase.storage.from('scan-images').remove(uploadedPaths);
@@ -224,8 +245,19 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
     try {
       // Pro: バックグラウンドジョブ送信（確認画面をスキップ）
       if (isPro) {
-        await createBackgroundScanJob(files);
+        const scanJob = await createBackgroundScanJob(files);
+        if (scanJob.jobId) {
+          const payload: HomeGeneratingWordbookPayload = {
+            id: `generating-${Date.now()}`,
+            title: scanJob.projectTitle,
+            linkedJobId: scanJob.jobId,
+          };
+          saveHomeGeneratingWordbook(sessionStorage, payload);
+          onBackgroundScanStarted?.(payload);
+        }
+        setProcessingLabel('ホームへ移動中...');
         onClose();
+        router.push('/');
         return;
       }
 

@@ -29,6 +29,11 @@ import {
   calculateHomeCompletionPercent,
   countHomeWordStatuses,
 } from '@/lib/home/home-page-selectors';
+import {
+  clearHomeGeneratingWordbook,
+  consumeHomeGeneratingWordbook,
+  type HomeGeneratingWordbookPayload,
+} from '@/lib/home/home-session-storage';
 import { getDailyStats, getStreakDays } from '@/lib/utils';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
@@ -146,6 +151,27 @@ type HomeProjectStats = ProjectWithStats & {
   newWords: number;
 };
 
+type HomePendingScan = {
+  id: string;
+  project_title: string;
+  iconDataUrl?: string;
+};
+
+type RecentScanJob = {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  project_title: string;
+};
+
+function withHomeGeneratingFallbackId(
+  payload: HomeGeneratingWordbookPayload,
+): HomeGeneratingWordbookPayload {
+  return {
+    ...payload,
+    id: payload.id ?? `generating-${Date.now()}`,
+  };
+}
+
 function thumbColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
@@ -206,7 +232,9 @@ export default function HomePage() {
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingScans, setPendingScans] = useState<{ id: string; project_title: string }[]>([]);
+  const [pendingScans, setPendingScans] = useState<HomePendingScan[]>([]);
+  const [recentScanJobs, setRecentScanJobs] = useState<RecentScanJob[]>([]);
+  const [pendingGeneratingWordbook, setPendingGeneratingWordbook] = useState<HomeGeneratingWordbookPayload | null>(null);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
@@ -215,12 +243,18 @@ export default function HomePage() {
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
+  const showHomeGeneratingWordbook = useCallback((payload: HomeGeneratingWordbookPayload) => {
+    setPendingGeneratingWordbook(withHomeGeneratingFallbackId(payload));
+  }, []);
+
   const loadHome = useCallback(async () => {
     if (authLoading) return;
     if (!user) {
       setProjects([]);
       setStats(EMPTY_STATS);
       setPendingScans([]);
+      setRecentScanJobs([]);
+      setPendingGeneratingWordbook(null);
       setLoading(false);
       setError(null);
       return;
@@ -298,6 +332,17 @@ export default function HomePage() {
   }, [loadHome]);
 
   useEffect(() => {
+    try {
+      const payload = consumeHomeGeneratingWordbook(sessionStorage);
+      if (payload) {
+        showHomeGeneratingWordbook(payload);
+      }
+    } catch {
+      // sessionStorage may be unavailable in restricted browser contexts.
+    }
+  }, [showHomeGeneratingWordbook]);
+
+  useEffect(() => {
     if (authLoading || onboardingLoading) return;
     if (!user) {
       setWelcomeOpen(false);
@@ -317,7 +362,7 @@ export default function HomePage() {
 
   // Pro: バックグラウンドスキャンのポーリング
   useEffect(() => {
-    if (!user || !isPro || authLoading) return;
+    if (!user || authLoading || (!isPro && !pendingGeneratingWordbook)) return;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const hadActiveRef = { current: false };
 
@@ -330,8 +375,10 @@ export default function HomePage() {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (!res.ok) return;
-        const data = await res.json() as { jobs?: { id: string; status: string; project_title: string }[] };
-        const active = (data.jobs ?? []).filter((j) => j.status === 'pending' || j.status === 'processing');
+        const data = await res.json() as { jobs?: RecentScanJob[] };
+        const jobs = data.jobs ?? [];
+        const active = jobs.filter((j) => j.status === 'pending' || j.status === 'processing');
+        setRecentScanJobs(jobs);
         setPendingScans(active.map((j) => ({ id: j.id, project_title: j.project_title })));
         if (active.length === 0) {
           if (hadActiveRef.current) {
@@ -348,7 +395,33 @@ export default function HomePage() {
     void poll();
     intervalId = setInterval(poll, 2000);
     return () => { if (intervalId) clearInterval(intervalId); };
-  }, [user, isPro, authLoading]);
+  }, [user, isPro, authLoading, pendingGeneratingWordbook]);
+
+  useEffect(() => {
+    const linkedJobId = pendingGeneratingWordbook?.linkedJobId;
+    if (!linkedJobId) return;
+
+    const linkedJob = recentScanJobs.find((job) => job.id === linkedJobId);
+    if (!linkedJob) return;
+
+    if (
+      linkedJob.status === 'pending'
+      || linkedJob.status === 'processing'
+      || linkedJob.status === 'completed'
+      || linkedJob.status === 'failed'
+    ) {
+      setPendingGeneratingWordbook(null);
+      try {
+        clearHomeGeneratingWordbook(sessionStorage);
+      } catch {
+        // Ignore storage failures; state is already cleared.
+      }
+    }
+
+    if (linkedJob.status === 'completed') {
+      void loadHomeRef.current();
+    }
+  }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
   const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW } = stats;
   const unmasteredCount = newW + review;
@@ -361,6 +434,24 @@ export default function HomePage() {
   const goalState: 'review' | 'learn' | 'empty' =
     dueCount > 0 ? 'review' : totalWords === 0 ? 'empty' : 'learn';
   const visibleProjects = projects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
+  const displayedPendingScans = useMemo<HomePendingScan[]>(() => {
+    if (!pendingGeneratingWordbook) return pendingScans;
+    if (
+      pendingGeneratingWordbook.linkedJobId
+      && pendingScans.some((job) => job.id === pendingGeneratingWordbook.linkedJobId)
+    ) {
+      return pendingScans;
+    }
+
+    return [
+      {
+        id: pendingGeneratingWordbook.id ?? pendingGeneratingWordbook.linkedJobId ?? 'generating-wordbook',
+        project_title: pendingGeneratingWordbook.title,
+        iconDataUrl: pendingGeneratingWordbook.iconDataUrl,
+      },
+      ...pendingScans,
+    ];
+  }, [pendingGeneratingWordbook, pendingScans]);
 
   if (authLoading) {
     return <HomeLoadingScreen />;
@@ -377,7 +468,7 @@ export default function HomePage() {
         stats={stats}
         loading={loading}
         error={error}
-        pendingScans={pendingScans}
+        pendingScans={displayedPendingScans}
         onStartScan={() => router.push('/scan')}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
@@ -539,7 +630,7 @@ export default function HomePage() {
       )}
 
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
-        {pendingScans.map((job) => (
+        {displayedPendingScans.map((job) => (
           <PendingScanRow key={job.id} title={job.project_title} />
         ))}
         {loading && visibleProjects.length === 0 ? (
@@ -573,6 +664,7 @@ export default function HomePage() {
         isOpen={vocabScanOpen}
         onClose={() => setVocabScanOpen(false)}
         defaultMode="vocab"
+        onBackgroundScanStarted={showHomeGeneratingWordbook}
       />
 
       <WelcomeOverlay

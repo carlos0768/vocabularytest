@@ -28,6 +28,13 @@ export function saveHomeSelectedProjectId(
   storage.setItem(HOME_SESSION_STORAGE_KEYS.selectedProjectId, projectId);
 }
 
+export function saveHomeGeneratingWordbook(
+  storage: HomeSessionStorage,
+  payload: HomeGeneratingWordbookPayload,
+): void {
+  storage.setItem(HOME_SESSION_STORAGE_KEYS.generatingWordbook, JSON.stringify(payload));
+}
+
 export function consumeHomeGeneratingWordbook(
   storage: HomeSessionStorage,
 ): HomeGeneratingWordbookPayload | null {
