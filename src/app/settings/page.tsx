@@ -8,15 +8,11 @@ import { Icon } from '@/components/ui';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
-import { useTheme } from '@/components/theme-provider';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
-
-type Theme = 'light' | 'dark' | 'system';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, isPro, signOut, loading: authLoading, isAuthenticated } = useAuth();
-  const { theme, setTheme } = useTheme();
   const {
     username,
     loading: profileLoading,
@@ -57,8 +53,6 @@ export default function SettingsPage() {
         email={user?.email}
         username={username}
         isPro={isPro}
-        theme={theme}
-        onThemeChange={setTheme}
         onSignOut={() => void handleSignOut()}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
@@ -172,7 +166,7 @@ export default function SettingsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-display text-base font-bold text-[var(--solid-ink)]">ゲスト</div>
-                <div className="mt-0.5 text-xs text-[var(--color-muted)]">ログインでクラウド同期</div>
+                <div className="mt-0.5 text-xs text-[var(--color-muted)]">ログインしてデータを保存</div>
               </div>
               <Link href="/login" className="rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 font-display text-sm font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none">
                 ログイン
@@ -195,31 +189,13 @@ export default function SettingsPage() {
                   <span className="font-mono text-[9px] text-[var(--color-muted)]">¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}/月</span>
                 </div>
                 <div className="mt-[3px] font-display text-sm font-bold text-[var(--solid-ink)]">Pro でぜんぶ使う</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">スキャン無制限・クラウド同期・デバイス無制限</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">スキャン無制限・デバイス無制限</div>
               </div>
               <div className="rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-white shadow-[2px_2px_0_var(--color-accent)]">見る</div>
             </Link>
           </div>
         </div>
       )}
-
-      {/* 表示 */}
-      <SettingsGroup label="表示">
-        <SettingsRow icon="palette" label="テーマ">
-          <div className="flex gap-1">
-            {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTheme(t)}
-                className={`rounded-[6px] border-[1.25px] px-2 py-1 font-mono text-[9px] font-bold transition-colors ${theme === t ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'}`}
-              >
-                {{ light: 'ライト', dark: 'ダーク', system: 'システム' }[t]}
-              </button>
-            ))}
-          </div>
-        </SettingsRow>
-      </SettingsGroup>
 
       {/* サポート */}
       <SettingsGroup label="サポート">

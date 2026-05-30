@@ -143,6 +143,7 @@ class FakeScanProcessClient {
       insertedProject?: ProjectRow | null;
       existingProject?: ProjectRow | null;
       wordsInsertError?: QueryError | null;
+      wordsInsertResults?: QueryResult[];
       insertedWords?: InsertedWordRow[] | null;
       trace?: string[];
     },
@@ -265,6 +266,10 @@ class FakeScanProcessClient {
 
   async resolveThen<T = unknown>(operation: QueryOperation): Promise<QueryResult<T>> {
     if (operation.table === 'words' && operation.action === 'insert') {
+      if (this.options.wordsInsertResults && this.options.wordsInsertResults.length > 0) {
+        return this.options.wordsInsertResults.shift() as QueryResult<T>;
+      }
+
       if (this.options.wordsInsertError) {
         return {
           data: null,
@@ -724,6 +729,52 @@ test('server_cloud new project completion keeps project insert, words insert, an
       status: 'completed',
     },
   ]);
+});
+
+test('server_cloud retries words insert without source_modes when the database schema is older', async () => {
+  const trace: string[] = [];
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob(),
+    userPreference: { ai_enabled: false },
+    wordsInsertResults: [
+      {
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message: "Could not find the 'source_modes' column of 'words' in the schema cache",
+        },
+      },
+    ],
+    trace,
+  });
+
+  const response = await processJobById(JOB_ID, createServerCloudContractDeps(client));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    saveMode: 'server_cloud',
+    projectId: NEW_PROJECT_ID,
+    wordCount: 1,
+  });
+
+  const wordsInserts = client.operations.filter((operation) =>
+    operation.table === 'words' &&
+    operation.action === 'insert'
+  );
+  assert.equal(wordsInserts.length, 2);
+  assert.ok(Array.isArray(wordsInserts[0].payload));
+  assert.equal(wordsInserts[0].payload[0]?.source_modes, undefined);
+  assert.ok(Array.isArray(wordsInserts[1].payload));
+  assert.equal('source_modes' in wordsInserts[1].payload[0], false);
+
+  const completedUpdate = findScanJobUpdate(client, 'completed');
+  assert.ok(isRecord(completedUpdate.payload));
+  assert.equal(completedUpdate.payload.status, 'completed');
+  assert.equal(client.operations.some((operation) =>
+    operation.table === 'projects' &&
+    operation.action === 'delete'
+  ), false);
 });
 
 test('server_cloud words insert failure rolls back only the newly created project before failed side effects', async () => {

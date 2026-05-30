@@ -1,32 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
-
-type Theme = 'light' | 'dark' | 'system';
 
 export function DesktopSettingsView({
   email,
   username,
   isPro,
-  theme,
-  onThemeChange,
   onSignOut,
 }: {
   email?: string | null;
   username?: string | null;
   isPro: boolean;
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
   onSignOut: () => void;
 }) {
-  const [settings, setSettings] = useState({ sound: true, sync: true, daily: '25語', order: 'ランダム', notify: false });
-  const updateSetting = <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) => {
-    setSettings((current) => ({ ...current, [key]: value }));
-  };
-
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="設定" crumb="アカウント">
@@ -51,50 +39,12 @@ export function DesktopSettingsView({
                 {isPro ? 'PRO' : 'FREE'}
               </span>
             </div>
-            <div className="ds-set-row">
-              <div className="ic"><Icon name="cloud_done" style={{ color: 'var(--color-accent)' }} /></div>
-              <div className="lab"><div className="t">クラウド同期</div><div className="d">学習データをデバイス間で共有</div></div>
-              <Toggle on={settings.sync} onClick={() => updateSetting('sync', !settings.sync)} />
-            </div>
-          </div>
-
-          <div className="ds-set-group">
-            <div className="gh">学習設定</div>
-            <div className="ds-set-row">
-              <div className="ic"><Icon name="target" /></div>
-              <div className="lab"><div className="t">1日の目標</div><div className="d">毎日復習する単語数</div></div>
-              <Segmented value={settings.daily} options={['15語', '25語', '50語']} onChange={(value) => updateSetting('daily', value)} />
-            </div>
-            <div className="ds-set-row">
-              <div className="ic"><Icon name="shuffle" /></div>
-              <div className="lab"><div className="t">出題順</div><div className="d">クイズ・カードの並び</div></div>
-              <Segmented value={settings.order} options={['ランダム', '苦手順']} onChange={(value) => updateSetting('order', value)} />
-            </div>
-            <div className="ds-set-row">
-              <div className="ic"><Icon name="volume_up" /></div>
-              <div className="lab"><div className="t">自動読み上げ</div><div className="d">単語の発音を自動再生</div></div>
-              <Toggle on={settings.sound} onClick={() => updateSetting('sound', !settings.sound)} />
-            </div>
-          </div>
-
-          <div className="ds-set-group">
-            <div className="gh">表示</div>
-            <div className="ds-set-row">
-              <div className="ic"><Icon name="palette" /></div>
-              <div className="lab"><div className="t">テーマ</div><div className="d">外観の配色</div></div>
-              <div className="ds-seg">
-                {(['light', 'dark', 'system'] as Theme[]).map((value) => (
-                  <button key={value} type="button" className={theme === value ? 'on' : undefined} onClick={() => onThemeChange(value)}>
-                    {{ light: 'ライト', dark: 'ダーク', system: 'システム' }[value]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="ds-set-row">
-              <div className="ic"><Icon name="notifications" /></div>
-              <div className="lab"><div className="t">学習リマインダー</div><div className="d">毎日20:00に通知</div></div>
-              <Toggle on={settings.notify} onClick={() => updateSetting('notify', !settings.notify)} />
-            </div>
+            {email && (
+              <button type="button" className="ds-set-row" style={{ width: '100%', cursor: 'pointer', background: '#fff', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left' }} onClick={onSignOut}>
+                <div className="ic" style={{ background: 'var(--color-error-light)' }}><Icon name="logout" style={{ color: 'var(--color-error)' }} /></div>
+                <div className="lab"><div className="t" style={{ color: 'var(--color-error)' }}>ログアウト</div></div>
+              </button>
+            )}
           </div>
 
           <div className="ds-set-group">
@@ -103,21 +53,6 @@ export function DesktopSettingsView({
             <SettingsLink icon="description" label="利用規約" href="/terms" />
             <SettingsLink icon="shield" label="プライバシーポリシー" href="/privacy" />
             <SettingsLink icon="storefront" label="特定商取引法に基づく表記" href="/tokusho" />
-          </div>
-
-          <div className="ds-set-group">
-            <div className="gh">データ</div>
-            <div className="ds-set-row" style={{ cursor: 'pointer' }}>
-              <div className="ic"><Icon name="download" /></div>
-              <div className="lab"><div className="t">データをエクスポート</div><div className="d">CSV形式で単語をダウンロード</div></div>
-              <Icon name="chevron_right" style={{ color: 'var(--color-muted)' }} />
-            </div>
-            {email && (
-              <button type="button" className="ds-set-row" style={{ width: '100%', cursor: 'pointer', background: '#fff', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left' }} onClick={onSignOut}>
-                <div className="ic" style={{ background: 'var(--color-error-light)' }}><Icon name="logout" style={{ color: 'var(--color-error)' }} /></div>
-                <div className="lab"><div className="t" style={{ color: 'var(--color-error)' }}>ログアウト</div></div>
-              </button>
-            )}
           </div>
 
           <div className="mono muted" style={{ fontSize: 11, textAlign: 'center', paddingBottom: 8 }}>Merken for Desktop · バージョン 2.4.0</div>
@@ -206,22 +141,6 @@ export function DesktopSubscriptionView({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
-  return <button type="button" className={'ds-toggle' + (on ? ' on' : '')} onClick={onClick} aria-pressed={on} />;
-}
-
-function Segmented({ value, options, onChange }: { value: string; options: string[]; onChange: (value: string) => void }) {
-  return (
-    <div className="ds-seg">
-      {options.map((option) => (
-        <button key={option} type="button" className={value === option ? 'on' : undefined} onClick={() => onChange(option)}>
-          {option}
-        </button>
-      ))}
     </div>
   );
 }

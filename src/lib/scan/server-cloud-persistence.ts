@@ -41,6 +41,13 @@ export interface ServerCloudWordInsertPayload {
   source_modes?: ExtractMode[];
 }
 
+type MaybePostgrestColumnError = {
+  code?: unknown;
+  message?: unknown;
+  details?: unknown;
+  hint?: unknown;
+};
+
 export function buildServerCloudProjectInsertPayload(
   params: ServerCloudProjectInsertParams,
 ): ServerCloudProjectInsertPayload {
@@ -74,6 +81,40 @@ export function buildServerCloudWordsInsertPayload(
     pronunciation: word.pronunciation || null,
     part_of_speech_tags: word.partOfSpeechTags,
     source_modes: word.sourceModes,
+  }));
+}
+
+export function isMissingWordsSourceModesColumn(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const candidate = error as MaybePostgrestColumnError;
+  if (candidate.code !== '42703' && candidate.code !== 'PGRST204') {
+    return false;
+  }
+
+  const message = `${candidate.message ?? ''} ${candidate.details ?? ''} ${candidate.hint ?? ''}`.toLowerCase();
+  return (
+    message.includes('words.source_modes')
+    || message.includes("'source_modes' column of 'words'")
+    || message.includes('source_modes')
+  );
+}
+
+export function stripSourceModesFromServerCloudWordsInsertPayload(
+  payload: ServerCloudWordInsertPayload[],
+): Omit<ServerCloudWordInsertPayload, 'source_modes'>[] {
+  return payload.map((word) => ({
+    project_id: word.project_id,
+    english: word.english,
+    japanese: word.japanese,
+    lexicon_entry_id: word.lexicon_entry_id,
+    distractors: word.distractors,
+    example_sentence: word.example_sentence,
+    example_sentence_ja: word.example_sentence_ja,
+    pronunciation: word.pronunciation,
+    part_of_speech_tags: word.part_of_speech_tags,
   }));
 }
 

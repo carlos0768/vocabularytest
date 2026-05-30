@@ -24,7 +24,9 @@ import {
   buildServerCloudMergedProjectSourceLabels,
   buildServerCloudProjectInsertPayload,
   buildServerCloudWordsInsertPayload,
+  isMissingWordsSourceModesColumn,
   shouldRollbackServerCloudProjectAfterWordsInsertFailure,
+  stripSourceModesFromServerCloudWordsInsertPayload,
 } from '@/lib/scan/server-cloud-persistence';
 import { buildServerCloudScanJobResultPayload } from '@/lib/scan/server-cloud-result-payload';
 import {
@@ -1178,13 +1180,29 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const wordsToInsert = buildServerCloudWordsInsertPayload(resolvedWords, projectId);
 
       const dbInsertStart = Date.now();
-      const { data: insertedWords, error: wordsError } = await supabaseAdmin
+      let { data: insertedWords, error: wordsError } = await supabaseAdmin
         .from('words')
         .insert(wordsToInsert)
         .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
       timing.dbInsertMs = Date.now() - dbInsertStart;
 
+      if (wordsError && isMissingWordsSourceModesColumn(wordsError)) {
+        console.warn('[scan-jobs/process] words.source_modes compatibility fallback used', {
+          jobId,
+          message: wordsError.message,
+        });
+        const retryStart = Date.now();
+        const retryResult = await supabaseAdmin
+          .from('words')
+          .insert(stripSourceModesFromServerCloudWordsInsertPayload(wordsToInsert))
+          .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
+        insertedWords = retryResult.data;
+        wordsError = retryResult.error;
+        timing.dbInsertMs += Date.now() - retryStart;
+      }
+
       if (wordsError) {
+        console.error('[scan-jobs/process] Words insert error:', wordsError);
         if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: wordsError })) {
           await supabaseAdmin.from('projects').delete().eq('id', projectId);
         }
