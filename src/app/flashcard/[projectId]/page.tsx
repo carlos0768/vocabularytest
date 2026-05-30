@@ -640,13 +640,26 @@ export default function FlashcardPage() {
           style={{
             transform: getCardTransform(),
             transition: slidePhase === 'enter' ? 'none' : (isAnimating || swipeX === 0 ? 'transform 0.2s ease-out' : 'none'),
+            perspective: '1200px',
           }}
         >
-          {!isFlipped ? (
-            /* Front face */
+          <div
+            className="grid w-full"
+            style={{
+              transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+              transformStyle: 'preserve-3d',
+              transition: isAnimating ? 'none' : 'transform 460ms cubic-bezier(0.22, 1, 0.36, 1)',
+              willChange: 'transform',
+            }}
+          >
             <div
-              className="relative flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
-              style={{ boxShadow: '4px 4px 0 var(--solid-ink)' }}
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
+              style={{
+                backfaceVisibility: 'hidden',
+                boxShadow: '4px 4px 0 var(--solid-ink)',
+                pointerEvents: isFlipped ? 'none' : 'auto',
+                WebkitBackfaceVisibility: 'hidden',
+              }}
             >
               {/* POS badge + favorite */}
               <div className="flex items-center justify-between">
@@ -699,11 +712,16 @@ export default function FlashcardPage() {
               {/* Tap hint */}
               <div className="mt-2 text-center text-[11px] font-semibold text-[var(--color-muted)]">タップで意味を見る</div>
             </div>
-          ) : (
-            /* Back face */
+
             <div
-              className="relative flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
-              style={{ boxShadow: '4px 4px 0 rgba(0,0,0,0.3)' }}
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
+              style={{
+                backfaceVisibility: 'hidden',
+                boxShadow: '4px 4px 0 rgba(0,0,0,0.3)',
+                pointerEvents: isFlipped ? 'auto' : 'none',
+                transform: 'rotateY(180deg)',
+                WebkitBackfaceVisibility: 'hidden',
+              }}
             >
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
                 <h2 className="text-3xl font-bold text-white">{currentWord?.japanese}</h2>
@@ -727,7 +745,7 @@ export default function FlashcardPage() {
               </div>
               <div className="mt-2 text-center text-[11px] font-semibold text-white/50">タップで戻る</div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Swipe hints */}
