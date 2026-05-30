@@ -12,6 +12,7 @@ import { LpDemoSection } from '@/components/home/LpDemoSection';
 import { WelcomeOverlay } from '@/components/onboarding/WelcomeOverlay';
 import { EmptyStateGuide } from '@/components/onboarding/EmptyStateGuide';
 import { HintBanner } from '@/components/onboarding/HintBanner';
+import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
@@ -631,7 +632,11 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
         {displayedPendingScans.map((job) => (
-          <PendingScanRow key={job.id} title={job.project_title} />
+          <GeneratingProjectCard
+            key={job.id}
+            title={job.project_title}
+            iconDataUrl={job.iconDataUrl}
+          />
         ))}
         {loading && visibleProjects.length === 0 ? (
           <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
@@ -1277,25 +1282,6 @@ function LegendItem({ color, label, count }: { color: string; label: string; cou
       <span className="flex-1 text-[10px] text-[var(--color-muted)]">{label}</span>
       <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--solid-ink)]">{count}</span>
     </div>
-  );
-}
-
-function PendingScanRow({ title }: { title: string }) {
-  return (
-    <SolidPanel
-      className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)]"
-      faceClassName="!p-[13px]"
-    >
-      <div className="flex items-center gap-[13px]">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[rgba(26,26,26,0.06)]">
-          <Icon name="progress_activity" size={20} className="animate-spin text-[var(--color-muted)]" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{title}</div>
-          <div className="mt-px font-mono text-[10px] text-[var(--color-muted)]">単語を抽出中...</div>
-        </div>
-      </div>
-    </SolidPanel>
   );
 }
 

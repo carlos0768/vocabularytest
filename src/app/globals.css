@@ -739,6 +739,30 @@ body {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes scanvocabGeneratingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scanvocabGeneratingPulse {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.scanvocab-generating-spin {
+  animation: scanvocabGeneratingSpin 0.85s linear infinite !important;
+}
+
+.scanvocab-generating-pulse {
+  animation: scanvocabGeneratingPulse 1.15s ease-in-out infinite !important;
+}
+
 .animate-bounce {
   animation: bounce 0.5s ease-in-out;
 }
@@ -755,10 +779,8 @@ body {
   animation: correctFlash 0.3s ease-in-out 2;
 }
 
-/* Scan / generating card animations moved to inline <style> in
-   GeneratingProjectCard.tsx + ProgressSteps.tsx to bypass Tailwind v4
-   CSS cascade layer issues that were preventing the animations from
-   being applied in production builds. */
+/* Scan / generating card animations use explicit app CSS classes so they keep
+   running even when Tailwind animation utilities are optimized. */
 
 /* ===== Bottom Navigation ===== */
 

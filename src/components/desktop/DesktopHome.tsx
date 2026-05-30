@@ -34,6 +34,12 @@ type DesktopHomeStats = {
   newW: number;
 };
 
+type DesktopPendingScan = {
+  id: string;
+  project_title: string;
+  iconDataUrl?: string;
+};
+
 export function DesktopHomeView({
   projects,
   stats,
@@ -46,7 +52,7 @@ export function DesktopHomeView({
   stats: DesktopHomeStats;
   loading: boolean;
   error: string | null;
-  pendingScans: { id: string; project_title: string }[];
+  pendingScans: DesktopPendingScan[];
   onStartScan: () => void;
 }) {
   const [view, setView] = useState<'grid' | 'list'>('grid');
@@ -57,6 +63,7 @@ export function DesktopHomeView({
     [projects, q],
   );
   const firstProject = projects[0];
+  const hasVisibleBooks = pendingScans.length > 0 || filteredProjects.length > 0;
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -78,25 +85,12 @@ export function DesktopHomeView({
               {error}
             </div>
           )}
-          {pendingScans.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-              {pendingScans.map((job) => (
-                <div key={job.id} className="ds-card" style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Icon name="progress_activity" className="animate-spin" style={{ color: 'var(--color-accent)' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{job.project_title}</div>
-                    <div className="mono muted" style={{ fontSize: 11 }}>AI が単語を抽出しています</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
 
           <div className="ds-sec-head" style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <h2>本棚</h2>
               <span className="mono muted" style={{ fontSize: 12 }}>
-                {projects.length} 冊 · {stats.totalWords} 語
+                {projects.length + pendingScans.length} 冊 · {stats.totalWords} 語
               </span>
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
@@ -126,7 +120,7 @@ export function DesktopHomeView({
               <Icon name="progress_activity" className="animate-spin" />
               <span style={{ marginLeft: 8 }}>読み込み中...</span>
             </div>
-          ) : filteredProjects.length === 0 ? (
+          ) : !hasVisibleBooks ? (
             <button
               type="button"
               onClick={onStartScan}
@@ -152,6 +146,9 @@ export function DesktopHomeView({
             </button>
           ) : view === 'grid' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 18 }}>
+              {pendingScans.map((scan) => (
+                <DesktopGeneratingBookTile key={scan.id} scan={scan} />
+              ))}
               {filteredProjects.map((project) => (
                 <DesktopBookTile key={project.id} project={project} />
               ))}
@@ -180,6 +177,9 @@ export function DesktopHomeView({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {pendingScans.map((scan) => (
+                <DesktopGeneratingProjectRow key={scan.id} scan={scan} />
+              ))}
               {filteredProjects.map((project) => (
                 <DesktopProjectRow key={project.id} project={project} />
               ))}
@@ -188,6 +188,55 @@ export function DesktopHomeView({
         </div>
 
         <DesktopStudySidebar stats={stats} reviewHref={firstProject ? `/quiz/${firstProject.id}` : '/projects'} />
+      </div>
+    </div>
+  );
+}
+
+function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
+  return (
+    <div
+      className="ds-book"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={`${scan.project_title} を生成中`}
+      style={{
+        background: scan.iconDataUrl
+          ? `linear-gradient(rgba(26,26,26,0.42), rgba(26,26,26,0.42)), center / cover url(${scan.iconDataUrl})`
+          : 'linear-gradient(135deg, #137FEC 0%, #3DA1B8 52%, #228B22 100%)',
+        cursor: 'default',
+        pointerEvents: 'none',
+      }}
+    >
+      <div className="bk-spine" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="bk-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {scan.project_title}
+          </div>
+          <div className="bk-foot mono">単語を抽出中...</div>
+        </div>
+        <div
+          className="scanvocab-generating-spin"
+          style={{
+            width: 30,
+            height: 30,
+            border: '3px solid rgba(255,255,255,0.35)',
+            borderTopColor: '#fff',
+            borderRadius: 999,
+            flexShrink: 0,
+          }}
+          aria-hidden="true"
+        />
+      </div>
+      <div>
+        <div className="bk-n">AI<span className="u">解析</span></div>
+        <div style={{ display: 'flex', gap: 7, marginTop: 12 }}>
+          <span className="scanvocab-generating-pulse" style={{ height: 9, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.78)' }} />
+          <span className="scanvocab-generating-pulse" style={{ height: 9, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.58)', animationDelay: '0.16s' }} />
+          <span className="scanvocab-generating-pulse" style={{ height: 9, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.38)', animationDelay: '0.32s' }} />
+        </div>
       </div>
     </div>
   );
@@ -218,6 +267,41 @@ function DesktopBookTile({ project }: { project: DesktopHomeProject }) {
         <div className="bk-foot">習得 {pct}% · 更新 {desktopUpdatedLabel(project.lastUsedAt ?? project.createdAt)}</div>
       </div>
     </Link>
+  );
+}
+
+function DesktopGeneratingProjectRow({ scan }: { scan: DesktopPendingScan }) {
+  return (
+    <div className="ds-prow" role="status" aria-live="polite" aria-busy="true" style={{ cursor: 'default', pointerEvents: 'none' }}>
+      <div
+        className="tn"
+        style={{
+          background: scan.iconDataUrl
+            ? `center / cover url(${scan.iconDataUrl})`
+            : 'linear-gradient(135deg, #137FEC, #3DA1B8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          className="scanvocab-generating-spin"
+          style={{
+            width: 25,
+            height: 25,
+            border: '3px solid rgba(255,255,255,0.35)',
+            borderTopColor: '#fff',
+            borderRadius: 999,
+          }}
+          aria-hidden="true"
+        />
+      </div>
+      <div className="body">
+        <div className="ttl">{scan.project_title}</div>
+        <div className="sub">AI が単語を抽出しています</div>
+      </div>
+      <div className="count" style={{ fontSize: 18 }}>生成中</div>
+    </div>
   );
 }
 

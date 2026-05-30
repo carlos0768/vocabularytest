@@ -9,9 +9,8 @@ export interface GeneratingProjectCardProps {
 /**
  * Non-interactive placeholder shown while a new wordbook scan is in progress.
  *
- * Uses Tailwind's built-in `animate-spin` / `animate-pulse` utilities instead
- * of custom @keyframes. Custom keyframes via inline <style> tags were being
- * stripped by the production CSS pipeline (optimizeCss + Tailwind v4 layers).
+ * Uses app-level CSS keyframes instead of Tailwind animation utilities so the
+ * scan animation keeps running in optimized production builds.
  */
 export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectCardProps) {
   return (
@@ -40,7 +39,7 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
 
         <div className="absolute inset-0 flex items-center justify-center">
           <div
-            className="animate-spin pointer-events-none h-9 w-9 text-[var(--color-primary)]"
+            className="scanvocab-generating-spin pointer-events-none h-9 w-9 text-[var(--color-primary)]"
             aria-hidden="true"
           >
             <svg viewBox="0 0 24 24" className="h-full w-full" fill="none">
@@ -71,13 +70,13 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
         <p className="font-bold text-[var(--color-foreground)] truncate">{title}</p>
         <p className="text-sm font-semibold text-[var(--color-primary)] mt-0.5">生成中...</p>
         <div className="flex items-center gap-2 mt-2">
-          <span className="animate-pulse h-6 w-14 rounded-full bg-[var(--color-border)]" />
+          <span className="scanvocab-generating-pulse h-6 w-14 rounded-full bg-[var(--color-border)]" />
           <span
-            className="animate-pulse h-6 w-14 rounded-full bg-[var(--color-border)]"
+            className="scanvocab-generating-pulse h-6 w-14 rounded-full bg-[var(--color-border)]"
             style={{ animationDelay: '0.18s' }}
           />
           <span
-            className="animate-pulse h-6 w-14 rounded-full bg-[var(--color-border)]"
+            className="scanvocab-generating-pulse h-6 w-14 rounded-full bg-[var(--color-border)]"
             style={{ animationDelay: '0.36s' }}
           />
         </div>
