@@ -80,7 +80,7 @@ test('scan job create route keeps uploaded-image existence check before usage in
 });
 
 test('scan job create route keeps Pro-only and usage-limit response contract', () => {
-  assert.ok(createRouteSource.includes("const requiresPro = scanMode !== 'all';"));
+  assert.ok(createRouteSource.includes('const requiresPro = requiresProForModes(scanModes);'));
 
   assertSourceOrder(createRouteSource, [
     'const { data: scanData, error: scanError } = await checkAndIncrementScanUsage',

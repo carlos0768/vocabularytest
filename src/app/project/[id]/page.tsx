@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DesktopProjectDetailView } from '@/components/desktop/DesktopProjectDetail';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { WordLimitModal } from '@/components/limits';
@@ -639,7 +640,16 @@ export default function ProjectPage() {
   const bg = thumbColor(project.id);
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)]">
+    <>
+      <DesktopProjectDetailView
+        project={project}
+        projectId={projectId}
+        words={words}
+        wordsLoaded={wordsLoaded}
+        counts={counts}
+        onToggleFavorite={(word) => void handleToggleFavorite(word)}
+      />
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-4 pt-3 lg:hidden">
         <HeaderBtn onClick={() => router.replace('/')} aria-label="ホームへ戻る">
           <Icon name="chevron_left" size={16} />
@@ -1041,7 +1051,8 @@ export default function ProjectPage() {
         onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
         onConfirm={() => void handleConfirmSingleWordDelete()}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

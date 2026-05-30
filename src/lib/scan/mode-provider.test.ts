@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   getMissingProviderKey,
+  getMissingProviderKeyForModes,
   getProvidersForMode,
+  getProvidersForModes,
+  normalizeExtractModes,
+  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { AI_CONFIG } from '@/lib/ai/config';
@@ -42,6 +46,19 @@ test('scan mode maps to configured extraction provider', () => {
   }
 });
 
+test('normalizeExtractModes accepts arrays, JSON strings, and comma strings', () => {
+  assert.deepEqual(normalizeExtractModes(['all', 'idiom', 'all']), ['all', 'idiom']);
+  assert.deepEqual(normalizeExtractModes('["circled","eiken"]'), ['circled', 'eiken']);
+  assert.deepEqual(normalizeExtractModes('all,idiom,unknown'), ['all', 'idiom']);
+  assert.deepEqual(normalizeExtractModes('unknown', ['all']), ['all']);
+});
+
+test('multiple scan modes use the composite extraction provider and Pro gate', () => {
+  assert.deepEqual(getProvidersForModes(['all', 'idiom']), [AI_CONFIG.extraction.words.provider]);
+  assert.equal(requiresProForModes(['all']), false);
+  assert.equal(requiresProForModes(['all', 'idiom']), true);
+});
+
 test('Cloud Run configured mode does not require direct provider key', () => {
   withCloudRunEnv('https://scan.example.run.app', 'token-123', () => {
     const modes: ExtractMode[] = ['all', 'circled', 'eiken', 'idiom'];
@@ -62,6 +79,16 @@ test('Without Cloud Run, missing configured provider key is reported', () => {
       const missing = getMissingProviderKey(mode, { gemini: undefined, openai: undefined });
       assert.equal(missing, provider, `mode=${mode}`);
     }
+  });
+});
+
+test('Without Cloud Run, missing composite provider key is reported once for multiple modes', () => {
+  withCloudRunEnv(undefined, undefined, () => {
+    const missing = getMissingProviderKeyForModes(['all', 'idiom'], {
+      gemini: undefined,
+      openai: undefined,
+    });
+    assert.equal(missing, AI_CONFIG.extraction.words.provider);
   });
 });
 

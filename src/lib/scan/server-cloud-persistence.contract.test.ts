@@ -61,6 +61,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
         exampleSentenceJa: 'あなたの答えについて詳しく説明してください。',
         pronunciation: '/ɪˈlæbəreɪt/',
         partOfSpeechTags: ['verb'],
+        sourceModes: ['all', 'circled'],
       },
       {
         english: 'concise',
@@ -84,6 +85,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       example_sentence_ja: 'あなたの答えについて詳しく説明してください。',
       pronunciation: '/ɪˈlæbəreɪt/',
       part_of_speech_tags: ['verb'],
+      source_modes: ['all', 'circled'],
     },
     {
       project_id: 'project-123',
@@ -95,9 +97,11 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       example_sentence_ja: null,
       pronunciation: null,
       part_of_speech_tags: undefined,
+      source_modes: undefined,
     },
   ]);
   assert.equal(Object.hasOwn(payload[1] ?? {}, 'part_of_speech_tags'), true);
+  assert.equal(Object.hasOwn(payload[1] ?? {}, 'source_modes'), true);
 });
 
 test('shouldRollbackServerCloudProjectAfterWordsInsertFailure only deletes a newly created project after words insert failure', () => {

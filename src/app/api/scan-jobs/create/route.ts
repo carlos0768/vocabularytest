@@ -6,6 +6,12 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
 import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
 import { resolveScanJobSaveMode } from '@/lib/scan/job-create-contract';
+import {
+  EXTRACT_MODES,
+  getPrimaryExtractMode,
+  normalizeExtractModes,
+  requiresProForModes,
+} from '@/lib/scan/mode-provider';
 import { processJobById } from '../process/route';
 
 export const maxDuration = 300;
@@ -40,7 +46,8 @@ function scheduleScanJobProcessing(jobId: string) {
 const requestSchema = z.object({
   projectTitle: z.string().trim().min(1).max(120),
   projectIcon: z.string().trim().max(2_500_000).regex(/^data:image\//, 'projectIcon must be an image data URL').nullable().optional(),
-  scanMode: z.enum(['all', 'circled', 'eiken', 'idiom']).optional().default('all'),
+  scanMode: z.enum(EXTRACT_MODES).optional().default('all'),
+  scanModes: z.array(z.enum(EXTRACT_MODES)).min(1).max(EXTRACT_MODES.length).optional(),
   eikenLevel: z.string().trim().max(100).nullable().optional(),
   imagePath: z.string().trim().min(1).max(500).optional(),
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
@@ -88,6 +95,7 @@ export async function POST(request: NextRequest) {
       projectTitle,
       projectIcon,
       scanMode,
+      scanModes: requestedScanModes,
       eikenLevel,
       imagePath,
       imagePaths: multiplePaths,
@@ -102,7 +110,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'imagePaths is required' }, { status: 400 });
     }
 
-    const requiresPro = scanMode !== 'all';
+    const scanModes = normalizeExtractModes(requestedScanModes, [scanMode]);
+    const primaryScanMode = getPrimaryExtractMode(scanModes);
+    const requiresPro = requiresProForModes(scanModes);
 
     // Verify all images exist in storage first.
     for (const candidatePath of imagePaths) {
@@ -133,7 +143,7 @@ export async function POST(request: NextRequest) {
     if (scanData.requires_pro) {
       console.warn('[scan-jobs/create] Pro-required scan mode blocked', {
         userId: user.id,
-        scanMode,
+        scanModes,
       });
       return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
     }
@@ -187,7 +197,8 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         project_title: projectTitle,
         project_icon_image: projectIcon ?? null,
-        scan_mode: scanMode || 'all',
+        scan_mode: primaryScanMode,
+        scan_modes: scanModes,
         eiken_level: eikenLevel,
         image_path: imagePaths[0], // Primary image (backward compat)
         image_paths: imagePaths,   // All images
@@ -215,6 +226,7 @@ export async function POST(request: NextRequest) {
       jobId: String(job.id),
       userId: user.id,
       saveMode,
+      scanModes,
       imageCount: imagePaths.length,
       targetProjectId: validatedTargetProjectId,
     });

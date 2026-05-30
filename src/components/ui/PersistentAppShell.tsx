@@ -2,9 +2,8 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { DesktopAdFrame } from '@/components/ads/DesktopAdFrame';
+import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
 import { useAuth } from '@/hooks/use-auth';
-import { Sidebar } from './Sidebar';
 import { BottomNav } from './bottom-nav';
 
 const NO_SHELL_PATHS = [
@@ -19,45 +18,6 @@ const HIDE_BOTTOM_NAV_PATHS = [
   '/subscription', '/collections/new', '/word/',
 ];
 
-const DESKTOP_AD_PLACEMENTS = [
-  {
-    label: 'ホーム',
-    matches: (pathname: string) => pathname === '/',
-  },
-  {
-    label: '単語帳',
-    matches: (pathname: string) =>
-      pathname === '/projects' ||
-      pathname.startsWith('/project/') ||
-      pathname.startsWith('/word/'),
-  },
-  {
-    label: '共有',
-    matches: (pathname: string) =>
-      pathname === '/shared' || pathname.startsWith('/share/'),
-  },
-  {
-    label: '検索',
-    matches: (pathname: string) => pathname === '/search',
-  },
-  {
-    label: '進歩',
-    matches: (pathname: string) => pathname === '/stats',
-  },
-  {
-    label: '設定',
-    matches: (pathname: string) => pathname === '/settings',
-  },
-  {
-    label: 'コレクション',
-    matches: (pathname: string) => pathname === '/collections' || pathname.startsWith('/collections/'),
-  },
-  {
-    label: '保存済み',
-    matches: (pathname: string) => pathname === '/favorites' || pathname.startsWith('/favorites/'),
-  },
-];
-
 function shouldHideShell(pathname: string): boolean {
   return NO_SHELL_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
 }
@@ -65,13 +25,6 @@ function shouldHideShell(pathname: string): boolean {
 function shouldHideBottomNav(pathname: string): boolean {
   if (pathname === '/subscription') return true;
   return HIDE_BOTTOM_NAV_PATHS.some(p => pathname.startsWith(p));
-}
-
-function getDesktopAdPlacement(pathname: string): string | null {
-  const matchedPlacement = DESKTOP_AD_PLACEMENTS.find(({ matches }) =>
-    matches(pathname)
-  );
-  return matchedPlacement?.label ?? null;
 }
 
 export function PersistentAppShell({ children }: { children: ReactNode }) {
@@ -116,19 +69,14 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   }
 
   const hideNav = shouldHideBottomNav(pathname);
-  const desktopAdPlacement = getDesktopAdPlacement(pathname);
 
   return (
-    <div className="min-h-screen relative" style={{ backgroundColor: 'var(--color-background)' }}>
-      <Sidebar />
-      <div className="lg:ml-[280px] relative">
-        {desktopAdPlacement ? (
-          <DesktopAdFrame label={desktopAdPlacement}>{children}</DesktopAdFrame>
-        ) : (
-          children
-        )}
+    <div className="ds-live-shell relative">
+      <DesktopSidebar />
+      <div className="ds-live-main relative">
+        {children}
       </div>
-      {!hideNav && <BottomNav />}
+      {!hideNav && <div className="lg:hidden"><BottomNav /></div>}
       {scrollEnding && (
         <div
           className="fixed inset-0 z-[9998]"

@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { extractWordsFromImage, extractCircledWordsFromImage, extractEikenWordsFromImage, extractIdiomsFromImage } from '@/lib/ai';
+import {
+  extractWordsFromImage,
+  extractCircledWordsFromImage,
+  extractEikenWordsFromImage,
+  extractIdiomsFromImage,
+  extractCompositeWordsFromImage,
+} from '@/lib/ai';
 import { getAPIKeys } from '@/lib/ai/config';
 import {
+  EXTRACT_MODES,
   getMissingProviderKey,
+  getMissingProviderKeyForModes,
   getProvidersForMode,
+  getProvidersForModes,
+  normalizeExtractModes,
+  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { z } from 'zod';
@@ -21,24 +32,31 @@ export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
 
 const requestSchema = z.object({
   image: z.string().min(1).max(15_000_000),
-  mode: z.enum(['all', 'circled', 'eiken', 'idiom']).optional().default('all'),
+  mode: z.enum(EXTRACT_MODES).optional().default('all'),
+  scanModes: z.array(z.enum(EXTRACT_MODES)).min(1).max(EXTRACT_MODES.length).optional(),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
 }).strict();
 
 export const __internal = {
   getProvidersForMode,
+  getProvidersForModes,
   getMissingProviderKey,
+  getMissingProviderKeyForModes,
+  normalizeExtractModes,
 };
 
 export type ExtractRouteDeps = {
   createClient?: typeof createRouteHandlerClient;
   getApiKeys?: typeof getAPIKeys;
   getProvidersForMode?: typeof getProvidersForMode;
+  getProvidersForModes?: typeof getProvidersForModes;
   getMissingProviderKey?: typeof getMissingProviderKey;
+  getMissingProviderKeyForModes?: typeof getMissingProviderKeyForModes;
   extractWords?: typeof extractWordsFromImage;
   extractCircledWords?: typeof extractCircledWordsFromImage;
   extractEikenWords?: typeof extractEikenWordsFromImage;
   extractIdioms?: typeof extractIdiomsFromImage;
+  extractCompositeWords?: typeof extractCompositeWordsFromImage;
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
@@ -50,11 +68,14 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     createClient: deps?.createClient ?? createRouteHandlerClient,
     getApiKeys: deps?.getApiKeys ?? getAPIKeys,
     getProvidersForMode: deps?.getProvidersForMode ?? getProvidersForMode,
+    getProvidersForModes: deps?.getProvidersForModes ?? getProvidersForModes,
     getMissingProviderKey: deps?.getMissingProviderKey ?? getMissingProviderKey,
+    getMissingProviderKeyForModes: deps?.getMissingProviderKeyForModes ?? getMissingProviderKeyForModes,
     extractWords: deps?.extractWords ?? extractWordsFromImage,
     extractCircledWords: deps?.extractCircledWords ?? extractCircledWordsFromImage,
     extractEikenWords: deps?.extractEikenWords ?? extractEikenWordsFromImage,
     extractIdioms: deps?.extractIdioms ?? extractIdiomsFromImage,
+    extractCompositeWords: deps?.extractCompositeWords ?? extractCompositeWordsFromImage,
     resolveImmediateWords: deps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst,
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
@@ -62,13 +83,26 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
   };
 }
 
-function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
+function isMasterFirstResolutionEnabledForModes(modes: Iterable<ExtractMode>): boolean {
   const disabledModes = (process.env.MASTER_FIRST_SCAN_DISABLED_MODES ?? '')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return !disabledModes.includes(mode);
+  return normalizeExtractModes(Array.from(modes)).every((mode) => !disabledModes.includes(mode));
+}
+
+function withFallbackSourceModes<T>(words: T[], modes: ExtractMode[]): T[] {
+  return words.map((word) => {
+    if (!word || typeof word !== 'object') {
+      return word;
+    }
+    const sourceModes = normalizeExtractModes((word as { sourceModes?: unknown }).sourceModes, []);
+    return {
+      ...(word as Record<string, unknown>),
+      sourceModes: sourceModes.length > 0 ? sourceModes : modes,
+    } as T;
+  });
 }
 
 // API Route: POST /api/extract
@@ -79,12 +113,13 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
   const {
     createClient,
     getApiKeys,
-    getProvidersForMode: resolveProvidersForMode,
-    getMissingProviderKey: resolveMissingProviderKey,
+    getProvidersForModes: resolveProvidersForModes,
+    getMissingProviderKeyForModes: resolveMissingProviderKeyForModes,
     extractWords,
     extractCircledWords,
     extractEikenWords,
     extractIdioms,
+    extractCompositeWords,
     resolveImmediateWords,
     backfillWords,
     generateExamples,
@@ -119,11 +154,14 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     if (!parsed.ok) {
       return parsed.response;
     }
-    const { image, mode, eikenLevel } = parsed.data as {
+    const { image, mode, scanModes: requestedScanModes, eikenLevel } = parsed.data as {
       image: string;
       mode: ExtractMode;
+      scanModes?: ExtractMode[];
       eikenLevel: EikenLevel;
     };
+    const modes = normalizeExtractModes(requestedScanModes, [mode]);
+    const primaryMode = modes[0] ?? 'all';
 
     // Detailed logging for debugging
     const imageLength = image?.length || 0;
@@ -132,7 +170,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     const detectedType = dataTypeMatch ? dataTypeMatch[1] : 'unknown';
 
     console.log('Extract API called:', {
-      mode,
+      modes,
+      primaryMode,
       eikenLevel,
       imageLength,
       hasDataPrefix,
@@ -154,7 +193,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
 
     // OpenAI image endpoint does not accept PDF data URLs.
     // Return a clear message instead of surfacing a vague provider error.
-    if (isValidPdf && resolveProvidersForMode(mode).includes('openai')) {
+    if (isValidPdf && resolveProvidersForModes(modes).includes('openai')) {
       return NextResponse.json(
         {
           success: false,
@@ -178,7 +217,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
     // Pro-only: circled, eiken, idiom
-    const requiresPro = mode === 'circled' || mode === 'eiken' || mode === 'idiom';
+    const requiresPro = requiresProForModes(modes);
     const { data: scanData, error: scanError } = await supabase
       .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
 
@@ -217,7 +256,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 4. PROCESS IMAGE
     // ============================================
     const apiKeys = getApiKeys();
-    const missingProviderKey = resolveMissingProviderKey(mode, apiKeys);
+    const missingProviderKey = resolveMissingProviderKeyForModes(modes, apiKeys);
     if (missingProviderKey) {
       const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
       return NextResponse.json(
@@ -226,24 +265,28 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       );
     }
 
-    const startedAt = Date.now();
     let aiExtractionMs = 0;
 
     let result;
     const aiStart = Date.now();
-    if (mode === 'idiom') {
-      result = await extractIdioms(image, apiKeys);
-    } else if (mode === 'eiken') {
-      // EIKEN filter mode
-      if (!eikenLevel) {
-        return NextResponse.json(
-          { success: false, error: '英検レベルを指定してください' },
-          { status: 400 }
-        );
-      }
+    if (modes.includes('eiken') && !eikenLevel) {
+      return NextResponse.json(
+        { success: false, error: '英検レベルを指定してください' },
+        { status: 400 }
+      );
+    }
 
+    if (modes.length > 1) {
+      result = await extractCompositeWords(image, apiKeys, {
+        modes,
+        eikenLevel,
+      });
+    } else if (primaryMode === 'idiom') {
+      result = await extractIdioms(image, apiKeys);
+    } else if (primaryMode === 'eiken') {
+      // EIKEN filter mode
       result = await extractEikenWords(image, apiKeys, eikenLevel);
-    } else if (mode === 'circled') {
+    } else if (primaryMode === 'circled') {
       // Note: eikenLevel is NOT used for circled mode anymore
       result = await extractCircledWords(image, apiKeys, {});
     } else {
@@ -261,11 +304,18 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
         { status: 422 }
       );
     }
+    result = {
+      ...result,
+      data: {
+        ...result.data,
+        words: withFallbackSourceModes(result.data.words, modes),
+      },
+    };
 
     // ============================================
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
-    const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
+    const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
     const resolved = masterFirstEnabled
       ? await resolveImmediateWords(result.data.words)
       : null;
@@ -276,7 +326,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
     console.log('[extract] Extraction done', {
-      mode,
+      modes,
+      primaryMode,
       masterFirstEnabled,
       wordCount: extractedWords.length,
       masterHitCount: resolved?.metrics.masterHitCount ?? 0,

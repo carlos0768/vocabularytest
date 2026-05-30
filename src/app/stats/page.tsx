@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { DesktopStatsView } from '@/components/desktop/DesktopStats';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -54,7 +55,9 @@ export default function StatsPage() {
   const masteryPercent = totalWords > 0 ? Math.round((mastered / totalWords) * 100) : 0;
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:pt-[54px]">
+    <>
+      <DesktopStatsView stats={stats} loading={loading} />
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[18px] pb-3 pt-1">
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
           ANALYTICS
@@ -194,7 +197,8 @@ export default function StatsPage() {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

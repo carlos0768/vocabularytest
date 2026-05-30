@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { DesktopHomeView } from '@/components/desktop/DesktopHome';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
@@ -197,6 +199,7 @@ const EMPTY_STATS: HomeStats = {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { step: onboardingStep, loading: onboardingLoading, setStep: setOnboardingStep } = useOnboarding();
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
@@ -368,7 +371,16 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-4">
+    <>
+      <DesktopHomeView
+        projects={projects}
+        stats={stats}
+        loading={loading}
+        error={error}
+        pendingScans={pendingScans}
+        onStartScan={() => router.push('/scan')}
+      />
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
         <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN
@@ -556,6 +568,7 @@ export default function HomePage() {
         )}
       </div>
 
+      </div>
       <ScanCaptureModal
         isOpen={vocabScanOpen}
         onClose={() => setVocabScanOpen(false)}
@@ -568,7 +581,7 @@ export default function HomePage() {
         onSkip={handleWelcomeSkip}
         onStartScan={() => setVocabScanOpen(true)}
       />
-    </div>
+    </>
   );
 }
 

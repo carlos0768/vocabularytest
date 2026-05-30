@@ -16,8 +16,10 @@ function isMissingCompatColumn(error: PostgrestError | null): boolean {
   return (
     message.includes('scan_jobs.save_mode') ||
     message.includes('scan_jobs.target_project_id') ||
+    message.includes('scan_jobs.scan_modes') ||
     message.includes("'save_mode' column of 'scan_jobs'") ||
-    message.includes("'target_project_id' column of 'scan_jobs'")
+    message.includes("'target_project_id' column of 'scan_jobs'") ||
+    message.includes("'scan_modes' column of 'scan_jobs'")
   );
 }
 
@@ -54,6 +56,7 @@ export async function insertScanJobWithCompat(
   const legacyPayload = { ...payload };
   delete legacyPayload.save_mode;
   delete legacyPayload.target_project_id;
+  delete legacyPayload.scan_modes;
 
   const legacyAttempt = await supabase
     .from('scan_jobs')

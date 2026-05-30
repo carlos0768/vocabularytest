@@ -1,24 +1,85 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { DesktopScanView } from '@/components/desktop/DesktopScan';
 import { useAuth } from '@/hooks/use-auth';
+import { getRepository } from '@/lib/db';
+import { getGuestUserId } from '@/lib/utils';
+import type { Project, SubscriptionStatus } from '@/types';
+
 const MODES = [
   { k: 'vocab', label: '単語帳', icon: 'auto_stories', active: true },
 ];
 
 const SUB_OPTIONS = [
-  { k: 'circle', label: '丸囲み', on: true },
+  { k: 'circled', label: '丸囲み', on: true },
   { k: 'eiken', label: '英検', pro: true },
   { k: 'idiom', label: '熟語・イディオム' },
   { k: 'all', label: 'すべての単語', on: true },
 ];
 
 export default function ScanPage() {
-  const { isPro } = useAuth();
+  const { user, subscription, isPro, loading: authLoading } = useAuth();
   const activeMode = 'vocab';
+  const [targetProjectId, setTargetProjectId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [targetProject, setTargetProject] = useState<Project | null>(null);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+
+  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
+  const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
+
+  useEffect(() => {
+    setTargetProjectId(new URLSearchParams(window.location.search).get('projectId'));
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    let cancelled = false;
+
+    const loadProjects = async () => {
+      setProjectsLoading(true);
+      try {
+        const userId = user ? user.id : getGuestUserId();
+        const loadedProjects = await repository.getProjects(userId);
+        const sorted = [...loadedProjects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const target = targetProjectId
+          ? (sorted.find((project) => project.id === targetProjectId) ?? await repository.getProject(targetProjectId).catch(() => null)) ?? null
+          : null;
+
+        if (!cancelled) {
+          setProjects(sorted.filter((project) => project.id !== targetProjectId));
+          setTargetProject(target);
+        }
+      } catch (error) {
+        console.error('Failed to load scan projects:', error);
+        if (!cancelled) {
+          setProjects([]);
+          setTargetProject(null);
+        }
+      } finally {
+        if (!cancelled) setProjectsLoading(false);
+      }
+    };
+
+    void loadProjects();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, repository, targetProjectId, user]);
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <>
+      <DesktopScanView
+        projects={projects}
+        loadingProjects={projectsLoading}
+        targetProjectId={targetProjectId}
+        targetProjectTitle={targetProject?.title}
+        isPro={isPro}
+      />
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Dimmed background content */}
       <div className="pointer-events-none opacity-40">
         <div className="flex items-center justify-between px-[18px] pb-3.5 pt-2">
@@ -158,6 +219,7 @@ export default function ScanPage() {
         </div>
 
       </div>
-    </div>
+      </div>
+    </>
   );
 }

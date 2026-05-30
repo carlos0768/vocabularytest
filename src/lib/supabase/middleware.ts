@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { normalizeOAuthRedirectPath } from '@/lib/auth/oauth';
 
 // Paths that require authentication check.
 const protectedPaths = [
@@ -73,14 +74,20 @@ export async function updateSession(request: NextRequest) {
 
   if (isProtectedPath && !session) {
     const url = request.nextUrl.clone();
+    const redirectPath = `${pathname}${request.nextUrl.search}`;
     url.pathname = '/login';
-    url.searchParams.set('redirect', pathname);
+    url.search = '';
+    url.searchParams.set('redirect', redirectPath);
     return NextResponse.redirect(url);
   }
 
   if (isAuthPath && session) {
     const url = request.nextUrl.clone();
-    url.pathname = '/';
+    const redirectPath = normalizeOAuthRedirectPath(request.nextUrl.searchParams.get('redirect'));
+    const redirectUrl = new URL(redirectPath, request.nextUrl.origin);
+    url.pathname = authPaths.some((path) => redirectUrl.pathname.startsWith(path)) ? '/' : redirectUrl.pathname;
+    url.search = redirectUrl.search;
+    url.hash = redirectUrl.hash;
     return NextResponse.redirect(url);
   }
 

@@ -32,7 +32,7 @@ interface ScanCaptureModalProps {
 }
 
 type TopMode = 'vocab';
-type SubOption = 'circle' | 'eiken' | 'idiom' | 'all';
+type SubOption = ExtractMode;
 
 const MAX_SCAN_IMAGE_COUNT = 20;
 
@@ -50,18 +50,11 @@ const MODES: { k: TopMode; label: string; pro?: boolean; icon: React.ReactNode }
 ];
 
 const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[] = [
-  { k: 'circle', label: '丸囲み',           hint: '手動マークを優先' },
+  { k: 'circled', label: '丸囲み',           hint: '手動マークを優先' },
   { k: 'eiken',  label: '英検',             hint: '級別頻出語を優先', pro: true },
   { k: 'idiom',  label: '熟語・イディオム', hint: '複合語・熟語を抽出' },
   { k: 'all',    label: 'すべての単語',     hint: '全単語を網羅' },
 ];
-
-function subToExtractMode(sub: SubOption): ExtractMode {
-  if (sub === 'circle') return 'circled';
-  if (sub === 'eiken') return 'eiken';
-  if (sub === 'idiom') return 'idiom';
-  return 'all';
-}
 
 function randomSuffix(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -80,7 +73,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
   const router = useRouter();
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>(targetProjectId ? 'vocab' : (defaultMode ?? 'vocab'));
-  const [activeSub, setActiveSub] = useState<SubOption>('all');
+  const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
@@ -88,6 +81,17 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
   const libraryInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const selectedScanModes = activeSubs;
+  const selectedEikenLevel = selectedScanModes.includes('eiken') ? '3' : null;
+
+  const toggleSubOption = (option: SubOption) => {
+    setActiveSubs((current) => {
+      if (!current.includes(option)) return [...current, option];
+      if (current.length === 1) return current;
+      return current.filter((item) => item !== option);
+    });
+  };
 
   const createBackgroundScanJob = async (files: readonly File[]) => {
     const supabase = createBrowserClient();
@@ -126,8 +130,9 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
         body: JSON.stringify({
           imagePaths: uploadedPaths,
           projectTitle: `スキャン ${dateLabel}`,
-          scanMode: subToExtractMode(activeSub),
-          eikenLevel: null,
+          scanMode: selectedScanModes[0] ?? 'all',
+          scanModes: selectedScanModes,
+          eikenLevel: selectedEikenLevel,
           targetProjectId: targetProjectId || undefined,
           clientPlatform: 'web',
         }),
@@ -147,7 +152,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
 
   const extractImagesImmediately = async (files: readonly File[]) => {
     let accumulator = createHomeImmediateScanResultAccumulator();
-    const mode = subToExtractMode(activeSub);
+    const mode = selectedScanModes[0] ?? 'all';
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!;
@@ -157,7 +162,12 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
         const res = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, mode, eikenLevel: null }),
+          body: JSON.stringify({
+            image: base64,
+            mode,
+            scanModes: selectedScanModes,
+            eikenLevel: selectedEikenLevel,
+          }),
         });
         const result = await res.json().catch(() => ({})) as {
           success?: boolean;
@@ -368,12 +378,12 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
               </div>
               <div className="flex flex-wrap gap-[5px]">
                 {SUB_OPTIONS.map(s => {
-                  const on = activeSub === s.k;
+                  const on = activeSubs.includes(s.k);
                   return (
                     <button
                       key={s.k}
                       type="button"
-                      onClick={() => setActiveSub(s.k)}
+                      onClick={() => toggleSubOption(s.k)}
                       className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                       style={{
                         background: on ? 'var(--solid-ink)' : '#fff',

@@ -128,10 +128,10 @@
   --color-border-light: var(--color-border-light);
 
   /* Fonts */
-  --font-display: 'Lexend', 'Noto Sans JP', sans-serif;
-  --font-body: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+  --font-display: var(--font-lexend), var(--font-noto-sans-jp), sans-serif;
+  --font-body: var(--font-noto-sans-jp), 'Hiragino Sans', sans-serif;
   --font-sans: var(--font-body);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-body);
 
   /* Border Radius */
   --radius-sm: 8px;
@@ -140,6 +140,15 @@
   --radius-xl: 20px;
   --radius-2xl: 28px;
   --radius-full: 9999px;
+}
+
+/* Runtime font aliases used by both Tailwind utilities and desktop CSS. */
+:root {
+  --font-display: var(--font-lexend), var(--font-noto-sans-jp), sans-serif;
+  --font-body: var(--font-noto-sans-jp), 'Hiragino Sans', sans-serif;
+  --font-sans: var(--font-body);
+  --font-geist-mono: var(--font-body);
+  --font-mono: var(--font-body);
 }
 
 /* ===== Base Styles ===== */

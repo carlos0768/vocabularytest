@@ -1,4 +1,5 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
+import type { ExtractMode } from '@/lib/scan/mode-provider';
 
 export interface ServerCloudProjectInsertParams {
   userId: string;
@@ -24,6 +25,7 @@ export interface ServerCloudWordForInsert {
   exampleSentenceJa?: string;
   pronunciation?: string;
   partOfSpeechTags?: string[];
+  sourceModes?: ExtractMode[];
 }
 
 export interface ServerCloudWordInsertPayload {
@@ -36,6 +38,7 @@ export interface ServerCloudWordInsertPayload {
   example_sentence_ja: string | null;
   pronunciation: string | null;
   part_of_speech_tags?: string[];
+  source_modes?: ExtractMode[];
 }
 
 export function buildServerCloudProjectInsertPayload(
@@ -70,6 +73,7 @@ export function buildServerCloudWordsInsertPayload(
     example_sentence_ja: word.exampleSentenceJa || null,
     pronunciation: word.pronunciation || null,
     part_of_speech_tags: word.partOfSpeechTags,
+    source_modes: word.sourceModes,
   }));
 }
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -51,7 +52,16 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
+    <>
+      <DesktopSettingsView
+        email={user?.email}
+        username={username}
+        isPro={isPro}
+        theme={theme}
+        onThemeChange={setTheme}
+        onSignOut={() => void handleSignOut()}
+      />
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="px-[18px] pb-[14px] pt-1">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT</div>
@@ -234,7 +244,8 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

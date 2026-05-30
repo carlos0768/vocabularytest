@@ -7,6 +7,11 @@ import {
   normalizeLegacyScanJobClientPlatform,
   resolveScanJobSaveMode,
 } from '@/lib/scan/job-create-contract';
+import {
+  getPrimaryExtractMode,
+  normalizeExtractModes,
+  requiresProForModes,
+} from '@/lib/scan/mode-provider';
 import { processJobById } from './process/route';
 
 export const maxDuration = 300;
@@ -80,6 +85,8 @@ export async function POST(request: NextRequest) {
     const image = formData.get('image') as File;
     const projectTitle = formData.get('projectTitle') as string;
     const scanMode = formData.get('scanMode') as string || 'all';
+    const scanModes = normalizeExtractModes(formData.getAll('scanModes'), normalizeExtractModes(scanMode));
+    const primaryScanMode = getPrimaryExtractMode(scanModes);
     const eikenLevel = formData.get('eikenLevel') as string || null;
     const clientPlatform = normalizeLegacyScanJobClientPlatform(
       formData.get('clientPlatform') as string | null,
@@ -94,7 +101,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const requiresPro = scanMode !== 'all';
+    const requiresPro = requiresProForModes(scanModes);
     const { data: scanData, error: scanError } = await checkAndIncrementScanUsage(supabase, {
       count: 1,
       requirePro: requiresPro,
@@ -108,7 +115,7 @@ export async function POST(request: NextRequest) {
     if (scanData.requires_pro) {
       console.warn('[scan-jobs] Pro-required scan mode blocked', {
         userId: user.id,
-        scanMode,
+        scanModes,
       });
       return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
     }
@@ -178,7 +185,8 @@ export async function POST(request: NextRequest) {
       {
         user_id: user.id,
         project_title: projectTitle,
-        scan_mode: scanMode,
+        scan_mode: primaryScanMode,
+        scan_modes: scanModes,
         eiken_level: eikenLevel,
         image_path: imagePath,
         image_paths: [imagePath],
@@ -208,6 +216,7 @@ export async function POST(request: NextRequest) {
       jobId: String(job.id),
       userId: user.id,
       saveMode,
+      scanModes,
       targetProjectId: validatedTargetProjectId,
     });
 
@@ -292,6 +301,7 @@ export async function GET(request: NextRequest) {
       target_project_id: string | null;
       project_title: string;
       scan_mode: string;
+      scan_modes?: string[] | null;
       save_mode: 'server_cloud' | 'client_local';
       image_path: string;
       image_paths: string[] | null;

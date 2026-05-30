@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DesktopSubscriptionView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
@@ -56,7 +57,16 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:pt-[54px]">
+    <>
+      <DesktopSubscriptionView
+        price={plan.price}
+        processing={processing}
+        error={error}
+        isPro={isPro}
+        userSignedIn={Boolean(user)}
+        onSubscribe={() => void handleSubscribe()}
+      />
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="flex items-center gap-2 px-[14px] pb-2 pt-1">
         <button
           type="button"
@@ -174,7 +184,8 @@ export default function SubscriptionPage() {
       </div>
 
       <div className="h-[100px]" />
-    </div>
+      </div>
+    </>
   );
 }
 

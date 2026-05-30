@@ -1,13 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { DesktopContactView } from '@/components/desktop/DesktopSupport';
 import { Icon } from '@/components/ui/Icon';
 
 export default function ContactPage() {
   const router = useRouter();
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <>
+      <DesktopContactView onBack={() => router.back()} />
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="px-[18px] pb-3.5 pt-1">
         <div className="mb-0.5 flex items-center gap-2">
@@ -72,7 +75,8 @@ export default function ContactPage() {
           MERKEN
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DesktopSharedDetailView } from '@/components/desktop/DesktopSharedDetail';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
@@ -247,7 +248,27 @@ export default function SharedDetailPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)]">
+    <>
+      <DesktopSharedDetailView
+        project={project}
+        words={words}
+        ownerLabel={ownerLabel}
+        selectMode={selectMode}
+        selectedWordIds={selectedWordIds}
+        likeCount={likeCount}
+        liked={liked}
+        importing={importBusy}
+        importedProjectId={importedProjectId}
+        onToggleLike={() => void handleToggleLike()}
+        onToggleSelectMode={() => {
+          setSelectMode((current) => !current);
+          setSelectedWordIds(new Set());
+        }}
+        onToggleWord={handleToggleSelect}
+        onImport={() => void handleImport()}
+        onClearSelection={() => setSelectedWordIds(new Set())}
+      />
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-3.5 pb-2 pt-2">
         <SharedHeaderBtn onClick={() => router.back()} aria-label="戻る">
           <Icon name="chevron_left" size={16} />
@@ -362,7 +383,8 @@ export default function SharedDetailPage() {
           オリジナルは変更されません
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

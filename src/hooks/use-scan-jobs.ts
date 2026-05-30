@@ -9,6 +9,7 @@ export interface ScanJob {
   project_id: string | null;
   project_title: string;
   scan_mode: string;
+  scan_modes?: string[] | null;
   image_path: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   result: string | null;

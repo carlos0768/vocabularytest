@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { EXTRACT_MODES, normalizeExtractModes } from '@/lib/scan/mode-provider';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Zod schema for validating OpenAI API response
@@ -9,13 +10,20 @@ export const AIWordSchema = z.object({
   english: z.string(),
   japanese: z.string().optional().default(''),
   japaneseSource: z.string().optional(),
+  sourceModes: z.array(z.enum(EXTRACT_MODES)).nullish(),
   distractors: z.array(z.string()).default([]),
   partOfSpeechTags: z.array(z.string()).nullish().transform((tags) => tags ?? []),
   // Optional example sentence fields (Pro feature)
   exampleSentence: z.string().optional().nullable(),
   exampleSentenceJa: z.string().optional().nullable(),
 }).transform((word) => {
-  const { japaneseSource: rawJapaneseSource, ...rest } = word;
+  const {
+    japaneseSource: rawJapaneseSource,
+    sourceModes: rawSourceModes,
+    exampleSentence: rawExampleSentence,
+    exampleSentenceJa: rawExampleSentenceJa,
+    ...rest
+  } = word;
   // Sanitize japanese: treat "unknown", "不明", empty as missing
   const INVALID_JAPANESE = ['unknown', '不明', 'n/a', 'N/A', '-', '---', ''];
   const sanitizedJapanese = INVALID_JAPANESE.includes(word.japanese?.trim() ?? '')
@@ -24,6 +32,7 @@ export const AIWordSchema = z.object({
   const japaneseSource = rawJapaneseSource === 'scan' || rawJapaneseSource === 'ai'
     ? rawJapaneseSource
     : undefined;
+  const sourceModes = normalizeExtractModes(rawSourceModes, []);
   return {
     ...rest,
     english: word.english || '---',
@@ -31,8 +40,9 @@ export const AIWordSchema = z.object({
     // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
     distractors: word.distractors,
     partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
-    exampleSentence: word.exampleSentence || undefined,
-    exampleSentenceJa: word.exampleSentenceJa || undefined,
+    ...(sourceModes.length > 0 ? { sourceModes } : {}),
+    ...(rawExampleSentence ? { exampleSentence: rawExampleSentence } : {}),
+    ...(rawExampleSentenceJa ? { exampleSentenceJa: rawExampleSentenceJa } : {}),
     ...(sanitizedJapanese && japaneseSource ? { japaneseSource } : {}),
   };
 });

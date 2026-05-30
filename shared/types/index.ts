@@ -198,6 +198,7 @@ export interface AIWordExtraction {
   english: string;
   japanese: string;
   japaneseSource?: 'scan' | 'ai';
+  sourceModes?: Array<'all' | 'circled' | 'eiken' | 'idiom'>;
   lexiconEntryId?: string;
   lexiconSenseId?: string;
   cefrLevel?: string;

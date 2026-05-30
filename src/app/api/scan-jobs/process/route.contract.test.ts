@@ -379,7 +379,7 @@ function createContractDeps(
       },
     }),
     resolveImmediateWords: async (words) => ({
-      words,
+      words: words as never,
       lexiconEntries: [
         {
           id: 'lexicon-apple',
@@ -442,7 +442,7 @@ function createServerCloudContractDeps(
         exampleSentence: 'I ate an apple.',
         exampleSentenceJa: '私はりんごを食べました。',
         partOfSpeechTags: ['noun'],
-      })),
+      })) as never,
       lexiconEntries: [
         {
           id: 'lexicon-apple',
@@ -573,7 +573,7 @@ test('client_local completion keeps result payload successful when example gener
   assert.equal(typeof completedUpdate.payload.updated_at, 'string');
   assert.equal(typeof completedUpdate.payload.result, 'string');
 
-  const resultPayload = JSON.parse(completedUpdate.payload.result);
+  const resultPayload = JSON.parse(String(completedUpdate.payload.result));
   assert.equal(resultPayload.wordCount, 1);
   assert.equal(resultPayload.saveMode, 'client_local');
   assert.deepEqual(resultPayload.sourceLabels, ['鉄壁']);
@@ -689,6 +689,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
       example_sentence_ja: '私はりんごを食べました。',
       pronunciation: null,
       part_of_speech_tags: ['noun'],
+      source_modes: undefined,
     },
   ]);
 
@@ -698,7 +699,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   assert.equal(completedUpdate.payload.status, 'completed');
   assert.equal(typeof completedUpdate.payload.updated_at, 'string');
   assert.equal(typeof completedUpdate.payload.result, 'string');
-  assert.deepEqual(JSON.parse(completedUpdate.payload.result), {
+  assert.deepEqual(JSON.parse(String(completedUpdate.payload.result)), {
     wordCount: 1,
     saveMode: 'server_cloud',
     targetProjectId: NEW_PROJECT_ID,

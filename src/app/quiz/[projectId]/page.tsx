@@ -891,7 +891,28 @@ export default function QuizPage() {
     return (
       <>
       <PwaInstallPromptModal open={pwaPromptOpen} onClose={() => setPwaPromptOpen(false)} />
-      <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
+      <div className="fixed inset-0 z-30 hidden flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:left-[264px] lg:flex">
+        <div className="ds-card" style={{ padding: '44px 56px', textAlign: 'center', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 72, height: 72, borderRadius: 18, background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+            <Icon name="trophy" filled style={{ fontSize: 38, color: '#d97706' }} />
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26 }}>クイズ完了</div>
+          <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 56, lineHeight: 1.1 }}>
+            {results.correct} <span style={{ fontSize: 24, color: 'var(--color-secondary-text)' }}>/ {results.total}</span>
+          </div>
+          <div className="muted" style={{ fontSize: 14 }}>正答率 {percentage}%</div>
+          <div className="ds-prog" style={{ width: '100%', marginTop: 12 }}><div className="fi" style={{ width: `${percentage}%` }} /></div>
+          <p className="muted" style={{ margin: '12px 0 14px', fontSize: 14 }}>{completionMessage}</p>
+          <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+            <button type="button" className="ds-btn" onClick={handleRestart}><Icon name="replay" />もう一度</button>
+            <button type="button" className="ds-btn dark" onClick={reviewMode || learnMode ? goToNextReviewQuiz : backToProject}>
+              <Icon name={reviewMode || learnMode ? 'arrow_forward' : 'check'} />
+              {reviewMode || learnMode ? '次へ進む' : '終了する'}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
         <button type="button" onClick={backToProject} className="absolute left-4 inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]" style={{ top: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}>
           <Icon name="close" size={22} />
         </button>
@@ -928,9 +949,144 @@ export default function QuizPage() {
 
   /* ---------- Main quiz screen (DS style) ---------- */
   const total = questions.length;
+  const desktopSubtitle = reviewMode
+    ? '復習 · 4択クイズ'
+    : learnMode
+      ? '未習得の単語 · 4択クイズ'
+      : currentIsWordOrder
+        ? '語順クイズ'
+        : isActiveVocab
+          ? 'タイプ入力'
+          : '4択クイズ';
+  const desktopPrompt = currentIsWordOrder
+    ? currentQuestion?.word.japanese
+    : isActiveVocab
+      ? currentQuestion?.word.japanese
+      : quizDirection === 'en-to-ja'
+        ? currentQuestion?.word.english
+        : currentQuestion?.word.japanese;
+  const desktopPhonetic = !currentIsWordOrder && !isActiveVocab
+    ? currentQuestion?.word.pronunciation
+    : '';
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
+    <>
+    <div className="fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[264px] lg:flex">
+      <div className="ds-quiz-wrap">
+        <div className="ds-quiz-head">
+          <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
+            <Icon name="close" />
+          </button>
+          <div className="ds-qbar"><div className="fi" style={{ width: `${Math.round((currentIndex / Math.max(total, 1)) * 100)}%` }} /></div>
+          <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
+        </div>
+        <div className="mono muted" style={{ fontSize: 12, marginTop: 6 }}>{desktopSubtitle}</div>
+
+        <div className="ds-qword">
+          <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 42 : undefined }}>{desktopPrompt}</div>
+          <div className="ph">{desktopPhonetic || (currentIsWordOrder ? '日本語に合う語順を完成してください' : '\u00a0')}</div>
+        </div>
+
+        {isWordOrderQuestion(currentQuestion) ? (
+          <div style={{ width: '100%', maxWidth: 820 }}>
+            <DSWordOrderPanel
+              question={currentQuestion}
+              selectedTokens={wordOrderSelectedTokens}
+              result={wordOrderResult}
+              isRevealed={isRevealed}
+              onSelectToken={handleWordOrderTokenSelect}
+              onRemoveToken={handleWordOrderTokenRemove}
+              onSubmit={handleWordOrderSubmit}
+            />
+          </div>
+        ) : !isActiveVocab && isMultipleChoiceQuestion(currentQuestion) ? (
+          <div className="ds-qopts">
+            {currentQuestion.options.map((option, i) => {
+              let cls = 'ds-qopt';
+              if (isRevealed) {
+                if (i === currentQuestion.correctIndex) cls += ' correct';
+                else if (i === selectedIndex) cls += ' wrong';
+                else cls += ' dim';
+              }
+              return (
+                <button key={i} type="button" className={cls} onClick={() => handleSelect(i)} disabled={isRevealed}>
+                  <span className="lbl">{String.fromCharCode(65 + i)}</span>
+                  <span style={{ flex: 1 }}>{option}</span>
+                  {isRevealed && i === currentQuestion.correctIndex && <Icon name="check" />}
+                  {isRevealed && i === selectedIndex && i !== currentQuestion.correctIndex && <Icon name="close" />}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ width: '100%', maxWidth: 520 }}>
+            <TypeInQuizField
+              answer={currentQuestion?.word.english ?? ''}
+              value={typeInAnswer}
+              onChange={setTypeInAnswer}
+              onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
+              disabled={isRevealed}
+              result={typeInResult}
+            />
+            {!isRevealed && (
+              <button
+                type="button"
+                className="ds-btn accent"
+                onClick={handleTypeInSubmit}
+                disabled={!typeInAnswer.trim()}
+                style={{ width: '100%', marginTop: 16 }}
+              >
+                回答する
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ height: 64, display: 'flex', alignItems: 'center', marginTop: 18, gap: 14 }}>
+          {isRevealed ? (
+            <>
+              <span
+                className="ds-status"
+                style={{
+                  color:
+                    typeInResult === 'wrong' ||
+                    selectedIndex !== null && isMultipleChoiceQuestion(currentQuestion) && selectedIndex !== currentQuestion.correctIndex ||
+                    wordOrderResult === 'wrong'
+                      ? 'var(--color-error)'
+                      : 'var(--color-accent-ink)',
+                  fontSize: 15,
+                }}
+              >
+                <Icon
+                  name={
+                    typeInResult === 'wrong' ||
+                    selectedIndex !== null && isMultipleChoiceQuestion(currentQuestion) && selectedIndex !== currentQuestion.correctIndex ||
+                    wordOrderResult === 'wrong'
+                      ? 'cancel'
+                      : 'check_circle'
+                  }
+                  filled
+                />
+                {typeInResult === 'wrong' ||
+                selectedIndex !== null && isMultipleChoiceQuestion(currentQuestion) && selectedIndex !== currentQuestion.correctIndex ||
+                wordOrderResult === 'wrong'
+                  ? '不正解'
+                  : '正解'}
+              </span>
+              <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
+                次の問題<Icon name="arrow_forward" />
+              </button>
+            </>
+          ) : (
+            <span className="muted mono" style={{ fontSize: 12 }}>
+              {currentIsWordOrder ? '語句を正しい順番で選んでください' : isActiveVocab ? '英単語を入力してください' : '意味として正しいものを選んでください'}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       {/* Header: close + progress dots + flag */}
       <div
         className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5"
@@ -1097,5 +1253,6 @@ export default function QuizPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

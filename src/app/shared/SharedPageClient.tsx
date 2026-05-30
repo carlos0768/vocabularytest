@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from 'react';
 import Link from 'next/link';
+import { DesktopSharedView } from '@/components/desktop/DesktopShared';
 import { Icon } from '@/components/ui';
 import type {
   SharedProjectCard,
@@ -114,7 +115,15 @@ export default function SharedPageClient({
     : publicProjects;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
+    <>
+      <DesktopSharedView
+        projects={filteredProjects}
+        nextCursor={publicNextCursor}
+        loadingMore={loadingMorePublic}
+        error={publicSectionError}
+        onLoadMore={() => void handleLoadMorePublic()}
+      />
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[18px] pb-2 pt-1">
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
           COMMUNITY
@@ -174,7 +183,8 @@ export default function SharedPageClient({
           </button>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
