@@ -37,6 +37,7 @@ interface ScanJobRow {
   save_mode: 'client_local' | 'server_cloud';
   target_project_id: string | null;
   scan_mode: string;
+  scan_modes?: string[] | null;
   eiken_level: string | null;
   project_title: string;
   project_icon_image: string | null;
@@ -607,6 +608,48 @@ test('client_local completion keeps result payload successful when example gener
     },
   ]);
   assert.deepEqual(apnsNotifications, pushNotifications);
+});
+
+test('processJobById uses scanModesOverride when scan_modes is not available on the job row', async () => {
+  const observedModes: string[][] = [];
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob({
+      scan_mode: 'all',
+      scan_modes: null,
+    }),
+    userPreference: { ai_enabled: false },
+  });
+
+  const response = await processJobById(
+    JOB_ID,
+    createServerCloudContractDeps(client, {
+      scanModesOverride: ['all', 'idiom'],
+      extractImage: async (_base64Image, modes) => {
+        observedModes.push(modes);
+        return {
+          result: {
+            success: true,
+            data: {
+              words: [
+                {
+                  english: 'look forward to',
+                  japanese: '楽しみに待つ',
+                  japaneseSource: 'scan',
+                  sourceModes: ['all', 'idiom'],
+                  distractors: [],
+                  partOfSpeechTags: ['idiom'],
+                },
+              ],
+              sourceLabels: ['鉄壁'],
+            },
+          },
+        };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(observedModes, [['all', 'idiom']]);
 });
 
 test('server_cloud new project completion keeps project insert, words insert, and completed update contract', async () => {

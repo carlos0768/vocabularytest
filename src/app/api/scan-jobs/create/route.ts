@@ -11,6 +11,7 @@ import {
   getPrimaryExtractMode,
   normalizeExtractModes,
   requiresProForModes,
+  type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { processJobById } from '../process/route';
 
@@ -31,11 +32,11 @@ function getSupabaseAdmin(): SupabaseClient {
   return supabaseAdmin;
 }
 
-function scheduleScanJobProcessing(jobId: string) {
+function scheduleScanJobProcessing(jobId: string, scanModesOverride?: ExtractMode[]) {
   after(async () => {
     try {
       console.log('[scan-jobs/create] Direct processing started', { jobId });
-      await processJobById(jobId);
+      await processJobById(jobId, { scanModesOverride });
       console.log('[scan-jobs/create] Direct processing completed', { jobId });
     } catch (error) {
       console.error('[scan-jobs/create] Direct processing failed', { jobId, error });
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
       console.warn('[scan-jobs/create] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
     }
 
-    scheduleScanJobProcessing(String(job.id));
+    scheduleScanJobProcessing(String(job.id), scanModes);
     console.log('[scan-jobs/create] Job created', {
       jobId: String(job.id),
       userId: user.id,

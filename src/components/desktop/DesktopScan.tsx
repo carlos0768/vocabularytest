@@ -80,7 +80,7 @@ export function DesktopScanView({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [selectedDest, setSelectedDest] = useState('');
+  const [selectedDest, setSelectedDest] = useState('new');
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [processing, setProcessing] = useState(false);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export function DesktopScanView({
   const projectOptions = useMemo(() => projects.slice(0, 8), [projects]);
   const destination = selectedDest === 'new' || projectOptions.some((project) => project.id === selectedDest)
     ? selectedDest
-    : projectOptions[0]?.id ?? 'new';
+    : 'new';
   const destinationProjectId = hasFixedDestination
     ? targetProjectId ?? null
     : destination === 'new'

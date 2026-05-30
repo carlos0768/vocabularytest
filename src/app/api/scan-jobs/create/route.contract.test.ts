@@ -96,7 +96,7 @@ test('scan job creation routes use shared save mode contract and direct after pr
   for (const source of [createRouteSource, legacyRouteSource]) {
     assert.ok(source.includes('resolveScanJobSaveMode({ clientPlatform, isProUser })'));
     assert.ok(source.includes('after(async () =>'));
-    assert.ok(source.includes('await processJobById(jobId);'));
+    assert.ok(source.includes('await processJobById(jobId, { scanModesOverride });'));
     assert.equal(source.includes('/api/scan-jobs/process'), false);
   }
 
@@ -104,6 +104,6 @@ test('scan job creation routes use shared save mode contract and direct after pr
 
   assertSourceOrder(createRouteSource, [
     'const { data: job, error: insertError, usedLegacyColumns } = await insertScanJobWithCompat',
-    'scheduleScanJobProcessing(String(job.id));',
+    'scheduleScanJobProcessing(String(job.id), scanModes);',
   ]);
 });

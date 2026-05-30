@@ -125,6 +125,7 @@ export interface ProcessJobDeps {
   sendApnsNotifications?: typeof sendScanJobApnsNotifications;
   flushTiming?: typeof flushTimingLogs;
   afterTask?: typeof after;
+  scanModesOverride?: ExtractMode[];
 }
 
 interface ProcessedExtractedWord {
@@ -814,8 +815,11 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
 
         const modes = normalizeExtractModes(
-          (job as { scan_modes?: unknown }).scan_modes,
-          normalizeExtractModes(job.scan_mode),
+          processDeps?.scanModesOverride,
+          normalizeExtractModes(
+            (job as { scan_modes?: unknown }).scan_modes,
+            normalizeExtractModes(job.scan_mode),
+          ),
         );
         const primaryMode = modes[0] ?? 'all';
         timing.scanMode = modes.join(',');
