@@ -110,7 +110,7 @@ export function DesktopFavoritesView({
                   <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-secondary-text)' }}>
-                      <span style={{ width: 16, height: 21, borderRadius: 3, background: desktopThumbColor(word.projectId), border: '1px solid var(--solid-ink)', flexShrink: 0 }} />
+                      <span className="ds-project-icon ds-project-icon--xs" style={{ background: desktopThumbColor(word.projectId) }} />
                       {word.projectTitle || '単語帳'}
                     </span>
                   </td>
@@ -192,7 +192,7 @@ export function DesktopWrongAnswersView({
                   <td className="ja">{word.japanese}</td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-secondary-text)' }}>
-                      <span style={{ width: 16, height: 21, borderRadius: 3, background: desktopThumbColor(word.projectId || word.wordId), border: '1px solid var(--solid-ink)', flexShrink: 0 }} />
+                      <span className="ds-project-icon ds-project-icon--xs" style={{ background: desktopThumbColor(word.projectId || word.wordId) }} />
                       {word.projectTitle || '単語帳'}
                     </span>
                   </td>

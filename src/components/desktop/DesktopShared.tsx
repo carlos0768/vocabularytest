@@ -86,14 +86,10 @@ function DesktopSharedCard({ project }: { project: SharedProjectCard }) {
     <Link href={href} className="ds-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'inherit', textDecoration: 'none' }}>
       <div style={{ display: 'flex', gap: 14 }}>
         <div
-          className="tn"
+          className="ds-project-icon ds-project-icon--lg"
           style={{
             background: desktopThumbColor(project.project.id),
             backgroundImage: project.project.iconImage ? `url(${project.project.iconImage})` : undefined,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            width: 56,
-            fontSize: 18,
           }}
         >
           {!project.project.iconImage && project.project.title.charAt(0)}

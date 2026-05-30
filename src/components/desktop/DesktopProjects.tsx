@@ -143,15 +143,10 @@ function DesktopProjectTableRow({ project }: { project: DesktopProjectRow }) {
       <td>
         <Link href={`/project/${project.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
           <span
-            className="tn"
+            className="ds-project-icon ds-project-icon--sm"
             style={{
               background: desktopThumbColor(project.id),
               backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              width: 34,
-              fontSize: 14,
-              padding: 4,
             }}
           >
             {!project.iconImage && project.title.charAt(0)}

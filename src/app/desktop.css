@@ -188,7 +188,7 @@
 .ds-book {
   border: 1.5px solid var(--solid-ink); border-radius: var(--solid-radius-tile);
   box-shadow: 3px 4px 0 var(--solid-ink);
-  aspect-ratio: 3 / 4; padding: 15px; color: #fff;
+  aspect-ratio: 1 / 1; padding: 15px; color: #fff;
   display: flex; flex-direction: column; justify-content: space-between;
   cursor: pointer; position: relative; overflow: hidden;
   transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
@@ -211,15 +211,27 @@
 }
 .ds-prow:hover { transform: translate(1px,1px); box-shadow: 2px 3px 0 var(--solid-ink); }
 .ds-prow .tn {
-  width: 52px; aspect-ratio: 3/4; border-radius: 8px; flex-shrink: 0;
+  width: 52px; height: 52px; aspect-ratio: 1 / 1; border-radius: 10px; flex-shrink: 0;
   border: 1.5px solid var(--solid-ink); color: #fff; position: relative; overflow: hidden;
-  display: flex; align-items: flex-end; padding: 7px; font-family: var(--font-display); font-weight: 800; font-size: 18px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0; font-family: var(--font-display); font-weight: 800; font-size: 18px; line-height: 1;
+  background-size: cover; background-position: center;
 }
 .ds-prow .body { flex: 1; min-width: 0; }
 .ds-prow .ttl { font-family: var(--font-display); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
 .ds-prow .sub { font-size: 12px; color: var(--color-muted); margin-top: 2px; font-family: var(--font-mono); }
 .ds-prow .count { font-family: var(--font-display); font-weight: 800; font-size: 22px; font-variant-numeric: tabular-nums; }
 .ds-prow .count .u { font-size: 12px; font-weight: 700; color: var(--color-secondary-text); margin-left: 2px; }
+
+.ds-project-icon {
+  width: 52px; height: 52px; aspect-ratio: 1 / 1; border-radius: 10px; flex-shrink: 0;
+  border: 1.5px solid var(--solid-ink); color: #fff; position: relative; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  font-family: var(--font-display); font-weight: 800; font-size: 18px; line-height: 1;
+  background-size: cover; background-position: center;
+}
+.ds-project-icon--xs { width: 18px; height: 18px; border-radius: 5px; border-width: 1px; font-size: 9px; }
+.ds-project-icon--sm { width: 34px; height: 34px; border-radius: 8px; border-width: 1.25px; font-size: 14px; }
+.ds-project-icon--lg { width: 56px; height: 56px; border-radius: 12px; font-size: 20px; }
 
 /* ── Donut ───────────────────────────────────────────────── */
 .ds-donut { position: relative; flex-shrink: 0; }

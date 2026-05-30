@@ -94,14 +94,10 @@ export function DesktopProjectDetailView({
       <div className="ds-scroll">
         <div className="ds-card" style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 20, marginBottom: 18, flexShrink: 0 }}>
           <div
-            className="tn"
+            className="ds-project-icon ds-project-icon--lg"
             style={{
               background: bg,
               backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              width: 56,
-              fontSize: 20,
             }}
           >
             {!project.iconImage && project.title.charAt(0)}

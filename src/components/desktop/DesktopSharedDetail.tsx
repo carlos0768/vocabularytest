@@ -67,14 +67,10 @@ export function DesktopSharedDetailView({
       <div className="ds-scroll" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <div className="ds-card" style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 18, marginBottom: 16, flexShrink: 0 }}>
           <div
-            className="tn"
+            className="ds-project-icon"
             style={{
               background: bg,
               backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              width: 52,
-              fontSize: 19,
             }}
           >
             {!project.iconImage && project.title.charAt(0)}

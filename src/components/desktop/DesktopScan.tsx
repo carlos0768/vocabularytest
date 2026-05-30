@@ -448,16 +448,11 @@ export function DesktopScanView({
                         onClick={() => setSelectedDest(project.id)}
                       >
                         <span
+                          className="ds-project-icon ds-project-icon--xs"
                           style={{
-                            width: 18,
-                            height: 24,
-                            borderRadius: 4,
                             background: project.iconImage ? undefined : desktopThumbColor(project.id),
                             backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
                             border: `1px solid ${selected ? 'rgba(255,255,255,0.7)' : 'var(--solid-ink)'}`,
-                            flexShrink: 0,
                           }}
                         />
                         <span style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
