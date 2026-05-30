@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { shuffleArray } from '@/lib/utils';
 import type { Word } from '@/types';
 
@@ -202,7 +203,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
                     key={tag}
                     className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--color-primary)]/12 text-[var(--color-primary)]"
                   >
-                    {tag}
+                    {getPartOfSpeechLabel(tag)}
                   </span>
                 ))}
               </div>

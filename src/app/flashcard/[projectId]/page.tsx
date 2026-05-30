@@ -10,6 +10,7 @@ import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
+import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import type { Word, SubscriptionStatus } from '@/types';
 
 /* ---------- Mastery level (mirrors iOS) ---------- */
@@ -451,13 +452,6 @@ export default function FlashcardPage() {
     setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, status: newStatus } : w));
   };
 
-  const handleMarkKnownAndNext = async () => {
-    if (!currentWord) return;
-    await repository.updateWord(currentWord.id, { status: 'mastered' });
-    setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, status: 'mastered' } : w));
-    handleNext();
-  };
-
   const handleDeleteWord = async () => {
     if (!currentWord) return;
     const confirmed = window.confirm(`「${currentWord.english}」を削除しますか？`);
@@ -528,6 +522,7 @@ export default function FlashcardPage() {
 
   const masteryLevel = getMasteryLevel(currentWord?.repetition ?? 0);
   const total = words.length;
+  const currentPartOfSpeechLabel = formatPartOfSpeechLabels(currentWord?.partOfSpeechTags);
 
   return (
     <>
@@ -559,13 +554,13 @@ export default function FlashcardPage() {
                 {currentWord?.english}
               </div>
               <div className="ph">{currentWord?.pronunciation || '\u00a0'}</div>
-              {currentWord?.partOfSpeechTags?.[0] && <span className="ds-tag accent">{currentWord.partOfSpeechTags[0]}</span>}
+              {currentPartOfSpeechLabel && <span className="ds-tag accent">{currentPartOfSpeechLabel}</span>}
               <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで意味を表示</div>
             </div>
             <div className="ds-fc-face back">
               <div className="ja">{currentWord?.japanese}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{tag}</span>)}
+                {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{getPartOfSpeechLabel(tag)}</span>)}
               </div>
               {currentWord?.exampleSentenceJa && (
                 <div className="muted" style={{ fontSize: 14, maxWidth: 460, lineHeight: 1.6 }}>{currentWord.exampleSentenceJa}</div>
@@ -576,16 +571,10 @@ export default function FlashcardPage() {
         </div>
 
         <div className="ds-fc-controls">
-          <button type="button" className="ds-btn ghost" onClick={() => handlePrev()}>
+          <button type="button" className="ds-fc-big dunno" onClick={() => handlePrev()}>
             <Icon name="chevron_left" />前へ
           </button>
           <button type="button" className="ds-fc-big dunno" onClick={() => handleNext()}>
-            <Icon name="refresh" />まだ
-          </button>
-          <button type="button" className="ds-fc-big know" onClick={() => void handleMarkKnownAndNext()}>
-            <Icon name="check" />覚えた
-          </button>
-          <button type="button" className="ds-btn ghost" onClick={() => handleNext()}>
             次へ<Icon name="chevron_right" />
           </button>
         </div>
@@ -692,7 +681,7 @@ export default function FlashcardPage() {
               <div className="flex items-center justify-between">
                 {currentWord?.partOfSpeechTags?.[0] ? (
                   <div className="rounded border border-[var(--solid-ink)] bg-white px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--solid-ink)]">
-                    {currentWord.partOfSpeechTags[0].toUpperCase()}
+                    {getPartOfSpeechLabel(currentWord.partOfSpeechTags[0])}
                   </div>
                 ) : <div />}
                 <button
@@ -798,16 +787,13 @@ export default function FlashcardPage() {
         <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
       </div>
 
-      {/* Navigation row: prev | flip | next */}
+      {/* Navigation row: prev | next */}
       <div
         className="flex shrink-0 items-center justify-center gap-6 px-5 pt-3"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
         <NavBtn onClick={() => handlePrev(true)} aria-label="前のカード">
           <Icon name="chevron_left" size={18} />
-        </NavBtn>
-        <NavBtn onClick={handleFlip} aria-label="カードを裏返す">
-          <Icon name="flip" size={18} />
         </NavBtn>
         <NavBtn onClick={() => handleNext(true)} aria-label="次のカード">
           <Icon name="chevron_right" size={18} />
