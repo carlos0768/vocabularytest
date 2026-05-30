@@ -7,6 +7,10 @@ import {
   WORD_ORDER_CACHE_VERSION,
 } from '@/lib/quiz/word-order';
 import {
+  normalizeActiveQuizAnswer,
+  stripActiveQuizAnswerSpaces,
+} from './active-answer';
+import {
   GENERIC_EN_DISTRACTOR_POOL,
   GENERIC_JA_DISTRACTOR_POOL,
   QUIZ_STATE_TTL_MS,
@@ -44,6 +48,12 @@ test('isQuizStateExpired preserves the 30 minute TTL boundary', () => {
   assert.equal(QUIZ_STATE_TTL_MS, 30 * 60 * 1000);
   assert.equal(isQuizStateExpired(savedAt, savedAt + QUIZ_STATE_TTL_MS), false);
   assert.equal(isQuizStateExpired(savedAt, savedAt + QUIZ_STATE_TTL_MS + 1), true);
+});
+
+test('active quiz answer normalization removes spaces before rendering and matching', () => {
+  assert.equal(stripActiveQuizAnswerSpaces(' take care  of '), 'takecareof');
+  assert.equal(stripActiveQuizAnswerSpaces('look　up'), 'lookup');
+  assert.equal(normalizeActiveQuizAnswer(' Make  Up '), 'makeup');
 });
 
 test('generateQuizQuestions builds en-to-ja options from stored distractors and generic fallback', () => {
@@ -164,6 +174,30 @@ test('generateQuizQuestions uses word-order questions for cached multi-word entr
   assert.deepEqual(question.options, ['take', 'care', 'hold', 'keep', 'watch']);
 });
 
+test('generateQuizQuestions keeps active multi-word entries out of word-order mode', () => {
+  const [question] = generateQuizQuestions([
+    createWord({
+      id: 'word-1',
+      english: 'take care',
+      japanese: '世話をする',
+      vocabularyType: 'active',
+      wordOrderQuiz: {
+        version: WORD_ORDER_CACHE_VERSION,
+        sourceEnglish: 'take care',
+        sourceJapanese: '世話をする',
+        sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+        answerTokens: ['take', 'care'],
+        decoyTokens: ['hold', 'keep', 'watch'],
+        generatedAt: '2026-05-09T00:00:00.000Z',
+      },
+    }),
+  ], 1, 'en-to-ja', identityShuffle);
+
+  assert.notEqual(question.type, 'word-order');
+  assert.equal(question.word.vocabularyType, 'active');
+  assert.deepEqual(question.options, ['世話をする', GENERIC_JA_DISTRACTOR_POOL[0], GENERIC_JA_DISTRACTOR_POOL[1], GENERIC_JA_DISTRACTOR_POOL[2]]);
+});
+
 test('generateQuizQuestions does not fall back to multiple-choice for uncached multi-word entries', () => {
   const questions = generateQuizQuestions([
     createWord({
@@ -281,4 +315,43 @@ test('applyWordOrderQuestionsToPendingQuiz inserts delivered current question af
   assert.equal(nextQuestions.length, 2);
   assert.notEqual(nextQuestions[0]?.type, 'word-order');
   assert.equal(nextQuestions[1]?.type, 'word-order');
+});
+
+test('applyWordOrderQuestionsToPendingQuiz does not replace active multi-word questions', () => {
+  const currentQuestion = generateQuizQuestions([
+    createWord({
+      id: 'word-1',
+      english: 'take care',
+      japanese: '世話をする',
+      vocabularyType: 'active',
+      distractors: ['守る', '持つ', '作る'],
+    }),
+  ], 1, 'en-to-ja', identityShuffle, { allowPendingWordOrderFallback: true })[0];
+
+  const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
+    [currentQuestion],
+    [
+      createWord({
+        id: 'word-1',
+        english: 'take care',
+        japanese: '世話をする',
+        vocabularyType: 'active',
+        wordOrderQuiz: {
+          version: WORD_ORDER_CACHE_VERSION,
+          sourceEnglish: 'take care',
+          sourceJapanese: '世話をする',
+          sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+          answerTokens: ['take', 'care'],
+          decoyTokens: ['hold', 'keep', 'watch'],
+          generatedAt: '2026-05-09T00:00:00.000Z',
+        },
+      }),
+    ],
+    0,
+    identityShuffle,
+  );
+
+  assert.equal(nextQuestions.length, 1);
+  assert.notEqual(nextQuestions[0]?.type, 'word-order');
+  assert.equal(nextQuestions[0]?.word.vocabularyType, 'active');
 });

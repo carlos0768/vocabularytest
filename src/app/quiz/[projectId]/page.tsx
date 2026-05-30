@@ -18,6 +18,11 @@ import {
   type QuizDirection,
 } from '@/lib/quiz/quiz-state';
 import {
+  isActiveQuizWord,
+  normalizeActiveQuizAnswer,
+  stripActiveQuizAnswerSpaces,
+} from '@/lib/quiz/active-answer';
+import {
   WORD_ORDER_BLANK_TOKEN,
   buildWordOrderQuestion,
   isWordOrderEligible,
@@ -319,7 +324,7 @@ export default function QuizPage() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const needsDistractors = useCallback((w: Word) => {
-    if (isWordOrderEligible(w)) return false;
+    if (isActiveQuizWord(w) || isWordOrderEligible(w)) return false;
     const missingDistractors =
       !w.distractors || w.distractors.length === 0 ||
       (w.distractors.length === 3 && w.distractors[0] === '選択肢1');
@@ -327,7 +332,7 @@ export default function QuizPage() {
   }, []);
 
   const needsWordOrderQuiz = useCallback((w: Word) => {
-    return isWordOrderEligible(w) && !buildWordOrderQuestion(w);
+    return !isActiveQuizWord(w) && isWordOrderEligible(w) && !buildWordOrderQuestion(w);
   }, []);
 
   const restoredFromStorage = useRef(false);
@@ -683,6 +688,9 @@ export default function QuizPage() {
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
+  const typeInExpectedAnswer = isActiveVocab
+    ? stripActiveQuizAnswerSpaces(currentQuestion?.word.english ?? '')
+    : currentQuestion?.word.english ?? '';
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean) => {
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
@@ -715,7 +723,9 @@ export default function QuizPage() {
   const handleTypeInSubmit = async () => {
     if (isRevealed || !isMultipleChoiceQuestion(currentQuestion)) return;
     const correctAnswer = isActiveVocab ? currentQuestion.word.english : quizDirection === 'en-to-ja' ? currentQuestion.word.japanese : currentQuestion.word.english;
-    const isCorrect = typeInAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+    const isCorrect = isActiveVocab
+      ? normalizeActiveQuizAnswer(typeInAnswer) === normalizeActiveQuizAnswer(correctAnswer)
+      : typeInAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
     setTypeInResult(isCorrect ? 'correct' : 'wrong');
     setIsRevealed(true);
     await applyAnswerOutcome(currentQuestion.word, isCorrect);
@@ -1021,9 +1031,10 @@ export default function QuizPage() {
         ) : (
           <div style={{ width: '100%', maxWidth: 520 }}>
             <TypeInQuizField
-              answer={currentQuestion?.word.english ?? ''}
+              answer={typeInExpectedAnswer}
               value={typeInAnswer}
               onChange={setTypeInAnswer}
+              normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
               onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
               disabled={isRevealed}
               result={typeInResult}
@@ -1206,9 +1217,10 @@ export default function QuizPage() {
         ) : (
           <div className="mt-[18px] w-full space-y-4">
             <TypeInQuizField
-              answer={currentQuestion?.word.english ?? ''}
+              answer={typeInExpectedAnswer}
               value={typeInAnswer}
               onChange={setTypeInAnswer}
+              normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
               onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
               disabled={isRevealed}
               result={typeInResult}
@@ -1221,7 +1233,7 @@ export default function QuizPage() {
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
               <div className="text-center">
                 <p className="text-sm text-[var(--color-muted)]">正解:</p>
-                <p className="text-lg font-bold text-[var(--solid-ink)]">{currentQuestion.word.english}</p>
+                <p className="text-lg font-bold text-[var(--solid-ink)]">{isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}</p>
               </div>
             )}
           </div>
