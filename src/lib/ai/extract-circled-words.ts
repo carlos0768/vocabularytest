@@ -7,6 +7,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { getProviderFromConfig } from './providers';
+import { JAPANESE_PARENTHESIS_RULES } from './prompts/japanese-format';
 
 export type CircledExtractionResult =
   | { success: true; data: ValidatedAIResponse }
@@ -119,6 +120,7 @@ ${candidateList}
 - 丸が明確に確認できない候補は除外する
 - 印刷済みの記号・枠・注釈は除外する
 - 候補リストにない語は追加しない
+${JAPANESE_PARENTHESIS_RULES}
 
 出力は次のJSONのみ:
 {

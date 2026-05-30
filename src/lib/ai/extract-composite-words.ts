@@ -10,6 +10,7 @@ import { prepareImageForProvider } from './utils/image';
 import { safeParseJSON } from './utils/json';
 import { getEikenFilterInstruction } from './prompts';
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET, SOURCE_LABEL_RULES } from './prompts/source-labels';
+import { JAPANESE_PARENTHESIS_RULES } from './prompts/japanese-format';
 
 export type CompositeExtractionResult =
   | { success: true; data: ValidatedAIResponse }
@@ -74,6 +75,7 @@ function buildCompositeExtractionPrompts(options: CompositeExtractionOptions): {
 - 画像内に日本語訳が見えている場合は japanese にその訳を入れ、japaneseSource は "scan" にしてください。
 - 日本語訳が画像内にない場合は japanese は "" にし、japaneseSource は付けないでください。
 - 推測で日本語訳を作らないでください。
+${JAPANESE_PARENTHESIS_RULES}
 - 出力は最大40件までにしてください。質を優先し、重複や基礎語を避けてください。
 
 抽出条件別の追加ルール:
