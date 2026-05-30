@@ -32,6 +32,9 @@ const TRANSLATION_HINT_VALIDATION_PROMPT = `あなたは英和辞典の品質チ
 - useHint=false のとき normalizedJapanese は null
 - useHint=false でも、より自然な主要訳が分かるなら suggestedJapanese に入れる
 - suggestedJapanese が不明な場合は null
+- normalizedJapanese と suggestedJapanese に括弧を使う場合は、必ず開き括弧と閉じ括弧を両方入れる
+- 片側だけの括弧は禁止。例: 「本質が)Aにある」のような候補は「本質が（Aにある）」のように両側の括弧で囲むか、括弧を使わない自然な訳に直す
+- 括弧の種類は統一し、全角なら「（...）」、半角なら「(...)」のように対応するペアで出力する
 - 出力はJSONのみ
 
 出力形式:
