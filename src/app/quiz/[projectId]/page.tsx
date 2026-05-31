@@ -707,7 +707,13 @@ export default function QuizPage() {
           const allFlat = projectIds.flatMap((id) => wordsByProject[id] ?? []);
           if (wrongMode) {
             const wordById = new Map(allFlat.map((word) => [word.id, word]));
+            const projectWordIds = new Set((wordsByProject[projectId] ?? []).map((word) => word.id));
             sourceWords = getWrongAnswers()
+              .filter((wrongAnswer) => {
+                if (projectId === 'all') return true;
+                if (wrongAnswer.projectId) return wrongAnswer.projectId === projectId;
+                return projectWordIds.has(wrongAnswer.wordId);
+              })
               .sort((a, b) => b.wrongCount - a.wrongCount || b.lastWrongAt - a.lastWrongAt)
               .map((wrongAnswer) => wordById.get(wrongAnswer.wordId) ?? buildFallbackWordFromWrongAnswer(wrongAnswer));
           } else {
