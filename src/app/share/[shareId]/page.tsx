@@ -15,6 +15,9 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
 import type { Project, Word } from '@/types';
 
+const SHARE_PREVIEW_WORD_LIMIT = 5;
+const SHARE_PREVIEW_CLEAR_WORD_COUNT = 2;
+
 export default function SharedDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -38,9 +41,11 @@ export default function SharedDetailPage() {
   const [importedProjectId, setImportedProjectId] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [totalWordCount, setTotalWordCount] = useState(0);
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
+  const isPreviewLocked = !isPro;
 
   useEffect(() => {
     let cancelled = false;
@@ -54,8 +59,8 @@ export default function SharedDetailPage() {
         }
 
         const supabase = createBrowserClient();
-        const [wordsData, profileResult] = await Promise.all([
-          remoteRepository.getWordsForShareView(projectData.id),
+        const [previewData, profileResult] = await Promise.all([
+          remoteRepository.getWordsForSharePreview(projectData.id, SHARE_PREVIEW_WORD_LIMIT),
           Promise.resolve(
             supabase
               .from('profiles')
@@ -67,10 +72,9 @@ export default function SharedDetailPage() {
 
         if (cancelled) return;
         setProject(projectData);
-        setWords(wordsData);
-        if (profileResult.data?.username) {
-          setOwnerUsername(profileResult.data.username as string);
-        }
+        setWords(previewData.words);
+        setTotalWordCount(previewData.totalCount);
+        setOwnerUsername(profileResult.data?.username ? String(profileResult.data.username) : null);
       } catch (loadError) {
         console.error('Failed to load shared project:', loadError);
         if (!cancelled) setError('単語帳の読み込みに失敗しました');
@@ -84,6 +88,25 @@ export default function SharedDetailPage() {
       cancelled = true;
     };
   }, [shareId]);
+
+  useEffect(() => {
+    if (authLoading || !isPro || !project?.id) return;
+
+    let cancelled = false;
+    remoteRepository.getWordsForShareView(project.id)
+      .then((wordsData) => {
+        if (cancelled) return;
+        setWords(wordsData);
+        setTotalWordCount(wordsData.length);
+      })
+      .catch((loadError) => {
+        console.error('Failed to load full shared project words:', loadError);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isPro, project?.id]);
 
   useEffect(() => {
     if (!project || !user) return;
@@ -109,9 +132,10 @@ export default function SharedDetailPage() {
     () => words.filter((word) => selectedWordIds.has(word.id)),
     [selectedWordIds, words],
   );
-  const importTargetWords = selectMode ? selectedWords : words;
+  const importTargetWords = isPro ? (selectMode ? selectedWords : words) : [];
   const importBusy = importing || preparingRewardedDownloadAd;
   const ownerLabel = ownerUsername ? `@${ownerUsername}` : '共有ユーザー';
+  const hiddenPreviewWordCount = Math.max(0, totalWordCount - words.length);
 
   const performImport = async (targetWords: Word[]) => {
     if (!user || !project || targetWords.length === 0) return;
@@ -156,6 +180,10 @@ export default function SharedDetailPage() {
   };
 
   const handleImport = async () => {
+    if (!isPro) {
+      router.push('/subscription');
+      return;
+    }
     if (!user) {
       router.push(`/login?redirect=/share/${shareId}`);
       return;
@@ -217,24 +245,6 @@ export default function SharedDetailPage() {
     );
   }
 
-  if (!isPro) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6 text-center">
-        <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--solid-ink)] text-white shadow-[3px_4px_0_var(--color-accent)]">
-          <Icon name="workspace_premium" size={40} />
-        </div>
-        <h1 className="font-display text-xl font-bold text-[var(--solid-ink)]">Pro機能です</h1>
-        <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
-          共有された単語帳を見るにはProプランへのアップグレードが必要です。
-        </p>
-        <Link href="/subscription" className="solid-link-primary mt-6">
-          <Icon name="workspace_premium" size={16} />
-          Proにアップグレード
-        </Link>
-      </div>
-    );
-  }
-
   if (error || !project) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] px-6 text-center">
@@ -259,6 +269,9 @@ export default function SharedDetailPage() {
         liked={liked}
         importing={importBusy}
         importedProjectId={importedProjectId}
+        isPreviewLocked={isPreviewLocked}
+        totalWordCount={totalWordCount}
+        previewClearWordCount={SHARE_PREVIEW_CLEAR_WORD_COUNT}
         onToggleLike={() => void handleToggleLike()}
         onToggleSelectMode={() => {
           setSelectMode((current) => !current);
@@ -316,7 +329,7 @@ export default function SharedDetailPage() {
           )}
 
           <div className="mt-3 flex gap-2.5 border-t border-dashed border-[var(--color-border)] pt-3">
-            <Stat label="単語数" value={words.length.toLocaleString()} />
+            <Stat label="単語数" value={totalWordCount.toLocaleString()} />
             <Stat
               label="いいね"
               value={likeCount.toLocaleString()}
@@ -328,41 +341,59 @@ export default function SharedDetailPage() {
 
       <div className="flex items-center justify-between px-[18px] pb-2.5">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          単語プレビュー · 全 {words.length} 語
+          {isPreviewLocked ? `単語プレビュー · 先頭 ${words.length} 語` : `単語プレビュー · 全 ${totalWordCount} 語`}
         </div>
       </div>
 
       <div className="flex flex-col gap-1 px-3.5 pb-[130px]">
         {words.map((word, i) => {
           const selected = selectedWordIds.has(word.id);
+          const locked = isPreviewLocked && i >= SHARE_PREVIEW_CLEAR_WORD_COUNT;
+          const previewTextClass = locked ? 'select-none blur-[3.5px]' : '';
           return (
             <button
               key={word.id}
               type="button"
-              onClick={() => handleToggleSelect(word.id)}
+              onClick={() => {
+                if (!locked) handleToggleSelect(word.id);
+              }}
+              disabled={locked}
               className="flex items-center gap-2.5 rounded-lg border-[1.25px] bg-[var(--color-surface)] px-3 py-2.5 text-left"
-              style={{ borderColor: selected ? 'var(--solid-ink)' : 'var(--color-border)' }}
+              style={{
+                borderColor: selected ? 'var(--solid-ink)' : 'var(--color-border)',
+                opacity: locked ? 0.82 : 1,
+              }}
             >
               <span className="min-w-[16px] font-mono text-[9px] font-bold tabular-nums text-[var(--color-muted)]">
                 {selectMode ? (selected ? '✓' : String(i + 1).padStart(2, '0')) : String(i + 1).padStart(2, '0')}
               </span>
               <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
-                <span className="font-display text-[14px] font-bold text-[var(--solid-ink)]">{word.english}</span>
+                <span className={`font-display text-[14px] font-bold text-[var(--solid-ink)] ${previewTextClass}`}>{word.english}</span>
                 {word.partOfSpeechTags?.[0] && (
-                  <span className="font-mono text-[9px] italic text-[var(--color-muted)]">{word.partOfSpeechTags[0]}</span>
+                  <span className={`font-mono text-[9px] italic text-[var(--color-muted)] ${previewTextClass}`}>{word.partOfSpeechTags[0]}</span>
                 )}
-                <span className="ml-1 truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</span>
+                <span className={`ml-1 truncate text-[11px] text-[var(--color-muted)] ${previewTextClass}`}>{word.japanese}</span>
               </div>
+              {locked && <Icon name="lock" size={13} className="text-[var(--color-muted)]" />}
             </button>
           );
         })}
+        {isPreviewLocked && hiddenPreviewWordCount > 0 && (
+          <div className="px-2 py-3 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
+            残り {hiddenPreviewWordCount.toLocaleString()} 語はProで表示できます
+          </div>
+        )}
       </div>
 
       <div
         className="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3"
         style={{ background: 'linear-gradient(to top, var(--color-background) 70%, transparent)', paddingBottom: 'max(1.625rem, env(safe-area-inset-bottom))' }}
       >
-        {importedProjectId ? (
+        {isPreviewLocked ? (
+          <SolidButton href="/subscription" variant="inverse" size="lg" iconLeft="workspace_premium" className="w-full" faceClassName="!w-full !justify-center">
+            Proで全単語を見る
+          </SolidButton>
+        ) : importedProjectId ? (
           <SolidButton href={`/project/${importedProjectId}`} variant="inverse" size="lg" iconLeft="check_circle" className="w-full" faceClassName="!w-full !justify-center">
             追加済み — 単語帳を開く
           </SolidButton>
@@ -380,7 +411,7 @@ export default function SharedDetailPage() {
           </SolidButton>
         )}
         <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-          オリジナルは変更されません
+          {isPreviewLocked ? '一部だけプレビューしています' : 'オリジナルは変更されません'}
         </p>
       </div>
       </div>

@@ -43,6 +43,8 @@ export interface CachedStats {
 let cachedStats: CachedStats | null = null;
 let cachedUserId: string | null = null;
 let fetchPromise: Promise<CachedStats | null> | null = null;
+let fetchPromiseUserId: string | null = null;
+let cacheVersion = 0;
 
 const ACTIVITY_HISTORY_WEEKS = 12;
 const ACTIVITY_HISTORY_DAYS = ACTIVITY_HISTORY_WEEKS * 7;
@@ -205,6 +207,11 @@ export function getCachedStats(): CachedStats | null {
   };
 }
 
+export function getCachedStatsForUser(userId: string): CachedStats | null {
+  if (cachedUserId !== userId) return null;
+  return getCachedStats();
+}
+
 /**
  * キャッシュされたユーザーIDを返す
  */
@@ -229,12 +236,17 @@ export function prefetchStats(
   if (cachedStats && cachedUserId === resolvedUserId) return;
 
   // 既にフェッチ中ならスキップ
-  if (fetchPromise) return;
+  if (fetchPromise && fetchPromiseUserId === resolvedUserId) return;
 
-  fetchPromise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro)
-    .finally(() => {
+  const promise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro);
+  fetchPromise = promise;
+  fetchPromiseUserId = resolvedUserId;
+  void promise.finally(() => {
+    if (fetchPromise === promise) {
       fetchPromise = null;
-    });
+      fetchPromiseUserId = null;
+    }
+  });
 }
 
 /**
@@ -245,23 +257,33 @@ export async function getStats(
   userId: string | null,
   isPro: boolean,
   wasPro: boolean = false,
-): Promise<CachedStats> {
+): Promise<CachedStats | null> {
   const resolvedUserId = userId ?? getGuestUserId();
 
   // キャッシュがあれば即返す
   if (cachedStats && cachedUserId === resolvedUserId) {
-    return getCachedStats()!;
+    return getCachedStatsForUser(resolvedUserId);
   }
 
-  // フェッチ中ならそれを待つ
-  if (fetchPromise) {
+  // 同じユーザーのフェッチ中データだけを待つ
+  if (fetchPromise && fetchPromiseUserId === resolvedUserId) {
     const result = await fetchPromise;
-    if (result) return getCachedStats()!;
+    if (result) return getCachedStatsForUser(resolvedUserId);
   }
 
   // フェッチ実行
-  const stats = await fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro);
-  return stats || getCachedStats()!;
+  const promise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro);
+  fetchPromise = promise;
+  fetchPromiseUserId = resolvedUserId;
+  void promise.finally(() => {
+    if (fetchPromise === promise) {
+      fetchPromise = null;
+      fetchPromiseUserId = null;
+    }
+  });
+
+  const stats = await fetchPromise;
+  return stats ?? getCachedStatsForUser(resolvedUserId);
 }
 
 /**
@@ -270,6 +292,9 @@ export async function getStats(
 export function invalidateStatsCache(): void {
   cachedStats = null;
   cachedUserId = null;
+  fetchPromise = null;
+  fetchPromiseUserId = null;
+  cacheVersion += 1;
 }
 
 /**
@@ -369,6 +394,8 @@ async function fetchStatsData(
   isPro?: boolean,
   wasPro?: boolean,
 ): Promise<CachedStats | null> {
+  const requestCacheVersion = cacheVersion;
+
   try {
     const isProUser = isPro ?? subscriptionStatus === 'active';
     // Downgraded users still have data in Supabase, use RPC to fetch stats
@@ -502,8 +529,10 @@ async function fetchStatsData(
       },
     };
 
-    cachedStats = stats;
-    cachedUserId = userId;
+    if (requestCacheVersion === cacheVersion) {
+      cachedStats = stats;
+      cachedUserId = userId;
+    }
 
     return stats;
   } catch (error) {

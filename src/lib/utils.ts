@@ -553,6 +553,7 @@ export function recordDailyActivity(isCorrect: boolean): void {
 export function clearAllUserStats(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(DAILY_STATS_KEY);
+  localStorage.removeItem(WEEKLY_STATS_KEY);
   localStorage.removeItem(STREAK_KEY);
   localStorage.removeItem(LAST_ACTIVITY_KEY);
   localStorage.removeItem(WRONG_ANSWERS_KEY);
