@@ -41,6 +41,8 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | Directory | Responsibility |
 |-----------|---------------|
 | `src/app/` | Next.js App Router pages and API routes |
+| `src/app/favorites/` | Saved words page. Lists favorited words across projects, opens word detail in-place, and links to saved-word flashcard/quiz flows. |
+| `src/app/quiz/[projectId]/favorites/` | Pro-only saved-word quiz page. Uses `src/lib/quiz/` question generation and persists generated word-order quiz caches through the repository layer. |
 | `src/app/api/extract/` | Image OCR and word extraction (core scan flow) |
 | `src/app/api/scan-jobs/` | Async scan pipeline for iOS (create, process, list) |
 | `src/app/api/subscription/` | Stripe + AppStore subscription management + webhooks |
@@ -60,7 +62,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/app/api/search/semantic/` | Semantic search via embeddings |
 | `src/app/api/similar-cache/rebuild/` | Rebuild similar word cache |
 | `src/components/` | React components split by feature domain |
-| `src/components/ui/` | Reusable UI primitives (Button, Icon, AppShell) |
+| `src/components/ui/` | Reusable UI primitives (Button, Icon, AppShell, PersistentAppShell) |
 | `src/components/home/` | Home page modals (ScanModeModal, ProcessingModal) |
 | `src/hooks/` | Custom React hooks -- state management layer |
 | `src/lib/ai/` | AI integration: prompts, config, provider abstraction |
@@ -70,7 +72,7 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 | `src/lib/scan/` | Pure helpers for scan mode/provider selection, scan job payloads, persistence boundaries, side effects, example generation, image extraction, quiz prefill, and post-processing |
 | `src/lib/home/` | Home page pure selectors/session/progress helpers. Latest UI remains in `src/app/page.tsx`. |
 | `src/lib/project/` | Project page pure selectors/progress/result helpers. Latest UI remains in `src/app/project/[id]/page.tsx`. |
-| `src/lib/quiz/` | Quiz state, question generation, and progress helpers used by `src/app/quiz/[projectId]/page.tsx`. |
+| `src/lib/quiz/` | Quiz state, question generation, word-order cache normalization, and progress helpers used by `src/app/quiz/[projectId]/page.tsx` and `src/app/quiz/[projectId]/favorites/page.tsx`. |
 | `src/lib/stripe/` | Stripe payment client and config (server-side only) |
 | `src/lib/supabase/` | Supabase clients: browser singleton, server, route handler, middleware |
 | `src/lib/schemas/` | Zod validation schemas for AI responses |
@@ -204,6 +206,30 @@ Notes:
 - Example generation is intentionally best-effort. A scan can complete even when some words still have no example sentence.
 - Operational diagnostics for this path live in `scan_jobs.result.exampleGeneration` and the runbook at `docs/ops/scan-example-sentences-runbook.md`.
 - Contracts for `client_local`, `server_cloud`, notification side effects, result payloads, and post-processing live in `src/app/api/scan-jobs/process/route.contract.test.ts` and `src/lib/scan/*.test.ts`.
+
+---
+
+## Data Flow: Flashcard Word Loading and Resume
+
+`src/app/flashcard/[projectId]/page.tsx` owns the active flashcard word list in React state:
+
+```
+repository/get cache -> Word[] -> sort/restore order -> setWords(finalWords)
+```
+
+Load priority:
+
+1. Restore immediately from Home cache when available (`getCachedProjectWords()`).
+2. Load fresh words through the selected repository (`localRepository`, `hybridRepository`, or `readonlyRemoteRepository`).
+3. If a recent flashcard progress record exists, restore the previous sort mode and current card from saved progress.
+
+Progress is persisted in browser storage:
+
+- `flashcard_session_{projectId}` in `sessionStorage` for short-term resume.
+- `flashcard_progress_{projectId}` in `localStorage` for longer resume.
+- Favorites mode appends `_favorites` to the key.
+
+Important behavior: saved `wordIds` identify the previous current card and historical order, but they are not the source of truth for the current project word list. When words have been added to the project after progress was saved, the flashcard page must include those new words in the restored list. Current behavior sorts the full repository-loaded word list by saved `sortOrder` (`mastery` by default), then restores `currentIndex` to the same word ID when it still exists. This keeps newly added `new` words in the expected priority position for mastery order.
 
 ---
 

@@ -14,6 +14,12 @@
 - Home巨大ファイルは棚卸しと複数の小さなhelper化が完了済み。Project detailはまだ巨大client componentとして、表示、repository選択、scan-to-add、share、bulk delete、modal stateを同時に持っている。
 - 危険領域は、認証、課金、スキャンAPI、同期、DB migration、share公開範囲、bulk delete、favorite / wrong answer / spaced repetition。今回の棚卸しでは触っていない。
 
+2026-05-22 update:
+
+- 最新 `src/app/project/[id]/page.tsx` の scan-to-add は、ページ内の独自progress/result処理ではなく `src/components/home/ScanCaptureModal.tsx` を `targetProjectId` 付きで開く構造になっている。
+- そのため、この文書の「Project scan progress step builder」「Project scan result accumulator」は、旧Project内scan flow向けの履歴候補として扱う。
+- 今後Project側でscan-to-addを触る場合は、まず `ScanCaptureModal` と `src/lib/home/home-*scan*` helperを正とし、Project pageへ重複scan flowを戻さない。
+
 ## 事前確認
 
 実行した確認:
@@ -116,9 +122,11 @@
    - 対象: single/multiple scanのprogress step初期値、active/complete/error label更新。
    - `/api/extract` 呼び出し、FileReader、PDF expansion、sessionStorage保存は残す。
    - Homeの `home-scan-progress.ts` と似ているが、Project固有の文言とflow差分を先にtestで固定する。
+   - 2026-05-22: 現行Project pageでは独自scan progress flowが残っていないため、新規実装対象外。
 3. Project scan result accumulatorをpure helperへ出す
    - 対象: multiple scanのwords/sourceLabels/lexiconEntries蓄積、0件判定、confirm payload作成前のデータ形。
    - 触らない: sessionStorage key、existing project id準備、router遷移、`/api/extract`。
+   - 2026-05-22: 現行Project pageでは独自scan result accumulatorが残っていないため、新規実装対象外。
 4. Project word filter/sort selectorを先にcontract化する
    - Task 1をさらに小さく切る場合の候補。検索、bookmark、active/passive、品詞、sort orderだけを固定する。
    - bulk selectのselect allが `filteredWords` に依存するため、bulk delete実装整理より先に安全柵になる。

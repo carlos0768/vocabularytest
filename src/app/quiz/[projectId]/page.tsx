@@ -8,7 +8,7 @@ import { TypeInQuizField } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
-import { calculateNextReview, getStatusAfterAnswer, getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
+import { getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
   applyWordOrderQuestionsToPendingQuiz,
@@ -32,7 +32,14 @@ import {
   calculateQuizScorePercentage,
   getQuizAdvanceState,
   getQuizCompletionMessage,
+  parseQuizQuestionCountInput,
 } from '@/lib/quiz/quiz-progress';
+import {
+  buildQuizAnswerOutcomePlan,
+  getTypeInCorrectAnswer,
+  isTypeInAnswerCorrect,
+} from '@/lib/quiz/quiz-answer';
+import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
@@ -483,15 +490,7 @@ export default function QuizPage() {
           } finally { clearTimeout(timeoutId); }
           const data = await response.json();
           if (!response.ok || !data.success || !Array.isArray(data.results)) throw new Error(data?.error || 'failed');
-          const distractorMap = new Map<string, string[]>();
-          const exampleMap = new Map<string, { exampleSentence: string; exampleSentenceJa: string }>();
-          const succeededIds = new Set<string>();
-          for (const result of data.results) {
-            if (!result?.wordId || !Array.isArray(result.distractors) || result.distractors.length === 0) continue;
-            distractorMap.set(result.wordId, result.distractors);
-            succeededIds.add(result.wordId);
-            if (result.exampleSentence) exampleMap.set(result.wordId, { exampleSentence: result.exampleSentence, exampleSentenceJa: result.exampleSentenceJa || '' });
-          }
+          const { distractorMap, exampleMap, succeededIds } = parseQuizBackgroundDistractorResults(data.results);
           if (distractorMap.size > 0) {
             await Promise.all([...distractorMap.entries()].map(([wordId, distractors]) => {
               const updates: Record<string, unknown> = { distractors };
@@ -699,13 +698,21 @@ export default function QuizPage() {
       next[currentIndex] = isCorrect;
       return next;
     });
+    const recordProjectId = reviewMode || learnMode ? word.projectId : projectId;
+    const outcomePlan = buildQuizAnswerOutcomePlan({ word, isCorrect, recordProjectId });
     if (isCorrect) recordCorrectAnswer(false);
-    else recordWrongAnswer(word.id, word.english, word.japanese, reviewMode || learnMode ? word.projectId : projectId, word.distractors);
+    else if (outcomePlan.wrongAnswer) {
+      recordWrongAnswer(
+        outcomePlan.wrongAnswer.wordId,
+        outcomePlan.wrongAnswer.english,
+        outcomePlan.wrongAnswer.japanese,
+        outcomePlan.wrongAnswer.projectId,
+        outcomePlan.wrongAnswer.distractors,
+      );
+    }
     recordActivity();
     try {
-      const newStatus = getStatusAfterAnswer(word.status, isCorrect);
-      const srUpdate = calculateNextReview(isCorrect, word);
-      const updates = { status: newStatus, ...srUpdate };
+      const updates = outcomePlan.wordUpdates;
       await repository.updateWord(word.id, updates);
       setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
       setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, ...updates } : w));
@@ -722,10 +729,14 @@ export default function QuizPage() {
 
   const handleTypeInSubmit = async () => {
     if (isRevealed || !isMultipleChoiceQuestion(currentQuestion)) return;
-    const correctAnswer = isActiveVocab ? currentQuestion.word.english : quizDirection === 'en-to-ja' ? currentQuestion.word.japanese : currentQuestion.word.english;
+    const correctAnswer = getTypeInCorrectAnswer({
+      word: currentQuestion.word,
+      isActiveVocabulary: isActiveVocab,
+      quizDirection,
+    });
     const isCorrect = isActiveVocab
       ? normalizeActiveQuizAnswer(typeInAnswer) === normalizeActiveQuizAnswer(correctAnswer)
-      : typeInAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+      : isTypeInAnswerCorrect(typeInAnswer, correctAnswer);
     setTypeInResult(isCorrect ? 'correct' : 'wrong');
     setIsRevealed(true);
     await applyAnswerOutcome(currentQuestion.word, isCorrect);
@@ -841,8 +852,7 @@ export default function QuizPage() {
   /* ---------- Question count selection ---------- */
   if (!questionCount) {
     const maxQ = Math.min(allWords.length, MAX_NORMAL_QUIZ_QUESTION_COUNT);
-    const parsed = parseInt(inputCount, 10);
-    const isValid = !isNaN(parsed) && parsed >= 1 && parsed <= maxQ;
+    const { parsedInput: parsed, isValidInput: isValid } = parseQuizQuestionCountInput(inputCount, maxQ);
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3">
         <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">

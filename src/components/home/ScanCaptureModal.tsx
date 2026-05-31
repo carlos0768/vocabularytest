@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
-import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
+import { processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
 import {
   addHomeImmediateScanResult,
@@ -16,13 +16,24 @@ import {
   saveHomeGeneratingWordbook,
   type HomeGeneratingWordbookPayload,
 } from '@/lib/home/home-session-storage';
+import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
+import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
 import {
   prepareScanConfirmForNewProject,
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
-import type { ExtractMode } from '@/app/api/extract/route';
-import type { LexiconEntry } from '@/types';
+import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
+
+const EIKEN_LEVEL_OPTIONS: { value: Exclude<EikenLevel, null>; label: string }[] = [
+  { value: '5', label: '5級' },
+  { value: '4', label: '4級' },
+  { value: '3', label: '3級' },
+  { value: 'pre2', label: '準2級' },
+  { value: '2', label: '2級' },
+  { value: 'pre1', label: '準1級' },
+  { value: '1', label: '1級' },
+];
 
 interface ScanCaptureModalProps {
   isOpen: boolean;
@@ -62,19 +73,6 @@ const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[
   { k: 'all',    label: 'すべての単語',     hint: '全単語を網羅' },
 ];
 
-function randomSuffix(): string {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-}
-
-function uploadExtensionFor(file: File): string {
-  if (file.type === 'image/png') return '.png';
-  if (file.type === 'image/webp') return '.webp';
-  if (file.type === 'image/gif') return '.gif';
-  return '.jpg';
-}
-
 export function ScanCaptureModal({
   isOpen,
   onClose,
@@ -87,6 +85,7 @@ export function ScanCaptureModal({
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>(targetProjectId ? 'vocab' : (defaultMode ?? 'vocab'));
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
+  const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
@@ -96,7 +95,7 @@ export function ScanCaptureModal({
   if (!isOpen) return null;
 
   const selectedScanModes = activeSubs;
-  const selectedEikenLevel = selectedScanModes.includes('eiken') ? '3' : null;
+  const selectedEikenLevel = selectedScanModes.includes('eiken') ? eikenLevel : null;
 
   const toggleSubOption = (option: SubOption) => {
     setActiveSubs((current) => {
@@ -111,64 +110,18 @@ export function ScanCaptureModal({
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
 
-    const uploadedPaths: string[] = [];
-    try {
-      for (let index = 0; index < files.length; index++) {
-        const file = files[index]!;
-        setProcessingLabel(`画像 ${index + 1}/${files.length} をアップロード中...`);
-        const processedFile = await processImageFile(file, 'default');
-        const ext = uploadExtensionFor(processedFile);
-        const imagePath = `${session.user.id}/${Date.now()}-${index}-${randomSuffix()}${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('scan-images')
-          .upload(imagePath, processedFile, {
-            contentType: processedFile.type || 'image/jpeg',
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
-        }
-        uploadedPaths.push(imagePath);
-      }
-
-      const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
-      const projectTitle = targetProjectTitle
-        ?? (targetProjectId ? '選択中の単語帳' : `スキャン ${dateLabel}`);
-      setProcessingLabel('スキャンを送信中...');
-      const res = await fetch('/api/scan-jobs/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          imagePaths: uploadedPaths,
-          projectTitle,
-          scanMode: selectedScanModes[0] ?? 'all',
-          scanModes: selectedScanModes,
-          eikenLevel: selectedEikenLevel,
-          targetProjectId: targetProjectId || undefined,
-          clientPlatform: 'web',
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
-      }
-
-      const result = await res.json().catch(() => ({})) as { jobId?: unknown };
-      return {
-        jobId: typeof result.jobId === 'string' ? result.jobId : undefined,
-        projectTitle,
-      };
-    } catch (error) {
-      if (uploadedPaths.length > 0) {
-        await supabase.storage.from('scan-images').remove(uploadedPaths);
-      }
-      throw error;
-    }
+    return createHomeBackgroundScanJob({
+      files,
+      userId: session.user.id,
+      accessToken: session.access_token,
+      storage: supabase.storage,
+      scanMode: selectedScanModes[0] ?? 'all',
+      scanModes: selectedScanModes,
+      eikenLevel: selectedEikenLevel,
+      targetProjectId,
+      projectTitle: targetProjectTitle,
+      onProgress: setProcessingLabel,
+    });
   };
 
   const extractImagesImmediately = async (files: readonly File[]) => {
@@ -190,23 +143,12 @@ export function ScanCaptureModal({
             eikenLevel: selectedEikenLevel,
           }),
         });
-        const result = await res.json().catch(() => ({})) as {
-          success?: boolean;
-          words?: unknown[];
-          sourceLabels?: unknown[];
-          lexiconEntries?: LexiconEntry[];
-          error?: string;
-        };
-
-        if (!res.ok || !result.success) {
-          throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
+        const parsed = await readHomeImmediateScanExtractResponse(res, { imageIndex: index });
+        if (!parsed.ok) {
+          throw new Error(parsed.error);
         }
 
-        accumulator = addHomeImmediateScanResult(accumulator, {
-          words: result.words,
-          sourceLabels: result.sourceLabels,
-          lexiconEntries: result.lexiconEntries,
-        });
+        accumulator = addHomeImmediateScanResult(accumulator, parsed.result);
       } catch (error) {
         console.error('[ScanCaptureModal] Failed to extract one image from multi-image scan', {
           index,
@@ -412,10 +354,13 @@ export function ScanCaptureModal({
                 {SUB_OPTIONS.map(s => {
                   const on = activeSubs.includes(s.k);
                   return (
-                    <button
-                      key={s.k}
-                      type="button"
-                      onClick={() => toggleSubOption(s.k)}
+                      <button
+                        key={s.k}
+                        type="button"
+                      onClick={() => {
+                        toggleSubOption(s.k);
+                        if (s.k === 'eiken' && activeSubs.includes('eiken')) setEikenLevel(null);
+                      }}
                       className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                       style={{
                         background: on ? 'var(--solid-ink)' : '#fff',
@@ -443,33 +388,75 @@ export function ScanCaptureModal({
                   );
                 })}
               </div>
+
+              {/* EIKEN level picker (shown when eiken sub-option is selected) */}
+              {activeSubs.includes('eiken') && (
+                <div className="mt-2.5 pt-2.5" style={{ borderTop: '1px dashed var(--solid-ink)' }}>
+                  <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                    級を選択
+                  </div>
+                  <div className="flex flex-wrap gap-[5px]">
+                    {EIKEN_LEVEL_OPTIONS.map(lvl => {
+                      const on = eikenLevel === lvl.value;
+                      return (
+                        <button
+                          key={lvl.value}
+                          type="button"
+                          onClick={() => setEikenLevel(lvl.value)}
+                          className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
+                          style={{
+                            background: on ? 'var(--solid-ink)' : '#fff',
+                            color: on ? '#fff' : 'var(--solid-ink)',
+                          }}
+                        >
+                          <span
+                            className="inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center rounded-full"
+                            style={{ border: on ? '1.25px solid #fff' : '1.25px solid var(--solid-ink)' }}
+                          >
+                            {on && <span className="h-[6px] w-[6px] rounded-full bg-white" />}
+                          </span>
+                          {lvl.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!eikenLevel && (
+                    <p className="mt-1.5 text-[10px] text-[var(--color-muted)]">級を選んでからスキャンを開始してください</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* Camera / Library buttons */}
-          <div className="flex gap-2.5">
-            <button type="button" onClick={handleCamera} className="relative flex-1">
-              <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-              <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-white">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-                <span className="text-[13px] font-bold">カメラで撮影</span>
+          {(() => {
+            const scanDisabled = activeSubs.includes('eiken') && !eikenLevel;
+            return (
+              <div className="flex gap-2.5">
+                <button type="button" onClick={handleCamera} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
+                  <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
+                  <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-white">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    <span className="text-[13px] font-bold">カメラで撮影</span>
+                  </div>
+                </button>
+                <button type="button" onClick={handleLibrary} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
+                  <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
+                  <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white py-4 text-[var(--solid-ink)]">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5" width="18" height="14" rx="2"/>
+                      <path d="M3 16l5-5 4 4 3-3 6 6"/>
+                    </svg>
+                    <span className="text-[13px] font-bold">写真から選ぶ</span>
+                    <span className="text-[10px] font-bold text-[var(--color-muted)]">複数枚可</span>
+                  </div>
+                </button>
               </div>
-            </button>
-            <button type="button" onClick={handleLibrary} className="relative flex-1">
-              <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-              <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white py-4 text-[var(--solid-ink)]">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="5" width="18" height="14" rx="2"/>
-                  <path d="M3 16l5-5 4 4 3-3 6 6"/>
-                </svg>
-                <span className="text-[13px] font-bold">写真から選ぶ</span>
-                <span className="text-[10px] font-bold text-[var(--color-muted)]">複数枚可</span>
-              </div>
-            </button>
-          </div>
+            );
+          })()}
 
           {/* Error */}
           {errorMsg && (
