@@ -7,9 +7,11 @@ import type {
   SharedProjectAccessRole,
   SharedProjectCard,
   SharedProjectMetrics,
+  SharedProjectPreviewPayload,
   SharedProjectSummary,
 } from '@/lib/shared-projects/types';
-import { mapProjectFromRow, type ProjectRow } from '../../../../shared/db';
+import { SHARE_VIEW_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
 
 type ProjectMembershipRow = {
   project_id: string;
@@ -50,6 +52,8 @@ const PROJECT_SHARED_SELECT_COLUMNS = `${PROJECT_BASE_SELECT_COLUMNS},share_scop
 const DEFAULT_PUBLIC_PAGE_SIZE = 8;
 const MAX_PUBLIC_PAGE_SIZE = 24;
 const PUBLIC_CURSOR_FETCH_PADDING = 24;
+const DEFAULT_SHARE_PREVIEW_WORD_LIMIT = 5;
+const MAX_SHARE_PREVIEW_WORD_LIMIT = 20;
 
 export class SharedProjectsSchemaUnavailableError extends Error {
   constructor(
@@ -101,8 +105,10 @@ export function extractShareCode(input: string): string | null {
   return SHARE_CODE_PATTERN.test(normalized) ? normalized : null;
 }
 
-export async function getProjectByShareCode(shareCode: string): Promise<ProjectRow | null> {
-  const admin = getSupabaseAdmin();
+export async function getProjectByShareCode(
+  shareCode: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<ProjectRow | null> {
   const { data, error } = await admin
     .from('projects')
     .select(PROJECT_BASE_SELECT_COLUMNS)
@@ -114,6 +120,39 @@ export async function getProjectByShareCode(shareCode: string): Promise<ProjectR
   }
 
   return data ?? null;
+}
+
+export async function getSharedProjectPreviewByShareCode(
+  shareCode: string,
+  wordLimit = DEFAULT_SHARE_PREVIEW_WORD_LIMIT,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<SharedProjectPreviewPayload | null> {
+  const projectRow = await getProjectByShareCode(shareCode, admin);
+  if (!projectRow) return null;
+
+  const limit = clampSharePreviewWordLimit(wordLimit);
+  const [wordsResult, usernameByUserId, metricsByProjectId] = await Promise.all([
+    admin
+      .from('words')
+      .select(SHARE_VIEW_WORD_SELECT_COLUMNS, { count: 'exact' })
+      .eq('project_id', projectRow.id)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    getUsernamesByUserIds(admin, [projectRow.user_id]),
+    getSharedProjectMetrics([projectRow.id], admin),
+  ]);
+
+  if (wordsResult.error) {
+    throw new Error(wordsResult.error.message || 'shared_project_preview_words_failed');
+  }
+
+  return {
+    project: mapProjectFromRow(projectRow),
+    words: ((wordsResult.data ?? []) as WordRow[]).map(mapWordFromRow),
+    totalWordCount: wordsResult.count ?? wordsResult.data?.length ?? 0,
+    likeCount: metricsByProjectId.get(projectRow.id)?.likeCount ?? 0,
+    ownerUsername: usernameByUserId.get(projectRow.user_id) ?? null,
+  };
 }
 
 export async function getAccessibleSharedProject(projectId: string, userId: string): Promise<SharedProjectSummary | null> {
@@ -704,6 +743,11 @@ async function getUsernamesByUserIds(
 function clampPublicPageSize(limit?: number): number {
   if (!Number.isFinite(limit)) return DEFAULT_PUBLIC_PAGE_SIZE;
   return Math.max(1, Math.min(MAX_PUBLIC_PAGE_SIZE, Number(limit)));
+}
+
+function clampSharePreviewWordLimit(limit: number): number {
+  if (!Number.isFinite(limit)) return DEFAULT_SHARE_PREVIEW_WORD_LIMIT;
+  return Math.max(0, Math.min(MAX_SHARE_PREVIEW_WORD_LIMIT, Math.floor(limit)));
 }
 
 function encodePublicCursor(row: Pick<ProjectRow, 'created_at' | 'id'>): string {

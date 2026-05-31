@@ -1,4 +1,4 @@
-import type { Project } from '@/types';
+import type { Project, Word } from '@/types';
 
 export type SharedProjectAccessRole = 'owner' | 'editor' | 'viewer';
 
@@ -24,6 +24,14 @@ export type AccessibleSharedProjectListPayload = {
 export type PublicSharedProjectListPayload = {
   items: SharedProjectCard[];
   nextCursor: string | null;
+};
+
+export type SharedProjectPreviewPayload = {
+  project: Project;
+  words: Word[];
+  totalWordCount: number;
+  likeCount: number;
+  ownerUsername: string | null;
 };
 
 export type SharedProjectMetrics = {
