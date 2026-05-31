@@ -1,6 +1,7 @@
 'use client';
 
-import { Fragment, type CSSProperties, useMemo, useState } from 'react';
+import { Fragment, type CSSProperties, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import {
   DesktopButton,
@@ -14,6 +15,7 @@ import {
   desktopSourceLabel,
   desktopThumbColor,
 } from '@/components/desktop/desktop-data';
+import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
 const STATUS_FILTERS: { key: 'all' | WordStatus; label: string; dot?: string }[] = [
@@ -24,6 +26,22 @@ const STATUS_FILTERS: { key: 'all' | WordStatus; label: string; dot?: string }[]
 ];
 
 type SortKey = 'order' | 'en' | 'cefr' | 'status';
+type ReviewRailMode = 'wrong' | 'review';
+
+type RecentWrongRailItem = {
+  word: Word;
+  wrongCount: number;
+  lastWrongAt: number;
+};
+
+type UpcomingReviewRailItem = {
+  word: Word;
+  nextReviewMs: number;
+  urgencyPercent: number;
+  dueLabel: string;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function DesktopProjectDetailView({
   project,
@@ -45,8 +63,28 @@ export function DesktopProjectDetailView({
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
+  const [nowMs, setNowMs] = useState(0);
   const q = query.trim().toLowerCase();
   const bg = desktopThumbColor(project.id);
+
+  useEffect(() => {
+    const refreshWrongAnswers = () => setWrongAnswers(getWrongAnswers());
+    refreshWrongAnswers();
+    window.addEventListener('focus', refreshWrongAnswers);
+    window.addEventListener('storage', refreshWrongAnswers);
+    return () => {
+      window.removeEventListener('focus', refreshWrongAnswers);
+      window.removeEventListener('storage', refreshWrongAnswers);
+    };
+  }, []);
+
+  useEffect(() => {
+    const refreshTime = () => setNowMs(Date.now());
+    refreshTime();
+    const timer = window.setInterval(refreshTime, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const rows = useMemo(() => {
     const order: Record<WordStatus, number> = { new: 0, review: 1, mastered: 2 };
@@ -65,7 +103,48 @@ export function DesktopProjectDetailView({
     });
   }, [filter, q, sortDir, sortKey, words]);
 
+  const recentWrongRows = useMemo<RecentWrongRailItem[]>(() => {
+    const wordById = new Map(words.map((word) => [word.id, word]));
+    return wrongAnswers
+      .map((wrongAnswer) => {
+        const word = wordById.get(wrongAnswer.wordId);
+        if (!word) return null;
+        if (wrongAnswer.projectId && wrongAnswer.projectId !== projectId) return null;
+        return {
+          word,
+          wrongCount: wrongAnswer.wrongCount,
+          lastWrongAt: wrongAnswer.lastWrongAt,
+        };
+      })
+      .filter((item): item is RecentWrongRailItem => item !== null)
+      .sort((a, b) => b.lastWrongAt - a.lastWrongAt || b.wrongCount - a.wrongCount)
+      .slice(0, 5);
+  }, [projectId, words, wrongAnswers]);
+
+  const upcomingReviewRows = useMemo<UpcomingReviewRailItem[]>(() => {
+    if (nowMs <= 0) return [];
+    return words
+      .map((word) => {
+        if (!word.nextReviewAt) return null;
+        const nextReviewMs = Date.parse(word.nextReviewAt);
+        if (!Number.isFinite(nextReviewMs)) return null;
+        return {
+          word,
+          nextReviewMs,
+          urgencyPercent: getReviewUrgencyPercent(nextReviewMs, nowMs),
+          dueLabel: formatNextReviewLabel(nextReviewMs, nowMs),
+        };
+      })
+      .filter((item): item is UpcomingReviewRailItem => item !== null)
+      .sort((a, b) => a.nextReviewMs - b.nextReviewMs)
+      .slice(0, 5);
+  }, [nowMs, words]);
+
   const selectedWord = selectedWordId ? words.find((word) => word.id === selectedWordId) ?? null : null;
+  const modalWords = useMemo(() => {
+    if (!selectedWord) return rows;
+    return rows.some((word) => word.id === selectedWord.id) ? rows : [selectedWord, ...rows];
+  }, [rows, selectedWord]);
   const pctMastered = counts.total > 0 ? Math.round((counts.mastered / counts.total) * 100) : 0;
 
   const toggleSort = (key: SortKey) => {
@@ -91,143 +170,288 @@ export function DesktopProjectDetailView({
         <DesktopButton href={`/scan?projectId=${encodeURIComponent(projectId)}`} icon="photo_camera">追加</DesktopButton>
       </DesktopTopbar>
 
-      <div className="ds-scroll">
-        <div className="ds-card" style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 20, marginBottom: 18, flexShrink: 0 }}>
-          <div
-            className="ds-project-icon ds-project-icon--lg"
-            style={{
-              background: bg,
-              backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-            }}
-          >
-            {!project.iconImage && project.title.charAt(0)}
+      <div className="ds-scroll ds-project-detail-grid">
+        <div style={{ minWidth: 0 }}>
+          <div className="ds-card" style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 20, marginBottom: 18, flexShrink: 0 }}>
+            <div
+              className="ds-project-icon ds-project-icon--lg"
+              style={{
+                background: bg,
+                backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
+              }}
+            >
+              {!project.iconImage && project.title.charAt(0)}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>
+                  {counts.total} <span style={{ fontSize: 13 }}>語</span>
+                </span>
+                <span className="mono muted" style={{ fontSize: 12 }}>{desktopSourceLabel(project)}</span>
+                {project.description && <span className="muted" style={{ fontSize: 12 }}>{project.description}</span>}
+              </div>
+              <div className="ds-dist" style={{ marginTop: 10, maxWidth: 460 }}>
+                <span className="c-mastered" style={{ flex: counts.mastered || 0.0001 }} />
+                <span className="c-review" style={{ flex: counts.learning || 0.0001 }} />
+                <span className="c-new" style={{ flex: counts.newCount || 0.0001 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                <span className="ds-status mastered"><span className="ds-sdot c-mastered" />習得 {counts.mastered}</span>
+                <span className="ds-status review"><span className="ds-sdot c-review" />学習中 {counts.learning}</span>
+                <span className="ds-status new"><span className="ds-sdot c-new" />未学習 {counts.newCount}</span>
+              </div>
+            </div>
+            <DesktopDonut mastered={counts.mastered} review={counts.learning} total={counts.total} size={84} stroke={11} percent={pctMastered} />
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>
-                {counts.total} <span style={{ fontSize: 13 }}>語</span>
-              </span>
-              <span className="mono muted" style={{ fontSize: 12 }}>{desktopSourceLabel(project)}</span>
-              {project.description && <span className="muted" style={{ fontSize: 12 }}>{project.description}</span>}
-            </div>
-            <div className="ds-dist" style={{ marginTop: 10, maxWidth: 460 }}>
-              <span className="c-mastered" style={{ flex: counts.mastered || 0.0001 }} />
-              <span className="c-review" style={{ flex: counts.learning || 0.0001 }} />
-              <span className="c-new" style={{ flex: counts.newCount || 0.0001 }} />
-            </div>
-            <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-              <span className="ds-status mastered"><span className="ds-sdot c-mastered" />習得 {counts.mastered}</span>
-              <span className="ds-status review"><span className="ds-sdot c-review" />学習中 {counts.learning}</span>
-              <span className="ds-status new"><span className="ds-sdot c-new" />未学習 {counts.newCount}</span>
-            </div>
-          </div>
-          <DesktopDonut mastered={counts.mastered} review={counts.learning} total={counts.total} size={84} stroke={11} percent={pctMastered} />
-        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 7 }}>
-            {STATUS_FILTERS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={'ds-chip' + (filter === item.key ? ' active' : '')}
-                onClick={() => setFilter(item.key)}
-              >
-                {item.dot && <span className={'ds-sdot ' + item.dot} />}
-                {item.label}
-                {item.key !== 'all' && (
-                  <span className="tnum" style={{ opacity: 0.7 }}>
-                    {item.key === 'mastered' ? counts.mastered : item.key === 'review' ? counts.learning : counts.newCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div style={{ flex: 1 }} />
-          <DesktopSearchBox
-            placeholder="英単語・日本語を検索"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            style={{ minWidth: 240 }}
-          />
-        </div>
-
-        <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="ds-table">
-            <thead>
-              <tr>
-                <th style={{ width: 42 }} />
-                {sortHead('en', '英単語', { minWidth: 150 })}
-                <th style={{ width: 70 }}>品詞</th>
-                <th>日本語</th>
-                {sortHead('cefr', 'CEFR', { width: 80 })}
-                {sortHead('status', 'ステータス', { width: 130 })}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((word) => (
-                <tr
-                  key={word.id}
-                  onClick={() => setSelectedWordId(word.id)}
-                  style={selectedWordId === word.id ? { background: 'var(--color-accent-subtle)' } : undefined}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 7 }}>
+              {STATUS_FILTERS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={'ds-chip' + (filter === item.key ? ' active' : '')}
+                  onClick={() => setFilter(item.key)}
                 >
-                  <td
-                    className="star"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onToggleFavorite(word);
-                    }}
-                  >
-                    <Icon
-                      name={word.isFavorite ? 'star' : 'star_border'}
-                      filled={word.isFavorite}
-                      style={word.isFavorite ? { color: 'var(--color-warning)' } : undefined}
-                    />
-                  </td>
-                  <td className="en">
-                    {word.english}
-                    <div className="mono" style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
-                      {word.pronunciation || '-'}
-                    </div>
-                  </td>
-                  <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
-                  <td className="ja">{word.japanese}</td>
-                  <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
-                  <td><span className={'ds-status ' + word.status}><span className={'ds-sdot c-' + word.status} />{DESKTOP_STATUS_LABEL[word.status]}</span></td>
-                </tr>
+                  {item.dot && <span className={'ds-sdot ' + item.dot} />}
+                  {item.label}
+                  {item.key !== 'all' && (
+                    <span className="tnum" style={{ opacity: 0.7 }}>
+                      {item.key === 'mastered' ? counts.mastered : item.key === 'review' ? counts.learning : counts.newCount}
+                    </span>
+                  )}
+                </button>
               ))}
-            </tbody>
-          </table>
-          {!wordsLoaded && (
-            <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>
-              <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 8 }} />
-              単語を読み込み中...
             </div>
-          )}
-          {wordsLoaded && rows.length === 0 && (
-            <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
-          )}
+            <div style={{ flex: 1 }} />
+            <DesktopSearchBox
+              placeholder="英単語・日本語を検索"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              style={{ minWidth: 240 }}
+            />
+          </div>
+
+          <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 42 }} />
+                  {sortHead('en', '英単語', { minWidth: 150 })}
+                  <th style={{ width: 70 }}>品詞</th>
+                  <th>日本語</th>
+                  {sortHead('cefr', 'CEFR', { width: 80 })}
+                  {sortHead('status', 'ステータス', { width: 130 })}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((word) => (
+                  <tr
+                    key={word.id}
+                    onClick={() => setSelectedWordId(word.id)}
+                    style={selectedWordId === word.id ? { background: 'var(--color-accent-subtle)' } : undefined}
+                  >
+                    <td
+                      className="star"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleFavorite(word);
+                      }}
+                    >
+                      <Icon
+                        name={word.isFavorite ? 'star' : 'star_border'}
+                        filled={word.isFavorite}
+                        style={word.isFavorite ? { color: 'var(--color-warning)' } : undefined}
+                      />
+                    </td>
+                    <td className="en">
+                      {word.english}
+                      <div className="mono" style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
+                        {word.pronunciation || '-'}
+                      </div>
+                    </td>
+                    <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
+                    <td className="ja">{word.japanese}</td>
+                    <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
+                    <td><span className={'ds-status ' + word.status}><span className={'ds-sdot c-' + word.status} />{DESKTOP_STATUS_LABEL[word.status]}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!wordsLoaded && (
+              <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>
+                <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 8 }} />
+                単語を読み込み中...
+              </div>
+            )}
+            {wordsLoaded && rows.length === 0 && (
+              <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
+            )}
+          </div>
+          <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>
+            {rows.length} / {counts.total} 語を表示・行をクリックで詳細を表示
+          </div>
         </div>
-        <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>
-          {rows.length} / {counts.total} 語を表示・行をクリックで詳細を表示
-        </div>
+
+        <ReviewRail
+          loading={!wordsLoaded || nowMs <= 0}
+          nowMs={nowMs}
+          projectId={projectId}
+          recentWrongRows={recentWrongRows}
+          upcomingReviewRows={upcomingReviewRows}
+          onPick={(wordId) => setSelectedWordId(wordId)}
+        />
       </div>
 
       {selectedWord && (
         <DesktopWordDetailModal
           word={selectedWord}
-          words={rows}
+          words={modalWords}
           onClose={() => setSelectedWordId(null)}
           onToggleFavorite={() => onToggleFavorite(selectedWord)}
           onNav={(dir) => {
-            const ids = rows.map((row) => row.id);
+            const ids = modalWords.map((row) => row.id);
             const currentIndex = ids.indexOf(selectedWord.id);
+            if (currentIndex < 0 || ids.length === 0) return;
             setSelectedWordId(ids[(currentIndex + dir + ids.length) % ids.length] ?? selectedWord.id);
           }}
         />
       )}
     </div>
   );
+}
+
+function ReviewRail({
+  loading,
+  nowMs,
+  projectId,
+  recentWrongRows,
+  upcomingReviewRows,
+  onPick,
+}: {
+  loading: boolean;
+  nowMs: number;
+  projectId: string;
+  recentWrongRows: RecentWrongRailItem[];
+  upcomingReviewRows: UpcomingReviewRailItem[];
+  onPick: (wordId: string) => void;
+}) {
+  const [mode, setMode] = useState<ReviewRailMode>('wrong');
+  const list = mode === 'wrong' ? recentWrongRows : upcomingReviewRows;
+  const from = encodeURIComponent(`/project/${projectId}`);
+  const quizHref = mode === 'wrong'
+    ? `/quiz/${projectId}?wrong=1&from=${from}`
+    : `/quiz/${projectId}?review=1&from=${from}`;
+  const title = mode === 'wrong' ? '最近間違えた単語' : '復習時期が近い単語';
+  const description = mode === 'wrong'
+    ? 'クイズで最近つまずいた単語。記憶が残っているうちに戻すと定着しやすくなります。'
+    : '復習期限が近い順に並べています。期限切れの単語は先頭に出ます。';
+  const cta = mode === 'wrong' ? '間違えた単語を復習' : '復習リストを開始';
+
+  return (
+    <aside className="ds-review-rail">
+      <div className="ds-card" style={{ padding: '18px 20px' }}>
+        <div className="ds-railseg">
+          <button type="button" className={mode === 'wrong' ? 'on' : ''} onClick={() => setMode('wrong')}>
+            <Icon name="flag" />最近間違えた
+          </button>
+          <button type="button" className={mode === 'review' ? 'on' : ''} onClick={() => setMode('review')}>
+            <Icon name="hourglass_bottom" />復習時期
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '14px 2px 4px' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15 }}>{title}</span>
+          <span className="mono muted" style={{ fontSize: 11 }}>{list.length} 語</span>
+        </div>
+        <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.6, margin: '0 2px 8px' }}>{description}</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {loading ? (
+            <div className="muted" style={{ padding: '22px 6px', textAlign: 'center', fontSize: 12 }}>
+              <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 6, fontSize: 15 }} />
+              読み込み中...
+            </div>
+          ) : list.length === 0 ? (
+            <div className="muted" style={{ padding: '22px 6px', textAlign: 'center', fontSize: 12 }}>
+              {mode === 'wrong' ? '最近間違えた単語はありません' : '復習予定の単語はありません'}
+            </div>
+          ) : mode === 'wrong' ? (
+            recentWrongRows.map((item) => (
+              <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="en">{item.word.english}</div>
+                  <div className="ja">{item.word.japanese}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="when">{formatPastLabel(item.lastWrongAt, nowMs)}</span>
+                  <span className="miss">{item.wrongCount}<span className="u">回</span></span>
+                </div>
+              </button>
+            ))
+          ) : (
+            upcomingReviewRows.map((item) => (
+              <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="en">{item.word.english}</div>
+                  <div className="ja">{item.word.japanese}</div>
+                </div>
+                <div className="ds-mem">
+                  <div className="bar">
+                    <i style={{ width: `${item.urgencyPercent}%`, background: reviewUrgencyColor(item.urgencyPercent) }} />
+                  </div>
+                  <div className="pct">{item.dueLabel}</div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+
+        <Link href={quizHref} className="ds-btn accent sm" style={{ width: '100%', marginTop: 14 }}>
+          <Icon name="style" />{cta}
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+function startOfLocalDay(timestampMs: number): number {
+  const date = new Date(timestampMs);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function diffLocalDays(targetMs: number, nowMs: number): number {
+  return Math.round((startOfLocalDay(targetMs) - startOfLocalDay(nowMs)) / DAY_MS);
+}
+
+function formatPastLabel(timestampMs: number, nowMs: number): string {
+  if (!Number.isFinite(timestampMs)) return '-';
+  const diffDays = diffLocalDays(timestampMs, nowMs);
+  if (diffDays === 0) return '今日';
+  if (diffDays === -1) return '昨日';
+  if (diffDays < 0) return `${Math.abs(diffDays)}日前`;
+  return '今日';
+}
+
+function formatNextReviewLabel(nextReviewMs: number, nowMs: number): string {
+  const diffDays = diffLocalDays(nextReviewMs, nowMs);
+  if (diffDays < 0) return `${Math.abs(diffDays)}日超過`;
+  if (diffDays === 0) return '今日';
+  if (diffDays === 1) return '明日';
+  return `あと${diffDays}日`;
+}
+
+function getReviewUrgencyPercent(nextReviewMs: number, nowMs: number): number {
+  const diffDays = diffLocalDays(nextReviewMs, nowMs);
+  if (diffDays <= 0) return 100;
+  return Math.max(18, 100 - diffDays * 12);
+}
+
+function reviewUrgencyColor(percent: number): string {
+  if (percent >= 88) return 'var(--color-error)';
+  if (percent >= 58) return 'var(--color-warning)';
+  return 'var(--color-accent)';
 }
 
 function DesktopWordDetailModal({

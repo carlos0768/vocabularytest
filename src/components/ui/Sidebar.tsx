@@ -23,8 +23,7 @@ const navGroups: NavGroup[] = [
   {
     label: '学習',
     items: [
-      { href: '/', icon: 'home', label: 'Home & 単語帳', matchPaths: ['/'], count: '4' },
-      { href: '/projects', icon: 'folder', label: '単語帳', matchPaths: ['/projects', '/project', '/word'] },
+      { href: '/', icon: 'home', label: 'Home', matchPaths: ['/'], count: '4' },
       { href: '/favorites', icon: 'star', label: 'コレクション', matchPaths: ['/favorites', '/collections'], count: '4' },
       { href: '/stats', icon: 'bar_chart', label: '進歩', matchPaths: ['/stats'] },
     ],
