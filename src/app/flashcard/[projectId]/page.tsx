@@ -10,6 +10,7 @@ import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
+import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import type { Word, SubscriptionStatus } from '@/types';
 
 /* ---------- Mastery level (mirrors iOS) ---------- */
@@ -550,9 +551,66 @@ export default function FlashcardPage() {
 
   const masteryLevel = getMasteryLevel(currentWord?.repetition ?? 0);
   const total = words.length;
+  const currentPartOfSpeechLabel = formatPartOfSpeechLabels(currentWord?.partOfSpeechTags);
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[280px]">
+    <>
+    <div className="fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[264px] lg:flex">
+      <div className="ds-fc-wrap">
+        <div className="ds-quiz-head" style={{ maxWidth: 720 }}>
+          <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
+            <Icon name="close" />
+          </button>
+          <div className="ds-qbar"><div className="fi" style={{ width: `${((currentIndex + 1) / Math.max(total, 1)) * 100}%` }} /></div>
+          <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
+        </div>
+        <div className="mono muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 4 }}>
+          {favoritesOnly ? 'お気に入り' : collectionId ? 'コレクション' : '単語帳'} · フラッシュカード
+        </div>
+
+        <div className="ds-fc-scene">
+          <div className={'ds-fc-card' + (isFlipped ? ' flipped' : '')} onClick={handleFlip}>
+            <div className="ds-fc-face front">
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); handleToggleFavorite(); }}
+                aria-label="お気に入り"
+                style={{ position: 'absolute', top: 18, right: 18, color: currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--color-muted)' }}
+              >
+                <Icon name="bookmark" filled={currentWord?.isFavorite} />
+              </button>
+              <div className="en" style={{ fontSize: currentWord?.english && currentWord.english.length > 14 ? 46 : undefined }}>
+                {currentWord?.english}
+              </div>
+              <div className="ph">{currentWord?.pronunciation || '\u00a0'}</div>
+              {currentPartOfSpeechLabel && <span className="ds-tag accent">{currentPartOfSpeechLabel}</span>}
+              <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで意味を表示</div>
+            </div>
+            <div className="ds-fc-face back">
+              <div className="ja">{currentWord?.japanese}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{getPartOfSpeechLabel(tag)}</span>)}
+              </div>
+              {currentWord?.exampleSentenceJa && (
+                <div className="muted" style={{ fontSize: 14, maxWidth: 460, lineHeight: 1.6 }}>{currentWord.exampleSentenceJa}</div>
+              )}
+              <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで戻る</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="ds-fc-controls">
+          <button type="button" className="ds-fc-big dunno" onClick={() => handlePrev()}>
+            <Icon name="chevron_left" />前へ
+          </button>
+          <button type="button" className="ds-fc-big dunno" onClick={() => handleNext()}>
+            次へ<Icon name="chevron_right" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       {/* Header: HeaderBtn close | progress | HeaderBtn details */}
       <div
         className="flex shrink-0 items-center justify-between px-4 pb-2.5"
@@ -665,7 +723,7 @@ export default function FlashcardPage() {
               <div className="flex items-center justify-between">
                 {currentWord?.partOfSpeechTags?.[0] ? (
                   <div className="rounded border border-[var(--solid-ink)] bg-white px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--solid-ink)]">
-                    {currentWord.partOfSpeechTags[0].toUpperCase()}
+                    {getPartOfSpeechLabel(currentWord.partOfSpeechTags[0])}
                   </div>
                 ) : <div />}
                 <button
@@ -776,16 +834,13 @@ export default function FlashcardPage() {
         <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
       </div>
 
-      {/* Navigation row: prev | flip | next */}
+      {/* Navigation row: prev | next */}
       <div
         className="flex shrink-0 items-center justify-center gap-6 px-5 pt-3"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
         <NavBtn onClick={() => handlePrev(true)} aria-label="前のカード">
           <Icon name="chevron_left" size={18} />
-        </NavBtn>
-        <NavBtn onClick={handleFlip} aria-label="カードを裏返す">
-          <Icon name="flip" size={18} />
         </NavBtn>
         <NavBtn onClick={() => handleNext(true)} aria-label="次のカード">
           <Icon name="chevron_right" size={18} />
@@ -834,5 +889,6 @@ export default function FlashcardPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

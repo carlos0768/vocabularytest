@@ -1,4 +1,5 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET, SOURCE_LABEL_RULES } from './source-labels';
+import { JAPANESE_PARENTHESIS_RULES } from './japanese-format';
 
 // EIKEN level descriptions for AI prompts
 export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
@@ -96,6 +97,7 @@ export const EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教材
    - テキスト内に日本語訳が含まれている場合: その日本語訳をそのまま使用し、japaneseSource は "scan" を返してください。
    - テキスト内に日本語訳がない場合: japanese は空文字 "" を返し、japaneseSource は付けないでください。
    - 推測生成・複数候補・説明文・言い換えは禁止です。
+${JAPANESE_PARENTHESIS_RULES}
 
 2. 禁止事項:
    - 指定された英検レベルに合わない単語を出力しない

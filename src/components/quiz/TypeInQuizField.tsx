@@ -9,6 +9,7 @@ export interface TypeInQuizFieldProps {
   answer: string;
   value: string;
   onChange: (value: string) => void;
+  normalizeInput?: (value: string) => string;
   onSubmit: () => void;
   disabled: boolean;
   result: TypeInQuizFieldResult;
@@ -21,6 +22,7 @@ export function TypeInQuizField({
   answer,
   value,
   onChange,
+  normalizeInput,
   onSubmit,
   disabled,
   result,
@@ -40,7 +42,7 @@ export function TypeInQuizField({
         : 'border-[var(--color-border)] bg-[var(--color-surface)] focus-within:border-[var(--color-foreground)]';
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    let v = e.target.value;
+    let v = normalizeInput ? normalizeInput(e.target.value) : e.target.value;
     if (n > 0 && v.length > n) {
       v = v.slice(0, n);
     }

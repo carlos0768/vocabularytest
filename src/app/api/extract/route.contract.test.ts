@@ -96,6 +96,8 @@ function createDeps(
       gemini: 'dummy-gemini-key',
       openai: 'dummy-openai-key',
     }),
+    getProvidersForModes: () => ['gemini'],
+    getMissingProviderKeyForModes: () => null,
     getMissingProviderKey: () => null,
     extractWords: async (_image, _apiKeys, options) => {
       calls.push(`extractWords:${String(options?.includeExamples)}`);
@@ -145,10 +147,31 @@ function createDeps(
         },
       };
     },
+    extractCompositeWords: async (_image, _apiKeys, options) => {
+      calls.push(`extractCompositeWords:${options.modes.join(',')}:${options.eikenLevel ?? ''}`);
+      return {
+        success: true,
+        data: {
+          words: [
+            {
+              english: 'look forward to',
+              japanese: '楽しみに待つ',
+              japaneseSource: 'scan',
+              sourceModes: ['idiom', 'all'],
+              distractors: [],
+              partOfSpeechTags: ['idiom'],
+              exampleSentence: 'I look forward to hearing from you.',
+              exampleSentenceJa: 'ご連絡をお待ちしています。',
+            },
+          ],
+          sourceLabels: ['教材'],
+        },
+      };
+    },
     resolveImmediateWords: async (words) => {
       calls.push('resolveImmediateWords');
       return {
-        words,
+        words: words as never,
         lexiconEntries: [
           {
             id: 'lexicon-book',
@@ -197,6 +220,7 @@ function createDeps(
     },
     saveExamples: async () => {
       calls.push('saveExamples');
+      return { updated: 0, errors: 0 };
     },
     ...overrides,
   };
@@ -263,7 +287,7 @@ test('/api/extract rejects PDF when the selected mode uses OpenAI before usage i
   const response = await handleExtractPost(
     jsonRequest({ image: 'data:application/pdf;base64,AAAA' }),
     createDeps(client, [], {
-      getProvidersForMode: () => ['openai'],
+      getProvidersForModes: () => ['openai'],
     }),
   );
 
@@ -329,6 +353,52 @@ test('/api/extract uses scan usage response to reject free users from Pro-only m
     },
   ]);
   assert.deepEqual(calls, []);
+});
+
+test('/api/extract runs one composite extraction for multiple scanModes', async () => {
+  const client = new FakeExtractClient({
+    scanData: allowedScanData({
+      current_count: 2,
+      limit: 5,
+      is_pro: true,
+    }),
+  });
+  const calls: string[] = [];
+
+  const response = await handleExtractPost(
+    jsonRequest({
+      image: 'data:image/png;base64,AAAA',
+      mode: 'all',
+      scanModes: ['all', 'idiom'],
+    }),
+    createDeps(client, calls),
+  );
+
+  const payload = await jsonPayload(response);
+  assert.equal(response.status, 200);
+  assert.equal(payload.success, true);
+  assert.deepEqual(client.rpcCalls, [
+    {
+      name: 'check_and_increment_scan',
+      args: { p_require_pro: true },
+    },
+  ]);
+  assert.deepEqual(calls, [
+    'extractCompositeWords:all,idiom:',
+    'resolveImmediateWords',
+  ]);
+  assert.deepEqual(payload.words, [
+    {
+      english: 'look forward to',
+      japanese: '楽しみに待つ',
+      japaneseSource: 'scan',
+      sourceModes: ['idiom', 'all'],
+      distractors: [],
+      partOfSpeechTags: ['idiom'],
+      exampleSentence: 'I look forward to hearing from you.',
+      exampleSentenceJa: 'ご連絡をお待ちしています。',
+    },
+  ]);
 });
 
 test('/api/extract preserves usage-limit response shape', async () => {
@@ -477,6 +547,7 @@ test('/api/extract success response keeps scanInfo, sourceLabels, lexiconEntries
       english: 'book',
       japanese: '本',
       japaneseSource: 'scan',
+      sourceModes: ['all'],
       distractors: ['ペン', '机', '紙'],
       partOfSpeechTags: ['noun'],
     },

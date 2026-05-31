@@ -60,3 +60,24 @@ test('buildHomeBackgroundScanJobCreatePayload includes eikenLevel only for eiken
   assert.equal(eikenPayload.eikenLevel, '2');
   assert.equal(nonEikenPayload.eikenLevel, null);
 });
+
+test('buildHomeBackgroundScanJobCreatePayload includes multiple scan modes and custom title', () => {
+  const payload = buildHomeBackgroundScanJobCreatePayload({
+    imagePaths: ['user-1/scan-1.jpg'],
+    projectTitle: '選択中の単語帳',
+    scanMode: 'circled',
+    scanModes: ['circled', 'idiom'],
+    eikenLevel: '2',
+    now: new Date(2026, 0, 9),
+  });
+
+  assert.deepEqual(payload, {
+    imagePaths: ['user-1/scan-1.jpg'],
+    projectTitle: '選択中の単語帳',
+    scanMode: 'circled',
+    scanModes: ['circled', 'idiom'],
+    eikenLevel: null,
+    targetProjectId: undefined,
+    clientPlatform: 'web',
+  });
+});

@@ -37,6 +37,7 @@ interface ScanJobRow {
   save_mode: 'client_local' | 'server_cloud';
   target_project_id: string | null;
   scan_mode: string;
+  scan_modes?: string[] | null;
   eiken_level: string | null;
   project_title: string;
   project_icon_image: string | null;
@@ -143,6 +144,7 @@ class FakeScanProcessClient {
       insertedProject?: ProjectRow | null;
       existingProject?: ProjectRow | null;
       wordsInsertError?: QueryError | null;
+      wordsInsertResults?: QueryResult[];
       insertedWords?: InsertedWordRow[] | null;
       trace?: string[];
     },
@@ -265,6 +267,10 @@ class FakeScanProcessClient {
 
   async resolveThen<T = unknown>(operation: QueryOperation): Promise<QueryResult<T>> {
     if (operation.table === 'words' && operation.action === 'insert') {
+      if (this.options.wordsInsertResults && this.options.wordsInsertResults.length > 0) {
+        return this.options.wordsInsertResults.shift() as QueryResult<T>;
+      }
+
       if (this.options.wordsInsertError) {
         return {
           data: null,
@@ -379,7 +385,7 @@ function createContractDeps(
       },
     }),
     resolveImmediateWords: async (words) => ({
-      words,
+      words: words as never,
       lexiconEntries: [
         {
           id: 'lexicon-apple',
@@ -442,7 +448,7 @@ function createServerCloudContractDeps(
         exampleSentence: 'I ate an apple.',
         exampleSentenceJa: '私はりんごを食べました。',
         partOfSpeechTags: ['noun'],
-      })),
+      })) as never,
       lexiconEntries: [
         {
           id: 'lexicon-apple',
@@ -573,7 +579,7 @@ test('client_local completion keeps result payload successful when example gener
   assert.equal(typeof completedUpdate.payload.updated_at, 'string');
   assert.equal(typeof completedUpdate.payload.result, 'string');
 
-  const resultPayload = JSON.parse(completedUpdate.payload.result);
+  const resultPayload = JSON.parse(String(completedUpdate.payload.result));
   assert.equal(resultPayload.wordCount, 1);
   assert.equal(resultPayload.saveMode, 'client_local');
   assert.deepEqual(resultPayload.sourceLabels, ['鉄壁']);
@@ -602,6 +608,48 @@ test('client_local completion keeps result payload successful when example gener
     },
   ]);
   assert.deepEqual(apnsNotifications, pushNotifications);
+});
+
+test('processJobById uses scanModesOverride when scan_modes is not available on the job row', async () => {
+  const observedModes: string[][] = [];
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob({
+      scan_mode: 'all',
+      scan_modes: null,
+    }),
+    userPreference: { ai_enabled: false },
+  });
+
+  const response = await processJobById(
+    JOB_ID,
+    createServerCloudContractDeps(client, {
+      scanModesOverride: ['all', 'idiom'],
+      extractImage: async (_base64Image, modes) => {
+        observedModes.push(modes);
+        return {
+          result: {
+            success: true,
+            data: {
+              words: [
+                {
+                  english: 'look forward to',
+                  japanese: '楽しみに待つ',
+                  japaneseSource: 'scan',
+                  sourceModes: ['all', 'idiom'],
+                  distractors: [],
+                  partOfSpeechTags: ['idiom'],
+                },
+              ],
+              sourceLabels: ['鉄壁'],
+            },
+          },
+        };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(observedModes, [['all', 'idiom']]);
 });
 
 test('server_cloud new project completion keeps project insert, words insert, and completed update contract', async () => {
@@ -689,6 +737,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
       example_sentence_ja: '私はりんごを食べました。',
       pronunciation: null,
       part_of_speech_tags: ['noun'],
+      source_modes: undefined,
     },
   ]);
 
@@ -698,7 +747,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   assert.equal(completedUpdate.payload.status, 'completed');
   assert.equal(typeof completedUpdate.payload.updated_at, 'string');
   assert.equal(typeof completedUpdate.payload.result, 'string');
-  assert.deepEqual(JSON.parse(completedUpdate.payload.result), {
+  assert.deepEqual(JSON.parse(String(completedUpdate.payload.result)), {
     wordCount: 1,
     saveMode: 'server_cloud',
     targetProjectId: NEW_PROJECT_ID,
@@ -723,6 +772,52 @@ test('server_cloud new project completion keeps project insert, words insert, an
       status: 'completed',
     },
   ]);
+});
+
+test('server_cloud retries words insert without source_modes when the database schema is older', async () => {
+  const trace: string[] = [];
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob(),
+    userPreference: { ai_enabled: false },
+    wordsInsertResults: [
+      {
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message: "Could not find the 'source_modes' column of 'words' in the schema cache",
+        },
+      },
+    ],
+    trace,
+  });
+
+  const response = await processJobById(JOB_ID, createServerCloudContractDeps(client));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    saveMode: 'server_cloud',
+    projectId: NEW_PROJECT_ID,
+    wordCount: 1,
+  });
+
+  const wordsInserts = client.operations.filter((operation) =>
+    operation.table === 'words' &&
+    operation.action === 'insert'
+  );
+  assert.equal(wordsInserts.length, 2);
+  assert.ok(Array.isArray(wordsInserts[0].payload));
+  assert.equal(wordsInserts[0].payload[0]?.source_modes, undefined);
+  assert.ok(Array.isArray(wordsInserts[1].payload));
+  assert.equal('source_modes' in wordsInserts[1].payload[0], false);
+
+  const completedUpdate = findScanJobUpdate(client, 'completed');
+  assert.ok(isRecord(completedUpdate.payload));
+  assert.equal(completedUpdate.payload.status, 'completed');
+  assert.equal(client.operations.some((operation) =>
+    operation.table === 'projects' &&
+    operation.action === 'delete'
+  ), false);
 });
 
 test('server_cloud words insert failure rolls back only the newly created project before failed side effects', async () => {

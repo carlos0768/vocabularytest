@@ -36,6 +36,7 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
       data: successWords.data,
     }),
     extractIdiomsFromImage: async () => successWords,
+    extractCompositeWordsFromImage: async () => successWords,
   };
 
   const modes: ExtractMode[] = ['all', 'circled', 'eiken', 'idiom'];
@@ -54,7 +55,69 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
     if (result.success) {
       assert.deepEqual(result.data.sourceLabels, ['鉄壁'], `mode=${mode}`);
       assert.equal((result.data.words[0] as { japaneseSource?: string } | undefined)?.japaneseSource, 'scan', `mode=${mode}`);
+      assert.deepEqual((result.data.words[0] as { sourceModes?: string[] } | undefined)?.sourceModes, [mode], `mode=${mode}`);
     }
+  }
+});
+
+test('extractFromImage uses one composite extraction call for multiple modes', async () => {
+  type Handlers = Parameters<typeof __internal.extractFromImage>[4];
+  const calls: string[] = [];
+
+  const handlers: Handlers = {
+    extractWordsFromImage: async () => {
+      calls.push('extractWordsFromImage');
+      return successWords;
+    },
+    extractCircledWordsFromImage: async () => {
+      calls.push('extractCircledWordsFromImage');
+      return successWords;
+    },
+    extractEikenWordsFromImage: async () => {
+      calls.push('extractEikenWordsFromImage');
+      return {
+        success: true,
+        extractedText: 'mock ocr',
+        data: successWords.data,
+      };
+    },
+    extractIdiomsFromImage: async () => {
+      calls.push('extractIdiomsFromImage');
+      return successWords;
+    },
+    extractCompositeWordsFromImage: async (_image, _apiKeys, options) => {
+      calls.push(`extractCompositeWordsFromImage:${options.modes.join(',')}:${options.eikenLevel ?? ''}`);
+      return {
+        success: true,
+        data: {
+          words: [
+            {
+              english: 'look forward to',
+              japanese: '楽しみに待つ',
+              japaneseSource: 'scan',
+              sourceModes: ['idiom', 'all'],
+              distractors: [],
+              partOfSpeechTags: ['idiom'],
+            },
+          ],
+          sourceLabels: ['鉄壁'],
+        },
+      };
+    },
+  };
+
+  const { result } = await __internal.extractFromImage(
+    'data:image/png;base64,ZmFrZQ==',
+    ['all', 'idiom', 'eiken'],
+    '2',
+    { gemini: 'test-key' },
+    handlers,
+  );
+
+  assert.deepEqual(calls, ['extractCompositeWordsFromImage:all,idiom,eiken:2']);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.deepEqual((result.data.words[0] as { sourceModes?: string[] }).sourceModes, ['idiom', 'all']);
   }
 });
 
@@ -69,6 +132,7 @@ test('scan-jobs parser preserves japaneseSource and prefers scan during dedupe',
       english: 'experiment',
       japanese: '実験',
       japaneseSource: 'ai',
+      sourceModes: ['all'],
       distractors: [],
       partOfSpeechTags: ['noun'],
     },
@@ -76,6 +140,7 @@ test('scan-jobs parser preserves japaneseSource and prefers scan during dedupe',
       english: 'experiment',
       japanese: '実験',
       japaneseSource: 'scan',
+      sourceModes: ['circled'],
       distractors: ['試験'],
       partOfSpeechTags: ['noun'],
     },
@@ -85,6 +150,7 @@ test('scan-jobs parser preserves japaneseSource and prefers scan during dedupe',
 
   assert.equal(deduped.length, 1);
   assert.equal(deduped[0]?.japaneseSource, 'scan');
+  assert.deepEqual(deduped[0]?.sourceModes, ['all', 'circled']);
 });
 
 test('scan-jobs marks partial example generation with warning and payload summary', () => {
@@ -103,8 +169,9 @@ test('scan-jobs marks partial example generation with warning and payload summar
   };
 
   const warningSet = new Set<string>();
+  const payloadBase = { saveMode: 'server_cloud' as const, wordCount: 5 };
   const payload = __internal.applyExampleGenerationSummary(
-    { saveMode: 'server_cloud' as const, wordCount: 5 },
+    payloadBase,
     warningSet,
     summary,
   );

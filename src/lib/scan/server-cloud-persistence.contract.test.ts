@@ -5,7 +5,9 @@ import {
   buildServerCloudMergedProjectSourceLabels,
   buildServerCloudProjectInsertPayload,
   buildServerCloudWordsInsertPayload,
+  isMissingWordsSourceModesColumn,
   shouldRollbackServerCloudProjectAfterWordsInsertFailure,
+  stripSourceModesFromServerCloudWordsInsertPayload,
 } from '@/lib/scan/server-cloud-persistence';
 
 test('buildServerCloudProjectInsertPayload fixes the projects insert shape for new server_cloud scans', () => {
@@ -61,6 +63,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
         exampleSentenceJa: 'あなたの答えについて詳しく説明してください。',
         pronunciation: '/ɪˈlæbəreɪt/',
         partOfSpeechTags: ['verb'],
+        sourceModes: ['all', 'circled'],
       },
       {
         english: 'concise',
@@ -84,6 +87,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       example_sentence_ja: 'あなたの答えについて詳しく説明してください。',
       pronunciation: '/ɪˈlæbəreɪt/',
       part_of_speech_tags: ['verb'],
+      source_modes: ['all', 'circled'],
     },
     {
       project_id: 'project-123',
@@ -95,9 +99,11 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       example_sentence_ja: null,
       pronunciation: null,
       part_of_speech_tags: undefined,
+      source_modes: undefined,
     },
   ]);
   assert.equal(Object.hasOwn(payload[1] ?? {}, 'part_of_speech_tags'), true);
+  assert.equal(Object.hasOwn(payload[1] ?? {}, 'source_modes'), true);
 });
 
 test('shouldRollbackServerCloudProjectAfterWordsInsertFailure only deletes a newly created project after words insert failure', () => {
@@ -124,4 +130,56 @@ test('shouldRollbackServerCloudProjectAfterWordsInsertFailure only deletes a new
     }),
     false,
   );
+});
+
+test('isMissingWordsSourceModesColumn detects missing source_modes schema errors', () => {
+  assert.equal(
+    isMissingWordsSourceModesColumn({
+      code: 'PGRST204',
+      message: "Could not find the 'source_modes' column of 'words' in the schema cache",
+    }),
+    true,
+  );
+  assert.equal(
+    isMissingWordsSourceModesColumn({
+      code: '42703',
+      message: 'column words.source_modes does not exist',
+    }),
+    true,
+  );
+  assert.equal(
+    isMissingWordsSourceModesColumn({
+      code: '23505',
+      message: 'duplicate key value violates unique constraint',
+    }),
+    false,
+  );
+});
+
+test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_modes', () => {
+  const payload = buildServerCloudWordsInsertPayload(
+    [
+      {
+        english: 'elaborate',
+        japanese: '詳しく説明する',
+        distractors: ['短くする', '無視する', '隠す'],
+        sourceModes: ['all'],
+      },
+    ],
+    'project-123',
+  );
+
+  assert.deepEqual(stripSourceModesFromServerCloudWordsInsertPayload(payload), [
+    {
+      project_id: 'project-123',
+      english: 'elaborate',
+      japanese: '詳しく説明する',
+      lexicon_entry_id: null,
+      distractors: ['短くする', '無視する', '隠す'],
+      example_sentence: null,
+      example_sentence_ja: null,
+      pronunciation: null,
+      part_of_speech_tags: undefined,
+    },
+  ]);
 });

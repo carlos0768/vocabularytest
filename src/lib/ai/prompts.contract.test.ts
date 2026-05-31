@@ -24,6 +24,7 @@ import {
   getEikenFilterInstruction,
   getEikenLevelsAbove,
 } from '@/lib/ai/prompts';
+import { JAPANESE_PARENTHESIS_RULES } from '@/lib/ai/prompts/japanese-format';
 
 const expectedPromptExports = [
   'CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT',
@@ -125,6 +126,34 @@ test('structured extraction prompts keep JSON-only or JSON-format output instruc
     '出力フォーマット（JSON）',
     '"words"',
   ]);
+});
+
+test('word extraction prompts reject one-sided Japanese parentheses', () => {
+  const prompts = [
+    ['WORD_EXTRACTION_SYSTEM_PROMPT', WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['USER_PROMPT_TEMPLATE', USER_PROMPT_TEMPLATE],
+    ['WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT', WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT],
+    ['USER_PROMPT_WITH_EXAMPLES_TEMPLATE', USER_PROMPT_WITH_EXAMPLES_TEMPLATE],
+    ['CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT', CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['CIRCLED_WORD_USER_PROMPT', CIRCLED_WORD_USER_PROMPT],
+    ['CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT', CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT],
+    ['EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT', EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT],
+    ['IDIOM_EXTRACTION_SYSTEM_PROMPT', IDIOM_EXTRACTION_SYSTEM_PROMPT],
+    ['IDIOM_USER_PROMPT', IDIOM_USER_PROMPT],
+    ['HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT', HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['HIGHLIGHTED_WORD_USER_PROMPT', HIGHLIGHTED_WORD_USER_PROMPT],
+    ['HIGHLIGHTED_WORD_VERIFICATION_SYSTEM_PROMPT', HIGHLIGHTED_WORD_VERIFICATION_SYSTEM_PROMPT],
+    ['WRONG_ANSWER_ANALYSIS_SYSTEM_PROMPT', WRONG_ANSWER_ANALYSIS_SYSTEM_PROMPT],
+  ] as const;
+
+  for (const [name, prompt] of prompts) {
+    assertIncludesAll(name, prompt, [
+      JAPANESE_PARENTHESIS_RULES,
+      '片側だけの括弧は出力禁止',
+      '本質が)Aにある',
+      '自己チェック',
+    ]);
+  }
 });
 
 test('word-producing prompts keep partOfSpeechTags in the output contract', () => {

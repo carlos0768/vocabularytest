@@ -3,6 +3,7 @@ export { extractWordsFromImage, type ExtractionResult } from './extract-words';
 export { extractCircledWordsFromImage, type CircledExtractionResult } from './extract-circled-words';
 export { extractHighlightedWordsFromImage, type HighlightedExtractionResult } from './extract-highlighted-words';
 export { extractIdiomsFromImage, type IdiomExtractionResult } from './extract-idioms';
+export { extractCompositeWordsFromImage, type CompositeExtractionResult } from './extract-composite-words';
 export {
   extractTextForEiken,
   analyzeWordsForEiken,

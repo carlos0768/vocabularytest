@@ -5,6 +5,7 @@ import {
   buildWordOrderQuestion,
   isWordOrderEligible,
 } from '@/lib/quiz/word-order';
+import { isActiveQuizWord } from '@/lib/quiz/active-answer';
 
 export type QuizDirection = 'en-to-ja' | 'ja-to-en';
 
@@ -38,7 +39,7 @@ export function generateQuizQuestions(
   for (const word of sortWordsByPriority(words)) {
     if (questions.length >= count) break;
 
-    if (isWordOrderEligible(word)) {
+    if (!isActiveQuizWord(word) && isWordOrderEligible(word)) {
       const wordOrderQuestion = buildWordOrderQuestion(word, shuffle);
       if (wordOrderQuestion) {
         questions.push(wordOrderQuestion);
@@ -142,8 +143,15 @@ export function applyWordOrderQuestionsToPendingQuiz(
       return question;
     }
 
+    if (isActiveQuizWord(question.word)) {
+      return question;
+    }
+
     const updatedWord = wordById.get(question.word.id);
     if (!updatedWord) {
+      return question;
+    }
+    if (isActiveQuizWord(updatedWord)) {
       return question;
     }
 

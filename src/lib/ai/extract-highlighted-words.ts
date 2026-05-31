@@ -15,6 +15,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { getProviderFromConfig } from './providers';
+import { JAPANESE_PARENTHESIS_RULES } from './prompts/japanese-format';
 
 export type HighlightedExtractionResult =
   | { success: true; data: ValidatedAIResponse }
@@ -288,7 +289,7 @@ function buildVerificationPrompt(words: HighlightedWord[]): string {
     ))
     .join('\n');
 
-  return `一次抽出候補です。画像を再確認し、条件を満たす候補だけを残してください。\n\n候補:\n${candidates}\n\n判定ルール:\n- 手書きのマーカー/下線が明確に確認できる候補のみ残す\n- 下線の場合は、線の真上にある単語のみ残す\n- 印刷赤字・印刷下線・下の行の単語は除外する\n- 候補リストにない単語は追加しない\n\n出力は次のJSONのみ:\n{\n  "words": [\n    {\n      "english": "word",\n      "japanese": "意味",\n      "japaneseSource": "scan"\n    }\n  ]\n}`;
+  return `一次抽出候補です。画像を再確認し、条件を満たす候補だけを残してください。\n\n候補:\n${candidates}\n\n判定ルール:\n- 手書きのマーカー/下線が明確に確認できる候補のみ残す\n- 下線の場合は、線の真上にある単語のみ残す\n- 印刷赤字・印刷下線・下の行の単語は除外する\n- 候補リストにない単語は追加しない\n${JAPANESE_PARENTHESIS_RULES}\n\n出力は次のJSONのみ:\n{\n  "words": [\n    {\n      "english": "word",\n      "japanese": "意味",\n      "japaneseSource": "scan"\n    }\n  ]\n}`;
 }
 
 function intersectVerifiedCandidates(

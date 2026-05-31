@@ -13,6 +13,7 @@ import {
   ADSENSE_CLIENT_ID,
 } from '@/lib/adsense';
 import './globals.css';
+import './desktop.css';
 
 const lexend = Lexend({
   variable: '--font-lexend',
@@ -85,7 +86,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" suppressHydrationWarning>
+    <html lang="ja" suppressHydrationWarning className={`${lexend.variable} ${notoSansJP.variable}`}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -124,9 +125,7 @@ export default function RootLayout({
         />
         {ADSENSE_ACCOUNT_SIGNALS_ENABLED && <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />}
       </head>
-      <body
-        className={`${lexend.variable} ${notoSansJP.variable} antialiased`}
-      >
+      <body className="antialiased">
         <GooglePublisherTagScript />
         <ThemeProvider>
           <ToastProvider>

@@ -49,12 +49,14 @@ test('createHomeBackgroundScanJob uploads prepared images and creates a scan job
     }),
     fetcher: async (input, init) => {
       fetchCalls.push({ input, init });
-      return { ok: true, json: async () => ({ success: true }) };
+      return { ok: true, json: async () => ({ success: true, jobId: 'job-1' }) };
     },
   });
 
   assert.deepEqual(result, {
     imagePaths: ['user-1/prepared-0.jpg', 'user-1/prepared-1.jpg'],
+    projectTitle: requestBodyTitle(fetchCalls),
+    jobId: 'job-1',
   });
   assert.deepEqual(progressLabels, [
     '画像 1/2 をアップロード中...',
@@ -84,6 +86,10 @@ test('createHomeBackgroundScanJob uploads prepared images and creates a scan job
   });
   assert.deepEqual(bucket.removedPaths, []);
 });
+
+function requestBodyTitle(fetchCalls: Array<{ init: { body: string } }>): string {
+  return (JSON.parse(fetchCalls[0]!.init.body) as { projectTitle: string }).projectTitle;
+}
 
 test('createHomeBackgroundScanJob removes uploaded images when a later upload fails', async () => {
   const bucket = new FakeBucket();

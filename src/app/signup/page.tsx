@@ -4,6 +4,13 @@ import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'r
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
+import {
+  DesktopAuthError,
+  DesktopAuthField,
+  DesktopAuthOAuth,
+  DesktopAuthPrimaryButton,
+  DesktopAuthShell,
+} from '@/components/desktop/DesktopAuth';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { OtpInput } from '@/components/ui/OtpInput';
@@ -142,49 +149,38 @@ function SignupForm() {
 
   if (step === 'otp') {
     return (
-      <SignupShell
-        stepLabel="2/2"
-        title="メールを確認"
-        description="届いた6桁の認証コードを入力してください。"
-        onBack={() => {
-          setStep('form');
-          setOtpCode('');
-          setError(null);
-        }}
-      >
-        <SolidPanel className="mx-6 !rounded-xl" faceClassName="!p-4">
-          <div className="mb-4 flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2px_2px_0_var(--solid-ink)]">
-              <Icon name="mail" size={20} />
+      <>
+        <DesktopAuthShell
+          title="メールを確認"
+          description="届いた6桁の認証コードを入力してください。"
+        >
+          <div className="ds-card" style={{ padding: 20, marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <div className="ds-avatar" style={{ width: 42, height: 42, borderRadius: 11 }}>
+                <Icon name="mail" />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, color: 'var(--solid-ink)' }}>認証コードを送信しました</div>
+                <div className="muted" style={{ marginTop: 2, fontSize: 13, overflowWrap: 'anywhere' }}>{email}</div>
+              </div>
             </div>
-            <div className="min-w-0">
-              <div className="text-sm font-bold text-[var(--solid-ink)]">認証コードを送信しました</div>
-              <div className="mt-1 break-all text-xs leading-5 text-[var(--color-muted)]">{email}</div>
-            </div>
-          </div>
-
-          {error && <ErrorMessage>{error}</ErrorMessage>}
-
-          <div className="py-2">
+            {error && <DesktopAuthError>{error}</DesktopAuthError>}
             <OtpInput
               length={SIGNUP_OTP_LENGTH}
               value={otpCode}
               onChange={setOtpCode}
               disabled={loading}
             />
-          </div>
-
-          <div className="mt-4">
-            <PrimaryAction
+            <DesktopAuthPrimaryButton
               type="button"
+              variant="accent"
               disabled={loading || !isSignupOtpComplete(otpCode)}
               onClick={handleVerifyOtp}
             >
               {loading ? '確認中...' : '登録を完了する'}
-            </PrimaryAction>
+            </DesktopAuthPrimaryButton>
           </div>
-
-          <div className="mt-4 flex items-center justify-between gap-3 text-[11px]">
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: 12.5 }}>
             <button
               type="button"
               onClick={() => {
@@ -192,7 +188,7 @@ function SignupForm() {
                 setOtpCode('');
                 setError(null);
               }}
-              className="font-bold text-[var(--color-muted)]"
+              style={{ color: 'var(--color-muted)', fontWeight: 700 }}
             >
               メールアドレスを変更
             </button>
@@ -200,38 +196,102 @@ function SignupForm() {
               type="button"
               onClick={handleResendOtp}
               disabled={loading || resendCooldown > 0}
-              className="font-bold text-[var(--color-accent)] disabled:text-[var(--color-muted)]"
+              style={{ color: resendCooldown > 0 ? 'var(--color-muted)' : 'var(--color-accent)', fontWeight: 700 }}
             >
               {resendCooldown > 0 ? `再送信 ${resendCooldown}秒` : 'コードを再送信'}
             </button>
           </div>
-        </SolidPanel>
-      </SignupShell>
+        </DesktopAuthShell>
+
+        <div className="lg:hidden">
+          <SignupShell
+            stepLabel="2/2"
+            title="メールを確認"
+            description="届いた6桁の認証コードを入力してください。"
+            onBack={() => {
+              setStep('form');
+              setOtpCode('');
+              setError(null);
+            }}
+          >
+            <SolidPanel className="mx-6 !rounded-xl" faceClassName="!p-4">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2px_2px_0_var(--solid-ink)]">
+                  <Icon name="mail" size={20} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-[var(--solid-ink)]">認証コードを送信しました</div>
+                  <div className="mt-1 break-all text-xs leading-5 text-[var(--color-muted)]">{email}</div>
+                </div>
+              </div>
+
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+
+              <div className="py-2">
+                <OtpInput
+                  length={SIGNUP_OTP_LENGTH}
+                  value={otpCode}
+                  onChange={setOtpCode}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="mt-4">
+                <PrimaryAction
+                  type="button"
+                  disabled={loading || !isSignupOtpComplete(otpCode)}
+                  onClick={handleVerifyOtp}
+                >
+                  {loading ? '確認中...' : '登録を完了する'}
+                </PrimaryAction>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('form');
+                    setOtpCode('');
+                    setError(null);
+                  }}
+                  className="font-bold text-[var(--color-muted)]"
+                >
+                  メールアドレスを変更
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={loading || resendCooldown > 0}
+                  className="font-bold text-[var(--color-accent)] disabled:text-[var(--color-muted)]"
+                >
+                  {resendCooldown > 0 ? `再送信 ${resendCooldown}秒` : 'コードを再送信'}
+                </button>
+              </div>
+            </SolidPanel>
+          </SignupShell>
+        </div>
+      </>
     );
   }
 
   return (
-    <SignupShell
-      stepLabel="1/2"
-      title="新規登録"
-      description="メールアドレスとパスワードでアカウントを作成します。"
-      backHref="/"
-    >
-      <form onSubmit={handleSubmit}>
-        <div className="flex flex-col gap-2.5 px-6 pb-3">
-          {error && <ErrorMessage>{error}</ErrorMessage>}
-
-          <FormField
+    <>
+      <DesktopAuthShell
+        title="アカウントを作成"
+        description="無料で始められます。クレジットカード不要。"
+      >
+        <form onSubmit={handleSubmit}>
+          {error && <DesktopAuthError>{error}</DesktopAuthError>}
+          <DesktopAuthField
             label="メールアドレス"
-            placeholder="kenta@example.com"
+            placeholder="you@example.com"
             type="email"
             value={email}
             onChange={setEmail}
             autoComplete="email"
             disabled={loading}
           />
-
-          <FormField
+          <DesktopAuthField
             label="パスワード"
             placeholder="8文字以上"
             type={showPassword ? 'text' : 'password'}
@@ -243,15 +303,14 @@ function SignupForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
-                className="font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 800, color: 'var(--color-muted)' }}
                 aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
               >
                 {showPassword ? '非表示' : '表示'}
               </button>
             }
           />
-
-          <FormField
+          <DesktopAuthField
             label="パスワード（確認）"
             placeholder="もう一度入力"
             type={showPassword ? 'text' : 'password'}
@@ -260,11 +319,8 @@ function SignupForm() {
             autoComplete="new-password"
             disabled={loading}
           />
-        </div>
-
-        <div className="px-6 pb-4">
-          <PrimaryAction
-            type="submit"
+          <DesktopAuthPrimaryButton
+            variant="accent"
             disabled={
               loading ||
               email.trim().length === 0 ||
@@ -272,33 +328,125 @@ function SignupForm() {
               confirmPassword.length === 0
             }
           >
-            {loading ? '送信中...' : '認証コードを送信'}
-          </PrimaryAction>
+            {loading ? '送信中...' : '無料で始める'}
+          </DesktopAuthPrimaryButton>
+        </form>
+
+        <DesktopAuthOAuth
+          redirectPath={redirect}
+          disabled={loading}
+          onError={(message) => setError(message || null)}
+        />
+
+        <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
+          登録すると
+          <Link href="/terms" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>利用規約</Link>
+          と
+          <Link href="/privacy" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>プライバシーポリシー</Link>
+          に同意したものとみなされます。
         </div>
-      </form>
+        <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 16 }}>
+          すでにアカウントをお持ちの方は{' '}
+          <Link
+            href={`/login?redirect=${encodeURIComponent(redirect)}`}
+            style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}
+          >
+            ログイン
+          </Link>
+        </div>
+      </DesktopAuthShell>
 
-      <OAuthProviderButtons
-        redirectPath={redirect}
-        disabled={loading}
-        onError={(message) => setError(message || null)}
-      />
-
-      <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
-        <div className="h-px flex-1 bg-[var(--color-border)]" />
-        <span className="font-mono text-[10px] text-[var(--color-muted)]">または</span>
-        <div className="h-px flex-1 bg-[var(--color-border)]" />
-      </div>
-
-      <div className="flex flex-col gap-2 px-6 pb-3">
-        <Link
-          href={`/login?redirect=${encodeURIComponent(redirect)}`}
-          className="flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]"
+      <div className="lg:hidden">
+        <SignupShell
+          stepLabel="1/2"
+          title="新規登録"
+          description="メールアドレスとパスワードでアカウントを作成します。"
+          backHref="/"
         >
-          <Icon name="login" size={16} />
-          ログインする
-        </Link>
+          <form onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-2.5 px-6 pb-3">
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+
+              <FormField
+                label="メールアドレス"
+                placeholder="kenta@example.com"
+                type="email"
+                value={email}
+                onChange={setEmail}
+                autoComplete="email"
+                disabled={loading}
+              />
+
+              <FormField
+                label="パスワード"
+                placeholder="8文字以上"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+                disabled={loading}
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                    aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                  >
+                    {showPassword ? '非表示' : '表示'}
+                  </button>
+                }
+              />
+
+              <FormField
+                label="パスワード（確認）"
+                placeholder="もう一度入力"
+                type={showPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                autoComplete="new-password"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="px-6 pb-4">
+              <PrimaryAction
+                type="submit"
+                disabled={
+                  loading ||
+                  email.trim().length === 0 ||
+                  password.length === 0 ||
+                  confirmPassword.length === 0
+                }
+              >
+                {loading ? '送信中...' : '認証コードを送信'}
+              </PrimaryAction>
+            </div>
+          </form>
+
+          <OAuthProviderButtons
+            redirectPath={redirect}
+            disabled={loading}
+            onError={(message) => setError(message || null)}
+          />
+
+          <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
+            <div className="h-px flex-1 bg-[var(--color-border)]" />
+            <span className="font-mono text-[10px] text-[var(--color-muted)]">または</span>
+            <div className="h-px flex-1 bg-[var(--color-border)]" />
+          </div>
+
+          <div className="flex flex-col gap-2 px-6 pb-3">
+            <Link
+              href={`/login?redirect=${encodeURIComponent(redirect)}`}
+              className="flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]"
+            >
+              <Icon name="login" size={16} />
+              ログインする
+            </Link>
+          </div>
+        </SignupShell>
       </div>
-    </SignupShell>
+    </>
   );
 }
 

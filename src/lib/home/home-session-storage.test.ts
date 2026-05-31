@@ -7,6 +7,7 @@ import {
   clearLegacyHomeProjectId,
   consumeHomeGeneratingWordbook,
   getHomeSelectedProjectId,
+  saveHomeGeneratingWordbook,
   saveHomeSelectedProjectId,
   type HomeSessionStorage,
 } from './home-session-storage';
@@ -59,6 +60,22 @@ test('getHomeSelectedProjectId returns null when no selected project id exists',
   const storage = new MemoryStorage();
 
   assert.equal(getHomeSelectedProjectId(storage), null);
+});
+
+test('saveHomeGeneratingWordbook stores a generating payload', () => {
+  const storage = new MemoryStorage();
+  const payload = {
+    id: 'generating-1',
+    title: 'New Wordbook',
+    linkedJobId: 'job-1',
+  };
+
+  saveHomeGeneratingWordbook(storage, payload);
+
+  assert.deepEqual(
+    JSON.parse(storage.getItem(HOME_SESSION_STORAGE_KEYS.generatingWordbook) ?? 'null'),
+    payload,
+  );
 });
 
 test('consumeHomeGeneratingWordbook removes a valid payload after reading it', () => {

@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 
-import type { ExtractMode } from '@/lib/scan/mode-provider';
+import { normalizeExtractModes, type ExtractMode } from '@/lib/scan/mode-provider';
 import { ensureSourceLabels } from '../../../shared/source-labels';
 
 export type ScanImageApiKeys = {
@@ -33,7 +33,7 @@ export interface ScanImageExtractionDeps<TWord, TWarningCode extends string = st
   }>;
   extractImage: (
     base64Image: string,
-    mode: ExtractMode,
+    modes: ExtractMode[],
     eikenLevel: string | null,
     apiKeys: ScanImageApiKeys,
   ) => Promise<{
@@ -51,7 +51,7 @@ export interface ScanImageExtractionDeps<TWord, TWarningCode extends string = st
 export interface ProcessScanImageParams {
   imagePath: string;
   pageIndex: number;
-  mode: ExtractMode;
+  modes: ExtractMode[];
   eikenLevel: string | null;
   apiKeys: ScanImageApiKeys;
   timeoutMs: number;
@@ -73,12 +73,13 @@ export async function processScanImage<TWord, TWarningCode extends string = stri
   const {
     imagePath,
     pageIndex,
-    mode,
+    modes,
     eikenLevel,
     apiKeys,
     timeoutMs,
     timeoutMessage,
   } = params;
+  const normalizedModes = normalizeExtractModes(modes);
   const pageLabel = `ページ${pageIndex + 1}`;
   const now = deps.now ?? Date.now;
   const logError = deps.logError ?? ((message: string, error: unknown) => console.error(message, error));
@@ -107,7 +108,7 @@ export async function processScanImage<TWord, TWarningCode extends string = stri
     const exStart = now();
     const extractionResult = await deps.withTimeout(
       deps.withTimingPhase('aiExtraction', () =>
-        deps.extractImage(base64Image, mode, eikenLevel, apiKeys)
+        deps.extractImage(base64Image, normalizedModes, eikenLevel, apiKeys)
       ),
       timeoutMs,
       timeoutMessage,

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { DesktopProjectsView } from '@/components/desktop/DesktopProjects';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -14,6 +15,11 @@ import {
   type ProjectWithStats,
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
+import {
+  buildDesktopStudySummaryStats,
+  EMPTY_DESKTOP_STUDY_SUMMARY,
+  type DesktopStudySummaryStats,
+} from '@/lib/desktop-study-summary';
 import { getGuestUserId } from '@/lib/utils';
 import type { Project, SubscriptionStatus } from '@/types';
 
@@ -40,12 +46,12 @@ function thumbColor(id: string) {
 async function addStatsToProjects(
   projects: Project[],
   repo: WordReadRepository,
-): Promise<ProjectRowStats[]> {
+): Promise<{ projects: ProjectRowStats[]; summaryStats: DesktopStudySummaryStats }> {
   const wordsByProject = await getWordsByProjectMap(
     repo,
     projects.map((project) => project.id),
   );
-  return buildProjectStats(projects, wordsByProject).map((project) => {
+  const rows = buildProjectStats(projects, wordsByProject).map((project) => {
     const words = wordsByProject[project.id] ?? [];
     return {
       ...project,
@@ -53,6 +59,11 @@ async function addStatsToProjects(
       newWords: words.filter((word) => word.status === 'new').length,
     };
   });
+
+  return {
+    projects: rows,
+    summaryStats: buildDesktopStudySummaryStats(Object.values(wordsByProject).flat()),
+  };
 }
 
 export default function ProjectListPage() {
@@ -62,13 +73,16 @@ export default function ProjectListPage() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('newest');
   const [error, setError] = useState<string | null>(null);
+  const [summaryStats, setSummaryStats] = useState<DesktopStudySummaryStats>(EMPTY_DESKTOP_STUDY_SUMMARY);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const showProjects = useCallback(async (rawProjects: Project[], repo: WordReadRepository) => {
-    setProjects(await addStatsToProjects(rawProjects, repo));
+    const result = await addStatsToProjects(rawProjects, repo);
+    setProjects(result.projects);
+    setSummaryStats(result.summaryStats);
   }, []);
 
   const loadProjects = useCallback(async () => {
@@ -113,6 +127,7 @@ export default function ProjectListPage() {
       console.error('Failed to load projects:', loadError);
       setError('単語帳の読み込みに失敗しました');
       setProjects([]);
+      setSummaryStats(EMPTY_DESKTOP_STUDY_SUMMARY);
     } finally {
       setLoading(false);
     }
@@ -140,7 +155,19 @@ export default function ProjectListPage() {
   }, [projects, query, sort]);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:pt-[54px]">
+    <>
+      <DesktopProjectsView
+        projects={filtered}
+        loading={loading}
+        error={error}
+        query={query}
+        sort={sort}
+        summaryStats={summaryStats}
+        reviewHref={summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/projects' : '/projects'}
+        onQueryChange={setQuery}
+        onSortChange={setSort}
+      />
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-5 pb-3.5 pt-2.5">
         <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-muted)]">
           MY BOOKS
@@ -215,7 +242,8 @@ export default function ProjectListPage() {
         )}
       </div>
 
-    </div>
+      </div>
+    </>
   );
 }
 

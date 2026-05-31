@@ -5,6 +5,7 @@ import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
+import { extractCompositeWordsFromImage } from '@/lib/ai/extract-composite-words';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
@@ -13,7 +14,9 @@ import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/ge
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
 import {
   getMissingProviderKey,
+  getMissingProviderKeyForModes,
   getProvidersForMode,
+  normalizeExtractModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { buildClientLocalScanJobResultPayload } from '@/lib/scan/job-result-payload';
@@ -26,7 +29,9 @@ import {
   buildServerCloudMergedProjectSourceLabels,
   buildServerCloudProjectInsertPayload,
   buildServerCloudWordsInsertPayload,
+  isMissingWordsSourceModesColumn,
   shouldRollbackServerCloudProjectAfterWordsInsertFailure,
+  stripSourceModesFromServerCloudWordsInsertPayload,
 } from '@/lib/scan/server-cloud-persistence';
 import { buildServerCloudScanJobResultPayload } from '@/lib/scan/server-cloud-result-payload';
 import {
@@ -125,12 +130,14 @@ export interface ProcessJobDeps {
   sendApnsNotifications?: typeof sendScanJobApnsNotifications;
   flushTiming?: typeof flushTimingLogs;
   afterTask?: typeof after;
+  scanModesOverride?: ExtractMode[];
 }
 
 interface ProcessedExtractedWord {
   english: string;
   japanese: string;
   japaneseSource?: 'scan' | 'ai';
+  sourceModes?: ExtractMode[];
   lexiconEntryId?: string;
   cefrLevel?: string;
   distractors: string[];
@@ -154,6 +161,8 @@ const EIKEN_LEVEL_SET = new Set<string>(EIKEN_LEVEL_ORDER);
 export const __internal = {
   getProvidersForMode,
   getMissingProviderKey,
+  getMissingProviderKeyForModes,
+  normalizeExtractModes,
   extractFromImage,
   parseExtractedWords,
   dedupeExtractedWords,
@@ -218,13 +227,13 @@ function applyExampleGenerationSummary<T extends { exampleGeneration?: ExampleGe
   return payload;
 }
 
-function isMasterFirstResolutionEnabled(mode: ExtractMode): boolean {
+function isMasterFirstResolutionEnabledForModes(modes: Iterable<ExtractMode>): boolean {
   const disabledModes = (process.env.MASTER_FIRST_SCAN_DISABLED_MODES ?? '')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return !disabledModes.includes(mode);
+  return normalizeExtractModes(Array.from(modes)).every((mode) => !disabledModes.includes(mode));
 }
 
 function classifyUnexpectedExampleGenerationFailure(
@@ -272,6 +281,7 @@ interface ExtractionHandlers {
   extractCircledWordsFromImage: typeof extractCircledWordsFromImage;
   extractEikenWordsFromImage: typeof extractEikenWordsFromImage;
   extractIdiomsFromImage: typeof extractIdiomsFromImage;
+  extractCompositeWordsFromImage: typeof extractCompositeWordsFromImage;
 }
 
 const defaultExtractionHandlers: ExtractionHandlers = {
@@ -279,6 +289,7 @@ const defaultExtractionHandlers: ExtractionHandlers = {
   extractCircledWordsFromImage,
   extractEikenWordsFromImage,
   extractIdiomsFromImage,
+  extractCompositeWordsFromImage,
 };
 
 function normalizeEikenLevel(rawLevel: string | null): EikenLevel {
@@ -507,6 +518,45 @@ function preferJapaneseSource(
   return undefined;
 }
 
+function normalizeSourceModes(value: unknown, fallback: ExtractMode[] = []): ExtractMode[] | undefined {
+  const normalized = normalizeExtractModes(value, fallback);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function mergeExtractSourceModes(
+  first?: ExtractMode[],
+  second?: ExtractMode[],
+): ExtractMode[] | undefined {
+  return normalizeSourceModes([...(first ?? []), ...(second ?? [])], []);
+}
+
+function withFallbackSourceModes(
+  result: ExtractionLikeResult,
+  modes: ExtractMode[],
+): ExtractionLikeResult {
+  if (!result.success) return result;
+
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      words: result.data.words.map((word) => {
+        if (!word || typeof word !== 'object') {
+          return word;
+        }
+        const sourceModes = normalizeSourceModes(
+          (word as { sourceModes?: unknown }).sourceModes,
+          modes,
+        );
+        return {
+          ...(word as Record<string, unknown>),
+          ...(sourceModes ? { sourceModes } : {}),
+        };
+      }),
+    },
+  };
+}
+
 function mergeDistractors(existing: string[], incoming: unknown): string[] {
   const merged: string[] = [];
   const seen = new Set<string>();
@@ -543,6 +593,7 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
       english,
       japanese: normalizedJapanese,
       japaneseSource: normalizedJapanese ? normalizeJapaneseSource(word.japaneseSource) : undefined,
+      sourceModes: normalizeSourceModes(word.sourceModes, []),
       distractors: mergeDistractors([], word.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
       pronunciation: firstNonEmpty(word.pronunciation),
@@ -570,6 +621,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
         english: source.english,
         japanese: source.japanese,
         japaneseSource: source.japaneseSource,
+        sourceModes: source.sourceModes,
         distractors: mergeDistractors([], source.distractors),
         partOfSpeechTags: normalizePartOfSpeechTags(source.partOfSpeechTags),
         pronunciation: firstNonEmpty(source.pronunciation),
@@ -584,6 +636,7 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
       english: existing.english,
       japanese: existing.japanese,
       japaneseSource: preferJapaneseSource(existing.japaneseSource, source.japaneseSource),
+      sourceModes: mergeExtractSourceModes(existing.sourceModes, source.sourceModes),
       distractors: mergeDistractors(existing.distractors, source.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags([
         ...(existing.partOfSpeechTags ?? []),
@@ -641,41 +694,55 @@ async function generateQuizContentWithRetry(words: QuizPrefillSeedWord[]): Promi
 // Extract words from a single image using the appropriate mode
 async function extractFromImage(
   base64Image: string,
-  mode: ExtractMode,
+  modesOrMode: ExtractMode[] | ExtractMode,
   eikenLevel: string | null,
   apiKeys: { gemini?: string; openai?: string },
   handlers: ExtractionHandlers = defaultExtractionHandlers
 ): Promise<{ result: ExtractionLikeResult; warningCode?: ExtractionWarningCode }> {
+  const modes = normalizeExtractModes(modesOrMode);
+  if (modes.length > 1) {
+    const result = await handlers.extractCompositeWordsFromImage(base64Image, apiKeys, {
+      modes,
+      eikenLevel: modes.includes('eiken') ? normalizeEikenLevel(eikenLevel) : null,
+    }) as ExtractionLikeResult;
+    return { result: withFallbackSourceModes(result, modes) };
+  }
+
+  const mode = modes[0] ?? 'all';
   switch (mode) {
     case 'circled': {
-      return { result: await handlers.extractCircledWordsFromImage(base64Image, apiKeys, {}) as ExtractionLikeResult };
+      const result = await handlers.extractCircledWordsFromImage(base64Image, apiKeys, {}) as ExtractionLikeResult;
+      return { result: withFallbackSourceModes(result, ['circled']) };
     }
     case 'eiken': {
       const normalizedLevel = normalizeEikenLevel(eikenLevel);
       if (eikenLevel && normalizedLevel !== eikenLevel.trim()) {
         console.log('Normalized eikenLevel for scan job:', { rawLevel: eikenLevel, normalizedLevel });
       }
-      return {
-        result: await handlers.extractEikenWordsFromImage(
+      const result = await handlers.extractEikenWordsFromImage(
           base64Image,
           apiKeys,
           normalizedLevel
-        ) as ExtractionLikeResult,
-      };
+        ) as ExtractionLikeResult;
+      return { result: withFallbackSourceModes(result, ['eiken']) };
     }
     case 'idiom': {
       const idiomResult = await handlers.extractIdiomsFromImage(base64Image, apiKeys);
       if (!idiomResult.success && idiomResult.reason === 'no_idiom_found') {
         console.warn('No idioms found in background scan. Falling back to all-word extraction.');
         return {
-          result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult,
+          result: withFallbackSourceModes(
+            await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult,
+            ['all'],
+          ),
           warningCode: 'grammar_not_found',
         };
       }
-      return { result: idiomResult as ExtractionLikeResult };
+      return { result: withFallbackSourceModes(idiomResult as ExtractionLikeResult, ['idiom']) };
     }
     default: {
-      return { result: await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult };
+      const result = await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult;
+      return { result: withFallbackSourceModes(result, ['all']) };
     }
   }
 }
@@ -750,10 +817,17 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           throw new Error('No images to process');
         }
 
-        const mode = job.scan_mode as ExtractMode;
-        timing.scanMode = mode;
+        const modes = normalizeExtractModes(
+          processDeps?.scanModesOverride,
+          normalizeExtractModes(
+            (job as { scan_modes?: unknown }).scan_modes,
+            normalizeExtractModes(job.scan_mode),
+          ),
+        );
+        const primaryMode = modes[0] ?? 'all';
+        timing.scanMode = modes.join(',');
 
-        const missingProviderKey = getMissingProviderKey(mode, apiKeys);
+        const missingProviderKey = getMissingProviderKeyForModes(modes, apiKeys);
         if (missingProviderKey) {
           const providerLabel = missingProviderKey === 'gemini' ? 'Google AI' : 'OpenAI';
           throw new Error(`${providerLabel} APIキーが設定されていません`);
@@ -774,7 +848,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         let grammarWarningNotified = false;
 
         console.log('scan-jobs/process config:', {
-          mode,
+          modes,
+          primaryMode,
           imageCount: imagePaths.length,
           saveMode,
           extractionTimeoutMs: EXTRACTION_TIMEOUT_MS,
@@ -789,7 +864,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           {
             imagePath: imagePaths[pageIndex],
             pageIndex,
-            mode,
+            modes,
             eikenLevel: job.eiken_level,
             apiKeys,
             timeoutMs: EXTRACTION_TIMEOUT_MS,
@@ -903,7 +978,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       }
 
       const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
-      const masterFirstEnabled = isMasterFirstResolutionEnabled(mode);
+      const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
       const lexiconResolutionStart = Date.now();
       const resolvedResult = masterFirstEnabled
         ? await resolveImmediateWords(dedupedWords)
@@ -917,7 +992,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
       console.log('[scan-jobs/process] Extraction finished', {
         jobId,
-        mode,
+        modes,
+        primaryMode,
         masterFirstEnabled,
         imageCount: imagePaths.length,
         rawWordCount: allExtractedWords.length,
@@ -1111,13 +1187,29 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const wordsToInsert = buildServerCloudWordsInsertPayload(resolvedWords, projectId);
 
       const dbInsertStart = Date.now();
-      const { data: insertedWords, error: wordsError } = await supabaseAdmin
+      let { data: insertedWords, error: wordsError } = await supabaseAdmin
         .from('words')
         .insert(wordsToInsert)
         .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
       timing.dbInsertMs = Date.now() - dbInsertStart;
 
+      if (wordsError && isMissingWordsSourceModesColumn(wordsError)) {
+        console.warn('[scan-jobs/process] words.source_modes compatibility fallback used', {
+          jobId,
+          message: wordsError.message,
+        });
+        const retryStart = Date.now();
+        const retryResult = await supabaseAdmin
+          .from('words')
+          .insert(stripSourceModesFromServerCloudWordsInsertPayload(wordsToInsert))
+          .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
+        insertedWords = retryResult.data;
+        wordsError = retryResult.error;
+        timing.dbInsertMs += Date.now() - retryStart;
+      }
+
       if (wordsError) {
+        console.error('[scan-jobs/process] Words insert error:', wordsError);
         if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: wordsError })) {
           await supabaseAdmin.from('projects').delete().eq('id', projectId);
         }

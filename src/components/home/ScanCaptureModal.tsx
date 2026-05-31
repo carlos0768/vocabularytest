@@ -12,6 +12,10 @@ import {
   createHomeImmediateScanResultAccumulator,
   hasNoHomeImmediateScanWords,
 } from '@/lib/home/home-immediate-scan-results';
+import {
+  saveHomeGeneratingWordbook,
+  type HomeGeneratingWordbookPayload,
+} from '@/lib/home/home-session-storage';
 import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
 import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
 import {
@@ -40,10 +44,12 @@ interface ScanCaptureModalProps {
    * instead of creating a new one.
    */
   targetProjectId?: string;
+  targetProjectTitle?: string;
+  onBackgroundScanStarted?: (payload: HomeGeneratingWordbookPayload) => void;
 }
 
 type TopMode = 'vocab';
-type SubOption = 'circle' | 'eiken' | 'idiom' | 'all';
+type SubOption = ExtractMode;
 
 const MAX_SCAN_IMAGE_COUNT = 20;
 
@@ -61,24 +67,24 @@ const MODES: { k: TopMode; label: string; pro?: boolean; icon: React.ReactNode }
 ];
 
 const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[] = [
-  { k: 'circle', label: '丸囲み',           hint: '手動マークを優先' },
+  { k: 'circled', label: '丸囲み',           hint: '手動マークを優先' },
   { k: 'eiken',  label: '英検',             hint: '級別頻出語を優先', pro: true },
   { k: 'idiom',  label: '熟語・イディオム', hint: '複合語・熟語を抽出' },
   { k: 'all',    label: 'すべての単語',     hint: '全単語を網羅' },
 ];
 
-function subToExtractMode(sub: SubOption): ExtractMode {
-  if (sub === 'circle') return 'circled';
-  if (sub === 'eiken') return 'eiken';
-  if (sub === 'idiom') return 'idiom';
-  return 'all';
-}
-
-export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId }: ScanCaptureModalProps) {
+export function ScanCaptureModal({
+  isOpen,
+  onClose,
+  defaultMode,
+  targetProjectId,
+  targetProjectTitle,
+  onBackgroundScanStarted,
+}: ScanCaptureModalProps) {
   const router = useRouter();
   const { isPro } = useAuth();
   const [activeMode, setActiveMode] = useState<TopMode>(targetProjectId ? 'vocab' : (defaultMode ?? 'vocab'));
-  const [activeSub, setActiveSub] = useState<SubOption>('all');
+  const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -88,26 +94,39 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
 
   if (!isOpen) return null;
 
+  const selectedScanModes = activeSubs;
+  const selectedEikenLevel = selectedScanModes.includes('eiken') ? eikenLevel : null;
+
+  const toggleSubOption = (option: SubOption) => {
+    setActiveSubs((current) => {
+      if (!current.includes(option)) return [...current, option];
+      if (current.length === 1) return current;
+      return current.filter((item) => item !== option);
+    });
+  };
+
   const createBackgroundScanJob = async (files: readonly File[]) => {
     const supabase = createBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
 
-    await createHomeBackgroundScanJob({
+    return createHomeBackgroundScanJob({
       files,
       userId: session.user.id,
       accessToken: session.access_token,
       storage: supabase.storage,
-      scanMode: subToExtractMode(activeSub),
-      eikenLevel: activeSub === 'eiken' ? eikenLevel : null,
+      scanMode: selectedScanModes[0] ?? 'all',
+      scanModes: selectedScanModes,
+      eikenLevel: selectedEikenLevel,
       targetProjectId,
+      projectTitle: targetProjectTitle,
       onProgress: setProcessingLabel,
     });
   };
 
   const extractImagesImmediately = async (files: readonly File[]) => {
     let accumulator = createHomeImmediateScanResultAccumulator();
-    const mode = subToExtractMode(activeSub);
+    const mode = selectedScanModes[0] ?? 'all';
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!;
@@ -117,7 +136,12 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
         const res = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, mode, eikenLevel: activeSub === 'eiken' ? eikenLevel : null }),
+          body: JSON.stringify({
+            image: base64,
+            mode,
+            scanModes: selectedScanModes,
+            eikenLevel: selectedEikenLevel,
+          }),
         });
         const parsed = await readHomeImmediateScanExtractResponse(res, { imageIndex: index });
         if (!parsed.ok) {
@@ -163,8 +187,19 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
     try {
       // Pro: バックグラウンドジョブ送信（確認画面をスキップ）
       if (isPro) {
-        await createBackgroundScanJob(files);
+        const scanJob = await createBackgroundScanJob(files);
+        if (scanJob.jobId) {
+          const payload: HomeGeneratingWordbookPayload = {
+            id: `generating-${Date.now()}`,
+            title: scanJob.projectTitle,
+            linkedJobId: scanJob.jobId,
+          };
+          saveHomeGeneratingWordbook(sessionStorage, payload);
+          onBackgroundScanStarted?.(payload);
+        }
+        setProcessingLabel('ホームへ移動中...');
         onClose();
+        router.push('/');
         return;
       }
 
@@ -317,12 +352,15 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
               </div>
               <div className="flex flex-wrap gap-[5px]">
                 {SUB_OPTIONS.map(s => {
-                  const on = activeSub === s.k;
+                  const on = activeSubs.includes(s.k);
                   return (
-                    <button
-                      key={s.k}
-                      type="button"
-                      onClick={() => { setActiveSub(s.k); if (s.k !== 'eiken') setEikenLevel(null); }}
+                      <button
+                        key={s.k}
+                        type="button"
+                      onClick={() => {
+                        toggleSubOption(s.k);
+                        if (s.k === 'eiken' && activeSubs.includes('eiken')) setEikenLevel(null);
+                      }}
                       className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                       style={{
                         background: on ? 'var(--solid-ink)' : '#fff',
@@ -352,7 +390,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
               </div>
 
               {/* EIKEN level picker (shown when eiken sub-option is selected) */}
-              {activeSub === 'eiken' && (
+              {activeSubs.includes('eiken') && (
                 <div className="mt-2.5 pt-2.5" style={{ borderTop: '1px dashed var(--solid-ink)' }}>
                   <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
                     級を選択
@@ -392,7 +430,7 @@ export function ScanCaptureModal({ isOpen, onClose, defaultMode, targetProjectId
 
           {/* Camera / Library buttons */}
           {(() => {
-            const scanDisabled = activeSub === 'eiken' && !eikenLevel;
+            const scanDisabled = activeSubs.includes('eiken') && !eikenLevel;
             return (
               <div className="flex gap-2.5">
                 <button type="button" onClick={handleCamera} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">

@@ -68,7 +68,7 @@ function createParams(overrides: Partial<ProcessScanImageParams> = {}): ProcessS
   return {
     imagePath: 'jobs/page.png',
     pageIndex: 0,
-    mode: 'all' as ExtractMode,
+    modes: ['all'] as ExtractMode[],
     eikenLevel: null,
     apiKeys: {
       gemini: 'gemini-key',
@@ -143,21 +143,21 @@ test('processScanImage returns first error candidate and pageWarning on extracti
 
 test('processScanImage returns parsed words, sourceLabels, and download/extraction timing on success', async () => {
   let capturedBase64Image = '';
-  let capturedMode: ExtractMode | null = null;
+  let capturedModes: ExtractMode[] = [];
   let capturedPhase = '';
   let capturedTimeoutMs = 0;
   let capturedTimeoutMessage = '';
 
   const result = await processScanImage(
     createParams({
-      mode: 'idiom',
+      modes: ['idiom'],
       eikenLevel: '2',
     }),
     createDeps({
       now: nowFrom([100, 112, 200, 245]),
-      extractImage: async (base64Image, mode) => {
+      extractImage: async (base64Image, modes) => {
         capturedBase64Image = base64Image;
-        capturedMode = mode;
+        capturedModes = modes;
         return {
           result: {
             success: true,
@@ -202,7 +202,7 @@ test('processScanImage returns parsed words, sourceLabels, and download/extracti
     capturedBase64Image,
     `data:image/png;base64,${Buffer.from('fake image bytes').toString('base64')}`,
   );
-  assert.equal(capturedMode, 'idiom');
+  assert.deepEqual(capturedModes, ['idiom']);
   assert.equal(capturedPhase, 'aiExtraction');
   assert.equal(capturedTimeoutMs, 270000);
   assert.equal(capturedTimeoutMessage, '画像解析がタイムアウトしました（5分）');

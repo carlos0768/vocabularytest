@@ -4,6 +4,13 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
+import {
+  DesktopAuthError,
+  DesktopAuthField,
+  DesktopAuthOAuth,
+  DesktopAuthPrimaryButton,
+  DesktopAuthShell,
+} from '@/components/desktop/DesktopAuth';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -36,7 +43,69 @@ function LoginForm() {
   };
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <>
+      <DesktopAuthShell
+        title="おかえりなさい"
+        description="アカウントにログインして学習を続けましょう"
+      >
+        <form onSubmit={handleSubmit}>
+          {error && <DesktopAuthError>{error}</DesktopAuthError>}
+          <DesktopAuthField
+            label="メールアドレス"
+            placeholder="you@example.com"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            autoComplete="email"
+            disabled={loading}
+          />
+          <DesktopAuthField
+            label="パスワード"
+            placeholder="••••••••"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            disabled={loading}
+            labelExtra={
+              <Link href="/reset-password" style={{ fontSize: 12.5, color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}>
+                お忘れですか？
+              </Link>
+            }
+            trailing={
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 800, color: 'var(--color-muted)' }}
+                aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+              >
+                {showPassword ? '非表示' : '表示'}
+              </button>
+            }
+          />
+          <DesktopAuthPrimaryButton disabled={loading || email.trim().length === 0 || password.length === 0}>
+            {loading ? 'ログイン中...' : 'ログイン'}
+          </DesktopAuthPrimaryButton>
+        </form>
+
+        <DesktopAuthOAuth
+          redirectPath={redirect}
+          disabled={loading}
+          onError={(message) => setError(message || null)}
+        />
+
+        <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 24 }}>
+          アカウントをお持ちでない方は{' '}
+          <Link
+            href={`/signup?redirect=${encodeURIComponent(redirect)}`}
+            style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}
+          >
+            新規登録
+          </Link>
+        </div>
+      </DesktopAuthShell>
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[14px] pt-1">
         <Link
           href="/"
@@ -149,7 +218,8 @@ function LoginForm() {
       </div>
 
       <div className="flex-1" />
-    </div>
+      </div>
+    </>
   );
 }
 

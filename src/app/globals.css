@@ -128,10 +128,10 @@
   --color-border-light: var(--color-border-light);
 
   /* Fonts */
-  --font-display: 'Lexend', 'Noto Sans JP', sans-serif;
-  --font-body: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+  --font-display: var(--font-lexend), var(--font-noto-sans-jp), sans-serif;
+  --font-body: var(--font-noto-sans-jp), 'Hiragino Sans', sans-serif;
   --font-sans: var(--font-body);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-body);
 
   /* Border Radius */
   --radius-sm: 8px;
@@ -140,6 +140,15 @@
   --radius-xl: 20px;
   --radius-2xl: 28px;
   --radius-full: 9999px;
+}
+
+/* Runtime font aliases used by both Tailwind utilities and desktop CSS. */
+:root {
+  --font-display: var(--font-lexend), var(--font-noto-sans-jp), sans-serif;
+  --font-body: var(--font-noto-sans-jp), 'Hiragino Sans', sans-serif;
+  --font-sans: var(--font-body);
+  --font-geist-mono: var(--font-body);
+  --font-mono: var(--font-body);
 }
 
 /* ===== Base Styles ===== */
@@ -730,6 +739,30 @@ body {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes scanvocabGeneratingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scanvocabGeneratingPulse {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.scanvocab-generating-spin {
+  animation: scanvocabGeneratingSpin 0.85s linear infinite !important;
+}
+
+.scanvocab-generating-pulse {
+  animation: scanvocabGeneratingPulse 1.15s ease-in-out infinite !important;
+}
+
 .animate-bounce {
   animation: bounce 0.5s ease-in-out;
 }
@@ -746,10 +779,8 @@ body {
   animation: correctFlash 0.3s ease-in-out 2;
 }
 
-/* Scan / generating card animations moved to inline <style> in
-   GeneratingProjectCard.tsx + ProgressSteps.tsx to bypass Tailwind v4
-   CSS cascade layer issues that were preventing the animations from
-   being applied in production builds. */
+/* Scan / generating card animations use explicit app CSS classes so they keep
+   running even when Tailwind animation utilities are optimized. */
 
 /* ===== Bottom Navigation ===== */
 

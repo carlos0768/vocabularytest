@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { DesktopScanConfirmView } from '@/components/desktop/DesktopScan';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -142,6 +143,7 @@ export default function ConfirmPage() {
   }, [shouldRedirect, showToast, router]);
 
   const handleDeleteWord = (tempId: string) => setWords((prev) => prev.filter((w) => w.tempId !== tempId));
+  const handleToggleWord = (tempId: string) => setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isSelected: !w.isSelected } : w));
   const handleEditWord = (tempId: string) => setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isEditing: true } : w));
   const handleSaveWord = (tempId: string, english: string, japanese: string) =>
     setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, english, japanese, japaneseSource: undefined, isEditing: false } : w));
@@ -289,7 +291,29 @@ export default function ConfirmPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <>
+      <DesktopScanConfirmView
+        words={words}
+        projectTitle={projectTitle}
+        isAddingToExisting={isAddingToExisting}
+        selectedCount={selectedCount}
+        availableSlots={availableSlots}
+        showLimitWarning={showLimitWarning}
+        excessCount={excessCount}
+        currentWordCount={currentWordCount}
+        saving={saving}
+        isPro={isPro}
+        onProjectTitleChange={setProjectTitle}
+        onToggleWord={handleToggleWord}
+        onEditWord={handleEditWord}
+        onSaveWord={handleSaveWord}
+        onCancelEdit={handleCancelEdit}
+        onDeleteWord={handleDeleteWord}
+        onAddManualWord={handleAddManualWord}
+        onBack={() => router.back()}
+        onSaveProject={() => void handleSaveProject()}
+      />
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
         <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none">
@@ -421,7 +445,8 @@ export default function ConfirmPage() {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
