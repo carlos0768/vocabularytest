@@ -109,6 +109,7 @@ function createDeps(
               english: 'book',
               japanese: '本',
               japaneseSource: 'scan',
+              sourceModes: ['idiom'],
               distractors: ['ペン', '机', '紙'],
               partOfSpeechTags: ['noun'],
             },
@@ -131,6 +132,7 @@ function createDeps(
       calls.push('extractEikenWords');
       return {
         success: true,
+        extractedText: 'mock ocr',
         data: {
           words: [],
           sourceLabels: ['ノート'],
@@ -157,7 +159,7 @@ function createDeps(
               english: 'look forward to',
               japanese: '楽しみに待つ',
               japaneseSource: 'scan',
-              sourceModes: ['idiom', 'all'],
+              sourceModes: ['idiom'],
               distractors: [],
               partOfSpeechTags: ['idiom'],
               exampleSentence: 'I look forward to hearing from you.',
@@ -355,7 +357,7 @@ test('/api/extract uses scan usage response to reject free users from Pro-only m
   assert.deepEqual(calls, []);
 });
 
-test('/api/extract runs one composite extraction for multiple scanModes', async () => {
+test('/api/extract runs one composite extraction and overwrites sourceModes from normalized scanModes', async () => {
   const client = new FakeExtractClient({
     scanData: allowedScanData({
       current_count: 2,
@@ -369,7 +371,8 @@ test('/api/extract runs one composite extraction for multiple scanModes', async 
     jsonRequest({
       image: 'data:image/png;base64,AAAA',
       mode: 'all',
-      scanModes: ['all', 'idiom'],
+      scanModes: ['all', 'idiom', 'eiken'],
+      eikenLevel: '2',
     }),
     createDeps(client, calls),
   );
@@ -384,7 +387,7 @@ test('/api/extract runs one composite extraction for multiple scanModes', async 
     },
   ]);
   assert.deepEqual(calls, [
-    'extractCompositeWords:all,idiom:',
+    'extractCompositeWords:all,idiom,eiken:2',
     'resolveImmediateWords',
   ]);
   assert.deepEqual(payload.words, [
@@ -392,7 +395,7 @@ test('/api/extract runs one composite extraction for multiple scanModes', async 
       english: 'look forward to',
       japanese: '楽しみに待つ',
       japaneseSource: 'scan',
-      sourceModes: ['idiom', 'all'],
+      sourceModes: ['all', 'idiom', 'eiken'],
       distractors: [],
       partOfSpeechTags: ['idiom'],
       exampleSentence: 'I look forward to hearing from you.',

@@ -616,6 +616,7 @@ test('processJobById uses scanModesOverride when scan_modes is not available on 
     claimedJob: pendingServerCloudJob({
       scan_mode: 'all',
       scan_modes: null,
+      eiken_level: '2',
     }),
     userPreference: { ai_enabled: false },
   });
@@ -623,9 +624,9 @@ test('processJobById uses scanModesOverride when scan_modes is not available on 
   const response = await processJobById(
     JOB_ID,
     createServerCloudContractDeps(client, {
-      scanModesOverride: ['all', 'idiom'],
+      scanModesOverride: ['all', 'idiom', 'eiken'],
       extractImage: async (_base64Image, modes) => {
-        observedModes.push(modes);
+        observedModes.push(Array.isArray(modes) ? modes : [modes]);
         return {
           result: {
             success: true,
@@ -635,7 +636,7 @@ test('processJobById uses scanModesOverride when scan_modes is not available on 
                   english: 'look forward to',
                   japanese: '楽しみに待つ',
                   japaneseSource: 'scan',
-                  sourceModes: ['all', 'idiom'],
+                  sourceModes: ['idiom'],
                   distractors: [],
                   partOfSpeechTags: ['idiom'],
                 },
@@ -649,7 +650,65 @@ test('processJobById uses scanModesOverride when scan_modes is not available on 
   );
 
   assert.equal(response.status, 200);
-  assert.deepEqual(observedModes, [['all', 'idiom']]);
+  assert.deepEqual(observedModes, [['all', 'idiom', 'eiken']]);
+
+  const wordsInsert = findOperation(
+    client,
+    (operation) => operation.table === 'words' && operation.action === 'insert',
+    'missing words insert',
+  );
+  assert.ok(Array.isArray(wordsInsert.payload));
+  assert.deepEqual(wordsInsert.payload[0]?.source_modes, ['all', 'idiom', 'eiken']);
+});
+
+test('server_cloud writes source_modes from normalized scan_modes instead of AI sourceModes', async () => {
+  const observedModes: string[][] = [];
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob({
+      scan_mode: 'all',
+      scan_modes: ['all', 'idiom', 'eiken'],
+      eiken_level: '2',
+    }),
+    userPreference: { ai_enabled: false },
+  });
+
+  const response = await processJobById(
+    JOB_ID,
+    createServerCloudContractDeps(client, {
+      extractImage: async (_base64Image, modes) => {
+        observedModes.push(Array.isArray(modes) ? modes : [modes]);
+        return {
+          result: {
+            success: true,
+            data: {
+              words: [
+                {
+                  english: 'look forward to',
+                  japanese: '楽しみに待つ',
+                  japaneseSource: 'scan',
+                  sourceModes: ['idiom'],
+                  distractors: [],
+                  partOfSpeechTags: ['idiom'],
+                },
+              ],
+              sourceLabels: ['鉄壁'],
+            },
+          },
+        };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(observedModes, [['all', 'idiom', 'eiken']]);
+
+  const wordsInsert = findOperation(
+    client,
+    (operation) => operation.table === 'words' && operation.action === 'insert',
+    'missing words insert',
+  );
+  assert.ok(Array.isArray(wordsInsert.payload));
+  assert.deepEqual(wordsInsert.payload[0]?.source_modes, ['all', 'idiom', 'eiken']);
 });
 
 test('server_cloud new project completion keeps project insert, words insert, and completed update contract', async () => {
@@ -737,7 +796,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
       example_sentence_ja: '私はりんごを食べました。',
       pronunciation: null,
       part_of_speech_tags: ['noun'],
-      source_modes: undefined,
+      source_modes: ['all'],
     },
   ]);
 
@@ -807,7 +866,7 @@ test('server_cloud retries words insert without source_modes when the database s
   );
   assert.equal(wordsInserts.length, 2);
   assert.ok(Array.isArray(wordsInserts[0].payload));
-  assert.equal(wordsInserts[0].payload[0]?.source_modes, undefined);
+  assert.deepEqual(wordsInserts[0].payload[0]?.source_modes, ['all']);
   assert.ok(Array.isArray(wordsInserts[1].payload));
   assert.equal('source_modes' in wordsInserts[1].payload[0], false);
 

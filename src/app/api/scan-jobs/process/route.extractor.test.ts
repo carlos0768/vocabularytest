@@ -95,7 +95,7 @@ test('extractFromImage uses one composite extraction call for multiple modes', a
               english: 'look forward to',
               japanese: '楽しみに待つ',
               japaneseSource: 'scan',
-              sourceModes: ['idiom', 'all'],
+              sourceModes: ['idiom'],
               distractors: [],
               partOfSpeechTags: ['idiom'],
             },
@@ -117,7 +117,7 @@ test('extractFromImage uses one composite extraction call for multiple modes', a
   assert.deepEqual(calls, ['extractCompositeWordsFromImage:all,idiom,eiken:2']);
   assert.equal(result.success, true);
   if (result.success) {
-    assert.deepEqual((result.data.words[0] as { sourceModes?: string[] }).sourceModes, ['idiom', 'all']);
+    assert.deepEqual((result.data.words[0] as { sourceModes?: string[] }).sourceModes, ['all', 'idiom', 'eiken']);
   }
 });
 
@@ -146,11 +146,11 @@ test('scan-jobs parser preserves japaneseSource and prefers scan during dedupe',
     },
   ]);
 
-  const deduped = __internal.dedupeExtractedWords(parsed);
+  const deduped = __internal.dedupeExtractedWords(parsed, ['all', 'idiom', 'eiken']);
 
   assert.equal(deduped.length, 1);
   assert.equal(deduped[0]?.japaneseSource, 'scan');
-  assert.deepEqual(deduped[0]?.sourceModes, ['all', 'circled']);
+  assert.deepEqual(deduped[0]?.sourceModes, ['all', 'idiom', 'eiken']);
 });
 
 test('scan-jobs marks partial example generation with warning and payload summary', () => {
@@ -169,7 +169,11 @@ test('scan-jobs marks partial example generation with warning and payload summar
   };
 
   const warningSet = new Set<string>();
-  const payloadBase = { saveMode: 'server_cloud' as const, wordCount: 5 };
+  const payloadBase: {
+    saveMode: 'server_cloud';
+    wordCount: number;
+    exampleGeneration?: ExampleGenerationSummary;
+  } = { saveMode: 'server_cloud', wordCount: 5 };
   const payload = __internal.applyExampleGenerationSummary(
     payloadBase,
     warningSet,

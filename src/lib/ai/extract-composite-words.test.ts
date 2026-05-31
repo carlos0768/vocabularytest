@@ -16,6 +16,8 @@ test('composite extraction prompt treats multiple selected modes as an intersect
   assert.match(systemPrompt, /丸囲みされた熟語・句動詞だけ/);
   assert.match(systemPrompt, /丸囲みでも単語なら除外/);
   assert.match(systemPrompt, /熟語でも丸囲みでなければ除外/);
+  assert.doesNotMatch(systemPrompt, /sourceModes/);
   assert.ok(systemPrompt.includes(JAPANESE_PARENTHESIS_RULES));
   assert.match(userPrompt, /選択条件（丸囲み、熟語・イディオム）をすべて満たす/);
+  assert.doesNotMatch(userPrompt, /sourceModes/);
 });

@@ -13,6 +13,7 @@ import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
 import {
+  applySourceModesFromScanModes,
   getMissingProviderKey,
   getMissingProviderKeyForModes,
   getProvidersForMode,
@@ -530,7 +531,7 @@ function mergeExtractSourceModes(
   return normalizeSourceModes([...(first ?? []), ...(second ?? [])], []);
 }
 
-function withFallbackSourceModes(
+function applySourceModesToExtractionResult(
   result: ExtractionLikeResult,
   modes: ExtractMode[],
 ): ExtractionLikeResult {
@@ -540,19 +541,7 @@ function withFallbackSourceModes(
     ...result,
     data: {
       ...result.data,
-      words: result.data.words.map((word) => {
-        if (!word || typeof word !== 'object') {
-          return word;
-        }
-        const sourceModes = normalizeSourceModes(
-          (word as { sourceModes?: unknown }).sourceModes,
-          modes,
-        );
-        return {
-          ...(word as Record<string, unknown>),
-          ...(sourceModes ? { sourceModes } : {}),
-        };
-      }),
+      words: applySourceModesFromScanModes(result.data.words, modes),
     },
   };
 }
@@ -605,9 +594,15 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
   return parsed;
 }
 
-function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtractedWord[] {
+function dedupeExtractedWords(
+  words: ProcessedExtractedWord[],
+  sourceModesOverride?: ExtractMode[],
+): ProcessedExtractedWord[] {
   if (words.length === 0) return [];
 
+  const normalizedSourceModesOverride = sourceModesOverride
+    ? normalizeExtractModes(sourceModesOverride)
+    : undefined;
   const deduped: ProcessedExtractedWord[] = [];
   const indexByKey = new Map<string, number>();
 
@@ -621,7 +616,9 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
         english: source.english,
         japanese: source.japanese,
         japaneseSource: source.japaneseSource,
-        sourceModes: source.sourceModes,
+        sourceModes: normalizedSourceModesOverride
+          ? [...normalizedSourceModesOverride]
+          : source.sourceModes,
         distractors: mergeDistractors([], source.distractors),
         partOfSpeechTags: normalizePartOfSpeechTags(source.partOfSpeechTags),
         pronunciation: firstNonEmpty(source.pronunciation),
@@ -636,7 +633,9 @@ function dedupeExtractedWords(words: ProcessedExtractedWord[]): ProcessedExtract
       english: existing.english,
       japanese: existing.japanese,
       japaneseSource: preferJapaneseSource(existing.japaneseSource, source.japaneseSource),
-      sourceModes: mergeExtractSourceModes(existing.sourceModes, source.sourceModes),
+      sourceModes: normalizedSourceModesOverride
+        ? [...normalizedSourceModesOverride]
+        : mergeExtractSourceModes(existing.sourceModes, source.sourceModes),
       distractors: mergeDistractors(existing.distractors, source.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags([
         ...(existing.partOfSpeechTags ?? []),
@@ -705,14 +704,14 @@ async function extractFromImage(
       modes,
       eikenLevel: modes.includes('eiken') ? normalizeEikenLevel(eikenLevel) : null,
     }) as ExtractionLikeResult;
-    return { result: withFallbackSourceModes(result, modes) };
+    return { result: applySourceModesToExtractionResult(result, modes) };
   }
 
   const mode = modes[0] ?? 'all';
   switch (mode) {
     case 'circled': {
       const result = await handlers.extractCircledWordsFromImage(base64Image, apiKeys, {}) as ExtractionLikeResult;
-      return { result: withFallbackSourceModes(result, ['circled']) };
+      return { result: applySourceModesToExtractionResult(result, modes) };
     }
     case 'eiken': {
       const normalizedLevel = normalizeEikenLevel(eikenLevel);
@@ -724,25 +723,25 @@ async function extractFromImage(
           apiKeys,
           normalizedLevel
         ) as ExtractionLikeResult;
-      return { result: withFallbackSourceModes(result, ['eiken']) };
+      return { result: applySourceModesToExtractionResult(result, modes) };
     }
     case 'idiom': {
       const idiomResult = await handlers.extractIdiomsFromImage(base64Image, apiKeys);
       if (!idiomResult.success && idiomResult.reason === 'no_idiom_found') {
         console.warn('No idioms found in background scan. Falling back to all-word extraction.');
         return {
-          result: withFallbackSourceModes(
+          result: applySourceModesToExtractionResult(
             await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult,
-            ['all'],
+            modes,
           ),
           warningCode: 'grammar_not_found',
         };
       }
-      return { result: withFallbackSourceModes(idiomResult as ExtractionLikeResult, ['idiom']) };
+      return { result: applySourceModesToExtractionResult(idiomResult as ExtractionLikeResult, modes) };
     }
     default: {
       const result = await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult;
-      return { result: withFallbackSourceModes(result, ['all']) };
+      return { result: applySourceModesToExtractionResult(result, modes) };
     }
   }
 }
@@ -875,7 +874,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
               .from('scan-images')
               .download(imagePath),
             extractImage,
-            parseWords: parseExtractedWords,
+            parseWords: (rawWords) => applySourceModesFromScanModes(parseExtractedWords(rawWords), modes),
             withTimingPhase: withCloudRunTimingPhase,
             withTimeout,
           },
@@ -939,7 +938,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       }
 
       const parseStart = Date.now();
-      const dedupedWords = dedupeExtractedWords(allExtractedWords);
+      const dedupedWords = dedupeExtractedWords(allExtractedWords, modes);
       const dedupedSourceLabels = ensureSourceLabels(allSourceLabels);
       timing.parseValidationMs = Date.now() - parseStart;
 
@@ -987,7 +986,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         ? null
         : await backfillWords(dedupedWords);
       timing.lexiconResolutionMs = Date.now() - lexiconResolutionStart;
-      const resolvedWords = resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords;
+      const resolvedWords = applySourceModesFromScanModes(
+        resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords,
+        modes,
+      );
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
       console.log('[scan-jobs/process] Extraction finished', {
