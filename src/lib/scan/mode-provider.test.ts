@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  applySourceModesFromScanModes,
   getMissingProviderKey,
   getMissingProviderKeyForModes,
   getProvidersForMode,
@@ -51,6 +52,21 @@ test('normalizeExtractModes accepts arrays, JSON strings, and comma strings', ()
   assert.deepEqual(normalizeExtractModes('["circled","eiken"]'), ['circled', 'eiken']);
   assert.deepEqual(normalizeExtractModes('all,idiom,unknown'), ['all', 'idiom']);
   assert.deepEqual(normalizeExtractModes('unknown', ['all']), ['all']);
+});
+
+test('applySourceModesFromScanModes overwrites AI-provided source modes', () => {
+  const words = applySourceModesFromScanModes(
+    [
+      { english: 'look forward to', sourceModes: ['idiom'] },
+      { english: 'apple' },
+    ],
+    ['all', 'idiom', 'eiken'],
+  );
+
+  assert.deepEqual(words.map((word) => word.sourceModes), [
+    ['all', 'idiom', 'eiken'],
+    ['all', 'idiom', 'eiken'],
+  ]);
 });
 
 test('multiple scan modes use the composite extraction provider and Pro gate', () => {

@@ -10,6 +10,7 @@ import {
 import { getAPIKeys } from '@/lib/ai/config';
 import {
   EXTRACT_MODES,
+  applySourceModesFromScanModes,
   getMissingProviderKey,
   getMissingProviderKeyForModes,
   getProvidersForMode,
@@ -90,19 +91,6 @@ function isMasterFirstResolutionEnabledForModes(modes: Iterable<ExtractMode>): b
     .filter(Boolean);
 
   return normalizeExtractModes(Array.from(modes)).every((mode) => !disabledModes.includes(mode));
-}
-
-function withFallbackSourceModes<T>(words: T[], modes: ExtractMode[]): T[] {
-  return words.map((word) => {
-    if (!word || typeof word !== 'object') {
-      return word;
-    }
-    const sourceModes = normalizeExtractModes((word as { sourceModes?: unknown }).sourceModes, []);
-    return {
-      ...(word as Record<string, unknown>),
-      sourceModes: sourceModes.length > 0 ? sourceModes : modes,
-    } as T;
-  });
 }
 
 // API Route: POST /api/extract
@@ -308,7 +296,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       ...result,
       data: {
         ...result.data,
-        words: withFallbackSourceModes(result.data.words, modes),
+        words: applySourceModesFromScanModes(result.data.words, modes),
       },
     };
 
@@ -322,7 +310,10 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     const rollbackResult = masterFirstEnabled
       ? null
       : await backfillWords(result.data.words);
-    const extractedWords = resolved?.words ?? rollbackResult?.words ?? result.data.words;
+    const extractedWords = applySourceModesFromScanModes(
+      resolved?.words ?? rollbackResult?.words ?? result.data.words,
+      modes,
+    );
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
     console.log('[extract] Extraction done', {

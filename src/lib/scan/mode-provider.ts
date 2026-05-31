@@ -58,6 +58,24 @@ export function normalizeExtractModes(
   return normalized.length > 0 ? normalized : fallback;
 }
 
+export function applySourceModesFromScanModes<T extends readonly unknown[]>(
+  words: T,
+  scanModes: unknown,
+): T {
+  const sourceModes = normalizeExtractModes(scanModes);
+
+  return words.map((word) => {
+    if (!word || typeof word !== 'object') {
+      return word;
+    }
+
+    return {
+      ...(word as Record<string, unknown>),
+      sourceModes: [...sourceModes],
+    };
+  }) as unknown as T;
+}
+
 export function getPrimaryExtractMode(modes: Iterable<ExtractMode>): ExtractMode {
   for (const mode of modes) {
     return mode;
