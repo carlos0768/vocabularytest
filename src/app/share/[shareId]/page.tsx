@@ -12,11 +12,33 @@ import { useToast } from '@/components/ui/toast';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import { createBrowserClient } from '@/lib/supabase';
+import type { SharedProjectPreviewPayload } from '@/lib/shared-projects/types';
 import type { Project, Word } from '@/types';
 
 const SHARE_PREVIEW_WORD_LIMIT = 5;
 const SHARE_PREVIEW_CLEAR_WORD_COUNT = 2;
+
+type SharedProjectPreviewResponse =
+  | ({ success: true } & SharedProjectPreviewPayload)
+  | { success: false; error?: string };
+
+async function fetchSharedProjectPreview(shareId: string): Promise<SharedProjectPreviewPayload | null> {
+  const response = await fetch(
+    `/api/shared-projects/share/${encodeURIComponent(shareId)}?limit=${SHARE_PREVIEW_WORD_LIMIT}`,
+    { cache: 'no-store' },
+  );
+  const payload = await response.json().catch(() => null) as SharedProjectPreviewResponse | null;
+
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok || !payload || payload.success !== true) {
+    const message = payload && 'error' in payload ? payload.error : undefined;
+    throw new Error(message || 'shared_project_preview_failed');
+  }
+
+  return payload;
+}
 
 export default function SharedDetailPage() {
   const router = useRouter();
@@ -52,29 +74,18 @@ export default function SharedDetailPage() {
 
     const loadData = async () => {
       try {
-        const projectData = await remoteRepository.getProjectByShareId(shareId);
-        if (!projectData) {
+        const previewData = await fetchSharedProjectPreview(shareId);
+        if (!previewData) {
           if (!cancelled) setError('この単語帳は存在しないか、共有が解除されています');
           return;
         }
 
-        const supabase = createBrowserClient();
-        const [previewData, profileResult] = await Promise.all([
-          remoteRepository.getWordsForSharePreview(projectData.id, SHARE_PREVIEW_WORD_LIMIT),
-          Promise.resolve(
-            supabase
-              .from('profiles')
-              .select('username')
-              .eq('user_id', projectData.userId)
-              .maybeSingle(),
-          ).catch(() => ({ data: null })),
-        ]);
-
         if (cancelled) return;
-        setProject(projectData);
+        setProject(previewData.project);
         setWords(previewData.words);
-        setTotalWordCount(previewData.totalCount);
-        setOwnerUsername(profileResult.data?.username ? String(profileResult.data.username) : null);
+        setTotalWordCount(previewData.totalWordCount);
+        setLikeCount(previewData.likeCount);
+        setOwnerUsername(previewData.ownerUsername);
       } catch (loadError) {
         console.error('Failed to load shared project:', loadError);
         if (!cancelled) setError('単語帳の読み込みに失敗しました');
