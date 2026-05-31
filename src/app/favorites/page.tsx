@@ -462,7 +462,7 @@ function MobileWrongAnswersView({
               </div>
             </div>
             <div className="mt-3.5">
-              <ActionLink href={`/quiz/all?review=1&count=10&from=${returnPath}`} icon="replay" label="もう一度クイズ" accent />
+              <ActionLink href={`/quiz/all?wrong=1&count=10&from=${returnPath}`} icon="replay" label="もう一度クイズ" accent />
             </div>
           </div>
         </div>
