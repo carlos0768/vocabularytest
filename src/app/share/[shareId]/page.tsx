@@ -212,6 +212,7 @@ export default function SharedDetailPage() {
   const importTargetWords = isPro ? (selectMode ? selectedWords : words) : [];
   const importBusy = importing || preparingRewardedDownloadAd;
   const ownerLabel = ownerUsername ? `@${ownerUsername}` : '共有ユーザー';
+  const loginRedirectHref = `/login?redirect=${encodeURIComponent(`/share/${shareId}`)}`;
   const lockedPreviewWordCount = isPreviewLocked
     ? Math.max(0, totalWordCount - Math.min(SHARE_PREVIEW_CLEAR_WORD_COUNT, totalWordCount))
     : 0;
@@ -360,6 +361,7 @@ export default function SharedDetailPage() {
         isPreviewLocked={isPreviewLocked}
         totalWordCount={totalWordCount}
         previewClearWordCount={SHARE_PREVIEW_CLEAR_WORD_COUNT}
+        lockedCtaHref={loginRedirectHref}
         onToggleLike={() => void handleToggleLike()}
         onToggleSelectMode={() => {
           setSelectMode((current) => !current);
@@ -468,7 +470,7 @@ export default function SharedDetailPage() {
         })}
         {isPreviewLocked && lockedPreviewWordCount > 0 && (
           <div className="px-2 py-3 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-            残り {lockedPreviewWordCount.toLocaleString()} 語はProで表示できます
+            残り {lockedPreviewWordCount.toLocaleString()} 語はログインすると表示できます
           </div>
         )}
       </div>
@@ -478,8 +480,8 @@ export default function SharedDetailPage() {
         style={{ background: 'linear-gradient(to top, var(--color-background) 70%, transparent)', paddingBottom: 'max(1.625rem, env(safe-area-inset-bottom))' }}
       >
         {isPreviewLocked ? (
-          <SolidButton href="/subscription" variant="inverse" size="lg" iconLeft="workspace_premium" className="w-full" faceClassName="!w-full !justify-center">
-            Proで全単語を見る
+          <SolidButton href={loginRedirectHref} variant="inverse" size="lg" iconLeft="login" className="w-full" faceClassName="!w-full !justify-center">
+            ログインして単語を見る
           </SolidButton>
         ) : importedProjectId ? (
           <SolidButton href={`/project/${importedProjectId}`} variant="inverse" size="lg" iconLeft="check_circle" className="w-full" faceClassName="!w-full !justify-center">

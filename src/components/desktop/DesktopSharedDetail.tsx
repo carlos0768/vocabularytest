@@ -19,6 +19,7 @@ export function DesktopSharedDetailView({
   isPreviewLocked = false,
   totalWordCount = words.length,
   previewClearWordCount = 5,
+  lockedCtaHref = '/login',
   onToggleLike,
   onToggleSelectMode,
   onToggleWord,
@@ -37,6 +38,7 @@ export function DesktopSharedDetailView({
   isPreviewLocked?: boolean;
   totalWordCount?: number;
   previewClearWordCount?: number;
+  lockedCtaHref?: string;
   onToggleLike: () => void;
   onToggleSelectMode: () => void;
   onToggleWord: (wordId: string) => void;
@@ -71,8 +73,8 @@ export function DesktopSharedDetailView({
           {liked ? 'いいね済み' : 'いいね'} {likeCount > 0 ? likeCount : ''}
         </DesktopButton>
         {isPreviewLocked ? (
-          <DesktopButton href="/subscription" variant="dark" icon="workspace_premium">
-            すべて見る
+          <DesktopButton href={lockedCtaHref} variant="dark" icon="login">
+            ログインして単語を見る
           </DesktopButton>
         ) : (
           <DesktopButton variant={selectMode ? 'dark' : undefined} icon="checklist" onClick={onToggleSelectMode}>
@@ -185,11 +187,11 @@ export function DesktopSharedDetailView({
           {isPreviewLocked ? (
             <>
               <span className="muted" style={{ fontSize: 13 }}>
-                {hiddenWordCount > 0 ? `残り ${hiddenWordCount} 語を含む全体表示はProで利用できます` : '全体表示はProで利用できます'}
+                {hiddenWordCount > 0 ? `残り ${hiddenWordCount} 語はログインすると表示できます` : 'ログインすると単語を表示できます'}
               </span>
               <div className="grow" />
-              <DesktopButton href="/subscription" variant="accent" icon="workspace_premium">
-                Proで全単語を見る
+              <DesktopButton href={lockedCtaHref} variant="accent" icon="login">
+                ログインして単語を見る
               </DesktopButton>
             </>
           ) : selectMode ? (
