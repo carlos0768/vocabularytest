@@ -49,6 +49,7 @@ export function DesktopProjectDetailView({
   words,
   wordsLoaded,
   counts,
+  onRename,
   onToggleFavorite,
 }: {
   project: Project;
@@ -56,6 +57,7 @@ export function DesktopProjectDetailView({
   words: Word[];
   wordsLoaded: boolean;
   counts: { total: number; mastered: number; learning: number; newCount: number };
+  onRename: () => void;
   onToggleFavorite: (word: Word) => void;
 }) {
   const [filter, setFilter] = useState<'all' | WordStatus>('all');
@@ -167,6 +169,7 @@ export function DesktopProjectDetailView({
       <DesktopTopbar title={project.title} crumb="単語帳 / 一覧">
         <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="school">クイズ</DesktopButton>
         <DesktopButton href={`/flashcard/${projectId}`} icon="style">カード</DesktopButton>
+        <DesktopButton onClick={onRename} icon="edit" title="単語帳名を変更">名称変更</DesktopButton>
         <DesktopButton href={`/scan?projectId=${encodeURIComponent(projectId)}`} icon="photo_camera">追加</DesktopButton>
       </DesktopTopbar>
 

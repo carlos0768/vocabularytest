@@ -687,6 +687,7 @@ export default function ProjectPage() {
         words={words}
         wordsLoaded={wordsLoaded}
         counts={counts}
+        onRename={handleOpenRename}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
