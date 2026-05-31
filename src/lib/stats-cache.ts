@@ -19,6 +19,7 @@ import {
 } from '@/lib/utils';
 import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
+import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import type { SubscriptionStatus, Word } from '@/types';
 
 export interface CachedStats {
@@ -26,6 +27,7 @@ export interface CachedStats {
   totalWords: number;
   masteredWords: number;
   reviewWords: number;
+  dueWords: number;
   newWords: number;
   favoriteWords: number;
   wrongAnswersCount: number;
@@ -359,6 +361,7 @@ function buildStatsFromHomeCache(): {
   reviewWords: number;
   newWords: number;
   favoriteWords: number;
+  dueWords: number;
   allWords: Word[];
 } | null {
   if (!getHasLoaded()) return null;
@@ -385,7 +388,16 @@ function buildStatsFromHomeCache(): {
     }
   }
 
-  return { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords, allWords };
+  return {
+    totalProjects: projects.length,
+    totalWords,
+    masteredWords,
+    reviewWords,
+    dueWords: getWordsDueForReview(allWords).length,
+    newWords,
+    favoriteWords,
+    allWords,
+  };
 }
 
 async function fetchStatsData(
@@ -408,6 +420,7 @@ async function fetchStatsData(
       totalWords: number;
       masteredWords: number;
       reviewWords: number;
+      dueWords?: number;
       newWords: number;
       favoriteWords: number;
     };
@@ -415,19 +428,19 @@ async function fetchStatsData(
 
     if (hasRemoteData) {
       wordStats = await fetchStatsViaRpc(userId);
-      // Fetch mastered words directly from Supabase for mastery history chart
+      // Fetch lightweight word fields for mastery history and real due-review count.
       try {
         const supabase = createBrowserClient();
         const { data, error } = await supabase
           .from('words')
-          .select('status, created_at, last_reviewed_at')
-          .eq('user_id', userId)
-          .eq('status', 'mastered');
+          .select('status, created_at, last_reviewed_at, next_review_at')
+          .eq('user_id', userId);
         if (!error && data) {
           allWords = data.map(row => ({
             status: row.status,
             createdAt: row.created_at,
             lastReviewedAt: row.last_reviewed_at ?? undefined,
+            nextReviewAt: row.next_review_at ?? undefined,
           })) as unknown as Word[];
         }
       } catch {
@@ -467,6 +480,10 @@ async function fetchStatsData(
         wordStats = { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords };
       }
     }
+
+    const dueWords = allWords.length > 0
+      ? getWordsDueForReview(allWords).length
+      : wordStats.dueWords ?? wordStats.reviewWords;
 
     const dailyStats = getDailyStats();
     const wrongAnswers = getWrongAnswers();
@@ -518,6 +535,7 @@ async function fetchStatsData(
 
     const stats: CachedStats = {
       ...wordStats,
+      dueWords,
       wrongAnswersCount,
       weeklyStats,
       activityHistory,

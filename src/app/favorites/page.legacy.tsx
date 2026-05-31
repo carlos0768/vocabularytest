@@ -188,7 +188,7 @@ export default function FavoritesPage() {
                     title="苦手クイズ"
                     description="苦手な単語を復習"
                     icon="menu_book"
-                    href={isPro ? `/quiz/all/favorites?from=${returnPath}` : '/subscription'}
+                    href={isPro ? `/quiz/all?favorites=true&from=${returnPath}` : '/subscription'}
                     variant="primary"
                     badge={!isPro ? 'Pro' : undefined}
                     layout="vertical"

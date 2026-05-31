@@ -49,7 +49,7 @@ export function DesktopFavoritesView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="お気に入り" crumb="コレクション">
-        <DesktopButton href={isPro ? `/quiz/all/favorites?count=10&from=${returnPath}` : '/subscription'} variant="accent" icon="school">
+        <DesktopButton href={isPro ? `/quiz/all?favorites=true&count=10&from=${returnPath}` : '/subscription'} variant="accent" icon="school">
           クイズ
         </DesktopButton>
         <DesktopButton href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'} icon="style">

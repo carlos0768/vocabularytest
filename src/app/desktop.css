@@ -101,6 +101,14 @@
 .ds-search .material-symbols-outlined { font-size: 18px; }
 .ds-scroll { flex: 1; overflow-y: auto; padding: 30px 34px 40px; }
 .ds-scroll.tight { padding: 26px 34px 34px; }
+.ds-shared-grid {
+  padding: 0 5px 6px 0;
+  overflow: visible;
+}
+.ds-shared-card {
+  min-width: 0;
+  height: 100%;
+}
 
 /* ── Solid button (desktop) ──────────────────────────────── */
 .ds-btn {
@@ -671,6 +679,17 @@ button.ds-tile { appearance: none; }
 .ds-tile.used { opacity: 0.28; pointer-events: none; box-shadow: none; background: var(--color-surface-secondary); }
 .ds-tile:disabled { cursor: default; }
 .ds-tile.in-answer { background: var(--color-ink); color: #fff; box-shadow: 2px 3px 0 var(--solid-ink); }
+.ds-tile.in-answer.empty {
+  min-width: 58px;
+  border-style: dashed;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  box-shadow: none;
+}
+.ds-tile.in-answer.empty .slot-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
 .ds-wo-answer .ds-tile.in-answer { display: inline-flex; align-items: center; gap: 0; }
 .ds-wo-answer.correct .ds-tile.in-answer { background: var(--color-accent); box-shadow: 2px 3px 0 var(--color-accent-ink); }
 .ds-wo-answer.wrong .ds-tile.in-answer { background: var(--color-error); box-shadow: 2px 3px 0 #b91c1c; }

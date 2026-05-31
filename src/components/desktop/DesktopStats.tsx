@@ -24,13 +24,15 @@ export function DesktopStatsView({
   const mastered = stats?.masteredWords ?? 0;
   const review = stats?.reviewWords ?? 0;
   const newWords = stats?.newWords ?? 0;
+  const dueWords = stats?.dueWords ?? 0;
+  const unmasteredWords = review + newWords;
   const accuracy = stats?.quizStats.todayCount
     ? Math.round((stats.quizStats.correctCount / stats.quizStats.todayCount) * 100)
     : 0;
   const masteryPercent = totalWords > 0 ? Math.round((mastered / totalWords) * 100) : 0;
   const summaryStats: DesktopStudySummaryStats = stats
     ? {
-        dueCount: stats.reviewWords,
+        dueCount: dueWords,
         completedToday: stats.quizStats.todayCount,
         streakDays: stats.quizStats.streakDays,
         totalWords,
@@ -39,6 +41,11 @@ export function DesktopStatsView({
         newW: newWords,
       }
     : EMPTY_DESKTOP_STUDY_SUMMARY;
+  const reviewHref = dueWords > 0
+    ? '/quiz/all?review=1&from=/stats'
+    : unmasteredWords > 0
+      ? '/quiz/all?learn=1&from=/stats'
+      : '/projects';
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -120,7 +127,7 @@ export function DesktopStatsView({
           )}
         </div>
 
-        <DesktopStudySidebar stats={summaryStats} reviewHref={summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/stats' : '/projects'} />
+        <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} />
       </div>
     </div>
   );

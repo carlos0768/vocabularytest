@@ -13,6 +13,7 @@ import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
+import { WORD_ORDER_MAX_ANSWER_TOKENS } from '@/lib/quiz/word-order';
 import { z } from 'zod';
 
 const relatedWordSchema = z.object({
@@ -34,7 +35,7 @@ const wordOrderQuizSchema = z.object({
   sourceEnglish: z.string().trim().min(1).max(200),
   sourceJapanese: z.string().trim().min(1).max(300),
   sentenceTokens: z.array(z.string().trim().min(1).max(80)).min(1).max(30),
-  answerTokens: z.array(z.string().trim().min(1).max(80)).min(1).max(3),
+  answerTokens: z.array(z.string().trim().min(1).max(80)).min(1).max(WORD_ORDER_MAX_ANSWER_TOKENS),
   decoyTokens: z.array(z.string().trim().min(1).max(80)).length(3),
   generatedAt: z.string().datetime(),
 }).strict();

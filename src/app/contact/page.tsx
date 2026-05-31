@@ -3,13 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { DesktopContactView } from '@/components/desktop/DesktopSupport';
 import { Icon } from '@/components/ui/Icon';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function ContactPage() {
   const router = useRouter();
+  const { user } = useAuth();
 
   return (
     <>
-      <DesktopContactView onBack={() => router.back()} />
+      <DesktopContactView onBack={() => router.back()} defaultReplyEmail={user?.email ?? ''} />
       <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="px-[18px] pb-3.5 pt-1">

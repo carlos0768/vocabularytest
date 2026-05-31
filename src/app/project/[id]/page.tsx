@@ -14,11 +14,12 @@ import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListShe
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
-import { getRepository, hybridRepository } from '@/lib/db';
+import { getRepository, hybridRepository, localRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
+import { createBrowserClient } from '@/lib/supabase';
 import {
   getNextVocabularyType,
   getVocabularyTypeLabel,
@@ -45,6 +46,43 @@ function thumbColor(id: string) {
 
 function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
   return Boolean(project && project.userId === expectedUserId);
+}
+
+type ProjectRenameResponse = {
+  success?: boolean;
+  error?: string;
+  project?: {
+    title?: string;
+  };
+};
+
+async function updateProjectTitleViaApi(projectId: string, title: string): Promise<string> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    const supabase = createBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+  } catch {
+    // Same-origin cookies can still authenticate the route.
+  }
+
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ title }),
+  });
+
+  const payload = await response.json().catch(() => null) as ProjectRenameResponse | null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error ?? '名称変更に失敗しました');
+  }
+
+  return payload.project?.title ?? title;
 }
 
 export default function ProjectPage() {
@@ -448,10 +486,22 @@ export default function ProjectPage() {
 
   const handleConfirmRename = async () => {
     if (!project || !renameValue.trim() || renameLoading) return;
+    const nextTitle = renameValue.trim();
     setRenameLoading(true);
     try {
-      await mutationRepository.updateProject(project.id, { title: renameValue.trim() });
-      setProject((p) => (p ? { ...p, title: renameValue.trim() } : p));
+      const savedTitle = user && navigator.onLine
+        ? await updateProjectTitleViaApi(project.id, nextTitle)
+        : nextTitle;
+
+      if (user && navigator.onLine) {
+        await localRepository.updateProject(project.id, { title: savedTitle }).catch((error) => {
+          console.warn('[project-rename] local cache update failed:', error);
+        });
+      } else {
+        await mutationRepository.updateProject(project.id, { title: savedTitle });
+      }
+
+      setProject((p) => (p ? { ...p, title: savedTitle } : p));
       invalidateHomeCache();
       showToast({ message: '名称を変更しました', type: 'success' });
       setRenameModalOpen(false);
@@ -946,6 +996,7 @@ export default function ProjectPage() {
         onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
         onBulkDelete={() => setBulkDeleteModalOpen(true)}
       />
+      </div>
 
       <BulkDeleteModal
         open={bulkDeleteModalOpen}
@@ -1095,7 +1146,6 @@ export default function ProjectPage() {
         onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
         onConfirm={() => void handleConfirmSingleWordDelete()}
       />
-      </div>
     </>
   );
 }

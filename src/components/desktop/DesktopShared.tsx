@@ -47,7 +47,11 @@ export function DesktopSharedView({
           <button type="button" className={'ds-chip' + (filter === 'public' ? ' active' : '')} onClick={() => setFilter('public')}>公開中 <span className="tnum" style={{ opacity: 0.7 }}>{projects.length}</span></button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
+        <div
+          className="ds-shared-grid"
+          data-desktop-shared-grid
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 18 }}
+        >
           {rows.map((project) => (
             <DesktopSharedCard key={project.project.id} project={project} />
           ))}
@@ -83,7 +87,12 @@ function DesktopSharedCard({ project }: { project: SharedProjectCard }) {
   const subject = project.accessRole === 'owner' ? '公開中' : project.accessRole === 'editor' ? '参加中' : '共有中';
 
   return (
-    <Link href={href} className="ds-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'inherit', textDecoration: 'none' }}>
+    <Link
+      href={href}
+      className="ds-card ds-shared-card"
+      data-desktop-shared-card
+      style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'inherit', textDecoration: 'none' }}
+    >
       <div style={{ display: 'flex', gap: 14 }}>
         <div
           className="ds-project-icon ds-project-icon--lg"

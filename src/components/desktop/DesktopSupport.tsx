@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui/Icon';
 
@@ -40,14 +40,35 @@ function SupportTopbar({ title, onBack }: { title: string; onBack: () => void })
   );
 }
 
-export function DesktopContactView({ onBack }: { onBack: () => void }) {
+export function DesktopContactView({
+  onBack,
+  defaultReplyEmail = '',
+}: {
+  onBack: () => void;
+  defaultReplyEmail?: string;
+}) {
   const [kind, setKind] = useState('bug');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [replyEmailOverride, setReplyEmailOverride] = useState<string | null>(null);
   const kinds = [
     ['bug', '不具合の報告'],
     ['request', '機能のご要望'],
     ['question', '使い方の質問'],
     ['other', 'その他'],
   ];
+  const kindLabel = kinds.find(([key]) => key === kind)?.[1] ?? kind;
+  const replyEmail = replyEmailOverride ?? defaultReplyEmail;
+  const mailHref = useMemo(() => {
+    const body = [
+      `お問い合わせの種類: ${kindLabel}`,
+      `返信先メールアドレス: ${replyEmail.trim() || '(未入力)'}`,
+      '',
+      message.trim(),
+    ].join('\n');
+
+    return `mailto:support@merken.jp?subject=${encodeURIComponent(subject.trim() || kindLabel)}&body=${encodeURIComponent(body)}`;
+  }, [kindLabel, message, replyEmail, subject]);
 
   return (
     <DesktopStandaloneShell>
@@ -81,18 +102,36 @@ export function DesktopContactView({ onBack }: { onBack: () => void }) {
               </div>
               <div className="ds-form-field">
                 <label>件名</label>
-                <input className="ds-input" placeholder="例：クイズ画面で発音が再生されない" />
+                <input
+                  className="ds-input"
+                  placeholder="例：クイズ画面で発音が再生されない"
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                />
               </div>
               <div className="ds-form-field">
                 <label>内容</label>
-                <textarea className="ds-textarea" placeholder="できるだけ詳しく状況をお書きください。発生した画面や操作の手順があると解決が早まります。" />
+                <textarea
+                  className="ds-textarea"
+                  placeholder="できるだけ詳しく状況をお書きください。発生した画面や操作の手順があると解決が早まります。"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                />
               </div>
               <div className="ds-form-field">
                 <label>返信先メールアドレス</label>
-                <input className="ds-input" type="email" placeholder="you@example.com" />
+                <input
+                  className="ds-input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={replyEmail}
+                  onChange={(event) => {
+                    setReplyEmailOverride(event.target.value);
+                  }}
+                />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
-                <a className="ds-btn accent" href={`mailto:support@merken.jp?subject=${encodeURIComponent(kind)}`}>
+                <a className="ds-btn accent" href={mailHref}>
                   <Icon name="send" />
                   送信する
                 </a>

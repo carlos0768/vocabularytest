@@ -281,24 +281,33 @@ function DSDesktopWordOrderPanel({
       </div>
 
       <div className={`ds-wo-answer${answerStateClass}`}>
-        {selectedTokens.length === 0 && <span className="ph">ここに単語が並びます</span>}
-        {selectedTokens.map((token, index) => (
-          <button
-            key={`${token}-${index}`}
-            type="button"
-            className="ds-tile in-answer"
-            onClick={() => onRemoveToken(index)}
-            disabled={isRevealed}
-          >
-            {token}
-            {!isRevealed && (
-              <Icon
-                name="close"
-                style={{ fontSize: 14, marginLeft: 6, verticalAlign: '-2px', opacity: 0.7 }}
-              />
-            )}
-          </button>
-        ))}
+        {question.answerTokens.map((_, index) => {
+          const selected = selectedTokens[index];
+          return (
+            <button
+              key={`slot-${index}`}
+              type="button"
+              className={`ds-tile in-answer${selected ? '' : ' empty'}`}
+              onClick={() => selected && onRemoveToken(index)}
+              disabled={isRevealed || !selected}
+              aria-label={selected ? `${selected} を外す` : `空欄 ${index + 1}`}
+            >
+              {selected ? (
+                <>
+                  {selected}
+                  {!isRevealed && (
+                    <Icon
+                      name="close"
+                      style={{ fontSize: 14, marginLeft: 6, verticalAlign: '-2px', opacity: 0.7 }}
+                    />
+                  )}
+                </>
+              ) : (
+                <span className="slot-num">{index + 1}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="ds-wo-bank">
@@ -350,8 +359,7 @@ function DSWordOrderPanel({
   onRemoveToken: (index: number) => void;
   onSubmit: () => void;
 }) {
-  const selectedKeys = new Set(selectedTokens.map(chipKey));
-  const availableTokens = question.options.filter((token) => !selectedKeys.has(chipKey(token)));
+  const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
   const isReady = selectedTokens.length === question.answerTokens.length;
   const example = getWordOrderExample(question);
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
@@ -398,17 +406,20 @@ function DSWordOrderPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {availableTokens.map((token) => (
-          <button
-            key={token}
-            type="button"
-            onClick={() => onSelectToken(token)}
-            disabled={isRevealed || selectedTokens.length >= question.answerTokens.length}
-            className="relative min-h-12 rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)] disabled:shadow-[2px_3px_0_var(--color-border)]"
-          >
-            {token}
-          </button>
-        ))}
+        {question.options.map((token, index) => {
+          const isUsed = usedOptionIndexes.has(index);
+          return (
+            <button
+              key={`${token}-${index}`}
+              type="button"
+              onClick={() => onSelectToken(token)}
+              disabled={isRevealed || isUsed || selectedTokens.length >= question.answerTokens.length}
+              className="relative min-h-12 rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)] disabled:shadow-[2px_3px_0_var(--color-border)]"
+            >
+              {token}
+            </button>
+          );
+        })}
       </div>
 
       {!isRevealed && (
@@ -458,7 +469,7 @@ export default function QuizPage() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const projectId = params.projectId as string;
-  const { subscription, loading: authLoading, user } = useAuth();
+  const { subscription, loading: authLoading, user, isPro } = useAuth();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
@@ -468,6 +479,7 @@ export default function QuizPage() {
   const reviewMode = searchParams.get('review') === '1';
   const learnMode = searchParams.get('learn') === '1';
   const wrongMode = searchParams.get('wrong') === '1';
+  const favoritesMode = searchParams.get('favorites') === 'true' || searchParams.get('favorites') === '1';
   const collectionId = searchParams.get('collectionId');
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
@@ -516,7 +528,8 @@ export default function QuizPage() {
 
   const restoredFromStorage = useRef(false);
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
-  const storageKey = wrongMode ? 'quiz_state_wrong_answers' : getQuizStorageKey(projectId, reviewMode, learnMode);
+  const storageProjectId = favoritesMode ? `${projectId}_favorites` : projectId;
+  const storageKey = wrongMode ? 'quiz_state_wrong_answers' : getQuizStorageKey(storageProjectId, reviewMode, learnMode);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -689,6 +702,7 @@ export default function QuizPage() {
   useEffect(() => {
     if (authLoading || userPreferencesLoading) return;
     if (aiEnabled === false) { setLoading(false); return; }
+    if (favoritesMode && !isPro) { router.push('/subscription'); return; }
 
     const tryRestoreState = (): boolean => {
       if (restoredFromStorage.current) return false;
@@ -743,7 +757,44 @@ export default function QuizPage() {
 
         let sourceWords: Word[] = [];
 
-        if (reviewMode || learnMode || wrongMode) {
+        if (favoritesMode) {
+          if (projectId === 'all') {
+            const userId = user ? user.id : getGuestUserId();
+            let projects = await repository.getProjects(userId);
+            let wordRepo = repository;
+            if (projects.length === 0 && user && navigator.onLine) {
+              try {
+                projects = await remoteRepository.getProjects(user.id);
+                if (projects.length > 0) wordRepo = remoteRepository;
+              } catch { /* ignore */ }
+            }
+
+            const projectIds = projects.map((p) => p.id);
+            if (projectIds.length === 0) { backToProject(); return; }
+            const repoWithBulk = wordRepo as typeof repository & {
+              getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
+              getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
+            };
+            let wordsByProject: Record<string, Word[]> = {};
+            if (repoWithBulk.getAllWordsByProjectIds) {
+              wordsByProject = await repoWithBulk.getAllWordsByProjectIds(projectIds);
+            } else if (repoWithBulk.getAllWordsByProject) {
+              wordsByProject = await repoWithBulk.getAllWordsByProject(projectIds);
+            } else {
+              const arrays = await Promise.all(projectIds.map((id) => wordRepo.getWords(id)));
+              wordsByProject = Object.fromEntries(projectIds.map((id, idx) => [id, arrays[idx] ?? []]));
+            }
+            sourceWords = projectIds.flatMap((id) => wordsByProject[id] ?? []).filter((w) => w.isFavorite);
+          } else {
+            const hasAccess = await ensureProjectAccess();
+            if (!hasAccess) { backToProject(); return; }
+            let loadedWords = await repository.getWords(projectId);
+            if (loadedWords.length === 0 && user && navigator.onLine) {
+              try { loadedWords = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
+            }
+            sourceWords = loadedWords.filter((w) => w.isFavorite);
+          }
+        } else if (reviewMode || learnMode || wrongMode) {
           const userId = user ? user.id : getGuestUserId();
           let projects = await repository.getProjects(userId);
           let wordRepo = repository;
@@ -797,7 +848,7 @@ export default function QuizPage() {
           sourceWords = loadedWords;
         }
 
-        if (!reviewMode && !learnMode && !wrongMode) {
+        if (!favoritesMode && !reviewMode && !learnMode && !wrongMode) {
           const nonMastered = sourceWords.filter((w) => w.status !== 'mastered');
           if (nonMastered.length > 0) sourceWords = nonMastered;
         }
@@ -826,10 +877,10 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, collectionId, backToProject, user, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, collectionId, backToProject, user, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, isPro]);
 
   useEffect(() => {
-    if (authLoading || !user || reviewMode || learnMode || wrongMode || collectionId) return;
+    if (authLoading || !user || favoritesMode || reviewMode || learnMode || wrongMode || collectionId) return;
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
@@ -838,11 +889,11 @@ export default function QuizPage() {
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, collectionId]);
+  }, [authLoading, user, projectId, favoritesMode, reviewMode, learnMode, wrongMode, collectionId]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
-    if (reviewMode || learnMode || wrongMode || collectionId) return;
+    if (favoritesMode || reviewMode || learnMode || wrongMode || collectionId) return;
     if (questions.length === 0) return;
     if (vocabularyMergeFromLocalAppliedRef.current) return;
     vocabularyMergeFromLocalAppliedRef.current = true;
@@ -867,7 +918,7 @@ export default function QuizPage() {
       } catch { vocabularyMergeFromLocalAppliedRef.current = false; }
     })();
     return () => { cancelled = true; };
-  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, collectionId]);
+  }, [questions.length, projectId, repository, favoritesMode, reviewMode, learnMode, wrongMode, collectionId]);
 
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
@@ -884,7 +935,7 @@ export default function QuizPage() {
       next[currentIndex] = isCorrect;
       return next;
     });
-    const recordProjectId = reviewMode || learnMode ? word.projectId : projectId;
+    const recordProjectId = favoritesMode || reviewMode || learnMode || wrongMode ? word.projectId : projectId;
     const outcomePlan = buildQuizAnswerOutcomePlan({ word, isCorrect, recordProjectId });
     if (isCorrect) recordCorrectAnswer(false);
     else if (outcomePlan.wrongAnswer) {
@@ -1155,7 +1206,9 @@ export default function QuizPage() {
 
   /* ---------- Main quiz screen (DS style) ---------- */
   const total = questions.length;
-  const desktopSubtitle = reviewMode
+  const desktopSubtitle = favoritesMode
+    ? currentIsWordOrder ? 'お気に入り · 語順クイズ' : 'お気に入り · 4択クイズ'
+    : reviewMode
     ? currentIsWordOrder ? '復習 · 語順クイズ' : '復習 · 4択クイズ'
     : learnMode
       ? currentIsWordOrder ? '未習得の単語 · 語順クイズ' : '未習得の単語 · 4択クイズ'

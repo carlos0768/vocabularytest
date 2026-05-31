@@ -17,6 +17,8 @@ test('buildWordOrderPrompt fixes the Japanese-meaning decoy rule', () => {
   const prompt = buildWordOrderPrompt([word]);
 
   assert.match(prompt, /日本語訳から連想されやすい雰囲気/);
+  assert.match(prompt, /元の english を構成する全ての語/);
+  assert.match(prompt, /4語目以降も answerTokens に含める/);
   assert.match(prompt, /元の english に含まれる語や answerTokens と重複させない/);
   assert.match(prompt, /ID: word-1 \/ English: take care of \/ Japanese: 世話をする/);
 });
@@ -35,6 +37,12 @@ test('normalizeGeneratedWordOrderResult accepts valid AI output and attaches cac
   assert.equal(result?.wordId, 'word-1');
   assert.equal(result?.quiz.sourceEnglish, 'take care of');
   assert.equal(result?.quiz.sourceJapanese, '世話をする');
+  assert.deepEqual(result?.quiz.sentenceTokens, [
+    WORD_ORDER_BLANK_TOKEN,
+    WORD_ORDER_BLANK_TOKEN,
+    WORD_ORDER_BLANK_TOKEN,
+  ]);
+  assert.deepEqual(result?.quiz.answerTokens, ['take', 'care', 'of']);
   assert.equal(result?.quiz.generatedAt, '2026-05-09T00:00:00.000Z');
 });
 

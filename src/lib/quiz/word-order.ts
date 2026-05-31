@@ -3,7 +3,7 @@ import { shuffleArray } from '@/lib/utils';
 
 export const WORD_ORDER_BLANK_TOKEN = '___';
 export const WORD_ORDER_CACHE_VERSION = 1;
-export const WORD_ORDER_MAX_ANSWER_TOKENS = 3;
+export const WORD_ORDER_MAX_ANSWER_TOKENS = 30;
 export const WORD_ORDER_DECOY_COUNT = 3;
 
 type ShuffleFn = <T>(items: T[]) => T[];
@@ -16,10 +16,14 @@ function key(value: string): string {
   return compactText(value).toLowerCase();
 }
 
-function normalizeToken(value: unknown): string | null {
+function normalizeText(value: unknown, maxLength: number): string | null {
   if (typeof value !== 'string') return null;
   const token = compactText(value);
-  return token.length > 0 && token.length <= 80 ? token : null;
+  return token.length > 0 && token.length <= maxLength ? token : null;
+}
+
+function normalizeToken(value: unknown): string | null {
+  return normalizeText(value, 80);
 }
 
 function normalizeTokenArray(
@@ -64,39 +68,49 @@ export function normalizeWordOrderQuizCache(
   const record = value as Record<string, unknown>;
   if (record.version !== WORD_ORDER_CACHE_VERSION) return null;
 
-  const sourceEnglish = normalizeToken(record.sourceEnglish);
-  const sourceJapanese = normalizeToken(record.sourceJapanese);
-  const sentenceTokens = normalizeTokenArray(record.sentenceTokens, 30, { allowDuplicates: true });
-  const answerTokens = normalizeTokenArray(record.answerTokens, WORD_ORDER_MAX_ANSWER_TOKENS);
+  const sourceEnglish = normalizeText(record.sourceEnglish, 200);
+  const sourceJapanese = normalizeText(record.sourceJapanese, 300);
+  const rawSentenceTokens = normalizeTokenArray(record.sentenceTokens, 30, { allowDuplicates: true });
+  const rawAnswerTokens = normalizeTokenArray(record.answerTokens, WORD_ORDER_MAX_ANSWER_TOKENS, { allowDuplicates: true });
   const decoyTokens = normalizeTokenArray(record.decoyTokens, WORD_ORDER_DECOY_COUNT);
   const generatedAt = typeof record.generatedAt === 'string' && record.generatedAt.trim()
     ? record.generatedAt
     : now;
 
-  if (!sourceEnglish || !sourceJapanese || !sentenceTokens || !answerTokens || !decoyTokens) {
+  if (!sourceEnglish || !sourceJapanese || !rawSentenceTokens || !rawAnswerTokens || !decoyTokens) {
     return null;
   }
   if (key(sourceEnglish) !== key(word.english) || key(sourceJapanese) !== key(word.japanese)) {
     return null;
   }
-  if (answerTokens.length < 1 || answerTokens.length > WORD_ORDER_MAX_ANSWER_TOKENS) {
+  const answerTokens = normalizeTokenArray(
+    splitEnglishPhraseTokens(sourceEnglish),
+    WORD_ORDER_MAX_ANSWER_TOKENS,
+    { allowDuplicates: true },
+  );
+  if (!answerTokens || answerTokens.length < 2) {
     return null;
   }
   if (decoyTokens.length !== WORD_ORDER_DECOY_COUNT) {
     return null;
   }
-  if (sentenceTokens.filter((token) => token === WORD_ORDER_BLANK_TOKEN).length !== answerTokens.length) {
+  if (rawAnswerTokens.length < 1) {
     return null;
   }
 
   const sourceTokenKeys = new Set(splitEnglishPhraseTokens(word.english).map(key));
-  if (!answerTokens.every((token) => sourceTokenKeys.has(key(token)))) {
+  if (!rawAnswerTokens.every((token) => sourceTokenKeys.has(key(token)))) {
+    return null;
+  }
+  if (rawSentenceTokens.filter((token) => token === WORD_ORDER_BLANK_TOKEN).length !== rawAnswerTokens.length) {
+    return null;
+  }
+  if (!rawSentenceTokens.every((token) => token === WORD_ORDER_BLANK_TOKEN || sourceTokenKeys.has(key(token)))) {
     return null;
   }
 
-  const answerKeys = new Set(answerTokens.map(key));
   const decoyKeys = new Set(decoyTokens.map(key));
-  if ([...decoyKeys].some((tokenKey) => answerKeys.has(tokenKey) || sourceTokenKeys.has(tokenKey))) {
+  if ([...decoyKeys].some((tokenKey) => sourceTokenKeys.has(tokenKey))) {
     return null;
   }
 
@@ -104,7 +118,7 @@ export function normalizeWordOrderQuizCache(
     version: WORD_ORDER_CACHE_VERSION,
     sourceEnglish,
     sourceJapanese,
-    sentenceTokens,
+    sentenceTokens: answerTokens.map(() => WORD_ORDER_BLANK_TOKEN),
     answerTokens,
     decoyTokens,
     generatedAt,

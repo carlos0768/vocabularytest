@@ -235,7 +235,7 @@ function FavoritesPageContent() {
 
                 <div className="mt-3.5 flex gap-2">
                   <ActionLink href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'} icon="style" label="カード" accent />
-                  <ActionLink href={isPro ? `/quiz/all/favorites?count=10&from=${returnPath}` : '/subscription'} icon="quiz" label="クイズ" />
+                  <ActionLink href={isPro ? `/quiz/all?favorites=true&count=10&from=${returnPath}` : '/subscription'} icon="quiz" label="クイズ" />
                 </div>
               </div>
             </div>

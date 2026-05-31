@@ -51,8 +51,12 @@ test('normalizeWordOrderQuizCache accepts a valid cache tied to the current word
 
   const normalized = normalizeWordOrderQuizCache(word, createCache());
 
-  assert.deepEqual(normalized?.sentenceTokens, [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN, 'of']);
-  assert.deepEqual(normalized?.answerTokens, ['take', 'care']);
+  assert.deepEqual(normalized?.sentenceTokens, [
+    WORD_ORDER_BLANK_TOKEN,
+    WORD_ORDER_BLANK_TOKEN,
+    WORD_ORDER_BLANK_TOKEN,
+  ]);
+  assert.deepEqual(normalized?.answerTokens, ['take', 'care', 'of']);
   assert.deepEqual(normalized?.decoyTokens, ['hold', 'keep', 'watch']);
 });
 
@@ -88,6 +92,28 @@ test('buildWordOrderQuestion turns a valid cache into a chip-based quiz question
   const question = buildWordOrderQuestion(word, identityShuffle);
 
   assert.equal(question?.type, 'word-order');
-  assert.deepEqual(question?.answerTokens, ['take', 'care']);
-  assert.deepEqual(question?.options, ['take', 'care', 'hold', 'keep', 'watch']);
+  assert.deepEqual(question?.answerTokens, ['take', 'care', 'of']);
+  assert.deepEqual(question?.options, ['take', 'care', 'of', 'hold', 'keep', 'watch']);
+});
+
+test('normalizeWordOrderQuizCache expands legacy caches and keeps duplicate source tokens', () => {
+  const word = createWord({ id: 'word-1', english: 'as well as', japanese: '同様に' });
+
+  const normalized = normalizeWordOrderQuizCache(
+    word,
+    createCache({
+      sourceEnglish: 'as well as',
+      sourceJapanese: '同様に',
+      sentenceTokens: [WORD_ORDER_BLANK_TOKEN, 'well', WORD_ORDER_BLANK_TOKEN],
+      answerTokens: ['as', 'as'],
+      decoyTokens: ['also', 'too', 'and'],
+    }),
+  );
+
+  assert.deepEqual(normalized?.sentenceTokens, [
+    WORD_ORDER_BLANK_TOKEN,
+    WORD_ORDER_BLANK_TOKEN,
+    WORD_ORDER_BLANK_TOKEN,
+  ]);
+  assert.deepEqual(normalized?.answerTokens, ['as', 'well', 'as']);
 });
