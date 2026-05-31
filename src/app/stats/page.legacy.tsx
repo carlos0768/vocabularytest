@@ -3,28 +3,41 @@
 import { useState, useEffect, useMemo } from 'react';
 import { SolidHeader, SolidPage, SolidPanel, SolidSectionTitle, SolidStatCard } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
-import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
+import { getStats, type CachedStats } from '@/lib/stats-cache';
+
+type StatsLoadState = {
+  authKey: string;
+  stats: CachedStats | null;
+};
 
 export default function StatsPage() {
   const { user, subscription, isPro, wasPro, loading: authLoading } = useAuth();
-
-  const [stats, setStats] = useState<CachedStats | null>(() => getCachedStats());
-  const [loading, setLoading] = useState(!stats);
+  const authStatsKey = authLoading ? null : user?.id ?? 'guest';
+  const [statsState, setStatsState] = useState<StatsLoadState | null>(null);
+  const stats = statsState?.authKey === authStatsKey ? statsState.stats : null;
+  const loading = authLoading || (authStatsKey !== null && statsState?.authKey !== authStatsKey);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !authStatsKey) return;
 
+    let cancelled = false;
     const subscriptionStatus = subscription?.status ?? 'free';
+
     getStats(subscriptionStatus, user?.id ?? null, isPro, wasPro)
       .then((freshStats) => {
-        setStats(freshStats);
-        setLoading(false);
+        if (cancelled) return;
+        setStatsState({ authKey: authStatsKey, stats: freshStats });
       })
       .catch((error) => {
+        if (cancelled) return;
         console.error('Failed to load stats:', error);
-        setLoading(false);
+        setStatsState({ authKey: authStatsKey, stats: null });
       });
-  }, [subscription?.status, authLoading, isPro, user]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [subscription?.status, authLoading, authStatsKey, isPro, user?.id, wasPro]);
 
   const masteryPercentage = stats && stats.totalWords > 0
     ? Math.round((stats.masteredWords / stats.totalWords) * 100)

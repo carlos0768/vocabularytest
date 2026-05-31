@@ -5,7 +5,7 @@ import { DesktopStatsView } from '@/components/desktop/DesktopStats';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
-import { getCachedStats, getStats, type CachedStats } from '@/lib/stats-cache';
+import { getStats, type CachedStats } from '@/lib/stats-cache';
 
 const HEAT_COLORS = [
   'rgba(26,26,26,0.07)',
@@ -13,6 +13,11 @@ const HEAT_COLORS = [
   'rgba(61,122,78,0.7)',
   'var(--color-success)',
 ];
+
+type StatsLoadState = {
+  authKey: string;
+  stats: CachedStats | null;
+};
 
 function heatLevel(count: number): number {
   if (count <= 0) return 0;
@@ -23,23 +28,32 @@ function heatLevel(count: number): number {
 
 export default function StatsPage() {
   const { user, subscription, isPro, wasPro, loading: authLoading } = useAuth();
-  const [stats, setStats] = useState<CachedStats | null>(() => getCachedStats());
-  const [loading, setLoading] = useState(!stats);
+  const authStatsKey = authLoading ? null : user?.id ?? 'guest';
+  const [statsState, setStatsState] = useState<StatsLoadState | null>(null);
+  const stats = statsState?.authKey === authStatsKey ? statsState.stats : null;
+  const loading = authLoading || (authStatsKey !== null && statsState?.authKey !== authStatsKey);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !authStatsKey) return;
 
+    let cancelled = false;
     const subscriptionStatus = subscription?.status ?? 'free';
+
     getStats(subscriptionStatus, user?.id ?? null, isPro, wasPro)
       .then((freshStats) => {
-        setStats(freshStats);
-        setLoading(false);
+        if (cancelled) return;
+        setStatsState({ authKey: authStatsKey, stats: freshStats });
       })
       .catch((error) => {
+        if (cancelled) return;
         console.error('Failed to load stats:', error);
-        setLoading(false);
+        setStatsState({ authKey: authStatsKey, stats: null });
       });
-  }, [authLoading, isPro, subscription?.status, user?.id, wasPro]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, authStatsKey, isPro, subscription?.status, user?.id, wasPro]);
 
   const recentWeek = useMemo(() => stats?.weeklyStats.slice(-7) ?? [], [stats?.weeklyStats]);
   const weekTotal = recentWeek.reduce((sum, item) => sum + item.totalCount, 0);

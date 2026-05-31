@@ -32,6 +32,11 @@ import { RESOLVED_WORD_SELECT_COLUMNS, SHARE_VIEW_WORD_SELECT_COLUMNS } from '@/
 
 export const WORDS_SELECT_COLUMNS = RESOLVED_WORD_SELECT_COLUMNS;
 
+export type SharedWordsPreview = {
+  words: Word[];
+  totalCount: number;
+};
+
 export class RemoteWordRepository implements WordRepository {
   private _supabase: SupabaseClient | null = null;
 
@@ -296,6 +301,22 @@ export class RemoteWordRepository implements WordRepository {
     if (error) throw new Error(`Failed to get shared words: ${error.message}`);
 
     return (data as WordRow[]).map(mapWordFromRow);
+  }
+
+  async getWordsForSharePreview(projectId: string, limit = 5): Promise<SharedWordsPreview> {
+    const { data, error, count } = await this.supabase
+      .from('words')
+      .select(SHARE_VIEW_WORD_SELECT_COLUMNS, { count: 'exact' })
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw new Error(`Failed to get shared word preview: ${error.message}`);
+
+    return {
+      words: (data as WordRow[]).map(mapWordFromRow),
+      totalCount: count ?? data?.length ?? 0,
+    };
   }
 
   async getWord(id: string): Promise<Word | undefined> {

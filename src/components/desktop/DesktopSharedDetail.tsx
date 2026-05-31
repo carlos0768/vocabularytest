@@ -16,6 +16,9 @@ export function DesktopSharedDetailView({
   liked,
   importing,
   importedProjectId,
+  isPreviewLocked = false,
+  totalWordCount = words.length,
+  previewClearWordCount = 2,
   onToggleLike,
   onToggleSelectMode,
   onToggleWord,
@@ -31,6 +34,9 @@ export function DesktopSharedDetailView({
   liked: boolean;
   importing: boolean;
   importedProjectId: string | null;
+  isPreviewLocked?: boolean;
+  totalWordCount?: number;
+  previewClearWordCount?: number;
   onToggleLike: () => void;
   onToggleSelectMode: () => void;
   onToggleWord: (wordId: string) => void;
@@ -42,15 +48,18 @@ export function DesktopSharedDetailView({
   const q = query.trim().toLowerCase();
   const bg = project.iconImage ? undefined : desktopThumbColor(project.id);
   const selectedCount = selectedWordIds.size;
+  const hiddenWordCount = Math.max(0, totalWordCount - words.length);
 
   const filtered = useMemo(
-    () =>
-      words.filter((word) => {
+    () => {
+      if (isPreviewLocked) return words;
+      return words.filter((word) => {
         if (ap !== 'all' && (word.vocabularyType || 'none') !== ap) return false;
         if (!q) return true;
         return word.english.toLowerCase().includes(q) || word.japanese.toLowerCase().includes(q);
-      }),
-    [ap, q, words],
+      });
+    },
+    [ap, isPreviewLocked, q, words],
   );
 
   return (
@@ -59,9 +68,15 @@ export function DesktopSharedDetailView({
         <DesktopButton variant="ghost" icon="thumb_up" onClick={onToggleLike}>
           {liked ? 'いいね済み' : 'いいね'} {likeCount > 0 ? likeCount : ''}
         </DesktopButton>
-        <DesktopButton variant={selectMode ? 'dark' : undefined} icon="checklist" onClick={onToggleSelectMode}>
-          {selectMode ? '選択を終了' : '選択して追加'}
-        </DesktopButton>
+        {isPreviewLocked ? (
+          <DesktopButton href="/subscription" variant="dark" icon="workspace_premium">
+            すべて見る
+          </DesktopButton>
+        ) : (
+          <DesktopButton variant={selectMode ? 'dark' : undefined} icon="checklist" onClick={onToggleSelectMode}>
+            {selectMode ? '選択を終了' : '選択して追加'}
+          </DesktopButton>
+        )}
       </DesktopTopbar>
 
       <div className="ds-scroll" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -83,30 +98,39 @@ export function DesktopSharedDetailView({
             </div>
             <div className="muted" style={{ fontSize: 12.5, marginTop: 5, display: 'flex', gap: 16 }}>
               <span className="mono">{ownerLabel}</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="menu_book" style={{ fontSize: 15 }} />{words.length} 語</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="menu_book" style={{ fontSize: 15 }} />{totalWordCount} 語</span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="thumb_up" style={{ fontSize: 15 }} />{likeCount}</span>
               <span className="mono">作成 {new Date(project.createdAt).toLocaleDateString('ja-JP')}</span>
             </div>
             {project.description && <div className="muted" style={{ fontSize: 12.5, marginTop: 7 }}>{project.description}</div>}
+            {isPreviewLocked && (
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 7 }}>
+                プレビューとして先頭 {words.length} 語だけ表示しています。
+              </div>
+            )}
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <h2 style={{ fontSize: 19, margin: 0 }}>単語一覧</h2>
-            <span className="mono muted" style={{ fontSize: 12 }}>{filtered.length}{filtered.length !== words.length ? ` / ${words.length}` : ''}</span>
+            <span className="mono muted" style={{ fontSize: 12 }}>{filtered.length}{filtered.length !== totalWordCount ? ` / ${totalWordCount}` : ''}</span>
           </div>
           <div style={{ flex: 1 }} />
-          <div style={{ display: 'flex', gap: 6 }}>
-            {([
-              ['all', 'すべて'],
-              ['active', 'アクティブ'],
-              ['passive', 'パッシブ'],
-            ] as const).map(([value, label]) => (
-              <button key={value} type="button" className={'ds-chip' + (ap === value ? ' active' : '')} onClick={() => setAp(value)}>{label}</button>
-            ))}
-          </div>
-          <DesktopSearchBox placeholder="単語を検索" value={query} onChange={(event) => setQuery(event.target.value)} style={{ minWidth: 200 }} />
+          {!isPreviewLocked && (
+            <>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {([
+                  ['all', 'すべて'],
+                  ['active', 'アクティブ'],
+                  ['passive', 'パッシブ'],
+                ] as const).map(([value, label]) => (
+                  <button key={value} type="button" className={'ds-chip' + (ap === value ? ' active' : '')} onClick={() => setAp(value)}>{label}</button>
+                ))}
+              </div>
+              <DesktopSearchBox placeholder="単語を検索" value={query} onChange={(event) => setQuery(event.target.value)} style={{ minWidth: 200 }} />
+            </>
+          )}
         </div>
 
         <div className="ds-card" style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
@@ -122,33 +146,51 @@ export function DesktopSharedDetailView({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((word) => (
-                <tr
-                  key={word.id}
-                  onClick={selectMode ? () => onToggleWord(word.id) : undefined}
-                  style={selectMode && selectedWordIds.has(word.id) ? { background: 'var(--color-accent-subtle)' } : undefined}
-                >
-                  {selectMode && (
-                    <td>
-                      <span className={'ds-check' + (selectedWordIds.has(word.id) ? ' on' : '')}>
-                        {selectedWordIds.has(word.id) && <Icon name="check" style={{ fontSize: 15, color: '#fff' }} />}
-                      </span>
+              {filtered.map((word, index) => {
+                const locked = isPreviewLocked && index >= previewClearWordCount;
+                const selected = selectedWordIds.has(word.id);
+                const textStyle = locked ? { filter: 'blur(4px)', userSelect: 'none' as const } : undefined;
+                return (
+                  <tr
+                    key={word.id}
+                    onClick={selectMode && !locked ? () => onToggleWord(word.id) : undefined}
+                    style={selectMode && selected ? { background: 'var(--color-accent-subtle)' } : undefined}
+                  >
+                    {selectMode && (
+                      <td>
+                        <span className={'ds-check' + (selected ? ' on' : '')}>
+                          {selected && <Icon name="check" style={{ fontSize: 15, color: '#fff' }} />}
+                        </span>
+                      </td>
+                    )}
+                    <td className="en">
+                      <span style={textStyle}>{word.english}</span>
+                      {locked && <Icon name="lock" style={{ marginLeft: 6, fontSize: 14, color: 'var(--color-muted)' }} />}
                     </td>
-                  )}
-                  <td className="en">{word.english}</td>
-                  <td style={{ textAlign: 'center' }}><ApBadge value={word.vocabularyType} /></td>
-                  <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
-                  <td className="ja">{word.japanese}</td>
-                  <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
-                </tr>
-              ))}
+                    <td style={{ textAlign: 'center' }}><span style={textStyle}><ApBadge value={word.vocabularyType} /></span></td>
+                    <td className="pos"><span style={textStyle}>{desktopPosShort(word.partOfSpeechTags)}</span></td>
+                    <td className="ja"><span style={textStyle}>{word.japanese}</span></td>
+                    <td className="cefr"><span className="cefr-pill" style={textStyle}>{word.cefrLevel || '-'}</span></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {filtered.length === 0 && <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>一致する単語がありません</div>}
         </div>
 
         <div className="ds-actionbar">
-          {selectMode ? (
+          {isPreviewLocked ? (
+            <>
+              <span className="muted" style={{ fontSize: 13 }}>
+                {hiddenWordCount > 0 ? `残り ${hiddenWordCount} 語を含む全体表示はProで利用できます` : '全体表示はProで利用できます'}
+              </span>
+              <div className="grow" />
+              <DesktopButton href="/subscription" variant="accent" icon="workspace_premium">
+                Proで全単語を見る
+              </DesktopButton>
+            </>
+          ) : selectMode ? (
             <>
               <span className="muted" style={{ fontSize: 13 }}>{selectedCount} 語を選択中</span>
               <div className="grow" />

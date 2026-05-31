@@ -70,3 +70,12 @@ test('word read methods query with WORDS_SELECT_COLUMNS', () => {
     /async getWordsByShareId\(shareId: string\): Promise<Word\[]> \{[\s\S]*?\.from\('words'\)[\s\S]*?\.select\(WORDS_SELECT_COLUMNS\)/
   );
 });
+
+test('shared preview fetches only a limited page with an exact count', () => {
+  const source = fs.readFileSync(new URL('./remote-repository.ts', import.meta.url), 'utf8');
+
+  assert.match(
+    source,
+    /async getWordsForSharePreview\(projectId: string, limit = 5\): Promise<SharedWordsPreview> \{[\s\S]*?\.select\(SHARE_VIEW_WORD_SELECT_COLUMNS, \{ count: 'exact' \}\)[\s\S]*?\.limit\(limit\)/
+  );
+});

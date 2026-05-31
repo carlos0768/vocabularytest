@@ -52,11 +52,12 @@ function DesktopSidebarContent({ favoritesMode }: { favoritesMode: string | null
   const [streak, setStreak] = useState(0);
   const active = activeKeyForPath(pathname, favoritesMode);
   const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
+  const isLoggedIn = Boolean(user);
 
   useEffect(() => {
-    const id = window.setTimeout(() => setStreak(getStreakDays()), 0);
+    const id = window.setTimeout(() => setStreak(isLoggedIn ? getStreakDays() : 0), 0);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [isLoggedIn]);
 
   return (
     <aside className="ds-side" aria-label="デスクトップナビゲーション">
