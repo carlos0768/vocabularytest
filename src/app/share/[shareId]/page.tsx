@@ -15,16 +15,82 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import type { SharedProjectPreviewPayload } from '@/lib/shared-projects/types';
 import type { Project, Word } from '@/types';
 
-const SHARE_PREVIEW_WORD_LIMIT = 5;
-const SHARE_PREVIEW_CLEAR_WORD_COUNT = 2;
+const SHARE_PREVIEW_CLEAR_WORD_COUNT = 5;
 
 type SharedProjectPreviewResponse =
   | ({ success: true } & SharedProjectPreviewPayload)
   | { success: false; error?: string };
 
+const BLURRED_PREVIEW_ENGLISH = [
+  'anchor',
+  'breeze',
+  'canvas',
+  'drift',
+  'echo',
+  'fable',
+  'glimpse',
+  'harbor',
+  'ivory',
+  'jigsaw',
+  'kindle',
+  'lantern',
+  'meadow',
+  'notion',
+  'orbit',
+  'parcel',
+  'quartz',
+  'ripple',
+  'summit',
+  'thrive',
+  'uplift',
+  'velvet',
+  'willow',
+  'zenith',
+] as const;
+
+const BLURRED_PREVIEW_JAPANESE = [
+  '手がかり',
+  '余韻',
+  '輪郭',
+  '記憶',
+  '予感',
+  '視点',
+  '響き',
+  '断片',
+  '余白',
+  '気配',
+  '流れ',
+  '光景',
+] as const;
+
+const BLURRED_PREVIEW_POS = ['noun', 'verb', 'adjective', 'adverb'] as const;
+
+function randomItem<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)]!;
+}
+
+function createBlurredPreviewWords(projectId: string, count: number): Word[] {
+  const createdAt = new Date().toISOString();
+  return Array.from({ length: count }, (_, index) => ({
+    id: `blurred-preview-${projectId}-${index}-${Math.random().toString(36).slice(2)}`,
+    projectId,
+    english: randomItem(BLURRED_PREVIEW_ENGLISH),
+    japanese: randomItem(BLURRED_PREVIEW_JAPANESE),
+    vocabularyType: randomItem(['active', 'passive'] as const),
+    distractors: [],
+    status: 'new',
+    createdAt,
+    easeFactor: 2.5,
+    intervalDays: 0,
+    repetition: 0,
+    isFavorite: false,
+    partOfSpeechTags: [randomItem(BLURRED_PREVIEW_POS)],
+  }));
+}
+
 async function fetchSharedProjectPreview(shareId: string): Promise<SharedProjectPreviewPayload | null> {
   const response = await fetch(
-    `/api/shared-projects/share/${encodeURIComponent(shareId)}?limit=${SHARE_PREVIEW_WORD_LIMIT}`,
+    `/api/shared-projects/share/${encodeURIComponent(shareId)}?limit=${SHARE_PREVIEW_CLEAR_WORD_COUNT}`,
     { cache: 'no-store' },
   );
   const payload = await response.json().catch(() => null) as SharedProjectPreviewResponse | null;
@@ -146,7 +212,18 @@ export default function SharedDetailPage() {
   const importTargetWords = isPro ? (selectMode ? selectedWords : words) : [];
   const importBusy = importing || preparingRewardedDownloadAd;
   const ownerLabel = ownerUsername ? `@${ownerUsername}` : '共有ユーザー';
-  const hiddenPreviewWordCount = Math.max(0, totalWordCount - words.length);
+  const lockedPreviewWordCount = isPreviewLocked
+    ? Math.max(0, totalWordCount - Math.min(SHARE_PREVIEW_CLEAR_WORD_COUNT, totalWordCount))
+    : 0;
+  const displayWords = useMemo(() => {
+    if (!isPreviewLocked || !project?.id) return words;
+    const placeholderCount = Math.max(0, totalWordCount - words.length);
+    if (placeholderCount === 0) return words;
+    return [
+      ...words,
+      ...createBlurredPreviewWords(project.id, placeholderCount),
+    ];
+  }, [isPreviewLocked, project?.id, totalWordCount, words]);
 
   const performImport = async (targetWords: Word[]) => {
     if (!user || !project || targetWords.length === 0) return;
@@ -272,7 +349,7 @@ export default function SharedDetailPage() {
     <>
       <DesktopSharedDetailView
         project={project}
-        words={words}
+        words={displayWords}
         ownerLabel={ownerLabel}
         selectMode={selectMode}
         selectedWordIds={selectedWordIds}
@@ -352,12 +429,12 @@ export default function SharedDetailPage() {
 
       <div className="flex items-center justify-between px-[18px] pb-2.5">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          {isPreviewLocked ? `単語プレビュー · 先頭 ${words.length} 語` : `単語プレビュー · 全 ${totalWordCount} 語`}
+          {isPreviewLocked ? `単語プレビュー · ${SHARE_PREVIEW_CLEAR_WORD_COUNT}語まで表示` : `単語プレビュー · 全 ${totalWordCount} 語`}
         </div>
       </div>
 
       <div className="flex flex-col gap-1 px-3.5 pb-[130px]">
-        {words.map((word, i) => {
+        {displayWords.map((word, i) => {
           const selected = selectedWordIds.has(word.id);
           const locked = isPreviewLocked && i >= SHARE_PREVIEW_CLEAR_WORD_COUNT;
           const previewTextClass = locked ? 'select-none blur-[3.5px]' : '';
@@ -389,9 +466,9 @@ export default function SharedDetailPage() {
             </button>
           );
         })}
-        {isPreviewLocked && hiddenPreviewWordCount > 0 && (
+        {isPreviewLocked && lockedPreviewWordCount > 0 && (
           <div className="px-2 py-3 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-            残り {hiddenPreviewWordCount.toLocaleString()} 語はProで表示できます
+            残り {lockedPreviewWordCount.toLocaleString()} 語はProで表示できます
           </div>
         )}
       </div>

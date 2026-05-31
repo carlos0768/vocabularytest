@@ -18,7 +18,7 @@ export function DesktopSharedDetailView({
   importedProjectId,
   isPreviewLocked = false,
   totalWordCount = words.length,
-  previewClearWordCount = 2,
+  previewClearWordCount = 5,
   onToggleLike,
   onToggleSelectMode,
   onToggleWord,
@@ -48,7 +48,9 @@ export function DesktopSharedDetailView({
   const q = query.trim().toLowerCase();
   const bg = project.iconImage ? undefined : desktopThumbColor(project.id);
   const selectedCount = selectedWordIds.size;
-  const hiddenWordCount = Math.max(0, totalWordCount - words.length);
+  const hiddenWordCount = isPreviewLocked
+    ? Math.max(0, totalWordCount - Math.min(previewClearWordCount, totalWordCount))
+    : Math.max(0, totalWordCount - words.length);
 
   const filtered = useMemo(
     () => {
@@ -105,7 +107,7 @@ export function DesktopSharedDetailView({
             {project.description && <div className="muted" style={{ fontSize: 12.5, marginTop: 7 }}>{project.description}</div>}
             {isPreviewLocked && (
               <div className="muted" style={{ fontSize: 12.5, marginTop: 7 }}>
-                プレビューとして先頭 {words.length} 語だけ表示しています。
+                最初の {Math.min(previewClearWordCount, words.length)} 語は表示し、以降はぼかしています。
               </div>
             )}
           </div>
