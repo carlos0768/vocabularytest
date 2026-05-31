@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { getRepository } from '@/lib/db';
 import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
+import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -219,6 +220,7 @@ export default function QuickResponsePage() {
       const normalizedExpected = normalize(word.english);
       const correct = !!bestAvailable && normalizedAnswer === normalizedExpected;
 
+      playAnswerFeedbackSound(correct);
       setRecognizedText(bestAvailable);
       setIsCorrect(correct);
       setIsTimedOut(timedOut && !bestAvailable);

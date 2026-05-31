@@ -47,6 +47,7 @@ import {
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
@@ -101,6 +102,43 @@ function chipKey(token: string): string {
 function tokensMatch(left: string[], right: string[]): boolean {
   if (left.length !== right.length) return false;
   return left.every((token, index) => chipKey(token) === chipKey(right[index] ?? ''));
+}
+
+function normalizeDisplayText(value: string | null | undefined): string | null {
+  const text = value?.trim().replace(/\s+/g, ' ');
+  return text ? text : null;
+}
+
+function buildCompletedWordOrderSentence(question: WordOrderQuizQuestion): string {
+  let answerIndex = 0;
+  const tokens = question.sentenceTokens
+    .map((token) => {
+      if (token !== WORD_ORDER_BLANK_TOKEN) return token;
+      const answerToken = question.answerTokens[answerIndex];
+      answerIndex += 1;
+      return answerToken ?? '';
+    })
+    .filter(Boolean);
+
+  return tokens
+    .join(' ')
+    .replace(/\s+([.,!?;:])/g, '$1')
+    .replace(/\(\s+/g, '(')
+    .replace(/\s+\)/g, ')');
+}
+
+function getWordOrderExample(question: WordOrderQuizQuestion): { sentence: string; translation: string | null } | null {
+  const sentence =
+    normalizeDisplayText(question.word.exampleSentence) ??
+    normalizeDisplayText(buildCompletedWordOrderSentence(question));
+  if (!sentence) return null;
+
+  return {
+    sentence,
+    translation:
+      normalizeDisplayText(question.word.exampleSentenceJa) ??
+      normalizeDisplayText(question.word.japanese),
+  };
 }
 
 function getUsedWordOrderOptionIndexes(options: string[], selectedTokens: string[]): Set<number> {
@@ -232,6 +270,7 @@ function DSDesktopWordOrderPanel({
   const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
   const answerStateClass = isRevealed ? (result === 'correct' ? ' correct' : ' wrong') : '';
   const answerIsFull = selectedTokens.length >= question.answerTokens.length;
+  const example = getWordOrderExample(question);
 
   return (
     <div className="ds-word-order-stage">
@@ -278,6 +317,18 @@ function DSDesktopWordOrderPanel({
           );
         })}
       </div>
+
+      {isRevealed && example && (
+        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left">
+          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+            {example.sentence}
+          </div>
+          {example.translation && (
+            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -302,6 +353,7 @@ function DSWordOrderPanel({
   const selectedKeys = new Set(selectedTokens.map(chipKey));
   const availableTokens = question.options.filter((token) => !selectedKeys.has(chipKey(token)));
   const isReady = selectedTokens.length === question.answerTokens.length;
+  const example = getWordOrderExample(question);
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
     token,
     index,
@@ -382,6 +434,18 @@ function DSWordOrderPanel({
             {result === 'correct' ? '正解' : '不正解'}
           </p>
           <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">{question.word.english}</p>
+        </div>
+      )}
+
+      {isRevealed && example && (
+        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+            {example.sentence}
+          </div>
+          {example.translation && (
+            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
+          )}
         </div>
       )}
     </div>
@@ -813,6 +877,7 @@ export default function QuizPage() {
     : currentQuestion?.word.english ?? '';
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean) => {
+    playAnswerFeedbackSound(isCorrect);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
     setAnswerResults((prev) => {
       const next = prev.length === questions.length ? [...prev] : Array.from({ length: questions.length }, (_, i) => prev[i] ?? null);
@@ -1414,7 +1479,7 @@ export default function QuizPage() {
         )}
 
         {/* Example sentence revealed */}
-        {isRevealed && currentQuestion?.word.exampleSentence && (
+        {isRevealed && !currentIsWordOrder && currentQuestion?.word.exampleSentence && (
           <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
             <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
             <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
