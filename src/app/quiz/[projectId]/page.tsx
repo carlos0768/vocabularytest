@@ -47,6 +47,7 @@ import {
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
@@ -876,6 +877,7 @@ export default function QuizPage() {
     : currentQuestion?.word.english ?? '';
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean) => {
+    playAnswerFeedbackSound(isCorrect);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
     setAnswerResults((prev) => {
       const next = prev.length === questions.length ? [...prev] : Array.from({ length: questions.length }, (_, i) => prev[i] ?? null);

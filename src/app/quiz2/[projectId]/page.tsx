@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { loadCollectionWords } from '@/lib/collection-words';
+import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { calculateNextReviewByQuality, getStatusAfterQuality } from '@/lib/spaced-repetition';
 import {
   getGuestUserId,
@@ -255,6 +256,7 @@ export default function Quiz2Page() {
 
     setIsSubmittingGrade(true);
     setSelectedGrade(grade);
+    playAnswerFeedbackSound(grade !== 'again');
 
     try {
       const quality = QUALITY_BY_GRADE[grade];

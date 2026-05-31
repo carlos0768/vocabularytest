@@ -16,6 +16,7 @@ import {
   isWordOrderEligible,
   normalizeWordOrderQuizCache,
 } from '@/lib/quiz/word-order';
+import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { useAuth } from '@/hooks/use-auth';
 import type {
   Word,
@@ -397,6 +398,7 @@ export default function FavoritesQuizPage() {
 
     const mcQuestion = currentQuestion as { correctIndex: number };
     const isCorrect = index === mcQuestion.correctIndex;
+    playAnswerFeedbackSound(isCorrect);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
     setAnswerResults((prev) => {
       const next = [...prev];
@@ -421,6 +423,7 @@ export default function FavoritesQuizPage() {
     if (isRevealed || !currentIsWordOrder) return;
     const woQuestion = currentQuestion as WordOrderQuizQuestion;
     const isCorrect = tokensMatch(wordOrderSelectedTokens, woQuestion.answerTokens);
+    playAnswerFeedbackSound(isCorrect);
     setWordOrderResult(isCorrect ? 'correct' : 'wrong');
     setIsRevealed(true);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
