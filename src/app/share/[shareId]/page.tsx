@@ -106,28 +106,6 @@ async function fetchSharedProjectPreview(shareId: string): Promise<SharedProject
   return payload;
 }
 
-type SharedProjectPreviewResponse =
-  | ({ success: true } & SharedProjectPreviewPayload)
-  | { success: false; error?: string };
-
-async function fetchSharedProjectPreview(shareId: string): Promise<SharedProjectPreviewPayload | null> {
-  const response = await fetch(
-    `/api/shared-projects/share/${encodeURIComponent(shareId)}?limit=${SHARE_PREVIEW_WORD_LIMIT}`,
-    { cache: 'no-store' },
-  );
-  const payload = await response.json().catch(() => null) as SharedProjectPreviewResponse | null;
-
-  if (response.status === 404) {
-    return null;
-  }
-  if (!response.ok || !payload || payload.success !== true) {
-    const message = payload && 'error' in payload ? payload.error : undefined;
-    throw new Error(message || 'shared_project_preview_failed');
-  }
-
-  return payload;
-}
-
 export default function SharedDetailPage() {
   const router = useRouter();
   const params = useParams();
