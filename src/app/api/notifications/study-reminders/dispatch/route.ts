@@ -4,9 +4,9 @@ import { authorizeInternalWorkerRequest } from '@/lib/api/internal-worker';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import {
   DEFAULT_STUDY_REMINDER_TIMEZONE,
+  STUDY_REMINDER_DISPATCH_GRACE_MINUTES,
   createStudyReminderDeliveryKey,
-  getDueStudyReminderTimes,
-  getLocalDateTimeParts,
+  getDueStudyReminderCandidates,
   isSupportedTimeZone,
   normalizeStudyReminderTimes,
 } from '@/lib/notifications/study-reminders';
@@ -73,17 +73,18 @@ export async function POST(request: NextRequest) {
       const timeZone = isSupportedTimeZone(row.study_reminder_timezone)
         ? row.study_reminder_timezone
         : DEFAULT_STUDY_REMINDER_TIMEZONE;
-      const local = getLocalDateTimeParts(now, timeZone);
-      const dueTimes = getDueStudyReminderTimes(
-        normalizeStudyReminderTimes(row.study_reminder_times),
-        local.time,
-      );
+      const dueCandidates = getDueStudyReminderCandidates({
+        times: normalizeStudyReminderTimes(row.study_reminder_times),
+        now,
+        timeZone,
+        graceMinutes: STUDY_REMINDER_DISPATCH_GRACE_MINUTES,
+      });
 
-      for (const dueTime of dueTimes) {
+      for (const dueCandidate of dueCandidates) {
         const deliveryKey = createStudyReminderDeliveryKey({
           timeZone,
-          localDateKey: local.dateKey,
-          reminderTime: dueTime.time,
+          localDateKey: dueCandidate.localDateKey,
+          reminderTime: dueCandidate.time.time,
         });
 
         if (row.study_reminder_last_sent_key === deliveryKey) {
@@ -97,8 +98,8 @@ export async function POST(request: NextRequest) {
 
         const result = await sendStudyReminderPushNotifications(supabaseAdmin, {
           userId: row.user_id,
-          reminderTime: dueTime.time,
-          localDateKey: local.dateKey,
+          reminderTime: dueCandidate.time.time,
+          localDateKey: dueCandidate.localDateKey,
           timeZone,
         });
 

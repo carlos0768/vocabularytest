@@ -70,10 +70,11 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
     setStudyReminders,
   } = useUserPreferences();
   const [setupLoading, setSetupLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
 
   const sortedTimes = useMemo(() => sortReminderTimes(studyReminderTimes), [studyReminderTimes]);
   const activeCount = studyReminderTimes.filter((time) => time.enabled).length;
-  const busy = loading || saving || setupLoading;
+  const busy = loading || saving || setupLoading || testLoading;
 
   const detail = !isAuthenticated
     ? 'ログインすると通知設定を保存できます'
@@ -179,6 +180,58 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
     });
   };
 
+  const sendTestNotification = async () => {
+    if (busy) return;
+
+    const pushEnabled = await ensurePushEnabled();
+    if (!pushEnabled) return;
+
+    setTestLoading(true);
+    try {
+      const supabase = createBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        showToast({ type: 'warning', message: 'ログイン状態を確認できませんでした' });
+        return;
+      }
+
+      const response = await fetch('/api/notifications/study-reminders/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          timeZone: getBrowserStudyReminderTimeZone(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('テスト通知の送信に失敗しました');
+      }
+
+      const result = await response.json() as { sent?: number; failed?: number; removed?: number };
+      if ((result.sent ?? 0) > 0) {
+        showToast({ type: 'success', message: 'テスト通知を送信しました' });
+        return;
+      }
+
+      if ((result.failed ?? 0) > 0) {
+        showToast({ type: 'error', message: 'テスト通知の送信に失敗しました。VAPIDキーを確認してください' });
+        return;
+      }
+
+      showToast({ type: 'warning', message: '通知登録が見つかりません。通知を一度オフにして再度オンにしてください' });
+    } catch (err) {
+      showToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'テスト通知の送信に失敗しました',
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   if (variant === 'desktop') {
     return (
       <div className="ds-set-group">
@@ -224,6 +277,15 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
             {studyReminderTimes.length >= MAX_STUDY_REMINDER_TIMES
               ? '通知は最大6件までです'
               : '通知時間を追加'}
+          </button>
+          <button
+            type="button"
+            className="ds-notif-add"
+            onClick={() => void sendTestNotification()}
+            disabled={busy || !studyReminderEnabled}
+          >
+            <Icon name="notifications_active" size={18} />
+            {testLoading ? '送信中...' : 'テスト通知を送る'}
           </button>
         </div>
         {error && <div className="ds-notif-error">{error}</div>}
@@ -277,6 +339,15 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
             {studyReminderTimes.length >= MAX_STUDY_REMINDER_TIMES
               ? '通知は最大6件までです'
               : '通知時間を追加'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void sendTestNotification()}
+            disabled={busy || !studyReminderEnabled}
+            className="flex w-full items-center justify-center gap-2 border-t border-dashed border-[var(--color-border)] px-5 py-3.5 font-display text-[13px] font-bold text-[var(--color-accent)] disabled:cursor-not-allowed disabled:text-[var(--color-muted)]"
+          >
+            <Icon name="notifications_active" size={18} />
+            {testLoading ? '送信中...' : 'テスト通知を送る'}
           </button>
         </div>
         {error && (

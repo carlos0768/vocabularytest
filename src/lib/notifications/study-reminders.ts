@@ -11,8 +11,14 @@ export type StudyReminderPeriod = {
   color: string;
 };
 
+export type DueStudyReminderCandidate = {
+  time: StudyReminderTime;
+  localDateKey: string;
+};
+
 export const DEFAULT_STUDY_REMINDER_TIMEZONE = 'Asia/Tokyo';
 export const MAX_STUDY_REMINDER_TIMES = 6;
+export const STUDY_REMINDER_DISPATCH_GRACE_MINUTES = 3;
 export const DEFAULT_STUDY_REMINDER_TIMES: StudyReminderTime[] = [
   { id: 'morning', time: '08:00', enabled: true },
   { id: 'evening', time: '16:30', enabled: true },
@@ -163,6 +169,37 @@ export function getDueStudyReminderTimes(
   localTime: string,
 ): StudyReminderTime[] {
   return times.filter((time) => time.enabled && time.time === localTime);
+}
+
+export function getDueStudyReminderCandidates(params: {
+  times: StudyReminderTime[];
+  now: Date;
+  timeZone: string;
+  graceMinutes?: number;
+}): DueStudyReminderCandidate[] {
+  const graceMinutes = Math.max(0, Math.min(params.graceMinutes ?? 0, 15));
+  const candidates: DueStudyReminderCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (let minuteOffset = 0; minuteOffset <= graceMinutes; minuteOffset += 1) {
+    const local = getLocalDateTimeParts(
+      new Date(params.now.getTime() - minuteOffset * 60_000),
+      params.timeZone,
+    );
+    const dueTimes = getDueStudyReminderTimes(params.times, local.time);
+
+    for (const time of dueTimes) {
+      const key = `${local.dateKey}:${time.id}:${time.time}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({
+        time,
+        localDateKey: local.dateKey,
+      });
+    }
+  }
+
+  return candidates;
 }
 
 export function createStudyReminderDeliveryKey(params: {

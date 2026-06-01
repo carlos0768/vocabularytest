@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createStudyReminderDeliveryKey,
+  getDueStudyReminderCandidates,
   getDueStudyReminderTimes,
   getLocalDateTimeParts,
   getStudyReminderPeriod,
@@ -40,6 +41,27 @@ test('detects due reminders for the current local minute', () => {
 
   assert.deepEqual(getDueStudyReminderTimes(times, '08:00').map((item) => item.id), ['morning']);
   assert.deepEqual(getDueStudyReminderTimes(times, '08:01'), []);
+});
+
+test('detects due reminders within a grace window', () => {
+  const times = normalizeStudyReminderTimes([
+    { id: 'morning', time: '08:00', enabled: true },
+    { id: 'evening', time: '16:30', enabled: true },
+  ]);
+
+  const candidates = getDueStudyReminderCandidates({
+    times,
+    now: new Date('2026-06-01T23:01:00.000Z'),
+    timeZone: 'Asia/Tokyo',
+    graceMinutes: 2,
+  });
+
+  assert.deepEqual(candidates.map((candidate) => ({
+    id: candidate.time.id,
+    localDateKey: candidate.localDateKey,
+  })), [
+    { id: 'morning', localDateKey: '2026-06-02' },
+  ]);
 });
 
 test('formats local date time parts in the configured timezone', () => {
