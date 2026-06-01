@@ -88,6 +88,10 @@ function subscriptionUsesApplicationServerKey(
   return bufferSourcesEqual(existingKey, applicationServerKey);
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function isWebPushSupported(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -156,10 +160,83 @@ async function subscribeWithVapidKey(
   registration: ServiceWorkerRegistration,
   applicationServerKey: ArrayBuffer,
 ): Promise<PushSubscription> {
-  return registration.pushManager.subscribe({
+  const options: PushSubscriptionOptionsInit = {
     userVisibleOnly: true,
     applicationServerKey,
-  });
+  };
+
+  try {
+    return await registration.pushManager.subscribe(options);
+  } catch (error) {
+    if (!(error instanceof DOMException) || error.name !== 'AbortError') {
+      throw error;
+    }
+
+    try {
+      await registration.update();
+    } catch {
+      // A failed update should not hide the original push-service failure.
+    }
+
+    await wait(300);
+    return registration.pushManager.subscribe(options);
+  }
+}
+
+async function getPushPermissionState(
+  registration: ServiceWorkerRegistration,
+  applicationServerKey: ArrayBuffer,
+): Promise<PermissionState | null> {
+  if (typeof registration.pushManager.permissionState !== 'function') {
+    return null;
+  }
+
+  try {
+    return await registration.pushManager.permissionState({
+      userVisibleOnly: true,
+      applicationServerKey,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function getDisplayMode(): string {
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    return 'standalone';
+  }
+
+  if (window.matchMedia('(display-mode: fullscreen)').matches) {
+    return 'fullscreen';
+  }
+
+  if (window.matchMedia('(display-mode: minimal-ui)').matches) {
+    return 'minimal-ui';
+  }
+
+  return 'browser';
+}
+
+async function collectWebPushDiagnostics(
+  registration: ServiceWorkerRegistration | null,
+  applicationServerKey: ArrayBuffer | null,
+): Promise<Record<string, unknown>> {
+  return {
+    origin: window.location.origin,
+    protocol: window.location.protocol,
+    isSecureContext: window.isSecureContext,
+    notificationPermission: Notification.permission,
+    pushPermissionState: registration && applicationServerKey
+      ? await getPushPermissionState(registration, applicationServerKey)
+      : null,
+    serviceWorkerController: Boolean(navigator.serviceWorker.controller),
+    serviceWorkerScope: registration?.scope ?? null,
+    serviceWorkerActiveState: registration?.active?.state ?? null,
+    serviceWorkerScriptURL: registration?.active?.scriptURL ?? null,
+    displayMode: getDisplayMode(),
+    cookieEnabled: navigator.cookieEnabled,
+    userAgent: navigator.userAgent,
+  };
 }
 
 function getSubscriptionFailureResult(error: unknown): PushSubscriptionSetupResult {
@@ -230,10 +307,17 @@ export async function ensureWebPushSubscription(options: {
     return 'permission-denied';
   }
 
+  let registration: ServiceWorkerRegistration | null = null;
+
   try {
-    const registration = await getServiceWorkerRegistration();
+    registration = await getServiceWorkerRegistration();
     if (!registration) {
       return 'service-worker-unavailable';
+    }
+
+    const pushPermissionState = await getPushPermissionState(registration, applicationServerKey);
+    if (pushPermissionState === 'denied') {
+      return 'permission-denied';
     }
 
     let subscription = await registration.pushManager.getSubscription();
@@ -261,6 +345,7 @@ export async function ensureWebPushSubscription(options: {
     const result = getSubscriptionFailureResult(error);
     if (result === 'push-service-error' && error instanceof DOMException) {
       console.warn('Web push subscription aborted by browser/push service:', error.message);
+      console.warn('Web push diagnostics:', await collectWebPushDiagnostics(registration, applicationServerKey));
     } else if (result === 'invalid-vapid-key') {
       console.warn('Web push subscription failed because the VAPID public key is invalid:', error);
     } else {
