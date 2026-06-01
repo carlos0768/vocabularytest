@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { StudyReminderSettings } from '@/components/settings/StudyReminderSettings';
 
 export function DesktopSettingsView({
   email,
@@ -46,6 +47,8 @@ export function DesktopSettingsView({
               </button>
             )}
           </div>
+
+          <StudyReminderSettings variant="desktop" />
 
           <div className="ds-set-group">
             <div className="gh">サポート</div>
