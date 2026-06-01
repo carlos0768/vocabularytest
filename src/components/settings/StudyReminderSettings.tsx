@@ -39,10 +39,18 @@ function getSetupErrorMessage(result: PushSubscriptionSetupResult): string {
       return 'このブラウザはプッシュ通知に対応していません';
     case 'missing-vapid-key':
       return '通知用の公開鍵が設定されていません';
+    case 'invalid-vapid-key':
+      return '通知用の公開鍵の形式が正しくありません';
     case 'permission-default':
       return '通知の許可が完了していません';
     case 'permission-denied':
       return 'ブラウザ設定で通知がブロックされています';
+    case 'service-worker-unavailable':
+      return '通知の準備が完了していません。ページを再読み込みしてください';
+    case 'push-service-error':
+      return 'ブラウザのプッシュサービス登録に失敗しました。公開鍵と通知設定を確認してください';
+    case 'subscription-save-failed':
+      return '通知の登録情報を保存できませんでした';
     case 'error':
       return '通知の設定に失敗しました';
     case 'enabled':
