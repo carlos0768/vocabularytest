@@ -2,14 +2,96 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  DEFAULT_STUDY_REMINDER_TIMES,
+  DEFAULT_STUDY_REMINDER_TIMEZONE,
+  MAX_STUDY_REMINDER_TIMES,
+  isSupportedTimeZone,
+  isValidStudyReminderId,
+  isValidStudyReminderTimeValue,
+  normalizeStudyReminderTimes,
+  type StudyReminderTime,
+} from '@/lib/notifications/study-reminders';
 
 const updateSchema = z.object({
-  aiEnabled: z.boolean(),
-}).strict();
+  aiEnabled: z.boolean().optional(),
+  studyReminderEnabled: z.boolean().optional(),
+  studyReminderTimes: z.array(z.object({
+    id: z.string().trim().min(1).max(40).refine(isValidStudyReminderId),
+    time: z.string().trim().refine(isValidStudyReminderTimeValue),
+    enabled: z.boolean(),
+  }).strict())
+    .min(1)
+    .max(MAX_STUDY_REMINDER_TIMES)
+    .refine((times) => new Set(times.map((time) => time.id)).size === times.length, {
+      message: 'Reminder ids must be unique',
+    })
+    .refine((times) => new Set(times.map((time) => time.time)).size === times.length, {
+      message: 'Reminder times must be unique',
+    })
+    .optional(),
+  studyReminderTimezone: z.string().trim().min(1).max(100).refine(isSupportedTimeZone).optional(),
+}).strict().refine(
+  (value) =>
+    value.aiEnabled !== undefined ||
+    value.studyReminderEnabled !== undefined ||
+    value.studyReminderTimes !== undefined ||
+    value.studyReminderTimezone !== undefined,
+  { message: 'At least one preference field is required' },
+);
 
 type PreferenceRow = {
   ai_enabled: boolean | null;
+  study_reminder_enabled: boolean | null;
+  study_reminder_times: unknown;
+  study_reminder_timezone: string | null;
 };
+
+type LegacyPreferenceRow = {
+  ai_enabled: boolean | null;
+};
+
+const PREFERENCE_SELECT_COLUMNS = 'ai_enabled, study_reminder_enabled, study_reminder_times, study_reminder_timezone';
+
+function isMissingStudyReminderColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  const message = typeof candidate.message === 'string' ? candidate.message : '';
+  return (
+    candidate.code === '42703' ||
+    candidate.code === 'PGRST204' ||
+    message.includes('study_reminder_')
+  );
+}
+
+function normalizePreferenceResponse(data: PreferenceRow | null): {
+  aiEnabled: boolean | null;
+  studyReminderEnabled: boolean;
+  studyReminderTimes: StudyReminderTime[];
+  studyReminderTimezone: string;
+} {
+  const timeZone = data?.study_reminder_timezone;
+
+  return {
+    aiEnabled: data?.ai_enabled ?? null,
+    studyReminderEnabled: data?.study_reminder_enabled ?? false,
+    studyReminderTimes: data
+      ? normalizeStudyReminderTimes(data.study_reminder_times)
+      : [...DEFAULT_STUDY_REMINDER_TIMES],
+    studyReminderTimezone: isSupportedTimeZone(timeZone)
+      ? timeZone
+      : DEFAULT_STUDY_REMINDER_TIMEZONE,
+  };
+}
+
+function normalizeLegacyPreferenceResponse(data: LegacyPreferenceRow | null) {
+  return normalizePreferenceResponse({
+    ai_enabled: data?.ai_enabled ?? null,
+    study_reminder_enabled: false,
+    study_reminder_times: DEFAULT_STUDY_REMINDER_TIMES,
+    study_reminder_timezone: DEFAULT_STUDY_REMINDER_TIMEZONE,
+  });
+}
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
   const supabase = await createRouteHandlerClient(request);
@@ -37,18 +119,28 @@ export async function GET(request: NextRequest) {
     const supabase = await createRouteHandlerClient(request);
     const { data, error } = await supabase
       .from('user_preferences')
-      .select('ai_enabled')
+      .select(PREFERENCE_SELECT_COLUMNS)
       .eq('user_id', userId)
       .maybeSingle<PreferenceRow>();
 
     if (error) {
+      if (isMissingStudyReminderColumnError(error)) {
+        const { data: legacyData, error: legacyError } = await supabase
+          .from('user_preferences')
+          .select('ai_enabled')
+          .eq('user_id', userId)
+          .maybeSingle<LegacyPreferenceRow>();
+
+        if (!legacyError) {
+          return NextResponse.json(normalizeLegacyPreferenceResponse(legacyData ?? null));
+        }
+      }
+
       console.error('Failed to fetch user preferences:', error);
       return NextResponse.json({ error: 'Failed to fetch preferences' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      aiEnabled: data?.ai_enabled ?? null,
-    });
+    return NextResponse.json(normalizePreferenceResponse(data ?? null));
   } catch (error) {
     console.error('User preferences GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -69,27 +161,54 @@ export async function PUT(request: NextRequest) {
       return parsed.response;
     }
 
+    const updatePayload: Record<string, unknown> = {
+      user_id: userId,
+    };
+    if (parsed.data.aiEnabled !== undefined) {
+      updatePayload.ai_enabled = parsed.data.aiEnabled;
+    }
+    if (parsed.data.studyReminderEnabled !== undefined) {
+      updatePayload.study_reminder_enabled = parsed.data.studyReminderEnabled;
+    }
+    if (parsed.data.studyReminderTimes !== undefined) {
+      updatePayload.study_reminder_times = parsed.data.studyReminderTimes;
+    }
+    if (parsed.data.studyReminderTimezone !== undefined) {
+      updatePayload.study_reminder_timezone = parsed.data.studyReminderTimezone;
+    }
+    const updatesStudyReminders =
+      parsed.data.studyReminderEnabled !== undefined ||
+      parsed.data.studyReminderTimes !== undefined ||
+      parsed.data.studyReminderTimezone !== undefined;
+
     const supabase = await createRouteHandlerClient(request);
     const { data, error } = await supabase
       .from('user_preferences')
       .upsert(
-        {
-          user_id: userId,
-          ai_enabled: parsed.data.aiEnabled,
-        },
+        updatePayload,
         { onConflict: 'user_id' }
       )
-      .select('ai_enabled')
+      .select(PREFERENCE_SELECT_COLUMNS)
       .single<PreferenceRow>();
 
     if (error) {
+      if (!updatesStudyReminders && isMissingStudyReminderColumnError(error)) {
+        const { data: legacyData, error: legacyError } = await supabase
+          .from('user_preferences')
+          .select('ai_enabled')
+          .eq('user_id', userId)
+          .single<LegacyPreferenceRow>();
+
+        if (!legacyError) {
+          return NextResponse.json(normalizeLegacyPreferenceResponse(legacyData));
+        }
+      }
+
       console.error('Failed to update user preferences:', error);
       return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      aiEnabled: data.ai_enabled,
-    });
+    return NextResponse.json(normalizePreferenceResponse(data));
   } catch (error) {
     console.error('User preferences PUT error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

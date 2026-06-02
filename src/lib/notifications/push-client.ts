@@ -2,20 +2,94 @@ export type PushSubscriptionSetupResult =
   | 'enabled'
   | 'unsupported'
   | 'missing-vapid-key'
+  | 'invalid-vapid-key'
   | 'permission-default'
   | 'permission-denied'
+  | 'service-worker-unavailable'
+  | 'push-service-error'
+  | 'subscription-save-failed'
   | 'error';
 
-function base64UrlToArrayBuffer(value: string): ArrayBuffer {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+function normalizeVapidPublicKey(value: string): string {
+  const trimmed = value.trim();
+  const quote = trimmed[0];
+  if ((quote === '"' || quote === "'") && trimmed.endsWith(quote)) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function decodeVapidPublicKey(value: string): ArrayBuffer | null {
+  const publicKey = normalizeVapidPublicKey(value);
+  if (!publicKey || publicKey === 'your-vapid-public-key') {
+    return null;
+  }
+
+  if (!/^[A-Za-z0-9+/_-]+=*$/.test(publicKey)) {
+    return null;
+  }
+
+  const normalized = publicKey.replace(/-/g, '+').replace(/_/g, '/');
   const padding = '='.repeat((4 - (normalized.length % 4)) % 4);
-  const base64 = normalized + padding;
-  const raw = atob(base64);
+
+  let raw = '';
+  try {
+    raw = atob(normalized + padding);
+  } catch {
+    return null;
+  }
+
   const bytes = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i += 1) {
     bytes[i] = raw.charCodeAt(i);
   }
+
+  // Web Push VAPID keys are uncompressed P-256 public keys.
+  if (bytes.length !== 65 || bytes[0] !== 0x04) {
+    return null;
+  }
+
   return bytes.buffer;
+}
+
+function bufferSourceToUint8Array(value: BufferSource): Uint8Array {
+  if (value instanceof ArrayBuffer) {
+    return new Uint8Array(value);
+  }
+
+  return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+}
+
+function bufferSourcesEqual(first: BufferSource, second: BufferSource): boolean {
+  const firstBytes = bufferSourceToUint8Array(first);
+  const secondBytes = bufferSourceToUint8Array(second);
+  if (firstBytes.length !== secondBytes.length) {
+    return false;
+  }
+
+  for (let index = 0; index < firstBytes.length; index += 1) {
+    if (firstBytes[index] !== secondBytes[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function subscriptionUsesApplicationServerKey(
+  subscription: PushSubscription,
+  applicationServerKey: BufferSource,
+): boolean {
+  const existingKey = subscription.options.applicationServerKey;
+  if (!existingKey) {
+    return true;
+  }
+
+  return bufferSourcesEqual(existingKey, applicationServerKey);
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isWebPushSupported(): boolean {
@@ -27,23 +101,28 @@ function isWebPushSupported(): boolean {
   );
 }
 
-async function getServiceWorkerRegistration(timeoutMs = 4000): Promise<ServiceWorkerRegistration | null> {
+async function getServiceWorkerRegistration(timeoutMs = 8000): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) {
     return null;
   }
 
-  const existing = await navigator.serviceWorker.getRegistration();
-  if (existing) {
-    return existing;
-  }
-
   try {
+    const existing = await navigator.serviceWorker.getRegistration('/');
+    if (existing?.active) {
+      return existing;
+    }
+
+    if (!existing) {
+      await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }
+
     const timedReady = await Promise.race<ServiceWorkerRegistration | null>([
       navigator.serviceWorker.ready,
       new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
     ]);
-    return timedReady;
-  } catch {
+    return timedReady?.active ? timedReady : null;
+  } catch (error) {
+    console.warn('Web push service worker registration unavailable:', error);
     return null;
   }
 }
@@ -79,12 +158,114 @@ async function saveSubscription(
 
 async function subscribeWithVapidKey(
   registration: ServiceWorkerRegistration,
-  vapidPublicKey: string,
+  applicationServerKey: ArrayBuffer,
 ): Promise<PushSubscription> {
-  return registration.pushManager.subscribe({
+  const options: PushSubscriptionOptionsInit = {
     userVisibleOnly: true,
-    applicationServerKey: base64UrlToArrayBuffer(vapidPublicKey),
-  });
+    applicationServerKey,
+  };
+
+  try {
+    return await registration.pushManager.subscribe(options);
+  } catch (error) {
+    if (!(error instanceof DOMException) || error.name !== 'AbortError') {
+      throw error;
+    }
+
+    try {
+      await registration.update();
+    } catch {
+      // A failed update should not hide the original push-service failure.
+    }
+
+    await wait(300);
+    return registration.pushManager.subscribe(options);
+  }
+}
+
+async function getPushPermissionState(
+  registration: ServiceWorkerRegistration,
+  applicationServerKey: ArrayBuffer,
+): Promise<PermissionState | null> {
+  if (typeof registration.pushManager.permissionState !== 'function') {
+    return null;
+  }
+
+  try {
+    return await registration.pushManager.permissionState({
+      userVisibleOnly: true,
+      applicationServerKey,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function getDisplayMode(): string {
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    return 'standalone';
+  }
+
+  if (window.matchMedia('(display-mode: fullscreen)').matches) {
+    return 'fullscreen';
+  }
+
+  if (window.matchMedia('(display-mode: minimal-ui)').matches) {
+    return 'minimal-ui';
+  }
+
+  return 'browser';
+}
+
+async function collectWebPushDiagnostics(
+  registration: ServiceWorkerRegistration | null,
+  applicationServerKey: ArrayBuffer | null,
+): Promise<Record<string, unknown>> {
+  return {
+    origin: window.location.origin,
+    protocol: window.location.protocol,
+    isSecureContext: window.isSecureContext,
+    notificationPermission: Notification.permission,
+    pushPermissionState: registration && applicationServerKey
+      ? await getPushPermissionState(registration, applicationServerKey)
+      : null,
+    serviceWorkerController: Boolean(navigator.serviceWorker.controller),
+    serviceWorkerScope: registration?.scope ?? null,
+    serviceWorkerActiveState: registration?.active?.state ?? null,
+    serviceWorkerScriptURL: registration?.active?.scriptURL ?? null,
+    displayMode: getDisplayMode(),
+    cookieEnabled: navigator.cookieEnabled,
+    userAgent: navigator.userAgent,
+  };
+}
+
+function getSubscriptionFailureResult(error: unknown): PushSubscriptionSetupResult {
+  if (error instanceof DOMException) {
+    if (error.name === 'AbortError') {
+      return 'push-service-error';
+    }
+
+    if (error.name === 'NotAllowedError') {
+      return 'permission-denied';
+    }
+
+    if (
+      error.name === 'InvalidAccessError' ||
+      error.name === 'InvalidStateError' ||
+      error.name === 'NotSupportedError'
+    ) {
+      return 'invalid-vapid-key';
+    }
+  }
+
+  if (error instanceof TypeError) {
+    const message = error.message.toLowerCase();
+    if (message.includes('applicationserverkey') || message.includes('application server key')) {
+      return 'invalid-vapid-key';
+    }
+  }
+
+  return 'error';
 }
 
 export async function ensureWebPushSubscription(options: {
@@ -100,6 +281,11 @@ export async function ensureWebPushSubscription(options: {
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidPublicKey) {
     return 'missing-vapid-key';
+  }
+
+  const applicationServerKey = decodeVapidPublicKey(vapidPublicKey);
+  if (!applicationServerKey) {
+    return 'invalid-vapid-key';
   }
 
   let permission: NotificationPermission = Notification.permission;
@@ -121,15 +307,27 @@ export async function ensureWebPushSubscription(options: {
     return 'permission-denied';
   }
 
+  let registration: ServiceWorkerRegistration | null = null;
+
   try {
-    const registration = await getServiceWorkerRegistration();
+    registration = await getServiceWorkerRegistration();
     if (!registration) {
-      return 'unsupported';
+      return 'service-worker-unavailable';
+    }
+
+    const pushPermissionState = await getPushPermissionState(registration, applicationServerKey);
+    if (pushPermissionState === 'denied') {
+      return 'permission-denied';
     }
 
     let subscription = await registration.pushManager.getSubscription();
+    if (subscription && !subscriptionUsesApplicationServerKey(subscription, applicationServerKey)) {
+      await subscription.unsubscribe();
+      subscription = null;
+    }
+
     if (!subscription) {
-      subscription = await subscribeWithVapidKey(registration, vapidPublicKey);
+      subscription = await subscribeWithVapidKey(registration, applicationServerKey);
     }
 
     let saved = await saveSubscription(accessToken, subscription);
@@ -139,16 +337,20 @@ export async function ensureWebPushSubscription(options: {
 
     // Rare case: stale/invalid subscription object. Recreate once and retry.
     await subscription.unsubscribe();
-    subscription = await subscribeWithVapidKey(registration, vapidPublicKey);
+    subscription = await subscribeWithVapidKey(registration, applicationServerKey);
     saved = await saveSubscription(accessToken, subscription);
 
-    return saved ? 'enabled' : 'error';
+    return saved ? 'enabled' : 'subscription-save-failed';
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    const result = getSubscriptionFailureResult(error);
+    if (result === 'push-service-error' && error instanceof DOMException) {
       console.warn('Web push subscription aborted by browser/push service:', error.message);
+      console.warn('Web push diagnostics:', await collectWebPushDiagnostics(registration, applicationServerKey));
+    } else if (result === 'invalid-vapid-key') {
+      console.warn('Web push subscription failed because the VAPID public key is invalid:', error);
     } else {
       console.error('Failed to ensure web push subscription:', error);
     }
-    return 'error';
+    return result;
   }
 }

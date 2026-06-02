@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
+import { getStudyReminderPeriod } from '@/lib/notifications/study-reminders';
 
 type ScanJobPushStatus = 'completed' | 'failed' | 'warning';
 
@@ -16,6 +17,19 @@ type SubscriptionRow = {
   endpoint: string;
   p256dh: string;
   auth: string;
+};
+
+type PushDeliveryResult = {
+  sent: number;
+  removed: number;
+  failed: number;
+};
+
+type StudyReminderPushParams = {
+  userId: string;
+  reminderTime: string;
+  localDateKey: string;
+  timeZone: string;
 };
 
 let configuredSignature: string | null = null;
@@ -67,6 +81,23 @@ function createPayload(params: ScanJobPushParams): string {
   });
 }
 
+function createStudyReminderPayload(params: StudyReminderPushParams): string {
+  const period = getStudyReminderPeriod(params.reminderTime);
+
+  return JSON.stringify({
+    title: 'MERKEN: 学習リマインダー',
+    body: `${period.label}の単語復習の時間です。今日の学習を始めましょう。`,
+    tag: `study-reminder-${params.localDateKey}-${params.reminderTime}`,
+    data: {
+      url: '/',
+      kind: 'study-reminder',
+      reminderTime: params.reminderTime,
+      localDateKey: params.localDateKey,
+      timeZone: params.timeZone,
+    },
+  });
+}
+
 function getWebPushErrorStatusCode(error: unknown): number | null {
   if (!error || typeof error !== 'object' || !("statusCode" in error)) {
     return null;
@@ -85,30 +116,35 @@ async function removeInvalidSubscription(supabaseAdmin: SupabaseClient, endpoint
     .eq('endpoint', endpoint);
 }
 
-export async function sendScanJobPushNotifications(
+async function sendPushPayloadToUser(
   supabaseAdmin: SupabaseClient,
-  params: ScanJobPushParams,
-): Promise<void> {
+  userId: string,
+  payload: string,
+  options: {
+    ttl: number;
+    urgency?: 'very-low' | 'low' | 'normal' | 'high';
+  },
+): Promise<PushDeliveryResult> {
   if (!configureWebPush()) {
-    return;
+    return { sent: 0, removed: 0, failed: 0 };
   }
 
   const { data: subscriptions, error } = await supabaseAdmin
     .from('web_push_subscriptions')
     .select('endpoint, p256dh, auth')
-    .eq('user_id', params.userId);
+    .eq('user_id', userId);
 
   if (error) {
     console.error('Failed to fetch web push subscriptions:', error);
-    return;
+    return { sent: 0, removed: 0, failed: 0 };
   }
 
   const rows = (subscriptions ?? []) as SubscriptionRow[];
   if (rows.length === 0) {
-    return;
+    return { sent: 0, removed: 0, failed: 0 };
   }
 
-  const payload = createPayload(params);
+  const result: PushDeliveryResult = { sent: 0, removed: 0, failed: 0 };
 
   await Promise.all(
     rows.map(async (row) => {
@@ -123,17 +159,44 @@ export async function sendScanJobPushNotifications(
 
       try {
         await webpush.sendNotification(subscription, payload, {
-          TTL: 3600,
-          urgency: 'normal',
+          TTL: options.ttl,
+          urgency: options.urgency ?? 'normal',
         });
+        result.sent += 1;
       } catch (error) {
         const statusCode = getWebPushErrorStatusCode(error);
         if (statusCode === 404 || statusCode === 410) {
           await removeInvalidSubscription(supabaseAdmin, row.endpoint);
+          result.removed += 1;
           return;
         }
+        result.failed += 1;
         console.error('Failed to send web push notification:', error);
       }
     })
   );
+
+  return result;
+}
+
+export async function sendScanJobPushNotifications(
+  supabaseAdmin: SupabaseClient,
+  params: ScanJobPushParams,
+): Promise<void> {
+  const payload = createPayload(params);
+  await sendPushPayloadToUser(supabaseAdmin, params.userId, payload, {
+    ttl: 3600,
+    urgency: 'normal',
+  });
+}
+
+export async function sendStudyReminderPushNotifications(
+  supabaseAdmin: SupabaseClient,
+  params: StudyReminderPushParams,
+): Promise<PushDeliveryResult> {
+  const payload = createStudyReminderPayload(params);
+  return sendPushPayloadToUser(supabaseAdmin, params.userId, payload, {
+    ttl: 900,
+    urgency: 'normal',
+  });
 }
