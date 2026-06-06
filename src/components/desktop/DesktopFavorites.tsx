@@ -24,6 +24,7 @@ export function DesktopFavoritesView({
   isPro,
   returnPath,
   onToggleFavorite,
+  onCycleVocabularyType,
 }: {
   favorites: FavoriteWord[];
   loading: boolean;
@@ -31,6 +32,7 @@ export function DesktopFavoritesView({
   isPro: boolean;
   returnPath: string;
   onToggleFavorite: (word: FavoriteWord) => void;
+  onCycleVocabularyType: (word: FavoriteWord) => void;
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -109,7 +111,10 @@ export function DesktopFavoritesView({
                   <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
                   <td className="ja">{word.japanese}</td>
                   <td style={{ textAlign: 'center' }}>
-                    <DesktopVocabularyTypeBadge vocabularyType={word.vocabularyType} />
+                    <DesktopVocabularyTypeBadge
+                      vocabularyType={word.vocabularyType}
+                      onClick={() => onCycleVocabularyType(word)}
+                    />
                   </td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-secondary-text)' }}>

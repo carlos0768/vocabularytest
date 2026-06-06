@@ -727,10 +727,13 @@ button.ds-tile { appearance: none; }
 .ds-modal-body .word-en { font-family: var(--font-display); font-weight: 800; font-size: 40px; letter-spacing: -0.02em; line-height: 1; }
 
 /* ── A/P (active / passive) badge ────────────────────────── */
-.ds-ap { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; font-family: var(--font-display); font-weight: 800; font-size: 12px; border: 1.5px solid var(--solid-ink); }
+.ds-ap { display: inline-flex; align-items: center; justify-content: center; width: 27.5px; height: 27.5px; border-radius: 8px; font-family: var(--font-display); font-weight: 800; font-size: 13px; border: 1.5px solid var(--solid-ink); }
 .ds-ap.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent-ink); }
 .ds-ap.passive { background: #fff; color: var(--color-ink); }
 .ds-ap.none { background: var(--color-surface-secondary); color: var(--color-muted); border-color: var(--color-border); }
+.ds-ap-btn { padding: 0; cursor: pointer; transition: transform var(--dur-fast), opacity var(--dur-fast); }
+.ds-ap-btn:hover { transform: translateY(-1px); opacity: 0.92; }
+.ds-ap-btn:active { transform: translateY(0); opacity: 0.78; }
 
 /* row checkbox */
 .ds-check { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--solid-ink); display: inline-flex; align-items: center; justify-content: center; background: #fff; cursor: pointer; transition: background var(--dur-fast); }

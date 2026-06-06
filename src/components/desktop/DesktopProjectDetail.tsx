@@ -58,6 +58,7 @@ export function DesktopProjectDetailView({
   counts,
   onRename,
   onToggleFavorite,
+  onCycleVocabularyType,
 }: {
   project: Project;
   projectId: string;
@@ -66,6 +67,7 @@ export function DesktopProjectDetailView({
   counts: { total: number; mastered: number; learning: number; newCount: number };
   onRename: () => void;
   onToggleFavorite: (word: Word) => void;
+  onCycleVocabularyType: (word: Word) => void;
 }) {
   const [filter, setFilter] = useState<'all' | WordStatus>('all');
   const [query, setQuery] = useState('');
@@ -283,7 +285,10 @@ export function DesktopProjectDetailView({
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     <td className="ja">{word.japanese}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <DesktopVocabularyTypeBadge vocabularyType={word.vocabularyType} />
+                      <DesktopVocabularyTypeBadge
+                        vocabularyType={word.vocabularyType}
+                        onClick={() => onCycleVocabularyType(word)}
+                      />
                     </td>
                     <td><span className={'ds-status ' + word.status}><span className={'ds-sdot c-' + word.status} />{DESKTOP_STATUS_LABEL[word.status]}</span></td>
                   </tr>

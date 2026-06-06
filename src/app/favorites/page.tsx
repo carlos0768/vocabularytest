@@ -8,7 +8,9 @@ import { Icon } from '@/components/ui/Icon';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { invalidateHomeCache } from '@/lib/home-cache';
 import { getGuestUserId, getWrongAnswers, type WrongAnswer } from '@/lib/utils';
+import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import type { SubscriptionStatus, Word } from '@/types';
 
 type FavoriteWord = Word & {
@@ -139,6 +141,34 @@ function FavoritesPageContent() {
     }
   };
 
+  const handleCycleVocabularyType = async (word: FavoriteWord) => {
+    const vocabularyType = getNextVocabularyType(word.vocabularyType);
+    setFavorites((prev) => prev.map((item) => (
+      item.id === word.id ? { ...item, vocabularyType } : item
+    )));
+    if (selectedWord?.id === word.id) {
+      setSelectedWord({ ...selectedWord, vocabularyType });
+    }
+    try {
+      try {
+        sessionStorage.removeItem(`quiz_state_${word.projectId}`);
+        sessionStorage.removeItem('quiz_state_all_favorites');
+      } catch {
+        /* ignore */
+      }
+      await repository.updateWord(word.id, { vocabularyType });
+      invalidateHomeCache();
+    } catch (updateError) {
+      console.error('Failed to update vocabulary type:', updateError);
+      setFavorites((prev) => prev.map((item) => (
+        item.id === word.id ? { ...item, vocabularyType: word.vocabularyType } : item
+      )));
+      if (selectedWord?.id === word.id) {
+        setSelectedWord(word);
+      }
+    }
+  };
+
   const isWrongMode = mode === 'wrong';
   const returnPath = encodeURIComponent(isWrongMode ? '/favorites?mode=wrong' : '/favorites');
   const wrongAnswersWithProjectTitles = useMemo<WrongAnswerRow[]>(
@@ -177,6 +207,7 @@ function FavoritesPageContent() {
           isPro={isPro}
           returnPath={returnPath}
           onToggleFavorite={(word) => void handleToggleFavorite(word)}
+          onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
         />
       )}
       {isWrongMode ? (

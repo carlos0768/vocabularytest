@@ -689,6 +689,7 @@ export default function ProjectPage() {
         counts={counts}
         onRename={handleOpenRename}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
+        onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-4 pt-3 lg:hidden">
