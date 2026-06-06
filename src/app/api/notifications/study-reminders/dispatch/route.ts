@@ -27,14 +27,41 @@ type ReminderPreferenceRow = {
   study_reminder_last_sent_key: string | null;
 };
 
+type PushDeliveryResult = {
+  sent: number;
+  removed: number;
+  failed: number;
+};
+
+type StudyReminderDispatchDependencies = {
+  authorize?: typeof authorizeInternalWorkerRequest;
+  getAdmin?: typeof getSupabaseAdmin;
+  sendNotifications?: (
+    supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
+    params: {
+      userId: string;
+      reminderTime: string;
+      localDateKey: string;
+      timeZone: string;
+    },
+  ) => Promise<PushDeliveryResult>;
+};
+
 function parseNow(value?: string): Date | null {
   if (!value) return new Date();
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export async function POST(request: NextRequest) {
-  const auth = authorizeInternalWorkerRequest(request);
+export async function handleStudyReminderDispatch(
+  request: NextRequest,
+  dependencies: StudyReminderDispatchDependencies = {},
+) {
+  const authorize = dependencies.authorize ?? authorizeInternalWorkerRequest;
+  const adminFactory = dependencies.getAdmin ?? getSupabaseAdmin;
+  const sendNotifications = dependencies.sendNotifications ?? sendStudyReminderPushNotifications;
+
+  const auth = authorize(request);
   if (!auth.ok) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -52,7 +79,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const supabaseAdmin = getSupabaseAdmin();
+    const supabaseAdmin = adminFactory();
     const { data, error } = await supabaseAdmin
       .from('user_preferences')
       .select('user_id, study_reminder_times, study_reminder_timezone, study_reminder_last_sent_key')
@@ -96,7 +123,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const result = await sendStudyReminderPushNotifications(supabaseAdmin, {
+        const result = await sendNotifications(supabaseAdmin, {
           userId: row.user_id,
           reminderTime: dueCandidate.time.time,
           localDateKey: dueCandidate.localDateKey,
@@ -107,6 +134,10 @@ export async function POST(request: NextRequest) {
         removed += result.removed;
         failed += result.failed;
         dispatched += 1;
+
+        if (result.sent <= 0) {
+          continue;
+        }
 
         const { error: updateError } = await supabaseAdmin
           .from('user_preferences')
@@ -134,4 +165,8 @@ export async function POST(request: NextRequest) {
     console.error('[study-reminders] dispatch failed:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleStudyReminderDispatch(request);
 }

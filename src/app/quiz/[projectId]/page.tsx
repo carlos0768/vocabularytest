@@ -458,7 +458,7 @@ export default function QuizPage() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const projectId = params.projectId as string;
-  const { subscription, loading: authLoading, user } = useAuth();
+  const { subscription, loading: authLoading, user, isPro } = useAuth();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
@@ -468,6 +468,7 @@ export default function QuizPage() {
   const reviewMode = searchParams.get('review') === '1';
   const learnMode = searchParams.get('learn') === '1';
   const wrongMode = searchParams.get('wrong') === '1';
+  const favoritesMode = searchParams.get('favorites') === '1';
   const collectionId = searchParams.get('collectionId');
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
@@ -516,7 +517,11 @@ export default function QuizPage() {
 
   const restoredFromStorage = useRef(false);
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
-  const storageKey = wrongMode ? 'quiz_state_wrong_answers' : getQuizStorageKey(projectId, reviewMode, learnMode);
+  const storageKey = wrongMode
+    ? 'quiz_state_wrong_answers'
+    : favoritesMode
+      ? `quiz_state_${projectId}_favorites`
+      : getQuizStorageKey(projectId, reviewMode, learnMode);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -743,7 +748,48 @@ export default function QuizPage() {
 
         let sourceWords: Word[] = [];
 
-        if (reviewMode || learnMode || wrongMode) {
+        if (favoritesMode) {
+          if (!isPro) {
+            router.replace('/subscription');
+            return;
+          }
+
+          if (projectId === 'all') {
+            const userId = user ? user.id : getGuestUserId();
+            let projects = await repository.getProjects(userId);
+            let wordRepo = repository;
+            if (projects.length === 0 && user && navigator.onLine) {
+              try {
+                projects = await remoteRepository.getProjects(user.id);
+                if (projects.length > 0) wordRepo = remoteRepository;
+              } catch { /* ignore */ }
+            }
+            const projectIds = projects.map((p) => p.id);
+            if (projectIds.length === 0) { backToProject(); return; }
+            const repoWithBulk = wordRepo as typeof repository & {
+              getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
+              getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
+            };
+            let wordsByProject: Record<string, Word[]> = {};
+            if (repoWithBulk.getAllWordsByProjectIds) {
+              wordsByProject = await repoWithBulk.getAllWordsByProjectIds(projectIds);
+            } else if (repoWithBulk.getAllWordsByProject) {
+              wordsByProject = await repoWithBulk.getAllWordsByProject(projectIds);
+            } else {
+              const arrays = await Promise.all(projectIds.map((id) => wordRepo.getWords(id)));
+              wordsByProject = Object.fromEntries(projectIds.map((id, idx) => [id, arrays[idx] ?? []]));
+            }
+            sourceWords = projectIds.flatMap((id) => wordsByProject[id] ?? []).filter((word) => word.isFavorite);
+          } else {
+            const hasAccess = await ensureProjectAccess();
+            if (!hasAccess) { backToProject(); return; }
+            let loadedWords = await repository.getWords(projectId);
+            if (loadedWords.length === 0 && user && navigator.onLine) {
+              try { loadedWords = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
+            }
+            sourceWords = loadedWords.filter((word) => word.isFavorite);
+          }
+        } else if (reviewMode || learnMode || wrongMode) {
           const userId = user ? user.id : getGuestUserId();
           let projects = await repository.getProjects(userId);
           let wordRepo = repository;
@@ -797,7 +843,7 @@ export default function QuizPage() {
           sourceWords = loadedWords;
         }
 
-        if (!reviewMode && !learnMode && !wrongMode) {
+        if (!reviewMode && !learnMode && !wrongMode && !favoritesMode) {
           const nonMastered = sourceWords.filter((w) => w.status !== 'mastered');
           if (nonMastered.length > 0) sourceWords = nonMastered;
         }
@@ -826,10 +872,10 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, collectionId, backToProject, user, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
 
   useEffect(() => {
-    if (authLoading || !user || reviewMode || learnMode || wrongMode || collectionId) return;
+    if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || collectionId) return;
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
@@ -838,11 +884,11 @@ export default function QuizPage() {
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, collectionId]);
+  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, collectionId]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
-    if (reviewMode || learnMode || wrongMode || collectionId) return;
+    if (reviewMode || learnMode || wrongMode || favoritesMode || collectionId) return;
     if (questions.length === 0) return;
     if (vocabularyMergeFromLocalAppliedRef.current) return;
     vocabularyMergeFromLocalAppliedRef.current = true;
@@ -867,7 +913,7 @@ export default function QuizPage() {
       } catch { vocabularyMergeFromLocalAppliedRef.current = false; }
     })();
     return () => { cancelled = true; };
-  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, collectionId]);
+  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, collectionId]);
 
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
@@ -884,7 +930,7 @@ export default function QuizPage() {
       next[currentIndex] = isCorrect;
       return next;
     });
-    const recordProjectId = reviewMode || learnMode ? word.projectId : projectId;
+    const recordProjectId = reviewMode || learnMode || favoritesMode ? word.projectId : projectId;
     const outcomePlan = buildQuizAnswerOutcomePlan({ word, isCorrect, recordProjectId });
     if (isCorrect) recordCorrectAnswer(false);
     else if (outcomePlan.wrongAnswer) {
@@ -1161,6 +1207,8 @@ export default function QuizPage() {
       ? currentIsWordOrder ? '未習得の単語 · 語順クイズ' : '未習得の単語 · 4択クイズ'
       : wrongMode
         ? currentIsWordOrder ? '間違えた問題 · 語順クイズ' : '間違えた問題 · 4択クイズ'
+        : favoritesMode
+          ? currentIsWordOrder ? '保存済み単語 · 語順クイズ' : '保存済み単語 · 4択クイズ'
       : currentIsWordOrder
         ? '語順クイズ'
         : isActiveVocab

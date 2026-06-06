@@ -15,6 +15,7 @@ import {
   desktopSourceLabel,
   desktopThumbColor,
 } from '@/components/desktop/desktop-data';
+import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
@@ -25,7 +26,7 @@ const STATUS_FILTERS: { key: 'all' | WordStatus; label: string; dot?: string }[]
   { key: 'new', label: '未学習', dot: 'c-new' },
 ];
 
-type SortKey = 'order' | 'en' | 'cefr' | 'status';
+type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
 type ReviewRailMode = 'wrong' | 'review';
 
 type RecentWrongRailItem = {
@@ -42,6 +43,12 @@ type UpcomingReviewRailItem = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+function vocabularyTypeSortRank(value: Word['vocabularyType']): number {
+  if (value === 'active') return 0;
+  if (value === 'passive') return 1;
+  return 2;
+}
 
 export function DesktopProjectDetailView({
   project,
@@ -98,7 +105,7 @@ export function DesktopProjectDetailView({
     return [...base].sort((a, b) => {
       let result = 0;
       if (sortKey === 'en') result = a.english.localeCompare(b.english);
-      else if (sortKey === 'cefr') result = (a.cefrLevel ?? '').localeCompare(b.cefrLevel ?? '');
+      else if (sortKey === 'vocabularyType') result = vocabularyTypeSortRank(a.vocabularyType) - vocabularyTypeSortRank(b.vocabularyType);
       else if (sortKey === 'status') result = order[a.status] - order[b.status];
       else result = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return result * sortDir;
@@ -243,7 +250,7 @@ export function DesktopProjectDetailView({
                   {sortHead('en', '英単語', { minWidth: 150 })}
                   <th style={{ width: 70 }}>品詞</th>
                   <th>日本語</th>
-                  {sortHead('cefr', 'CEFR', { width: 80 })}
+                  {sortHead('vocabularyType', 'A/P', { width: 64, textAlign: 'center' })}
                   {sortHead('status', 'ステータス', { width: 130 })}
                 </tr>
               </thead>
@@ -275,7 +282,9 @@ export function DesktopProjectDetailView({
                     </td>
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     <td className="ja">{word.japanese}</td>
-                    <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
+                    <td style={{ textAlign: 'center' }}>
+                      <DesktopVocabularyTypeBadge vocabularyType={word.vocabularyType} />
+                    </td>
                     <td><span className={'ds-status ' + word.status}><span className={'ds-sdot c-' + word.status} />{DESKTOP_STATUS_LABEL[word.status]}</span></td>
                   </tr>
                 ))}

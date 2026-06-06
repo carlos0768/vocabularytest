@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
 import type { WrongAnswer } from '@/lib/utils';
 import type { Word } from '@/types';
@@ -49,7 +50,7 @@ export function DesktopFavoritesView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="お気に入り" crumb="コレクション">
-        <DesktopButton href={isPro ? `/quiz/all/favorites?count=10&from=${returnPath}` : '/subscription'} variant="accent" icon="school">
+        <DesktopButton href={isPro ? `/quiz/all?favorites=1&count=10&from=${returnPath}` : '/subscription'} variant="accent" icon="school">
           クイズ
         </DesktopButton>
         <DesktopButton href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'} icon="style">
@@ -90,7 +91,7 @@ export function DesktopFavoritesView({
                 <th style={{ minWidth: 150 }}>英単語</th>
                 <th style={{ width: 70 }}>品詞</th>
                 <th>日本語</th>
-                <th style={{ width: 70 }}>CEFR</th>
+                <th style={{ width: 64, textAlign: 'center' }}>A/P</th>
                 <th style={{ width: 220 }}>出典</th>
               </tr>
             </thead>
@@ -107,7 +108,9 @@ export function DesktopFavoritesView({
                   </td>
                   <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
                   <td className="ja">{word.japanese}</td>
-                  <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
+                  <td style={{ textAlign: 'center' }}>
+                    <DesktopVocabularyTypeBadge vocabularyType={word.vocabularyType} />
+                  </td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-secondary-text)' }}>
                       <span className="ds-project-icon ds-project-icon--xs" style={{ background: desktopThumbColor(word.projectId) }} />
