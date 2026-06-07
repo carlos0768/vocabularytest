@@ -23,6 +23,10 @@ export function getQuizStorageKey(projectId: string, reviewMode: boolean, learnM
   return `quiz_state_${reviewMode ? 'review' : learnMode ? 'learn' : projectId}`;
 }
 
+export function getFavoritesQuizStorageKey(projectId: string): string {
+  return `quiz_state_${projectId}_favorites`;
+}
+
 export function isQuizStateExpired(timestamp: number, now: number = Date.now()): boolean {
   return now - timestamp > QUIZ_STATE_TTL_MS;
 }

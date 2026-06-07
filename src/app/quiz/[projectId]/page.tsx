@@ -20,6 +20,7 @@ import { loadCollectionWords } from '@/lib/collection-words';
 import {
   applyWordOrderQuestionsToPendingQuiz,
   generateQuizQuestions,
+  getFavoritesQuizStorageKey,
   getQuizStorageKey,
   isQuizStateExpired,
   type QuizDirection,
@@ -48,6 +49,7 @@ import {
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
+import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
@@ -520,7 +522,7 @@ export default function QuizPage() {
   const storageKey = wrongMode
     ? 'quiz_state_wrong_answers'
     : favoritesMode
-      ? `quiz_state_${projectId}_favorites`
+      ? getFavoritesQuizStorageKey(projectId)
       : getQuizStorageKey(projectId, reviewMode, learnMode);
 
   useEffect(() => {
@@ -1224,6 +1226,9 @@ export default function QuizPage() {
   const desktopPhonetic = !currentIsWordOrder && !isActiveVocab
     ? currentQuestion?.word.pronunciation
     : '';
+  const desktopPartOfSpeechLabel = isActiveVocab
+    ? formatPartOfSpeechLabels(currentQuestion?.word.partOfSpeechTags)
+    : '';
   const desktopMultipleChoiceWrong = (
     selectedIndex !== null &&
     isMultipleChoiceQuestion(currentQuestion) &&
@@ -1237,6 +1242,12 @@ export default function QuizPage() {
   const desktopWordOrderAnswer = isWordOrderQuestion(currentQuestion)
     ? currentQuestion.answerTokens.join(' ')
     : '';
+  const desktopExample = !currentIsWordOrder && currentQuestion?.word.exampleSentence?.trim()
+    ? {
+        sentence: currentQuestion.word.exampleSentence.trim(),
+        translation: normalizeDisplayText(currentQuestion.word.exampleSentenceJa),
+      }
+    : null;
 
   return (
     <>
@@ -1254,7 +1265,13 @@ export default function QuizPage() {
         {!currentIsWordOrder && (
           <div className="ds-qword">
             <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 42 : undefined }}>{desktopPrompt}</div>
-            <div className="ph">{desktopPhonetic || '\u00a0'}</div>
+            {isActiveVocab && desktopPartOfSpeechLabel ? (
+              <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+                <span className="ds-tag accent">{desktopPartOfSpeechLabel}</span>
+              </div>
+            ) : (
+              <div className="ph">{desktopPhonetic || '\u00a0'}</div>
+            )}
           </div>
         )}
 
@@ -1307,6 +1324,18 @@ export default function QuizPage() {
               >
                 回答する
               </button>
+            )}
+          </div>
+        )}
+
+        {isRevealed && desktopExample && (
+          <div className="w-full max-w-[780px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left" style={{ marginTop: 16 }}>
+            <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+              {desktopExample.sentence}
+            </div>
+            {desktopExample.translation && (
+              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{desktopExample.translation}</div>
             )}
           </div>
         )}
@@ -1371,6 +1400,11 @@ export default function QuizPage() {
                 />
                 {desktopAnswerWrong ? '不正解' : '正解'}
               </span>
+              {typeInResult === 'wrong' && isMultipleChoiceQuestion(currentQuestion) && (
+                <span className="muted" style={{ fontSize: 13.5 }}>
+                  正解：<b style={{ color: 'var(--color-ink)' }}>{isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}</b>
+                </span>
+              )}
               <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
                 次の問題<Icon name="arrow_forward" />
               </button>

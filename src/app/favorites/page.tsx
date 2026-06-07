@@ -9,6 +9,7 @@ import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { getFavoritesQuizStorageKey } from '@/lib/quiz/quiz-state';
 import { getGuestUserId, getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import type { SubscriptionStatus, Word } from '@/types';
@@ -151,8 +152,8 @@ function FavoritesPageContent() {
     }
     try {
       try {
-        sessionStorage.removeItem(`quiz_state_${word.projectId}`);
-        sessionStorage.removeItem('quiz_state_all_favorites');
+        sessionStorage.removeItem(getFavoritesQuizStorageKey(word.projectId));
+        sessionStorage.removeItem(getFavoritesQuizStorageKey('all'));
       } catch {
         /* ignore */
       }

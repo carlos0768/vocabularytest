@@ -16,6 +16,7 @@ import {
   QUIZ_STATE_TTL_MS,
   applyWordOrderQuestionsToPendingQuiz,
   generateQuizQuestions,
+  getFavoritesQuizStorageKey,
   getQuizStorageKey,
   isQuizStateExpired,
 } from './quiz-state';
@@ -40,6 +41,11 @@ test('getQuizStorageKey fixes normal and review session keys', () => {
   assert.equal(getQuizStorageKey('project-1', false), 'quiz_state_project-1');
   assert.equal(getQuizStorageKey('project-1', true), 'quiz_state_review');
   assert.equal(getQuizStorageKey('project-1', false, true), 'quiz_state_learn');
+});
+
+test('getFavoritesQuizStorageKey uses the favorites suffix for project quiz sessions', () => {
+  assert.equal(getFavoritesQuizStorageKey('project-1'), 'quiz_state_project-1_favorites');
+  assert.equal(getFavoritesQuizStorageKey('all'), 'quiz_state_all_favorites');
 });
 
 test('isQuizStateExpired preserves the 30 minute TTL boundary', () => {

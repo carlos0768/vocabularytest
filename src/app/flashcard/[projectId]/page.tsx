@@ -603,6 +603,9 @@ export default function FlashcardPage() {
           <button type="button" className="ds-fc-big dunno" onClick={() => handlePrev()}>
             <Icon name="chevron_left" />前へ
           </button>
+          <button type="button" className="ds-fc-big know" onClick={handleFlip} aria-label="カードを回転">
+            <Icon name="cached" />回転
+          </button>
           <button type="button" className="ds-fc-big dunno" onClick={() => handleNext()}>
             次へ<Icon name="chevron_right" />
           </button>
