@@ -9,12 +9,14 @@ import {
   normalizeStudyReminderTimes,
   type StudyReminderTime,
 } from '@/lib/notifications/study-reminders';
+import { normalizeExampleGenres } from '@/lib/preferences/example-genres';
 
 const SESSION_CACHE_KEY = 'merken_user_preferences_cache';
 
 interface UserPreferencesCache {
   userId: string;
   aiEnabled: boolean | null;
+  exampleGenres: string[];
   studyReminderEnabled: boolean;
   studyReminderTimes: StudyReminderTime[];
   studyReminderTimezone: string;
@@ -22,6 +24,7 @@ interface UserPreferencesCache {
 
 interface UserPreferencesSnapshot {
   aiEnabled: boolean | null;
+  exampleGenres: string[];
   studyReminderEnabled: boolean;
   studyReminderTimes: StudyReminderTime[];
   studyReminderTimezone: string;
@@ -29,6 +32,7 @@ interface UserPreferencesSnapshot {
 
 type UserPreferencesResponse = {
   aiEnabled: boolean | null;
+  exampleGenres?: unknown;
   studyReminderEnabled?: boolean | null;
   studyReminderTimes?: unknown;
   studyReminderTimezone?: string | null;
@@ -39,6 +43,7 @@ let cache: UserPreferencesCache | null = null;
 function getDefaultSnapshot(): UserPreferencesSnapshot {
   return {
     aiEnabled: null,
+    exampleGenres: [],
     studyReminderEnabled: false,
     studyReminderTimes: [...DEFAULT_STUDY_REMINDER_TIMES],
     studyReminderTimezone: DEFAULT_STUDY_REMINDER_TIMEZONE,
@@ -49,6 +54,7 @@ function normalizeSnapshot(data: UserPreferencesResponse | null): UserPreference
   if (!data) return getDefaultSnapshot();
   return {
     aiEnabled: typeof data.aiEnabled === 'boolean' ? data.aiEnabled : null,
+    exampleGenres: normalizeExampleGenres(data.exampleGenres),
     studyReminderEnabled: data.studyReminderEnabled === true,
     studyReminderTimes: normalizeStudyReminderTimes(data.studyReminderTimes),
     studyReminderTimezone: isSupportedTimeZone(data.studyReminderTimezone)
@@ -61,6 +67,7 @@ function readCache(userId: string): UserPreferencesSnapshot | undefined {
   if (cache && cache.userId === userId) {
     return {
       aiEnabled: cache.aiEnabled,
+      exampleGenres: normalizeExampleGenres(cache.exampleGenres),
       studyReminderEnabled: cache.studyReminderEnabled,
       studyReminderTimes: normalizeStudyReminderTimes(cache.studyReminderTimes),
       studyReminderTimezone: isSupportedTimeZone(cache.studyReminderTimezone)
@@ -102,6 +109,7 @@ function clearCache() {
 
 interface UserPreferencesState {
   aiEnabled: boolean | null;
+  exampleGenres: string[];
   studyReminderEnabled: boolean;
   studyReminderTimes: StudyReminderTime[];
   studyReminderTimezone: string;
@@ -110,6 +118,7 @@ interface UserPreferencesState {
   error: string | null;
   refresh: () => Promise<void>;
   setAiEnabled: (enabled: boolean) => Promise<boolean>;
+  setExampleGenres: (genres: string[]) => Promise<boolean>;
   setStudyReminders: (preferences: {
     enabled?: boolean;
     times?: StudyReminderTime[];
@@ -120,6 +129,7 @@ interface UserPreferencesState {
 export function useUserPreferences(): UserPreferencesState {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [aiEnabled, setAiEnabledState] = useState<boolean | null>(null);
+  const [exampleGenres, setExampleGenresState] = useState<string[]>([]);
   const [studyReminderEnabled, setStudyReminderEnabledState] = useState(false);
   const [studyReminderTimes, setStudyReminderTimesState] = useState<StudyReminderTime[]>(() => [
     ...DEFAULT_STUDY_REMINDER_TIMES,
@@ -131,6 +141,7 @@ export function useUserPreferences(): UserPreferencesState {
 
   const applySnapshot = useCallback((snapshot: UserPreferencesSnapshot) => {
     setAiEnabledState(snapshot.aiEnabled);
+    setExampleGenresState(snapshot.exampleGenres);
     setStudyReminderEnabledState(snapshot.studyReminderEnabled);
     setStudyReminderTimesState(snapshot.studyReminderTimes);
     setStudyReminderTimezoneState(snapshot.studyReminderTimezone);
@@ -187,6 +198,7 @@ export function useUserPreferences(): UserPreferencesState {
     const previousValue = aiEnabled;
     const previousSnapshot: UserPreferencesSnapshot = {
       aiEnabled,
+      exampleGenres,
       studyReminderEnabled,
       studyReminderTimes,
       studyReminderTimezone,
@@ -227,6 +239,62 @@ export function useUserPreferences(): UserPreferencesState {
   }, [
     aiEnabled,
     applySnapshot,
+    exampleGenres,
+    isAuthenticated,
+    studyReminderEnabled,
+    studyReminderTimes,
+    studyReminderTimezone,
+    user?.id,
+  ]);
+
+  const setExampleGenres = useCallback(async (genres: string[]): Promise<boolean> => {
+    if (!isAuthenticated || !user?.id) return false;
+
+    const normalized = normalizeExampleGenres(genres);
+    const previousSnapshot: UserPreferencesSnapshot = {
+      aiEnabled,
+      exampleGenres,
+      studyReminderEnabled,
+      studyReminderTimes,
+      studyReminderTimezone,
+    };
+    const nextSnapshot: UserPreferencesSnapshot = {
+      ...previousSnapshot,
+      exampleGenres: normalized,
+    };
+    setExampleGenresState(normalized);
+    writeCache(user.id, nextSnapshot);
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/user-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exampleGenres: normalized }),
+      });
+
+      if (!response.ok) {
+        throw new Error('設定の保存に失敗しました');
+      }
+
+      const data = await response.json() as UserPreferencesResponse;
+      const normalizedSnapshot = normalizeSnapshot(data);
+      applySnapshot(normalizedSnapshot);
+      writeCache(user.id, normalizedSnapshot);
+      return true;
+    } catch (err) {
+      applySnapshot(previousSnapshot);
+      writeCache(user.id, previousSnapshot);
+      setError(err instanceof Error ? err.message : '設定の保存に失敗しました');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    aiEnabled,
+    applySnapshot,
+    exampleGenres,
     isAuthenticated,
     studyReminderEnabled,
     studyReminderTimes,
@@ -243,6 +311,7 @@ export function useUserPreferences(): UserPreferencesState {
 
     const previousSnapshot: UserPreferencesSnapshot = {
       aiEnabled,
+      exampleGenres,
       studyReminderEnabled,
       studyReminderTimes,
       studyReminderTimezone,
@@ -299,6 +368,7 @@ export function useUserPreferences(): UserPreferencesState {
   }, [
     aiEnabled,
     applySnapshot,
+    exampleGenres,
     isAuthenticated,
     studyReminderEnabled,
     studyReminderTimes,
@@ -308,6 +378,7 @@ export function useUserPreferences(): UserPreferencesState {
 
   return {
     aiEnabled,
+    exampleGenres,
     studyReminderEnabled,
     studyReminderTimes,
     studyReminderTimezone,
@@ -316,6 +387,7 @@ export function useUserPreferences(): UserPreferencesState {
     error,
     refresh,
     setAiEnabled,
+    setExampleGenres,
     setStudyReminders,
   };
 }

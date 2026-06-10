@@ -273,6 +273,16 @@ function DSDesktopWordOrderPanel({
   const answerStateClass = isRevealed ? (result === 'correct' ? ' correct' : ' wrong') : '';
   const answerIsFull = selectedTokens.length >= question.answerTokens.length;
   const example = getWordOrderExample(question);
+  // モバイル版と同様に、文中の固定単語（デフォルト表示）と空欄を並べて表示する
+  const sentenceItems = question.sentenceTokens.map((token, index) => ({
+    token,
+    index,
+    answerIndex: token === WORD_ORDER_BLANK_TOKEN
+      ? question.sentenceTokens
+        .slice(0, index + 1)
+        .filter((item) => item === WORD_ORDER_BLANK_TOKEN).length - 1
+      : null,
+  }));
 
   return (
     <div className="ds-word-order-stage">
@@ -283,24 +293,39 @@ function DSDesktopWordOrderPanel({
       </div>
 
       <div className={`ds-wo-answer${answerStateClass}`}>
-        {selectedTokens.length === 0 && <span className="ph">ここに単語が並びます</span>}
-        {selectedTokens.map((token, index) => (
-          <button
-            key={`${token}-${index}`}
-            type="button"
-            className="ds-tile in-answer"
-            onClick={() => onRemoveToken(index)}
-            disabled={isRevealed}
-          >
-            {token}
-            {!isRevealed && (
-              <Icon
-                name="close"
-                style={{ fontSize: 14, marginLeft: 6, verticalAlign: '-2px', opacity: 0.7 }}
-              />
-            )}
-          </button>
-        ))}
+        {sentenceItems.map(({ token, index, answerIndex }) => {
+          if (token !== WORD_ORDER_BLANK_TOKEN) {
+            return (
+              <span key={`${token}-${index}`} className="ds-wo-fixed">
+                {token}
+              </span>
+            );
+          }
+
+          const selected = answerIndex === null ? undefined : selectedTokens[answerIndex];
+
+          if (!selected) {
+            return <span key={`blank-${index}`} className="ds-wo-blank" aria-label="空欄" />;
+          }
+
+          return (
+            <button
+              key={`blank-${index}`}
+              type="button"
+              className="ds-tile in-answer"
+              onClick={() => answerIndex !== null && onRemoveToken(answerIndex)}
+              disabled={isRevealed}
+            >
+              {selected}
+              {!isRevealed && (
+                <Icon
+                  name="close"
+                  style={{ fontSize: 14, marginLeft: 6, verticalAlign: '-2px', opacity: 0.7 }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="ds-wo-bank">

@@ -1009,6 +1009,52 @@ export default function ProjectPage() {
         onConfirm={() => void handleConfirmDelete()}
       />
 
+      {selectedWord && (
+        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+            onClick={() => setSelectedWord(null)}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
+            <div
+              className="w-full overflow-y-auto"
+              style={{
+                maxWidth: 480,
+                maxHeight: '80dvh',
+                background: '#faf7f1',
+                border: '1.5px solid var(--solid-ink)',
+                borderRadius: 20,
+                boxShadow: '4px 5px 0 var(--solid-ink)',
+              }}
+            >
+              <WordDetailView
+                wordId={selectedWord.id}
+                variant="modal"
+                initialWord={selectedWord}
+                onClose={() => setSelectedWord(null)}
+                onWordUpdated={(updated) => {
+                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+                  setSelectedWord(updated);
+                }}
+                onDelete={handleOpenDeleteWord}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SingleWordDeleteModal
+        open={deleteWordTarget !== null}
+        loading={deleteWordLoading}
+        word={deleteWordTarget}
+        onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
+        onConfirm={() => void handleConfirmSingleWordDelete()}
+      />
+      </div>
+
+      {/* デスクトップの名称変更ボタンからも開くため、lg:hidden のモバイル
+          コンテナの外に置く（中に置くとデスクトップでは非表示になる） */}
       {renameModalOpen && (
         <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
           <button
@@ -1053,50 +1099,6 @@ export default function ProjectPage() {
           </div>
         </div>
       )}
-
-      {selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
-            <div
-              className="w-full overflow-y-auto"
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: '#faf7f1',
-                border: '1.5px solid var(--solid-ink)',
-                borderRadius: 20,
-                boxShadow: '4px 5px 0 var(--solid-ink)',
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.id}
-                variant="modal"
-                initialWord={selectedWord}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
-                  setSelectedWord(updated);
-                }}
-                onDelete={handleOpenDeleteWord}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <SingleWordDeleteModal
-        open={deleteWordTarget !== null}
-        loading={deleteWordLoading}
-        word={deleteWordTarget}
-        onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
-        onConfirm={() => void handleConfirmSingleWordDelete()}
-      />
-      </div>
     </>
   );
 }
