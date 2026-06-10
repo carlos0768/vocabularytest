@@ -685,8 +685,22 @@ export default function ProjectPage() {
         project={project}
         projectId={projectId}
         words={words}
+        filteredWords={filteredWords}
         wordsLoaded={wordsLoaded}
         counts={counts}
+        query={query}
+        onQueryChange={setQuery}
+        filterActive={wordFilterActive}
+        sortActive={wordSortOrder !== 'createdAsc'}
+        selectMode={selectMode}
+        selectedWordIds={selectedWordIds}
+        onOpenFilterSheet={() => setWordShowFilterSheet(true)}
+        onOpenSortSheet={() => setWordShowSortSheet(true)}
+        onToggleSelectMode={() => {
+          if (selectMode) handleExitSelectMode();
+          else { setSelectMode(true); setSelectedWordIds(new Set()); }
+        }}
+        onToggleSelectWord={handleToggleSelectWord}
         onRename={handleOpenRename}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
@@ -906,56 +920,6 @@ export default function ProjectPage() {
         )}
       </div>
 
-      <WordFilterSheet
-        open={wordShowFilterSheet}
-        onClose={() => setWordShowFilterSheet(false)}
-        bookmark={wordFilterBookmark}
-        onBookmarkChange={setWordFilterBookmark}
-        activeness={wordFilterActiveness}
-        onActivenessChange={setWordFilterActiveness}
-        pos={wordFilterPos}
-        onPosChange={setWordFilterPos}
-        availablePartsOfSpeech={availablePartsOfSpeech}
-        hasActiveFilters={wordFilterActive}
-        onReset={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
-      />
-      <WordSortSheet
-        open={wordShowSortSheet}
-        onClose={() => setWordShowSortSheet(false)}
-        sortOrder={wordSortOrder}
-        onSortOrderChange={setWordSortOrder}
-      />
-
-      <BulkActionBar
-        open={selectMode}
-        selectedCount={selectedWordIds.size}
-        totalCount={filteredWords.length}
-        allSelected={filteredWords.length > 0 && filteredWords.every((w) => selectedWordIds.has(w.id))}
-        allFavoriteInSelection={
-          selectedWordIds.size > 0 &&
-          filteredWords.filter((w) => selectedWordIds.has(w.id)).every((w) => w.isFavorite)
-        }
-        favoriteLoading={bulkFavoriteLoading}
-        vocabularyTypeLoading={bulkVocabularyTypeLoading}
-        onCancel={handleExitSelectMode}
-        onToggleSelectAll={() => {
-          if (filteredWords.length === 0) return;
-          const allSel = filteredWords.every((w) => selectedWordIds.has(w.id));
-          setSelectedWordIds(allSel ? new Set() : new Set(filteredWords.map((w) => w.id)));
-        }}
-        onBulkFavorite={() => void handleBulkToggleFavorite()}
-        onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
-        onBulkDelete={() => setBulkDeleteModalOpen(true)}
-      />
-
-      <BulkDeleteModal
-        open={bulkDeleteModalOpen}
-        loading={bulkDeleteLoading}
-        count={selectedWordIds.size}
-        onCancel={() => { if (!bulkDeleteLoading) setBulkDeleteModalOpen(false); }}
-        onConfirm={() => void handleConfirmBulkDelete()}
-      />
-
       <ManualWordModal
         open={showManualWordModal}
         loading={manualWordSaving}
@@ -1053,8 +1017,58 @@ export default function ProjectPage() {
       />
       </div>
 
-      {/* デスクトップの名称変更ボタンからも開くため、lg:hidden のモバイル
-          コンテナの外に置く（中に置くとデスクトップでは非表示になる） */}
+      {/* Shared overlays: rendered outside the lg:hidden wrapper so the
+          desktop view's filter / sort / select buttons can use them too */}
+      <WordFilterSheet
+        open={wordShowFilterSheet}
+        onClose={() => setWordShowFilterSheet(false)}
+        bookmark={wordFilterBookmark}
+        onBookmarkChange={setWordFilterBookmark}
+        activeness={wordFilterActiveness}
+        onActivenessChange={setWordFilterActiveness}
+        pos={wordFilterPos}
+        onPosChange={setWordFilterPos}
+        availablePartsOfSpeech={availablePartsOfSpeech}
+        hasActiveFilters={wordFilterActive}
+        onReset={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
+      />
+      <WordSortSheet
+        open={wordShowSortSheet}
+        onClose={() => setWordShowSortSheet(false)}
+        sortOrder={wordSortOrder}
+        onSortOrderChange={setWordSortOrder}
+      />
+
+      <BulkActionBar
+        open={selectMode}
+        selectedCount={selectedWordIds.size}
+        totalCount={filteredWords.length}
+        allSelected={filteredWords.length > 0 && filteredWords.every((w) => selectedWordIds.has(w.id))}
+        allFavoriteInSelection={
+          selectedWordIds.size > 0 &&
+          filteredWords.filter((w) => selectedWordIds.has(w.id)).every((w) => w.isFavorite)
+        }
+        favoriteLoading={bulkFavoriteLoading}
+        vocabularyTypeLoading={bulkVocabularyTypeLoading}
+        onCancel={handleExitSelectMode}
+        onToggleSelectAll={() => {
+          if (filteredWords.length === 0) return;
+          const allSel = filteredWords.every((w) => selectedWordIds.has(w.id));
+          setSelectedWordIds(allSel ? new Set() : new Set(filteredWords.map((w) => w.id)));
+        }}
+        onBulkFavorite={() => void handleBulkToggleFavorite()}
+        onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
+        onBulkDelete={() => setBulkDeleteModalOpen(true)}
+      />
+
+      <BulkDeleteModal
+        open={bulkDeleteModalOpen}
+        loading={bulkDeleteLoading}
+        count={selectedWordIds.size}
+        onCancel={() => { if (!bulkDeleteLoading) setBulkDeleteModalOpen(false); }}
+        onConfirm={() => void handleConfirmBulkDelete()}
+      />
+
       {renameModalOpen && (
         <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
           <button
@@ -1696,13 +1710,10 @@ function BulkActionBar({
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-40 px-3 pt-3"
-      style={{
-        background: 'linear-gradient(to top, var(--color-background) 70%, transparent)',
-        paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))',
-      }}
+      className="pointer-events-none fixed bottom-0 left-0 right-0 z-40 bg-[linear-gradient(to_top,var(--color-background)_70%,transparent)] px-3 pt-3 lg:bg-none"
+      style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
     >
-      <div className="mx-auto w-full max-w-lg">
+      <div className="pointer-events-auto mx-auto w-full max-w-lg lg:max-w-2xl">
         <div className="relative">
           <div
             className="pointer-events-none absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]"
@@ -1737,7 +1748,33 @@ function BulkActionBar({
                 </span>
               </div>
             </div>
-            <div className="relative shrink-0">
+            {/* Desktop: bulk actions laid out inline (no "..." menu) */}
+            <div className="hidden shrink-0 items-center gap-2 lg:flex">
+              <BulkInlineActionButton
+                icon="bookmark"
+                label="ブックマーク"
+                filled={allFavoriteInSelection && hasSelection}
+                loading={favoriteLoading}
+                disabled={!hasSelection || actionLoading}
+                onClick={onBulkFavorite}
+              />
+              <BulkInlineActionButton
+                icon="keyboard_alt"
+                label="Active"
+                loading={vocabularyTypeLoading === 'active'}
+                disabled={!hasSelection || actionLoading}
+                onClick={() => onBulkVocabularyType('active')}
+              />
+              <BulkInlineActionButton
+                icon="visibility"
+                label="Passive"
+                loading={vocabularyTypeLoading === 'passive'}
+                disabled={!hasSelection || actionLoading}
+                onClick={() => onBulkVocabularyType('passive')}
+              />
+            </div>
+            {/* Mobile: compact "..." menu */}
+            <div className="relative shrink-0 lg:hidden">
               {showActionMenu && (
                 <>
                   <button
@@ -1815,6 +1852,43 @@ function BulkActionBar({
         </div>
       </div>
     </div>
+  );
+}
+
+function BulkInlineActionButton({
+  icon,
+  label,
+  filled,
+  loading,
+  disabled,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  filled?: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-[36px] shrink-0 items-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+    >
+      {loading ? (
+        <Icon name="progress_activity" size={15} className="animate-spin" />
+      ) : (
+        <Icon
+          name={icon}
+          size={15}
+          filled={filled}
+          className={icon === 'bookmark' ? 'text-[var(--color-accent)]' : undefined}
+        />
+      )}
+      {label}
+    </button>
   );
 }
 
