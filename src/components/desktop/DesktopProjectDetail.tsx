@@ -16,24 +16,9 @@ import {
   desktopThumbColor,
 } from '@/components/desktop/desktop-data';
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
-import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
-const STATUS_FILTERS: { key: 'all' | WordStatus; label: string; dot?: string }[] = [
-  { key: 'all', label: 'すべて' },
-  { key: 'mastered', label: '習得', dot: 'c-mastered' },
-  { key: 'review', label: '学習中', dot: 'c-review' },
-  { key: 'new', label: '未学習', dot: 'c-new' },
-];
-
 type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
-type ReviewRailMode = 'wrong' | 'review';
-
-type RecentWrongRailItem = {
-  word: Word;
-  wrongCount: number;
-  lastWrongAt: number;
-};
 
 type UpcomingReviewRailItem = {
   word: Word;
@@ -54,8 +39,19 @@ export function DesktopProjectDetailView({
   project,
   projectId,
   words,
+  filteredWords,
   wordsLoaded,
   counts,
+  query,
+  onQueryChange,
+  filterActive,
+  sortActive,
+  selectMode,
+  selectedWordIds,
+  onOpenFilterSheet,
+  onOpenSortSheet,
+  onToggleSelectMode,
+  onToggleSelectWord,
   onRename,
   onToggleFavorite,
   onCycleVocabularyType,
@@ -63,32 +59,28 @@ export function DesktopProjectDetailView({
   project: Project;
   projectId: string;
   words: Word[];
+  filteredWords: Word[];
   wordsLoaded: boolean;
   counts: { total: number; mastered: number; learning: number; newCount: number };
+  query: string;
+  onQueryChange: (value: string) => void;
+  filterActive: boolean;
+  sortActive: boolean;
+  selectMode: boolean;
+  selectedWordIds: Set<string>;
+  onOpenFilterSheet: () => void;
+  onOpenSortSheet: () => void;
+  onToggleSelectMode: () => void;
+  onToggleSelectWord: (wordId: string) => void;
   onRename: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
 }) {
-  const [filter, setFilter] = useState<'all' | WordStatus>('all');
-  const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
-  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [nowMs, setNowMs] = useState(0);
-  const q = query.trim().toLowerCase();
   const bg = desktopThumbColor(project.id);
-
-  useEffect(() => {
-    const refreshWrongAnswers = () => setWrongAnswers(getWrongAnswers());
-    refreshWrongAnswers();
-    window.addEventListener('focus', refreshWrongAnswers);
-    window.addEventListener('storage', refreshWrongAnswers);
-    return () => {
-      window.removeEventListener('focus', refreshWrongAnswers);
-      window.removeEventListener('storage', refreshWrongAnswers);
-    };
-  }, []);
 
   useEffect(() => {
     const refreshTime = () => setNowMs(Date.now());
@@ -98,39 +90,19 @@ export function DesktopProjectDetailView({
   }, []);
 
   const rows = useMemo(() => {
+    // 'order' keeps the shared filter/sort order from the sheets as-is
+    if (sortKey === 'order') {
+      return sortDir === 1 ? filteredWords : [...filteredWords].reverse();
+    }
     const order: Record<WordStatus, number> = { new: 0, review: 1, mastered: 2 };
-    const base = words.filter((word) => {
-      if (filter !== 'all' && word.status !== filter) return false;
-      if (!q) return true;
-      return word.english.toLowerCase().includes(q) || word.japanese.toLowerCase().includes(q);
-    });
-    return [...base].sort((a, b) => {
+    return [...filteredWords].sort((a, b) => {
       let result = 0;
       if (sortKey === 'en') result = a.english.localeCompare(b.english);
       else if (sortKey === 'vocabularyType') result = vocabularyTypeSortRank(a.vocabularyType) - vocabularyTypeSortRank(b.vocabularyType);
-      else if (sortKey === 'status') result = order[a.status] - order[b.status];
-      else result = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      else result = order[a.status] - order[b.status];
       return result * sortDir;
     });
-  }, [filter, q, sortDir, sortKey, words]);
-
-  const recentWrongRows = useMemo<RecentWrongRailItem[]>(() => {
-    const wordById = new Map(words.map((word) => [word.id, word]));
-    return wrongAnswers
-      .map((wrongAnswer) => {
-        const word = wordById.get(wrongAnswer.wordId);
-        if (!word) return null;
-        if (wrongAnswer.projectId && wrongAnswer.projectId !== projectId) return null;
-        return {
-          word,
-          wrongCount: wrongAnswer.wrongCount,
-          lastWrongAt: wrongAnswer.lastWrongAt,
-        };
-      })
-      .filter((item): item is RecentWrongRailItem => item !== null)
-      .sort((a, b) => b.lastWrongAt - a.lastWrongAt || b.wrongCount - a.wrongCount)
-      .slice(0, 5);
-  }, [projectId, words, wrongAnswers]);
+  }, [filteredWords, sortDir, sortKey]);
 
   const upcomingReviewRows = useMemo<UpcomingReviewRailItem[]>(() => {
     if (nowMs <= 0) return [];
@@ -217,29 +189,42 @@ export function DesktopProjectDetailView({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 7 }}>
-              {STATUS_FILTERS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={'ds-chip' + (filter === item.key ? ' active' : '')}
-                  onClick={() => setFilter(item.key)}
-                >
-                  {item.dot && <span className={'ds-sdot ' + item.dot} />}
-                  {item.label}
-                  {item.key !== 'all' && (
-                    <span className="tnum" style={{ opacity: 0.7 }}>
-                      {item.key === 'mastered' ? counts.mastered : item.key === 'review' ? counts.learning : counts.newCount}
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className={'ds-btn sm' + (filterActive ? ' dark' : '')}
+                onClick={onOpenFilterSheet}
+                aria-pressed={filterActive}
+              >
+                <Icon name="filter_list" />フィルタ
+              </button>
+              <button
+                type="button"
+                className={'ds-btn sm' + (sortActive ? ' dark' : '')}
+                onClick={onOpenSortSheet}
+                aria-pressed={sortActive}
+              >
+                <Icon name="swap_vert" />並べ替え
+              </button>
+              <button
+                type="button"
+                className={'ds-btn sm' + (selectMode ? ' dark' : '')}
+                onClick={onToggleSelectMode}
+                aria-pressed={selectMode}
+              >
+                <Icon name="check_box" />選択
+              </button>
             </div>
+            {(filterActive || query.trim()) && (
+              <span className="mono muted tnum" style={{ fontSize: 12 }}>
+                {rows.length} / {counts.total}
+              </span>
+            )}
             <div style={{ flex: 1 }} />
             <DesktopSearchBox
               placeholder="英単語・日本語を検索"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => onQueryChange(event.target.value)}
               style={{ minWidth: 240 }}
             />
           </div>
@@ -257,24 +242,36 @@ export function DesktopProjectDetailView({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((word) => (
+                {rows.map((word) => {
+                  const isChecked = selectedWordIds.has(word.id);
+                  return (
                   <tr
                     key={word.id}
-                    onClick={() => setSelectedWordId(word.id)}
-                    style={selectedWordId === word.id ? { background: 'var(--color-accent-subtle)' } : undefined}
+                    onClick={() => (selectMode ? onToggleSelectWord(word.id) : setSelectedWordId(word.id))}
+                    style={
+                      (selectMode ? isChecked : selectedWordId === word.id)
+                        ? { background: 'var(--color-accent-subtle)' }
+                        : undefined
+                    }
                   >
                     <td
                       className="star"
-                      onClick={(event) => {
+                      onClick={selectMode ? undefined : (event) => {
                         event.stopPropagation();
                         onToggleFavorite(word);
                       }}
                     >
-                      <Icon
-                        name={word.isFavorite ? 'star' : 'star_border'}
-                        filled={word.isFavorite}
-                        style={word.isFavorite ? { color: 'var(--color-warning)' } : undefined}
-                      />
+                      {selectMode ? (
+                        <span className={'ds-check' + (isChecked ? ' on' : '')} aria-hidden>
+                          {isChecked && <Icon name="check" style={{ fontSize: 15, color: '#fff' }} />}
+                        </span>
+                      ) : (
+                        <Icon
+                          name={word.isFavorite ? 'star' : 'star_border'}
+                          filled={word.isFavorite}
+                          style={word.isFavorite ? { color: 'var(--color-warning)' } : undefined}
+                        />
+                      )}
                     </td>
                     <td className="en">
                       {word.english}
@@ -292,7 +289,8 @@ export function DesktopProjectDetailView({
                     </td>
                     <td><span className={'ds-status ' + word.status}><span className={'ds-sdot c-' + word.status} />{DESKTOP_STATUS_LABEL[word.status]}</span></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {!wordsLoaded && (
@@ -312,9 +310,7 @@ export function DesktopProjectDetailView({
 
         <ReviewRail
           loading={!wordsLoaded || nowMs <= 0}
-          nowMs={nowMs}
           projectId={projectId}
-          recentWrongRows={recentWrongRows}
           upcomingReviewRows={upcomingReviewRows}
           onPick={(wordId) => setSelectedWordId(wordId)}
         />
@@ -340,48 +336,28 @@ export function DesktopProjectDetailView({
 
 function ReviewRail({
   loading,
-  nowMs,
   projectId,
-  recentWrongRows,
   upcomingReviewRows,
   onPick,
 }: {
   loading: boolean;
-  nowMs: number;
   projectId: string;
-  recentWrongRows: RecentWrongRailItem[];
   upcomingReviewRows: UpcomingReviewRailItem[];
   onPick: (wordId: string) => void;
 }) {
-  const [mode, setMode] = useState<ReviewRailMode>('wrong');
-  const list = mode === 'wrong' ? recentWrongRows : upcomingReviewRows;
   const from = encodeURIComponent(`/project/${projectId}`);
-  const quizHref = mode === 'wrong'
-    ? `/quiz/${projectId}?wrong=1&from=${from}`
-    : `/quiz/${projectId}?review=1&from=${from}`;
-  const title = mode === 'wrong' ? '最近間違えた単語' : '復習時期が近い単語';
-  const description = mode === 'wrong'
-    ? 'クイズで最近つまずいた単語。記憶が残っているうちに戻すと定着しやすくなります。'
-    : '復習期限が近い順に並べています。期限切れの単語は先頭に出ます。';
-  const cta = mode === 'wrong' ? '間違えた単語を復習' : '復習リストを開始';
+  const quizHref = `/quiz/${projectId}?review=1&from=${from}`;
 
   return (
     <aside className="ds-review-rail">
       <div className="ds-card" style={{ padding: '18px 20px' }}>
-        <div className="ds-railseg">
-          <button type="button" className={mode === 'wrong' ? 'on' : ''} onClick={() => setMode('wrong')}>
-            <Icon name="flag" />最近間違えた
-          </button>
-          <button type="button" className={mode === 'review' ? 'on' : ''} onClick={() => setMode('review')}>
-            <Icon name="hourglass_bottom" />復習時期
-          </button>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '0 2px 4px' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15 }}>復習時期が近い単語</span>
+          <span className="mono muted" style={{ fontSize: 11 }}>{upcomingReviewRows.length} 語</span>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '14px 2px 4px' }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15 }}>{title}</span>
-          <span className="mono muted" style={{ fontSize: 11 }}>{list.length} 語</span>
+        <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.6, margin: '0 2px 8px' }}>
+          復習期限が近い順に並べています。期限切れの単語は先頭に出ます。
         </div>
-        <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.6, margin: '0 2px 8px' }}>{description}</div>
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {loading ? (
@@ -389,23 +365,10 @@ function ReviewRail({
               <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 6, fontSize: 15 }} />
               読み込み中...
             </div>
-          ) : list.length === 0 ? (
+          ) : upcomingReviewRows.length === 0 ? (
             <div className="muted" style={{ padding: '22px 6px', textAlign: 'center', fontSize: 12 }}>
-              {mode === 'wrong' ? '最近間違えた単語はありません' : '復習予定の単語はありません'}
+              復習予定の単語はありません
             </div>
-          ) : mode === 'wrong' ? (
-            recentWrongRows.map((item) => (
-              <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="en">{item.word.english}</div>
-                  <div className="ja">{item.word.japanese}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="when">{formatPastLabel(item.lastWrongAt, nowMs)}</span>
-                  <span className="miss">{item.wrongCount}<span className="u">回</span></span>
-                </div>
-              </button>
-            ))
           ) : (
             upcomingReviewRows.map((item) => (
               <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
@@ -425,7 +388,7 @@ function ReviewRail({
         </div>
 
         <Link href={quizHref} className="ds-btn accent sm" style={{ width: '100%', marginTop: 14 }}>
-          <Icon name="style" />{cta}
+          <Icon name="style" />復習リストを開始
         </Link>
       </div>
     </aside>
@@ -440,15 +403,6 @@ function startOfLocalDay(timestampMs: number): number {
 
 function diffLocalDays(targetMs: number, nowMs: number): number {
   return Math.round((startOfLocalDay(targetMs) - startOfLocalDay(nowMs)) / DAY_MS);
-}
-
-function formatPastLabel(timestampMs: number, nowMs: number): string {
-  if (!Number.isFinite(timestampMs)) return '-';
-  const diffDays = diffLocalDays(timestampMs, nowMs);
-  if (diffDays === 0) return '今日';
-  if (diffDays === -1) return '昨日';
-  if (diffDays < 0) return `${Math.abs(diffDays)}日前`;
-  return '今日';
 }
 
 function formatNextReviewLabel(nextReviewMs: number, nowMs: number): string {
