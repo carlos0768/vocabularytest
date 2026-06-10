@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { MultiShotCaptureView } from '@/components/home/MultiShotCaptureView';
 import { useAuth } from '@/hooks/use-auth';
 import { processImageToBase64 } from '@/lib/image-utils';
 import { createBrowserClient } from '@/lib/supabase';
@@ -20,6 +21,7 @@ import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-
 import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
 import {
   prepareScanConfirmForNewProject,
+  saveScanConfirmProjectDraft,
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
@@ -45,7 +47,18 @@ interface ScanCaptureModalProps {
    */
   targetProjectId?: string;
   targetProjectTitle?: string;
+  /**
+   * Title for the project created from this scan (used when scanning into a
+   * new word book, e.g. when the name was entered in the create sheet).
+   */
+  newProjectTitle?: string;
   onBackgroundScanStarted?: (payload: HomeGeneratingWordbookPayload) => void;
+}
+
+interface HeldShot {
+  id: string;
+  file: File;
+  url: string;
 }
 
 type TopMode = 'vocab';
@@ -79,6 +92,7 @@ export function ScanCaptureModal({
   defaultMode,
   targetProjectId,
   targetProjectTitle,
+  newProjectTitle,
   onBackgroundScanStarted,
 }: ScanCaptureModalProps) {
   const router = useRouter();
@@ -89,8 +103,31 @@ export function ScanCaptureModal({
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
+  const [captureView, setCaptureView] = useState(false);
+  const [heldShots, setHeldShots] = useState<HeldShot[]>([]);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const heldShotsRef = useRef<HeldShot[]>(heldShots);
+  heldShotsRef.current = heldShots;
+
+  // Discard held shots and transient state whenever the modal is closed.
+  // The component stays mounted with isOpen=false, so this cannot rely on
+  // an unmount cleanup alone.
+  useEffect(() => {
+    if (isOpen) return;
+    heldShotsRef.current.forEach((shot) => URL.revokeObjectURL(shot.url));
+    setHeldShots([]);
+    setCaptureView(false);
+    setProcessing(false);
+    setProcessingLabel(null);
+    setErrorMsg(null);
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      heldShotsRef.current.forEach((shot) => URL.revokeObjectURL(shot.url));
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -119,7 +156,7 @@ export function ScanCaptureModal({
       scanModes: selectedScanModes,
       eikenLevel: selectedEikenLevel,
       targetProjectId,
-      projectTitle: targetProjectTitle,
+      projectTitle: targetProjectTitle ?? newProjectTitle,
       onProgress: setProcessingLabel,
     });
   };
@@ -170,6 +207,10 @@ export function ScanCaptureModal({
       setScanConfirmExistingProject(sessionStorage, targetProjectId);
     } else {
       prepareScanConfirmForNewProject(sessionStorage);
+      const trimmedTitle = newProjectTitle?.trim();
+      if (trimmedTitle) {
+        saveScanConfirmProjectDraft(sessionStorage, { projectName: trimmedTitle });
+      }
     }
   };
 
@@ -215,12 +256,66 @@ export function ScanCaptureModal({
     }
   };
 
-  const handleCamera = () => cameraInputRef.current?.click();
+  // Camera shots are HELD in the multi-shot tray instead of being processed
+  // immediately, so the user can keep shooting more pages or send the N
+  // shots they already have.
+  const addHeldShots = (files: readonly File[]) => {
+    if (files.length === 0) return;
+    const room = MAX_SCAN_IMAGE_COUNT - heldShots.length;
+    if (room <= 0) {
+      setErrorMsg(`一度にスキャンできるのは${MAX_SCAN_IMAGE_COUNT}枚までです`);
+      return;
+    }
+    setErrorMsg(files.length > room ? `一度にスキャンできるのは${MAX_SCAN_IMAGE_COUNT}枚までです` : null);
+    const accepted = files.slice(0, room).map((file) => ({
+      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+      file,
+      url: URL.createObjectURL(file),
+    }));
+    setHeldShots((prev) => [...prev, ...accepted]);
+  };
+
+  const removeHeldShot = (id: string) => {
+    setHeldShots((prev) => {
+      const target = prev.find((shot) => shot.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+      return prev.filter((shot) => shot.id !== id);
+    });
+  };
+
+  const handleCamera = () => {
+    setCaptureView(true);
+    cameraInputRef.current?.click();
+  };
   const handleLibrary = () => libraryInputRef.current?.click();
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = '';
-    void handleFilesSelected(files);
+    addHeldShots(files);
+  };
+  const handleLibraryInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = '';
+    if (captureView) {
+      addHeldShots(files);
+    } else {
+      void handleFilesSelected(files);
+    }
+  };
+
+  const handleCaptureClose = () => {
+    if (heldShots.length > 0 && !window.confirm('撮影した写真を破棄して戻りますか？')) return;
+    heldShots.forEach((shot) => URL.revokeObjectURL(shot.url));
+    setHeldShots([]);
+    setErrorMsg(null);
+    setCaptureView(false);
+  };
+
+  const handleCaptureConfirm = () => {
+    if (heldShots.length === 0) return;
+    void handleFilesSelected(heldShots.map((shot) => shot.file));
   };
 
   return (
@@ -238,19 +333,34 @@ export function ScanCaptureModal({
       )}
       {/* Hidden file inputs */}
       <input ref={cameraInputRef} type="file" accept="image/*,.heic,.heif" capture="environment" className="sr-only"
-        onChange={handleInputChange} />
+        onChange={handleCameraInputChange} />
       <input ref={libraryInputRef} type="file" accept="image/*,.heic,.heif" multiple className="sr-only"
-        onChange={handleInputChange} />
+        onChange={handleLibraryInputChange} />
 
       {/* Backdrop */}
       <div
         className="absolute inset-0"
         style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-        onClick={processing ? undefined : onClose}
+        onClick={processing || captureView ? undefined : onClose}
       />
 
+      {/* Multi-shot capture tray */}
+      {captureView && (
+        <MultiShotCaptureView
+          shots={heldShots}
+          maxCount={MAX_SCAN_IMAGE_COUNT}
+          processing={processing}
+          errorMsg={errorMsg}
+          onShoot={() => cameraInputRef.current?.click()}
+          onAddFromLibrary={() => libraryInputRef.current?.click()}
+          onRemove={removeHeldShot}
+          onConfirm={handleCaptureConfirm}
+          onClose={handleCaptureClose}
+        />
+      )}
+
       {/* Bottom sheet — centered, max 480px */}
-      {!processing && <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+      {!processing && !captureView && <div className="absolute bottom-0 left-0 right-0 flex justify-center">
         <div
           className="w-full animate-fade-in-up"
           style={{
@@ -441,6 +551,7 @@ export function ScanCaptureModal({
                       <circle cx="12" cy="13" r="4"/>
                     </svg>
                     <span className="text-[13px] font-bold">カメラで撮影</span>
+                    <span className="text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.65)' }}>連続撮影OK</span>
                   </div>
                 </button>
                 <button type="button" onClick={handleLibrary} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
