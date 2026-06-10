@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Icon, useToast } from '@/components/ui';
+import { DeleteConfirmModal, Icon, useToast } from '@/components/ui';
 import { SolidPanel, SolidSectionTitle } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -20,6 +20,7 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
   const { showToast } = useToast();
   const { exampleGenres, loading, saving, setExampleGenres } = useUserPreferences();
   const [inputValue, setInputValue] = useState('');
+  const [removalTarget, setRemovalTarget] = useState<string | null>(null);
 
   const busy = loading || saving;
   const atLimit = exampleGenres.length >= MAX_EXAMPLE_GENRES;
@@ -66,9 +67,11 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
     }
   };
 
-  const removeGenre = async (genre: string) => {
-    if (busy) return;
+  const confirmRemoveGenre = async () => {
+    if (busy || !removalTarget) return;
+    const genre = removalTarget;
     await saveGenres(exampleGenres.filter((item) => item !== genre));
+    setRemovalTarget(null);
   };
 
   const suggestions = SUGGESTED_EXAMPLE_GENRES.filter((genre) => !exampleGenres.includes(genre));
@@ -87,7 +90,7 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
                 type="button"
                 aria-label={`${genre}を削除`}
                 disabled={busy}
-                onClick={() => void removeGenre(genre)}
+                onClick={() => setRemovalTarget(genre)}
                 className="ml-0.5 flex h-4 w-4 items-center justify-center text-[var(--color-muted)] disabled:opacity-40"
               >
                 <Icon name="close" size={14} />
@@ -144,6 +147,15 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={removalTarget !== null}
+        onClose={() => { if (!busy) setRemovalTarget(null); }}
+        onConfirm={confirmRemoveGenre}
+        title="ジャンルを削除"
+        message={`「${removalTarget ?? ''}」を削除しますか？今後の例文生成に反映されなくなります。`}
+        isLoading={saving}
+      />
     </div>
   );
 
