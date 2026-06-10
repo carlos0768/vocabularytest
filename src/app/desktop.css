@@ -680,6 +680,20 @@
 .ds-wo-answer.correct { border-color: var(--color-accent); background: var(--color-accent-light); }
 .ds-wo-answer.wrong { border-color: var(--color-error); background: var(--color-error-light); }
 .ds-wo-answer .ph { color: var(--color-muted); font-family: var(--font-mono); font-size: 13px; align-self: center; }
+/* 文中の固定単語（デフォルト表示）。クリック不可の静的タイル */
+.ds-wo-fixed {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 18px;
+  padding: 11px 14px; border-radius: var(--radius-md);
+  border: 1px solid var(--color-border); background: var(--color-surface-secondary);
+  color: var(--color-ink); user-select: none;
+}
+/* 未入力の空欄スロット */
+.ds-wo-blank {
+  display: inline-flex; min-width: 86px; min-height: 46px;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--solid-ink); background: var(--color-surface);
+}
 .ds-wo-bank { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: 100%; max-width: 860px; }
 .ds-tile {
   font-family: var(--font-display); font-weight: 700; font-size: 18px;

@@ -6,6 +6,7 @@ import {
   generateQuizContentForWords,
   type QuizContentWordInput,
 } from '@/lib/ai/generate-quiz-content';
+import { fetchExampleGenres } from '@/lib/preferences/example-genres';
 
 interface WordInput {
   id: string;
@@ -102,8 +103,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const exampleGenres = await fetchExampleGenres(supabase, user.id);
     const results = await generateQuizContentForWords(
-      wordsToGenerate as QuizContentWordInput[]
+      wordsToGenerate as QuizContentWordInput[],
+      { genres: exampleGenres }
     );
 
     const resultsForDb = results.filter((r) => r.exampleSentence || r.partOfSpeechTags.length > 0 || r.pronunciation);

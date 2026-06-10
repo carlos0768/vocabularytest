@@ -27,6 +27,46 @@ test('parseSingleExampleResponse salvages a missing closing brace', () => {
   assert.equal(parsed.exampleSentenceJa, '授業では分かりやすい例文に頼る。');
 });
 
+test('buildSingleExamplePrompt injects genre guidance only when genres exist', () => {
+  const word: ExampleSeedWord = { id: '1', english: 'goal', japanese: 'ゴール' };
+
+  const plainPrompt = __internal.buildSingleExamplePrompt(word);
+  assert.ok(!plainPrompt.includes('ユーザの興味ジャンル'));
+  assert.ok(plainPrompt.includes('単語: "goal" (ゴール)'));
+
+  const genrePrompt = __internal.buildSingleExamplePrompt(word, ['サッカー', '映画']);
+  assert.ok(genrePrompt.includes('ユーザの興味ジャンル'));
+  assert.ok(genrePrompt.includes('サッカー、映画'));
+  assert.ok(genrePrompt.includes('単語: "goal" (ゴール)'));
+});
+
+test('generateExampleSentences forwards genres to generateSingle', async () => {
+  const words: ExampleSeedWord[] = [
+    { id: '1', english: 'alpha', japanese: 'アルファ' },
+  ];
+  const receivedGenres: Array<readonly string[] | undefined> = [];
+
+  const result = await generateExampleSentences(
+    words,
+    {},
+    {
+      genres: ['サッカー'],
+      generateSingle: async (word, _apiKeys, genres) => {
+        receivedGenres.push(genres);
+        return {
+          wordId: word.id,
+          partOfSpeechTags: ['noun'],
+          exampleSentence: 'The striker scored a dramatic goal in the final.',
+          exampleSentenceJa: 'そのストライカーは決勝で劇的なゴールを決めた。',
+        };
+      },
+    },
+  );
+
+  assert.equal(result.examples.length, 1);
+  assert.deepEqual(receivedGenres, [['サッカー']]);
+});
+
 test('generateExampleSentences reports retryRecovered and terminal failure kinds', async () => {
   const words: ExampleSeedWord[] = [
     { id: '1', english: 'alpha', japanese: 'アルファ' },
