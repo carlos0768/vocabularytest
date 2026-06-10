@@ -685,8 +685,22 @@ export default function ProjectPage() {
         project={project}
         projectId={projectId}
         words={words}
+        filteredWords={filteredWords}
         wordsLoaded={wordsLoaded}
         counts={counts}
+        query={query}
+        onQueryChange={setQuery}
+        filterActive={wordFilterActive}
+        sortActive={wordSortOrder !== 'createdAsc'}
+        selectMode={selectMode}
+        selectedWordIds={selectedWordIds}
+        onOpenFilterSheet={() => setWordShowFilterSheet(true)}
+        onOpenSortSheet={() => setWordShowSortSheet(true)}
+        onToggleSelectMode={() => {
+          if (selectMode) handleExitSelectMode();
+          else { setSelectMode(true); setSelectedWordIds(new Set()); }
+        }}
+        onToggleSelectWord={handleToggleSelectWord}
         onRename={handleOpenRename}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
@@ -906,56 +920,6 @@ export default function ProjectPage() {
         )}
       </div>
 
-      <WordFilterSheet
-        open={wordShowFilterSheet}
-        onClose={() => setWordShowFilterSheet(false)}
-        bookmark={wordFilterBookmark}
-        onBookmarkChange={setWordFilterBookmark}
-        activeness={wordFilterActiveness}
-        onActivenessChange={setWordFilterActiveness}
-        pos={wordFilterPos}
-        onPosChange={setWordFilterPos}
-        availablePartsOfSpeech={availablePartsOfSpeech}
-        hasActiveFilters={wordFilterActive}
-        onReset={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
-      />
-      <WordSortSheet
-        open={wordShowSortSheet}
-        onClose={() => setWordShowSortSheet(false)}
-        sortOrder={wordSortOrder}
-        onSortOrderChange={setWordSortOrder}
-      />
-
-      <BulkActionBar
-        open={selectMode}
-        selectedCount={selectedWordIds.size}
-        totalCount={filteredWords.length}
-        allSelected={filteredWords.length > 0 && filteredWords.every((w) => selectedWordIds.has(w.id))}
-        allFavoriteInSelection={
-          selectedWordIds.size > 0 &&
-          filteredWords.filter((w) => selectedWordIds.has(w.id)).every((w) => w.isFavorite)
-        }
-        favoriteLoading={bulkFavoriteLoading}
-        vocabularyTypeLoading={bulkVocabularyTypeLoading}
-        onCancel={handleExitSelectMode}
-        onToggleSelectAll={() => {
-          if (filteredWords.length === 0) return;
-          const allSel = filteredWords.every((w) => selectedWordIds.has(w.id));
-          setSelectedWordIds(allSel ? new Set() : new Set(filteredWords.map((w) => w.id)));
-        }}
-        onBulkFavorite={() => void handleBulkToggleFavorite()}
-        onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
-        onBulkDelete={() => setBulkDeleteModalOpen(true)}
-      />
-
-      <BulkDeleteModal
-        open={bulkDeleteModalOpen}
-        loading={bulkDeleteLoading}
-        count={selectedWordIds.size}
-        onCancel={() => { if (!bulkDeleteLoading) setBulkDeleteModalOpen(false); }}
-        onConfirm={() => void handleConfirmBulkDelete()}
-      />
-
       <ManualWordModal
         open={showManualWordModal}
         loading={manualWordSaving}
@@ -1009,6 +973,102 @@ export default function ProjectPage() {
         onConfirm={() => void handleConfirmDelete()}
       />
 
+      {selectedWord && (
+        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+            onClick={() => setSelectedWord(null)}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
+            <div
+              className="w-full overflow-y-auto"
+              style={{
+                maxWidth: 480,
+                maxHeight: '80dvh',
+                background: '#faf7f1',
+                border: '1.5px solid var(--solid-ink)',
+                borderRadius: 20,
+                boxShadow: '4px 5px 0 var(--solid-ink)',
+              }}
+            >
+              <WordDetailView
+                wordId={selectedWord.id}
+                variant="modal"
+                initialWord={selectedWord}
+                onClose={() => setSelectedWord(null)}
+                onWordUpdated={(updated) => {
+                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+                  setSelectedWord(updated);
+                }}
+                onDelete={handleOpenDeleteWord}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SingleWordDeleteModal
+        open={deleteWordTarget !== null}
+        loading={deleteWordLoading}
+        word={deleteWordTarget}
+        onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
+        onConfirm={() => void handleConfirmSingleWordDelete()}
+      />
+      </div>
+
+      {/* Shared overlays: rendered outside the lg:hidden wrapper so the
+          desktop view's filter / sort / select buttons can use them too */}
+      <WordFilterSheet
+        open={wordShowFilterSheet}
+        onClose={() => setWordShowFilterSheet(false)}
+        bookmark={wordFilterBookmark}
+        onBookmarkChange={setWordFilterBookmark}
+        activeness={wordFilterActiveness}
+        onActivenessChange={setWordFilterActiveness}
+        pos={wordFilterPos}
+        onPosChange={setWordFilterPos}
+        availablePartsOfSpeech={availablePartsOfSpeech}
+        hasActiveFilters={wordFilterActive}
+        onReset={() => { setWordFilterBookmark(false); setWordFilterActiveness('all'); setWordFilterPos(null); }}
+      />
+      <WordSortSheet
+        open={wordShowSortSheet}
+        onClose={() => setWordShowSortSheet(false)}
+        sortOrder={wordSortOrder}
+        onSortOrderChange={setWordSortOrder}
+      />
+
+      <BulkActionBar
+        open={selectMode}
+        selectedCount={selectedWordIds.size}
+        totalCount={filteredWords.length}
+        allSelected={filteredWords.length > 0 && filteredWords.every((w) => selectedWordIds.has(w.id))}
+        allFavoriteInSelection={
+          selectedWordIds.size > 0 &&
+          filteredWords.filter((w) => selectedWordIds.has(w.id)).every((w) => w.isFavorite)
+        }
+        favoriteLoading={bulkFavoriteLoading}
+        vocabularyTypeLoading={bulkVocabularyTypeLoading}
+        onCancel={handleExitSelectMode}
+        onToggleSelectAll={() => {
+          if (filteredWords.length === 0) return;
+          const allSel = filteredWords.every((w) => selectedWordIds.has(w.id));
+          setSelectedWordIds(allSel ? new Set() : new Set(filteredWords.map((w) => w.id)));
+        }}
+        onBulkFavorite={() => void handleBulkToggleFavorite()}
+        onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
+        onBulkDelete={() => setBulkDeleteModalOpen(true)}
+      />
+
+      <BulkDeleteModal
+        open={bulkDeleteModalOpen}
+        loading={bulkDeleteLoading}
+        count={selectedWordIds.size}
+        onCancel={() => { if (!bulkDeleteLoading) setBulkDeleteModalOpen(false); }}
+        onConfirm={() => void handleConfirmBulkDelete()}
+      />
+
       {renameModalOpen && (
         <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
           <button
@@ -1053,50 +1113,6 @@ export default function ProjectPage() {
           </div>
         </div>
       )}
-
-      {selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
-            <div
-              className="w-full overflow-y-auto"
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: '#faf7f1',
-                border: '1.5px solid var(--solid-ink)',
-                borderRadius: 20,
-                boxShadow: '4px 5px 0 var(--solid-ink)',
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.id}
-                variant="modal"
-                initialWord={selectedWord}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
-                  setSelectedWord(updated);
-                }}
-                onDelete={handleOpenDeleteWord}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <SingleWordDeleteModal
-        open={deleteWordTarget !== null}
-        loading={deleteWordLoading}
-        word={deleteWordTarget}
-        onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
-        onConfirm={() => void handleConfirmSingleWordDelete()}
-      />
-      </div>
     </>
   );
 }

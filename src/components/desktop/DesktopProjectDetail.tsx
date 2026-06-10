@@ -19,13 +19,6 @@ import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabula
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
-const STATUS_FILTERS: { key: 'all' | WordStatus; label: string; dot?: string }[] = [
-  { key: 'all', label: 'すべて' },
-  { key: 'mastered', label: '習得', dot: 'c-mastered' },
-  { key: 'review', label: '学習中', dot: 'c-review' },
-  { key: 'new', label: '未学習', dot: 'c-new' },
-];
-
 type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
 type ReviewRailMode = 'wrong' | 'review';
 
@@ -54,8 +47,19 @@ export function DesktopProjectDetailView({
   project,
   projectId,
   words,
+  filteredWords,
   wordsLoaded,
   counts,
+  query,
+  onQueryChange,
+  filterActive,
+  sortActive,
+  selectMode,
+  selectedWordIds,
+  onOpenFilterSheet,
+  onOpenSortSheet,
+  onToggleSelectMode,
+  onToggleSelectWord,
   onRename,
   onToggleFavorite,
   onCycleVocabularyType,
@@ -63,20 +67,28 @@ export function DesktopProjectDetailView({
   project: Project;
   projectId: string;
   words: Word[];
+  filteredWords: Word[];
   wordsLoaded: boolean;
   counts: { total: number; mastered: number; learning: number; newCount: number };
+  query: string;
+  onQueryChange: (value: string) => void;
+  filterActive: boolean;
+  sortActive: boolean;
+  selectMode: boolean;
+  selectedWordIds: Set<string>;
+  onOpenFilterSheet: () => void;
+  onOpenSortSheet: () => void;
+  onToggleSelectMode: () => void;
+  onToggleSelectWord: (wordId: string) => void;
   onRename: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
 }) {
-  const [filter, setFilter] = useState<'all' | WordStatus>('all');
-  const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [nowMs, setNowMs] = useState(0);
-  const q = query.trim().toLowerCase();
   const bg = desktopThumbColor(project.id);
 
   useEffect(() => {
@@ -98,21 +110,19 @@ export function DesktopProjectDetailView({
   }, []);
 
   const rows = useMemo(() => {
+    // 'order' keeps the shared filter/sort order from the sheets as-is
+    if (sortKey === 'order') {
+      return sortDir === 1 ? filteredWords : [...filteredWords].reverse();
+    }
     const order: Record<WordStatus, number> = { new: 0, review: 1, mastered: 2 };
-    const base = words.filter((word) => {
-      if (filter !== 'all' && word.status !== filter) return false;
-      if (!q) return true;
-      return word.english.toLowerCase().includes(q) || word.japanese.toLowerCase().includes(q);
-    });
-    return [...base].sort((a, b) => {
+    return [...filteredWords].sort((a, b) => {
       let result = 0;
       if (sortKey === 'en') result = a.english.localeCompare(b.english);
       else if (sortKey === 'vocabularyType') result = vocabularyTypeSortRank(a.vocabularyType) - vocabularyTypeSortRank(b.vocabularyType);
-      else if (sortKey === 'status') result = order[a.status] - order[b.status];
-      else result = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      else result = order[a.status] - order[b.status];
       return result * sortDir;
     });
-  }, [filter, q, sortDir, sortKey, words]);
+  }, [filteredWords, sortDir, sortKey]);
 
   const recentWrongRows = useMemo<RecentWrongRailItem[]>(() => {
     const wordById = new Map(words.map((word) => [word.id, word]));
@@ -217,29 +227,42 @@ export function DesktopProjectDetailView({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 7 }}>
-              {STATUS_FILTERS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={'ds-chip' + (filter === item.key ? ' active' : '')}
-                  onClick={() => setFilter(item.key)}
-                >
-                  {item.dot && <span className={'ds-sdot ' + item.dot} />}
-                  {item.label}
-                  {item.key !== 'all' && (
-                    <span className="tnum" style={{ opacity: 0.7 }}>
-                      {item.key === 'mastered' ? counts.mastered : item.key === 'review' ? counts.learning : counts.newCount}
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className={'ds-btn sm' + (filterActive ? ' dark' : '')}
+                onClick={onOpenFilterSheet}
+                aria-pressed={filterActive}
+              >
+                <Icon name="filter_list" />フィルタ
+              </button>
+              <button
+                type="button"
+                className={'ds-btn sm' + (sortActive ? ' dark' : '')}
+                onClick={onOpenSortSheet}
+                aria-pressed={sortActive}
+              >
+                <Icon name="swap_vert" />並べ替え
+              </button>
+              <button
+                type="button"
+                className={'ds-btn sm' + (selectMode ? ' dark' : '')}
+                onClick={onToggleSelectMode}
+                aria-pressed={selectMode}
+              >
+                <Icon name="check_box" />選択
+              </button>
             </div>
+            {(filterActive || query.trim()) && (
+              <span className="mono muted tnum" style={{ fontSize: 12 }}>
+                {rows.length} / {counts.total}
+              </span>
+            )}
             <div style={{ flex: 1 }} />
             <DesktopSearchBox
               placeholder="英単語・日本語を検索"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => onQueryChange(event.target.value)}
               style={{ minWidth: 240 }}
             />
           </div>
@@ -257,24 +280,36 @@ export function DesktopProjectDetailView({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((word) => (
+                {rows.map((word) => {
+                  const isChecked = selectedWordIds.has(word.id);
+                  return (
                   <tr
                     key={word.id}
-                    onClick={() => setSelectedWordId(word.id)}
-                    style={selectedWordId === word.id ? { background: 'var(--color-accent-subtle)' } : undefined}
+                    onClick={() => (selectMode ? onToggleSelectWord(word.id) : setSelectedWordId(word.id))}
+                    style={
+                      (selectMode ? isChecked : selectedWordId === word.id)
+                        ? { background: 'var(--color-accent-subtle)' }
+                        : undefined
+                    }
                   >
                     <td
                       className="star"
-                      onClick={(event) => {
+                      onClick={selectMode ? undefined : (event) => {
                         event.stopPropagation();
                         onToggleFavorite(word);
                       }}
                     >
-                      <Icon
-                        name={word.isFavorite ? 'star' : 'star_border'}
-                        filled={word.isFavorite}
-                        style={word.isFavorite ? { color: 'var(--color-warning)' } : undefined}
-                      />
+                      {selectMode ? (
+                        <span className={'ds-check' + (isChecked ? ' on' : '')} aria-hidden>
+                          {isChecked && <Icon name="check" style={{ fontSize: 15, color: '#fff' }} />}
+                        </span>
+                      ) : (
+                        <Icon
+                          name={word.isFavorite ? 'star' : 'star_border'}
+                          filled={word.isFavorite}
+                          style={word.isFavorite ? { color: 'var(--color-warning)' } : undefined}
+                        />
+                      )}
                     </td>
                     <td className="en">
                       {word.english}
@@ -292,7 +327,8 @@ export function DesktopProjectDetailView({
                     </td>
                     <td><span className={'ds-status ' + word.status}><span className={'ds-sdot c-' + word.status} />{DESKTOP_STATUS_LABEL[word.status]}</span></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {!wordsLoaded && (

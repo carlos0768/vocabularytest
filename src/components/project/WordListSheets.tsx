@@ -33,7 +33,10 @@ type BottomSheetShellProps = {
 function BottomSheetShell({ open, onClose, title, children, footer }: BottomSheetShellProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end" style={{ fontFamily: 'var(--font-body)' }}>
+    <div
+      className="fixed inset-0 z-[60] flex flex-col justify-end lg:items-center lg:justify-center lg:px-6"
+      style={{ fontFamily: 'var(--font-body)' }}
+    >
       <button
         type="button"
         className="absolute inset-0 cursor-default"
@@ -41,28 +44,18 @@ function BottomSheetShell({ open, onClose, title, children, footer }: BottomShee
         aria-label="閉じる"
         onClick={onClose}
       />
+      {/* Mobile: bottom sheet / Desktop (lg+): centered solid card */}
       <div
-        className="relative w-full animate-fade-in-up"
-        style={{
-          background: '#faf7f1',
-          border: '1.5px solid var(--solid-ink)',
-          borderBottomWidth: 0,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
-          maxHeight: '80vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className="relative flex max-h-[80vh] w-full animate-fade-in-up flex-col rounded-t-[20px] border-[1.5px] border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:max-w-[460px] lg:rounded-[20px] lg:border-b-[1.5px] lg:shadow-[4px_5px_0_var(--solid-ink)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex justify-center pt-3 pb-1 lg:hidden">
           <span className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[rgba(26,26,26,0.1)] px-5 pb-3 pt-1">
+        <div className="flex items-center justify-between border-b border-[rgba(26,26,26,0.1)] px-5 pb-3 pt-1 lg:pt-4">
           <span className="w-8" />
           <h2 className="font-display text-[16px] font-extrabold text-[var(--solid-ink)]">{title}</h2>
           <button
@@ -117,7 +110,7 @@ export function WordFilterSheet({
       title="フィルタ"
       footer={
         <div
-          className="flex items-center gap-2.5 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3"
+          className="flex items-center gap-2.5 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3 lg:pb-5"
           style={{ borderTop: '1px solid rgba(26,26,26,0.1)' }}
         >
           <button
