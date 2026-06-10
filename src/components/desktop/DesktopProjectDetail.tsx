@@ -19,13 +19,6 @@ import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabula
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
-const STATUS_FILTERS: { key: 'all' | WordStatus; label: string; dot?: string }[] = [
-  { key: 'all', label: 'すべて' },
-  { key: 'mastered', label: '習得', dot: 'c-mastered' },
-  { key: 'review', label: '学習中', dot: 'c-review' },
-  { key: 'new', label: '未学習', dot: 'c-new' },
-];
-
 type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
 type ReviewRailMode = 'wrong' | 'review';
 
@@ -69,7 +62,6 @@ export function DesktopProjectDetailView({
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
 }) {
-  const [filter, setFilter] = useState<'all' | WordStatus>('all');
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
@@ -100,7 +92,6 @@ export function DesktopProjectDetailView({
   const rows = useMemo(() => {
     const order: Record<WordStatus, number> = { new: 0, review: 1, mastered: 2 };
     const base = words.filter((word) => {
-      if (filter !== 'all' && word.status !== filter) return false;
       if (!q) return true;
       return word.english.toLowerCase().includes(q) || word.japanese.toLowerCase().includes(q);
     });
@@ -112,7 +103,7 @@ export function DesktopProjectDetailView({
       else result = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return result * sortDir;
     });
-  }, [filter, q, sortDir, sortKey, words]);
+  }, [q, sortDir, sortKey, words]);
 
   const recentWrongRows = useMemo<RecentWrongRailItem[]>(() => {
     const wordById = new Map(words.map((word) => [word.id, word]));
@@ -217,23 +208,10 @@ export function DesktopProjectDetailView({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 7 }}>
-              {STATUS_FILTERS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={'ds-chip' + (filter === item.key ? ' active' : '')}
-                  onClick={() => setFilter(item.key)}
-                >
-                  {item.dot && <span className={'ds-sdot ' + item.dot} />}
-                  {item.label}
-                  {item.key !== 'all' && (
-                    <span className="tnum" style={{ opacity: 0.7 }}>
-                      {item.key === 'mastered' ? counts.mastered : item.key === 'review' ? counts.learning : counts.newCount}
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="check">クイズを始める</DesktopButton>
+              <DesktopButton href={`/flashcard/${projectId}`} icon="style">カード</DesktopButton>
+              <DesktopButton href={`/scan?projectId=${encodeURIComponent(projectId)}`} icon="add">追加</DesktopButton>
             </div>
             <div style={{ flex: 1 }} />
             <DesktopSearchBox
