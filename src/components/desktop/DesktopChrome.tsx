@@ -1,31 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, type InputHTMLAttributes, type ReactNode, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { type InputHTMLAttributes, type ReactNode, useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { getStreakDays } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-type NavKey = 'home' | 'books' | 'stats' | 'shared' | 'fav' | 'wrong' | 'scan' | 'settings';
+type NavKey = 'home' | 'books' | 'stats' | 'shared' | 'fav' | 'scan' | 'settings';
 
 const NAV_ITEMS: { key: NavKey; href: string; icon: string; label: string; count?: number }[] = [
   { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
   { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'star', label: 'お気に入り', count: 21 },
-  { key: 'wrong', href: '/favorites?mode=wrong', icon: 'flag', label: '間違えた問題', count: 46 },
   { key: 'scan', href: '/scan', icon: 'photo_camera', label: 'スキャン' },
   { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
 ];
 
-function activeKeyForPath(pathname: string, favoritesMode?: string | null): NavKey {
+function activeKeyForPath(pathname: string): NavKey {
   if (pathname === '/') return 'home';
   if (pathname === '/projects' || pathname.startsWith('/project/') || pathname.startsWith('/word/')) return 'books';
   if (pathname === '/stats') return 'stats';
   if (pathname === '/shared' || pathname.startsWith('/share/')) return 'shared';
-  if (pathname === '/favorites' && favoritesMode === 'wrong') return 'wrong';
   if (pathname === '/favorites' || pathname.startsWith('/collections')) return 'fav';
   if (pathname.startsWith('/scan')) return 'scan';
   if (pathname === '/settings' || pathname.startsWith('/subscription')) return 'settings';
@@ -33,23 +31,10 @@ function activeKeyForPath(pathname: string, favoritesMode?: string | null): NavK
 }
 
 export function DesktopSidebar() {
-  return (
-    <Suspense fallback={<DesktopSidebarContent favoritesMode={null} />}>
-      <DesktopSidebarWithSearchParams />
-    </Suspense>
-  );
-}
-
-function DesktopSidebarWithSearchParams() {
-  const searchParams = useSearchParams();
-  return <DesktopSidebarContent favoritesMode={searchParams.get('mode')} />;
-}
-
-function DesktopSidebarContent({ favoritesMode }: { favoritesMode: string | null }) {
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const [streak, setStreak] = useState(0);
-  const active = activeKeyForPath(pathname, favoritesMode);
+  const active = activeKeyForPath(pathname);
   const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
   const isLoggedIn = Boolean(user);
 
