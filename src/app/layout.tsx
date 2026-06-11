@@ -7,6 +7,7 @@ import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import { StatsSync } from '@/components/StatsSync';
 import { HomeOpenLogger } from '@/components/analytics/HomeOpenLogger';
 import { PersistentAppShell } from '@/components/ui/PersistentAppShell';
+import { StatusBarCover } from '@/components/ui/StatusBarCover';
 import { GooglePublisherTagScript } from '@/components/ads/GooglePublisherTagScript';
 import {
   ADSENSE_ACCOUNT_SIGNALS_ENABLED,
@@ -131,6 +132,7 @@ export default function RootLayout({
           <ToastProvider>
             <OfflineSyncProvider>
               <PersistentAppShell>{children}</PersistentAppShell>
+              <StatusBarCover />
             </OfflineSyncProvider>
           </ToastProvider>
           <StatsSync />

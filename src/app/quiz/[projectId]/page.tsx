@@ -1570,24 +1570,20 @@ export default function QuizPage() {
               onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
               disabled={isRevealed}
               result={typeInResult}
+              variant="solid"
             />
             {!isRevealed && (
               <SolidButton variant="inverse" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
                 回答する
               </SolidButton>
             )}
-            {isRevealed && typeInResult && currentQuestion && (
+            {isRevealed && typeInResult === 'wrong' && currentQuestion && (
               <div
-                className="rounded-xl border p-3 text-center"
-                style={{
-                  borderColor: typeInResult === 'correct' ? 'var(--color-success)' : 'var(--color-error)',
-                  background: typeInResult === 'correct' ? 'rgba(61,122,78,0.08)' : 'rgba(184,72,72,0.08)',
-                }}
+                className="rounded-xl border-[1.5px] p-3 text-center"
+                style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
               >
-                <p className="text-sm font-bold text-[var(--solid-ink)]">
-                  {typeInResult === 'correct' ? '正解' : '不正解'}
-                </p>
-                <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">
+                <p className="text-sm font-bold text-white/85">正解</p>
+                <p className="mt-1 text-lg font-black text-white">
                   {isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}
                 </p>
               </div>
