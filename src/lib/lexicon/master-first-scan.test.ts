@@ -77,6 +77,100 @@ test('resolveImmediateWordsWithMasterFirst preserves source-visible japanese whi
   assert.equal(result.metrics.aiMissCount, 0);
 });
 
+test('resolveImmediateWordsWithMasterFirst prefills master example sentences by default', async () => {
+  const entryWithExample = {
+    ...MASTER_ENTRY,
+    exampleSentence: 'We conducted an experiment in the lab.',
+    exampleSentenceJa: '私たちは研究室で実験を行った。',
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '実験',
+        japaneseSource: 'scan' as const,
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+        exampleSentence: undefined as string | undefined,
+        exampleSentenceJa: undefined as string | undefined,
+      },
+    ],
+    {
+      lookupEntries: async () => [entryWithExample],
+      translateWords: async () => new Map(),
+    },
+  );
+
+  assert.equal(result.words[0]?.exampleSentence, 'We conducted an experiment in the lab.');
+  assert.equal(result.words[0]?.exampleSentenceJa, '私たちは研究室で実験を行った。');
+});
+
+test('resolveImmediateWordsWithMasterFirst skips master examples when skipMasterExamples is set', async () => {
+  const entryWithExample = {
+    ...MASTER_ENTRY,
+    exampleSentence: 'We conducted an experiment in the lab.',
+    exampleSentenceJa: '私たちは研究室で実験を行った。',
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '実験',
+        japaneseSource: 'scan' as const,
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+        exampleSentence: undefined as string | undefined,
+        exampleSentenceJa: undefined as string | undefined,
+      },
+    ],
+    {
+      lookupEntries: async () => [entryWithExample],
+      translateWords: async () => new Map(),
+    },
+    { skipMasterExamples: true },
+  );
+
+  // 例文はprefillされない（ジャンル別に都度生成させる）が、
+  // 訳語・マスター紐付けは通常通り行われる。
+  assert.equal(result.words[0]?.exampleSentence, undefined);
+  assert.equal(result.words[0]?.exampleSentenceJa, undefined);
+  assert.equal(result.words[0]?.japanese, '実験');
+  assert.equal(result.words[0]?.lexiconEntryId, MASTER_ENTRY.id);
+  assert.equal(result.metrics.masterHitCount, 1);
+});
+
+test('resolveImmediateWordsWithMasterFirst keeps scan-provided examples when skipMasterExamples is set', async () => {
+  const entryWithExample = {
+    ...MASTER_ENTRY,
+    exampleSentence: 'Master example.',
+    exampleSentenceJa: 'マスター例文。',
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '実験',
+        japaneseSource: 'scan' as const,
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+        exampleSentence: 'Scanned example.',
+        exampleSentenceJa: 'スキャン由来の例文。',
+      },
+    ],
+    {
+      lookupEntries: async () => [entryWithExample],
+      translateWords: async () => new Map(),
+    },
+    { skipMasterExamples: true },
+  );
+
+  assert.equal(result.words[0]?.exampleSentence, 'Scanned example.');
+  assert.equal(result.words[0]?.exampleSentenceJa, 'スキャン由来の例文。');
+});
+
 test('resolveImmediateWordsWithMasterFirst AI-translates only unresolved misses after master lookup', async () => {
   let batchTranslationCalls = 0;
   let singleTranslationCalls = 0;

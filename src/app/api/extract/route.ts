@@ -304,9 +304,14 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // ============================================
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
+    // ユーザの興味ジャンル（例文パーソナライズ用）。取得失敗時は空配列で続行。
+    // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
+    const exampleGenres = await fetchExampleGenres(supabase, user.id);
     const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
     const resolved = masterFirstEnabled
-      ? await resolveImmediateWords(result.data.words)
+      ? await resolveImmediateWords(result.data.words, undefined, {
+          skipMasterExamples: exampleGenres.length > 0,
+        })
       : null;
     const rollbackResult = masterFirstEnabled
       ? null
@@ -355,7 +360,6 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       const exGenStart = Date.now();
 
       try {
-        const exampleGenres = await fetchExampleGenres(supabase, user.id);
         const exampleResult = await generateExamples(wordsNeedingExamples, apiKeys, { genres: exampleGenres });
         const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
 
