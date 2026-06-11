@@ -82,8 +82,8 @@ FREE = [
          "訳語のマスター先行解決。未ヒット分は AI 翻訳にフォールバック","lib/lexicon/master-first-scan.ts (route.ts:309)"),
     Step("6","api","supa","サーバー → Supabase DB","fetchExampleGenres",
          "ユーザーの例文ジャンル設定を取得","api/extract/route.ts:358"),
-    Step("7","api","ext","サーバー → OpenAI GPT-4o-mini","例文生成",
-         "例文のない単語に同期生成","generate-example-sentences.ts (route.ts:359)"),
+    Step("7","api","ext","サーバー → Gemini 2.5 Flash","例文生成",
+         "例文のない単語に1語ずつ同期生成。設定キーは AI_CONFIG.defaults.openai だが provider は gemini（実体は Gemini）","generate-example-sentences.ts:380 (route.ts:359)"),
     Step("8","api","supa","サーバー → Supabase DB","saveExamplesToLexicon",
          "生成例文をマスターへ保存（ベストエフォート / 失敗しても続行）","route.ts:413"),
     Step("9","return","server","サーバー → クライアント","JSON レスポンス",
@@ -100,7 +100,7 @@ PRO = [
          "認証 + check_and_increment_scan RPC + ジョブ行 INSERT → { jobId } を即返す（処理完了は待たない）",
          "api/scan-jobs/create/route.ts",("jobId が返る","ret")),
     Step("4","api","ext","サーバー内 after()","processJobById()",
-         "プロセス内で直接呼出（HTTP self-fetch ではない）。Storage 取得 → Gemini 抽出 → OpenAI 例文生成 → Project/Words を Supabase 保存 → ジョブを completed に更新",
+         "プロセス内で直接呼出（HTTP self-fetch ではない）。Storage 取得 → Gemini 抽出 → Gemini 例文生成 → Project/Words を Supabase 保存 → ジョブを completed に更新",
          "create/route.ts:36–39 → process/route.ts"),
     Step("5","api","client","クライアント → 自サーバー","GET /api/scan-jobs（2秒ポーリング）",
          "Bearer トークンでジョブの status を監視","page.tsx:375"),
@@ -306,7 +306,7 @@ y += 30
 # legend
 lx = MARGIN
 leg = [("クライアント","client"),("自サーバー(Next.js API)","server"),
-       ("外部AI Gemini/OpenAI","ext"),("Supabase Auth/DB/Storage","supa")]
+       ("外部AI (Gemini 2.5 Flash)","ext"),("Supabase Auth/DB/Storage","supa")]
 f_leg = jp(11.5)
 for label, key in leg:
     bg, bd = COL[key]
@@ -328,9 +328,9 @@ y += flow_height(PRO) + 24
 # note
 nb = [MARGIN, y, MARGIN+CONTENT_W, y+78]
 sd.rounded_rectangle(nb, radius=12, fill=(255,251,233), outline=INK, width=1.4)
-note1 = "2つの違い: Free は /api/extract の 1 本のリクエスト内で Gemini・OpenAI・Supabase 呼び出しが"
+note1 = "2つの違い: Free は /api/extract の 1 本のリクエスト内で Gemini（OCR抽出・訳語・例文）と Supabase 呼び出しが"
 note2 = "すべて同期的に完結し、レスポンス本文がそのまま結果データになる。Pro は /api/scan-jobs/create が jobId だけ"
-note3 = "返して after() で非同期処理し、クライアントはポーリング + Supabase 再取得で結果を受け取る分離構造。"
+note3 = "返して after() で非同期処理し、クライアントはポーリング + Supabase 再取得で結果を受け取る分離構造。※この経路で OpenAI は呼ばれない。"
 fn = jp(12.5)
 sd.text((MARGIN+18, y+14), note1, font=fn, fill=INK)
 sd.text((MARGIN+18, y+34), note2, font=fn, fill=INK)

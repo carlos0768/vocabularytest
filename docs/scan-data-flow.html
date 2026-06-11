@@ -154,7 +154,7 @@
   <div class="legend">
     <span class="chip"><span class="dot client"></span>クライアント</span>
     <span class="chip"><span class="dot server"></span>自サーバー（Next.js API）</span>
-    <span class="chip"><span class="dot ext"></span>外部AI（Gemini / OpenAI）</span>
+    <span class="chip"><span class="dot ext"></span>外部AI（Gemini 2.5 Flash）</span>
     <span class="chip"><span class="dot supa"></span>Supabase（Auth / DB / Storage）</span>
     <span class="chip"><span class="dot" style="background:#fff;border-style:dashed;"></span>API非経由</span>
   </div>
@@ -225,9 +225,9 @@
       <div class="step api">
         <div class="num">7</div>
         <div class="card ext">
-          <div class="arrow">サーバー <span>→</span> OpenAI GPT-4o-mini <span class="ep">例文生成</span></div>
-          <p class="desc">例文のない単語に同期生成</p>
-          <p class="loc">src/lib/ai/generate-example-sentences.ts（route.ts:359）</p>
+          <div class="arrow">サーバー <span>→</span> Gemini 2.5 Flash <span class="ep">例文生成</span></div>
+          <p class="desc">例文のない単語に1語ずつ同期生成。設定キーは <code>AI_CONFIG.defaults.openai</code> だが <code>provider:'gemini'</code> なので実体は Gemini</p>
+          <p class="loc">src/lib/ai/generate-example-sentences.ts:380（route.ts:359）</p>
         </div>
       </div>
 
@@ -301,7 +301,7 @@
         <div class="num">4</div>
         <div class="card ext">
           <div class="arrow">サーバー内 <span>after()</span> <span class="ep">processJobById()</span></div>
-          <p class="desc">プロセス内で直接呼出（HTTP self-fetch ではない）。Storage取得 → Gemini抽出 → OpenAI例文生成 → Project/Words を Supabase 保存 → ジョブを completed に更新</p>
+          <p class="desc">プロセス内で直接呼出（HTTP self-fetch ではない）。Storage取得 → Gemini抽出 → Gemini例文生成 → Project/Words を Supabase 保存 → ジョブを completed に更新</p>
           <p class="loc">create/route.ts:36–39 → scan-jobs/process/route.ts</p>
         </div>
       </div>
@@ -328,8 +328,9 @@
   </div>
 
   <div class="note">
-    <b>2つの違い：</b> Free は <b>/api/extract の1本のリクエスト内で</b> Gemini・OpenAI・Supabase 呼び出しがすべて同期的に完結し、レスポンス本文がそのまま結果データになります。
+    <b>2つの違い：</b> Free は <b>/api/extract の1本のリクエスト内で</b> Gemini（OCR抽出・訳語・例文）と Supabase 呼び出しがすべて同期的に完結し、レスポンス本文がそのまま結果データになります。
     Pro は <b>/api/scan-jobs/create が jobId だけ返して after() で非同期処理</b>し、クライアントはポーリング + Supabase 再取得で結果を受け取る分離構造です。
+    <b>※ このスキャン経路で OpenAI は呼ばれません</b>（例文生成も含め全て Gemini。設定キー名 <code>openai</code> は実体 gemini）。
   </div>
 
 </div>
