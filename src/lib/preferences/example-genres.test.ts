@@ -5,6 +5,8 @@ import {
   MAX_EXAMPLE_GENRES,
   buildExampleGenreGuidance,
   fetchExampleGenres,
+  fetchExampleGenresForProUser,
+  isProSubscriber,
   normalizeExampleGenres,
 } from './example-genres';
 
@@ -107,4 +109,94 @@ test('fetchExampleGenres returns empty array when client throws', async () => {
     },
   } as never;
   assert.deepEqual(await fetchExampleGenres(supabase, 'user-1'), []);
+});
+
+type StubResult = { data: unknown; error: { message: string } | null };
+
+function createProAwareSupabaseStub(results: {
+  subscriptions: StubResult;
+  preferences: StubResult;
+}) {
+  return {
+    from(table: string) {
+      const result = table === 'subscriptions' ? results.subscriptions : results.preferences;
+      return {
+        select() {
+          return {
+            eq() {
+              return {
+                maybeSingle: async () => result,
+              };
+            },
+          };
+        },
+      };
+    },
+  } as never;
+}
+
+const ACTIVE_PRO_SUBSCRIPTION_ROW = {
+  status: 'active',
+  plan: 'pro',
+  pro_source: 'billing',
+  test_pro_expires_at: null,
+  current_period_end: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+};
+
+test('isProSubscriber returns true for an active pro subscription', async () => {
+  const supabase = createProAwareSupabaseStub({
+    subscriptions: { data: ACTIVE_PRO_SUBSCRIPTION_ROW, error: null },
+    preferences: { data: null, error: null },
+  });
+  assert.equal(await isProSubscriber(supabase, 'user-1'), true);
+});
+
+test('isProSubscriber returns false for free / missing / errored subscription rows', async () => {
+  const freeRow = createProAwareSupabaseStub({
+    subscriptions: { data: { ...ACTIVE_PRO_SUBSCRIPTION_ROW, status: 'free', plan: 'free' }, error: null },
+    preferences: { data: null, error: null },
+  });
+  assert.equal(await isProSubscriber(freeRow, 'user-1'), false);
+
+  const missingRow = createProAwareSupabaseStub({
+    subscriptions: { data: null, error: null },
+    preferences: { data: null, error: null },
+  });
+  assert.equal(await isProSubscriber(missingRow, 'user-1'), false);
+
+  const errored = createProAwareSupabaseStub({
+    subscriptions: { data: null, error: { message: 'connection refused' } },
+    preferences: { data: null, error: null },
+  });
+  assert.equal(await isProSubscriber(errored, 'user-1'), false);
+});
+
+test('isProSubscriber returns false for expired pro period', async () => {
+  const supabase = createProAwareSupabaseStub({
+    subscriptions: {
+      data: {
+        ...ACTIVE_PRO_SUBSCRIPTION_ROW,
+        current_period_end: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      },
+      error: null,
+    },
+    preferences: { data: null, error: null },
+  });
+  assert.equal(await isProSubscriber(supabase, 'user-1'), false);
+});
+
+test('fetchExampleGenresForProUser returns genres for pro users', async () => {
+  const supabase = createProAwareSupabaseStub({
+    subscriptions: { data: ACTIVE_PRO_SUBSCRIPTION_ROW, error: null },
+    preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
+  });
+  assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), ['サッカー', '映画']);
+});
+
+test('fetchExampleGenresForProUser returns empty array for non-pro users even with stored genres', async () => {
+  const supabase = createProAwareSupabaseStub({
+    subscriptions: { data: { ...ACTIVE_PRO_SUBSCRIPTION_ROW, status: 'free', plan: 'free' }, error: null },
+    preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
+  });
+  assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), []);
 });
