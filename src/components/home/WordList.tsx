@@ -204,7 +204,7 @@ function WordItem({
 
   if (isEditing) {
     return (
-      <div className="card p-4 border-2 border-[var(--color-primary)]">
+      <div className="card p-4 my-2 border-2 border-[var(--color-primary)]">
         <div className="space-y-3">
           <input
             type="text"
@@ -236,7 +236,7 @@ function WordItem({
   }
 
   return (
-    <div className="card px-3 py-3 flex items-center gap-2">
+    <div className="px-1 py-3 flex items-center gap-2">
       {onStatusChange && (
         <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
       )}
@@ -431,7 +431,7 @@ export function WordList({
 
       {/* Word list */}
       <div
-        className={`space-y-2 ${
+        className={`divide-y divide-[var(--color-border)] ${
           listMaxHeightClassName
             ? `${listMaxHeightClassName} overflow-y-auto overscroll-contain pr-1`
             : ''
