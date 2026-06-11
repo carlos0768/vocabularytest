@@ -1576,10 +1576,20 @@ export default function QuizPage() {
                 回答する
               </SolidButton>
             )}
-            {isRevealed && typeInResult === 'wrong' && currentQuestion && (
-              <div className="text-center">
-                <p className="text-sm text-[var(--color-muted)]">正解:</p>
-                <p className="text-lg font-bold text-[var(--solid-ink)]">{isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}</p>
+            {isRevealed && typeInResult && currentQuestion && (
+              <div
+                className="rounded-xl border p-3 text-center"
+                style={{
+                  borderColor: typeInResult === 'correct' ? 'var(--color-success)' : 'var(--color-error)',
+                  background: typeInResult === 'correct' ? 'rgba(61,122,78,0.08)' : 'rgba(184,72,72,0.08)',
+                }}
+              >
+                <p className="text-sm font-bold text-[var(--solid-ink)]">
+                  {typeInResult === 'correct' ? '正解' : '不正解'}
+                </p>
+                <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">
+                  {isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}
+                </p>
               </div>
             )}
           </div>
