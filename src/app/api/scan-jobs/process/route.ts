@@ -985,8 +985,11 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
       const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
       const lexiconResolutionStart = Date.now();
+      // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
       const resolvedResult = masterFirstEnabled
-        ? await resolveImmediateWords(dedupedWords)
+        ? await resolveImmediateWords(dedupedWords, undefined, {
+            skipMasterExamples: exampleGenres.length > 0,
+          })
         : null;
       const rollbackResult = masterFirstEnabled
         ? null
