@@ -903,7 +903,7 @@ export default function ProjectPage() {
         </button>
       </div>
 
-      <div className={`flex flex-col divide-y divide-[var(--color-border)] px-4 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
+      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
         {!wordsLoaded ? (
           <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -914,19 +914,21 @@ export default function ProjectPage() {
             {query ? '一致する単語がありません' : '単語がありません'}
           </div>
         ) : (
-          filteredWords.map((word) => (
-            <WordRow
-              key={word.id}
-              word={word}
-              selectMode={selectMode}
-              selected={selectedWordIds.has(word.id)}
-              onToggleSelect={() => handleToggleSelectWord(word.id)}
-              onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
-              onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
-              onToggleFavorite={() => void handleToggleFavorite(word)}
-              onSelect={() => setSelectedWord(word)}
-            />
-          ))
+          <div className="border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
+            {filteredWords.map((word) => (
+              <WordRow
+                key={word.id}
+                word={word}
+                selectMode={selectMode}
+                selected={selectedWordIds.has(word.id)}
+                onToggleSelect={() => handleToggleSelectWord(word.id)}
+                onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
+                onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
+                onToggleFavorite={() => void handleToggleFavorite(word)}
+                onSelect={() => setSelectedWord(word)}
+              />
+            ))}
+          </div>
         )}
       </div>
 
