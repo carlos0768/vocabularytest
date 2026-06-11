@@ -46,11 +46,15 @@ test('buildExampleGenreGuidance returns empty string when no genres', () => {
   assert.equal(buildExampleGenreGuidance(['', '   ']), '');
 });
 
-test('buildExampleGenreGuidance includes all genres and fallback instruction', () => {
+test('buildExampleGenreGuidance includes all genres and forceful linking instruction', () => {
   const guidance = buildExampleGenreGuidance(['サッカー', '映画']);
   assert.ok(guidance.includes('サッカー、映画'));
   assert.ok(guidance.includes('ユーザの興味ジャンル'));
-  assert.ok(guidance.includes('無理に取り入れず'));
+  // 関係が薄くても強引にジャンルと結びつける指示になっていること
+  assert.ok(guidance.includes('多少強引でも必ずジャンルと結びつけて'));
+  assert.ok(guidance.includes('汎用例文は作らない'));
+  // 旧仕様（無理に取り入れない＝汎用例文へのフォールバック）が残っていないこと
+  assert.ok(!guidance.includes('無理に取り入れず'));
 });
 
 function createSupabaseStub(result: { data: unknown; error: { message: string } | null }) {
