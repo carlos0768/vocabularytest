@@ -203,17 +203,15 @@ export function BottomNav() {
                 >
                   <div
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 21,
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
                       background: 'var(--solid-ink)',
                       color: '#fff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       border: '1.25px solid var(--solid-ink)',
-                      boxShadow: '2px 2px 0 var(--solid-ink)',
-                      marginTop: -18,
                       marginBottom: 2,
                     }}
                   >

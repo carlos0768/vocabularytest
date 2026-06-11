@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { DeleteConfirmModal, Icon, useToast } from '@/components/ui';
-import { SolidPanel, SolidSectionTitle } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import {
@@ -27,13 +26,15 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
   const atLimit = exampleGenres.length >= MAX_EXAMPLE_GENRES;
   const canEdit = isAuthenticated && isPro;
 
+  const isMobile = variant === 'mobile';
+
   const detail = !isAuthenticated
-    ? 'ログインすると好きなジャンルを保存できます'
+    ? 'ログインするとジャンルを保存できます'
     : !isPro
-    ? 'Proプラン限定: 例文をあなたの好きなジャンルに寄せて生成します'
+    ? 'Proプラン限定: 例文を好きなジャンルに寄せます'
     : exampleGenres.length > 0
     ? '例文をこのジャンルに寄せて生成します'
-    : '好きなジャンルを登録すると、例文があなた好みになります';
+    : '登録すると例文があなた好みになります';
 
   const saveGenres = async (genres: string[]) => {
     const success = await setExampleGenres(genres);
@@ -83,15 +84,21 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
   };
 
   const suggestions = SUGGESTED_EXAMPLE_GENRES.filter((genre) => !exampleGenres.includes(genre));
+  // モバイルは画面幅が限られるため候補チップを絞って要素数を抑える
+  const visibleSuggestions = isMobile ? suggestions.slice(0, 5) : suggestions;
 
   const body = (
-    <div className="px-5 py-4">
+    <div className={isMobile ? 'px-3 py-2.5' : 'px-5 py-4'}>
       {exampleGenres.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className={isMobile ? 'flex flex-wrap gap-1.5' : 'flex flex-wrap gap-2'}>
           {exampleGenres.map((genre) => (
             <span
               key={genre}
-              className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent-light,oklch(0.94_0.06_130))] px-3 py-1.5 font-display text-[13px] font-bold text-[var(--solid-ink)]"
+              className={
+                isMobile
+                  ? 'inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent-light,oklch(0.94_0.06_130))] px-2.5 py-1 font-display text-[12px] font-bold text-[var(--solid-ink)]'
+                  : 'inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent-light,oklch(0.94_0.06_130))] px-3 py-1.5 font-display text-[13px] font-bold text-[var(--solid-ink)]'
+              }
             >
               {genre}
               <button
@@ -101,7 +108,7 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
                 onClick={() => setRemovalTarget(genre)}
                 className="ml-0.5 flex h-4 w-4 items-center justify-center text-[var(--color-muted)] disabled:opacity-40"
               >
-                <Icon name="close" size={14} />
+                <Icon name="close" size={isMobile ? 13 : 14} />
               </button>
             </span>
           ))}
@@ -110,7 +117,13 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
 
       {canEdit && (
         <>
-          <div className="mt-3 flex gap-2">
+          <div
+            className={
+              isMobile
+                ? `${exampleGenres.length > 0 ? 'mt-2.5 ' : ''}flex gap-1.5`
+                : 'mt-3 flex gap-2'
+            }
+          >
             <input
               type="text"
               value={inputValue}
@@ -124,32 +137,44 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
                   void addGenre(inputValue);
                 }
               }}
-              className="min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 font-display text-[13px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50"
+              className={
+                isMobile
+                  ? 'min-w-0 flex-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 font-display text-[12px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
+                  : 'min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 font-display text-[13px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
+              }
             />
             <button
               type="button"
               onClick={() => void addGenre(inputValue)}
               disabled={busy || atLimit || !inputValue.trim()}
-              className="flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white disabled:opacity-50"
+              className={
+                isMobile
+                  ? 'flex items-center gap-0.5 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white disabled:opacity-50'
+                  : 'flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white disabled:opacity-50'
+              }
             >
-              <Icon name="add" size={16} />
+              <Icon name="add" size={isMobile ? 14 : 16} />
               追加
             </button>
           </div>
 
-          {suggestions.length > 0 && !atLimit && (
-            <div className="mt-3">
+          {visibleSuggestions.length > 0 && !atLimit && (
+            <div className={isMobile ? 'mt-2.5' : 'mt-3'}>
               <p className="font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                 候補から選ぶ
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {suggestions.map((genre) => (
+                {visibleSuggestions.map((genre) => (
                   <button
                     key={genre}
                     type="button"
                     disabled={busy}
                     onClick={() => void addGenre(genre)}
-                    className="rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1 text-[12px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40"
+                    className={
+                      isMobile
+                        ? 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
+                        : 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1 text-[12px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
+                    }
                   >
                     + {genre}
                   </button>
@@ -161,12 +186,16 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
       )}
 
       {isAuthenticated && !isPro && (
-        <div className={exampleGenres.length > 0 ? 'mt-3' : ''}>
+        <div className={exampleGenres.length > 0 ? (isMobile ? 'mt-2.5' : 'mt-3') : ''}>
           <Link
             href="/subscription"
-            className="flex items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white"
+            className={
+              isMobile
+                ? 'flex items-center justify-center gap-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white'
+                : 'flex items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white'
+            }
           >
-            <Icon name="workspace_premium" size={16} />
+            <Icon name="workspace_premium" size={isMobile ? 14 : 16} />
             Proにアップグレードして使う
           </Link>
           {exampleGenres.length > 0 && (
@@ -209,25 +238,26 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
     );
   }
 
+  // モバイルは設定ページの他セクション（SettingsRow）と同じスケールに揃える
   return (
     <section>
-      <SolidSectionTitle icon="interests" title="例文のパーソナライズ" />
-      <SolidPanel className="overflow-hidden" faceClassName="!p-0">
-        <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] px-5 py-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
+      <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">例文のパーソナライズ</div>
+      <div className="overflow-hidden rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+        <div className="flex items-center gap-2.5 border-b border-[var(--color-border-light)] px-3 py-[11px]">
+          <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)]">
             <Icon
               name="interests"
-              size={19}
+              size={16}
               className={exampleGenres.length > 0 ? 'text-[var(--color-accent)]' : 'text-[var(--solid-ink)]'}
             />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-[var(--solid-ink)]">好きなジャンル</p>
-            <p className="mt-0.5 text-xs leading-5 text-[var(--color-muted)]">{detail}</p>
+            <p className="text-[13px] font-bold text-[var(--solid-ink)]">好きなジャンル</p>
+            <p className="mt-px truncate text-[11px] leading-4 text-[var(--color-muted)]">{detail}</p>
           </div>
         </div>
         {body}
-      </SolidPanel>
+      </div>
     </section>
   );
 }
