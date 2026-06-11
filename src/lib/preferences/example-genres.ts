@@ -11,6 +11,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { isActiveProSubscription } from '@/lib/subscription/status';
+
 export const MAX_EXAMPLE_GENRES = 5;
 export const MAX_EXAMPLE_GENRE_LENGTH = 30;
 
@@ -91,4 +93,54 @@ export async function fetchExampleGenres(
     console.warn('[example-genres] Unexpected fetch error, continuing without genres:', fetchError);
     return [];
   }
+}
+
+/**
+ * ユーザがアクティブなProかどうかを判定する（ベストエフォート）。
+ * 行が無い・通信失敗時は非Pro扱いにする（ジャンル機能をフェイルクローズ）。
+ */
+export async function isProSubscriber(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('status, plan, pro_source, test_pro_expires_at, current_period_end')
+      .eq('user_id', userId)
+      .maybeSingle<{
+        status: string | null;
+        plan: string | null;
+        pro_source: string | null;
+        test_pro_expires_at: string | null;
+        current_period_end: string | null;
+      }>();
+
+    if (error || !data) return false;
+
+    return isActiveProSubscription({
+      status: data.status,
+      plan: data.plan,
+      proSource: data.pro_source,
+      testProExpiresAt: data.test_pro_expires_at,
+      currentPeriodEnd: data.current_period_end,
+    });
+  } catch (checkError) {
+    console.warn('[example-genres] Pro check failed, treating as non-Pro:', checkError);
+    return false;
+  }
+}
+
+/**
+ * ジャンル設定はPro限定機能。生成系API（スキャン・例文・クイズ）からは
+ * 必ずこちらを使う。非Pro・判定失敗時は空配列を返し、ジャンル未設定として
+ * 扱う（＝マスター例文利用＋汎用例文生成の従来挙動になる）。
+ */
+export async function fetchExampleGenresForProUser(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string[]> {
+  const isPro = await isProSubscriber(supabase, userId);
+  if (!isPro) return [];
+  return fetchExampleGenres(supabase, userId);
 }

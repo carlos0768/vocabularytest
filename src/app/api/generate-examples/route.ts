@@ -6,7 +6,7 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
-import { buildExampleGenreGuidance, fetchExampleGenres } from '@/lib/preferences/example-genres';
+import { buildExampleGenreGuidance, fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import {
   checkAndIncrementFeatureUsage,
   isAiUsageLimitsEnabled,
@@ -186,8 +186,8 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = `以下の単語リストに対して例文を生成してください：\n\n${wordListText}`;
 
-    // ユーザの興味ジャンルを例文生成プロンプトへ反映（未設定なら影響なし）
-    const exampleGenres = user ? await fetchExampleGenres(supabase, user.id) : [];
+    // ユーザの興味ジャンルを例文生成プロンプトへ反映（Pro限定。非Pro/未設定なら影響なし）
+    const exampleGenres = user ? await fetchExampleGenresForProUser(supabase, user.id) : [];
     const genreGuidance = buildExampleGenreGuidance(exampleGenres);
     const systemPrompt = genreGuidance
       ? `${EXAMPLE_GENERATION_SYSTEM_PROMPT}\n\n${genreGuidance}`
