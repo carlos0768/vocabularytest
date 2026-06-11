@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { Icon, useToast } from '@/components/ui';
-import { SolidPanel, SolidSectionTitle } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { ensureWebPushSubscription, type PushSubscriptionSetupResult } from '@/lib/notifications/push-client';
@@ -231,21 +230,23 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
     );
   }
 
+  // モバイルは設定ページの他セクション（SettingsRow）と同じスケールに揃え、
+  // OFF時は時刻リストを描画しないことで要素数を抑える
   return (
     <section>
-      <SolidSectionTitle icon="notifications" title="通知" />
-      <SolidPanel className="overflow-hidden" faceClassName="!p-0">
-        <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] px-5 py-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
+      <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">通知</div>
+      <div className="overflow-hidden rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+        <div className="flex items-center gap-2.5 px-3 py-[11px]">
+          <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)]">
             <Icon
               name="notifications"
-              size={19}
+              size={16}
               className={studyReminderEnabled ? 'text-[var(--color-accent)]' : 'text-[var(--solid-ink)]'}
             />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-[var(--solid-ink)]">学習リマインダー</p>
-            <p className="mt-0.5 text-xs leading-5 text-[var(--color-muted)]">{detail}</p>
+            <p className="text-[13px] font-bold text-[var(--solid-ink)]">学習リマインダー</p>
+            <p className="mt-px truncate text-[11px] leading-4 text-[var(--color-muted)]">{detail}</p>
           </div>
           <ToggleSwitch
             on={studyReminderEnabled}
@@ -255,36 +256,38 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
           />
         </div>
 
-        <div className={cn(!studyReminderEnabled && 'pointer-events-none opacity-45')}>
-          {sortedTimes.map((item) => (
-            <MobileReminderRow
-              key={item.id}
-              item={item}
-              disabled={busy || !studyReminderEnabled}
-              canRemove={studyReminderTimes.length > 1}
-              onTimeChange={updateTime}
-              onToggle={toggleTime}
-              onRemove={removeTime}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={() => void addTime()}
-            disabled={busy || !studyReminderEnabled || studyReminderTimes.length >= MAX_STUDY_REMINDER_TIMES}
-            className="flex w-full items-center justify-center gap-2 border-t border-dashed border-[var(--color-border)] px-5 py-3.5 font-display text-[13px] font-bold text-[var(--color-accent)] disabled:cursor-not-allowed disabled:text-[var(--color-muted)]"
-          >
-            <Icon name="add" size={18} />
-            {studyReminderTimes.length >= MAX_STUDY_REMINDER_TIMES
-              ? '通知は最大6件までです'
-              : '通知時間を追加'}
-          </button>
-        </div>
+        {studyReminderEnabled && (
+          <div className="border-t border-[var(--color-border-light)]">
+            {sortedTimes.map((item) => (
+              <MobileReminderRow
+                key={item.id}
+                item={item}
+                disabled={busy}
+                canRemove={studyReminderTimes.length > 1}
+                onTimeChange={updateTime}
+                onToggle={toggleTime}
+                onRemove={removeTime}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => void addTime()}
+              disabled={busy || studyReminderTimes.length >= MAX_STUDY_REMINDER_TIMES}
+              className="flex w-full items-center justify-center gap-1.5 border-t border-dashed border-[var(--color-border)] px-3 py-2.5 font-display text-[12px] font-bold text-[var(--color-accent)] disabled:cursor-not-allowed disabled:text-[var(--color-muted)]"
+            >
+              <Icon name="add" size={15} />
+              {studyReminderTimes.length >= MAX_STUDY_REMINDER_TIMES
+                ? '通知は最大6件までです'
+                : '通知時間を追加'}
+            </button>
+          </div>
+        )}
         {error && (
-          <p className="border-t border-[var(--color-border-light)] px-5 py-3 text-xs font-bold text-[var(--color-error)]">
+          <p className="border-t border-[var(--color-border-light)] px-3 py-2 text-[11px] font-bold text-[var(--color-error)]">
             {error}
           </p>
         )}
-      </SolidPanel>
+      </div>
     </section>
   );
 }
@@ -388,26 +391,23 @@ function MobileReminderRow({
   const period = getStudyReminderPeriod(item.time);
 
   return (
-    <div className="flex min-h-[66px] items-center gap-3 border-b border-[var(--color-border-light)] px-5 py-3 last:border-b-0">
+    <div className="flex min-h-[48px] items-center gap-2 border-b border-[var(--color-border-light)] px-3 py-2 last:border-b-0">
       <span
-        className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px]"
+        className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px]"
         style={{ background: period.tint }}
       >
-        <Icon name={period.icon} size={20} style={{ color: period.color }} />
+        <Icon name={period.icon} size={15} style={{ color: period.color }} />
       </span>
       <input
         type="time"
         value={item.time}
         disabled={disabled}
         onChange={(event) => void onTimeChange(item.id, event.target.value || item.time)}
-        className="w-[112px] rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-white px-3 py-2 font-display text-[18px] font-extrabold leading-none text-[var(--solid-ink)] outline-none focus:shadow-[0_0_0_3px_var(--color-accent-light)] disabled:opacity-70"
+        className="w-[88px] rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2 py-1.5 font-display text-[14px] font-extrabold leading-none text-[var(--solid-ink)] outline-none focus:shadow-[0_0_0_3px_var(--color-accent-light)] disabled:opacity-70"
       />
-      <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1 text-xs font-bold text-[var(--color-secondary-text)]">
-          <Icon name="schedule" size={15} />
-          {period.label}の通知
-        </p>
-      </div>
+      <p className="min-w-0 flex-1 truncate text-[11px] font-bold text-[var(--color-secondary-text)]">
+        {period.label}の通知
+      </p>
       <ToggleSwitch
         on={item.enabled}
         disabled={disabled}
@@ -419,9 +419,9 @@ function MobileReminderRow({
         aria-label={`${period.label}の通知を削除`}
         disabled={disabled || !canRemove}
         onClick={() => void onRemove(item.id)}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border-[1.5px] border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border-[1.25px] border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Icon name="delete" size={18} />
+        <Icon name="delete" size={15} />
       </button>
     </div>
   );
