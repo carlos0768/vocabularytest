@@ -98,6 +98,16 @@ export default function ProjectPage() {
   const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
+  const wordDetailOpen = selectedWord !== null;
+  useEffect(() => {
+    if (!wordDetailOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [wordDetailOpen]);
+
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
@@ -982,7 +992,7 @@ export default function ProjectPage() {
           />
           <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
             <div
-              className="w-full overflow-y-auto"
+              className="w-full overflow-y-auto overscroll-contain"
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
