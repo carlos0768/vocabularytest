@@ -48,6 +48,7 @@ import {
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
 import { useAuth } from '@/hooks/use-auth';
@@ -496,6 +497,8 @@ export default function QuizPage() {
   const learnMode = searchParams.get('learn') === '1';
   const wrongMode = searchParams.get('wrong') === '1';
   const favoritesMode = searchParams.get('favorites') === '1';
+  const reminderMode = searchParams.get('reminder') === '1';
+  const reminderPriorityParam = searchParams.get('priority');
   const collectionId = searchParams.get('collectionId');
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
@@ -504,8 +507,14 @@ export default function QuizPage() {
   });
 
   const backToProject = useCallback(() => {
+    // Reminder quizzes open in a fresh window from a push notification, so
+    // there is no history to go back to.
+    if (reminderMode) {
+      router.push('/');
+      return;
+    }
     router.back();
-  }, [router]);
+  }, [router, reminderMode]);
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -544,11 +553,13 @@ export default function QuizPage() {
 
   const restoredFromStorage = useRef(false);
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
-  const storageKey = wrongMode
-    ? 'quiz_state_wrong_answers'
-    : favoritesMode
-      ? getFavoritesQuizStorageKey(projectId)
-      : getQuizStorageKey(projectId, reviewMode, learnMode);
+  const storageKey = reminderMode
+    ? 'quiz_state_reminder'
+    : wrongMode
+      ? 'quiz_state_wrong_answers'
+      : favoritesMode
+        ? getFavoritesQuizStorageKey(projectId)
+        : getQuizStorageKey(projectId, reviewMode, learnMode);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -656,11 +667,12 @@ export default function QuizPage() {
   const generateQuestions = useCallback((words: Word[], count: number, direction: QuizDirection = 'en-to-ja'): QuizQuestion[] => {
     return generateQuizQuestions(words, count, direction, undefined, {
       allowPendingWordOrderFallback: true,
+      preserveOrder: reminderMode,
     });
-  }, []);
+  }, [reminderMode]);
 
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
-    const selected = sortWordsByPriority(words).slice(0, count);
+    const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
     const nextQuestions = generateQuestions(words, count, quizDirection);
     setQuestions(nextQuestions);
@@ -716,7 +728,7 @@ export default function QuizPage() {
         }
       }
     })();
-  }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository]);
+  }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository, reminderMode]);
 
   useEffect(() => {
     if (authLoading || userPreferencesLoading) return;
@@ -816,7 +828,7 @@ export default function QuizPage() {
             }
             sourceWords = loadedWords.filter((word) => word.isFavorite);
           }
-        } else if (reviewMode || learnMode || wrongMode) {
+        } else if (reviewMode || learnMode || wrongMode || reminderMode) {
           const userId = user ? user.id : getGuestUserId();
           let projects = await repository.getProjects(userId);
           let wordRepo = repository;
@@ -827,7 +839,10 @@ export default function QuizPage() {
             } catch { /* ignore */ }
           }
           const projectIds = projects.map((p) => p.id);
-          if (projectIds.length === 0 && !wrongMode) { backToProject(); return; }
+          if (projectIds.length === 0 && !wrongMode) {
+            if (reminderMode) { router.replace('/'); } else { backToProject(); }
+            return;
+          }
           const repoWithBulk = wordRepo as typeof repository & {
             getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
             getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
@@ -853,6 +868,12 @@ export default function QuizPage() {
               })
               .sort((a, b) => b.wrongCount - a.wrongCount || b.lastWrongAt - a.lastWrongAt)
               .map((wrongAnswer) => wordById.get(wrongAnswer.wordId) ?? buildFallbackWordFromWrongAnswer(wrongAnswer));
+          } else if (reminderMode) {
+            sourceWords = selectReminderQuizWords({
+              words: allFlat,
+              priorityIds: parseReminderPriorityIds(reminderPriorityParam),
+              wrongAnswers: getWrongAnswers(),
+            });
           } else {
             sourceWords = reviewMode
               ? getWordsDueForReview(allFlat)
@@ -870,14 +891,18 @@ export default function QuizPage() {
           sourceWords = loadedWords;
         }
 
-        if (!reviewMode && !learnMode && !wrongMode && !favoritesMode) {
+        if (!reviewMode && !learnMode && !wrongMode && !favoritesMode && !reminderMode) {
           const nonMastered = sourceWords.filter((w) => w.status !== 'mastered');
           if (nonMastered.length > 0) sourceWords = nonMastered;
         }
 
-        if (sourceWords.length === 0) { backToProject(); return; }
+        if (sourceWords.length === 0) {
+          if (reminderMode) { router.replace('/'); } else { backToProject(); }
+          return;
+        }
 
-        const prioritized = sortWordsByPriority(sourceWords);
+        // Reminder words are already ordered (notification words first).
+        const prioritized = reminderMode ? sourceWords : sortWordsByPriority(sourceWords);
         setAllWords(prioritized);
 
         const resolvedCount = Math.max(1, Math.min(questionCount ?? prioritized.length, prioritized.length, MAX_NORMAL_QUIZ_QUESTION_COUNT));
@@ -899,10 +924,10 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
 
   useEffect(() => {
-    if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || collectionId) return;
+    if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
@@ -911,11 +936,11 @@ export default function QuizPage() {
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, collectionId]);
+  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
-    if (reviewMode || learnMode || wrongMode || favoritesMode || collectionId) return;
+    if (reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
     if (questions.length === 0) return;
     if (vocabularyMergeFromLocalAppliedRef.current) return;
     vocabularyMergeFromLocalAppliedRef.current = true;
@@ -940,7 +965,7 @@ export default function QuizPage() {
       } catch { vocabularyMergeFromLocalAppliedRef.current = false; }
     })();
     return () => { cancelled = true; };
-  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, collectionId]);
+  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId]);
 
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
@@ -957,7 +982,7 @@ export default function QuizPage() {
       next[currentIndex] = isCorrect;
       return next;
     });
-    const recordProjectId = reviewMode || learnMode || favoritesMode ? word.projectId : projectId;
+    const recordProjectId = reviewMode || learnMode || favoritesMode || reminderMode ? word.projectId : projectId;
     const outcomePlan = buildQuizAnswerOutcomePlan({ word, isCorrect, recordProjectId });
     if (isCorrect) recordCorrectAnswer(false);
     else if (outcomePlan.wrongAnswer) {
@@ -1234,6 +1259,8 @@ export default function QuizPage() {
       ? currentIsWordOrder ? '未習得の単語 · 語順クイズ' : '未習得の単語 · 4択クイズ'
       : wrongMode
         ? currentIsWordOrder ? '間違えた問題 · 語順クイズ' : '間違えた問題 · 4択クイズ'
+        : reminderMode
+          ? currentIsWordOrder ? '復習リマインダー · 語順クイズ' : '復習リマインダー · 4択クイズ'
         : favoritesMode
           ? currentIsWordOrder ? '保存済み単語 · 語順クイズ' : '保存済み単語 · 4択クイズ'
       : currentIsWordOrder
