@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { DeleteConfirmModal, Icon, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,7 +16,7 @@ type ExampleGenreSettingsProps = {
 };
 
 export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSettingsProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isPro } = useAuth();
   const { showToast } = useToast();
   const { exampleGenres, loading, saving, setExampleGenres } = useUserPreferences();
   const [inputValue, setInputValue] = useState('');
@@ -23,11 +24,14 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
 
   const busy = loading || saving;
   const atLimit = exampleGenres.length >= MAX_EXAMPLE_GENRES;
+  const canEdit = isAuthenticated && isPro;
 
   const isMobile = variant === 'mobile';
 
   const detail = !isAuthenticated
     ? 'ログインするとジャンルを保存できます'
+    : !isPro
+    ? 'Proプラン限定: 例文を好きなジャンルに寄せます'
     : exampleGenres.length > 0
     ? '例文をこのジャンルに寄せて生成します'
     : '登録すると例文があなた好みになります';
@@ -44,6 +48,10 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
     if (busy) return;
     if (!isAuthenticated) {
       showToast({ type: 'warning', message: 'ジャンルを保存するにはログインしてください' });
+      return;
+    }
+    if (!isPro) {
+      showToast({ type: 'warning', message: 'ジャンル設定はProプラン限定です' });
       return;
     }
 
@@ -107,69 +115,94 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
         </div>
       )}
 
-      <div
-        className={
-          isMobile
-            ? `${exampleGenres.length > 0 ? 'mt-2.5 ' : ''}flex gap-1.5`
-            : 'mt-3 flex gap-2'
-        }
-      >
-        <input
-          type="text"
-          value={inputValue}
-          maxLength={MAX_EXAMPLE_GENRE_LENGTH}
-          disabled={busy || atLimit}
-          placeholder={atLimit ? `最大${MAX_EXAMPLE_GENRES}件まで` : '例: サッカー、映画'}
-          onChange={(event) => setInputValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              void addGenre(inputValue);
+      {canEdit && (
+        <>
+          <div
+            className={
+              isMobile
+                ? `${exampleGenres.length > 0 ? 'mt-2.5 ' : ''}flex gap-1.5`
+                : 'mt-3 flex gap-2'
             }
-          }}
-          className={
-            isMobile
-              ? 'min-w-0 flex-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 font-display text-[12px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
-              : 'min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 font-display text-[13px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
-          }
-        />
-        <button
-          type="button"
-          onClick={() => void addGenre(inputValue)}
-          disabled={busy || atLimit || !inputValue.trim()}
-          className={
-            isMobile
-              ? 'flex items-center gap-0.5 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white disabled:opacity-50'
-              : 'flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white disabled:opacity-50'
-          }
-        >
-          <Icon name="add" size={isMobile ? 14 : 16} />
-          追加
-        </button>
-      </div>
-
-      {visibleSuggestions.length > 0 && !atLimit && (
-        <div className={isMobile ? 'mt-2.5' : 'mt-3'}>
-          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-            候補から選ぶ
-          </p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {visibleSuggestions.map((genre) => (
-              <button
-                key={genre}
-                type="button"
-                disabled={busy}
-                onClick={() => void addGenre(genre)}
-                className={
-                  isMobile
-                    ? 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
-                    : 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1 text-[12px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
+          >
+            <input
+              type="text"
+              value={inputValue}
+              maxLength={MAX_EXAMPLE_GENRE_LENGTH}
+              disabled={busy || atLimit}
+              placeholder={atLimit ? `最大${MAX_EXAMPLE_GENRES}件まで` : '例: サッカー、映画'}
+              onChange={(event) => setInputValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void addGenre(inputValue);
                 }
-              >
-                + {genre}
-              </button>
-            ))}
+              }}
+              className={
+                isMobile
+                  ? 'min-w-0 flex-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 font-display text-[12px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
+                  : 'min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 font-display text-[13px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
+              }
+            />
+            <button
+              type="button"
+              onClick={() => void addGenre(inputValue)}
+              disabled={busy || atLimit || !inputValue.trim()}
+              className={
+                isMobile
+                  ? 'flex items-center gap-0.5 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white disabled:opacity-50'
+                  : 'flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white disabled:opacity-50'
+              }
+            >
+              <Icon name="add" size={isMobile ? 14 : 16} />
+              追加
+            </button>
           </div>
+
+          {visibleSuggestions.length > 0 && !atLimit && (
+            <div className={isMobile ? 'mt-2.5' : 'mt-3'}>
+              <p className="font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                候補から選ぶ
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {visibleSuggestions.map((genre) => (
+                  <button
+                    key={genre}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void addGenre(genre)}
+                    className={
+                      isMobile
+                        ? 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
+                        : 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1 text-[12px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
+                    }
+                  >
+                    + {genre}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {isAuthenticated && !isPro && (
+        <div className={exampleGenres.length > 0 ? (isMobile ? 'mt-2.5' : 'mt-3') : ''}>
+          <Link
+            href="/subscription"
+            className={
+              isMobile
+                ? 'flex items-center justify-center gap-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white'
+                : 'flex items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white'
+            }
+          >
+            <Icon name="workspace_premium" size={isMobile ? 14 : 16} />
+            Proにアップグレードして使う
+          </Link>
+          {exampleGenres.length > 0 && (
+            <p className="mt-2 text-[11px] leading-4 text-[var(--color-muted)]">
+              登録済みのジャンルは現在反映されません。削除は可能です。
+            </p>
+          )}
         </div>
       )}
 
