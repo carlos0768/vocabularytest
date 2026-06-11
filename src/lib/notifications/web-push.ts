@@ -1,6 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 import { getStudyReminderPeriod } from '@/lib/notifications/study-reminders';
+import {
+  buildStudyReminderQuizUrl,
+  formatStudyReminderBody,
+  pickStudyReminderWords,
+  type StudyReminderWordPick,
+} from '@/lib/notifications/study-reminder-words';
 
 type ScanJobPushStatus = 'completed' | 'failed' | 'warning';
 
@@ -81,15 +87,18 @@ function createPayload(params: ScanJobPushParams): string {
   });
 }
 
-function createStudyReminderPayload(params: StudyReminderPushParams): string {
+function createStudyReminderPayload(
+  params: StudyReminderPushParams,
+  wordPicks: StudyReminderWordPick[],
+): string {
   const period = getStudyReminderPeriod(params.reminderTime);
 
   return JSON.stringify({
     title: 'MERKEN: 学習リマインダー',
-    body: `${period.label}の単語復習の時間です。今日の学習を始めましょう。`,
+    body: formatStudyReminderBody(period.label, wordPicks),
     tag: `study-reminder-${params.localDateKey}-${params.reminderTime}`,
     data: {
-      url: '/',
+      url: buildStudyReminderQuizUrl(wordPicks.map((pick) => pick.id)),
       kind: 'study-reminder',
       reminderTime: params.reminderTime,
       localDateKey: params.localDateKey,
@@ -194,7 +203,13 @@ export async function sendStudyReminderPushNotifications(
   supabaseAdmin: SupabaseClient,
   params: StudyReminderPushParams,
 ): Promise<PushDeliveryResult> {
-  const payload = createStudyReminderPayload(params);
+  let wordPicks: StudyReminderWordPick[] = [];
+  try {
+    wordPicks = await pickStudyReminderWords(supabaseAdmin, params.userId);
+  } catch (error) {
+    console.error('[study-reminders] failed to pick reminder words:', error);
+  }
+  const payload = createStudyReminderPayload(params, wordPicks);
   return sendPushPayloadToUser(supabaseAdmin, params.userId, payload, {
     ttl: 900,
     urgency: 'normal',

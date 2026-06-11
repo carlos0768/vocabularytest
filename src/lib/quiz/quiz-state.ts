@@ -36,11 +36,11 @@ export function generateQuizQuestions(
   count: number,
   direction: QuizDirection = 'en-to-ja',
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
-  settings: { allowPendingWordOrderFallback?: boolean } = {},
+  settings: { allowPendingWordOrderFallback?: boolean; preserveOrder?: boolean } = {},
 ): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
 
-  for (const word of sortWordsByPriority(words)) {
+  for (const word of settings.preserveOrder ? words : sortWordsByPriority(words)) {
     if (questions.length >= count) break;
 
     if (!isActiveQuizWord(word) && isWordOrderEligible(word)) {
