@@ -970,9 +970,7 @@ export default function QuizPage() {
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
-  const typeInExpectedAnswer = isActiveVocab
-    ? stripActiveQuizAnswerSpaces(currentQuestion?.word.english ?? '')
-    : currentQuestion?.word.english ?? '';
+  const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean) => {
     playAnswerFeedbackSound(isCorrect);
@@ -1359,6 +1357,7 @@ export default function QuizPage() {
           <div style={{ width: '100%', maxWidth: 520 }}>
             <TypeInQuizField
               answer={typeInExpectedAnswer}
+              spaceAsGap={isActiveVocab}
               value={typeInAnswer}
               onChange={setTypeInAnswer}
               normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
@@ -1454,7 +1453,7 @@ export default function QuizPage() {
               </span>
               {typeInResult === 'wrong' && isMultipleChoiceQuestion(currentQuestion) && (
                 <span className="muted" style={{ fontSize: 13.5 }}>
-                  正解：<b style={{ color: 'var(--color-ink)' }}>{isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}</b>
+                  正解：<b style={{ color: 'var(--color-ink)' }}>{currentQuestion.word.english}</b>
                 </span>
               )}
               <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
@@ -1591,6 +1590,7 @@ export default function QuizPage() {
           <div className="mt-[18px] w-full space-y-4">
             <TypeInQuizField
               answer={typeInExpectedAnswer}
+              spaceAsGap={isActiveVocab}
               value={typeInAnswer}
               onChange={setTypeInAnswer}
               normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
@@ -1611,7 +1611,7 @@ export default function QuizPage() {
               >
                 <p className="text-sm font-bold text-white/85">正解</p>
                 <p className="mt-1 text-lg font-black text-white">
-                  {isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}
+                  {currentQuestion.word.english}
                 </p>
               </div>
             )}

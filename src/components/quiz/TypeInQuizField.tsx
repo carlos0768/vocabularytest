@@ -5,9 +5,18 @@ import { Icon } from '@/components/ui/Icon';
 
 export type TypeInQuizFieldResult = 'correct' | 'wrong' | null;
 
+const SPACE_RE = /[\s　]/;
+
+type Slot = { kind: 'char'; index: number } | { kind: 'gap' };
+
 export interface TypeInQuizFieldProps {
   /** Expected answer (length drives slots / underscores). */
   answer: string;
+  /**
+   * Treat spaces in `answer` as visual gaps in the underscore line instead of
+   * typeable slots (idiom/active quizzes where input is space-stripped).
+   */
+  spaceAsGap?: boolean;
   value: string;
   onChange: (value: string) => void;
   normalizeInput?: (value: string) => string;
@@ -27,6 +36,7 @@ export interface TypeInQuizFieldProps {
  */
 export function TypeInQuizField({
   answer,
+  spaceAsGap = false,
   value,
   onChange,
   normalizeInput,
@@ -36,7 +46,18 @@ export function TypeInQuizField({
   variant = 'plain',
 }: TypeInQuizFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const target = [...answer];
+  const target: string[] = [];
+  const slots: Slot[] = [];
+  for (const ch of answer) {
+    if (spaceAsGap && SPACE_RE.test(ch)) {
+      if (slots.length > 0 && slots[slots.length - 1].kind !== 'gap') {
+        slots.push({ kind: 'gap' });
+      }
+    } else {
+      slots.push({ kind: 'char', index: target.length });
+      target.push(ch);
+    }
+  }
   const typed = [...value];
   const n = target.length;
   const visibleTyped = typed.slice(0, n);
@@ -74,43 +95,40 @@ export function TypeInQuizField({
   const hintClass = 'text-[var(--color-muted)]/70 font-medium text-xl';
   const caretClass = isSolid ? 'bg-[var(--color-accent)]' : 'bg-blue-600';
 
-  const renderUnderscores = (count: number, keyPrefix: string) =>
-    Array.from({ length: count }, (_, i) => (
-      <span key={`${keyPrefix}-${i}`} className={underscoreClass}>
-        _
-      </span>
-    ));
-
   const content = (
     <div className="flex items-center justify-center min-h-[3.5rem] px-5 py-4 gap-x-1 flex-wrap text-xl select-none">
-      {visibleTyped.map((ch, i) => (
-        <span key={`typed-${i}`} className={`font-black text-xl ${typedColorClass}`}>
-          {ch}
-        </span>
-      ))}
-
-      {n > 0 && t < n && (
-        <>
-          {!disabled && (
-            <span
-              className={`inline-block w-[2px] h-[1.2em] shrink-0 self-center rounded-sm ${caretClass}`}
-              aria-hidden
-            />
-          )}
-
-          {!disabled && t === 0 && target[0] != null && target[0] !== '' && (
-            <span className={hintClass} aria-hidden>
-              {target[0].toLowerCase()}
+      {slots.map((slot, slotIndex) => {
+        if (slot.kind === 'gap') {
+          return <span key={`gap-${slotIndex}`} className="inline-block w-[0.5em] shrink-0" aria-hidden />;
+        }
+        const i = slot.index;
+        if (i < t) {
+          return (
+            <span key={`typed-${i}`} className={`font-black text-xl ${typedColorClass}`}>
+              {visibleTyped[i]}
             </span>
-          )}
-
-          {disabled
-            ? renderUnderscores(n - t, 'u-dis')
-            : t === 0
-              ? renderUnderscores(Math.max(0, n - 1), 'u-act')
-              : renderUnderscores(Math.max(0, n - t), 'u-act')}
-        </>
-      )}
+          );
+        }
+        const showCaret = !disabled && i === t;
+        const showHint = !disabled && t === 0 && i === 0 && target[0] != null && target[0] !== '';
+        return (
+          <span key={`slot-${slotIndex}`} className="inline-flex items-center">
+            {showCaret && (
+              <span
+                className={`inline-block w-[2px] h-[1.2em] shrink-0 self-center rounded-sm ${caretClass}`}
+                aria-hidden
+              />
+            )}
+            {showHint ? (
+              <span className={hintClass} aria-hidden>
+                {target[0].toLowerCase()}
+              </span>
+            ) : (
+              <span className={underscoreClass}>_</span>
+            )}
+          </span>
+        );
+      })}
 
       {isSolid && result && (
         <Icon
