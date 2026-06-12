@@ -110,12 +110,11 @@ export function ScanCapturePanel({
   const selectedScanModes = activeSubs;
   const selectedEikenLevel = selectedScanModes.includes('eiken') ? eikenLevel : null;
 
-  const toggleSubOption = (option: SubOption) => {
-    setActiveSubs((current) => {
-      if (!current.includes(option)) return [...current, option];
-      if (current.length === 1) return current;
-      return current.filter((item) => item !== option);
-    });
+  // Single-select: exactly one extraction option is active at a time
+  // (the scanModes API payload stays an array with one entry).
+  const selectSubOption = (option: SubOption) => {
+    setActiveSubs([option]);
+    if (option !== 'eiken') setEikenLevel(null);
   };
 
   const createBackgroundScanJob = async (files: readonly File[]) => {
@@ -326,10 +325,7 @@ export function ScanCapturePanel({
               <button
                 key={s.k}
                 type="button"
-                onClick={() => {
-                  toggleSubOption(s.k);
-                  if (s.k === 'eiken' && activeSubs.includes('eiken')) setEikenLevel(null);
-                }}
+                onClick={() => selectSubOption(s.k)}
                 className="flex items-start gap-2 rounded-[10px] border-[1.25px] bg-white px-3 py-2.5 text-left transition-all"
                 style={{
                   borderColor: on ? 'var(--solid-ink)' : 'var(--color-border)',
