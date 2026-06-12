@@ -12,9 +12,18 @@ import {
   normalizeStudyReminderTimes,
   type StudyReminderTime,
 } from '@/lib/notifications/study-reminders';
+import {
+  MAX_EXAMPLE_GENRES,
+  MAX_EXAMPLE_GENRE_LENGTH,
+  isProSubscriber,
+  normalizeExampleGenres,
+} from '@/lib/preferences/example-genres';
 
 const updateSchema = z.object({
   aiEnabled: z.boolean().optional(),
+  exampleGenres: z.array(z.string().trim().min(1).max(MAX_EXAMPLE_GENRE_LENGTH))
+    .max(MAX_EXAMPLE_GENRES)
+    .optional(),
   studyReminderEnabled: z.boolean().optional(),
   studyReminderTimes: z.array(z.object({
     id: z.string().trim().min(1).max(40).refine(isValidStudyReminderId),
@@ -34,6 +43,7 @@ const updateSchema = z.object({
 }).strict().refine(
   (value) =>
     value.aiEnabled !== undefined ||
+    value.exampleGenres !== undefined ||
     value.studyReminderEnabled !== undefined ||
     value.studyReminderTimes !== undefined ||
     value.studyReminderTimezone !== undefined,
@@ -42,6 +52,7 @@ const updateSchema = z.object({
 
 type PreferenceRow = {
   ai_enabled: boolean | null;
+  example_genres: unknown;
   study_reminder_enabled: boolean | null;
   study_reminder_times: unknown;
   study_reminder_timezone: string | null;
@@ -51,8 +62,9 @@ type LegacyPreferenceRow = {
   ai_enabled: boolean | null;
 };
 
-const PREFERENCE_SELECT_COLUMNS = 'ai_enabled, study_reminder_enabled, study_reminder_times, study_reminder_timezone';
+const PREFERENCE_SELECT_COLUMNS = 'ai_enabled, example_genres, study_reminder_enabled, study_reminder_times, study_reminder_timezone';
 
+// マイグレーション未適用環境向け: 新しめのカラムが無い場合は ai_enabled のみで読む
 function isMissingStudyReminderColumnError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const candidate = error as { code?: unknown; message?: unknown };
@@ -60,12 +72,14 @@ function isMissingStudyReminderColumnError(error: unknown): boolean {
   return (
     candidate.code === '42703' ||
     candidate.code === 'PGRST204' ||
-    message.includes('study_reminder_')
+    message.includes('study_reminder_') ||
+    message.includes('example_genres')
   );
 }
 
 function normalizePreferenceResponse(data: PreferenceRow | null): {
   aiEnabled: boolean | null;
+  exampleGenres: string[];
   studyReminderEnabled: boolean;
   studyReminderTimes: StudyReminderTime[];
   studyReminderTimezone: string;
@@ -74,6 +88,7 @@ function normalizePreferenceResponse(data: PreferenceRow | null): {
 
   return {
     aiEnabled: data?.ai_enabled ?? null,
+    exampleGenres: normalizeExampleGenres(data?.example_genres),
     studyReminderEnabled: data?.study_reminder_enabled ?? false,
     studyReminderTimes: data
       ? normalizeStudyReminderTimes(data.study_reminder_times)
@@ -87,6 +102,7 @@ function normalizePreferenceResponse(data: PreferenceRow | null): {
 function normalizeLegacyPreferenceResponse(data: LegacyPreferenceRow | null) {
   return normalizePreferenceResponse({
     ai_enabled: data?.ai_enabled ?? null,
+    example_genres: [],
     study_reminder_enabled: false,
     study_reminder_times: DEFAULT_STUDY_REMINDER_TIMES,
     study_reminder_timezone: DEFAULT_STUDY_REMINDER_TIMEZONE,
@@ -161,11 +177,25 @@ export async function PUT(request: NextRequest) {
       return parsed.response;
     }
 
+    const supabase = await createRouteHandlerClient(request);
+
     const updatePayload: Record<string, unknown> = {
       user_id: userId,
     };
     if (parsed.data.aiEnabled !== undefined) {
       updatePayload.ai_enabled = parsed.data.aiEnabled;
+    }
+    if (parsed.data.exampleGenres !== undefined) {
+      const normalizedGenres = normalizeExampleGenres(parsed.data.exampleGenres);
+      // ジャンル設定はPro限定。空配列（削除）は誰でも可能にし、
+      // Pro解約後でも残ったジャンルを消せるようにする。
+      if (normalizedGenres.length > 0 && !(await isProSubscriber(supabase, userId))) {
+        return NextResponse.json(
+          { error: 'ジャンル設定はProプラン限定です', code: 'PRO_REQUIRED' },
+          { status: 403 },
+        );
+      }
+      updatePayload.example_genres = normalizedGenres;
     }
     if (parsed.data.studyReminderEnabled !== undefined) {
       updatePayload.study_reminder_enabled = parsed.data.studyReminderEnabled;
@@ -177,11 +207,11 @@ export async function PUT(request: NextRequest) {
       updatePayload.study_reminder_timezone = parsed.data.studyReminderTimezone;
     }
     const updatesStudyReminders =
+      parsed.data.exampleGenres !== undefined ||
       parsed.data.studyReminderEnabled !== undefined ||
       parsed.data.studyReminderTimes !== undefined ||
       parsed.data.studyReminderTimezone !== undefined;
 
-    const supabase = await createRouteHandlerClient(request);
     const { data, error } = await supabase
       .from('user_preferences')
       .upsert(

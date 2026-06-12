@@ -25,6 +25,7 @@ import { ensureSourceLabels } from '../../../../shared/source-labels';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
+import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 
 export type { ExtractMode } from '@/lib/scan/mode-provider';
 
@@ -303,9 +304,14 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // ============================================
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
+    // ユーザの興味ジャンル（例文パーソナライズ用・Pro限定）。非Pro/取得失敗時は空配列で続行。
+    // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
+    const exampleGenres = await fetchExampleGenresForProUser(supabase, user.id);
     const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
     const resolved = masterFirstEnabled
-      ? await resolveImmediateWords(result.data.words)
+      ? await resolveImmediateWords(result.data.words, undefined, {
+          skipMasterExamples: exampleGenres.length > 0,
+        })
       : null;
     const rollbackResult = masterFirstEnabled
       ? null
@@ -354,7 +360,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       const exGenStart = Date.now();
 
       try {
-        const exampleResult = await generateExamples(wordsNeedingExamples, apiKeys);
+        const exampleResult = await generateExamples(wordsNeedingExamples, apiKeys, { genres: exampleGenres });
         const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
 
         let exIdx = 0;
@@ -387,9 +393,10 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
           elapsedMs: Date.now() - exGenStart,
         });
 
-        // Save examples to lexicon master (best-effort, non-blocking)
+        // Save examples to lexicon master (best-effort, non-blocking).
+        // ジャンル指定で個人向けに生成した例文は共有マスターには書き込まない。
         try {
-          if (resolved?.lexiconEntries && resolved.lexiconEntries.length > 0) {
+          if (exampleGenres.length === 0 && resolved?.lexiconEntries && resolved.lexiconEntries.length > 0) {
             const lexiconMap = new Map(resolved.lexiconEntries.map(le => [le.headword.toLowerCase(), le.id]));
             const lexiconUpdates = extractedWords
               .filter((w): w is typeof w & { english: string; exampleSentence: string } => {

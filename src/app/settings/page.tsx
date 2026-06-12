@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { StudyReminderSettings } from '@/components/settings/StudyReminderSettings';
+import { ExampleGenreSettings } from '@/components/settings/ExampleGenreSettings';
 import { Icon, Modal, useToast } from '@/components/ui';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -358,6 +359,10 @@ export default function SettingsPage() {
 
       <div className="px-[18px] pb-3">
         <StudyReminderSettings variant="mobile" />
+      </div>
+
+      <div className="px-[18px] pb-3">
+        <ExampleGenreSettings variant="mobile" />
       </div>
 
       {/* サポート */}

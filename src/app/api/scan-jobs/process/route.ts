@@ -68,6 +68,7 @@ import {
   type ExampleGenerationFailureKind,
   type ExampleGenerationSummary,
 } from '@/lib/ai/generate-example-sentences';
+import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import {
   enqueueWordLexiconResolutionJobs,
@@ -650,7 +651,10 @@ function dedupeExtractedWords(
   return deduped;
 }
 
-async function generateQuizContentWithRetry(words: QuizPrefillSeedWord[]): Promise<{
+async function generateQuizContentWithRetry(
+  words: QuizPrefillSeedWord[],
+  genres: readonly string[] = [],
+): Promise<{
   results: QuizContentResult[];
   failedWordIds: string[];
 }> {
@@ -663,7 +667,7 @@ async function generateQuizContentWithRetry(words: QuizPrefillSeedWord[]): Promi
 
   for (let attempt = 1; attempt <= QUIZ_PREFILL_MAX_ATTEMPTS && pending.length > 0; attempt += 1) {
     try {
-      const generated = await generateQuizContentForWords(pending);
+      const generated = await generateQuizContentForWords(pending, { genres });
       const succeededIds = new Set<string>();
 
       for (const item of generated) {
@@ -802,6 +806,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const cloudRunTimingEntries: CloudRunTimingEntry[] = [];
     return await runWithCloudRunTimingCollector(cloudRunTimingEntries, async () => {
       const apiKeys = getApiKeys();
+      // ユーザの興味ジャンル（例文パーソナライズ用・Pro限定）。非Pro/取得失敗時は空配列で続行。
+      const exampleGenres = await fetchExampleGenresForProUser(supabaseAdmin, job.user_id);
       const processingStartedAt = Date.now();
       const timing = createTimingMetrics();
 
@@ -979,8 +985,11 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
       const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
       const lexiconResolutionStart = Date.now();
+      // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
       const resolvedResult = masterFirstEnabled
-        ? await resolveImmediateWords(dedupedWords)
+        ? await resolveImmediateWords(dedupedWords, undefined, {
+            skipMasterExamples: exampleGenres.length > 0,
+          })
         : null;
       const rollbackResult = masterFirstEnabled
         ? null
@@ -1022,7 +1031,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           let exampleGenerationElapsedMs = 0;
           try {
             const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
-              generateExamples(wordsNeedingExamples, apiKeys)
+              generateExamples(wordsNeedingExamples, apiKeys, { genres: exampleGenres })
             );
             exampleGenerationSummary = exampleResult.summary;
             exampleGenerationErrors = exampleResult.errors;
@@ -1233,7 +1242,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         let exampleGenerationElapsedMs = 0;
         try {
           const exampleResult = await withCloudRunTimingPhase('exampleGeneration', () =>
-            generateExamples(wordsForExampleGen, apiKeys)
+            generateExamples(wordsForExampleGen, apiKeys, { genres: exampleGenres })
           );
           exampleGenerationSummary = exampleResult.summary;
           exampleGenerationErrors = exampleResult.errors;
@@ -1250,8 +1259,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             );
           }
 
-          // Save examples to lexicon master DB (best-effort, non-blocking)
-          if (exampleResult.examples.length > 0) {
+          // Save examples to lexicon master DB (best-effort, non-blocking).
+          // ジャンル指定で個人向けに生成した例文は共有マスターには書き込まない。
+          if (exampleResult.examples.length > 0 && exampleGenres.length === 0) {
             const examplesSnapshot = [...exampleResult.examples];
             scheduleAfter(async () => {
               try {
@@ -1341,7 +1351,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
           for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
             const { results, failedWordIds } = await withCloudRunTimingPhase('exampleGeneration', () =>
-              generateQuizContentWithRetry(batch)
+              generateQuizContentWithRetry(batch, exampleGenres)
             );
 
             if (results.length > 0) {

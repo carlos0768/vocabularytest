@@ -6,6 +6,7 @@ import {
   generateQuizContentForWords,
   type QuizContentWordInput,
 } from '@/lib/ai/generate-quiz-content';
+import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 
 interface WordInput {
   id: string;
@@ -102,8 +103,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // ジャンル反映はPro限定。非Pro/取得失敗時は空配列で通常生成。
+    const exampleGenres = await fetchExampleGenresForProUser(supabase, user.id);
     const results = await generateQuizContentForWords(
-      wordsToGenerate as QuizContentWordInput[]
+      wordsToGenerate as QuizContentWordInput[],
+      { genres: exampleGenres }
     );
 
     const resultsForDb = results.filter((r) => r.exampleSentence || r.partOfSpeechTags.length > 0 || r.pronunciation);

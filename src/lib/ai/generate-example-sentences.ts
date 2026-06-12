@@ -12,6 +12,7 @@ import { getProviderFromConfig } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { buildExampleGenreGuidance } from '@/lib/preferences/example-genres';
 
 // ---------- Types ----------
 
@@ -108,6 +109,7 @@ class ExampleGenerationError extends Error {
 type GenerateSingleDependency = (
   word: ExampleSeedWord,
   apiKeys: { gemini?: string; openai?: string },
+  genres?: readonly string[],
 ) => Promise<GeneratedExample>;
 
 function createFailureKindCounts(): Record<ExampleGenerationFailureKind, number> {
@@ -228,6 +230,7 @@ export const __internal = {
   parseSingleExampleResponse,
   classifyExampleGenerationError,
   createSummary,
+  buildSingleExamplePrompt,
 };
 
 // ---------- Core ----------
@@ -239,11 +242,12 @@ export const __internal = {
  * - 5並列で実行（速度とレート制限のバランス）
  * - 失敗した単語は1回リトライ
  * - DB保存は行わない（呼び出し側の責任）
+ * - genres を渡すと、ユーザの興味ジャンルに寄せた例文を生成する
  */
 export async function generateExampleSentences(
   words: ExampleSeedWord[],
   apiKeys: { gemini?: string; openai?: string },
-  deps: { generateSingle?: GenerateSingleDependency } = {},
+  deps: { generateSingle?: GenerateSingleDependency; genres?: readonly string[] } = {},
 ): Promise<GenerateExamplesResult> {
   const summary = createSummary(words.length);
   if (words.length === 0) {
@@ -251,6 +255,7 @@ export async function generateExampleSentences(
   }
 
   const generateSingleWord = deps.generateSingle ?? generateSingle;
+  const genres = deps.genres;
   const allExamples: GeneratedExample[] = [];
   const errors: string[] = [];
   const firstPassFailures: Array<{ word: ExampleSeedWord; reason: unknown }> = [];
@@ -259,7 +264,7 @@ export async function generateExampleSentences(
   for (let i = 0; i < words.length; i += CONCURRENCY) {
     const chunk = words.slice(i, i + CONCURRENCY);
     const results = await Promise.allSettled(
-      chunk.map(word => generateSingleWord(word, apiKeys)),
+      chunk.map(word => generateSingleWord(word, apiKeys, genres)),
     );
     for (const [index, result] of results.entries()) {
       if (result.status === 'fulfilled') {
@@ -281,7 +286,7 @@ export async function generateExampleSentences(
     for (let i = 0; i < failedWords.length; i += CONCURRENCY) {
       const chunk = failedWords.slice(i, i + CONCURRENCY);
       const results = await Promise.allSettled(
-        chunk.map(word => generateSingleWord(word, apiKeys)),
+        chunk.map(word => generateSingleWord(word, apiKeys, genres)),
       );
       for (const [index, result] of results.entries()) {
         if (result.status === 'fulfilled') {
@@ -357,17 +362,26 @@ export async function saveExamplesToLexicon(
   return { updated, errors };
 }
 
+function buildSingleExamplePrompt(
+  word: ExampleSeedWord,
+  genres?: readonly string[],
+): string {
+  const genreGuidance = buildExampleGenreGuidance(genres ?? []);
+  const systemPrompt = genreGuidance ? `${SYSTEM_PROMPT}\n\n${genreGuidance}` : SYSTEM_PROMPT;
+  const userPrompt = `単語: "${word.english}" (${word.japanese})\n\nこの単語を使った例文を生成してください。`;
+  return `${systemPrompt}\n\n${userPrompt}`;
+}
+
 async function generateSingle(
   word: ExampleSeedWord,
   apiKeys: { gemini?: string; openai?: string },
+  genres?: readonly string[],
 ): Promise<GeneratedExample> {
   const config = AI_CONFIG.defaults.openai;
   const provider = getProviderFromConfig(config, apiKeys);
 
-  const userPrompt = `単語: "${word.english}" (${word.japanese})\n\nこの単語を使った例文を生成してください。`;
-
   const aiResponse = await provider.generateText(
-    `${SYSTEM_PROMPT}\n\n${userPrompt}`,
+    buildSingleExamplePrompt(word, genres),
     {
       ...config,
       maxOutputTokens: 512,

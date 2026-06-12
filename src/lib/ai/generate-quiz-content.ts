@@ -1,6 +1,7 @@
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { buildExampleGenreGuidance } from '@/lib/preferences/example-genres';
 
 export interface QuizContentWordInput {
   id: string;
@@ -94,7 +95,10 @@ function extractJsonContent(content: string): string {
   return content;
 }
 
-export async function generateQuizContentForWords(words: QuizContentWordInput[]): Promise<QuizContentResult[]> {
+export async function generateQuizContentForWords(
+  words: QuizContentWordInput[],
+  options: { genres?: readonly string[] } = {},
+): Promise<QuizContentResult[]> {
   if (words.length === 0) {
     return [];
   }
@@ -107,7 +111,11 @@ export async function generateQuizContentForWords(words: QuizContentWordInput[])
     .map((w, i) => `${i + 1}. ID: ${w.id} / 英語: ${w.english} / 日本語（正解）: ${w.japanese}`)
     .join('\n');
 
-  const promptText = `${BATCH_DISTRACTOR_PROMPT}\n\n以下の${words.length}個の単語に対して、それぞれ誤答選択肢3つ、品詞、発音記号、例文を生成してください:\n\n${wordListText}`;
+  const genreGuidance = buildExampleGenreGuidance(options.genres ?? []);
+  const systemPrompt = genreGuidance
+    ? `${BATCH_DISTRACTOR_PROMPT}\n\n${genreGuidance}`
+    : BATCH_DISTRACTOR_PROMPT;
+  const promptText = `${systemPrompt}\n\n以下の${words.length}個の単語に対して、それぞれ誤答選択肢3つ、品詞、発音記号、例文を生成してください:\n\n${wordListText}`;
 
   const result = await provider.generateText(promptText, {
     ...config,

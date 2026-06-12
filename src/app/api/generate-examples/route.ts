@@ -6,6 +6,7 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
+import { buildExampleGenreGuidance, fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import {
   checkAndIncrementFeatureUsage,
   isAiUsageLimitsEnabled,
@@ -185,6 +186,13 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = `以下の単語リストに対して例文を生成してください：\n\n${wordListText}`;
 
+    // ユーザの興味ジャンルを例文生成プロンプトへ反映（Pro限定。非Pro/未設定なら影響なし）
+    const exampleGenres = user ? await fetchExampleGenresForProUser(supabase, user.id) : [];
+    const genreGuidance = buildExampleGenreGuidance(exampleGenres);
+    const systemPrompt = genreGuidance
+      ? `${EXAMPLE_GENERATION_SYSTEM_PROMPT}\n\n${genreGuidance}`
+      : EXAMPLE_GENERATION_SYSTEM_PROMPT;
+
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {
       return NextResponse.json(
@@ -198,7 +206,7 @@ export async function POST(request: NextRequest) {
     let aiResponse;
     try {
       aiResponse = await provider.generateText(
-        `${EXAMPLE_GENERATION_SYSTEM_PROMPT}\n\n${userPrompt}`,
+        `${systemPrompt}\n\n${userPrompt}`,
         {
           ...config,
           responseFormat: 'json',
@@ -281,8 +289,9 @@ export async function POST(request: NextRequest) {
 
     // ============================================
     // 5.5 SAVE TO LEXICON MASTER (best-effort)
+    // ジャンル指定で個人向けに生成した例文は共有マスターには書き込まない。
     // ============================================
-    if (isLoggedIn) {
+    if (isLoggedIn && exampleGenres.length === 0) {
       // Fetch lexicon_entry_id for the words we just generated examples for
       const generatedWordIds = parsedResponse.examples.map(ex => ex.wordId);
       const { data: wordsWithLexicon } = await supabase

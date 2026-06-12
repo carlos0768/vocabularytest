@@ -74,6 +74,15 @@ export interface ResolveImmediateWordsDeps {
   translateWord?: (english: string, pos: LexiconPos) => Promise<string | null>;
 }
 
+export interface ResolveImmediateWordsOptions {
+  /**
+   * trueの場合、マスター（lexicon_entries）の例文を単語へprefillしない。
+   * ジャンル指定ユーザはマスターの汎用例文を使わず、毎回ジャンル別に
+   * 例文を生成するために使う（訳語・lexiconEntryIdの解決は通常通り行う）。
+   */
+  skipMasterExamples?: boolean;
+}
+
 interface PreparedWord<T extends ImmediateWordInput> {
   original: T;
   english: string;
@@ -211,6 +220,7 @@ export async function lookupLexiconEntriesByKeys(
 export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWordInput>(
   words: T[],
   deps?: ResolveImmediateWordsDeps,
+  options?: ResolveImmediateWordsOptions,
 ): Promise<{
   words: ResolvedImmediateWord<T>[];
   lexiconEntries: LexiconEntry[];
@@ -319,10 +329,10 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
   const resolvedWords = preparedWords.map((word) => {
     const entry = word.key ? entryByKey.get(word.key) : undefined;
     const masterTranslation = normalizeUsableJapanese(entry?.translationJa);
-    const masterExampleSentence = typeof entry?.exampleSentence === 'string'
+    const masterExampleSentence = !options?.skipMasterExamples && typeof entry?.exampleSentence === 'string'
       ? entry.exampleSentence.trim()
       : '';
-    const masterExampleSentenceJa = typeof entry?.exampleSentenceJa === 'string'
+    const masterExampleSentenceJa = !options?.skipMasterExamples && typeof entry?.exampleSentenceJa === 'string'
       ? entry.exampleSentenceJa.trim()
       : '';
     const preferredJapanese = word.key ? preferredJapaneseByKey.get(word.key) : undefined;

@@ -98,6 +98,16 @@ export default function ProjectPage() {
   const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
+  const wordDetailOpen = selectedWord !== null;
+  useEffect(() => {
+    if (!wordDetailOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [wordDetailOpen]);
+
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
@@ -893,7 +903,7 @@ export default function ProjectPage() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-2 px-4 pb-[160px]">
+      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
         {!wordsLoaded ? (
           <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -904,19 +914,21 @@ export default function ProjectPage() {
             {query ? '一致する単語がありません' : '単語がありません'}
           </div>
         ) : (
-          filteredWords.map((word) => (
-            <WordRow
-              key={word.id}
-              word={word}
-              selectMode={selectMode}
-              selected={selectedWordIds.has(word.id)}
-              onToggleSelect={() => handleToggleSelectWord(word.id)}
-              onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
-              onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
-              onToggleFavorite={() => void handleToggleFavorite(word)}
-              onSelect={() => setSelectedWord(word)}
-            />
-          ))
+          <div className="-mx-4 border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
+            {filteredWords.map((word) => (
+              <WordRow
+                key={word.id}
+                word={word}
+                selectMode={selectMode}
+                selected={selectedWordIds.has(word.id)}
+                onToggleSelect={() => handleToggleSelectWord(word.id)}
+                onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
+                onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
+                onToggleFavorite={() => void handleToggleFavorite(word)}
+                onSelect={() => setSelectedWord(word)}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -982,7 +994,7 @@ export default function ProjectPage() {
           />
           <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
             <div
-              className="w-full overflow-y-auto"
+              className="w-full overflow-y-auto overscroll-contain"
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
@@ -1555,68 +1567,59 @@ function WordRow({
   onSelect: () => void;
 }) {
   const pos = word.partOfSpeechTags?.[0] ?? null;
-  const cardClasses = selectMode
-    ? `relative rounded-xl border-[1.25px] bg-white px-[13px] py-2 transition-colors ${
-        selected ? 'border-[var(--solid-ink)] bg-[rgba(19,127,236,0.06)]' : 'border-[var(--solid-ink)]'
-      }`
-    : 'relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-2';
 
   if (selectMode) {
     return (
-      <div className="relative">
-        <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
-        <button
-          type="button"
-          onClick={onToggleSelect}
-          aria-pressed={selected}
-          className={`${cardClasses} block w-full text-left transition-all duration-100 active:translate-x-px active:translate-y-px`}
-        >
-          <div className="flex items-center gap-2.5">
-            <SelectCheckbox checked={selected} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
-              <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
-                {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-                <span className="truncate">{word.japanese}</span>
-              </div>
-            </div>
-            <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
-            <BookmarkBadge active={word.isFavorite} />
-          </div>
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative">
-      <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
-      <div className={cardClasses}>
+      <button
+        type="button"
+        onClick={onToggleSelect}
+        aria-pressed={selected}
+        className={`block w-full px-5 py-2.5 text-left transition-colors ${
+          selected ? 'bg-[rgba(19,127,236,0.06)]' : ''
+        }`}
+      >
         <div className="flex items-center gap-2.5">
-          <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
-
-          <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
+          <SelectCheckbox checked={selected} size={26} />
+          <div className="min-w-0 flex-1">
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
               {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
               <span className="truncate">{word.japanese}</span>
             </div>
-          </button>
-
-          <VocabularyTypeButton
-            vocabularyType={word.vocabularyType}
-            onClick={onCycleVocabularyType}
-            className="shrink-0"
-          />
-          <button
-            type="button"
-            onClick={onToggleFavorite}
-            className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center text-[var(--color-accent)]"
-            aria-label="お気に入りを切り替え"
-          >
-            <Icon name="bookmark" size={22} filled={word.isFavorite} />
-          </button>
+          </div>
+          <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
+          <BookmarkBadge active={word.isFavorite} />
         </div>
+      </button>
+    );
+  }
+
+  return (
+    <div className="px-5 py-2.5">
+      <div className="flex items-center gap-2.5">
+        <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
+
+        <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
+          <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+          <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
+            {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+            <span className="truncate">{word.japanese}</span>
+          </div>
+        </button>
+
+        <VocabularyTypeButton
+          vocabularyType={word.vocabularyType}
+          onClick={onCycleVocabularyType}
+          className="shrink-0"
+        />
+        <button
+          type="button"
+          onClick={onToggleFavorite}
+          className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center text-[var(--color-accent)]"
+          aria-label="お気に入りを切り替え"
+        >
+          <Icon name="bookmark" size={22} filled={word.isFavorite} />
+        </button>
       </div>
     </div>
   );
@@ -1659,17 +1662,18 @@ function BookmarkBadge({ active }: { active: boolean }) {
   );
 }
 
-function SelectCheckbox({ checked }: { checked: boolean }) {
+function SelectCheckbox({ checked, size = 20 }: { checked: boolean; size?: number }) {
   return (
     <span
-      className={`inline-flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
+      className={`inline-flex shrink-0 items-center justify-center border-[1.5px] transition-colors ${
         checked
           ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
           : 'border-[var(--solid-ink)] bg-white text-transparent'
       }`}
+      style={{ width: size, height: size, borderRadius: size * 0.25 }}
       aria-hidden
     >
-      {checked && <Icon name="check" size={13} />}
+      {checked && <Icon name="check" size={Math.round(size * 0.65)} />}
     </span>
   );
 }

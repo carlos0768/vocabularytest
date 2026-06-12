@@ -48,6 +48,7 @@ import {
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
 import { useAuth } from '@/hooks/use-auth';
@@ -273,6 +274,16 @@ function DSDesktopWordOrderPanel({
   const answerStateClass = isRevealed ? (result === 'correct' ? ' correct' : ' wrong') : '';
   const answerIsFull = selectedTokens.length >= question.answerTokens.length;
   const example = getWordOrderExample(question);
+  // モバイル版と同様に、文中の固定単語（デフォルト表示）と空欄を並べて表示する
+  const sentenceItems = question.sentenceTokens.map((token, index) => ({
+    token,
+    index,
+    answerIndex: token === WORD_ORDER_BLANK_TOKEN
+      ? question.sentenceTokens
+        .slice(0, index + 1)
+        .filter((item) => item === WORD_ORDER_BLANK_TOKEN).length - 1
+      : null,
+  }));
 
   return (
     <div className="ds-word-order-stage">
@@ -283,24 +294,39 @@ function DSDesktopWordOrderPanel({
       </div>
 
       <div className={`ds-wo-answer${answerStateClass}`}>
-        {selectedTokens.length === 0 && <span className="ph">ここに単語が並びます</span>}
-        {selectedTokens.map((token, index) => (
-          <button
-            key={`${token}-${index}`}
-            type="button"
-            className="ds-tile in-answer"
-            onClick={() => onRemoveToken(index)}
-            disabled={isRevealed}
-          >
-            {token}
-            {!isRevealed && (
-              <Icon
-                name="close"
-                style={{ fontSize: 14, marginLeft: 6, verticalAlign: '-2px', opacity: 0.7 }}
-              />
-            )}
-          </button>
-        ))}
+        {sentenceItems.map(({ token, index, answerIndex }) => {
+          if (token !== WORD_ORDER_BLANK_TOKEN) {
+            return (
+              <span key={`${token}-${index}`} className="ds-wo-fixed">
+                {token}
+              </span>
+            );
+          }
+
+          const selected = answerIndex === null ? undefined : selectedTokens[answerIndex];
+
+          if (!selected) {
+            return <span key={`blank-${index}`} className="ds-wo-blank" aria-label="空欄" />;
+          }
+
+          return (
+            <button
+              key={`blank-${index}`}
+              type="button"
+              className="ds-tile in-answer"
+              onClick={() => answerIndex !== null && onRemoveToken(answerIndex)}
+              disabled={isRevealed}
+            >
+              {selected}
+              {!isRevealed && (
+                <Icon
+                  name="close"
+                  style={{ fontSize: 14, marginLeft: 6, verticalAlign: '-2px', opacity: 0.7 }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="ds-wo-bank">
@@ -471,6 +497,8 @@ export default function QuizPage() {
   const learnMode = searchParams.get('learn') === '1';
   const wrongMode = searchParams.get('wrong') === '1';
   const favoritesMode = searchParams.get('favorites') === '1';
+  const reminderMode = searchParams.get('reminder') === '1';
+  const reminderPriorityParam = searchParams.get('priority');
   const collectionId = searchParams.get('collectionId');
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
@@ -479,8 +507,14 @@ export default function QuizPage() {
   });
 
   const backToProject = useCallback(() => {
+    // Reminder quizzes open in a fresh window from a push notification, so
+    // there is no history to go back to.
+    if (reminderMode) {
+      router.push('/');
+      return;
+    }
     router.back();
-  }, [router]);
+  }, [router, reminderMode]);
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -519,11 +553,13 @@ export default function QuizPage() {
 
   const restoredFromStorage = useRef(false);
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
-  const storageKey = wrongMode
-    ? 'quiz_state_wrong_answers'
-    : favoritesMode
-      ? getFavoritesQuizStorageKey(projectId)
-      : getQuizStorageKey(projectId, reviewMode, learnMode);
+  const storageKey = reminderMode
+    ? 'quiz_state_reminder'
+    : wrongMode
+      ? 'quiz_state_wrong_answers'
+      : favoritesMode
+        ? getFavoritesQuizStorageKey(projectId)
+        : getQuizStorageKey(projectId, reviewMode, learnMode);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -631,11 +667,12 @@ export default function QuizPage() {
   const generateQuestions = useCallback((words: Word[], count: number, direction: QuizDirection = 'en-to-ja'): QuizQuestion[] => {
     return generateQuizQuestions(words, count, direction, undefined, {
       allowPendingWordOrderFallback: true,
+      preserveOrder: reminderMode,
     });
-  }, []);
+  }, [reminderMode]);
 
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
-    const selected = sortWordsByPriority(words).slice(0, count);
+    const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
     const nextQuestions = generateQuestions(words, count, quizDirection);
     setQuestions(nextQuestions);
@@ -691,7 +728,7 @@ export default function QuizPage() {
         }
       }
     })();
-  }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository]);
+  }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository, reminderMode]);
 
   useEffect(() => {
     if (authLoading || userPreferencesLoading) return;
@@ -791,7 +828,7 @@ export default function QuizPage() {
             }
             sourceWords = loadedWords.filter((word) => word.isFavorite);
           }
-        } else if (reviewMode || learnMode || wrongMode) {
+        } else if (reviewMode || learnMode || wrongMode || reminderMode) {
           const userId = user ? user.id : getGuestUserId();
           let projects = await repository.getProjects(userId);
           let wordRepo = repository;
@@ -802,7 +839,10 @@ export default function QuizPage() {
             } catch { /* ignore */ }
           }
           const projectIds = projects.map((p) => p.id);
-          if (projectIds.length === 0 && !wrongMode) { backToProject(); return; }
+          if (projectIds.length === 0 && !wrongMode) {
+            if (reminderMode) { router.replace('/'); } else { backToProject(); }
+            return;
+          }
           const repoWithBulk = wordRepo as typeof repository & {
             getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
             getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
@@ -828,6 +868,12 @@ export default function QuizPage() {
               })
               .sort((a, b) => b.wrongCount - a.wrongCount || b.lastWrongAt - a.lastWrongAt)
               .map((wrongAnswer) => wordById.get(wrongAnswer.wordId) ?? buildFallbackWordFromWrongAnswer(wrongAnswer));
+          } else if (reminderMode) {
+            sourceWords = selectReminderQuizWords({
+              words: allFlat,
+              priorityIds: parseReminderPriorityIds(reminderPriorityParam),
+              wrongAnswers: getWrongAnswers(),
+            });
           } else {
             sourceWords = reviewMode
               ? getWordsDueForReview(allFlat)
@@ -845,14 +891,18 @@ export default function QuizPage() {
           sourceWords = loadedWords;
         }
 
-        if (!reviewMode && !learnMode && !wrongMode && !favoritesMode) {
+        if (!reviewMode && !learnMode && !wrongMode && !favoritesMode && !reminderMode) {
           const nonMastered = sourceWords.filter((w) => w.status !== 'mastered');
           if (nonMastered.length > 0) sourceWords = nonMastered;
         }
 
-        if (sourceWords.length === 0) { backToProject(); return; }
+        if (sourceWords.length === 0) {
+          if (reminderMode) { router.replace('/'); } else { backToProject(); }
+          return;
+        }
 
-        const prioritized = sortWordsByPriority(sourceWords);
+        // Reminder words are already ordered (notification words first).
+        const prioritized = reminderMode ? sourceWords : sortWordsByPriority(sourceWords);
         setAllWords(prioritized);
 
         const resolvedCount = Math.max(1, Math.min(questionCount ?? prioritized.length, prioritized.length, MAX_NORMAL_QUIZ_QUESTION_COUNT));
@@ -874,10 +924,10 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, collectionId, backToProject, user, isPro, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
 
   useEffect(() => {
-    if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || collectionId) return;
+    if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
@@ -886,11 +936,11 @@ export default function QuizPage() {
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, collectionId]);
+  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
-    if (reviewMode || learnMode || wrongMode || favoritesMode || collectionId) return;
+    if (reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
     if (questions.length === 0) return;
     if (vocabularyMergeFromLocalAppliedRef.current) return;
     vocabularyMergeFromLocalAppliedRef.current = true;
@@ -915,14 +965,12 @@ export default function QuizPage() {
       } catch { vocabularyMergeFromLocalAppliedRef.current = false; }
     })();
     return () => { cancelled = true; };
-  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, collectionId]);
+  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId]);
 
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
-  const typeInExpectedAnswer = isActiveVocab
-    ? stripActiveQuizAnswerSpaces(currentQuestion?.word.english ?? '')
-    : currentQuestion?.word.english ?? '';
+  const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean) => {
     playAnswerFeedbackSound(isCorrect);
@@ -932,7 +980,7 @@ export default function QuizPage() {
       next[currentIndex] = isCorrect;
       return next;
     });
-    const recordProjectId = reviewMode || learnMode || favoritesMode ? word.projectId : projectId;
+    const recordProjectId = reviewMode || learnMode || favoritesMode || reminderMode ? word.projectId : projectId;
     const outcomePlan = buildQuizAnswerOutcomePlan({ word, isCorrect, recordProjectId });
     if (isCorrect) recordCorrectAnswer(false);
     else if (outcomePlan.wrongAnswer) {
@@ -1209,6 +1257,8 @@ export default function QuizPage() {
       ? currentIsWordOrder ? '未習得の単語 · 語順クイズ' : '未習得の単語 · 4択クイズ'
       : wrongMode
         ? currentIsWordOrder ? '間違えた問題 · 語順クイズ' : '間違えた問題 · 4択クイズ'
+        : reminderMode
+          ? currentIsWordOrder ? '復習リマインダー · 語順クイズ' : '復習リマインダー · 4択クイズ'
         : favoritesMode
           ? currentIsWordOrder ? '保存済み単語 · 語順クイズ' : '保存済み単語 · 4択クイズ'
       : currentIsWordOrder
@@ -1307,6 +1357,7 @@ export default function QuizPage() {
           <div style={{ width: '100%', maxWidth: 520 }}>
             <TypeInQuizField
               answer={typeInExpectedAnswer}
+              spaceAsGap={isActiveVocab}
               value={typeInAnswer}
               onChange={setTypeInAnswer}
               normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
@@ -1402,7 +1453,7 @@ export default function QuizPage() {
               </span>
               {typeInResult === 'wrong' && isMultipleChoiceQuestion(currentQuestion) && (
                 <span className="muted" style={{ fontSize: 13.5 }}>
-                  正解：<b style={{ color: 'var(--color-ink)' }}>{isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}</b>
+                  正解：<b style={{ color: 'var(--color-ink)' }}>{currentQuestion.word.english}</b>
                 </span>
               )}
               <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
@@ -1539,12 +1590,14 @@ export default function QuizPage() {
           <div className="mt-[18px] w-full space-y-4">
             <TypeInQuizField
               answer={typeInExpectedAnswer}
+              spaceAsGap={isActiveVocab}
               value={typeInAnswer}
               onChange={setTypeInAnswer}
               normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
               onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
               disabled={isRevealed}
               result={typeInResult}
+              variant="solid"
             />
             {!isRevealed && (
               <SolidButton variant="inverse" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
@@ -1552,9 +1605,14 @@ export default function QuizPage() {
               </SolidButton>
             )}
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
-              <div className="text-center">
-                <p className="text-sm text-[var(--color-muted)]">正解:</p>
-                <p className="text-lg font-bold text-[var(--solid-ink)]">{isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}</p>
+              <div
+                className="rounded-xl border-[1.5px] p-3 text-center"
+                style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
+              >
+                <p className="text-sm font-bold text-white/85">正解</p>
+                <p className="mt-1 text-lg font-black text-white">
+                  {currentQuestion.word.english}
+                </p>
               </div>
             )}
           </div>

@@ -204,7 +204,7 @@ function WordItem({
 
   if (isEditing) {
     return (
-      <div className="card p-4 border-2 border-[var(--color-primary)]">
+      <div className="card p-4 my-2 mx-4 border-2 border-[var(--color-primary)]">
         <div className="space-y-3">
           <input
             type="text"
@@ -236,7 +236,7 @@ function WordItem({
   }
 
   return (
-    <div className="card px-3 py-3 flex items-center gap-2">
+    <div className="px-5 py-3 flex items-center gap-2">
       {onStatusChange && (
         <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
       )}
@@ -431,32 +431,34 @@ export function WordList({
 
       {/* Word list */}
       <div
-        className={`space-y-2 ${
+        className={
           listMaxHeightClassName
             ? `${listMaxHeightClassName} overflow-y-auto overscroll-contain pr-1`
             : ''
-        }`}
+        }
       >
         {words.length === 0 ? (
           <p className="text-center text-[var(--color-muted)] py-4">単語がありません</p>
         ) : filteredWords.length === 0 ? (
           <p className="text-center text-[var(--color-muted)] py-4">「{searchQuery}」に一致する単語がありません</p>
         ) : (
-          filteredWords.map((word) => (
-            <WordItem
-              key={word.id}
-              word={word}
-              isEditing={editingWordId === word.id}
-              onEdit={() => onEditStart(word.id)}
-              onCancel={onEditCancel}
-              onSave={(english, japanese) => onSave(word.id, english, japanese)}
-              onDelete={() => onDelete(word.id)}
-              onToggleFavorite={() => onToggleFavorite(word.id)}
-              onCycleVocabularyType={onCycleVocabularyType ? () => onCycleVocabularyType(word.id) : undefined}
-              onStatusChange={onStatusChange ? (newStatus) => onStatusChange(word.id, newStatus) : undefined}
-              showProjectName={showProjectName}
-            />
-          ))
+          <div className="-mx-4 border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
+            {filteredWords.map((word) => (
+              <WordItem
+                key={word.id}
+                word={word}
+                isEditing={editingWordId === word.id}
+                onEdit={() => onEditStart(word.id)}
+                onCancel={onEditCancel}
+                onSave={(english, japanese) => onSave(word.id, english, japanese)}
+                onDelete={() => onDelete(word.id)}
+                onToggleFavorite={() => onToggleFavorite(word.id)}
+                onCycleVocabularyType={onCycleVocabularyType ? () => onCycleVocabularyType(word.id) : undefined}
+                onStatusChange={onStatusChange ? (newStatus) => onStatusChange(word.id, newStatus) : undefined}
+                showProjectName={showProjectName}
+              />
+            ))}
+          </div>
         )}
       </div>
 
