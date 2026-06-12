@@ -914,7 +914,7 @@ export default function ProjectPage() {
             {query ? '一致する単語がありません' : '単語がありません'}
           </div>
         ) : (
-          <div className="border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
+          <div className="-mx-4 border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
             {filteredWords.map((word) => (
               <WordRow
                 key={word.id}
@@ -1574,7 +1574,7 @@ function WordRow({
         type="button"
         onClick={onToggleSelect}
         aria-pressed={selected}
-        className={`block w-full px-1 py-2.5 text-left transition-colors ${
+        className={`block w-full px-5 py-2.5 text-left transition-colors ${
           selected ? 'bg-[rgba(19,127,236,0.06)]' : ''
         }`}
       >
@@ -1595,7 +1595,7 @@ function WordRow({
   }
 
   return (
-    <div className="px-1 py-2.5">
+    <div className="px-5 py-2.5">
       <div className="flex items-center gap-2.5">
         <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
 
