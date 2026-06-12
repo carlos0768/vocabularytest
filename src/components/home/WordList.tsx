@@ -442,7 +442,7 @@ export function WordList({
         ) : filteredWords.length === 0 ? (
           <p className="text-center text-[var(--color-muted)] py-4">「{searchQuery}」に一致する単語がありません</p>
         ) : (
-          <div className="-mx-4 border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
+          <div className="-mx-4 border-t border-t-[var(--color-border)] divide-y divide-[var(--color-border)]">
             {filteredWords.map((word) => (
               <WordItem
                 key={word.id}

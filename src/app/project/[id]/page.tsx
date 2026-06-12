@@ -914,7 +914,7 @@ export default function ProjectPage() {
             {query ? '一致する単語がありません' : '単語がありません'}
           </div>
         ) : (
-          <div className="-mx-4 border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
+          <div className="-mx-4 border-t border-t-[var(--color-border)] divide-y divide-[var(--color-border)]">
             {filteredWords.map((word) => (
               <WordRow
                 key={word.id}
