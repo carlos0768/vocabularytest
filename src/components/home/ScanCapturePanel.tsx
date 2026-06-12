@@ -319,40 +319,43 @@ export function ScanCapturePanel({
           </svg>
           抽出オプション
         </div>
-        <div className="flex flex-wrap gap-[5px]">
+        <div className="grid grid-cols-2 gap-[7px]">
           {SUB_OPTIONS.map(s => {
             const on = activeSubs.includes(s.k);
             return (
-                <button
-                  key={s.k}
-                  type="button"
+              <button
+                key={s.k}
+                type="button"
                 onClick={() => {
                   toggleSubOption(s.k);
                   if (s.k === 'eiken' && activeSubs.includes('eiken')) setEikenLevel(null);
                 }}
-                className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
+                className="flex items-start gap-2 rounded-[10px] border-[1.25px] bg-white px-3 py-2.5 text-left transition-all"
                 style={{
-                  background: on ? 'var(--solid-ink)' : '#fff',
-                  color: on ? '#fff' : 'var(--solid-ink)',
+                  borderColor: on ? 'var(--solid-ink)' : 'var(--color-border)',
+                  boxShadow: on ? '2px 2px 0 var(--solid-ink)' : 'none',
                 }}
               >
                 <span
-                  className="inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center rounded-full"
+                  className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
                   style={{
-                    border: on ? '1.25px solid #fff' : '1.25px solid var(--solid-ink)',
+                    border: `1.25px solid ${on ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    background: on ? 'var(--color-accent)' : '#fff',
                   }}
                 >
-                  {on && <span className="h-[6px] w-[6px] rounded-full bg-white" />}
+                  {on && <Icon name="check" size={11} className="text-white" />}
                 </span>
-                {s.label}
-                {s.pro && !isPro && (
-                  <span
-                    className="font-mono text-[8px] font-bold tracking-[0.04em]"
-                    style={{ color: on ? 'rgba(255,255,255,0.7)' : 'var(--color-accent)' }}
-                  >
-                    PRO
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                    <span className="truncate">{s.label}</span>
+                    {s.pro && !isPro && (
+                      <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                        PRO
+                      </span>
+                    )}
                   </span>
-                )}
+                  <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">{s.hint}</span>
+                </span>
               </button>
             );
           })}
@@ -364,7 +367,7 @@ export function ScanCapturePanel({
             <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
               級を選択
             </div>
-            <div className="flex flex-wrap gap-[5px]">
+            <div className="grid grid-cols-4 gap-[6px]">
               {EIKEN_LEVEL_OPTIONS.map(lvl => {
                 const on = eikenLevel === lvl.value;
                 return (
@@ -372,18 +375,14 @@ export function ScanCapturePanel({
                     key={lvl.value}
                     type="button"
                     onClick={() => setEikenLevel(lvl.value)}
-                    className="inline-flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
+                    className="rounded-[8px] border-[1.25px] py-2 text-center text-[11px] font-bold transition-all"
                     style={{
-                      background: on ? 'var(--solid-ink)' : '#fff',
+                      borderColor: on ? 'var(--solid-ink)' : 'var(--color-border)',
+                      background: on ? 'var(--color-accent)' : '#fff',
                       color: on ? '#fff' : 'var(--solid-ink)',
+                      boxShadow: on ? '1.5px 1.5px 0 var(--solid-ink)' : 'none',
                     }}
                   >
-                    <span
-                      className="inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center rounded-full"
-                      style={{ border: on ? '1.25px solid #fff' : '1.25px solid var(--solid-ink)' }}
-                    >
-                      {on && <span className="h-[6px] w-[6px] rounded-full bg-white" />}
-                    </span>
                     {lvl.label}
                   </button>
                 );
@@ -400,13 +399,13 @@ export function ScanCapturePanel({
       <div className="flex gap-2.5">
         <button type="button" onClick={handleCamera} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
           <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-white">
+          <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent)] py-4 text-white">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
             <span className="text-[13px] font-bold">カメラで撮影</span>
-            <span className="text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.65)' }}>連続撮影OK</span>
+            <span className="text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>連続撮影OK</span>
           </div>
         </button>
         <button type="button" onClick={handleLibrary} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">

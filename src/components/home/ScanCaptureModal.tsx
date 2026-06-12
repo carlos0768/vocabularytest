@@ -110,18 +110,18 @@ export function ScanCaptureModal({
                   key={m.k}
                   type="button"
                   onClick={() => setActiveMode(m.k)}
-                  className="flex items-center gap-[11px] rounded-[10px] border-[1.25px] border-[var(--solid-ink)] px-3 py-[11px] text-left transition-all"
+                  className="flex items-center gap-[11px] rounded-[10px] border-[1.25px] bg-white px-3 py-[11px] text-left text-[var(--solid-ink)] transition-all"
                   style={{
-                    background: active ? 'var(--solid-ink)' : '#fff',
-                    color: active ? '#fff' : 'var(--solid-ink)',
-                    boxShadow: active ? '2px 2px 0 var(--solid-ink)' : 'none',
+                    borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
+                    boxShadow: active ? '2px 3px 0 var(--solid-ink)' : 'none',
                   }}
                 >
                   <div
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
                     style={{
-                      background: active ? 'rgba(255,255,255,0.12)' : 'var(--color-surface-secondary)',
-                      border: active ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--color-border)',
+                      background: 'var(--color-accent-light)',
+                      color: 'var(--color-accent-ink)',
+                      border: '1px solid var(--color-border)',
                     }}
                   >
                     {m.icon}
@@ -138,10 +138,13 @@ export function ScanCaptureModal({
                   </div>
                   {/* radio */}
                   <div
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-                    style={{ border: active ? '1.5px solid #fff' : '1.5px solid var(--solid-ink)' }}
+                    className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full"
+                    style={{
+                      border: `1.5px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                      background: active ? 'var(--color-accent)' : '#fff',
+                    }}
                   >
-                    {active && <div className="h-[7px] w-[7px] rounded-full bg-white" />}
+                    {active && <Icon name="check" size={12} className="text-white" />}
                   </div>
                 </button>
               );
