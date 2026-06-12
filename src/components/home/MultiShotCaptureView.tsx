@@ -195,37 +195,10 @@ export function MultiShotCaptureView({
         )}
       </div>
 
-      {/* Controls: held stack | shutter | confirm */}
+      {/* Controls: (spacer) | shutter | confirm */}
       <div className="mt-2 grid grid-cols-3 items-center px-7">
-        {/* Held stack preview */}
-        <div className="flex justify-start">
-          <div className="relative h-[56px] w-[56px]">
-            {count === 0 ? (
-              <div
-                className="absolute inset-1 rounded-[8px] border-[1.25px] border-dashed"
-                style={{ borderColor: 'rgba(26,26,26,0.25)' }}
-              />
-            ) : (
-              <>
-                {shots.slice(-3).map((shot, i, arr) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={shot.id}
-                    src={shot.url}
-                    alt=""
-                    className="absolute inset-1 h-[48px] w-[48px] rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-white object-cover"
-                    style={{ transform: `rotate(${(i - arr.length + 1) * 7}deg)`, zIndex: i }}
-                  />
-                ))}
-                <span
-                  className="absolute -right-1 -top-1 z-10 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent)] px-1 font-mono text-[10px] font-bold text-white"
-                >
-                  {count}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
+        {/* Spacer keeps the shutter centered */}
+        <div />
 
         {/* Shutter — always available: take more */}
         <div className="flex justify-center">

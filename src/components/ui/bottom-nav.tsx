@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
-import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -140,8 +139,6 @@ const TABS: TabItem[] = [
 export function BottomNav() {
   const pathname = usePathname();
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
-  const [scanModalOpen, setScanModalOpen] = useState(false);
-  const [scanProjectName, setScanProjectName] = useState<string | undefined>(undefined);
 
   const isActive = (tab: TabItem) => {
     if (!tab.matchPaths || !tab.href) return false;
@@ -255,16 +252,6 @@ export function BottomNav() {
       <CreateWordbookSheet
         isOpen={createSheetOpen}
         onClose={() => setCreateSheetOpen(false)}
-        onSelectScan={(projectName) => {
-          setScanProjectName(projectName);
-          setScanModalOpen(true);
-        }}
-      />
-
-      <ScanCaptureModal
-        isOpen={scanModalOpen}
-        onClose={() => setScanModalOpen(false)}
-        newProjectTitle={scanProjectName}
       />
     </>
   );
