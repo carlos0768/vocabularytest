@@ -98,6 +98,16 @@ export default function ProjectPage() {
   const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
+  const wordDetailOpen = selectedWord !== null;
+  useEffect(() => {
+    if (!wordDetailOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [wordDetailOpen]);
+
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
@@ -893,7 +903,7 @@ export default function ProjectPage() {
         </button>
       </div>
 
-      <div className="flex flex-col px-4 pb-[160px]">
+      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
         {!wordsLoaded ? (
           <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -984,7 +994,7 @@ export default function ProjectPage() {
           />
           <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
             <div
-              className="w-full overflow-y-auto"
+              className="w-full overflow-y-auto overscroll-contain"
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
@@ -1569,7 +1579,7 @@ function WordRow({
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <SelectCheckbox checked={selected} />
+          <SelectCheckbox checked={selected} size={26} />
           <div className="min-w-0 flex-1">
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
@@ -1652,17 +1662,18 @@ function BookmarkBadge({ active }: { active: boolean }) {
   );
 }
 
-function SelectCheckbox({ checked }: { checked: boolean }) {
+function SelectCheckbox({ checked, size = 20 }: { checked: boolean; size?: number }) {
   return (
     <span
-      className={`inline-flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
+      className={`inline-flex shrink-0 items-center justify-center border-[1.5px] transition-colors ${
         checked
           ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
           : 'border-[var(--solid-ink)] bg-white text-transparent'
       }`}
+      style={{ width: size, height: size, borderRadius: size * 0.25 }}
       aria-hidden
     >
-      {checked && <Icon name="check" size={13} />}
+      {checked && <Icon name="check" size={Math.round(size * 0.65)} />}
     </span>
   );
 }

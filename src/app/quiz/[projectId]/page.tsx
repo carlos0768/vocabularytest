@@ -1597,6 +1597,7 @@ export default function QuizPage() {
               onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
               disabled={isRevealed}
               result={typeInResult}
+              variant="solid"
             />
             {!isRevealed && (
               <SolidButton variant="inverse" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
@@ -1604,9 +1605,14 @@ export default function QuizPage() {
               </SolidButton>
             )}
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
-              <div className="text-center">
-                <p className="text-sm text-[var(--color-muted)]">正解:</p>
-                <p className="text-lg font-bold text-[var(--solid-ink)]">{isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}</p>
+              <div
+                className="rounded-xl border-[1.5px] p-3 text-center"
+                style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
+              >
+                <p className="text-sm font-bold text-white/85">正解</p>
+                <p className="mt-1 text-lg font-black text-white">
+                  {isActiveVocab ? typeInExpectedAnswer : currentQuestion.word.english}
+                </p>
               </div>
             )}
           </div>
