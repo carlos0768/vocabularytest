@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { SolidButton } from '@/components/redesign/SolidPage';
 import { ScanCapturePanel } from '@/components/home/ScanCapturePanel';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
@@ -13,49 +14,16 @@ type CreateMethod = 'scan' | 'shared' | 'blank';
 
 interface MethodOption {
   k: CreateMethod;
+  icon: string;
   title: string;
   description: string;
   recommended?: boolean;
-  icon: React.ReactNode;
 }
 
 const METHODS: MethodOption[] = [
-  {
-    k: 'scan',
-    title: '写真でスキャン',
-    description: 'AIが英単語と意味を自動抽出',
-    recommended: true,
-    icon: (
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
-        <circle cx="12" cy="13" r="4"/>
-      </svg>
-    ),
-  },
-  {
-    k: 'shared',
-    title: '共有ライブラリから',
-    description: '公開単語帳をコピー',
-    icon: (
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="6" cy="12" r="2.5"/>
-        <circle cx="18" cy="6" r="2.5"/>
-        <circle cx="18" cy="18" r="2.5"/>
-        <path d="M8 11l8-4M8 13l8 4"/>
-      </svg>
-    ),
-  },
-  {
-    k: 'blank',
-    title: '空の単語帳を作成',
-    description: 'あとから手動で追加',
-    icon: (
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20h9"/>
-        <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>
-      </svg>
-    ),
-  },
+  { k: 'scan', icon: 'photo_camera', title: '写真でスキャン', description: 'AIが英単語と意味を自動抽出', recommended: true },
+  { k: 'shared', icon: 'group', title: '共有ライブラリから', description: '公開単語帳をコピー' },
+  { k: 'blank', icon: 'edit_note', title: '空の単語帳を作成', description: 'あとから手動で追加' },
 ];
 
 interface CreateWordbookSheetProps {
@@ -166,7 +134,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
           </div>
 
           {/* Title row */}
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               {step === 'scan' && (
                 <button
@@ -182,9 +150,14 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                 <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                   {step === 'scan' ? 'NEW SCAN' : 'NEW'}
                 </div>
-                <div className="mt-0.5 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+                <div className="mt-0.5 font-display text-[20px] font-extrabold leading-[1.15] text-[var(--solid-ink)]">
                   {step === 'scan' ? '写真でスキャン' : '新しい単語帳'}
                 </div>
+                {step === 'method' && (
+                  <div className="mt-1 text-[12px] font-medium text-[var(--color-muted)]">
+                    作成方法を選んでください
+                  </div>
+                )}
                 {step === 'scan' && trimmedName && (
                   <div className="mt-0.5 text-[11px] font-bold text-[var(--color-muted)]">
                     「{trimmedName}」として作成
@@ -211,7 +184,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
           ) : (
             <>
               {/* Name field */}
-              <div className="mb-3">
+              <div className="mb-3.5">
                 <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                   単語帳の名前
                   {method !== 'blank' && (
@@ -238,10 +211,10 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                 )}
               </div>
 
-              {/* Method rows — same pattern as the scan modal's mode list */}
-              <div className="mb-3 flex flex-col gap-[7px]">
-                {METHODS.map(m => {
-                  const active = m.k === method;
+              {/* Method cards */}
+              <div className="flex flex-col gap-2.5">
+                {METHODS.map((m) => {
+                  const active = method === m.k;
                   return (
                     <button
                       key={m.k}
@@ -250,63 +223,59 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                         setMethod(m.k);
                         if (m.k === 'blank' && !trimmedName) nameInputRef.current?.focus();
                       }}
-                      className="flex items-center gap-[11px] rounded-[10px] border-[1.25px] bg-white px-3 py-[11px] text-left text-[var(--solid-ink)] transition-all"
+                      className="flex items-center gap-3 rounded-[14px] border-[1.5px] bg-white px-4 py-3.5 text-left transition-all"
                       style={{
                         borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
                         boxShadow: active ? '2px 3px 0 var(--solid-ink)' : 'none',
                       }}
                     >
                       <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
+                        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px]"
                         style={{
                           background: m.k === 'scan' ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)',
-                          border: '1px solid var(--color-border)',
                           color: m.k === 'scan' ? 'var(--color-accent-ink)' : 'var(--solid-ink)',
                         }}
                       >
-                        {m.icon}
+                        <Icon name={m.icon} size={22} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[14px] font-bold">{m.title}</span>
+                          <span className="font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{m.title}</span>
                           {m.recommended && (
                             <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-white">
                               おすすめ
                             </span>
                           )}
                         </div>
-                        <div className="mt-0.5 text-[11px] font-medium text-[var(--color-muted)]">
-                          {m.description}
-                        </div>
+                        <div className="mt-0.5 text-[12px] text-[var(--color-muted)]">{m.description}</div>
                       </div>
                       {/* radio */}
-                      <div
-                        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full"
+                      <span
+                        className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full"
                         style={{
                           border: `1.5px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
                           background: active ? 'var(--color-accent)' : '#fff',
                         }}
                       >
-                        {active && <Icon name="check" size={12} className="text-white" />}
-                      </div>
+                        {active && <Icon name="check" size={14} className="text-white" />}
+                      </span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* CTA — same plate style as the scan modal's capture buttons */}
-              <button
-                type="button"
-                onClick={() => void handleSubmit()}
+              {/* CTA */}
+              <SolidButton
+                variant="accent"
+                size="md"
+                iconLeft="arrow_forward"
                 disabled={ctaDisabled}
-                className="relative w-full disabled:opacity-40"
+                onClick={() => void handleSubmit()}
+                className="mt-4 w-full"
+                faceClassName="!w-full !justify-center"
               >
-                <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-                <div className="relative flex items-center justify-center gap-2 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent)] py-3.5 text-white">
-                  <span className="text-[13px] font-bold">{ctaLabel}</span>
-                  <Icon name="arrow_forward" size={16} />
-                </div>
-              </button>
+                {ctaLabel}
+              </SolidButton>
               {method === 'blank' && !trimmedName && (
                 <p className="mt-1.5 text-center text-[10px] text-[var(--color-muted)]">単語帳の名前を入力してください</p>
               )}
