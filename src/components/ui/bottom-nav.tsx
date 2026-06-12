@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
+import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -112,8 +112,8 @@ const TABS: TabItem[] = [
     IconActive: SharedIconFilled,
   },
   {
-    k: 'scan',
-    label: 'スキャン',
+    k: 'create',
+    label: '作成',
     primary: true,
     IconDefault: ScanPlusIcon,
     IconActive: ScanPlusIcon,
@@ -138,7 +138,7 @@ const TABS: TabItem[] = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [modalOpen, setModalOpen] = useState(false);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
   const isActive = (tab: TabItem) => {
     if (!tab.matchPaths || !tab.href) return false;
@@ -185,7 +185,7 @@ export function BottomNav() {
                 <button
                   key={tab.k}
                   type="button"
-                  onClick={() => setModalOpen(true)}
+                  onClick={() => setCreateSheetOpen(true)}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -247,9 +247,9 @@ export function BottomNav() {
         </div>
       </div>
 
-      <ScanCaptureModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+      <CreateWordbookSheet
+        isOpen={createSheetOpen}
+        onClose={() => setCreateSheetOpen(false)}
       />
     </>
   );
