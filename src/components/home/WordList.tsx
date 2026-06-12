@@ -204,7 +204,7 @@ function WordItem({
 
   if (isEditing) {
     return (
-      <div className="card p-4 my-2 mx-4 border-2 border-[var(--color-primary)]">
+      <div className="card p-4 my-2 border-2 border-[var(--color-primary)]">
         <div className="space-y-3">
           <input
             type="text"
@@ -236,7 +236,7 @@ function WordItem({
   }
 
   return (
-    <div className="px-5 py-3 flex items-center gap-2">
+    <div className="px-1 py-3 flex items-center gap-2">
       {onStatusChange && (
         <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
       )}
@@ -442,7 +442,7 @@ export function WordList({
         ) : filteredWords.length === 0 ? (
           <p className="text-center text-[var(--color-muted)] py-4">「{searchQuery}」に一致する単語がありません</p>
         ) : (
-          <div className="-mx-4 border-t-[1.5px] border-t-[var(--solid-ink)] divide-y divide-[var(--color-border)]">
+          <div className="divide-y divide-[var(--color-border)]">
             {filteredWords.map((word) => (
               <WordItem
                 key={word.id}
