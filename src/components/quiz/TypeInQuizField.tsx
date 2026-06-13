@@ -32,7 +32,9 @@ export interface TypeInQuizFieldProps {
 }
 
 /**
- * Typing quiz field: bold characters for input, gray first-letter hint, underscores for remaining slots.
+ * Typing quiz field: bold characters for input, gray first-letter hint for each
+ * word (idioms reveal the initial of every word, not just the first), underscores
+ * for remaining slots.
  */
 export function TypeInQuizField({
   answer,
@@ -110,7 +112,11 @@ export function TypeInQuizField({
           );
         }
         const showCaret = !disabled && i === t;
-        const showHint = !disabled && t === 0 && i === 0 && target[0] != null && target[0] !== '';
+        // Word-initial slots are the first char slot overall, or any char slot
+        // immediately preceded by a gap (idiom/active quizzes with multiple words).
+        const isWordInitial = slotIndex === 0 || slots[slotIndex - 1].kind === 'gap';
+        const showHint =
+          !disabled && i >= t && isWordInitial && target[i] != null && target[i] !== '';
         return (
           <span key={`slot-${slotIndex}`} className="inline-flex items-center">
             {showCaret && (
@@ -121,7 +127,7 @@ export function TypeInQuizField({
             )}
             {showHint ? (
               <span className={hintClass} aria-hidden>
-                {target[0].toLowerCase()}
+                {target[i].toLowerCase()}
               </span>
             ) : (
               <span className={underscoreClass}>_</span>
