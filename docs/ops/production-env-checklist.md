@@ -76,7 +76,8 @@ Cloud Run側:
 - [ ] `GCP_LOCATION` は想定region。既存運用では `asia-northeast1`。
 - [ ] `APP_ENV=prod`。
 - [ ] `FALLBACK_OPENAI_MODEL` が想定モデル。
-- [ ] `FALLBACK_CALLS_DAILY_CAP` と `FALLBACK_COST_DAILY_CAP_YEN` が本番上限として妥当。
+- [ ] `FALLBACK_CALLS_DAILY_CAP=100` と `FALLBACK_COST_DAILY_CAP_YEN=300` が本番上限として妥当。
+- [ ] `GATEWAY_CALLS_DAILY_CAP=300` と `GATEWAY_COST_DAILY_CAP_YEN=900` が本番上限として妥当。
 - [ ] `FALLBACK_SLACK_WEBHOOK_URL` は必要な場合だけ設定。
 
 注意:

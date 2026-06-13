@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { GeminiFallbackRunner } from './runner.js';
+import { GeminiFallbackRunner, loadFallbackConfigFromEnv } from './runner.js';
 import type { FallbackConfig } from './types.js';
 
 const baseConfig: FallbackConfig = {
@@ -221,4 +221,18 @@ test('empty-content errors retry and fallback to OpenAI', async () => {
   assert.equal(openaiCalls, 1);
   assert.equal(result.provider, 'openai');
   assert.equal(result.fallbackReason, 'EMPTY_CONTENT');
+});
+
+test('fallback env parser allows zero caps for emergency stop', () => {
+  const config = loadFallbackConfigFromEnv({
+    FALLBACK_CALLS_DAILY_CAP: '0',
+    FALLBACK_COST_DAILY_CAP_YEN: '0',
+    FALLBACK_ESTIMATED_YEN_PER_CALL: '0',
+    FALLBACK_BREAKER_OPEN_MS: '0',
+  });
+
+  assert.equal(config.fallbackCallsDailyCap, 0);
+  assert.equal(config.fallbackCostDailyCapYen, 0);
+  assert.equal(config.fallbackEstimatedYenPerCall, 0);
+  assert.equal(config.breakerOpenMs, 300_000);
 });

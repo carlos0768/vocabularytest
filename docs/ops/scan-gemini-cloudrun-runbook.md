@@ -5,6 +5,7 @@
 - モデル: `gemini-2.5-flash`
 - 経路: Next.js -> Cloud Run (`scanvocab-ai-gateway`) -> Vertex AI Gemini
 - フォールバック: Gemini障害時に OpenAI (`gpt-4o-mini`) へ自動切替（Retry + Breaker + 日次cap + Slack通知）
+- Gateway cap: Gemini / OpenAI を問わず Cloud Run gateway 全体に日次capをかける
 - 非対象: クイズ生成、埋め込み（既存OpenAI運用のまま）
 
 ## 1. 事前準備（GCP）
@@ -65,12 +66,24 @@ echo -n 'https://hooks.slack.com/services/xxx/yyy/zzz' | gcloud secrets create s
 - `GCP_LOCATION` <- `asia-northeast1`
 - `APP_ENV` <- `prod`
 - `FALLBACK_OPENAI_MODEL` <- `gpt-4o-mini`
-- `FALLBACK_CALLS_DAILY_CAP` <- `1000`
-- `FALLBACK_COST_DAILY_CAP_YEN` <- `3000`
+- `FALLBACK_CALLS_DAILY_CAP` <- `100`
+- `FALLBACK_COST_DAILY_CAP_YEN` <- `300`
 - `FALLBACK_ESTIMATED_YEN_PER_CALL` <- `3`
 - `FALLBACK_BREAKER_OPEN_MS` <- `300000`
+- `GATEWAY_CALLS_DAILY_CAP` <- `300`
+- `GATEWAY_COST_DAILY_CAP_YEN` <- `900`
+- `GATEWAY_ESTIMATED_YEN_PER_CALL` <- `3`
 
-### 2.2 CIで実行される検証
+### 2.2 Cloud Run課金防御
+- `--max-instances=3`
+- `--min-instances=0`
+- `--concurrency=10`
+- `--timeout=300`
+- `--cpu=1`
+- `--memory=1Gi`
+- `--cpu-throttling`
+
+### 2.3 CIで実行される検証
 - `cloud-run-scan` の依存インストール (`npm ci --prefix cloud-run-scan`)
 - `cloud-run-scan` 単体テスト (`npm run test --prefix cloud-run-scan`)
 
@@ -108,21 +121,28 @@ curl -sS "${CLOUD_RUN_URL}/health"
 - QUOTA_EXHAUSTED: リトライ無しで即OpenAI切替 + breaker即OPEN
 - 400/404, policy/safety, 401/403(非quota): フォールバックせず失敗返却
 
-### 5.2 日次cap
-- `FALLBACK_CALLS_DAILY_CAP=1000`
-- `FALLBACK_COST_DAILY_CAP_YEN=3000`
+### 5.2 fallback日次cap
+- `FALLBACK_CALLS_DAILY_CAP=100`
+- `FALLBACK_COST_DAILY_CAP_YEN=300`
 - cap到達後は OpenAI フォールバック停止（Gemini失敗時はそのままエラー）
 
-### 5.3 Slack通知イベント
+### 5.3 gateway日次cap
+- `GATEWAY_CALLS_DAILY_CAP=300`
+- `GATEWAY_COST_DAILY_CAP_YEN=900`
+- cap到達後は Gemini / OpenAI を問わず provider 呼び出し前に 429
+- 緊急停止は `GATEWAY_CALLS_DAILY_CAP=0,GATEWAY_COST_DAILY_CAP_YEN=0`
+
+### 5.4 Slack通知イベント
 - `QUOTA_EXHAUSTED`（Critical, 24hで1回）
 - `BREAKER_OPEN`（Warning, OPEN遷移ごと1回）
 - `FALLBACK_CAP_REACHED`（Critical, 到達時1回）
 - `FALLBACK_RATE_HIGH`（Warning, 10分で1回）
 
-### 5.4 推奨監視観点
+### 5.5 推奨監視観点
 - 直近10分の fallback率（20%超）
 - breaker状態（OPENが連続していないか）
 - fallback日次消費（calls/yen）
+- gateway cap到達（`gateway-cap-reached`）
 
 ## 6. ロールバック
 ### 6.1 Cloud Run側の切戻し

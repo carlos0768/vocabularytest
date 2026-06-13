@@ -21,9 +21,9 @@ const DEFAULT_RETRY_BACKOFFS = [200, 500, 1200] as const;
 const TIMEOUT_RETRY_BACKOFF = 300;
 
 const DEFAULT_CONFIG: FallbackConfig = {
-  fallbackOpenAIModel: 'gpt-4o',
-  fallbackCallsDailyCap: 1000,
-  fallbackCostDailyCapYen: 3000,
+  fallbackOpenAIModel: 'gpt-4o-mini',
+  fallbackCallsDailyCap: 100,
+  fallbackCostDailyCapYen: 300,
   fallbackEstimatedYenPerCall: 3,
   breakerOpenMs: 300_000,
   breakerWindowMs: 60_000,
@@ -33,13 +33,22 @@ const DEFAULT_CONFIG: FallbackConfig = {
   appEnv: 'prod',
 };
 
-function parseNumber(value: string | undefined, fallback: number): number {
-  if (!value) {
+function parsePositiveNumber(value: string | undefined, fallback: number): number {
+  if (value === undefined || value.trim() === '') {
     return fallback;
   }
 
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseNonNegativeNumber(value: string | undefined, fallback: number): number {
+  if (value === undefined || value.trim() === '') {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function normalizeAppEnv(value: string | undefined): 'prod' | 'stg' {
@@ -92,10 +101,10 @@ function retryPlanFor(error: ClassifiedGeminiError): RetryPlan {
 export function loadFallbackConfigFromEnv(env: NodeJS.ProcessEnv): FallbackConfig {
   return {
     fallbackOpenAIModel: env.FALLBACK_OPENAI_MODEL?.trim() || DEFAULT_CONFIG.fallbackOpenAIModel,
-    fallbackCallsDailyCap: parseNumber(env.FALLBACK_CALLS_DAILY_CAP, DEFAULT_CONFIG.fallbackCallsDailyCap),
-    fallbackCostDailyCapYen: parseNumber(env.FALLBACK_COST_DAILY_CAP_YEN, DEFAULT_CONFIG.fallbackCostDailyCapYen),
-    fallbackEstimatedYenPerCall: parseNumber(env.FALLBACK_ESTIMATED_YEN_PER_CALL, DEFAULT_CONFIG.fallbackEstimatedYenPerCall),
-    breakerOpenMs: parseNumber(env.FALLBACK_BREAKER_OPEN_MS, DEFAULT_CONFIG.breakerOpenMs),
+    fallbackCallsDailyCap: parseNonNegativeNumber(env.FALLBACK_CALLS_DAILY_CAP, DEFAULT_CONFIG.fallbackCallsDailyCap),
+    fallbackCostDailyCapYen: parseNonNegativeNumber(env.FALLBACK_COST_DAILY_CAP_YEN, DEFAULT_CONFIG.fallbackCostDailyCapYen),
+    fallbackEstimatedYenPerCall: parseNonNegativeNumber(env.FALLBACK_ESTIMATED_YEN_PER_CALL, DEFAULT_CONFIG.fallbackEstimatedYenPerCall),
+    breakerOpenMs: parsePositiveNumber(env.FALLBACK_BREAKER_OPEN_MS, DEFAULT_CONFIG.breakerOpenMs),
     breakerWindowMs: DEFAULT_CONFIG.breakerWindowMs,
     breakerHalfOpenProbeCount: DEFAULT_CONFIG.breakerHalfOpenProbeCount,
     fallbackRateWindowMs: DEFAULT_CONFIG.fallbackRateWindowMs,
