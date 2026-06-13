@@ -9,6 +9,7 @@ import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
@@ -112,6 +113,7 @@ export default function SharedDetailPage() {
   const shareId = params.shareId as string;
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const billingEnabled = isBillingEnabled();
   const {
     isConfigured: rewardedDownloadConfigured,
     isPreparing: preparingRewardedDownloadAd,
@@ -270,7 +272,11 @@ export default function SharedDetailPage() {
 
   const handleImport = async () => {
     if (!isPro) {
-      router.push('/subscription');
+      if (billingEnabled) {
+        router.push('/subscription');
+      } else {
+        showToast({ message: '共有単語帳のインポートは現在準備中です', type: 'warning' });
+      }
       return;
     }
     if (!user) {

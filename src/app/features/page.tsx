@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MarketingShell, ScrollFadeIn, StatusAwareCta } from '@/components/marketing';
 import { Icon } from '@/components/ui/Icon';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import { cn } from '@/lib/utils';
 import {
   howItWorksSteps,
@@ -68,6 +69,8 @@ function PhoneFrame({ src, alt }: { src: string; alt: string }) {
 /* ──────────────────────── Page ──────────────────────── */
 
 export default function FeaturesPage() {
+  const billingEnabled = isBillingEnabled();
+
   return (
     <MarketingShell active="features">
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-20">
@@ -326,7 +329,7 @@ export default function FeaturesPage() {
         </section>
 
         {/* ─── 6. 料金ティーザー ─── */}
-        <section>
+        {billingEnabled && <section>
           <ScrollFadeIn>
             <h2 className="font-display text-2xl md:text-3xl font-bold text-[var(--color-foreground)] text-center mb-2">
               無料で始められる
@@ -401,7 +404,7 @@ export default function FeaturesPage() {
               <Icon name="arrow_forward" size={16} />
             </Link>
           </ScrollFadeIn>
-        </section>
+        </section>}
 
         {/* ─── 7. 最終CTA ─── */}
         <section>

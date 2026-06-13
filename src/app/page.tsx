@@ -36,6 +36,7 @@ import {
   type HomeGeneratingWordbookPayload,
 } from '@/lib/home/home-session-storage';
 import { getDailyStats, getStreakDays } from '@/lib/utils';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -691,6 +692,8 @@ function HomeLoadingScreen() {
 }
 
 function GuestHomePage() {
+  const billingEnabled = isBillingEnabled();
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f3f0e9] font-[var(--font-body)] text-[#1a1a1a] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <header className="mx-auto max-w-[1200px] px-5 md:px-10">
@@ -700,7 +703,7 @@ function GuestHomePage() {
             <Link href="#how" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">使い方</Link>
             <Link href="#features" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">機能</Link>
             <Link href="#demo" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">体験する</Link>
-            <Link href="#pricing" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">料金</Link>
+            {billingEnabled && <Link href="#pricing" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">料金</Link>}
             <Link href="/login?redirect=/" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">ログイン</Link>
             <Link
               href="/signup?redirect=/"
@@ -918,29 +921,31 @@ function GuestHomePage() {
         </div>
       </section>
 
-      <section id="pricing" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
-        <RootLandingSectionHeading
-          number="05"
-          label="Pricing"
-          title={<>無料で始めて、<br />必要ならProへ。</>}
-          body="料金と制限は実装中の設定に合わせています。まずは無料で試し、スキャン回数や同期が必要になったらProへ切り替えられます。"
-        />
-        <div className="grid gap-7 lg:grid-cols-2">
-          <RootLandingPricingCard
-            plan="Free"
-            price="0"
-            description="最初の単語帳を作り、基本の復習を試すためのプランです。"
-            features={['1日3回までスキャン', '100単語まで保存', 'ローカル保存', '基本の単語帳・クイズ・カード']}
+      {billingEnabled && (
+        <section id="pricing" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+          <RootLandingSectionHeading
+            number="05"
+            label="Pricing"
+            title={<>無料で始めて、<br />必要ならProへ。</>}
+            body="料金と制限は実装中の設定に合わせています。まずは無料で試し、スキャン回数や同期が必要になったらProへ切り替えられます。"
           />
-          <RootLandingPricingCard
-            plan="Pro"
-            price="300"
-            description="継続利用、複数端末、クラウド同期が必要な人向けのプランです。"
-            features={['スキャン無制限', 'クラウド同期', 'マルチデバイス対応', 'データ永続化']}
-            pro
-          />
-        </div>
-      </section>
+          <div className="grid gap-7 lg:grid-cols-2">
+            <RootLandingPricingCard
+              plan="Free"
+              price="0"
+              description="最初の単語帳を作り、基本の復習を試すためのプランです。"
+              features={['1日3回までスキャン', '100単語まで保存', 'ローカル保存', '基本の単語帳・クイズ・カード']}
+            />
+            <RootLandingPricingCard
+              plan="Pro"
+              price="300"
+              description="継続利用、複数端末、クラウド同期が必要な人向けのプランです。"
+              features={['スキャン無制限', 'クラウド同期', 'マルチデバイス対応', 'データ永続化']}
+              pro
+            />
+          </div>
+        </section>
+      )}
 
       <section id="faq" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
@@ -1009,7 +1014,7 @@ function GuestHomePage() {
             <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">Product</p>
             <ul className="flex flex-col gap-2 text-sm">
               <li><Link href="#features" className="hover:text-[var(--color-accent)]">機能</Link></li>
-              <li><Link href="#pricing" className="hover:text-[var(--color-accent)]">料金</Link></li>
+              {billingEnabled && <li><Link href="#pricing" className="hover:text-[var(--color-accent)]">料金</Link></li>}
               <li><Link href="#how" className="hover:text-[var(--color-accent)]">使い方</Link></li>
             </ul>
           </div>

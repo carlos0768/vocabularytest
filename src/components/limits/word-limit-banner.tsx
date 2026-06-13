@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { useState } from 'react';
 import { FREE_WORD_LIMIT } from '@/lib/utils';
+import { isBillingEnabled } from '@/lib/billing/feature';
 
 interface WordLimitBannerProps {
   currentCount: number;
@@ -13,6 +14,7 @@ interface WordLimitBannerProps {
 export function WordLimitBanner({ currentCount, onDismiss }: WordLimitBannerProps) {
   const [dismissed, setDismissed] = useState(false);
   const remaining = FREE_WORD_LIMIT - currentCount;
+  const billingEnabled = isBillingEnabled();
 
   // Don't show if not near limit or already dismissed
   if (remaining > 5 || dismissed) return null;
@@ -29,13 +31,15 @@ export function WordLimitBanner({ currentCount, onDismiss }: WordLimitBannerProp
         <p className="text-sm text-[var(--color-foreground)] flex-1">
           単語数が残り<span className="font-medium">{remaining}語</span>です
         </p>
-        <Link
-          href="/subscription"
-          className="flex items-center gap-1 text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] shrink-0"
-        >
-          Proで無制限に
-          <Icon name="chevron_right" size={16} />
-        </Link>
+        {billingEnabled && (
+          <Link
+            href="/subscription"
+            className="flex items-center gap-1 text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] shrink-0"
+          >
+            Proで無制限に
+            <Icon name="chevron_right" size={16} />
+          </Link>
+        )}
         <button
           onClick={handleDismiss}
           className="p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
