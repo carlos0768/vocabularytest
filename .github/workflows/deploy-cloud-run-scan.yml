@@ -77,7 +77,28 @@ jobs:
           PROJECT_ID: ${{ steps.auth.outputs.project_id }}
         run: |
           IMAGE_URI="${{ env.GCP_REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
-          gcloud builds submit cloud-run-scan --tag "${IMAGE_URI}" --suppress-logs
+          BUILD_ID=$(gcloud builds submit cloud-run-scan --tag "${IMAGE_URI}" --async --format='value(id)')
+          echo "Cloud Build ID: ${BUILD_ID}"
+          for i in {1..120}; do
+            STATUS=$(gcloud builds describe "${BUILD_ID}" --format='value(status)')
+            echo "Cloud Build status: ${STATUS}"
+            case "${STATUS}" in
+              SUCCESS)
+                break
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                echo "Cloud Build failed with status ${STATUS}"
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+
+          FINAL_STATUS=$(gcloud builds describe "${BUILD_ID}" --format='value(status)')
+          if [ "${FINAL_STATUS}" != "SUCCESS" ]; then
+            echo "Cloud Build did not finish in time: ${FINAL_STATUS}"
+            exit 1
+          fi
           echo "IMAGE_URI=${IMAGE_URI}" >> "$GITHUB_ENV"
 
       - name: Deploy Cloud Run service
