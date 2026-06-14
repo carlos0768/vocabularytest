@@ -151,7 +151,7 @@ export default function SharedPageClient({
         setGroupsLoaded(true);
         setSelectedGroupId((current) => {
           if (current && nextGroups.some((group) => group.id === current)) return current;
-          return nextGroups[0]?.id ?? null;
+          return null;
         });
       });
     } catch (error) {
@@ -507,7 +507,7 @@ export default function SharedPageClient({
       )}
 
       <div className="flex flex-col gap-2 px-[14px]">
-        {activeTab === 'groups' && groups.length === 0 ? null : (
+        {activeTab === 'groups' && !selectedGroupId ? null : (
           <>
             {activeTab === 'groups' && groupProjectsLoading && (
               <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-4 text-sm text-[var(--color-muted)]">

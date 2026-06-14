@@ -235,7 +235,7 @@ export function DesktopSharedView({
           </div>
         )}
 
-        {!(activeTab === 'groups' && groups.length === 0) && (
+        {!(activeTab === 'groups' && !selectedGroupId) && (
           <>
             {activeTab === 'groups' && groupProjectsLoading && (
               <div className="ds-card" style={{ padding: 18, marginBottom: 16, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
