@@ -77,7 +77,7 @@ export default function ProjectPage() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [sharePrepareLoading, setSharePrepareLoading] = useState(false);
   const [shareScopeUpdating, setShareScopeUpdating] = useState(false);
-  const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -383,7 +383,7 @@ export default function ProjectPage() {
       return;
     }
     setMenuOpen(false);
-    setInviteCodeCopied(false);
+    setShareLinkCopied(false);
     setShowShareSheet(true);
     setSharePrepareLoading(!project.shareId);
   };
@@ -426,7 +426,7 @@ export default function ProjectPage() {
       setProject((p) => (p ? { ...p, shareScope: scope } : p));
       invalidateHomeCache();
       showToast({
-        message: scope === 'public' ? '共有ページに公開しました' : '非公開（招待コードのみ）にしました',
+        message: scope === 'public' ? '共有ページに公開しました' : 'リンク限定にしました',
         type: 'success',
       });
     } catch (scopeError) {
@@ -437,16 +437,37 @@ export default function ProjectPage() {
     }
   };
 
-  const handleCopyInviteCode = async () => {
-    if (!project?.shareId) return;
-    const ok = await copyToClipboard(project.shareId);
+  const handleCopyShareLink = async (shareUrl: string) => {
+    const ok = await copyToClipboard(shareUrl);
     if (ok) {
-      setInviteCodeCopied(true);
-      showToast({ message: '招待コードをコピーしました', type: 'success' });
-      setTimeout(() => setInviteCodeCopied(false), 2000);
+      setShareLinkCopied(true);
+      showToast({ message: '共有リンクをコピーしました', type: 'success' });
+      setTimeout(() => setShareLinkCopied(false), 2000);
     } else {
       showToast({ message: 'コピーできませんでした', type: 'error' });
     }
+  };
+
+  const handleShareLink = async (shareUrl: string) => {
+    if (!project) return;
+
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: project.title,
+          text: `${project.title} の共有単語帳`,
+          url: shareUrl,
+        });
+        return;
+      } catch (shareError) {
+        const errorName = shareError && typeof shareError === 'object' && 'name' in shareError
+          ? String((shareError as { name?: unknown }).name)
+          : '';
+        if (errorName === 'AbortError') return;
+      }
+    }
+
+    await handleCopyShareLink(shareUrl);
   };
 
   const handleOpenRename = () => {
@@ -721,6 +742,9 @@ export default function ProjectPage() {
           <Icon name="chevron_left" size={16} />
         </HeaderBtn>
         <div className="relative flex gap-2">
+          <HeaderBtn aria-label="共有" onClick={handleOpenShareSheet}>
+            <Icon name="ios_share" size={16} />
+          </HeaderBtn>
           <HeaderBtn aria-label="メニュー" onClick={() => setMenuOpen((open) => !open)}>
             <Icon name="more_horiz" size={16} />
           </HeaderBtn>
@@ -735,7 +759,6 @@ export default function ProjectPage() {
               <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]">
                 <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
                 <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
-                <MenuButton icon="ios_share" label="共有" onClick={handleOpenShareSheet} />
                 <MenuButton
                   icon="delete"
                   label="削除"
@@ -973,8 +996,9 @@ export default function ProjectPage() {
         preparing={sharePrepareLoading}
         updatingScope={shareScopeUpdating}
         onSelectScope={handleSelectShareScope}
-        onCopyInviteCode={() => void handleCopyInviteCode()}
-        inviteCodeCopied={inviteCodeCopied}
+        onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
+        onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
+        shareLinkCopied={shareLinkCopied}
       />
 
       <DeleteProjectModal

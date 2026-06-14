@@ -173,7 +173,7 @@ export default function ProjectDetailPage() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [sharePrepareLoading, setSharePrepareLoading] = useState(false);
   const [shareScopeUpdating, setShareScopeUpdating] = useState(false);
-  const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
 
   const [deleteWordTargetId, setDeleteWordTargetId] = useState<string | null>(null);
   const [deleteWordModalOpen, setDeleteWordModalOpen] = useState(false);
@@ -1274,7 +1274,7 @@ export default function ProjectDetailPage() {
 
   const handleOpenShareSheet = () => {
     if (!project || !user || !isPro) return;
-    setInviteCodeCopied(false);
+    setShareLinkCopied(false);
     setShowShareSheet(true);
     setSharePrepareLoading(!project.shareId);
   };
@@ -1320,7 +1320,7 @@ export default function ProjectDetailPage() {
         message:
           scope === 'public'
             ? '共有ページに公開しました'
-            : '非公開（招待コードのみ）にしました',
+            : 'リンク限定にしました',
         type: 'success',
       });
     } catch (error) {
@@ -1331,16 +1331,37 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleCopyInviteCode = async () => {
-    if (!project?.shareId) return;
-    const ok = await copyToClipboard(project.shareId);
+  const handleCopyShareLink = async (shareUrl: string) => {
+    const ok = await copyToClipboard(shareUrl);
     if (ok) {
-      setInviteCodeCopied(true);
-      showToast({ message: '招待コードをコピーしました', type: 'success' });
-      setTimeout(() => setInviteCodeCopied(false), 2000);
+      setShareLinkCopied(true);
+      showToast({ message: '共有リンクをコピーしました', type: 'success' });
+      setTimeout(() => setShareLinkCopied(false), 2000);
     } else {
       showToast({ message: 'コピーできませんでした', type: 'error' });
     }
+  };
+
+  const handleShareLink = async (shareUrl: string) => {
+    if (!project) return;
+
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: project.title,
+          text: `${project.title} の共有単語帳`,
+          url: shareUrl,
+        });
+        return;
+      } catch (shareError) {
+        const errorName = shareError && typeof shareError === 'object' && 'name' in shareError
+          ? String((shareError as { name?: unknown }).name)
+          : '';
+        if (errorName === 'AbortError') return;
+      }
+    }
+
+    await handleCopyShareLink(shareUrl);
   };
 
   const beginTitleEdit = () => {
@@ -2304,8 +2325,9 @@ export default function ProjectDetailPage() {
           preparing={sharePrepareLoading}
           updatingScope={shareScopeUpdating}
           onSelectScope={handleSelectShareScope}
-          onCopyInviteCode={() => void handleCopyInviteCode()}
-          inviteCodeCopied={inviteCodeCopied}
+          onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
+          onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
+          shareLinkCopied={shareLinkCopied}
         />
       )}
 
