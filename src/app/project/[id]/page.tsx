@@ -19,6 +19,7 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
+import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import {
   getNextVocabularyType,
   getVocabularyTypeLabel,
@@ -36,6 +37,21 @@ import {
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+
+type StudyGroupsResponse = {
+  success?: boolean;
+  groups?: StudyGroupSummary[];
+  error?: string;
+};
+
+type StudyGroupProjectMutationResponse = {
+  success?: boolean;
+  project?: {
+    project?: Project;
+  };
+  error?: string;
+  code?: string;
+};
 
 function thumbColor(id: string) {
   let h = 0;
@@ -78,6 +94,10 @@ export default function ProjectPage() {
   const [sharePrepareLoading, setSharePrepareLoading] = useState(false);
   const [shareScopeUpdating, setShareScopeUpdating] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const [shareGroups, setShareGroups] = useState<StudyGroupSummary[]>([]);
+  const [shareGroupsLoading, setShareGroupsLoading] = useState(false);
+  const [shareGroupsError, setShareGroupsError] = useState<string | null>(null);
+  const [groupSharingUpdatingId, setGroupSharingUpdatingId] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -389,15 +409,17 @@ export default function ProjectPage() {
   };
 
   useEffect(() => {
-    if (!showShareSheet || !project || !isPro || !user) return;
-    if (project.shareId) {
+    const projectIdForShare = project?.id;
+    const projectShareId = project?.shareId;
+    if (!showShareSheet || !projectIdForShare || !isPro || !user) return;
+    if (projectShareId) {
       setSharePrepareLoading(false);
       return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const sid = await remoteRepository.generateShareId(project.id);
+        const sid = await remoteRepository.generateShareId(projectIdForShare);
         if (cancelled) return;
         setProject((p) => (p ? { ...p, shareId: sid, shareScope: 'private' } : p));
         invalidateHomeCache();
@@ -415,6 +437,38 @@ export default function ProjectPage() {
       cancelled = true;
     };
   }, [showShareSheet, project?.id, project?.shareId, isPro, user, showToast]);
+
+  useEffect(() => {
+    const projectIdForGroups = project?.id;
+    if (!showShareSheet || !projectIdForGroups || !isPro || !user) return;
+
+    let cancelled = false;
+    setShareGroupsLoading(true);
+    setShareGroupsError(null);
+
+    (async () => {
+      try {
+        const response = await fetch(`/api/shared-projects/groups?projectId=${encodeURIComponent(projectIdForGroups)}`, {
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => null) as StudyGroupsResponse | null;
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || 'study_groups_fetch_failed');
+        }
+        if (cancelled) return;
+        setShareGroups(payload.groups ?? []);
+      } catch (groupsError) {
+        console.error('Failed to load share groups:', groupsError);
+        if (!cancelled) setShareGroupsError('グループ一覧を読み込めませんでした');
+      } finally {
+        if (!cancelled) setShareGroupsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showShareSheet, project?.id, isPro, user]);
 
   const handleSelectShareScope = async (scope: ProjectShareScope) => {
     if (!project) return;
@@ -468,6 +522,56 @@ export default function ProjectPage() {
     }
 
     await handleCopyShareLink(shareUrl);
+  };
+
+  const handleToggleGroupShare = async (group: StudyGroupSummary) => {
+    if (!project || groupSharingUpdatingId) return;
+
+    const nextShared = !group.projectShared;
+    setGroupSharingUpdatingId(group.id);
+    setShareGroupsError(null);
+
+    try {
+      const response = await fetch(
+        `/api/shared-projects/groups/${encodeURIComponent(group.id)}/projects/${encodeURIComponent(project.id)}`,
+        { method: nextShared ? 'POST' : 'DELETE' },
+      );
+      const payload = await response.json().catch(() => null) as StudyGroupProjectMutationResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'study_group_project_toggle_failed');
+      }
+
+      const sharedProject = payload.project?.project;
+      if (sharedProject?.shareId && sharedProject.shareId !== project.shareId) {
+        setProject((current) => current ? {
+          ...current,
+          shareId: sharedProject.shareId,
+          shareScope: sharedProject.shareScope ?? current.shareScope ?? 'private',
+        } : current);
+      }
+
+      setShareGroups((current) => current.map((item) => {
+        if (item.id !== group.id) return item;
+        const projectCountDelta = nextShared ? 1 : -1;
+        return {
+          ...item,
+          projectShared: nextShared,
+          projectCount: Math.max(0, item.projectCount + projectCountDelta),
+        };
+      }));
+      invalidateHomeCache();
+      showToast({
+        message: nextShared ? 'グループに掲載しました' : 'グループ掲載を解除しました',
+        type: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to toggle group share:', error);
+      const message = error instanceof Error ? error.message : 'グループ共有の更新に失敗しました';
+      setShareGroupsError(message);
+      showToast({ message, type: 'error' });
+    } finally {
+      setGroupSharingUpdatingId(null);
+    }
   };
 
   const handleOpenRename = () => {
@@ -999,6 +1103,11 @@ export default function ProjectPage() {
         onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
         onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
         shareLinkCopied={shareLinkCopied}
+        groups={shareGroups}
+        groupsLoading={shareGroupsLoading}
+        groupsError={shareGroupsError}
+        groupSharingUpdatingId={groupSharingUpdatingId}
+        onToggleGroupShare={(group) => void handleToggleGroupShare(group)}
       />
 
       <DeleteProjectModal
