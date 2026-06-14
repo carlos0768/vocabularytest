@@ -46,7 +46,7 @@ function BottomSheetShell({ open, onClose, title, children, footer }: BottomShee
       />
       {/* Mobile: bottom sheet / Desktop (lg+): centered solid card */}
       <div
-        className="relative flex max-h-[80vh] w-full animate-fade-in-up flex-col rounded-t-[20px] border-[1.5px] border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:max-w-[460px] lg:rounded-[20px] lg:border-b-[1.5px] lg:shadow-[4px_5px_0_var(--solid-ink)]"
+        className="relative flex max-h-[80vh] w-full animate-fade-in-up flex-col rounded-t-[20px] border-[1.5px] border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] lg:max-w-[460px] lg:rounded-[20px] lg:border-b-[1.5px]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle */}

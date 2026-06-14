@@ -369,7 +369,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
             type="button"
             onClick={onClose}
             aria-label="閉じる"
-            className="mt-0.5 flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+            className="mt-0.5 flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="close" size={16} />
           </button>
