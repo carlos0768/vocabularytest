@@ -398,56 +398,19 @@ export default function SharedPageClient({
         </div>
       )}
 
-      {activeTab === 'groups' && (
+      {activeTab === 'groups' && !selectedGroupId && (
         <div className="px-[14px] pt-3 pb-1">
-          {groups.length > 0 && (
-            <div className="mb-3 flex flex-col gap-2">
-              {groups.map((group) => {
-                const isSelected = selectedGroupId === group.id;
-                return (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => setSelectedGroupId(group.id)}
-                    className="relative block text-left"
-                  >
-                    <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-                    <div
-                      className="relative flex items-center gap-3 rounded-xl border-[1.25px] border-[var(--solid-ink)] px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px"
-                      style={{ background: isSelected ? 'var(--solid-ink)' : '#fff' }}
-                    >
-                      <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
-                        style={{ background: thumbColor(group.id) }}
-                      >
-                        {group.name.charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-bold" style={{ color: isSelected ? '#fff' : 'var(--solid-ink)' }}>{group.name}</div>
-                        <div className="mt-0.5 text-[11px]" style={{ color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--color-muted)' }}>{group.memberCount}人 · {group.projectCount}冊</div>
-                      </div>
-                      {isSelected && (
-                        <Icon name="check_circle" size={18} className="shrink-0 text-white" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              {groups.length > 0 ? `${groups.length} グループ` : ''}
             </div>
-          )}
-
-          <div className="relative mb-3">
-            <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
             <button
               type="button"
               onClick={() => setGroupPanelOpen((v) => !v)}
-              className="relative flex w-full items-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="inline-flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
-              <Icon name="settings" size={16} className="shrink-0 text-[var(--solid-ink)]" />
-              <span className="flex-1 text-[12px] font-bold text-[var(--solid-ink)]">
-                {selectedGroup ? `${selectedGroup.name} の管理・参加` : 'グループに参加・作成'}
-              </span>
-              <Icon name={groupPanelOpen ? 'expand_less' : 'expand_more'} size={18} className="shrink-0 text-[var(--solid-ink)]" />
+              <Icon name="settings" size={14} />
+              管理
             </button>
           </div>
 
@@ -455,24 +418,6 @@ export default function SharedPageClient({
             <div className="relative mb-3">
               <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
               <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-3">
-                {selectedGroup && (
-                  <div className="mb-3 flex items-center gap-2 border-b border-[var(--solid-ink)] pb-3">
-                    <span
-                      className="shrink-0 rounded px-[7px] py-[3px] font-mono text-[9px] font-bold tracking-[0.04em]"
-                      style={{ background: 'var(--solid-ink)', color: '#fff' }}
-                    >
-                      {selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">
-                      {formatInviteCode(selectedGroup.inviteCode)}
-                    </span>
-                    <button type="button" onClick={() => void handleCopyGroupInvite()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border-[1.25px] border-[var(--solid-ink)] px-2 py-1 text-[11px] font-bold text-[var(--solid-ink)]">
-                      <Icon name="content_copy" size={12} />
-                      コピー
-                    </button>
-                  </div>
-                )}
-
                 <div className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">グループに参加・作成</div>
                 <div className="mb-2 flex gap-2">
                   <input
@@ -512,12 +457,87 @@ export default function SharedPageClient({
             </div>
           )}
 
+          {groups.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => setSelectedGroupId(group.id)}
+                  className="relative block text-left"
+                >
+                  <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+                  <div className="relative flex items-center gap-3 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
+                      style={{ background: thumbColor(group.id) }}
+                    >
+                      {group.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold text-[var(--solid-ink)]">{group.name}</div>
+                      <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">{group.memberCount}人 · {group.projectCount}冊</div>
+                    </div>
+                    <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {groupsLoading && (
+            <div className="flex items-center gap-2 py-4 text-sm text-[var(--color-muted)]">
+              <Icon name="progress_activity" size={16} className="animate-spin" />
+              読み込み中...
+            </div>
+          )}
+
           {groupsError && (
-            <div className="relative mb-2">
+            <div className="relative mt-2">
               <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
               <div className="relative rounded-xl border-[1.25px] border-red-700 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
                 {groupsError}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'groups' && selectedGroupId && (
+        <div className="px-[14px] pt-3 pb-1">
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedGroupId(null)}
+              className="inline-flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="arrow_back" size={14} />
+              戻る
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-display text-[16px] font-extrabold text-[var(--solid-ink)]">
+                {selectedGroup?.name}
+              </div>
+            </div>
+            {selectedGroup && (
+              <span
+                className="shrink-0 rounded px-[7px] py-[3px] font-mono text-[9px] font-bold tracking-[0.04em]"
+                style={{ background: 'var(--solid-ink)', color: '#fff' }}
+              >
+                {selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}
+              </span>
+            )}
+          </div>
+
+          {selectedGroup && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">
+                招待 {formatInviteCode(selectedGroup.inviteCode)}
+              </span>
+              <button type="button" onClick={() => void handleCopyGroupInvite()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border-[1.25px] border-[var(--solid-ink)] px-2 py-1 text-[11px] font-bold text-[var(--solid-ink)]">
+                <Icon name="content_copy" size={12} />
+                コピー
+              </button>
             </div>
           )}
         </div>
@@ -542,9 +562,7 @@ export default function SharedPageClient({
                 <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
                   {activeTab === 'public'
                     ? '公開中の単語帳はまだありません'
-                    : selectedGroup
-                      ? 'このグループの単語帳はまだありません'
-                      : 'グループを選択してください'}
+                    : 'このグループの単語帳はまだありません'}
                 </div>
               </div>
             ) : (
