@@ -9,6 +9,7 @@ import { DesktopHomeView } from '@/components/desktop/DesktopHome';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
+import { WelcomeOverlay } from '@/components/onboarding/WelcomeOverlay';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useAuth } from '@/hooks/use-auth';
@@ -226,7 +227,8 @@ const EMPTY_STATS: HomeStats = {
 export default function HomePage() {
   const router = useRouter();
   const { user, subscription, isPro, loading: authLoading } = useAuth();
-  useOnboarding();
+  const { step: onboardingStep, loading: onboardingLoading, setStep: setOnboardingStep } = useOnboarding();
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
@@ -341,6 +343,23 @@ export default function HomePage() {
     }
   }, [showHomeGeneratingWordbook]);
 
+  useEffect(() => {
+    if (authLoading || onboardingLoading) return;
+    if (!user) {
+      setWelcomeOpen(false);
+      return;
+    }
+    if (onboardingStep === 'signed_up') {
+      setWelcomeOpen(true);
+      return;
+    }
+    setWelcomeOpen(false);
+  }, [authLoading, onboardingLoading, onboardingStep, user]);
+
+  const handleWelcomeSkip = useCallback(() => {
+    setWelcomeOpen(false);
+    void setOnboardingStep('skipped');
+  }, [setOnboardingStep]);
 
   // Pro: バックグラウンドスキャンのポーリング
   useEffect(() => {
@@ -636,7 +655,12 @@ export default function HomePage() {
         onBackgroundScanStarted={showHomeGeneratingWordbook}
       />
 
-
+      <WelcomeOverlay
+        open={welcomeOpen}
+        onClose={() => setWelcomeOpen(false)}
+        onSkip={handleWelcomeSkip}
+        onStartScan={() => setVocabScanOpen(true)}
+      />
     </>
   );
 }
