@@ -53,7 +53,7 @@ export function DesktopSharedView({
   joinGroupCode: string;
   groupActionLoading: 'create' | 'join' | null;
   onLoadMorePublic: () => void;
-  onSelectGroup: (groupId: string) => void;
+  onSelectGroup: (groupId: string | null) => void;
   onCreateGroupNameChange: (value: string) => void;
   onJoinGroupCodeChange: (value: string) => void;
   onCreateGroup: () => void;
@@ -135,103 +135,207 @@ export function DesktopSharedView({
           )}
         </div>
 
-        {activeTab === 'groups' && (
+        {activeTab === 'groups' && !selectedGroupId && (
           <div style={{ display: 'flex', gap: 18, marginBottom: 22 }}>
-            <div className="ds-card" style={{ padding: 16, flex: '0 0 260px', display: 'flex', flexDirection: 'column' }}>
-              <div className="ds-sec-head" style={{ marginBottom: 12 }}>
-                <h2 style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em' }}>所属グループ</h2>
-                {groupsLoading && <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 16 }} />}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h2 style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em' }}>所属グループ</h2>
+                  {groupsLoading && <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 16 }} />}
+                  {groups.length > 0 && <span className="muted" style={{ fontSize: 11 }}>{groups.length} グループ</span>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setGroupPanelOpen((v) => !v)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                    border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                    cursor: 'pointer', transition: 'transform 0.1s',
+                  }}
+                  className="active:translate-x-px active:translate-y-px"
+                >
+                  <Icon name="settings" style={{ fontSize: 14 }} />
+                  管理
+                </button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, maxHeight: 260, overflowY: 'auto' }}>
+
+              {groupPanelOpen && (
+                <div style={{ position: 'relative', marginBottom: 14 }}>
+                  <div style={{ position: 'absolute', inset: 0, transform: 'translate(2.5px, 2.5px)', borderRadius: 12, background: 'var(--solid-ink)' }} />
+                  <div style={{ position: 'relative', borderRadius: 12, border: '1.25px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+                    {selectedGroup && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--color-border)' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'var(--solid-ink)', color: '#fff' }}>{selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}</span>
+                        <span className="mono muted" style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatInviteCode(selectedGroup.inviteCode)}</span>
+                        <button
+                          type="button"
+                          onClick={onCopyGroupInvite}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                            border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Icon name="content_copy" style={{ fontSize: 12 }} />コピー
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--color-muted)', marginBottom: 12 }}>グループに参加・作成</div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                      <input
+                        className="ds-input"
+                        value={joinGroupCode}
+                        onChange={(event) => onJoinGroupCodeChange(event.target.value)}
+                        placeholder="招待コードを入力"
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={onJoinGroup}
+                        disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                          border: '1.25px solid var(--solid-ink)', background: 'var(--solid-ink)', color: '#fff',
+                          cursor: 'pointer', opacity: (groupActionLoading === 'join' || !joinGroupCode.trim()) ? 0.4 : 1,
+                        }}
+                      >
+                        {groupActionLoading === 'join' ? <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 14 }} /> : <Icon name="login" style={{ fontSize: 14 }} />}
+                        参加
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        className="ds-input"
+                        value={createGroupName}
+                        onChange={(event) => onCreateGroupNameChange(event.target.value)}
+                        placeholder="新しいグループ名"
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={onCreateGroup}
+                        disabled={groupActionLoading === 'create' || !createGroupName.trim()}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                          border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                          cursor: 'pointer', opacity: (groupActionLoading === 'create' || !createGroupName.trim()) ? 0.4 : 1,
+                        }}
+                      >
+                        {groupActionLoading === 'create' ? <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 14 }} /> : <Icon name="add" style={{ fontSize: 14 }} />}
+                        作成
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
                 {groups.map((group) => (
                   <button
                     key={group.id}
                     type="button"
                     onClick={() => onSelectGroup(group.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                      padding: '10px 12px', borderRadius: 10,
-                      border: selectedGroupId === group.id ? '1.5px solid var(--solid-ink)' : '1.5px solid var(--color-border)',
-                      background: selectedGroupId === group.id ? 'rgba(26,26,26,0.04)' : '#fff',
-                      cursor: 'pointer', transition: 'all 0.12s',
-                    }}
+                    style={{ position: 'relative', display: 'block', textAlign: 'left', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                    className="active:translate-x-px active:translate-y-px"
                   >
+                    <div style={{ position: 'absolute', inset: 0, transform: 'translate(2.5px, 2.5px)', borderRadius: 12, background: 'var(--solid-ink)' }} />
                     <div style={{
-                      width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: desktopThumbColor(group.id), color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0,
+                      position: 'relative', display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '12px 14px', borderRadius: 12,
+                      border: '1.25px solid var(--solid-ink)', background: '#fff',
+                      transition: 'transform 0.1s',
                     }}>
-                      {group.name.charAt(0)}
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: desktopThumbColor(group.id), color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0,
+                        border: '1.25px solid var(--solid-ink)',
+                      }}>
+                        {group.name.charAt(0)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.name}</div>
+                        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{group.memberCount}人 · {group.projectCount}冊</div>
+                      </div>
+                      <Icon name="chevron_right" style={{ fontSize: 20, flexShrink: 0, color: 'var(--color-muted)' }} />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.name}</div>
-                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{group.memberCount}人 · {group.projectCount}冊</div>
-                    </div>
-                    {selectedGroupId === group.id && <Icon name="check_circle" style={{ fontSize: 18, flexShrink: 0 }} />}
                   </button>
                 ))}
-                {!groupsLoading && groups.length === 0 && (
-                  <div style={{ padding: '20px 0', textAlign: 'center' }}>
-                    <Icon name="group_add" style={{ fontSize: 28, opacity: 0.3, marginBottom: 6, display: 'block', margin: '0 auto 6px' }} />
+              </div>
+              {!groupsLoading && groups.length === 0 && (
+                <div style={{ position: 'relative', marginTop: 8 }}>
+                  <div style={{ position: 'absolute', inset: 0, transform: 'translate(2.5px, 2.5px)', borderRadius: 12, background: 'var(--solid-ink)' }} />
+                  <div style={{ position: 'relative', borderRadius: 12, border: '1.25px solid var(--solid-ink)', background: '#fff', padding: '28px 0', textAlign: 'center' }}>
+                    <Icon name="group_add" style={{ fontSize: 28, opacity: 0.3, display: 'block', margin: '0 auto 6px' }} />
                     <div className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>グループに参加しましょう</div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
-              {groupsError && <div style={{ marginTop: 10, color: 'var(--color-error)', fontSize: 12, fontWeight: 700 }}>{groupsError}</div>}
-            </div>
-
-            <div style={{ flex: '0 0 280px', alignSelf: 'flex-start', display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <button
-                type="button"
-                onClick={() => setGroupPanelOpen((v) => !v)}
-                className="ds-card"
-                style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer', borderBottomLeftRadius: groupPanelOpen ? 0 : undefined, borderBottomRightRadius: groupPanelOpen ? 0 : undefined }}
-              >
-                <Icon name="settings" style={{ fontSize: 16, color: 'var(--color-muted)' }} />
-                <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>
-                  {selectedGroup ? `${selectedGroup.name} の管理・参加` : 'グループに参加・作成'}
-                </span>
-                <Icon name={groupPanelOpen ? 'expand_less' : 'expand_more'} style={{ fontSize: 18, color: 'var(--color-muted)' }} />
-              </button>
-              {groupPanelOpen && (
-                <div className="ds-card" style={{ padding: 16, borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-                  {selectedGroup && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--color-border)' }}>
-                      <span className="ds-tag plain" style={{ fontSize: 10 }}>{selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}</span>
-                      <span className="mono muted" style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatInviteCode(selectedGroup.inviteCode)}</span>
-                      <button type="button" className="ds-btn ghost sm" onClick={onCopyGroupInvite}><Icon name="content_copy" />コピー</button>
-                    </div>
-                  )}
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--color-muted)', marginBottom: 12 }}>グループに参加・作成</div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                    <input
-                      className="ds-input"
-                      value={joinGroupCode}
-                      onChange={(event) => onJoinGroupCodeChange(event.target.value)}
-                      placeholder="招待コードを入力"
-                      style={{ flex: 1 }}
-                    />
-                    <button type="button" className="ds-btn" onClick={onJoinGroup} disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}>
-                      {groupActionLoading === 'join' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="login" />}
-                      参加
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      className="ds-input"
-                      value={createGroupName}
-                      onChange={(event) => onCreateGroupNameChange(event.target.value)}
-                      placeholder="新しいグループ名"
-                      style={{ flex: 1 }}
-                    />
-                    <button type="button" className="ds-btn" onClick={onCreateGroup} disabled={groupActionLoading === 'create' || !createGroupName.trim()}>
-                      {groupActionLoading === 'create' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="add" />}
-                      作成
-                    </button>
+              {groupsError && (
+                <div style={{ position: 'relative', marginTop: 10 }}>
+                  <div style={{ position: 'absolute', inset: 0, transform: 'translate(2px, 2px)', borderRadius: 12, background: '#991b1b' }} />
+                  <div style={{ position: 'relative', borderRadius: 12, border: '1.25px solid #b91c1c', background: '#fef2f2', padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>
+                    {groupsError}
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'groups' && selectedGroupId && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={() => onSelectGroup(null)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                  border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                  cursor: 'pointer', transition: 'transform 0.1s',
+                }}
+                className="active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="arrow_back" style={{ fontSize: 14 }} />
+                戻る
+              </button>
+              <h2 style={{ flex: 1, fontSize: 16, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-display)' }}>
+                {selectedGroup?.name}
+              </h2>
+              {selectedGroup && (
+                <span style={{ flexShrink: 0, padding: '3px 7px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', fontFamily: 'var(--font-mono)', background: 'var(--solid-ink)', color: '#fff' }}>
+                  {selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}
+                </span>
+              )}
+            </div>
+            {selectedGroup && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14,
+                padding: '10px 14px', borderRadius: 12, border: '1.25px solid var(--solid-ink)', background: '#fff',
+              }}>
+                <span className="mono muted" style={{ flex: 1, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  招待 {formatInviteCode(selectedGroup.inviteCode)}
+                </span>
+                <button
+                  type="button"
+                  onClick={onCopyGroupInvite}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                    padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                    border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Icon name="content_copy" style={{ fontSize: 12 }} />
+                  コピー
+                </button>
+              </div>
+            )}
           </div>
         )}
 
