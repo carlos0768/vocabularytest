@@ -304,6 +304,7 @@ order by jobs desc;
   - `SENTENCE_QUIZ_USE_LEGACY=true`
   - 必要なら `SENTENCE_QUIZ_MAX_CONCURRENCY` を下げる
 - Cloud Run fallbackを抑える:
+  - 最初に [`gcp-budget-guard-runbook.md`](gcp-budget-guard-runbook.md) で Firestore `ops/aiGatewayGuard.disabled=true` にする。
   - Cloud Run側 `FALLBACK_CALLS_DAILY_CAP`
   - Cloud Run側 `FALLBACK_COST_DAILY_CAP_YEN`
   - Cloud Run側 `GATEWAY_CALLS_DAILY_CAP`

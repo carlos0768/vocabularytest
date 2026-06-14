@@ -10,6 +10,7 @@
 | [`production-readiness-audit-2026-06-13.md`](production-readiness-audit-2026-06-13.md) | 2026-06-13時点の公開可否監査、P0/P1、検証結果 |
 | [`production-operations-handbook.md`](production-operations-handbook.md) | 公開後に運用者が毎日・毎週・障害時に見るべき情報の教科書 |
 | [`gcp-billing-safety-audit-2026-06-13.md`](gcp-billing-safety-audit-2026-06-13.md) | GCP高額請求防止の公式docs照合と本番guardrail |
+| [`gcp-budget-guard-runbook.md`](gcp-budget-guard-runbook.md) | GCP Budget通知・Firestore停止フラグ・AI gateway手動停止/復旧 |
 | [`../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md) | 初版公開前の最終チェック、手動QA、外部サービス確認 |
 | [`scan-failure-runbook.md`](scan-failure-runbook.md) | スキャン失敗 / 遅延の初動対応 |
 | [`billing-stripe-failure-runbook.md`](billing-stripe-failure-runbook.md) | Stripe課金反映失敗の初動対応 |
