@@ -62,6 +62,7 @@ export function DesktopSharedView({
 }) {
   const [filter, setFilter] = useState<'all' | 'popular' | 'public'>('all');
   const [query, setQuery] = useState('');
+  const [groupPanelOpen, setGroupPanelOpen] = useState(false);
   const q = query.trim().toLowerCase();
   const sourceProjects = activeTab === 'public' ? publicProjects : groupProjects;
   const popularCount = sourceProjects.filter((project) => (project.likeCount ?? 0) > 0).length;
@@ -176,44 +177,60 @@ export function DesktopSharedView({
                 )}
               </div>
 
-              {selectedGroup && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
-                  <span className="ds-tag plain" style={{ fontSize: 10 }}>{selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}</span>
-                  <span className="mono muted" style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatInviteCode(selectedGroup.inviteCode)}</span>
-                  <button type="button" className="ds-btn ghost sm" onClick={onCopyGroupInvite}><Icon name="content_copy" />コピー</button>
-                </div>
-              )}
               {groupsError && <div style={{ marginTop: 10, color: 'var(--color-error)', fontSize: 12, fontWeight: 700 }}>{groupsError}</div>}
             </div>
 
-            <div className="ds-card" style={{ padding: 16, flex: '0 0 280px', alignSelf: 'flex-start' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--color-muted)', marginBottom: 12 }}>グループに参加・作成</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                <input
-                  className="ds-input"
-                  value={joinGroupCode}
-                  onChange={(event) => onJoinGroupCodeChange(event.target.value)}
-                  placeholder="招待コードを入力"
-                  style={{ flex: 1 }}
-                />
-                <button type="button" className="ds-btn" onClick={onJoinGroup} disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}>
-                  {groupActionLoading === 'join' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="login" />}
-                  参加
-                </button>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  className="ds-input"
-                  value={createGroupName}
-                  onChange={(event) => onCreateGroupNameChange(event.target.value)}
-                  placeholder="新しいグループ名"
-                  style={{ flex: 1 }}
-                />
-                <button type="button" className="ds-btn" onClick={onCreateGroup} disabled={groupActionLoading === 'create' || !createGroupName.trim()}>
-                  {groupActionLoading === 'create' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="add" />}
-                  作成
-                </button>
-              </div>
+            <div style={{ flex: '0 0 280px', alignSelf: 'flex-start', display: 'flex', flexDirection: 'column', gap: 0 }}>
+              <button
+                type="button"
+                onClick={() => setGroupPanelOpen((v) => !v)}
+                className="ds-card"
+                style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer', borderBottomLeftRadius: groupPanelOpen ? 0 : undefined, borderBottomRightRadius: groupPanelOpen ? 0 : undefined }}
+              >
+                <Icon name="settings" style={{ fontSize: 16, color: 'var(--color-muted)' }} />
+                <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>
+                  {selectedGroup ? `${selectedGroup.name} の管理・参加` : 'グループに参加・作成'}
+                </span>
+                <Icon name={groupPanelOpen ? 'expand_less' : 'expand_more'} style={{ fontSize: 18, color: 'var(--color-muted)' }} />
+              </button>
+              {groupPanelOpen && (
+                <div className="ds-card" style={{ padding: 16, borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                  {selectedGroup && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--color-border)' }}>
+                      <span className="ds-tag plain" style={{ fontSize: 10 }}>{selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}</span>
+                      <span className="mono muted" style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatInviteCode(selectedGroup.inviteCode)}</span>
+                      <button type="button" className="ds-btn ghost sm" onClick={onCopyGroupInvite}><Icon name="content_copy" />コピー</button>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--color-muted)', marginBottom: 12 }}>グループに参加・作成</div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                    <input
+                      className="ds-input"
+                      value={joinGroupCode}
+                      onChange={(event) => onJoinGroupCodeChange(event.target.value)}
+                      placeholder="招待コードを入力"
+                      style={{ flex: 1 }}
+                    />
+                    <button type="button" className="ds-btn" onClick={onJoinGroup} disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}>
+                      {groupActionLoading === 'join' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="login" />}
+                      参加
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      className="ds-input"
+                      value={createGroupName}
+                      onChange={(event) => onCreateGroupNameChange(event.target.value)}
+                      placeholder="新しいグループ名"
+                      style={{ flex: 1 }}
+                    />
+                    <button type="button" className="ds-btn" onClick={onCreateGroup} disabled={groupActionLoading === 'create' || !createGroupName.trim()}>
+                      {groupActionLoading === 'create' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="add" />}
+                      作成
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
