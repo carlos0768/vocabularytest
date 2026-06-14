@@ -401,106 +401,123 @@ export default function SharedPageClient({
       {activeTab === 'groups' && (
         <div className="px-[14px] pt-3 pb-1">
           {groups.length > 0 && (
-            <div className="mb-3 flex flex-col gap-1.5">
-              {groups.map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => setSelectedGroupId(group.id)}
-                  className="flex items-center gap-3 rounded-xl border-[1.25px] px-3 py-2.5 text-left transition-colors"
-                  style={{
-                    borderColor: selectedGroupId === group.id ? 'var(--solid-ink)' : 'var(--color-border)',
-                    background: selectedGroupId === group.id ? 'rgba(26,26,26,0.04)' : '#fff',
-                  }}
-                >
-                  <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-display text-[15px] font-extrabold text-white"
-                    style={{ background: thumbColor(group.id) }}
+            <div className="mb-3 flex flex-col gap-2">
+              {groups.map((group) => {
+                const isSelected = selectedGroupId === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => setSelectedGroupId(group.id)}
+                    className="relative block text-left"
                   >
-                    {group.name.charAt(0)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-bold text-[var(--solid-ink)]">{group.name}</div>
-                    <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">{group.memberCount}人 · {group.projectCount}冊</div>
-                  </div>
-                  {selectedGroupId === group.id && (
-                    <Icon name="check_circle" size={18} className="shrink-0 text-[var(--solid-ink)]" />
-                  )}
-                </button>
-              ))}
+                    <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+                    <div
+                      className="relative flex items-center gap-3 rounded-xl border-[1.25px] border-[var(--solid-ink)] px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px"
+                      style={{ background: isSelected ? 'var(--solid-ink)' : '#fff' }}
+                    >
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
+                        style={{ background: thumbColor(group.id) }}
+                      >
+                        {group.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-bold" style={{ color: isSelected ? '#fff' : 'var(--solid-ink)' }}>{group.name}</div>
+                        <div className="mt-0.5 text-[11px]" style={{ color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--color-muted)' }}>{group.memberCount}人 · {group.projectCount}冊</div>
+                      </div>
+                      {isSelected && (
+                        <Icon name="check_circle" size={18} className="shrink-0 text-white" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setGroupPanelOpen((v) => !v)}
-            className="mb-3 flex w-full items-center gap-2 rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-3 py-2.5 text-left"
-          >
-            <Icon name="settings" size={16} className="shrink-0 text-[var(--color-muted)]" />
-            <span className="flex-1 text-[12px] font-bold text-[var(--solid-ink)]">
-              {selectedGroup ? `${selectedGroup.name} の管理・参加` : 'グループに参加・作成'}
-            </span>
-            <Icon name={groupPanelOpen ? 'expand_less' : 'expand_more'} size={18} className="shrink-0 text-[var(--color-muted)]" />
-          </button>
+          <div className="relative mb-3">
+            <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+            <button
+              type="button"
+              onClick={() => setGroupPanelOpen((v) => !v)}
+              className="relative flex w-full items-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="settings" size={16} className="shrink-0 text-[var(--solid-ink)]" />
+              <span className="flex-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                {selectedGroup ? `${selectedGroup.name} の管理・参加` : 'グループに参加・作成'}
+              </span>
+              <Icon name={groupPanelOpen ? 'expand_less' : 'expand_more'} size={18} className="shrink-0 text-[var(--solid-ink)]" />
+            </button>
+          </div>
 
           {groupPanelOpen && (
-            <div className="mb-3 rounded-xl border-[1.25px] border-[var(--color-border)] bg-white p-3">
-              {selectedGroup && (
-                <div className="mb-3 flex items-center gap-2 border-b border-[var(--color-border)] pb-3">
-                  <span className="shrink-0 rounded-md bg-[rgba(26,26,26,0.06)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-muted)]">
-                    {selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-muted)]">
-                    {formatInviteCode(selectedGroup.inviteCode)}
-                  </span>
-                  <button type="button" onClick={() => void handleCopyGroupInvite()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-border)] px-2 py-1 text-[11px] font-bold text-[var(--solid-ink)]">
-                    <Icon name="content_copy" size={12} />
-                    コピー
+            <div className="relative mb-3">
+              <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+              <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-3">
+                {selectedGroup && (
+                  <div className="mb-3 flex items-center gap-2 border-b border-[var(--solid-ink)] pb-3">
+                    <span
+                      className="shrink-0 rounded px-[7px] py-[3px] font-mono text-[9px] font-bold tracking-[0.04em]"
+                      style={{ background: 'var(--solid-ink)', color: '#fff' }}
+                    >
+                      {selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">
+                      {formatInviteCode(selectedGroup.inviteCode)}
+                    </span>
+                    <button type="button" onClick={() => void handleCopyGroupInvite()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border-[1.25px] border-[var(--solid-ink)] px-2 py-1 text-[11px] font-bold text-[var(--solid-ink)]">
+                      <Icon name="content_copy" size={12} />
+                      コピー
+                    </button>
+                  </div>
+                )}
+
+                <div className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">グループに参加・作成</div>
+                <div className="mb-2 flex gap-2">
+                  <input
+                    value={joinGroupCode}
+                    onChange={(event) => setJoinGroupCode(event.target.value)}
+                    placeholder="招待コードを入力"
+                    className="min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleJoinGroup()}
+                    disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
+                  >
+                    <Icon name={groupActionLoading === 'join' ? 'progress_activity' : 'login'} size={14} className={groupActionLoading === 'join' ? 'animate-spin' : undefined} />
+                    参加
                   </button>
                 </div>
-              )}
-
-              <div className="mb-2.5 text-[11px] font-bold tracking-[0.04em] text-[var(--color-muted)]">グループに参加・作成</div>
-              <div className="mb-2 flex gap-2">
-                <input
-                  value={joinGroupCode}
-                  onChange={(event) => setJoinGroupCode(event.target.value)}
-                  placeholder="招待コードを入力"
-                  className="min-w-0 flex-1 rounded-lg border-[1.25px] border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--solid-ink)] outline-none focus:border-[var(--solid-ink)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleJoinGroup()}
-                  disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[var(--solid-ink)] px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
-                >
-                  <Icon name={groupActionLoading === 'join' ? 'progress_activity' : 'login'} size={14} className={groupActionLoading === 'join' ? 'animate-spin' : undefined} />
-                  参加
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  value={createGroupName}
-                  onChange={(event) => setCreateGroupName(event.target.value)}
-                  placeholder="新しいグループ名"
-                  className="min-w-0 flex-1 rounded-lg border-[1.25px] border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--solid-ink)] outline-none focus:border-[var(--solid-ink)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleCreateGroup()}
-                  disabled={groupActionLoading === 'create' || !createGroupName.trim()}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
-                >
-                  <Icon name={groupActionLoading === 'create' ? 'progress_activity' : 'add'} size={14} className={groupActionLoading === 'create' ? 'animate-spin' : undefined} />
-                  作成
-                </button>
+                <div className="flex gap-2">
+                  <input
+                    value={createGroupName}
+                    onChange={(event) => setCreateGroupName(event.target.value)}
+                    placeholder="新しいグループ名"
+                    className="min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateGroup()}
+                    disabled={groupActionLoading === 'create' || !createGroupName.trim()}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                  >
+                    <Icon name={groupActionLoading === 'create' ? 'progress_activity' : 'add'} size={14} className={groupActionLoading === 'create' ? 'animate-spin' : undefined} />
+                    作成
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
           {groupsError && (
-            <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
-              {groupsError}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
+              <div className="relative rounded-xl border-[1.25px] border-red-700 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
+                {groupsError}
+              </div>
             </div>
           )}
         </div>
@@ -510,19 +527,25 @@ export default function SharedPageClient({
         {activeTab === 'groups' && !selectedGroupId ? null : (
           <>
             {activeTab === 'groups' && groupProjectsLoading && (
-              <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-4 text-sm text-[var(--color-muted)]">
-                <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
-                読み込み中...
+              <div className="relative">
+                <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+                <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-4 text-sm font-bold text-[var(--color-muted)]">
+                  <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
+                  読み込み中...
+                </div>
               </div>
             )}
 
             {mobileProjects.length === 0 && !(activeTab === 'groups' && groupProjectsLoading) ? (
-              <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-12 text-center text-sm text-[var(--color-muted)]">
-                {activeTab === 'public'
-                  ? '公開中の単語帳はまだありません'
-                  : selectedGroup
-                    ? 'このグループの単語帳はまだありません'
-                    : 'グループを選択してください'}
+              <div className="relative">
+                <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+                <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
+                  {activeTab === 'public'
+                    ? '公開中の単語帳はまだありません'
+                    : selectedGroup
+                      ? 'このグループの単語帳はまだありません'
+                      : 'グループを選択してください'}
+                </div>
               </div>
             ) : (
               mobileProjects.map((project) => (
@@ -531,8 +554,11 @@ export default function SharedPageClient({
             )}
 
             {groupProjectsError && activeTab === 'groups' && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-                {groupProjectsError}
+              <div className="relative">
+                <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
+                <div className="relative rounded-xl border-[1.25px] border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  {groupProjectsError}
+                </div>
               </div>
             )}
           </>
