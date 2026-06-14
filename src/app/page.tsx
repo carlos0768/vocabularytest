@@ -9,9 +9,6 @@ import { DesktopHomeView } from '@/components/desktop/DesktopHome';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
-import { WelcomeOverlay } from '@/components/onboarding/WelcomeOverlay';
-import { EmptyStateGuide } from '@/components/onboarding/EmptyStateGuide';
-import { HintBanner } from '@/components/onboarding/HintBanner';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useAuth } from '@/hooks/use-auth';
@@ -229,7 +226,7 @@ const EMPTY_STATS: HomeStats = {
 export default function HomePage() {
   const router = useRouter();
   const { user, subscription, isPro, loading: authLoading } = useAuth();
-  const { step: onboardingStep, loading: onboardingLoading, setStep: setOnboardingStep } = useOnboarding();
+  useOnboarding();
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
@@ -237,7 +234,7 @@ export default function HomePage() {
   const [pendingScans, setPendingScans] = useState<HomePendingScan[]>([]);
   const [recentScanJobs, setRecentScanJobs] = useState<RecentScanJob[]>([]);
   const [pendingGeneratingWordbook, setPendingGeneratingWordbook] = useState<HomeGeneratingWordbookPayload | null>(null);
-  const [welcomeOpen, setWelcomeOpen] = useState(false);
+
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
@@ -344,23 +341,6 @@ export default function HomePage() {
     }
   }, [showHomeGeneratingWordbook]);
 
-  useEffect(() => {
-    if (authLoading || onboardingLoading) return;
-    if (!user) {
-      setWelcomeOpen(false);
-      return;
-    }
-    if (onboardingStep === 'signed_up') {
-      setWelcomeOpen(true);
-      return;
-    }
-    setWelcomeOpen(false);
-  }, [authLoading, onboardingLoading, onboardingStep, user]);
-
-  const handleWelcomeSkip = useCallback(() => {
-    setWelcomeOpen(false);
-    void setOnboardingStep('skipped');
-  }, [setOnboardingStep]);
 
   // Pro: バックグラウンドスキャンのポーリング
   useEffect(() => {
@@ -618,19 +598,6 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {onboardingStep === 'first_scan_done' && visibleProjects.length > 0 && (
-        <div className="px-[18px] pb-3">
-          <HintBanner
-            icon="bolt"
-            title="次はクイズで覚えよう！"
-            description="作った単語帳を 4 択クイズで定着させましょう。"
-            href={`/quiz/${visibleProjects[0].id}`}
-            ctaLabel="クイズへ"
-            tone="amber"
-          />
-        </div>
-      )}
-
       <div className="flex flex-col gap-2.5 px-[18px] pb-4">
         {displayedPendingScans.map((job) => (
           <GeneratingProjectCard
@@ -645,21 +612,17 @@ export default function HomePage() {
             <span className="ml-2 text-sm">読み込み中...</span>
           </div>
         ) : visibleProjects.length === 0 ? (
-          onboardingStep === 'completed' || onboardingStep === 'first_scan_done' ? (
-            <EmptyStateGuide onStartScan={() => setVocabScanOpen(true)} />
-          ) : (
-            <SolidEmpty
-              icon="menu_book"
-              title="単語帳はまだありません"
-              description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
-              action={
-                <Link href="/scan" className="solid-link-primary">
-                  <Icon name="add_a_photo" size={16} />
-                  新規スキャン
-                </Link>
-              }
-            />
-          )
+          <SolidEmpty
+            icon="menu_book"
+            title="単語帳はまだありません"
+            description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
+            action={
+              <Link href="/scan" className="solid-link-primary">
+                <Icon name="add_a_photo" size={16} />
+                新規スキャン
+              </Link>
+            }
+          />
         ) : (
           visibleProjects.map((project) => <ProjectRow key={project.id} project={project} />)
         )}
@@ -673,12 +636,7 @@ export default function HomePage() {
         onBackgroundScanStarted={showHomeGeneratingWordbook}
       />
 
-      <WelcomeOverlay
-        open={welcomeOpen}
-        onClose={() => setWelcomeOpen(false)}
-        onSkip={handleWelcomeSkip}
-        onStartScan={() => setVocabScanOpen(true)}
-      />
+
     </>
   );
 }

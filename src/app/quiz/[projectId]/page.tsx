@@ -55,7 +55,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
-import { HintBanner } from '@/components/onboarding/HintBanner';
 import { PwaInstallPromptModal } from '@/components/onboarding/PwaInstallPromptModal';
 import type {
   MultipleChoiceQuizQuestion,
@@ -1148,16 +1147,6 @@ export default function QuizPage() {
           <div className="w-full max-w-sm">
             <h1 className="mb-2 text-center font-display text-2xl font-black text-[var(--solid-ink)]">問題数を入力</h1>
             <p className="mb-4 text-center text-[var(--color-muted)]">1〜{maxQ}問まで</p>
-            {(onboardingStep === 'signed_up' || onboardingStep === 'first_scan_done') && (
-              <div className="mb-6">
-                <HintBanner
-                  icon="quiz"
-                  title="4 択から正しい意味を選ぼう！"
-                  description="間違えても OK。スピード感が大事です。"
-                  tone="violet"
-                />
-              </div>
-            )}
             <div className="space-y-6">
               <div className="flex items-center justify-center gap-3">
                 <input

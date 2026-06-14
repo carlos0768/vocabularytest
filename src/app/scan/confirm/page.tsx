@@ -9,7 +9,6 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
-import { HintBanner } from '@/components/onboarding/HintBanner';
 import { getRepository } from '@/lib/db';
 import { getDb } from '@/lib/db/dexie';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
@@ -384,17 +383,6 @@ export default function ConfirmPage() {
         </div>
       )}
 
-      {/* Onboarding hint */}
-      {onboardingStep === 'signed_up' && (
-        <div className="px-[18px] pb-3">
-          <HintBanner
-            icon="check_circle"
-            title="あと少し！保存ボタンで単語帳を作成しよう"
-            description="不要な単語を削除・編集してから保存できます。"
-            tone="accent"
-          />
-        </div>
-      )}
 
       {/* Word count + add button */}
       <div className="flex items-center justify-between px-[18px] pb-2.5">
