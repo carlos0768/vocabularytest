@@ -360,7 +360,7 @@ export default function SharedPageClient({
         </div>
       </div>
 
-      <div className="mx-[14px] mt-2 flex rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-[3px]">
+      <div className="mx-[14px] mt-2 flex border-[1.25px] border-[var(--solid-ink)] bg-white p-[3px]">
         <button
           type="button"
           onClick={() => setActiveTab('public')}

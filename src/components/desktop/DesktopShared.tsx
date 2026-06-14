@@ -92,7 +92,7 @@ export function DesktopSharedView({
       </DesktopTopbar>
       <div className="ds-scroll">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-          <div style={{ display: 'inline-flex', borderRadius: 10, border: '1.5px solid var(--solid-ink)', background: '#fff', padding: 3 }}>
+          <div style={{ display: 'inline-flex', borderRadius: 0, border: '1.5px solid var(--solid-ink)', background: '#fff', padding: 3 }}>
             <button
               type="button"
               onClick={() => onActiveTabChange('public')}
