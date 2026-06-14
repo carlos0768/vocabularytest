@@ -91,80 +91,129 @@ export function DesktopSharedView({
         />
       </DesktopTopbar>
       <div className="ds-scroll">
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-          <button type="button" className={'ds-chip' + (activeTab === 'public' ? ' active' : '')} onClick={() => onActiveTabChange('public')}>公開 <span className="tnum" style={{ opacity: 0.7 }}>{publicProjects.length}</span></button>
-          <button type="button" className={'ds-chip' + (activeTab === 'groups' ? ' active' : '')} onClick={() => onActiveTabChange('groups')}>グループ <span className="tnum" style={{ opacity: 0.7 }}>{groups.length}</span></button>
-          <span style={{ width: 8 }} />
-          <button type="button" className={'ds-chip' + (filter === 'all' ? ' active' : '')} onClick={() => setFilter('all')}>すべて <span className="tnum" style={{ opacity: 0.7 }}>{sourceProjects.length}</span></button>
-          <button type="button" className={'ds-chip' + (filter === 'popular' ? ' active' : '')} onClick={() => setFilter('popular')}>人気 <span className="tnum" style={{ opacity: 0.7 }}>{popularCount}</span></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <div style={{ display: 'inline-flex', borderRadius: 10, border: '1.5px solid var(--solid-ink)', background: '#fff', padding: 3 }}>
+            <button
+              type="button"
+              onClick={() => onActiveTabChange('public')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+                background: activeTab === 'public' ? 'var(--solid-ink)' : 'transparent',
+                color: activeTab === 'public' ? '#fff' : 'var(--solid-ink)',
+                transition: 'all 0.15s',
+              }}
+            >
+              <Icon name="public" style={{ fontSize: 16 }} />
+              公開
+              <span className="tnum" style={{ opacity: 0.6, fontSize: 11 }}>{publicProjects.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onActiveTabChange('groups')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+                background: activeTab === 'groups' ? 'var(--solid-ink)' : 'transparent',
+                color: activeTab === 'groups' ? '#fff' : 'var(--solid-ink)',
+                transition: 'all 0.15s',
+              }}
+            >
+              <Icon name="group" style={{ fontSize: 16 }} />
+              グループ
+              <span className="tnum" style={{ opacity: 0.6, fontSize: 11 }}>{groups.length}</span>
+            </button>
+          </div>
+
           {activeTab === 'public' && (
-            <button type="button" className={'ds-chip' + (filter === 'public' ? ' active' : '')} onClick={() => setFilter('public')}>公開中 <span className="tnum" style={{ opacity: 0.7 }}>{publicProjects.length}</span></button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" className={'ds-chip' + (filter === 'all' ? ' active' : '')} onClick={() => setFilter('all')}>すべて <span className="tnum" style={{ opacity: 0.7 }}>{sourceProjects.length}</span></button>
+              <button type="button" className={'ds-chip' + (filter === 'popular' ? ' active' : '')} onClick={() => setFilter('popular')}>人気 <span className="tnum" style={{ opacity: 0.7 }}>{popularCount}</span></button>
+              <button type="button" className={'ds-chip' + (filter === 'public' ? ' active' : '')} onClick={() => setFilter('public')}>公開中 <span className="tnum" style={{ opacity: 0.7 }}>{publicProjects.length}</span></button>
+            </div>
           )}
         </div>
 
         {activeTab === 'groups' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 0.8fr) minmax(0, 1.2fr)', gap: 14, marginBottom: 18 }}>
-            <div className="ds-card" style={{ padding: 14 }}>
-              <div className="ds-sec-head" style={{ marginBottom: 10 }}>
-                <h2 style={{ fontSize: 15 }}>所属グループ</h2>
+          <div style={{ display: 'flex', gap: 18, marginBottom: 22 }}>
+            <div className="ds-card" style={{ padding: 16, flex: '0 0 260px', display: 'flex', flexDirection: 'column' }}>
+              <div className="ds-sec-head" style={{ marginBottom: 12 }}>
+                <h2 style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em' }}>所属グループ</h2>
                 {groupsLoading && <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 16 }} />}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, maxHeight: 260, overflowY: 'auto' }}>
                 {groups.map((group) => (
                   <button
                     key={group.id}
                     type="button"
                     onClick={() => onSelectGroup(group.id)}
-                    className={'ds-set-row' + (selectedGroupId === group.id ? ' active' : '')}
-                    style={{ width: '100%', textAlign: 'left', border: '1px solid var(--color-border)', borderRadius: 8, background: selectedGroupId === group.id ? 'rgba(26,26,26,0.05)' : '#fff' }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                      padding: '10px 12px', borderRadius: 10,
+                      border: selectedGroupId === group.id ? '1.5px solid var(--solid-ink)' : '1.5px solid var(--color-border)',
+                      background: selectedGroupId === group.id ? 'rgba(26,26,26,0.04)' : '#fff',
+                      cursor: 'pointer', transition: 'all 0.12s',
+                    }}
                   >
-                    <div className="ic"><Icon name="group" /></div>
-                    <div className="lab">
-                      <div className="t">{group.name}</div>
-                      <div className="d">{group.memberCount}人 · {group.projectCount}冊</div>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: desktopThumbColor(group.id), color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0,
+                    }}>
+                      {group.name.charAt(0)}
                     </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.name}</div>
+                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{group.memberCount}人 · {group.projectCount}冊</div>
+                    </div>
+                    {selectedGroupId === group.id && <Icon name="check_circle" style={{ fontSize: 18, flexShrink: 0 }} />}
                   </button>
                 ))}
                 {!groupsLoading && groups.length === 0 && (
-                  <div className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>所属グループはまだありません</div>
+                  <div style={{ padding: '20px 0', textAlign: 'center' }}>
+                    <Icon name="group_add" style={{ fontSize: 28, opacity: 0.3, marginBottom: 6, display: 'block', margin: '0 auto 6px' }} />
+                    <div className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>グループに参加しましょう</div>
+                  </div>
                 )}
               </div>
+
+              {selectedGroup && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
+                  <span className="ds-tag plain" style={{ fontSize: 10 }}>{selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}</span>
+                  <span className="mono muted" style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatInviteCode(selectedGroup.inviteCode)}</span>
+                  <button type="button" className="ds-btn ghost sm" onClick={onCopyGroupInvite}><Icon name="content_copy" />コピー</button>
+                </div>
+              )}
               {groupsError && <div style={{ marginTop: 10, color: 'var(--color-error)', fontSize: 12, fontWeight: 700 }}>{groupsError}</div>}
             </div>
 
-            <div className="ds-card" style={{ padding: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginBottom: 10 }}>
-                <input
-                  className="ds-input"
-                  value={createGroupName}
-                  onChange={(event) => onCreateGroupNameChange(event.target.value)}
-                  placeholder="新しいグループ名"
-                />
-                <button type="button" className="ds-btn" onClick={onCreateGroup} disabled={groupActionLoading === 'create' || !createGroupName.trim()}>
-                  {groupActionLoading === 'create' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="add" />}
-                  作成
-                </button>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
+            <div className="ds-card" style={{ padding: 16, flex: '0 0 280px', alignSelf: 'flex-start' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--color-muted)', marginBottom: 12 }}>グループに参加・作成</div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                 <input
                   className="ds-input"
                   value={joinGroupCode}
                   onChange={(event) => onJoinGroupCodeChange(event.target.value)}
-                  placeholder="招待コード"
+                  placeholder="招待コードを入力"
+                  style={{ flex: 1 }}
                 />
                 <button type="button" className="ds-btn" onClick={onJoinGroup} disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}>
                   {groupActionLoading === 'join' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="login" />}
                   参加
                 </button>
               </div>
-
-              {selectedGroup && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                  <span className="ds-tag plain">{selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}</span>
-                  <span className="mono muted" style={{ fontSize: 12 }}>招待 {formatInviteCode(selectedGroup.inviteCode)}</span>
-                  <button type="button" className="ds-btn ghost sm" onClick={onCopyGroupInvite}><Icon name="content_copy" />コピー</button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="ds-input"
+                  value={createGroupName}
+                  onChange={(event) => onCreateGroupNameChange(event.target.value)}
+                  placeholder="新しいグループ名"
+                  style={{ flex: 1 }}
+                />
+                <button type="button" className="ds-btn" onClick={onCreateGroup} disabled={groupActionLoading === 'create' || !createGroupName.trim()}>
+                  {groupActionLoading === 'create' ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="add" />}
+                  作成
+                </button>
+              </div>
             </div>
           </div>
         )}
