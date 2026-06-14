@@ -76,7 +76,12 @@ Cloud Run側:
 - [ ] `GCP_LOCATION` は想定region。既存運用では `asia-northeast1`。
 - [ ] `APP_ENV=prod`。
 - [ ] `FALLBACK_OPENAI_MODEL` が想定モデル。
-- [ ] `FALLBACK_CALLS_DAILY_CAP` と `FALLBACK_COST_DAILY_CAP_YEN` が本番上限として妥当。
+- [ ] `FALLBACK_CALLS_DAILY_CAP=100` と `FALLBACK_COST_DAILY_CAP_YEN=300` が本番上限として妥当。
+- [ ] `GATEWAY_CALLS_DAILY_CAP=300` と `GATEWAY_COST_DAILY_CAP_YEN=900` が本番上限として妥当。
+- [ ] `GATEWAY_FIRESTORE_GUARD_ENABLED=true`。
+- [ ] `GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED=true`。
+- [ ] `GATEWAY_GUARD_STATE_DOC=ops/aiGatewayGuard`。
+- [ ] `/health` の `gatewayGuardStore` が `firestore`。
 - [ ] `FALLBACK_SLACK_WEBHOOK_URL` は必要な場合だけ設定。
 
 注意:
@@ -90,6 +95,8 @@ Cloud Run側:
 - [ ] `GOOGLE_AI_API_KEY` は直接Gemini経路で使う本番key。
 - [ ] Cloud Run経由運用ではCloud Run側 `OPENAI_API_KEY` とVertex AI権限も確認する。
 - [ ] OpenAI / Gemini / Google Cloud billing alertが設定されている。
+- [ ] GCP Budget `MERKEN production monthly guardrail` が Pub/Sub topic `merken-budget-guard` に接続されている。
+- [ ] Firestore `ops/aiGatewayGuard.disabled=false`。
 - [ ] `API_COST_USD_TO_JPY` が推定コスト表示の前提として妥当。
 - [ ] `REQUIRE_AUTH_TRANSLATE=true`。
 - [ ] `REQUIRE_AUTH_GENERATE_EXAMPLES=true`。

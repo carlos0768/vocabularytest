@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { DeleteConfirmModal, Icon, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import {
   MAX_EXAMPLE_GENRES,
   MAX_EXAMPLE_GENRE_LENGTH,
@@ -21,6 +22,7 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
   const { exampleGenres, loading, saving, setExampleGenres } = useUserPreferences();
   const [inputValue, setInputValue] = useState('');
   const [removalTarget, setRemovalTarget] = useState<string | null>(null);
+  const billingEnabled = isBillingEnabled();
 
   const busy = loading || saving;
   const atLimit = exampleGenres.length >= MAX_EXAMPLE_GENRES;
@@ -185,7 +187,7 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
         </>
       )}
 
-      {isAuthenticated && !isPro && (
+      {isAuthenticated && !isPro && billingEnabled && (
         <div className={exampleGenres.length > 0 ? (isMobile ? 'mt-2.5' : 'mt-3') : ''}>
           <Link
             href="/subscription"

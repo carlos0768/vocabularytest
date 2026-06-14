@@ -8,8 +8,8 @@ interface CounterConfig {
 }
 
 const DEFAULT_COUNTER_CONFIG: CounterConfig = {
-  callsDailyCap: 1000,
-  costDailyCapYen: 3000,
+  callsDailyCap: 100,
+  costDailyCapYen: 300,
   estimatedYenPerCall: 3,
   fallbackRateWindowMs: 10 * 60 * 1000,
 };

@@ -1,7 +1,20 @@
-import { type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
+const billingPaths = ['/pricing', '/subscription'];
+const billingScopedFeaturePaths = ['/correction', '/parser'];
+
 export async function middleware(request: NextRequest) {
+  if (
+    process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true' &&
+    [...billingPaths, ...billingScopedFeaturePaths].some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
   return await updateSession(request);
 }
 

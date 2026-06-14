@@ -52,6 +52,7 @@ import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/re
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
 import { useAuth } from '@/hooks/use-auth';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { HintBanner } from '@/components/onboarding/HintBanner';
@@ -487,6 +488,7 @@ export default function QuizPage() {
   const pathname = usePathname();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user, isPro } = useAuth();
+  const billingEnabled = isBillingEnabled();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
@@ -789,7 +791,7 @@ export default function QuizPage() {
 
         if (favoritesMode) {
           if (!isPro) {
-            router.replace('/subscription');
+            router.replace(billingEnabled ? '/subscription' : '/favorites');
             return;
           }
 
@@ -924,7 +926,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
 
   useEffect(() => {
     if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
@@ -1285,6 +1287,13 @@ export default function QuizPage() {
     selectedIndex !== currentQuestion.correctIndex
   );
   const desktopAnswerWrong = typeInResult === 'wrong' || desktopMultipleChoiceWrong || wordOrderResult === 'wrong';
+  const desktopCorrectAnswer = currentIsWordOrder
+    ? null
+    : isActiveVocab
+      ? typeInExpectedAnswer
+      : isMultipleChoiceQuestion(currentQuestion)
+        ? currentQuestion.options[currentQuestion.correctIndex] ?? currentQuestion.word.english
+        : null;
   const desktopWordOrderReady = (
     isWordOrderQuestion(currentQuestion) &&
     wordOrderSelectedTokens.length === currentQuestion.answerTokens.length
@@ -1451,9 +1460,9 @@ export default function QuizPage() {
                 />
                 {desktopAnswerWrong ? '不正解' : '正解'}
               </span>
-              {typeInResult === 'wrong' && isMultipleChoiceQuestion(currentQuestion) && (
+              {desktopAnswerWrong && desktopCorrectAnswer && (
                 <span className="muted" style={{ fontSize: 13.5 }}>
-                  正解：<b style={{ color: 'var(--color-ink)' }}>{currentQuestion.word.english}</b>
+                  正解：<b style={{ color: 'var(--color-ink)' }}>{desktopCorrectAnswer}</b>
                 </span>
               )}
               <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>

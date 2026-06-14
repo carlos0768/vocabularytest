@@ -16,10 +16,22 @@ env:
   OPENAI_SECRET_NAME: scan-openai-api-key
   FALLBACK_SLACK_WEBHOOK_SECRET_NAME: scan-fallback-slack-webhook-url
   FALLBACK_OPENAI_MODEL: gpt-4o-mini
-  FALLBACK_CALLS_DAILY_CAP: "1000"
-  FALLBACK_COST_DAILY_CAP_YEN: "3000"
+  FALLBACK_CALLS_DAILY_CAP: "100"
+  FALLBACK_COST_DAILY_CAP_YEN: "300"
   FALLBACK_ESTIMATED_YEN_PER_CALL: "3"
   FALLBACK_BREAKER_OPEN_MS: "300000"
+  GATEWAY_CALLS_DAILY_CAP: "300"
+  GATEWAY_COST_DAILY_CAP_YEN: "900"
+  GATEWAY_ESTIMATED_YEN_PER_CALL: "3"
+  GATEWAY_FIRESTORE_GUARD_ENABLED: "true"
+  GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED: "true"
+  GATEWAY_GUARD_STATE_DOC: ops/aiGatewayGuard
+  CLOUD_RUN_MAX_INSTANCES: "3"
+  CLOUD_RUN_MIN_INSTANCES: "0"
+  CLOUD_RUN_CONCURRENCY: "10"
+  CLOUD_RUN_TIMEOUT: "300"
+  CLOUD_RUN_CPU: "1"
+  CLOUD_RUN_MEMORY: "1Gi"
   APP_ENV: prod
 
 permissions:
@@ -68,7 +80,28 @@ jobs:
           PROJECT_ID: ${{ steps.auth.outputs.project_id }}
         run: |
           IMAGE_URI="${{ env.GCP_REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
-          gcloud builds submit cloud-run-scan --tag "${IMAGE_URI}"
+          BUILD_ID=$(gcloud builds submit cloud-run-scan --tag "${IMAGE_URI}" --async --format='value(id)')
+          echo "Cloud Build ID: ${BUILD_ID}"
+          for i in {1..120}; do
+            STATUS=$(gcloud builds describe "${BUILD_ID}" --format='value(status)')
+            echo "Cloud Build status: ${STATUS}"
+            case "${STATUS}" in
+              SUCCESS)
+                break
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                echo "Cloud Build failed with status ${STATUS}"
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+
+          FINAL_STATUS=$(gcloud builds describe "${BUILD_ID}" --format='value(status)')
+          if [ "${FINAL_STATUS}" != "SUCCESS" ]; then
+            echo "Cloud Build did not finish in time: ${FINAL_STATUS}"
+            exit 1
+          fi
           echo "IMAGE_URI=${IMAGE_URI}" >> "$GITHUB_ENV"
 
       - name: Deploy Cloud Run service
@@ -92,8 +125,15 @@ jobs:
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=${{ env.GCP_REGION }},APP_ENV=${{ env.APP_ENV }},FALLBACK_OPENAI_MODEL=${{ env.FALLBACK_OPENAI_MODEL }},FALLBACK_CALLS_DAILY_CAP=${{ env.FALLBACK_CALLS_DAILY_CAP }},FALLBACK_COST_DAILY_CAP_YEN=${{ env.FALLBACK_COST_DAILY_CAP_YEN }},FALLBACK_ESTIMATED_YEN_PER_CALL=${{ env.FALLBACK_ESTIMATED_YEN_PER_CALL }},FALLBACK_BREAKER_OPEN_MS=${{ env.FALLBACK_BREAKER_OPEN_MS }}" \
-            --set-secrets "${SECRET_FLAGS}"
+            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=${{ env.GCP_REGION }},APP_ENV=${{ env.APP_ENV }},FALLBACK_OPENAI_MODEL=${{ env.FALLBACK_OPENAI_MODEL }},FALLBACK_CALLS_DAILY_CAP=${{ env.FALLBACK_CALLS_DAILY_CAP }},FALLBACK_COST_DAILY_CAP_YEN=${{ env.FALLBACK_COST_DAILY_CAP_YEN }},FALLBACK_ESTIMATED_YEN_PER_CALL=${{ env.FALLBACK_ESTIMATED_YEN_PER_CALL }},FALLBACK_BREAKER_OPEN_MS=${{ env.FALLBACK_BREAKER_OPEN_MS }},GATEWAY_CALLS_DAILY_CAP=${{ env.GATEWAY_CALLS_DAILY_CAP }},GATEWAY_COST_DAILY_CAP_YEN=${{ env.GATEWAY_COST_DAILY_CAP_YEN }},GATEWAY_ESTIMATED_YEN_PER_CALL=${{ env.GATEWAY_ESTIMATED_YEN_PER_CALL }},GATEWAY_FIRESTORE_GUARD_ENABLED=${{ env.GATEWAY_FIRESTORE_GUARD_ENABLED }},GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED=${{ env.GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED }},GATEWAY_GUARD_STATE_DOC=${{ env.GATEWAY_GUARD_STATE_DOC }}" \
+            --set-secrets "${SECRET_FLAGS}" \
+            --max-instances "${{ env.CLOUD_RUN_MAX_INSTANCES }}" \
+            --min-instances "${{ env.CLOUD_RUN_MIN_INSTANCES }}" \
+            --concurrency "${{ env.CLOUD_RUN_CONCURRENCY }}" \
+            --timeout "${{ env.CLOUD_RUN_TIMEOUT }}" \
+            --cpu "${{ env.CLOUD_RUN_CPU }}" \
+            --memory "${{ env.CLOUD_RUN_MEMORY }}" \
+            --cpu-throttling
 
       - name: Show service URL
         run: |

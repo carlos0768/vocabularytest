@@ -6,6 +6,11 @@
 
 | 文書 | 用途 |
 |---|---|
+| [`release-acceptance-criteria.md`](release-acceptance-criteria.md) | 初回一般公開 v1.0 を「公開できる」と判断するための固定基準 |
+| [`production-readiness-audit-2026-06-13.md`](production-readiness-audit-2026-06-13.md) | 2026-06-13時点の公開可否監査、P0/P1、検証結果 |
+| [`production-operations-handbook.md`](production-operations-handbook.md) | 公開後に運用者が毎日・毎週・障害時に見るべき情報の教科書 |
+| [`gcp-billing-safety-audit-2026-06-13.md`](gcp-billing-safety-audit-2026-06-13.md) | GCP高額請求防止の公式docs照合と本番guardrail |
+| [`gcp-budget-guard-runbook.md`](gcp-budget-guard-runbook.md) | GCP Budget通知・Firestore停止フラグ・AI gateway手動停止/復旧 |
 | [`../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md) | 初版公開前の最終チェック、手動QA、外部サービス確認 |
 | [`scan-failure-runbook.md`](scan-failure-runbook.md) | スキャン失敗 / 遅延の初動対応 |
 | [`billing-stripe-failure-runbook.md`](billing-stripe-failure-runbook.md) | Stripe課金反映失敗の初動対応 |
@@ -23,8 +28,8 @@
 
 ## 運用時の基本ルール
 
-- 初版公開前は [`../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`](../maintenance/PRELAUNCH_RELEASE_CHECKLIST.md) を使い、実メール、代表scan、Stripe、Supabase、Resend、Cloud Runの確認漏れを分ける。
+- 初版公開前は [`release-acceptance-criteria.md`](release-acceptance-criteria.md) を正とし、実メール、代表scan、Supabase、Resend、Cloud Run、AI costの確認漏れを分ける。v1.0 は課金導線を公開しないため、Stripe live確認は課金公開リリース時に行う。
 - 課金、認証、スキャン、同期、DBを触る前に [`../boundaries.md`](../boundaries.md) と [`../invariants.md`](../invariants.md) を読む。
-- 古いKOMOJU資料は履歴として有用だが、現在のWeb課金実装はStripe中心で確認する。
+- 古いKOMOJU資料は履歴として有用だが、課金公開時のWeb課金実装はStripe中心で確認する。
 - Sentryは現在未使用。`src/instrumentation.ts` と `src/instrumentation-client.ts` はno-opで、`@sentry/nextjs` は未導入。
 - 障害対応で新しい知見が出たら、該当runbookへ追記する。恒久化前のメモは `../maintenance/` に残す。

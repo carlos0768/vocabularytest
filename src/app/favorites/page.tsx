@@ -7,6 +7,7 @@ import { DesktopFavoritesView, DesktopWrongAnswersView } from '@/components/desk
 import { Icon } from '@/components/ui/Icon';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getFavoritesQuizStorageKey } from '@/lib/quiz/quiz-state';
@@ -45,6 +46,7 @@ function FavoritesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, subscription, loading: authLoading, isPro } = useAuth();
+  const billingEnabled = isBillingEnabled();
   const [favorites, setFavorites] = useState<FavoriteWord[]>([]);
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [projectTitlesById, setProjectTitlesById] = useState<Record<string, string>>({});
@@ -266,8 +268,8 @@ function FavoritesPageContent() {
                 </div>
 
                 <div className="mt-3.5 flex gap-2">
-                  <ActionLink href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : '/subscription'} icon="style" label="カード" accent />
-                  <ActionLink href={isPro ? `/quiz/all?favorites=1&count=10&from=${returnPath}` : '/subscription'} icon="quiz" label="クイズ" />
+                  <ActionLink href={isPro ? `/flashcard/all?favorites=true&from=${returnPath}` : billingEnabled ? '/subscription' : '/favorites'} icon="style" label="カード" accent />
+                  <ActionLink href={isPro ? `/quiz/all?favorites=1&count=10&from=${returnPath}` : billingEnabled ? '/subscription' : '/favorites'} icon="quiz" label="クイズ" />
                 </div>
               </div>
             </div>

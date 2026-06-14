@@ -3,9 +3,17 @@ import { randomUUID } from 'crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createCheckoutSession, STRIPE_CONFIG } from '@/lib/stripe';
 import { isActiveProSubscription } from '@/lib/subscription/status';
+import { isBillingEnabled } from '@/lib/billing/feature';
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isBillingEnabled()) {
+      return NextResponse.json(
+        { success: false, error: '課金機能は現在公開していません' },
+        { status: 404 },
+      );
+    }
+
     const supabase = await createClient();
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();

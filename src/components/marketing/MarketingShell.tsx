@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ReactNode } from 'react';
 import { DotGridBackground } from '@/components/ui/DotGridBackground';
 import { Icon } from '@/components/ui/Icon';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import { cn } from '@/lib/utils';
 import { StatusAwareCta } from './StatusAwareCta';
 
@@ -16,6 +17,10 @@ const navItems = [
 ];
 
 export function MarketingShell({ children, active }: MarketingShellProps) {
+  const visibleNavItems = isBillingEnabled()
+    ? navItems
+    : navItems.filter((item) => item.key !== 'pricing');
+
   return (
     <div className="min-h-screen relative bg-[var(--color-background)]">
       <DotGridBackground />
@@ -34,7 +39,7 @@ export function MarketingShell({ children, active }: MarketingShellProps) {
             </Link>
 
             <div className="hidden md:flex items-center gap-2">
-              {navItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -65,7 +70,7 @@ export function MarketingShell({ children, active }: MarketingShellProps) {
           </div>
 
           <div className="mt-3 flex md:hidden items-center gap-2 overflow-x-auto pb-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

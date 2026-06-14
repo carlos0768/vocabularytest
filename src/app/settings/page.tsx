@@ -10,7 +10,7 @@ import { Icon, Modal, useToast } from '@/components/ui';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
-import { STRIPE_CONFIG } from '@/lib/stripe/config';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import type { Subscription } from '@/types';
 
 type SettingsActionModal = 'cancel-subscription' | 'delete-account' | null;
@@ -82,6 +82,7 @@ export default function SettingsPage() {
 
   const isBillingPro = isPro && subscription?.proSource === 'billing';
   const isAppStorePro = isPro && subscription?.proSource === 'appstore';
+  const billingEnabled = isBillingEnabled();
   const isCancelScheduled = Boolean(subscription?.cancelAtPeriodEnd);
   const periodEndLabel = formatDate(subscription?.currentPeriodEnd);
   const planHint = getPlanHint(subscription, isPro);
@@ -307,7 +308,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Upgrade banner (Free only) */}
-      {!isPro && isAuthenticated && (
+      {billingEnabled && !isPro && isAuthenticated && (
         <div className="px-[18px] pb-4">
           <div className="relative">
             <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-[12px] bg-[var(--color-accent)]" />
@@ -316,7 +317,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-accent)]">UPGRADE</span>
                   <span className="h-[3px] w-[3px] rounded-full bg-[var(--color-muted)]" />
-                  <span className="font-mono text-[9px] text-[var(--color-muted)]">¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}/月</span>
+                  <span className="font-mono text-[9px] text-[var(--color-muted)]">月額プラン</span>
                 </div>
                 <div className="mt-[3px] font-display text-sm font-bold text-[var(--solid-ink)]">Pro でぜんぶ使う</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">スキャン無制限・デバイス無制限</div>

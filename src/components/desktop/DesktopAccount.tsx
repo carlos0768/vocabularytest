@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { StudyReminderSettings } from '@/components/settings/StudyReminderSettings';
 import { ExampleGenreSettings } from '@/components/settings/ExampleGenreSettings';
+import { isBillingEnabled } from '@/lib/billing/feature';
 
 export function DesktopSettingsView({
   email,
@@ -17,12 +18,16 @@ export function DesktopSettingsView({
   isPro: boolean;
   onSignOut: () => void;
 }) {
+  const billingEnabled = isBillingEnabled();
+
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="設定" crumb="アカウント">
-        <DesktopButton href="/subscription" variant={isPro ? 'dark' : 'accent'} icon="auto_awesome">
-          {isPro ? 'Proプラン' : 'Proを見る'}
-        </DesktopButton>
+        {billingEnabled && (
+          <DesktopButton href="/subscription" variant={isPro ? 'dark' : 'accent'} icon="auto_awesome">
+            {isPro ? 'Proプラン' : 'Proを見る'}
+          </DesktopButton>
+        )}
       </DesktopTopbar>
       <div className="ds-scroll">
         <div style={{ width: 'min(100%, 720px)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>

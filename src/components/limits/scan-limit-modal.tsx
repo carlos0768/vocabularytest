@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
+import { isBillingEnabled } from '@/lib/billing/feature';
 
 interface ScanLimitModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export function ScanLimitModal({
   onClose,
   todayWordsLearned = 0,
 }: ScanLimitModalProps) {
+  const billingEnabled = isBillingEnabled();
   // Calculate reset time (next midnight)
   const now = new Date();
   const tomorrow = new Date(now);
@@ -46,19 +48,20 @@ export function ScanLimitModal({
           </p>
         )}
 
-        {/* Pro upgrade card */}
-        <div className="bg-[var(--color-primary-light)] rounded-[var(--radius-lg)] p-4 mb-5 border border-[var(--color-border)]">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Icon name="auto_awesome" size={16} className="text-[var(--color-primary)]" />
-            <span className="text-sm font-medium text-[var(--color-foreground)]">Proなら無制限でスキャン</span>
+        {billingEnabled && (
+          <div className="bg-[var(--color-primary-light)] rounded-[var(--radius-lg)] p-4 mb-5 border border-[var(--color-border)]">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Icon name="auto_awesome" size={16} className="text-[var(--color-primary)]" />
+              <span className="text-sm font-medium text-[var(--color-foreground)]">Proなら無制限でスキャン</span>
+            </div>
+            <p className="text-xs text-[var(--color-muted)] mb-3">月額 ¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}</p>
+            <Link href="/subscription" onClick={onClose}>
+              <Button className="w-full">
+                Proにアップグレード
+              </Button>
+            </Link>
           </div>
-          <p className="text-xs text-[var(--color-muted)] mb-3">月額 ¥{STRIPE_CONFIG.plans.pro.price.toLocaleString()}</p>
-          <Link href="/subscription" onClick={onClose}>
-            <Button className="w-full">
-              Proにアップグレード
-            </Button>
-          </Link>
-        </div>
+        )}
 
         {/* Tomorrow message */}
         <p className="text-sm text-[var(--color-muted)] mb-1">
