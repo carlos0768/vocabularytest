@@ -1,6 +1,7 @@
 'use client';
 
 import { Icon } from '@/components/ui/Icon';
+import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import type { ProjectShareScope } from '@/types';
 
 function buildShareUrl(shareId: string): string {
@@ -21,6 +22,11 @@ type ProjectShareSheetProps = {
   onCopyShareLink: (shareUrl: string) => void | Promise<void>;
   onShareLink: (shareUrl: string) => void | Promise<void>;
   shareLinkCopied: boolean;
+  groups?: StudyGroupSummary[];
+  groupsLoading?: boolean;
+  groupsError?: string | null;
+  groupSharingUpdatingId?: string | null;
+  onToggleGroupShare?: (group: StudyGroupSummary) => void;
 };
 
 export function ProjectShareSheet({
@@ -35,11 +41,25 @@ export function ProjectShareSheet({
   onCopyShareLink,
   onShareLink,
   shareLinkCopied,
+  groups = [],
+  groupsLoading = false,
+  groupsError = null,
+  groupSharingUpdatingId = null,
+  onToggleGroupShare,
 }: ProjectShareSheetProps) {
   if (!open) return null;
 
   const shareUrl = shareId ? buildShareUrl(shareId) : '';
-  const shareActionsDisabled = preparing || !shareUrl;
+
+  const scopeSummary =
+    shareScope === 'public'
+      ? '公開単語帳として共有ページに表示されます'
+      : 'リンクを知っている人だけが開けます';
+
+  const scopeDescription =
+    shareScope === 'public'
+      ? '共有タブの公開単語帳一覧からそのまま見つけられます。'
+      : '共有ページの一覧には出ません。リンクを送った相手だけが開けます。';
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -63,6 +83,8 @@ export function ProjectShareSheet({
             borderTopRightRadius: 20,
             padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
             boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+            maxHeight: 'min(88vh, 720px)',
+            overflowY: 'auto',
           }}
         >
           <div className="mb-2.5 flex justify-center">
@@ -158,25 +180,105 @@ export function ProjectShareSheet({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              disabled={shareActionsDisabled}
-              onClick={() => void onShareLink(shareUrl)}
-              className="inline-flex h-12 items-center justify-center gap-1.5 rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[14px] font-extrabold text-white shadow-[3px_3px_0_rgba(26,26,26,0.25)] transition-all active:translate-x-px active:translate-y-px disabled:opacity-45"
-            >
-              <Icon name={preparing ? 'progress_activity' : 'ios_share'} size={16} className={preparing ? 'animate-spin' : undefined} />
-              共有
-            </button>
-            <button
-              type="button"
-              disabled={shareActionsDisabled}
-              onClick={() => void onCopyShareLink(shareUrl)}
-              className="inline-flex h-12 items-center justify-center gap-1.5 rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[#137fec] px-3 text-[14px] font-extrabold text-white shadow-[3px_3px_0_rgba(26,26,26,0.25)] transition-all active:translate-x-px active:translate-y-px disabled:opacity-45"
-            >
-              <Icon name={preparing ? 'progress_activity' : shareLinkCopied ? 'check' : 'content_copy'} size={16} className={preparing ? 'animate-spin' : undefined} />
-              コピー
-            </button>
+          <div className="mb-3">
+            <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              <Icon name="group" size={11} />
+              グループ
+            </div>
+            <div className="flex max-h-[150px] flex-col gap-2 overflow-y-auto pr-1">
+              {groupsLoading ? (
+                <div className="flex h-10 items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-3 text-[12px] text-[var(--color-muted)]">
+                  <Icon name="progress_activity" size={14} className="animate-spin" />
+                  読み込み中...
+                </div>
+              ) : groups.length === 0 ? (
+                <div className="rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-3 text-[12px] text-[var(--color-muted)]">
+                  所属グループはまだありません
+                </div>
+              ) : (
+                groups.map((group) => {
+                  const updating = groupSharingUpdatingId === group.id;
+                  const shared = Boolean(group.projectShared);
+                  return (
+                    <button
+                      key={group.id}
+                      type="button"
+                      disabled={preparing || updating || !onToggleGroupShare}
+                      onClick={() => onToggleGroupShare?.(group)}
+                      className="flex items-center gap-2 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-left disabled:opacity-50"
+                    >
+                      <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)]"
+                        style={{ background: shared ? 'var(--solid-ink)' : '#fff', color: shared ? '#fff' : 'var(--solid-ink)' }}
+                      >
+                        <Icon name={updating ? 'progress_activity' : shared ? 'check' : 'group'} size={15} className={updating ? 'animate-spin' : undefined} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-bold text-[var(--solid-ink)]">{group.name}</div>
+                        <div className="mt-0.5 font-mono text-[9px] text-[var(--color-muted)]">
+                          {group.memberCount}人 · {group.projectCount}冊
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[var(--solid-ink)] px-2 py-0.5 text-[10px] font-bold text-[var(--solid-ink)]">
+                        {shared ? '掲載中' : '掲載'}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {groupsError && (
+              <div className="mt-2 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
+                {groupsError}
+              </div>
+            )}
+          </div>
+
+          <div className="mb-3 rounded-[10px] border border-dashed border-[var(--solid-ink)] bg-[rgba(26,26,26,0.04)] p-[11px]">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                共有リンク
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={preparing || !shareUrl}
+                  onClick={() => void onShareLink(shareUrl)}
+                  className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                >
+                  <Icon name="ios_share" size={11} />
+                  共有
+                </button>
+                <button
+                  type="button"
+                  disabled={preparing || !shareUrl}
+                  onClick={() => void onCopyShareLink(shareUrl)}
+                  className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                >
+                  <Icon name={shareLinkCopied ? 'check' : 'content_copy'} size={11} />
+                  {shareLinkCopied ? 'コピー済み' : 'コピー'}
+                </button>
+              </div>
+            </div>
+            {preparing || !shareUrl ? (
+              <div className="flex h-9 items-center gap-2 text-[12px] text-[var(--color-muted)]">
+                <Icon name="progress_activity" size={14} className="animate-spin" />
+                準備中...
+              </div>
+            ) : (
+              <p className="break-all font-mono text-[12px] font-bold leading-[1.5] text-[var(--solid-ink)]">
+                {shareUrl}
+              </p>
+            )}
+            <p className="mt-1.5 text-[10.5px] leading-[1.5] text-[var(--color-muted)]">{scopeDescription}</p>
+            <p className="mt-0.5 text-[10.5px] font-bold leading-[1.5] text-[var(--solid-ink)]">{scopeSummary}</p>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-[10px] border border-dashed border-[rgba(19,127,236,0.3)] bg-[rgba(19,127,236,0.06)] px-[11px] py-[9px]">
+            <Icon name="info" size={14} className="text-[#137fec]" />
+            <span className="text-[11px] leading-[1.5] text-[var(--color-muted)]">
+              公開をオフにしても、リンクを知っている人はこの単語帳を開けます。
+            </span>
           </div>
         </div>
       </div>

@@ -1,12 +1,14 @@
 'use client';
 
-import { startTransition, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { DesktopSharedView } from '@/components/desktop/DesktopShared';
+import { DesktopSharedView, type SharedLibraryTab } from '@/components/desktop/DesktopShared';
 import { Icon } from '@/components/ui';
 import type {
   SharedProjectCard,
   SharedProjectMetricsMap,
+  StudyGroupProjectListPayload,
+  StudyGroupSummary,
 } from '@/lib/shared-projects/types';
 import {
   collectMetricProjectIds,
@@ -28,6 +30,22 @@ type MetricsResponse = {
   metrics?: SharedProjectMetricsMap;
 };
 
+type StudyGroupsResponse = {
+  success?: boolean;
+  groups?: StudyGroupSummary[];
+  error?: string;
+};
+
+type StudyGroupMutationResponse = {
+  success?: boolean;
+  group?: StudyGroupSummary;
+  error?: string;
+};
+
+type StudyGroupProjectsResponse =
+  | ({ success: true } & StudyGroupProjectListPayload)
+  | { success?: false; error?: string };
+
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
 function thumbColor(id: string) {
@@ -42,16 +60,42 @@ export default function SharedPageClient({
   initialPublicItems,
   initialPublicNextCursor,
 }: SharedPageClientProps) {
+  const [activeTab, setActiveTab] = useState<SharedLibraryTab>('public');
   const [publicProjects, setPublicProjects] = useState<SharedProjectCard[]>(initialPublicItems);
   const [publicNextCursor, setPublicNextCursor] = useState<string | null>(initialPublicNextCursor);
   const [loadingMorePublic, setLoadingMorePublic] = useState(false);
   const [publicSectionError, setPublicSectionError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
+  const [groups, setGroups] = useState<StudyGroupSummary[]>([]);
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [groupProjectsByGroupId, setGroupProjectsByGroupId] = useState<Record<string, SharedProjectCard[]>>({});
+  const [groupProjectsLoading, setGroupProjectsLoading] = useState(false);
+  const [groupProjectsError, setGroupProjectsError] = useState<string | null>(null);
+  const [createGroupName, setCreateGroupName] = useState('');
+  const [joinGroupCode, setJoinGroupCode] = useState('');
+  const [groupActionLoading, setGroupActionLoading] = useState<'create' | 'join' | null>(null);
+  const [groupPanelOpen, setGroupPanelOpen] = useState(false);
   const pendingMetricIdsRef = useRef(new Set<string>());
+
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group.id === selectedGroupId) ?? null,
+    [groups, selectedGroupId],
+  );
+  const selectedGroupProjects = selectedGroupId ? (groupProjectsByGroupId[selectedGroupId] ?? []) : [];
 
   const applyMetrics = useEffectEvent((metrics: SharedProjectMetricsMap) => {
     startTransition(() => {
       setPublicProjects((current) => mergeMetricsIntoCards(current, metrics));
+      setGroupProjectsByGroupId((current) => {
+        const next: Record<string, SharedProjectCard[]> = {};
+        for (const [groupId, cards] of Object.entries(current)) {
+          next[groupId] = mergeMetricsIntoCards(cards, metrics);
+        }
+        return next;
+      });
     });
   });
 
@@ -77,9 +121,92 @@ export default function SharedPageClient({
   });
 
   useEffect(() => {
-    const projectIds = collectMetricProjectIds([], [], publicProjects);
+    const groupProjects = Object.values(groupProjectsByGroupId).flat();
+    const projectIds = collectMetricProjectIds([], [], [...publicProjects, ...groupProjects]);
     if (projectIds.length > 0) requestMetrics(projectIds);
-  }, [publicProjects]);
+  }, [groupProjectsByGroupId, publicProjects]);
+
+  const loadGroups = useCallback(async () => {
+    setGroupsLoading(true);
+    setGroupsError(null);
+
+    try {
+      const response = await fetch('/api/shared-projects/groups', { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as StudyGroupsResponse | null;
+
+      if (response.status === 401) {
+        setGroups([]);
+        setGroupsLoaded(true);
+        setSelectedGroupId(null);
+        setGroupsError('ログインするとグループを使えます。');
+        return;
+      }
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'study_groups_fetch_failed');
+      }
+
+      const nextGroups = payload.groups ?? [];
+      startTransition(() => {
+        setGroups(nextGroups);
+        setGroupsLoaded(true);
+        setSelectedGroupId((current) => {
+          if (current && nextGroups.some((group) => group.id === current)) return current;
+          return null;
+        });
+      });
+    } catch (error) {
+      console.warn('Failed to load study groups:', error);
+      setGroups([]);
+      setSelectedGroupId(null);
+      setGroupsLoaded(true);
+      setGroupsError('グループ一覧を読み込めませんでした。');
+    } finally {
+      setGroupsLoading(false);
+    }
+  }, []);
+
+  const loadGroupProjects = useCallback(async (groupId: string) => {
+    setGroupProjectsLoading(true);
+    setGroupProjectsError(null);
+
+    try {
+      const response = await fetch(`/api/shared-projects/groups/${encodeURIComponent(groupId)}/projects`, {
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as StudyGroupProjectsResponse | null;
+
+      if (!response.ok || !payload || payload.success !== true) {
+        const message = payload && 'error' in payload ? payload.error : undefined;
+        throw new Error(message || 'study_group_projects_fetch_failed');
+      }
+
+      startTransition(() => {
+        setGroupProjectsByGroupId((current) => ({
+          ...current,
+          [groupId]: payload.projects ?? [],
+        }));
+        setGroups((current) => current.map((group) => (
+          group.id === payload.group.id ? { ...group, ...payload.group } : group
+        )));
+      });
+    } catch (error) {
+      console.warn('Failed to load group projects:', error);
+      setGroupProjectsError('グループ内の単語帳を読み込めませんでした。');
+    } finally {
+      setGroupProjectsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'groups' || groupsLoaded || groupsLoading) return;
+    void loadGroups();
+  }, [activeTab, groupsLoaded, groupsLoading, loadGroups]);
+
+  useEffect(() => {
+    if (activeTab !== 'groups' || !selectedGroupId) return;
+    if (groupProjectsByGroupId[selectedGroupId]) return;
+    void loadGroupProjects(selectedGroupId);
+  }, [activeTab, groupProjectsByGroupId, loadGroupProjects, selectedGroupId]);
 
   async function handleLoadMorePublic() {
     if (!publicNextCursor || loadingMorePublic) return;
@@ -108,20 +235,118 @@ export default function SharedPageClient({
     }
   }
 
+  async function handleCreateGroup() {
+    const name = createGroupName.trim();
+    if (!name || groupActionLoading) return;
+
+    setGroupActionLoading('create');
+    setGroupsError(null);
+
+    try {
+      const response = await fetch('/api/shared-projects/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const payload = await response.json().catch(() => null) as StudyGroupMutationResponse | null;
+      if (!response.ok || !payload?.success || !payload.group) {
+        throw new Error(payload?.error || 'study_group_create_failed');
+      }
+
+      startTransition(() => {
+        setGroups((current) => [payload.group!, ...current.filter((group) => group.id !== payload.group!.id)]);
+        setGroupProjectsByGroupId((current) => ({ ...current, [payload.group!.id]: [] }));
+        setSelectedGroupId(payload.group!.id);
+        setGroupsLoaded(true);
+        setActiveTab('groups');
+      });
+      setCreateGroupName('');
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      setGroupsError(error instanceof Error ? error.message : 'グループの作成に失敗しました。');
+    } finally {
+      setGroupActionLoading(null);
+    }
+  }
+
+  async function handleJoinGroup() {
+    const inviteCode = joinGroupCode.trim();
+    if (!inviteCode || groupActionLoading) return;
+
+    setGroupActionLoading('join');
+    setGroupsError(null);
+
+    try {
+      const response = await fetch('/api/shared-projects/groups/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode }),
+      });
+      const payload = await response.json().catch(() => null) as StudyGroupMutationResponse | null;
+      if (!response.ok || !payload?.success || !payload.group) {
+        throw new Error(payload?.error || 'グループへの参加に失敗しました。');
+      }
+
+      startTransition(() => {
+        setGroups((current) => [payload.group!, ...current.filter((group) => group.id !== payload.group!.id)]);
+        setSelectedGroupId(payload.group!.id);
+        setGroupsLoaded(true);
+        setActiveTab('groups');
+        setGroupProjectsByGroupId((current) => {
+          if (current[payload.group!.id]) return current;
+          return { ...current, [payload.group!.id]: [] };
+        });
+      });
+      setJoinGroupCode('');
+      void loadGroupProjects(payload.group.id);
+    } catch (error) {
+      console.error('Failed to join group:', error);
+      setGroupsError(error instanceof Error ? error.message : 'グループへの参加に失敗しました。');
+    } finally {
+      setGroupActionLoading(null);
+    }
+  }
+
+  async function handleCopyGroupInvite() {
+    if (!selectedGroup) return;
+    await copyToClipboard(formatInviteCode(selectedGroup.inviteCode));
+  }
+
   const popularCount = publicProjects.filter((project) => (project.likeCount ?? 0) > 0).length;
 
-  const filteredProjects = activeFilter === 'popular'
+  const filteredPublicProjects = activeFilter === 'popular'
     ? [...publicProjects].filter((p) => (p.likeCount ?? 0) > 0).sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0))
     : publicProjects;
+
+  const mobileProjects = activeTab === 'public' ? filteredPublicProjects : selectedGroupProjects;
 
   return (
     <>
       <DesktopSharedView
-        projects={filteredProjects}
-        nextCursor={publicNextCursor}
-        loadingMore={loadingMorePublic}
-        error={publicSectionError}
-        onLoadMore={() => void handleLoadMorePublic()}
+        activeTab={activeTab}
+        onActiveTabChange={setActiveTab}
+        publicProjects={publicProjects}
+        groupProjects={selectedGroupProjects}
+        groups={groups}
+        selectedGroup={selectedGroup}
+        selectedGroupId={selectedGroupId}
+        groupsLoading={groupsLoading}
+        groupProjectsLoading={groupProjectsLoading}
+        publicNextCursor={publicNextCursor}
+        publicLoadingMore={loadingMorePublic}
+        publicError={publicSectionError}
+        groupsError={groupsError}
+        groupProjectsError={groupProjectsError}
+        createGroupName={createGroupName}
+        joinGroupCode={joinGroupCode}
+        groupActionLoading={groupActionLoading}
+        onLoadMorePublic={() => void handleLoadMorePublic()}
+        onSelectGroup={setSelectedGroupId}
+        onCreateGroupNameChange={setCreateGroupName}
+        onJoinGroupCodeChange={setJoinGroupCode}
+        onCreateGroup={() => void handleCreateGroup()}
+        onJoinGroup={() => void handleJoinGroup()}
+        onCopyGroupInvite={() => void handleCopyGroupInvite()}
       />
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[18px] pb-2 pt-1">
@@ -132,34 +357,238 @@ export default function SharedPageClient({
           共有単語帳
         </div>
         <div className="mt-1 text-xs leading-[1.5] text-[var(--color-muted)]">
-          みんなが作った単語帳をインポートして、自分の学習に取り込めます。
+          みんなの単語帳と所属グループの単語帳を閲覧できます。
         </div>
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto px-[14px] py-3">
-        <FilterChip label="すべて" count={publicProjects.length} active={activeFilter === 'all'} onClick={() => setActiveFilter('all')} />
-        <FilterChip label="人気" count={popularCount} active={activeFilter === 'popular'} onClick={() => setActiveFilter('popular')} />
-        <FilterChip label="公開中" count={publicProjects.length} active={activeFilter === 'public'} onClick={() => setActiveFilter('public')} />
+      <div className="mx-[14px] mt-2 flex border-[1.25px] border-[var(--solid-ink)] bg-white p-[3px]">
+        <button
+          type="button"
+          onClick={() => setActiveTab('public')}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] py-2.5 text-[13px] font-bold transition-colors"
+          style={{
+            background: activeTab === 'public' ? 'var(--solid-ink)' : 'transparent',
+            color: activeTab === 'public' ? '#fff' : 'var(--solid-ink)',
+          }}
+        >
+          <Icon name="public" size={16} />
+          公開
+          <span className="font-mono text-[10px] tabular-nums opacity-60">{publicProjects.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('groups')}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] py-2.5 text-[13px] font-bold transition-colors"
+          style={{
+            background: activeTab === 'groups' ? 'var(--solid-ink)' : 'transparent',
+            color: activeTab === 'groups' ? '#fff' : 'var(--solid-ink)',
+          }}
+        >
+          <Icon name="group" size={16} />
+          グループ
+          <span className="font-mono text-[10px] tabular-nums opacity-60">{groups.length}</span>
+        </button>
       </div>
 
-      <div className="flex flex-col gap-2 px-[14px]">
-        {filteredProjects.length === 0 ? (
-          <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-12 text-center text-sm text-[var(--color-muted)]">
-            公開中の単語帳はまだありません
+      {activeTab === 'public' && (
+        <div className="flex gap-1.5 overflow-x-auto px-[14px] py-3">
+          <FilterChip label="すべて" count={publicProjects.length} active={activeFilter === 'all'} onClick={() => setActiveFilter('all')} />
+          <FilterChip label="人気" count={popularCount} active={activeFilter === 'popular'} onClick={() => setActiveFilter('popular')} />
+          <FilterChip label="公開中" count={publicProjects.length} active={activeFilter === 'public'} onClick={() => setActiveFilter('public')} />
+        </div>
+      )}
+
+      {activeTab === 'groups' && !selectedGroupId && (
+        <div className="px-[14px] pt-3 pb-1">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              {groups.length > 0 ? `${groups.length} グループ` : ''}
+            </div>
+            <button
+              type="button"
+              onClick={() => setGroupPanelOpen((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="settings" size={14} />
+              管理
+            </button>
           </div>
-        ) : (
-          filteredProjects.map((project) => (
-            <ProjectCard key={project.project.id} project={project} />
-          ))
+
+          {groupPanelOpen && (
+            <div className="relative mb-3">
+              <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+              <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-3">
+                <div className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">グループに参加・作成</div>
+                <div className="mb-2 flex gap-2">
+                  <input
+                    value={joinGroupCode}
+                    onChange={(event) => setJoinGroupCode(event.target.value)}
+                    placeholder="招待コードを入力"
+                    className="min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleJoinGroup()}
+                    disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
+                  >
+                    <Icon name={groupActionLoading === 'join' ? 'progress_activity' : 'login'} size={14} className={groupActionLoading === 'join' ? 'animate-spin' : undefined} />
+                    参加
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={createGroupName}
+                    onChange={(event) => setCreateGroupName(event.target.value)}
+                    placeholder="新しいグループ名"
+                    className="min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateGroup()}
+                    disabled={groupActionLoading === 'create' || !createGroupName.trim()}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                  >
+                    <Icon name={groupActionLoading === 'create' ? 'progress_activity' : 'add'} size={14} className={groupActionLoading === 'create' ? 'animate-spin' : undefined} />
+                    作成
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {groups.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => setSelectedGroupId(group.id)}
+                  className="relative block text-left"
+                >
+                  <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+                  <div className="relative flex items-center gap-3 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
+                      style={{ background: thumbColor(group.id) }}
+                    >
+                      {group.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold text-[var(--solid-ink)]">{group.name}</div>
+                      <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">{group.memberCount}人 · {group.projectCount}冊</div>
+                    </div>
+                    <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {groupsLoading && (
+            <div className="flex items-center gap-2 py-4 text-sm text-[var(--color-muted)]">
+              <Icon name="progress_activity" size={16} className="animate-spin" />
+              読み込み中...
+            </div>
+          )}
+
+          {groupsError && (
+            <div className="relative mt-2">
+              <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
+              <div className="relative rounded-xl border-[1.25px] border-red-700 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
+                {groupsError}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'groups' && selectedGroupId && (
+        <div className="px-[14px] pt-3 pb-1">
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedGroupId(null)}
+              className="inline-flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="arrow_back" size={14} />
+              戻る
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-display text-[16px] font-extrabold text-[var(--solid-ink)]">
+                {selectedGroup?.name}
+              </div>
+            </div>
+            {selectedGroup && (
+              <span
+                className="shrink-0 rounded px-[7px] py-[3px] font-mono text-[9px] font-bold tracking-[0.04em]"
+                style={{ background: 'var(--solid-ink)', color: '#fff' }}
+              >
+                {selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}
+              </span>
+            )}
+          </div>
+
+          {selectedGroup && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">
+                招待 {formatInviteCode(selectedGroup.inviteCode)}
+              </span>
+              <button type="button" onClick={() => void handleCopyGroupInvite()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border-[1.25px] border-[var(--solid-ink)] px-2 py-1 text-[11px] font-bold text-[var(--solid-ink)]">
+                <Icon name="content_copy" size={12} />
+                コピー
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 px-[14px]">
+        {activeTab === 'groups' && !selectedGroupId ? null : (
+          <>
+            {activeTab === 'groups' && groupProjectsLoading && (
+              <div className="relative">
+                <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+                <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-4 text-sm font-bold text-[var(--color-muted)]">
+                  <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
+                  読み込み中...
+                </div>
+              </div>
+            )}
+
+            {mobileProjects.length === 0 && !(activeTab === 'groups' && groupProjectsLoading) ? (
+              <div className="relative">
+                <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+                <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
+                  {activeTab === 'public'
+                    ? '公開中の単語帳はまだありません'
+                    : 'このグループの単語帳はまだありません'}
+                </div>
+              </div>
+            ) : (
+              mobileProjects.map((project) => (
+                <ProjectCard key={project.project.id} project={project} />
+              ))
+            )}
+
+            {groupProjectsError && activeTab === 'groups' && (
+              <div className="relative">
+                <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
+                <div className="relative rounded-xl border-[1.25px] border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  {groupProjectsError}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {publicSectionError && (
+        {publicSectionError && activeTab === 'public' && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
             {publicSectionError}
           </div>
         )}
 
-        {publicNextCursor && (
+        {publicNextCursor && activeTab === 'public' && (
           <button
             type="button"
             onClick={handleLoadMorePublic}
@@ -225,7 +654,7 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
       <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
       <div className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div
-          className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] bg-center bg-cover font-display text-[22px] font-extrabold text-white"
+          className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] bg-cover bg-center font-display text-[22px] font-extrabold text-white"
           style={{
             backgroundColor: bg,
             backgroundImage: project.project.iconImage ? `url(${project.project.iconImage})` : undefined,
@@ -272,4 +701,33 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
       </div>
     </Link>
   );
+}
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function formatInviteCode(value: string): string {
+  const compact = value.replace(/-/g, '');
+  const parts: string[] = [];
+  for (let index = 0; index < compact.length; index += 4) {
+    parts.push(compact.slice(index, index + 4));
+  }
+  return parts.join('-');
 }
