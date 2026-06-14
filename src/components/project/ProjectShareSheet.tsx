@@ -3,13 +3,10 @@
 import { Icon } from '@/components/ui/Icon';
 import type { ProjectShareScope } from '@/types';
 
-export function formatShareInviteCode(shareId: string): string {
-  const compact = shareId.replace(/-/g, '');
-  const parts: string[] = [];
-  for (let i = 0; i < compact.length; i += 4) {
-    parts.push(compact.slice(i, i + 4));
-  }
-  return parts.join('-');
+function buildShareUrl(shareId: string): string {
+  const path = `/share/${encodeURIComponent(shareId)}`;
+  if (typeof window === 'undefined') return path;
+  return `${window.location.origin}${path}`;
 }
 
 type ProjectShareSheetProps = {
@@ -21,8 +18,9 @@ type ProjectShareSheetProps = {
   preparing: boolean;
   updatingScope: boolean;
   onSelectScope: (scope: ProjectShareScope) => Promise<void>;
-  onCopyInviteCode: () => void;
-  inviteCodeCopied: boolean;
+  onCopyShareLink: (shareUrl: string) => void | Promise<void>;
+  onShareLink: (shareUrl: string) => void | Promise<void>;
+  shareLinkCopied: boolean;
 };
 
 export function ProjectShareSheet({
@@ -34,20 +32,23 @@ export function ProjectShareSheet({
   preparing,
   updatingScope,
   onSelectScope,
-  onCopyInviteCode,
-  inviteCodeCopied,
+  onCopyShareLink,
+  onShareLink,
+  shareLinkCopied,
 }: ProjectShareSheetProps) {
   if (!open) return null;
+
+  const shareUrl = shareId ? buildShareUrl(shareId) : '';
 
   const scopeSummary =
     shareScope === 'public'
       ? '公開単語帳として共有ページに表示されます'
-      : '非公開のまま招待コードで参加できます';
+      : 'リンクを知っている人だけが開けます';
 
   const scopeDescription =
     shareScope === 'public'
       ? '共有タブの公開単語帳一覧からそのまま見つけられます。'
-      : '非公開の単語帳です。招待コードで参加してもらえます。';
+      : '共有ページの一覧には出ません。リンクを送った相手だけが開けます。';
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -141,7 +142,7 @@ export function ProjectShareSheet({
                 }}
               >
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[13px] font-bold">非公開</span>
+                  <span className="text-[13px] font-bold">リンク限定</span>
                   <div
                     className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
                     style={{ border: shareScope === 'private' ? '1.5px solid #fff' : '1.5px solid var(--solid-ink)' }}
@@ -153,7 +154,7 @@ export function ProjectShareSheet({
                   className="mt-1 text-[10.5px] leading-[1.4]"
                   style={{ color: shareScope === 'private' ? 'rgba(255,255,255,0.65)' : 'var(--color-muted)' }}
                 >
-                  招待コードで参加
+                  リンクを知っている人だけ
                 </p>
               </button>
             </div>
@@ -169,26 +170,37 @@ export function ProjectShareSheet({
           <div className="mb-3 rounded-[10px] border border-dashed border-[var(--solid-ink)] bg-[rgba(26,26,26,0.04)] p-[11px]">
             <div className="mb-2 flex items-center justify-between">
               <span className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-                招待コード
+                共有リンク
               </span>
-              <button
-                type="button"
-                disabled={preparing || !shareId}
-                onClick={onCopyInviteCode}
-                className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
-              >
-                <Icon name={inviteCodeCopied ? 'check' : 'content_copy'} size={11} />
-                {inviteCodeCopied ? 'コピー済み' : 'コピー'}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={preparing || !shareUrl}
+                  onClick={() => void onShareLink(shareUrl)}
+                  className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                >
+                  <Icon name="ios_share" size={11} />
+                  共有
+                </button>
+                <button
+                  type="button"
+                  disabled={preparing || !shareUrl}
+                  onClick={() => void onCopyShareLink(shareUrl)}
+                  className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                >
+                  <Icon name={shareLinkCopied ? 'check' : 'content_copy'} size={11} />
+                  {shareLinkCopied ? 'コピー済み' : 'コピー'}
+                </button>
+              </div>
             </div>
-            {preparing || !shareId ? (
+            {preparing || !shareUrl ? (
               <div className="flex h-9 items-center gap-2 text-[12px] text-[var(--color-muted)]">
                 <Icon name="progress_activity" size={14} className="animate-spin" />
                 準備中...
               </div>
             ) : (
-              <p className="break-all font-mono text-[18px] font-bold tracking-wide text-[var(--solid-ink)]">
-                {formatShareInviteCode(shareId)}
+              <p className="break-all font-mono text-[12px] font-bold leading-[1.5] text-[var(--solid-ink)]">
+                {shareUrl}
               </p>
             )}
             <p className="mt-1.5 text-[10.5px] leading-[1.5] text-[var(--color-muted)]">{scopeDescription}</p>
@@ -198,7 +210,7 @@ export function ProjectShareSheet({
           <div className="flex items-center gap-2 rounded-[10px] border border-dashed border-[rgba(19,127,236,0.3)] bg-[rgba(19,127,236,0.06)] px-[11px] py-[9px]">
             <Icon name="info" size={14} className="text-[#137fec]" />
             <span className="text-[11px] leading-[1.5] text-[var(--color-muted)]">
-              招待コードまたは共有ページから他のユーザーがこの単語帳を取得できます。
+              公開をオフにしても、リンクを知っている人はこの単語帳を開けます。
             </span>
           </div>
         </div>
