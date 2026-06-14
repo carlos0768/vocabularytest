@@ -274,11 +274,10 @@ export function ScanCapturePanel({
   const handleLibraryInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = '';
-    if (captureView) {
-      addHeldShots(files);
-    } else {
-      void handleFilesSelected(files);
+    if (!captureView) {
+      setCaptureView(true);
     }
+    addHeldShots(files);
   };
 
   const handleCaptureClose = () => {
