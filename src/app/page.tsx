@@ -358,8 +358,7 @@ export default function HomePage() {
 
   const handleWelcomeSkip = useCallback(() => {
     setWelcomeOpen(false);
-    void setOnboardingStep('skipped');
-  }, [setOnboardingStep]);
+  }, []);
 
   // Pro: バックグラウンドスキャンのポーリング
   useEffect(() => {
