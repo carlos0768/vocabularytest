@@ -860,7 +860,7 @@ export default function ProjectPage() {
                 aria-label="メニューを閉じる"
                 onClick={() => setMenuOpen(false)}
               />
-              <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]">
+              <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white">
                 <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
                 <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
                 <MenuButton
@@ -947,7 +947,7 @@ export default function ProjectPage() {
               />
               <div
                 role="menu"
-                className="absolute right-0 top-[52px] z-30 w-[180px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[3px_4px_0_var(--solid-ink)]"
+                className="absolute right-0 top-[52px] z-30 w-[180px] overflow-hidden rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white"
               >
                 <MenuButton
                   icon="photo_camera"
@@ -974,7 +974,7 @@ export default function ProjectPage() {
       <div className="flex items-center gap-2 px-5 pb-2">
         <label
           htmlFor="project-word-search"
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-[7px] text-[var(--color-muted)] shadow-[2px_2px_0_var(--solid-ink)]"
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-[7px] text-[var(--color-muted)]"
         >
           <Icon name="search" size={14} />
           <span className="sr-only">単語を検索</span>
@@ -996,7 +996,7 @@ export default function ProjectPage() {
           type="button"
           onClick={() => setWordShowFilterSheet(true)}
           aria-label="フィルタ"
-          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none ${
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
             wordFilterActive
               ? 'bg-[var(--solid-ink)] text-white'
               : 'bg-white text-[var(--solid-ink)]'
@@ -1008,7 +1008,7 @@ export default function ProjectPage() {
           type="button"
           onClick={() => setWordShowSortSheet(true)}
           aria-label="並べ替え"
-          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none ${
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
             wordSortOrder !== 'createdAsc'
               ? 'bg-[var(--solid-ink)] text-white'
               : 'bg-white text-[var(--solid-ink)]'
@@ -1020,7 +1020,7 @@ export default function ProjectPage() {
           type="button"
           onClick={() => { if (selectMode) { handleExitSelectMode(); } else { setSelectMode(true); setSelectedWordIds(new Set()); } }}
           aria-label="選択"
-          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none ${
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
             selectMode
               ? 'bg-[var(--solid-ink)] text-white'
               : 'bg-white text-[var(--solid-ink)]'
@@ -1134,7 +1134,6 @@ export default function ProjectPage() {
                 background: '#faf7f1',
                 border: '1.5px solid var(--solid-ink)',
                 borderRadius: 20,
-                boxShadow: '4px 5px 0 var(--solid-ink)',
               }}
             >
               <WordDetailView
@@ -1224,7 +1223,7 @@ export default function ProjectPage() {
             style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
           />
           <div className="absolute inset-0 flex items-center justify-center px-5">
-            <div className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5" style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+            <div className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5">
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">RENAME</div>
               <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">名称変更</h2>
               <input
@@ -1234,7 +1233,7 @@ export default function ProjectPage() {
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirmRename(); }}
                 autoFocus
                 maxLength={60}
-                className="mt-3 w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)]"
+                className="mt-3 w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none"
               />
               <div className="mt-4 flex gap-2">
                 <button
@@ -1288,7 +1287,6 @@ function DeleteProjectModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             DELETE
@@ -1372,7 +1370,6 @@ function ManualWordModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[400px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             ADD WORD
@@ -1398,7 +1395,7 @@ function ManualWordModal({
                 disabled={loading}
                 maxLength={50}
                 autoFocus
-                className="w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-60"
+                className="w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
               />
             </div>
             <div>
@@ -1413,7 +1410,7 @@ function ManualWordModal({
                 placeholder="例: 美しい"
                 disabled={loading}
                 maxLength={100}
-                className="w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-60"
+                className="w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
               />
             </div>
 
@@ -1497,7 +1494,7 @@ function HeaderBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>
@@ -2050,7 +2047,7 @@ function BulkActionMenuButton({
       role="menuitem"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex h-[38px] w-full items-center justify-between rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 text-[12px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none disabled:opacity-50"
+      className="inline-flex h-[38px] w-full items-center justify-between rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
     >
       <span>{label}</span>
       {loading ? (
@@ -2093,7 +2090,6 @@ function BulkDeleteModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             DELETE
@@ -2156,7 +2152,6 @@ function SingleWordDeleteModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             DELETE
