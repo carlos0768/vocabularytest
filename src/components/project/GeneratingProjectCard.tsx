@@ -68,17 +68,18 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
       {/* Text + shimmer chips */}
       <div className="flex-1 min-w-0">
         <p className="font-bold text-[var(--color-foreground)] truncate">{title}</p>
-        <p className="text-sm font-semibold text-[var(--color-primary)] mt-0.5">生成中...</p>
+        <p className="text-xl font-black text-[var(--color-primary)]">生成中...</p>
         <div className="flex items-center gap-2 mt-2">
-          <span className="scanvocab-generating-pulse h-6 w-14 rounded-full bg-[var(--color-border)]" />
+          <span className="scanvocab-generating-pulse w-2 h-2 rounded-full bg-[var(--color-primary)]" />
           <span
-            className="scanvocab-generating-pulse h-6 w-14 rounded-full bg-[var(--color-border)]"
+            className="scanvocab-generating-pulse w-2 h-2 rounded-full bg-[var(--color-primary)]"
             style={{ animationDelay: '0.18s' }}
           />
           <span
-            className="scanvocab-generating-pulse h-6 w-14 rounded-full bg-[var(--color-border)]"
+            className="scanvocab-generating-pulse w-2 h-2 rounded-full bg-[var(--color-primary)]"
             style={{ animationDelay: '0.36s' }}
           />
+          <span className="text-xs text-[var(--color-muted)]">AI処理中</span>
         </div>
       </div>
     </div>
