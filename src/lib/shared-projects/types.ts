@@ -1,6 +1,7 @@
 import type { Project, Word } from '@/types';
 
 export type SharedProjectAccessRole = 'owner' | 'editor' | 'viewer';
+export type StudyGroupMembershipRole = 'owner' | 'member';
 
 export type SharedProjectCard = {
   project: Project;
@@ -41,3 +42,24 @@ export type SharedProjectMetrics = {
 };
 
 export type SharedProjectMetricsMap = Record<string, SharedProjectMetrics>;
+
+export type StudyGroupSummary = {
+  id: string;
+  name: string;
+  inviteCode: string;
+  role: StudyGroupMembershipRole;
+  memberCount: number;
+  projectCount: number;
+  createdAt: string;
+  ownerUsername?: string | null;
+  projectShared?: boolean;
+};
+
+export type StudyGroupsPayload = {
+  groups: StudyGroupSummary[];
+};
+
+export type StudyGroupProjectListPayload = {
+  group: StudyGroupSummary;
+  projects: SharedProjectCard[];
+};
