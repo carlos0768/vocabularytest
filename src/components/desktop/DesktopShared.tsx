@@ -218,28 +218,32 @@ export function DesktopSharedView({
           </div>
         )}
 
-        {activeTab === 'groups' && groupProjectsLoading && (
-          <div className="ds-card" style={{ padding: 18, marginBottom: 16, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Icon name="progress_activity" className="animate-spin" />
-            読み込み中...
-          </div>
-        )}
+        {!(activeTab === 'groups' && groups.length === 0) && (
+          <>
+            {activeTab === 'groups' && groupProjectsLoading && (
+              <div className="ds-card" style={{ padding: 18, marginBottom: 16, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Icon name="progress_activity" className="animate-spin" />
+                読み込み中...
+              </div>
+            )}
 
-        {groupProjectsError && (
-          <div className="ds-card" style={{ marginBottom: 16, padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
-            {groupProjectsError}
-          </div>
-        )}
+            {groupProjectsError && (
+              <div className="ds-card" style={{ marginBottom: 16, padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
+                {groupProjectsError}
+              </div>
+            )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
-          {rows.map((project) => (
-            <DesktopSharedCard key={project.project.id} project={project} />
-          ))}
-        </div>
-        {rows.length === 0 && !groupProjectsLoading && (
-          <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)' }}>
-            {emptyMessage}
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
+              {rows.map((project) => (
+                <DesktopSharedCard key={project.project.id} project={project} />
+              ))}
+            </div>
+            {rows.length === 0 && !groupProjectsLoading && (
+              <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)' }}>
+                {emptyMessage}
+              </div>
+            )}
+          </>
         )}
         {publicError && activeTab === 'public' && (
           <div className="ds-card" style={{ marginTop: 16, padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>

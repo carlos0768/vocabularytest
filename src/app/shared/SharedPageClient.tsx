@@ -502,31 +502,35 @@ export default function SharedPageClient({
       )}
 
       <div className="flex flex-col gap-2 px-[14px]">
-        {activeTab === 'groups' && groupProjectsLoading && (
-          <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-4 text-sm text-[var(--color-muted)]">
-            <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
-            読み込み中...
-          </div>
-        )}
+        {activeTab === 'groups' && groups.length === 0 ? null : (
+          <>
+            {activeTab === 'groups' && groupProjectsLoading && (
+              <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-4 text-sm text-[var(--color-muted)]">
+                <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
+                読み込み中...
+              </div>
+            )}
 
-        {mobileProjects.length === 0 && !(activeTab === 'groups' && groupProjectsLoading) ? (
-          <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-12 text-center text-sm text-[var(--color-muted)]">
-            {activeTab === 'public'
-              ? '公開中の単語帳はまだありません'
-              : selectedGroup
-                ? 'このグループの単語帳はまだありません'
-                : 'グループを選択してください'}
-          </div>
-        ) : (
-          mobileProjects.map((project) => (
-            <ProjectCard key={project.project.id} project={project} />
-          ))
-        )}
+            {mobileProjects.length === 0 && !(activeTab === 'groups' && groupProjectsLoading) ? (
+              <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-4 py-12 text-center text-sm text-[var(--color-muted)]">
+                {activeTab === 'public'
+                  ? '公開中の単語帳はまだありません'
+                  : selectedGroup
+                    ? 'このグループの単語帳はまだありません'
+                    : 'グループを選択してください'}
+              </div>
+            ) : (
+              mobileProjects.map((project) => (
+                <ProjectCard key={project.project.id} project={project} />
+              ))
+            )}
 
-        {groupProjectsError && activeTab === 'groups' && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {groupProjectsError}
-          </div>
+            {groupProjectsError && activeTab === 'groups' && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {groupProjectsError}
+              </div>
+            )}
+          </>
         )}
 
         {publicSectionError && activeTab === 'public' && (
