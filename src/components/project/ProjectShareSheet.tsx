@@ -51,6 +51,16 @@ export function ProjectShareSheet({
 
   const shareUrl = shareId ? buildShareUrl(shareId) : '';
 
+  const scopeSummary =
+    shareScope === 'public'
+      ? '公開単語帳として共有ページに表示されます'
+      : 'リンクを知っている人だけが開けます';
+
+  const scopeDescription =
+    shareScope === 'public'
+      ? '共有タブの公開単語帳一覧からそのまま見つけられます。'
+      : '共有ページの一覧には出ません。リンクを送った相手だけが開けます。';
+
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
       <button
