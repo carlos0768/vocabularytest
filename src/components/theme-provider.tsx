@@ -17,8 +17,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') {
       return 'light';
     }
-    const savedTheme = localStorage.getItem('scanvocab_theme') as Theme | null;
-    return savedTheme ?? 'light';
+    try {
+      const savedTheme = localStorage.getItem('scanvocab_theme') as Theme | null;
+      return savedTheme ?? 'light';
+    } catch {
+      return 'light';
+    }
   });
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
@@ -50,7 +54,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem('scanvocab_theme', newTheme);
+    try {
+      localStorage.setItem('scanvocab_theme', newTheme);
+    } catch {
+      // localStorage unavailable (e.g. Instagram WebView)
+    }
   };
 
   return (
