@@ -511,9 +511,6 @@ function SignupShell({
           MERKEN
           <span className="ml-[5px] inline-block h-[7px] w-[7px] -translate-y-3 bg-[var(--color-accent)]" />
         </div>
-        <div className="mt-1.5 font-mono text-[10px] tracking-[0.06em] text-[var(--color-muted)]">
-          単語を覚えるためのノート
-        </div>
       </div>
 
       <div className="px-6 pb-4 pt-6">
