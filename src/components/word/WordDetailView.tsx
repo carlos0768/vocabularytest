@@ -412,7 +412,7 @@ export function WordDetailView({
     return (
       <div className={isModal ? 'flex flex-col items-center justify-center px-6 py-16 text-center' : 'flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] px-6 text-center'}>
         <h1 className="font-display text-xl font-black text-[var(--solid-ink)]">単語が見つかりません</h1>
-        <button onClick={onClose} className="mt-4 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-6 py-2.5 text-sm font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]">
+        <button onClick={onClose} className="mt-4 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-6 py-2.5 font-display text-sm font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]">
           戻る
         </button>
       </div>
@@ -433,7 +433,7 @@ export function WordDetailView({
           <button
             onClick={handleFinishEditing}
             disabled={saving}
-            className="rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-sm font-bold text-white shadow-[2px_2px_0_rgba(26,26,26,0.22)] disabled:opacity-50"
+            className="rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 font-display text-sm font-bold text-white shadow-[2px_2px_0_rgba(26,26,26,0.22)] disabled:opacity-50"
           >
             {saving ? '保存中...' : '完了'}
           </button>
@@ -465,7 +465,7 @@ export function WordDetailView({
               {word.english}
             </h1>
             <span
-              className="mt-1 shrink-0 rounded-full border-[1.25px] px-2.5 py-1 text-[11px] font-bold"
+              className="mt-1 shrink-0 rounded-full border-[1.25px] px-2.5 py-1 font-display text-[11px] font-bold"
               style={{ color: statusStyle.color, background: statusStyle.bg, borderColor: statusStyle.border }}
             >
               {statusLabel}
@@ -485,7 +485,7 @@ export function WordDetailView({
             <button
               type="button"
               onClick={handleCycleVocabularyType}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border-[1.25px] px-3 text-[12px] font-bold"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border-[1.25px] px-3 font-display text-[12px] font-bold"
               style={{
                 borderColor: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.5)' : 'var(--color-accent)',
                 background: word.vocabularyType === 'active' ? 'var(--color-accent-subtle)' : word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.08)' : '#fff',
@@ -494,7 +494,7 @@ export function WordDetailView({
               aria-label={`語彙モード: ${vocabularyTypeLabel}`}
             >
               <span
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full font-display text-[10px] font-black text-white"
                 style={{ background: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.7)' : word.vocabularyType === 'active' ? 'var(--color-accent)' : 'var(--color-muted)' }}
               >
                 {word.vocabularyType === 'active' ? 'A' : word.vocabularyType === 'passive' ? 'P' : '—'}
@@ -537,7 +537,7 @@ export function WordDetailView({
         <section className="py-4">
           <div className="mb-3 flex items-center justify-between">
             <SectionHeading title="EXAMPLE" />
-            <span className="text-[12px] font-bold text-[var(--color-muted)]">例文</span>
+            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">例文</span>
           </div>
           {isEditing ? (
             <div className="space-y-2.5">
@@ -590,7 +590,7 @@ export function WordDetailView({
               <SectionHeading title="RELATED" />
               <div className="mt-3 flex flex-wrap gap-2">
                 {relatedWords.map((item, index) => (
-                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[13px] font-bold leading-none text-[var(--solid-ink)]">
+                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 font-display text-[13px] font-bold leading-none text-[var(--solid-ink)]">
                     {item.term}
                   </span>
                 ))}
@@ -607,7 +607,7 @@ export function WordDetailView({
               <div className="mt-3 space-y-3">
                 {usagePatterns.map((pattern, index) => (
                   <div key={`${pattern.pattern}-${index}`} className="rounded-r-[10px] border-l-[3px] border-[var(--color-accent)] bg-[var(--color-surface-alt)] px-4 py-3">
-                    <div className="text-[14px] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
+                    <div className="font-display text-[14px] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
                     <div className="mt-1.5 text-[12px] leading-snug text-[var(--color-ink-muted)]">{pattern.meaningJa}</div>
                   </div>
                 ))}
@@ -733,7 +733,7 @@ function SectionDivider() {
 
 function SectionHeading({ title }: { title: string }) {
   return (
-    <h2 className="font-mono text-[13px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
+    <h2 className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
       {title}
     </h2>
   );
