@@ -394,6 +394,11 @@ export function WordDetailView({
     );
   };
 
+  const hasEmptySection = useMemo(
+    () => sections.some(s => !s.title.trim() && !s.content.trim()),
+    [sections],
+  );
+
   // For read mode: resolve display order from swapyOrderRef
   const displaySections = useMemo(() => {
     if (sections.length === 0) return [];
@@ -625,6 +630,7 @@ export function WordDetailView({
                   <h3 className="text-sm font-black text-[var(--solid-ink)]">CUSTOM</h3>
                   <SolidButton
                     onClick={handleAddSection}
+                    disabled={hasEmptySection}
                     variant="inverse"
                     size="sm"
                     iconLeft="add"
