@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { createSwapy } from 'swapy';
 import { Icon } from '@/components/ui';
+import { SolidPanel, SolidButton } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
@@ -393,6 +394,11 @@ export function WordDetailView({
     );
   };
 
+  const hasEmptySection = useMemo(
+    () => sections.some(s => !s.title.trim() && !s.content.trim()),
+    [sections],
+  );
+
   // For read mode: resolve display order from swapyOrderRef
   const displaySections = useMemo(() => {
     if (sections.length === 0) return [];
@@ -411,7 +417,7 @@ export function WordDetailView({
     return (
       <div className={isModal ? 'flex flex-col items-center justify-center px-6 py-16 text-center' : 'flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] px-6 text-center'}>
         <h1 className="font-display text-xl font-black text-[var(--solid-ink)]">単語が見つかりません</h1>
-        <button onClick={onClose} className="mt-4 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-6 py-2.5 text-sm font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]">
+        <button onClick={onClose} className="mt-4 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-6 py-2.5 font-display text-sm font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]">
           戻る
         </button>
       </div>
@@ -432,7 +438,7 @@ export function WordDetailView({
           <button
             onClick={handleFinishEditing}
             disabled={saving}
-            className="rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-sm font-bold text-white shadow-[2px_2px_0_rgba(26,26,26,0.22)] disabled:opacity-50"
+            className="rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 font-display text-sm font-bold text-white shadow-[2px_2px_0_rgba(26,26,26,0.22)] disabled:opacity-50"
           >
             {saving ? '保存中...' : '完了'}
           </button>
@@ -464,7 +470,7 @@ export function WordDetailView({
               {word.english}
             </h1>
             <span
-              className="mt-1 shrink-0 rounded-full border-[1.25px] px-2.5 py-1 text-[11px] font-bold"
+              className="mt-1 shrink-0 rounded-full border-[1.25px] px-2.5 py-1 font-display text-[11px] font-bold"
               style={{ color: statusStyle.color, background: statusStyle.bg, borderColor: statusStyle.border }}
             >
               {statusLabel}
@@ -484,7 +490,7 @@ export function WordDetailView({
             <button
               type="button"
               onClick={handleCycleVocabularyType}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border-[1.25px] px-3 text-[12px] font-bold"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border-[1.25px] px-3 font-display text-[12px] font-bold"
               style={{
                 borderColor: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.5)' : 'var(--color-accent)',
                 background: word.vocabularyType === 'active' ? 'var(--color-accent-subtle)' : word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.08)' : '#fff',
@@ -493,7 +499,7 @@ export function WordDetailView({
               aria-label={`語彙モード: ${vocabularyTypeLabel}`}
             >
               <span
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full font-display text-[10px] font-black text-white"
                 style={{ background: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.7)' : word.vocabularyType === 'active' ? 'var(--color-accent)' : 'var(--color-muted)' }}
               >
                 {word.vocabularyType === 'active' ? 'A' : word.vocabularyType === 'passive' ? 'P' : '—'}
@@ -536,7 +542,7 @@ export function WordDetailView({
         <section className="py-4">
           <div className="mb-3 flex items-center justify-between">
             <SectionHeading title="EXAMPLE" />
-            <span className="text-[12px] font-bold text-[var(--color-muted)]">例文</span>
+            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">例文</span>
           </div>
           {isEditing ? (
             <div className="space-y-2.5">
@@ -589,7 +595,7 @@ export function WordDetailView({
               <SectionHeading title="RELATED" />
               <div className="mt-3 flex flex-wrap gap-2">
                 {relatedWords.map((item, index) => (
-                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 text-[13px] font-bold leading-none text-[var(--solid-ink)]">
+                  <span key={`${item.term}-${index}`} className="rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1.5 font-display text-[13px] font-bold leading-none text-[var(--solid-ink)]">
                     {item.term}
                   </span>
                 ))}
@@ -606,7 +612,7 @@ export function WordDetailView({
               <div className="mt-3 space-y-3">
                 {usagePatterns.map((pattern, index) => (
                   <div key={`${pattern.pattern}-${index}`} className="rounded-r-[10px] border-l-[3px] border-[var(--color-accent)] bg-[var(--color-surface-alt)] px-4 py-3">
-                    <div className="text-[14px] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
+                    <div className="font-display text-[14px] font-black leading-snug text-[var(--solid-ink)]">{pattern.pattern}</div>
                     <div className="mt-1.5 text-[12px] leading-snug text-[var(--color-ink-muted)]">{pattern.meaningJa}</div>
                   </div>
                 ))}
@@ -616,84 +622,91 @@ export function WordDetailView({
         )}
 
         {isEditing ? (
-          <section className="space-y-4 rounded-[12px] border-[1.25px] border-[var(--color-border)] bg-white px-4 py-3.5">
-            <div className="flex items-center justify-between">
-              <h3 className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">CUSTOM</h3>
-              <button
-                onClick={handleAddSection}
-                className="flex items-center gap-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-white"
-              >
-                <Icon name="add" size={14} />
-                追加
-              </button>
-            </div>
+          <>
+            <SectionDivider />
+            <div className="py-4">
+              <SolidPanel faceClassName="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black text-[var(--solid-ink)]">CUSTOM</h3>
+                  <SolidButton
+                    onClick={handleAddSection}
+                    disabled={hasEmptySection}
+                    variant="inverse"
+                    size="sm"
+                    iconLeft="add"
+                  >
+                    追加
+                  </SolidButton>
+                </div>
 
-            {sections.length === 0 ? (
-              <p className="py-6 text-center text-sm text-[var(--color-muted)]">
-                ＋ボタンからセクションを追加できます
-              </p>
-            ) : (
-              <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {sections.map((section, i) => {
-                  const columnType = columnTypeById.get(section.id) ?? 'text';
-                  const isProjectColumn = columnTypeById.has(section.id);
-                  return (
-                  <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
-                    <div data-swapy-item={section.id} className="space-y-2 rounded-[10px] border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-3">
-                      <div className="flex items-center gap-2">
-                        <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
-                          <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
+                {sections.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-[var(--color-muted)]">
+                    ＋ボタンからセクションを追加できます
+                  </p>
+                ) : (
+                  <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {sections.map((section, i) => {
+                      const columnType = columnTypeById.get(section.id) ?? 'text';
+                      const isProjectColumn = columnTypeById.has(section.id);
+                      return (
+                      <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
+                        <div data-swapy-item={section.id} className="space-y-2 rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 shadow-[2px_3px_0_var(--solid-ink)]">
+                          <div className="flex items-center gap-2">
+                            <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
+                              <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
+                            </div>
+                            <input
+                              type="text"
+                              value={section.title}
+                              onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
+                              placeholder="セクション名"
+                              readOnly={isProjectColumn}
+                              className="min-w-0 flex-1 bg-transparent text-sm font-bold text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                            {!isProjectColumn && (
+                              <button
+                                onClick={() => handleRemoveSection(section.id)}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-[var(--color-surface-secondary)]"
+                                aria-label="セクションを削除"
+                              >
+                                <Icon name="close" size={16} className="text-[var(--color-muted)]" />
+                              </button>
+                            )}
+                          </div>
+                          {columnType === 'number' ? (
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={section.content}
+                              onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                              placeholder="数値を入力..."
+                              className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                          ) : columnType === 'date' ? (
+                            <input
+                              type="date"
+                              value={section.content}
+                              onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                              className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                          ) : (
+                            <textarea
+                              value={section.content}
+                              onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                              placeholder="内容を入力..."
+                              rows={3}
+                              className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                          )}
                         </div>
-                        <input
-                          type="text"
-                          value={section.title}
-                          onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
-                          placeholder="セクション名"
-                          readOnly={isProjectColumn}
-                          className="min-w-0 flex-1 bg-transparent text-sm font-bold text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                        {!isProjectColumn && (
-                          <button
-                            onClick={() => handleRemoveSection(section.id)}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-white"
-                            aria-label="セクションを削除"
-                          >
-                            <Icon name="close" size={16} className="text-[var(--color-muted)]" />
-                          </button>
-                        )}
                       </div>
-                      {columnType === 'number' ? (
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                          placeholder="数値を入力..."
-                          className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                      ) : columnType === 'date' ? (
-                        <input
-                          type="date"
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                          className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                      ) : (
-                        <textarea
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                          placeholder="内容を入力..."
-                          rows={3}
-                          className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                      )}
-                    </div>
+                      );
+                    })}
                   </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                )}
+              </SolidPanel>
+            </div>
+          </>
         ) : displaySections.length > 0 ? (
           <>
             {displaySections.map((section) => {
@@ -703,8 +716,12 @@ export function WordDetailView({
                 <section key={section.id}>
                   <SectionDivider />
                   <div className="py-4">
-                    <SectionHeading title={section.title} />
-                    <p className="mt-3 whitespace-pre-wrap text-[13px] leading-6 text-[var(--solid-ink)]">{display || '—'}</p>
+                    <SolidPanel faceClassName="space-y-2">
+                      <h2 className="font-mono text-[13px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
+                        {section.title}
+                      </h2>
+                      <p className="whitespace-pre-wrap text-[13px] leading-6 text-[var(--solid-ink)]">{display || '—'}</p>
+                    </SolidPanel>
                   </div>
                 </section>
               );
@@ -722,7 +739,7 @@ function SectionDivider() {
 
 function SectionHeading({ title }: { title: string }) {
   return (
-    <h2 className="font-mono text-[13px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
+    <h2 className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
       {title}
     </h2>
   );
