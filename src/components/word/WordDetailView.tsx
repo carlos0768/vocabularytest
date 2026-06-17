@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { createSwapy } from 'swapy';
 import { Icon } from '@/components/ui';
+import { SolidPanel, SolidButton } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
@@ -616,84 +617,90 @@ export function WordDetailView({
         )}
 
         {isEditing ? (
-          <section className="space-y-4 rounded-[12px] border-[1.25px] border-[var(--color-border)] bg-white px-4 py-3.5">
-            <div className="flex items-center justify-between">
-              <h3 className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">CUSTOM</h3>
-              <button
-                onClick={handleAddSection}
-                className="flex items-center gap-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-white"
-              >
-                <Icon name="add" size={14} />
-                追加
-              </button>
-            </div>
+          <>
+            <SectionDivider />
+            <div className="py-4">
+              <SolidPanel faceClassName="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black text-[var(--solid-ink)]">CUSTOM</h3>
+                  <SolidButton
+                    onClick={handleAddSection}
+                    variant="inverse"
+                    size="sm"
+                    iconLeft="add"
+                  >
+                    追加
+                  </SolidButton>
+                </div>
 
-            {sections.length === 0 ? (
-              <p className="py-6 text-center text-sm text-[var(--color-muted)]">
-                ＋ボタンからセクションを追加できます
-              </p>
-            ) : (
-              <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {sections.map((section, i) => {
-                  const columnType = columnTypeById.get(section.id) ?? 'text';
-                  const isProjectColumn = columnTypeById.has(section.id);
-                  return (
-                  <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
-                    <div data-swapy-item={section.id} className="space-y-2 rounded-[10px] border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-3">
-                      <div className="flex items-center gap-2">
-                        <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
-                          <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
+                {sections.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-[var(--color-muted)]">
+                    ＋ボタンからセクションを追加できます
+                  </p>
+                ) : (
+                  <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {sections.map((section, i) => {
+                      const columnType = columnTypeById.get(section.id) ?? 'text';
+                      const isProjectColumn = columnTypeById.has(section.id);
+                      return (
+                      <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
+                        <div data-swapy-item={section.id} className="space-y-2 rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 shadow-[2px_3px_0_var(--solid-ink)]">
+                          <div className="flex items-center gap-2">
+                            <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
+                              <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
+                            </div>
+                            <input
+                              type="text"
+                              value={section.title}
+                              onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
+                              placeholder="セクション名"
+                              readOnly={isProjectColumn}
+                              className="min-w-0 flex-1 bg-transparent text-sm font-bold text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                            {!isProjectColumn && (
+                              <button
+                                onClick={() => handleRemoveSection(section.id)}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-[var(--color-surface-secondary)]"
+                                aria-label="セクションを削除"
+                              >
+                                <Icon name="close" size={16} className="text-[var(--color-muted)]" />
+                              </button>
+                            )}
+                          </div>
+                          {columnType === 'number' ? (
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={section.content}
+                              onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                              placeholder="数値を入力..."
+                              className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                          ) : columnType === 'date' ? (
+                            <input
+                              type="date"
+                              value={section.content}
+                              onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                              className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                          ) : (
+                            <textarea
+                              value={section.content}
+                              onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
+                              placeholder="内容を入力..."
+                              rows={3}
+                              className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                            />
+                          )}
                         </div>
-                        <input
-                          type="text"
-                          value={section.title}
-                          onChange={(e) => handleUpdateSection(section.id, 'title', e.target.value)}
-                          placeholder="セクション名"
-                          readOnly={isProjectColumn}
-                          className="min-w-0 flex-1 bg-transparent text-sm font-bold text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                        {!isProjectColumn && (
-                          <button
-                            onClick={() => handleRemoveSection(section.id)}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-white"
-                            aria-label="セクションを削除"
-                          >
-                            <Icon name="close" size={16} className="text-[var(--color-muted)]" />
-                          </button>
-                        )}
                       </div>
-                      {columnType === 'number' ? (
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                          placeholder="数値を入力..."
-                          className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                      ) : columnType === 'date' ? (
-                        <input
-                          type="date"
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                          className="w-full bg-transparent text-sm text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                      ) : (
-                        <textarea
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, 'content', e.target.value)}
-                          placeholder="内容を入力..."
-                          rows={3}
-                          className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                        />
-                      )}
-                    </div>
+                      );
+                    })}
                   </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                )}
+              </SolidPanel>
+            </div>
+          </>
         ) : displaySections.length > 0 ? (
           <>
             {displaySections.map((section) => {
@@ -703,8 +710,12 @@ export function WordDetailView({
                 <section key={section.id}>
                   <SectionDivider />
                   <div className="py-4">
-                    <SectionHeading title={section.title} />
-                    <p className="mt-3 whitespace-pre-wrap text-[13px] leading-6 text-[var(--solid-ink)]">{display || '—'}</p>
+                    <SolidPanel faceClassName="space-y-2">
+                      <h2 className="font-mono text-[13px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
+                        {section.title}
+                      </h2>
+                      <p className="whitespace-pre-wrap text-[13px] leading-6 text-[var(--solid-ink)]">{display || '—'}</p>
+                    </SolidPanel>
                   </div>
                 </section>
               );
