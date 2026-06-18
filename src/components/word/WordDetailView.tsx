@@ -74,6 +74,12 @@ export interface WordDetailViewProps {
   /** Called when the user taps the delete button. */
   onDelete?: (wordId: string) => void;
   /**
+   * Hide the built-in close/back button. Used when the view is embedded in an
+   * outer chrome (e.g. the desktop modal) that already provides its own close
+   * control.
+   */
+  hideClose?: boolean;
+  /**
    * Optional pre-known word object. When opened from the project list we already
    * have the full word in the parent's state (including freshly manually added
    * words that are not yet reflected in the home-cache snapshot and may not
@@ -91,6 +97,7 @@ export function WordDetailView({
   variant = 'page',
   onWordUpdated,
   onDelete,
+  hideClose = false,
   initialWord: initialWordFromProps,
 }: WordDetailViewProps) {
   const isModal = variant === 'modal';
@@ -427,13 +434,17 @@ export function WordDetailView({
   return (
     <div className={isModal ? 'bg-[var(--color-background)] pb-6 font-[var(--font-body)]' : 'min-h-screen bg-[var(--color-background)] pb-24 font-[var(--font-body)]'}>
       <header className="mx-auto flex w-full max-w-xl items-center justify-between px-5 pb-3 pt-4 sm:px-7">
-        <button
-          onClick={onClose}
-          className="flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
-          aria-label={isModal ? '閉じる' : '戻る'}
-        >
-          <Icon name={isModal ? 'close' : 'chevron_left'} size={16} />
-        </button>
+        {hideClose ? (
+          <span aria-hidden />
+        ) : (
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+            aria-label={isModal ? '閉じる' : '戻る'}
+          >
+            <Icon name={isModal ? 'close' : 'chevron_left'} size={16} />
+          </button>
+        )}
         {isEditing ? (
           <button
             onClick={handleFinishEditing}

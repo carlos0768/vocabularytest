@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import {
@@ -16,6 +16,7 @@ import {
   desktopThumbColor,
 } from '@/components/desktop/desktop-data';
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
+import { WordDetailView } from '@/components/word/WordDetailView';
 import type { Project, Word, WordStatus } from '@/types';
 
 type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
@@ -55,6 +56,8 @@ export function DesktopProjectDetailView({
   onRename,
   onToggleFavorite,
   onCycleVocabularyType,
+  onWordUpdated,
+  onDeleteWord,
 }: {
   project: Project;
   projectId: string;
@@ -75,6 +78,8 @@ export function DesktopProjectDetailView({
   onRename: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
+  onWordUpdated: (word: Word) => void;
+  onDeleteWord: (wordId: string) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
@@ -321,7 +326,8 @@ export function DesktopProjectDetailView({
           word={selectedWord}
           words={modalWords}
           onClose={() => setSelectedWordId(null)}
-          onToggleFavorite={() => onToggleFavorite(selectedWord)}
+          onWordUpdated={onWordUpdated}
+          onDeleteWord={onDeleteWord}
           onNav={(dir) => {
             const ids = modalWords.map((row) => row.id);
             const currentIndex = ids.indexOf(selectedWord.id);
@@ -429,18 +435,20 @@ function DesktopWordDetailModal({
   word,
   words,
   onClose,
-  onToggleFavorite,
+  onWordUpdated,
+  onDeleteWord,
   onNav,
 }: {
   word: Word;
   words: Word[];
   onClose: () => void;
-  onToggleFavorite: () => void;
+  onWordUpdated: (word: Word) => void;
+  onDeleteWord: (wordId: string) => void;
   onNav: (dir: -1 | 1) => void;
 }) {
   return (
     <div className="ds-overlay">
-      <div className="ds-modal">
+      <div className="ds-modal" style={{ width: 520, background: 'var(--color-background)' }}>
         <div className="ds-modal-head">
           <div className="lab">単語の詳細</div>
           <div className="nav">
@@ -459,75 +467,19 @@ function DesktopWordDetailModal({
             </button>
           </div>
         </div>
-        <div className="ds-modal-body">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="word-en">{word.english}</div>
-              <button type="button" className="ds-btn ghost sm" onClick={onToggleFavorite} aria-label="お気に入り">
-                <Icon
-                  name={word.isFavorite ? 'star' : 'star_border'}
-                  filled={word.isFavorite}
-                  style={{ color: word.isFavorite ? 'var(--color-warning)' : 'var(--color-muted)' }}
-                />
-              </button>
-            </div>
-            <div className="ds-detail">
-              {(word.pronunciation || word.cefrLevel) && (
-                <div className="word-ph" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  {word.pronunciation && <span>{word.pronunciation}</span>}
-                  {word.cefrLevel && <span className="ds-tag plain">{word.cefrLevel}</span>}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                {(word.partOfSpeechTags?.length ? word.partOfSpeechTags : ['未分類']).map((tag) => (
-                  <span key={tag} className="ds-tag accent">{desktopPosLabel([tag])}</span>
-                ))}
-              </div>
-              <div className="word-ja">{word.japanese}</div>
-            </div>
-          </div>
-
-          {(word.exampleSentence || word.exampleSentenceJa) && (
-            <div style={{ paddingTop: 2 }}>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Icon name="auto_awesome" style={{ fontSize: 14 }} />AI 例文
-              </div>
-              {word.exampleSentence && (
-                <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
-                  {renderExample(word.exampleSentence, word.english)}
-                </div>
-              )}
-              {word.exampleSentenceJa && (
-                <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>
-                  {word.exampleSentenceJa}
-                </div>
-              )}
-            </div>
-          )}
-
-          {word.relatedWords && word.relatedWords.length > 0 && (
-            <div>
-              <div className="muted" style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>関連語</div>
-              <div className="ds-rel">
-                {word.relatedWords.map((related) => (
-                  <div key={`${related.relation}-${related.term}`} className="item">
-                    <span className="rel">{related.relation}</span>
-                    <span className="tm">{related.term}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Shared word detail view (same layout as mobile), keyed per word so
+            prev/next navigation fully resets edit state and custom sections */}
+        <WordDetailView
+          key={word.id}
+          wordId={word.id}
+          variant="modal"
+          initialWord={word}
+          hideClose
+          onClose={onClose}
+          onWordUpdated={onWordUpdated}
+          onDelete={onDeleteWord}
+        />
       </div>
     </div>
-  );
-}
-
-function renderExample(sentence: string, word: string) {
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = sentence.split(new RegExp(`(${escaped})`, 'i'));
-  return parts.map((part, index) =>
-    part.toLowerCase() === word.toLowerCase() ? <b key={index}>{part}</b> : <Fragment key={index}>{part}</Fragment>,
   );
 }
