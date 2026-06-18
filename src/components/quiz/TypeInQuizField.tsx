@@ -7,7 +7,29 @@ export type TypeInQuizFieldResult = 'correct' | 'wrong' | null;
 
 const SPACE_RE = /[\s　]/;
 
-type Slot = { kind: 'char'; index: number } | { kind: 'gap' };
+/**
+ * Articles and common prepositions/particles. For idiom/active quizzes these
+ * words do not reveal their first-letter hint (e.g. "look up to" only hints "l").
+ */
+const NO_HINT_WORDS = new Set([
+  // articles
+  'a', 'an', 'the',
+  // prepositions / particles
+  'aboard', 'about', 'above', 'across', 'after', 'against', 'along', 'amid',
+  'among', 'around', 'as', 'at', 'before', 'behind', 'below', 'beneath',
+  'beside', 'besides', 'between', 'beyond', 'by', 'concerning', 'despite',
+  'down', 'during', 'except', 'for', 'from', 'in', 'inside', 'into', 'like',
+  'near', 'of', 'off', 'on', 'onto', 'opposite', 'out', 'outside', 'over',
+  'past', 'per', 'regarding', 'round', 'since', 'than', 'through',
+  'throughout', 'to', 'toward', 'towards', 'under', 'underneath', 'until',
+  'unto', 'up', 'upon', 'via', 'with', 'within', 'without',
+]);
+
+function isNoHintWord(word: string): boolean {
+  return NO_HINT_WORDS.has(word.toLowerCase().replace(/[^a-z]/g, ''));
+}
+
+type Slot = { kind: 'char'; index: number; wordIndex: number } | { kind: 'gap' };
 
 export interface TypeInQuizFieldProps {
   /** Expected answer (length drives slots / underscores). */
@@ -32,7 +54,9 @@ export interface TypeInQuizFieldProps {
 }
 
 /**
- * Typing quiz field: bold characters for input, gray first-letter hint, underscores for remaining slots.
+ * Typing quiz field: bold characters for input, gray first-letter hint for each
+ * word (idioms reveal the initial of every word, not just the first; articles and
+ * prepositions/particles are excluded), underscores for remaining slots.
  */
 export function TypeInQuizField({
   answer,
@@ -48,15 +72,25 @@ export function TypeInQuizField({
   const inputRef = useRef<HTMLInputElement>(null);
   const target: string[] = [];
   const slots: Slot[] = [];
+  const words: string[] = [];
+  let currentWord = '';
   for (const ch of answer) {
     if (spaceAsGap && SPACE_RE.test(ch)) {
+      if (currentWord !== '') {
+        words.push(currentWord);
+        currentWord = '';
+      }
       if (slots.length > 0 && slots[slots.length - 1].kind !== 'gap') {
         slots.push({ kind: 'gap' });
       }
     } else {
-      slots.push({ kind: 'char', index: target.length });
+      slots.push({ kind: 'char', index: target.length, wordIndex: words.length });
       target.push(ch);
+      currentWord += ch;
     }
+  }
+  if (currentWord !== '') {
+    words.push(currentWord);
   }
   const typed = [...value];
   const n = target.length;
@@ -110,7 +144,13 @@ export function TypeInQuizField({
           );
         }
         const showCaret = !disabled && i === t;
-        const showHint = !disabled && t === 0 && i === 0 && target[0] != null && target[0] !== '';
+        // Word-initial slots are the first char slot overall, or any char slot
+        // immediately preceded by a gap (idiom/active quizzes with multiple words).
+        const isWordInitial = slotIndex === 0 || slots[slotIndex - 1].kind === 'gap';
+        // Articles and prepositions/particles do not reveal their first letter.
+        const wordHinted = isWordInitial && !isNoHintWord(words[slot.wordIndex] ?? '');
+        const showHint =
+          !disabled && i >= t && wordHinted && target[i] != null && target[i] !== '';
         return (
           <span key={`slot-${slotIndex}`} className="inline-flex items-center">
             {showCaret && (
@@ -121,7 +161,7 @@ export function TypeInQuizField({
             )}
             {showHint ? (
               <span className={hintClass} aria-hidden>
-                {target[0].toLowerCase()}
+                {target[i].toLowerCase()}
               </span>
             ) : (
               <span className={underscoreClass}>_</span>
