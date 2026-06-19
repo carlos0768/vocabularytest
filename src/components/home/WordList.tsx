@@ -120,10 +120,10 @@ export function NotionCheckbox({
       <div
         className="relative overflow-hidden"
         style={{
-          width: 13,
-          height: 39,
+          width: 17,
+          height: 51,
           border: '1px solid var(--color-border)',
-          borderRadius: 3,
+          borderRadius: 4,
         }}
       >
         {[0, 1, 2].map((i) => (
@@ -131,10 +131,10 @@ export function NotionCheckbox({
             key={i}
             style={{
               position: 'absolute',
-              top: i * 13,
+              top: i * 17,
               left: 0,
               width: '100%',
-              height: 13,
+              height: 17,
               background: i < filledCount ? 'var(--color-foreground)' : 'transparent',
               borderTop: i > 0 ? '1px solid var(--color-border)' : 'none',
               transition: 'background 0.15s ease',
