@@ -70,25 +70,28 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function retryPlanFor(error: ClassifiedGeminiError): RetryPlan {
+function retryPlanFor(error: ClassifiedGeminiError, backoffsMs?: [number, number, number]): RetryPlan {
+  const defaultBackoffs = backoffsMs ?? [...DEFAULT_RETRY_BACKOFFS];
+  const timeoutBackoff = backoffsMs ? backoffsMs[0] : TIMEOUT_RETRY_BACKOFF;
+
   if (error.kind === '429') {
     return {
       maxRetries: error.label === 'QUOTA_EXHAUSTED' ? 0 : 2,
-      backoffsMs: [...DEFAULT_RETRY_BACKOFFS],
+      backoffsMs: defaultBackoffs,
     };
   }
 
   if (error.kind === 'UPSTREAM_5XX') {
     return {
       maxRetries: 2,
-      backoffsMs: [...DEFAULT_RETRY_BACKOFFS],
+      backoffsMs: defaultBackoffs,
     };
   }
 
   if (error.kind === 'TIMEOUT') {
     return {
       maxRetries: 1,
-      backoffsMs: [TIMEOUT_RETRY_BACKOFF],
+      backoffsMs: [timeoutBackoff],
     };
   }
 
@@ -170,6 +173,18 @@ export class GeminiFallbackRunner {
 
         if (observed.transitionedToOpen) {
           await this.notifyBreakerOpened(input.ctx, observed.openReason ?? classified.reasonForSlack);
+          // Breaker just tripped — skip remaining retries and fall back now rather than
+          // making more Gemini calls that will almost certainly fail the same way.
+          if (classified.shouldFallback) {
+            return this.fallbackOpenAIOrFail(
+              input.ctx,
+              deps,
+              classified.reasonForSlack,
+              classified.message,
+              input.modelOverride,
+            );
+          }
+          throw new Error(classified.message || 'Gemini call failed');
         }
 
         if (classified.kind === '429' && classified.label === 'QUOTA_EXHAUSTED') {
@@ -197,7 +212,7 @@ export class GeminiFallbackRunner {
         }
 
         if (!retryPlan) {
-          retryPlan = retryPlanFor(classified);
+          retryPlan = retryPlanFor(classified, this.config.retryBackoffsMs);
         }
 
         if (retryPlan.maxRetries > retriesDone) {

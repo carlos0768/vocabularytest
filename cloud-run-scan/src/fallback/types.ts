@@ -92,6 +92,8 @@ export interface FallbackConfig {
   fallbackRateWarnThreshold: number;
   slackWebhookUrl?: string;
   appEnv: AppEnv;
+  /** Override retry backoff timings (ms). Useful in tests to keep suites fast. */
+  retryBackoffsMs?: [number, number, number];
 }
 
 export interface ProviderUsage {

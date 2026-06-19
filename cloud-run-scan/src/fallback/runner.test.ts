@@ -192,6 +192,54 @@ test('OpenAI fallback failure does not recurse', async () => {
   assert.equal(openaiCalls, 1);
 });
 
+// Regression: production logs 2026-06-11 showed window_stats growing by 2 extra 429s
+// after BREAKER_OPEN because the retry loop kept calling Gemini after the breaker tripped.
+// Fix: bail immediately on transitionedToOpen instead of continuing retries.
+test('when breaker opens mid-retry, remaining retries are skipped', async () => {
+  // Use instant backoffs so the test accumulates 10 429s quickly.
+  // 3 requests × 3 Gemini calls (1 initial + 2 retries) = 9 429s → still CLOSED.
+  // 4th request: 1st Gemini call = 10th 429 → breaker opens → must fall back immediately
+  // (no retries 2 or 3 for that request).
+  const runner = createRunner({ retryBackoffsMs: [0, 0, 0] });
+
+  let geminiCalls = 0;
+  let openaiCalls = 0;
+
+  const makeRequest = () =>
+    runner.execute(
+      { ctx: { env: 'prod', feature: 'scan_extraction', requestId: `req-${geminiCalls}` } },
+      {
+        runGemini: async () => {
+          geminiCalls += 1;
+          throw { status: 429, message: 'Please try again later. Resource exhausted' };
+        },
+        runOpenAI: async () => {
+          openaiCalls += 1;
+          return { content: 'ok', modelUsed: 'gpt-4o' };
+        },
+      },
+    );
+
+  // Requests 1–3: breaker still CLOSED, each does 1 + 2 retries = 3 Gemini calls
+  await makeRequest();
+  await makeRequest();
+  await makeRequest();
+  assert.equal(geminiCalls, 9);
+  assert.equal(openaiCalls, 3);
+
+  // Request 4: 1st Gemini call is the 10th 429 → breaker opens → must stop here
+  await makeRequest();
+  assert.equal(geminiCalls, 10, 'only 1 Gemini call on the breaker-opening request, not 3');
+  assert.equal(openaiCalls, 4);
+
+  // Request 5: breaker is OPEN, Gemini must not be called at all
+  const result = await makeRequest();
+  assert.equal(geminiCalls, 10, 'no Gemini calls when breaker is already OPEN');
+  assert.equal(result.provider, 'openai');
+  assert.equal(result.fallbackReason, 'BREAKER_OPEN');
+  assert.equal(openaiCalls, 5);
+});
+
 test('empty-content errors retry and fallback to OpenAI', async () => {
   const runner = createRunner();
 
