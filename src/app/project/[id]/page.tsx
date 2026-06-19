@@ -1103,11 +1103,6 @@ export default function ProjectPage() {
         onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
         onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
         shareLinkCopied={shareLinkCopied}
-        groups={shareGroups}
-        groupsLoading={shareGroupsLoading}
-        groupsError={shareGroupsError}
-        groupSharingUpdatingId={groupSharingUpdatingId}
-        onToggleGroupShare={(group) => void handleToggleGroupShare(group)}
       />
 
       <DeleteProjectModal
