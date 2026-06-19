@@ -22,7 +22,7 @@ interface MethodOption {
 
 const METHODS: MethodOption[] = [
   { k: 'scan', icon: 'photo_camera', title: '写真でスキャン', description: 'AIが英単語と意味を自動抽出', recommended: true },
-  { k: 'shared', icon: 'group', title: '共有ライブラリから', description: '公開単語帳をコピー' },
+  { k: 'shared', icon: 'public', title: '共有ライブラリから', description: '公開単語帳をコピー' },
   { k: 'blank', icon: 'edit_note', title: '空の単語帳を作成', description: 'あとから手動で追加' },
 ];
 

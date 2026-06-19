@@ -31,7 +31,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'その他',
     items: [
-      { href: '/shared', icon: 'group', label: '共有', matchPaths: ['/shared', '/share'], count: '3' },
+      { href: '/shared', icon: 'public', label: '共有', matchPaths: ['/shared', '/share'], count: '3' },
       { href: '/search', icon: 'search', label: '検索', matchPaths: ['/search'] },
       { href: '/settings', icon: 'settings', label: 'アカウント', matchPaths: ['/settings', '/subscription'] },
     ],
