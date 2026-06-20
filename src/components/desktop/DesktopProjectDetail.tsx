@@ -321,22 +321,26 @@ export function DesktopProjectDetailView({
                   {hiddenCols.has('en') ? null : (
                     <th onClick={() => toggleSort('en')} style={{ minWidth: 150 }}>
                       英単語 {sortKey === 'en' && <Icon name={sortDir === 1 ? 'arrow_downward' : 'arrow_upward'} />}
-                      <Icon
-                        name="visibility_off"
-                        style={{ fontSize: 14, marginLeft: 4, opacity: 0.35, verticalAlign: 'middle' }}
-                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleCol('en'); }}
-                      />
+                      <span
+                        role="button"
+                        style={{ cursor: 'pointer', verticalAlign: 'middle', marginLeft: 4, opacity: 0.35 }}
+                        onClick={(e) => { e.stopPropagation(); toggleCol('en'); }}
+                      >
+                        <Icon name="visibility_off" style={{ fontSize: 14 }} />
+                      </span>
                     </th>
                   )}
                   <th style={{ width: 70 }}>品詞</th>
                   {hiddenCols.has('ja') ? null : (
                     <th>
                       日本語
-                      <Icon
-                        name="visibility_off"
-                        style={{ fontSize: 14, marginLeft: 4, opacity: 0.35, verticalAlign: 'middle', cursor: 'pointer' }}
+                      <span
+                        role="button"
+                        style={{ cursor: 'pointer', verticalAlign: 'middle', marginLeft: 4, opacity: 0.35 }}
                         onClick={() => toggleCol('ja')}
-                      />
+                      >
+                        <Icon name="visibility_off" style={{ fontSize: 14 }} />
+                      </span>
                     </th>
                   )}
                   {sortHead('vocabularyType', 'A/P', { width: 64, textAlign: 'center' })}
