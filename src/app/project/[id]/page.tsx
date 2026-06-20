@@ -88,6 +88,9 @@ export default function ProjectPage() {
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
   const [bulkFavoriteLoading, setBulkFavoriteLoading] = useState(false);
   const [bulkVocabularyTypeLoading, setBulkVocabularyTypeLoading] = useState<VocabularyType | null>(null);
+  const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
+  const [bulkImportLoading, setBulkImportLoading] = useState(false);
+  const [importTargetProjects, setImportTargetProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -341,6 +344,61 @@ export default function ProjectPage() {
       showToast({ message: '語彙モードの更新に失敗しました', type: 'error' });
     } finally {
       setBulkVocabularyTypeLoading(null);
+    }
+  };
+
+  const handleOpenBulkImport = async () => {
+    if (selectedWordIds.size === 0) return;
+    const userId = user ? user.id : getGuestUserId();
+    try {
+      const projects = await repository.getProjects(userId);
+      setImportTargetProjects(projects.filter((p) => p.id !== projectId));
+    } catch {
+      showToast({ message: 'プロジェクト一覧の取得に失敗しました', type: 'error' });
+      return;
+    }
+    setBulkImportModalOpen(true);
+  };
+
+  const handleConfirmBulkImport = async (targetProjectId: string) => {
+    if (selectedWordIds.size === 0 || bulkImportLoading) return;
+    setBulkImportLoading(true);
+    const targets = words.filter((w) => selectedWordIds.has(w.id));
+    try {
+      const wordsToCreate = targets.map((w) => ({
+        projectId: targetProjectId,
+        english: w.english,
+        japanese: w.japanese,
+        vocabularyType: w.vocabularyType,
+        japaneseSource: w.japaneseSource,
+        lexiconEntryId: w.lexiconEntryId,
+        lexiconSenseId: w.lexiconSenseId,
+        cefrLevel: w.cefrLevel,
+        distractors: w.distractors,
+        exampleSentence: w.exampleSentence,
+        exampleSentenceJa: w.exampleSentenceJa,
+        pronunciation: w.pronunciation,
+        partOfSpeechTags: w.partOfSpeechTags,
+        relatedWords: w.relatedWords,
+        usagePatterns: w.usagePatterns,
+        customSections: w.customSections,
+      }));
+      await mutationRepository.createWords(wordsToCreate);
+      invalidateHomeCache();
+      refreshWordCount();
+      const targetProject = importTargetProjects.find((p) => p.id === targetProjectId);
+      showToast({
+        message: `${targets.length}語を「${targetProject?.title ?? '単語帳'}」にコピーしました`,
+        type: 'success',
+      });
+      setBulkImportModalOpen(false);
+      setSelectedWordIds(new Set());
+      setSelectMode(false);
+    } catch (importError) {
+      console.error('Failed to bulk import words:', importError);
+      showToast({ message: 'インポートに失敗しました', type: 'error' });
+    } finally {
+      setBulkImportLoading(false);
     }
   };
 
@@ -1197,6 +1255,7 @@ export default function ProjectPage() {
         }
         favoriteLoading={bulkFavoriteLoading}
         vocabularyTypeLoading={bulkVocabularyTypeLoading}
+        importLoading={bulkImportLoading}
         onCancel={handleExitSelectMode}
         onToggleSelectAll={() => {
           if (filteredWords.length === 0) return;
@@ -1205,7 +1264,17 @@ export default function ProjectPage() {
         }}
         onBulkFavorite={() => void handleBulkToggleFavorite()}
         onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
+        onBulkImport={() => void handleOpenBulkImport()}
         onBulkDelete={() => setBulkDeleteModalOpen(true)}
+      />
+
+      <ImportToProjectModal
+        open={bulkImportModalOpen}
+        loading={bulkImportLoading}
+        count={selectedWordIds.size}
+        projects={importTargetProjects}
+        onCancel={() => { if (!bulkImportLoading) setBulkImportModalOpen(false); }}
+        onConfirm={(targetProjectId) => void handleConfirmBulkImport(targetProjectId)}
       />
 
       <BulkDeleteModal
@@ -1821,10 +1890,12 @@ function BulkActionBar({
   allFavoriteInSelection,
   favoriteLoading,
   vocabularyTypeLoading,
+  importLoading,
   onCancel,
   onToggleSelectAll,
   onBulkFavorite,
   onBulkVocabularyType,
+  onBulkImport,
   onBulkDelete,
 }: {
   open: boolean;
@@ -1834,15 +1905,17 @@ function BulkActionBar({
   allFavoriteInSelection: boolean;
   favoriteLoading: boolean;
   vocabularyTypeLoading: VocabularyType | null;
+  importLoading: boolean;
   onCancel: () => void;
   onToggleSelectAll: () => void;
   onBulkFavorite: () => void;
   onBulkVocabularyType: (vocabularyType: VocabularyType) => void;
+  onBulkImport: () => void;
   onBulkDelete: () => void;
 }) {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const hasSelection = selectedCount > 0;
-  const actionLoading = favoriteLoading || vocabularyTypeLoading !== null;
+  const actionLoading = favoriteLoading || vocabularyTypeLoading !== null || importLoading;
   const showActionMenu = actionMenuOpen && hasSelection && !actionLoading;
 
   if (!open) return null;
@@ -1911,6 +1984,13 @@ function BulkActionBar({
                 disabled={!hasSelection || actionLoading}
                 onClick={() => onBulkVocabularyType('passive')}
               />
+              <BulkInlineActionButton
+                icon="drive_file_move"
+                label="コピー"
+                loading={importLoading}
+                disabled={!hasSelection || actionLoading}
+                onClick={onBulkImport}
+              />
             </div>
             {/* Mobile: compact "..." menu */}
             <div className="relative shrink-0 lg:hidden">
@@ -1955,6 +2035,16 @@ function BulkActionBar({
                       onClick={() => {
                         setActionMenuOpen(false);
                         onBulkVocabularyType('passive');
+                      }}
+                    />
+                    <BulkActionMenuButton
+                      icon="drive_file_move"
+                      label="コピー"
+                      loading={importLoading}
+                      disabled={!hasSelection || actionLoading}
+                      onClick={() => {
+                        setActionMenuOpen(false);
+                        onBulkImport();
                       }}
                     />
                   </div>
@@ -2124,6 +2214,108 @@ function BulkDeleteModal({
             >
               {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
               削除する
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportToProjectModal({
+  open,
+  loading,
+  count,
+  projects,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  count: number;
+  projects: Project[];
+  onCancel: () => void;
+  onConfirm: (projectId: string) => void;
+}) {
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="閉じる"
+        onClick={onCancel}
+        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-5">
+        <div
+          className="w-full max-w-[360px] rounded-[16px] border-[1.25px] border-[var(--solid-ink)] bg-white p-5"
+          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+        >
+          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+            COPY TO
+          </div>
+          <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+            {count}語をコピー
+          </h2>
+          <p className="mt-2 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+            コピー先の単語帳を選択してください。選択した単語がコピーされます。
+          </p>
+          <div className="mt-3 max-h-[240px] overflow-y-auto">
+            {projects.length === 0 ? (
+              <p className="py-4 text-center text-[12px] text-[var(--color-muted)]">
+                他の単語帳がありません
+              </p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setSelectedProjectId(p.id)}
+                    disabled={loading}
+                    className={`flex items-center gap-2.5 rounded-[10px] border-[1.25px] px-3 py-2.5 text-left transition-all duration-100 ${
+                      selectedProjectId === p.id
+                        ? 'border-[var(--solid-ink)] bg-[var(--color-accent-subtle)] shadow-[1px_1px_0_var(--solid-ink)]'
+                        : 'border-[var(--color-border)] bg-white'
+                    }`}
+                  >
+                    <span
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] text-[11px] font-black text-white"
+                      style={{ background: thumbColor(p.id) }}
+                    >
+                      {p.title.slice(0, 1)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--solid-ink)]">
+                      {p.title}
+                    </span>
+                    {selectedProjectId === p.id && (
+                      <Icon name="check" size={16} className="shrink-0 text-[var(--color-accent)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={() => selectedProjectId && onConfirm(selectedProjectId)}
+              disabled={loading || !selectedProjectId}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-60"
+            >
+              {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+              コピーする
             </button>
           </div>
         </div>
