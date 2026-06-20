@@ -91,6 +91,7 @@ export function DesktopProjectDetailView({
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
+  const [hiddenCols, setHiddenCols] = useState<Set<'en' | 'ja'>>(new Set());
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [nowMs, setNowMs] = useState(0);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -189,6 +190,15 @@ export function DesktopProjectDetailView({
     }
   };
 
+  const toggleCol = (col: 'en' | 'ja') => {
+    setHiddenCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(col)) next.delete(col);
+      else next.add(col);
+      return next;
+    });
+  };
+
   const sortHead = (key: SortKey, label: string, extra?: CSSProperties) => (
     <th onClick={() => toggleSort(key)} style={extra}>
       {label} {sortKey === key && <Icon name={sortDir === 1 ? 'arrow_downward' : 'arrow_upward'} />}
@@ -275,6 +285,20 @@ export function DesktopProjectDetailView({
                 </button>
               )}
             </div>
+            {hiddenCols.size > 0 && (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {hiddenCols.has('en') && (
+                  <button type="button" className="ds-btn sm" onClick={() => toggleCol('en')} style={{ fontSize: 11, gap: 4 }}>
+                    <Icon name="visibility" style={{ fontSize: 14 }} />英単語
+                  </button>
+                )}
+                {hiddenCols.has('ja') && (
+                  <button type="button" className="ds-btn sm" onClick={() => toggleCol('ja')} style={{ fontSize: 11, gap: 4 }}>
+                    <Icon name="visibility" style={{ fontSize: 14 }} />日本語
+                  </button>
+                )}
+              </div>
+            )}
             {(filterActive || query.trim()) && (
               <span className="mono muted tnum" style={{ fontSize: 12 }}>
                 {rows.length} / {counts.total}
@@ -294,9 +318,27 @@ export function DesktopProjectDetailView({
               <thead>
                 <tr>
                   <th style={{ width: 42 }} />
-                  {sortHead('en', '英単語', { minWidth: 150 })}
+                  {hiddenCols.has('en') ? null : (
+                    <th onClick={() => toggleSort('en')} style={{ minWidth: 150 }}>
+                      英単語 {sortKey === 'en' && <Icon name={sortDir === 1 ? 'arrow_downward' : 'arrow_upward'} />}
+                      <Icon
+                        name="visibility_off"
+                        style={{ fontSize: 14, marginLeft: 4, opacity: 0.35, verticalAlign: 'middle' }}
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleCol('en'); }}
+                      />
+                    </th>
+                  )}
                   <th style={{ width: 70 }}>品詞</th>
-                  <th>日本語</th>
+                  {hiddenCols.has('ja') ? null : (
+                    <th>
+                      日本語
+                      <Icon
+                        name="visibility_off"
+                        style={{ fontSize: 14, marginLeft: 4, opacity: 0.35, verticalAlign: 'middle', cursor: 'pointer' }}
+                        onClick={() => toggleCol('ja')}
+                      />
+                    </th>
+                  )}
                   {sortHead('vocabularyType', 'A/P', { width: 64, textAlign: 'center' })}
                   {sortHead('status', 'ステータス', { width: 130 })}
                 </tr>
@@ -333,14 +375,18 @@ export function DesktopProjectDetailView({
                         />
                       )}
                     </td>
-                    <td className="en">
-                      {word.english}
-                      <div className="mono" style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
-                        {word.pronunciation || '-'}
-                      </div>
-                    </td>
+                    {hiddenCols.has('en') ? null : (
+                      <td className="en">
+                        {word.english}
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
+                          {word.pronunciation || '-'}
+                        </div>
+                      </td>
+                    )}
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
-                    <td className="ja">{word.japanese}</td>
+                    {hiddenCols.has('ja') ? null : (
+                      <td className="ja">{word.japanese}</td>
+                    )}
                     <td style={{ textAlign: 'center' }}>
                       <DesktopVocabularyTypeBadge
                         vocabularyType={word.vocabularyType}
