@@ -55,6 +55,8 @@ export function DesktopProjectDetailView({
   onRename,
   onToggleFavorite,
   onCycleVocabularyType,
+  onDeleteWord,
+  onBulkDelete,
 }: {
   project: Project;
   projectId: string;
@@ -75,6 +77,8 @@ export function DesktopProjectDetailView({
   onRename: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
+  onDeleteWord: (wordId: string) => void;
+  onBulkDelete: () => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
@@ -214,6 +218,16 @@ export function DesktopProjectDetailView({
               >
                 <Icon name="check_box" />選択
               </button>
+              {selectMode && selectedWordIds.size > 0 && (
+                <button
+                  type="button"
+                  className="ds-btn sm"
+                  onClick={onBulkDelete}
+                  style={{ color: 'var(--color-error, #cc4d59)' }}
+                >
+                  <Icon name="delete" />{selectedWordIds.size}語を削除
+                </button>
+              )}
             </div>
             {(filterActive || query.trim()) && (
               <span className="mono muted tnum" style={{ fontSize: 12 }}>
@@ -322,6 +336,7 @@ export function DesktopProjectDetailView({
           words={modalWords}
           onClose={() => setSelectedWordId(null)}
           onToggleFavorite={() => onToggleFavorite(selectedWord)}
+          onDelete={() => onDeleteWord(selectedWord.id)}
           onNav={(dir) => {
             const ids = modalWords.map((row) => row.id);
             const currentIndex = ids.indexOf(selectedWord.id);
@@ -430,12 +445,14 @@ function DesktopWordDetailModal({
   words,
   onClose,
   onToggleFavorite,
+  onDelete,
   onNav,
 }: {
   word: Word;
   words: Word[];
   onClose: () => void;
   onToggleFavorite: () => void;
+  onDelete: () => void;
   onNav: (dir: -1 | 1) => void;
 }) {
   return (
@@ -454,6 +471,9 @@ function DesktopWordDetailModal({
                 </button>
               </>
             )}
+            <button type="button" className="ds-iconbtn" onClick={onDelete} aria-label="削除" style={{ color: 'var(--color-error, #cc4d59)' }}>
+              <Icon name="delete" />
+            </button>
             <button type="button" className="ds-iconbtn" onClick={onClose} aria-label="閉じる">
               <Icon name="close" />
             </button>
