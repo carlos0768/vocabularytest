@@ -897,6 +897,8 @@ export default function ProjectPage() {
         onRename={handleOpenRename}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
+        onDeleteWord={handleOpenDeleteWord}
+        onBulkDelete={() => setBulkDeleteModalOpen(true)}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-4 pt-3 lg:hidden">
@@ -1211,6 +1213,10 @@ export default function ProjectPage() {
         </div>
       )}
 
+      </div>
+
+      {/* Shared overlays: rendered outside the lg:hidden wrapper so the
+          desktop view's filter / sort / select buttons can use them too */}
       <SingleWordDeleteModal
         open={deleteWordTarget !== null}
         loading={deleteWordLoading}
@@ -1218,10 +1224,6 @@ export default function ProjectPage() {
         onCancel={() => { if (!deleteWordLoading) setDeleteWordTarget(null); }}
         onConfirm={() => void handleConfirmSingleWordDelete()}
       />
-      </div>
-
-      {/* Shared overlays: rendered outside the lg:hidden wrapper so the
-          desktop view's filter / sort / select buttons can use them too */}
       <WordFilterSheet
         open={wordShowFilterSheet}
         onClose={() => setWordShowFilterSheet(false)}
