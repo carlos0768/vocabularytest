@@ -1184,7 +1184,7 @@ export default function QuizPage() {
     return (
       <>
       <PwaInstallPromptModal open={pwaPromptOpen} onClose={() => setPwaPromptOpen(false)} />
-      <div className="fixed inset-0 z-30 hidden flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:left-[264px] lg:flex">
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
         <div className="ds-card" style={{ padding: '44px 56px', textAlign: 'center', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 72, height: 72, borderRadius: 18, background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
             <Icon name="trophy" filled style={{ fontSize: 38, color: '#d97706' }} />
@@ -1299,7 +1299,7 @@ export default function QuizPage() {
 
   return (
     <>
-    <div className="fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[264px] lg:flex">
+    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
       <div className="ds-quiz-wrap">
         <div className="ds-quiz-head">
           <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
