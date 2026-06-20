@@ -1,10 +1,12 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
 import { useAuth } from '@/hooks/use-auth';
 import { BottomNav } from './bottom-nav';
+
+const SIDEBAR_STORAGE_KEY = 'merken-sidebar-collapsed';
 
 const NO_SHELL_PATHS = [
   '/lp', '/login', '/signup', '/reset-password', '/auth',
@@ -31,6 +33,22 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [scrollEnding, setScrollEnding] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      if (stored === 'true') setSidebarCollapsed(true);
+    } catch {}
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let touchStartY = 0;
@@ -71,8 +89,8 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   const hideNav = shouldHideBottomNav(pathname);
 
   return (
-    <div className="ds-live-shell relative">
-      <DesktopSidebar />
+    <div className={`ds-live-shell relative${sidebarCollapsed ? ' ds-live-shell--collapsed' : ''}`}>
+      <DesktopSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       <div className="ds-live-main relative">
         {children}
       </div>
