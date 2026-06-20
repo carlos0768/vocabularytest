@@ -365,6 +365,7 @@ export default function SharedDetailPage() {
         importing={importBusy}
         importedProjectId={importedProjectId}
         isPreviewLocked={isPreviewLocked}
+        isLoggedIn={!!user}
         totalWordCount={totalWordCount}
         previewClearWordCount={SHARE_PREVIEW_CLEAR_WORD_COUNT}
         lockedCtaHref={loginRedirectHref}
@@ -476,7 +477,9 @@ export default function SharedDetailPage() {
         })}
         {isPreviewLocked && lockedPreviewWordCount > 0 && (
           <div className="px-2 py-3 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-            残り {lockedPreviewWordCount.toLocaleString()} 語はログインすると表示できます
+            {user
+              ? `残り ${lockedPreviewWordCount.toLocaleString()} 語はProプランで表示できます`
+              : `残り ${lockedPreviewWordCount.toLocaleString()} 語はログインすると表示できます`}
           </div>
         )}
       </div>
@@ -486,9 +489,15 @@ export default function SharedDetailPage() {
         style={{ background: 'linear-gradient(to top, var(--color-background) 70%, transparent)', paddingBottom: 'max(1.625rem, env(safe-area-inset-bottom))' }}
       >
         {isPreviewLocked ? (
-          <SolidButton href={loginRedirectHref} variant="inverse" size="lg" iconLeft="login" className="w-full" faceClassName="!w-full !justify-center">
-            ログインして単語を見る
-          </SolidButton>
+          user ? (
+            <SolidButton href="/subscription" variant="inverse" size="lg" iconLeft="auto_awesome" className="w-full" faceClassName="!w-full !justify-center">
+              Proにアップグレードして全単語を見る
+            </SolidButton>
+          ) : (
+            <SolidButton href={loginRedirectHref} variant="inverse" size="lg" iconLeft="login" className="w-full" faceClassName="!w-full !justify-center">
+              ログインして単語を見る
+            </SolidButton>
+          )
         ) : importedProjectId ? (
           <SolidButton href={`/project/${importedProjectId}`} variant="inverse" size="lg" iconLeft="check_circle" className="w-full" faceClassName="!w-full !justify-center">
             追加済み — 単語帳を開く
@@ -507,7 +516,7 @@ export default function SharedDetailPage() {
           </SolidButton>
         )}
         <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-          {isPreviewLocked ? '一部だけプレビューしています' : 'オリジナルは変更されません'}
+          {isPreviewLocked ? (user ? 'Proプランで全単語を閲覧・インポートできます' : '一部だけプレビューしています') : 'オリジナルは変更されません'}
         </p>
       </div>
       </div>
