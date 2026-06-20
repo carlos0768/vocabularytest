@@ -196,7 +196,7 @@ export function DesktopProjectDetailView({
                 onClick={onOpenFilterSheet}
                 aria-pressed={filterActive}
               >
-                <Icon name="filter_list" />フィルタ
+                <Icon name="filter_list" />
               </button>
               <button
                 type="button"
@@ -204,7 +204,7 @@ export function DesktopProjectDetailView({
                 onClick={onOpenSortSheet}
                 aria-pressed={sortActive}
               >
-                <Icon name="swap_vert" />並べ替え
+                <Icon name="swap_vert" />
               </button>
               <button
                 type="button"
@@ -212,7 +212,7 @@ export function DesktopProjectDetailView({
                 onClick={onToggleSelectMode}
                 aria-pressed={selectMode}
               >
-                <Icon name="check_box" />選択
+                <Icon name="check_box" />
               </button>
             </div>
             {(filterActive || query.trim()) && (
