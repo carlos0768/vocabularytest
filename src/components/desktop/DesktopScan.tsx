@@ -103,11 +103,7 @@ export function DesktopScanView({
   const eikenLevel = scanModes.includes('eiken') ? '3' : null;
 
   const toggleOption = (key: ScanOptionKey) => {
-    setSelectedOptions((current) => {
-      if (!current.includes(key)) return [...current, key];
-      if (current.length === 1) return current;
-      return current.filter((item) => item !== key);
-    });
+    setSelectedOptions([key]);
   };
 
   const createBackgroundScanJob = async (files: readonly File[]) => {
@@ -407,7 +403,7 @@ export function DesktopScanView({
           <div>
             <div className="ds-sec-head" style={{ marginBottom: 14 }}>
               <h2 style={{ fontSize: 18 }}>抽出オプション</h2>
-              <span className="mono muted" style={{ fontSize: 12 }}>複数選択可</span>
+              <span className="mono muted" style={{ fontSize: 12 }}>1つ選択</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
               {SCAN_OPTIONS.map((option) => {
