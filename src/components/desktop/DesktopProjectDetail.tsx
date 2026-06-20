@@ -93,6 +93,14 @@ export function DesktopProjectDetailView({
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [nowMs, setNowMs] = useState(0);
+  const [railCollapsed, setRailCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('merken-rail-collapsed');
+      if (stored === 'true') setRailCollapsed(true);
+    } catch {}
+  }, []);
   const bg = desktopThumbColor(project.id);
 
   useEffect(() => {
@@ -196,7 +204,7 @@ export function DesktopProjectDetailView({
         <DesktopButton href={`/scan?projectId=${encodeURIComponent(projectId)}`} icon="photo_camera">追加</DesktopButton>
       </DesktopTopbar>
 
-      <div className="ds-scroll ds-project-detail-grid">
+      <div className={`ds-scroll ds-project-detail-grid${railCollapsed ? ' ds-project-detail-grid--rail-collapsed' : ''}`}>
         <div style={{ minWidth: 0 }}>
           <div className="ds-card" style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 20, marginBottom: 18, flexShrink: 0 }}>
             <div
@@ -367,6 +375,14 @@ export function DesktopProjectDetailView({
           recentWrongRows={recentWrongRows}
           upcomingReviewRows={upcomingReviewRows}
           onPick={(wordId) => setSelectedWordId(wordId)}
+          collapsed={railCollapsed}
+          onToggle={() => {
+            setRailCollapsed((prev) => {
+              const next = !prev;
+              try { localStorage.setItem('merken-rail-collapsed', String(next)); } catch {}
+              return next;
+            });
+          }}
         />
       </div>
 
@@ -396,6 +412,8 @@ function ReviewRail({
   recentWrongRows,
   upcomingReviewRows,
   onPick,
+  collapsed = false,
+  onToggle,
 }: {
   loading: boolean;
   nowMs: number;
@@ -403,6 +421,8 @@ function ReviewRail({
   recentWrongRows: RecentWrongRailItem[];
   upcomingReviewRows: UpcomingReviewRailItem[];
   onPick: (wordId: string) => void;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }) {
   const [mode, setMode] = useState<ReviewRailMode>('wrong');
   const list = mode === 'wrong' ? recentWrongRows : upcomingReviewRows;
@@ -416,9 +436,39 @@ function ReviewRail({
     : '復習期限が近い順に並べています。期限切れの単語は先頭に出ます。';
   const cta = mode === 'wrong' ? '間違えた単語を復習' : '復習リストを開始';
 
+  if (collapsed) {
+    return (
+      <aside className="ds-review-rail ds-review-rail--collapsed">
+        <button
+          type="button"
+          className="ds-sidebar-toggle"
+          onClick={onToggle}
+          title="復習パネルを展開"
+          aria-label="復習パネルを展開"
+        >
+          <Icon name="chevron_left" />
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="ds-review-rail">
       <div className="ds-card" style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span className="mono muted" style={{ fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 700 }}>復習</span>
+          {onToggle && (
+            <button
+              type="button"
+              className="ds-sidebar-toggle"
+              onClick={onToggle}
+              title="復習パネルを折りたたむ"
+              aria-label="復習パネルを折りたたむ"
+            >
+              <Icon name="chevron_right" />
+            </button>
+          )}
+        </div>
         <div className="ds-railseg">
           <button type="button" className={mode === 'wrong' ? 'on' : ''} onClick={() => setMode('wrong')}>
             <Icon name="flag" />最近間違えた

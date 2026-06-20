@@ -465,12 +465,27 @@
   margin-top: 3px;
   white-space: nowrap;
 }
+/* ── Review rail collapsed state ─────────────────────────── */
+.ds-project-detail-grid--rail-collapsed {
+  grid-template-columns: minmax(0, 1fr) 48px;
+}
+.ds-review-rail--collapsed {
+  align-items: center;
+  padding-top: 4px;
+}
+
 @media (max-width: 1180px) {
   .ds-project-detail-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .ds-project-detail-grid--rail-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .ds-review-rail {
     position: static;
+  }
+  .ds-review-rail--collapsed {
+    display: none;
   }
 }
 
