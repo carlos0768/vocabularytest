@@ -82,6 +82,34 @@
 .ds-user .nm { font-size: 13px; font-weight: 600; }
 .ds-user .pl { font-size: 11px; color: var(--color-accent); font-weight: 600; }
 
+/* ── Sidebar header (brand + toggle) ─────────────────────── */
+.ds-side-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+}
+.ds-sidebar-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  border: 1.5px solid var(--color-border); background: #fff;
+  cursor: pointer; color: var(--color-secondary-text);
+  transition: border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
+}
+.ds-sidebar-toggle:hover { border-color: var(--solid-ink); color: var(--color-ink); background: rgba(26,26,26,0.03); }
+.ds-sidebar-toggle .material-symbols-outlined { font-size: 18px; }
+
+/* ── Sidebar collapsed state ─────────────────────────────── */
+.ds-side--collapsed {
+  padding: 26px 10px 20px;
+  align-items: center;
+}
+.ds-side--collapsed .ds-side-head { flex-direction: column; align-items: center; gap: 12px; }
+.ds-side--collapsed .ds-brand { align-items: center; padding: 0; }
+.ds-side--collapsed .ds-brand-row { justify-content: center; }
+.ds-side--collapsed .ds-wordmark { font-size: 20px; }
+.ds-side--collapsed .ds-nav-item {
+  justify-content: center; padding: 11px;
+}
+.ds-side--collapsed .ds-side-foot { align-items: center; }
+
 /* ── Main / topbar ───────────────────────────────────────── */
 .ds-main { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .ds-top {
@@ -793,5 +821,26 @@ button.ds-tile { appearance: none; }
 
   .ds-live-main > * {
     min-height: 0;
+  }
+
+  .ds-live-shell {
+    --sidebar-width: 264px;
+    transition: grid-template-columns var(--dur-slower) var(--ease-out);
+  }
+
+  .ds-live-shell > .ds-side {
+    transition: width var(--dur-slower) var(--ease-out);
+  }
+
+  .ds-live-shell--collapsed {
+    --sidebar-width: 68px;
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+  .ds-live-shell--collapsed > .ds-side {
+    width: 68px;
+  }
+
+  .ds-fixed-main {
+    left: var(--sidebar-width, 264px);
   }
 }

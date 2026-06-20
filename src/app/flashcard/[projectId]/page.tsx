@@ -555,7 +555,7 @@ export default function FlashcardPage() {
 
   return (
     <>
-    <div className="fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:left-[264px] lg:flex">
+    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
       <div className="ds-fc-wrap">
         <div className="ds-quiz-head" style={{ maxWidth: 720 }}>
           <button type="button" className="x" onClick={backToProject} aria-label="閉じる">

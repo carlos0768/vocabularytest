@@ -30,7 +30,13 @@ function activeKeyForPath(pathname: string): NavKey {
   return 'home';
 }
 
-export function DesktopSidebar() {
+export function DesktopSidebar({
+  collapsed = false,
+  onToggle,
+}: {
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const [streak, setStreak] = useState(0);
@@ -44,46 +50,68 @@ export function DesktopSidebar() {
   }, [isLoggedIn]);
 
   return (
-    <aside className="ds-side" aria-label="デスクトップナビゲーション">
-      <div className="ds-brand">
-        <div className="ds-brand-row">
-          <span className="ds-wordmark">MERKEN</span>
-          <span className="ds-brand-dot" />
+    <aside className={cn('ds-side', collapsed && 'ds-side--collapsed')} aria-label="デスクトップナビゲーション">
+      <div className="ds-side-head">
+        <div className="ds-brand">
+          <div className="ds-brand-row">
+            <span className="ds-wordmark">{collapsed ? 'M' : 'MERKEN'}</span>
+            <span className="ds-brand-dot" />
+          </div>
+          {!collapsed && <span className="ds-brand-sub">単語帳 · Desktop</span>}
         </div>
-        <span className="ds-brand-sub">単語帳 · Desktop</span>
+        {onToggle && (
+          <button
+            type="button"
+            className="ds-sidebar-toggle"
+            onClick={onToggle}
+            title={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
+            aria-label={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
+          >
+            <Icon name={collapsed ? 'chevron_right' : 'chevron_left'} />
+          </button>
+        )}
       </div>
 
       <nav className="ds-nav">
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.key;
           return (
-            <Link key={item.key} href={item.href} className={cn('ds-nav-item', isActive && 'active')}>
+            <Link
+              key={item.key}
+              href={item.href}
+              className={cn('ds-nav-item', isActive && 'active')}
+              title={collapsed ? item.label : undefined}
+            >
               <Icon name={item.icon} filled={isActive} />
-              <span className="ds-nav-text">{item.label}</span>
-              {item.count != null && <span className="ds-nav-count">{item.count}</span>}
+              {!collapsed && <span className="ds-nav-text">{item.label}</span>}
+              {!collapsed && item.count != null && <span className="ds-nav-count">{item.count}</span>}
             </Link>
           );
         })}
       </nav>
 
       <div className="ds-side-foot">
-        <div className="ds-streak">
-          <Icon name="local_fire_department" style={{ color: '#f97316', fontSize: 22 }} />
-          <div>
-            <div className="n">
-              {streak}
-              <span style={{ fontSize: 11, fontWeight: 600 }}> 日連続</span>
+        {!collapsed && (
+          <div className="ds-streak">
+            <Icon name="local_fire_department" style={{ color: '#f97316', fontSize: 22 }} />
+            <div>
+              <div className="n">
+                {streak}
+                <span style={{ fontSize: 11, fontWeight: 600 }}> 日連続</span>
+              </div>
+              <div className="l">今日も学習を継続中</div>
             </div>
-            <div className="l">今日も学習を継続中</div>
           </div>
-        </div>
-        <div className="ds-user">
-          <div className="ds-avatar">{userInitial}</div>
-          <div>
-            <div className="nm">{user?.email?.split('@')[0] ?? 'ゲスト'}</div>
-            <div className="pl">{isPro ? 'Pro メンバー' : 'Free メンバー'}</div>
+        )}
+        {!collapsed && (
+          <div className="ds-user">
+            <div className="ds-avatar">{userInitial}</div>
+            <div>
+              <div className="nm">{user?.email?.split('@')[0] ?? 'ゲスト'}</div>
+              <div className="pl">{isPro ? 'Pro メンバー' : 'Free メンバー'}</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </aside>
   );
