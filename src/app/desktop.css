@@ -82,22 +82,26 @@
 .ds-user .nm { font-size: 13px; font-weight: 600; }
 .ds-user .pl { font-size: 11px; color: var(--color-accent); font-weight: 600; }
 
-/* ── Sidebar collapse toggle ─────────────────────────────── */
+/* ── Sidebar header (brand + toggle) ─────────────────────── */
+.ds-side-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+}
 .ds-sidebar-toggle {
   display: flex; align-items: center; justify-content: center;
-  width: 100%; height: 38px; border-radius: 10px;
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
   border: 1.5px solid var(--color-border); background: #fff;
   cursor: pointer; color: var(--color-secondary-text);
   transition: border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
 }
 .ds-sidebar-toggle:hover { border-color: var(--solid-ink); color: var(--color-ink); background: rgba(26,26,26,0.03); }
-.ds-sidebar-toggle .material-symbols-outlined { font-size: 20px; }
+.ds-sidebar-toggle .material-symbols-outlined { font-size: 18px; }
 
 /* ── Sidebar collapsed state ─────────────────────────────── */
 .ds-side--collapsed {
   padding: 26px 10px 20px;
   align-items: center;
 }
+.ds-side--collapsed .ds-side-head { flex-direction: column; align-items: center; gap: 12px; }
 .ds-side--collapsed .ds-brand { align-items: center; padding: 0; }
 .ds-side--collapsed .ds-brand-row { justify-content: center; }
 .ds-side--collapsed .ds-wordmark { font-size: 20px; }

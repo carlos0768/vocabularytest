@@ -51,12 +51,25 @@ export function DesktopSidebar({
 
   return (
     <aside className={cn('ds-side', collapsed && 'ds-side--collapsed')} aria-label="デスクトップナビゲーション">
-      <div className="ds-brand">
-        <div className="ds-brand-row">
-          <span className="ds-wordmark">{collapsed ? 'M' : 'MERKEN'}</span>
-          <span className="ds-brand-dot" />
+      <div className="ds-side-head">
+        <div className="ds-brand">
+          <div className="ds-brand-row">
+            <span className="ds-wordmark">{collapsed ? 'M' : 'MERKEN'}</span>
+            <span className="ds-brand-dot" />
+          </div>
+          {!collapsed && <span className="ds-brand-sub">単語帳 · Desktop</span>}
         </div>
-        {!collapsed && <span className="ds-brand-sub">単語帳 · Desktop</span>}
+        {onToggle && (
+          <button
+            type="button"
+            className="ds-sidebar-toggle"
+            onClick={onToggle}
+            title={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
+            aria-label={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
+          >
+            <Icon name={collapsed ? 'chevron_right' : 'chevron_left'} />
+          </button>
+        )}
       </div>
 
       <nav className="ds-nav">
@@ -98,17 +111,6 @@ export function DesktopSidebar({
               <div className="pl">{isPro ? 'Pro メンバー' : 'Free メンバー'}</div>
             </div>
           </div>
-        )}
-        {onToggle && (
-          <button
-            type="button"
-            className="ds-sidebar-toggle"
-            onClick={onToggle}
-            title={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
-            aria-label={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
-          >
-            <Icon name={collapsed ? 'chevron_right' : 'chevron_left'} />
-          </button>
         )}
       </div>
     </aside>
