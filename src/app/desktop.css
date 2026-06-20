@@ -823,15 +823,24 @@ button.ds-tile { appearance: none; }
     min-height: 0;
   }
 
-  .ds-live-shell, .ds-live-shell > .ds-side {
-    transition: grid-template-columns var(--dur-slower) var(--ease-out),
-                width var(--dur-slower) var(--ease-out);
+  .ds-live-shell {
+    --sidebar-width: 264px;
+    transition: grid-template-columns var(--dur-slower) var(--ease-out);
+  }
+
+  .ds-live-shell > .ds-side {
+    transition: width var(--dur-slower) var(--ease-out);
   }
 
   .ds-live-shell--collapsed {
+    --sidebar-width: 68px;
     grid-template-columns: 68px minmax(0, 1fr);
   }
   .ds-live-shell--collapsed > .ds-side {
     width: 68px;
+  }
+
+  .ds-fixed-main {
+    left: var(--sidebar-width, 264px);
   }
 }
