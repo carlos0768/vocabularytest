@@ -318,18 +318,20 @@ export function DesktopProjectDetailView({
               <thead>
                 <tr>
                   <th style={{ width: 42 }} />
-                  {hiddenCols.has('en') ? null : (
-                    <th style={{ minWidth: 150 }}>
-                      英単語
-                      <span
-                        role="button"
-                        style={{ cursor: 'pointer', verticalAlign: 'middle', marginLeft: 4, opacity: 0.35 }}
-                        onClick={(e) => { e.stopPropagation(); toggleCol('en'); }}
-                      >
-                        <Icon name="visibility_off" style={{ fontSize: 14 }} />
-                      </span>
-                    </th>
-                  )}
+                  <th style={{ minWidth: 150 }}>
+                    {hiddenCols.has('en') ? null : (
+                      <>
+                        英単語
+                        <span
+                          role="button"
+                          style={{ cursor: 'pointer', verticalAlign: 'middle', marginLeft: 4, opacity: 0.35 }}
+                          onClick={(e) => { e.stopPropagation(); toggleCol('en'); }}
+                        >
+                          <Icon name="visibility_off" style={{ fontSize: 14 }} />
+                        </span>
+                      </>
+                    )}
+                  </th>
                   <th style={{ width: 70 }}>品詞</th>
                   {hiddenCols.has('ja') ? null : (
                     <th>
@@ -379,14 +381,16 @@ export function DesktopProjectDetailView({
                         />
                       )}
                     </td>
-                    {hiddenCols.has('en') ? null : (
-                      <td className="en">
-                        {word.english}
-                        <div className="mono" style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
-                          {word.pronunciation || '-'}
-                        </div>
-                      </td>
-                    )}
+                    <td className="en">
+                      {hiddenCols.has('en') ? null : (
+                        <>
+                          {word.english}
+                          <div className="mono" style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
+                            {word.pronunciation || '-'}
+                          </div>
+                        </>
+                      )}
+                    </td>
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     {hiddenCols.has('ja') ? null : (
                       <td className="ja">{word.japanese}</td>
