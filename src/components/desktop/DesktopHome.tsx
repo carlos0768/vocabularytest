@@ -187,7 +187,7 @@ export function DesktopHomeView({
           )}
         </div>
 
-        <DesktopStudySidebar stats={stats} reviewHref={firstProject ? `/quiz/${firstProject.id}` : '/projects'} />
+        <DesktopStudySidebar stats={stats} reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'} />
       </div>
     </div>
   );
