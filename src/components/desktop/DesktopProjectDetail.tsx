@@ -319,8 +319,8 @@ export function DesktopProjectDetailView({
                 <tr>
                   <th style={{ width: 42 }} />
                   {hiddenCols.has('en') ? null : (
-                    <th onClick={() => toggleSort('en')} style={{ minWidth: 150 }}>
-                      英単語 {sortKey === 'en' && <Icon name={sortDir === 1 ? 'arrow_downward' : 'arrow_upward'} />}
+                    <th style={{ minWidth: 150 }}>
+                      英単語
                       <span
                         role="button"
                         style={{ cursor: 'pointer', verticalAlign: 'middle', marginLeft: 4, opacity: 0.35 }}
