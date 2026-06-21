@@ -185,6 +185,9 @@ export default function SettingsPage() {
         username={username}
         isPro={isPro}
         onSignOut={() => void handleSignOut()}
+        onUsernameChange={setUsername}
+        usernameSaving={profileSaving}
+        usernameError={profileError}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
