@@ -720,8 +720,10 @@
   border: 1.5px solid var(--solid-ink); background: #fff;
   box-shadow: inset 0 2px 0 rgba(0,0,0,0.03);
 }
-.ds-wo-answer.correct { border-color: var(--color-accent); background: var(--color-accent-light); }
-.ds-wo-answer.wrong { border-color: var(--color-error); background: var(--color-error-light); }
+.ds-wo-answer.correct { border-color: var(--color-accent-ink); background: var(--color-accent); color: #fff; box-shadow: 3px 4px 0 var(--color-accent-ink); }
+.ds-wo-answer.wrong { border-color: #b91c1c; background: var(--color-error); color: #fff; box-shadow: 3px 4px 0 #b91c1c; }
+.ds-wo-answer.correct .ds-wo-fixed, .ds-wo-answer.wrong .ds-wo-fixed { color: #fff; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); }
+.ds-wo-answer.correct .ds-wo-blank, .ds-wo-answer.wrong .ds-wo-blank { border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.08); }
 .ds-wo-answer .ph { color: var(--color-muted); font-family: var(--font-mono); font-size: 13px; align-self: center; }
 /* 文中の固定単語（デフォルト表示）。クリック不可の静的タイル */
 .ds-wo-fixed {
@@ -753,8 +755,8 @@ button.ds-tile { appearance: none; }
 .ds-tile:disabled { cursor: default; }
 .ds-tile.in-answer { background: var(--color-ink); color: #fff; box-shadow: 2px 3px 0 var(--solid-ink); }
 .ds-wo-answer .ds-tile.in-answer { display: inline-flex; align-items: center; gap: 0; }
-.ds-wo-answer.correct .ds-tile.in-answer { background: var(--color-accent); box-shadow: 2px 3px 0 var(--color-accent-ink); }
-.ds-wo-answer.wrong .ds-tile.in-answer { background: var(--color-error); box-shadow: 2px 3px 0 #b91c1c; }
+.ds-wo-answer.correct .ds-tile.in-answer { background: rgba(255,255,255,0.22); color: #fff; border-color: rgba(255,255,255,0.2); box-shadow: 2px 3px 0 var(--color-accent-ink); }
+.ds-wo-answer.wrong .ds-tile.in-answer { background: rgba(255,255,255,0.22); color: #fff; border-color: rgba(255,255,255,0.2); box-shadow: 2px 3px 0 #b91c1c; }
 
 /* ── Word detail modal (floats over current page) ────────── */
 .ds-app { position: relative; }

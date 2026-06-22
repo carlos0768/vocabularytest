@@ -274,7 +274,6 @@ function DSDesktopWordOrderPanel({
   const answerStateClass = isRevealed ? (result === 'correct' ? ' correct' : ' wrong') : '';
   const answerIsFull = selectedTokens.length >= question.answerTokens.length;
   const example = getWordOrderExample(question);
-  // モバイル版と同様に、文中の固定単語（デフォルト表示）と空欄を並べて表示する
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
     token,
     index,
@@ -297,7 +296,10 @@ function DSDesktopWordOrderPanel({
         {sentenceItems.map(({ token, index, answerIndex }) => {
           if (token !== WORD_ORDER_BLANK_TOKEN) {
             return (
-              <span key={`${token}-${index}`} className="ds-wo-fixed">
+              <span
+                key={`${token}-${index}`}
+                className="ds-wo-fixed"
+              >
                 {token}
               </span>
             );
@@ -306,7 +308,13 @@ function DSDesktopWordOrderPanel({
           const selected = answerIndex === null ? undefined : selectedTokens[answerIndex];
 
           if (!selected) {
-            return <span key={`blank-${index}`} className="ds-wo-blank" aria-label="空欄" />;
+            return (
+              <span
+                key={`blank-${index}`}
+                className="ds-wo-blank"
+                aria-label="空欄"
+              />
+            );
           }
 
           return (
@@ -392,16 +400,35 @@ function DSWordOrderPanel({
       : null,
   }));
 
+  const revealed = isRevealed && result != null;
+  const isCorrect = result === 'correct';
+
   return (
     <div className="mt-[18px] space-y-4">
-      <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white p-4 shadow-[2px_3px_0_var(--solid-ink)]">
+      <div
+        className="rounded-[18px] border-[1.5px] p-4"
+        style={{
+          borderColor: revealed ? (isCorrect ? 'var(--color-success)' : '#b91c1c') : 'var(--solid-ink)',
+          background: revealed ? (isCorrect ? 'var(--color-success)' : 'var(--color-error)') : '#fff',
+          boxShadow: `2px 3px 0 ${revealed ? (isCorrect ? 'var(--color-success)' : '#b91c1c') : 'var(--solid-ink)'}`,
+        }}
+      >
         <div className="flex min-h-[76px] flex-wrap items-center gap-2">
           {sentenceItems.map(({ token, index, answerIndex }) => {
             if (token !== WORD_ORDER_BLANK_TOKEN) {
               return (
                 <span
                   key={`${token}-${index}`}
-                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
+                  className="inline-flex min-h-10 items-center rounded-xl border px-3 text-[15px] font-bold"
+                  style={revealed ? {
+                    color: '#fff',
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    background: 'rgba(255,255,255,0.12)',
+                  } : {
+                    color: 'var(--solid-ink)',
+                    borderColor: 'var(--color-border)',
+                    background: 'rgba(26,26,26,0.04)',
+                  }}
                 >
                   {token}
                 </span>
@@ -416,7 +443,23 @@ function DSWordOrderPanel({
                 type="button"
                 onClick={() => selected && answerIndex !== null && onRemoveToken(answerIndex)}
                 disabled={isRevealed || !selected}
-                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-[1.5px] border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-default"
+                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-[1.5px] px-3 text-[15px] font-black disabled:cursor-default"
+                style={revealed && selected ? {
+                  borderStyle: 'solid',
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  background: 'rgba(255,255,255,0.22)',
+                  color: '#fff',
+                } : revealed ? {
+                  borderStyle: 'dashed',
+                  borderColor: 'rgba(255,255,255,0.35)',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: 'var(--solid-ink)',
+                } : {
+                  borderStyle: 'dashed',
+                  borderColor: 'var(--solid-ink)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--solid-ink)',
+                }}
               >
                 {selected || ''}
               </button>
@@ -451,17 +494,26 @@ function DSWordOrderPanel({
       )}
 
       {isRevealed && (
-        <div
-          className="rounded-xl border p-3 text-center"
-          style={{
-            borderColor: result === 'correct' ? 'var(--color-success)' : 'var(--color-error)',
-            background: result === 'correct' ? 'rgba(61,122,78,0.08)' : 'rgba(184,72,72,0.08)',
-          }}
-        >
-          <p className="text-sm font-bold text-[var(--solid-ink)]">
-            {result === 'correct' ? '正解' : '不正解'}
-          </p>
-          <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">{question.word.english}</p>
+        <div className="relative w-full">
+          <div
+            className="absolute inset-0 rounded-xl"
+            style={{ transform: 'translate(2.5px, 2.5px)', background: isCorrect ? 'var(--color-success)' : 'var(--color-error)' }}
+          />
+          <div
+            className="relative rounded-xl border-[1.25px] p-3 text-center"
+            style={{
+              borderColor: 'var(--solid-ink)',
+              background: isCorrect ? 'rgba(61,122,78,0.08)' : 'rgba(184,72,72,0.08)',
+            }}
+          >
+            <div className="flex items-center justify-center gap-1">
+              <Icon name={isCorrect ? 'check' : 'close'} size={18} style={{ color: isCorrect ? 'var(--color-success)' : 'var(--color-error)' }} />
+              <p className="text-sm font-bold" style={{ color: isCorrect ? 'var(--color-success)' : 'var(--color-error)' }}>
+                {isCorrect ? '正解' : '不正解'}
+              </p>
+            </div>
+            <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">{question.word.english}</p>
+          </div>
         </div>
       )}
 
