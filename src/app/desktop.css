@@ -149,6 +149,7 @@
 .ds-btn.ghost { box-shadow: none; background: transparent; border-color: transparent; }
 .ds-btn.ghost:hover { background: rgba(26,26,26,0.05); transform: none; }
 .ds-btn.sm { padding: 7px 12px; font-size: 13px; }
+.ds-btn.ds-btn--icon { padding: 10px; }
 
 /* ── Solid card (face + plate via box-shadow, hard) ──────── */
 .ds-card {
@@ -329,7 +330,7 @@
 .ds-table td { padding: 12px 14px; font-size: 13.5px; vertical-align: middle; }
 .ds-table td.en { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .ds-table td.ja { color: var(--color-secondary-text); }
-.ds-table td.pos { font-family: var(--font-mono); font-size: 12px; color: var(--color-muted); }
+.ds-table td.pos { font-family: var(--font-mono); font-size: 12px; color: var(--color-muted); width: 70px; max-width: 70px; }
 .ds-table td.cefr { font-family: var(--font-mono); font-size: 11px; }
 .ds-table td.star .material-symbols-outlined { font-size: 18px; color: var(--color-muted); cursor: pointer; }
 .ds-table td.star .material-symbols-outlined.on { color: var(--color-warning); font-variation-settings: 'FILL' 1; }

@@ -900,6 +900,8 @@ export default function ProjectPage() {
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
         onDeleteWord={handleOpenDeleteWord}
         onBulkDelete={() => setBulkDeleteModalOpen(true)}
+        onScan={() => setShowScanCaptureModal(true)}
+        onManualAdd={() => setShowManualWordModal(true)}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       <div className="sticky top-0 z-10 flex items-center justify-between bg-[var(--color-background)] px-4 pb-2 pt-3 lg:hidden">
@@ -1722,11 +1724,11 @@ function StatusSquares({
       aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済み'}`}
       className="shrink-0 rounded p-0.5 transition-colors active:bg-[rgba(26,26,26,0.06)]"
     >
-      <div className="flex flex-col gap-[1.5px]">
+      <div className="flex flex-col gap-[2px]">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="h-[10px] w-[10px] rounded-[2px] border-2 border-[var(--solid-ink)]"
+            className="h-[13px] w-[13px] rounded-[2.5px] border-2 border-[var(--solid-ink)]"
             style={{ background: i < filledCount ? 'var(--solid-ink)' : 'transparent' }}
           />
         ))}

@@ -167,13 +167,14 @@ export function DesktopButton({
   onClick?: () => void;
   title?: string;
 }) {
+  const iconOnly = children === '' || children === null || children === undefined;
   const content = (
     <>
       {icon && <Icon name={icon} />}
-      {children}
+      {!iconOnly && children}
     </>
   );
-  const classes = cn('ds-btn', variant, className);
+  const classes = cn('ds-btn', variant, iconOnly && 'ds-btn--icon', className);
   if (href) {
     return (
       <Link href={href} className={classes} title={title}>
