@@ -6,6 +6,8 @@ import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { formatJapaneseForDisplay } from '@/lib/words/display';
 import type { WrongAnswer } from '@/lib/utils';
 import type { Word } from '@/types';
 
@@ -39,7 +41,7 @@ export function DesktopFavoritesView({
   const rows = useMemo(
     () =>
       favorites.filter(
-        (word) => !q || word.english.toLowerCase().includes(q) || word.japanese.toLowerCase().includes(q),
+        (word) => !q || word.english.toLowerCase().includes(q) || formatJapaneseForDisplay(word).toLowerCase().includes(q),
       ),
     [favorites, q],
   );
@@ -109,7 +111,7 @@ export function DesktopFavoritesView({
                     </Link>
                   </td>
                   <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
-                  <td className="ja">{word.japanese}</td>
+                  <td className="ja"><TranslationDisplay word={word} compact /></td>
                   <td style={{ textAlign: 'center' }}>
                     <DesktopVocabularyTypeBadge
                       vocabularyType={word.vocabularyType}
@@ -197,7 +199,7 @@ export function DesktopWrongAnswersView({
               {rows.map((word) => (
                 <tr key={word.wordId}>
                   <td className="en">{word.english}</td>
-                  <td className="ja">{word.japanese}</td>
+                  <td className="ja"><TranslationDisplay word={word} compact /></td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-secondary-text)' }}>
                       <span className="ds-project-icon ds-project-icon--xs" style={{ background: desktopThumbColor(word.projectId || word.wordId) }} />

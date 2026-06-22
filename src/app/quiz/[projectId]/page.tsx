@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigat
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { TypeInQuizField } from '@/components/quiz';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import {
@@ -51,6 +52,7 @@ import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-dist
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
+import { formatJapaneseForDisplay } from '@/lib/words/display';
 import { useAuth } from '@/hooks/use-auth';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -289,7 +291,7 @@ function DSDesktopWordOrderPanel({
     <div className="ds-word-order-stage">
       <div className="ds-word-order-prompt">
         <span className="ds-tag plain">日本語訳</span>
-        <div className="ds-word-order-meaning">{question.word.japanese}</div>
+        <div className="ds-word-order-meaning"><TranslationDisplay word={question.word} /></div>
         <div className="muted ds-word-order-help">単語をクリックして正しい順に並べてください</div>
       </div>
 
@@ -1257,13 +1259,14 @@ export default function QuizPage() {
         : isActiveVocab
           ? 'タイプ入力'
           : '4択クイズ';
+  const displayJapanese = currentQuestion ? formatJapaneseForDisplay(currentQuestion.word) : undefined;
   const desktopPrompt = currentIsWordOrder
-    ? currentQuestion?.word.japanese
+    ? displayJapanese
     : isActiveVocab
-      ? currentQuestion?.word.japanese
+      ? displayJapanese
       : quizDirection === 'en-to-ja'
         ? currentQuestion?.word.english
-        : currentQuestion?.word.japanese;
+        : displayJapanese;
   const desktopPhonetic = !currentIsWordOrder && !isActiveVocab
     ? currentQuestion?.word.pronunciation
     : '';
@@ -1530,12 +1533,12 @@ export default function QuizPage() {
           <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
             <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
               {currentIsWordOrder
-                ? currentQuestion?.word.japanese
+                ? displayJapanese
                 : isActiveVocab
-                ? currentQuestion?.word.japanese
-                : quizDirection === 'en-to-ja'
-                  ? currentQuestion?.word.english
-                  : currentQuestion?.word.japanese}
+                  ? displayJapanese
+                  : quizDirection === 'en-to-ja'
+                    ? currentQuestion?.word.english
+                    : displayJapanese}
             </div>
             {!isActiveVocab && !currentIsWordOrder && (
               <div className="mt-2.5 flex justify-center">

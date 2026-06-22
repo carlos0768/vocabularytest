@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesktopScanConfirmView } from '@/components/desktop/DesktopScan';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { useAuth } from '@/hooks/use-auth';
@@ -244,8 +245,9 @@ export default function ConfirmPage() {
 
       await persistLexiconEntries(initialData.lexiconEntries);
       const createdWords = await repository.createWords(selectedWords.map((w) => ({
-        projectId: targetProjectId, english: w.english, japanese: w.japanese, japaneseSource: w.japaneseSource,
-        lexiconEntryId: w.lexiconEntryId, cefrLevel: w.cefrLevel, distractors: w.distractors,
+        projectId: targetProjectId, english: w.english, japanese: w.japanese, rawJapanese: w.rawJapanese, japaneseSource: w.japaneseSource,
+        translations: w.translations, customSections: w.customSections,
+        lexiconEntryId: w.lexiconEntryId, lexiconSenseId: w.lexiconSenseId, cefrLevel: w.cefrLevel, distractors: w.distractors,
         partOfSpeechTags: w.partOfSpeechTags, pronunciation: w.pronunciation, exampleSentence: w.exampleSentence, exampleSentenceJa: w.exampleSentenceJa,
       })));
 
@@ -467,7 +469,9 @@ function WordRow({
     >
       <div className="min-w-0 flex-1">
         <div className="font-display text-sm font-bold text-[var(--solid-ink)]">{w.english || `単語 ${index + 1}`}</div>
-        <div className="mt-px text-[11px] text-[var(--color-muted)]">{w.japanese}</div>
+        <div className="mt-px text-[11px] text-[var(--color-muted)]">
+          <TranslationDisplay word={w} compact />
+        </div>
       </div>
       <div className="flex gap-0.5">
         <button

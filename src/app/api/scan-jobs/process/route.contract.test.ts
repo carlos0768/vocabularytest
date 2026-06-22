@@ -13,7 +13,7 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const NEW_PROJECT_ID = '22222222-2222-4222-8222-222222222222';
 const EXISTING_PROJECT_ID = '33333333-3333-4333-8333-333333333333';
 
-type QueryAction = 'update' | 'select' | 'insert' | 'delete' | 'storage.download';
+type QueryAction = 'update' | 'select' | 'insert' | 'upsert' | 'delete' | 'storage.download';
 
 interface QueryFilter {
   field: string;
@@ -174,6 +174,7 @@ class FakeScanProcessClient {
       update: (payload: unknown) => this.createOperation(table, 'update', payload),
       select: (columns = '*') => this.createOperation(table, 'select', undefined, columns),
       insert: (payload: unknown) => this.createOperation(table, 'insert', payload),
+      upsert: (payload: unknown) => this.createOperation(table, 'upsert', payload),
       delete: () => this.createOperation(table, 'delete'),
     };
   }
@@ -280,6 +281,13 @@ class FakeScanProcessClient {
 
       return {
         data: (this.options.insertedWords ?? deriveInsertedWords(operation.payload)) as T,
+        error: null,
+      };
+    }
+
+    if (operation.table === 'word_translations' && operation.action === 'upsert') {
+      return {
+        data: null,
         error: null,
       };
     }
@@ -751,6 +759,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   assert.deepEqual(trace.filter((event) => [
     'db:projects.insert',
     'db:words.insert',
+    'db:word_translations.upsert',
     'db:scan_jobs.completed',
     'push:completed',
     'apns:completed',
@@ -758,6 +767,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   ].includes(event)), [
     'db:projects.insert',
     'db:words.insert',
+    'db:word_translations.upsert',
     'db:scan_jobs.completed',
     'push:completed',
     'apns:completed',
@@ -791,12 +801,32 @@ test('server_cloud new project completion keeps project insert, words insert, an
       english: 'apple',
       japanese: 'りんご',
       lexicon_entry_id: 'lexicon-apple',
+      lexicon_sense_id: null,
       distractors: ['ばなな', 'ぶどう', 'もも'],
       example_sentence: 'I ate an apple.',
       example_sentence_ja: '私はりんごを食べました。',
       pronunciation: null,
       part_of_speech_tags: ['noun'],
       source_modes: ['all'],
+      custom_sections: [],
+    },
+  ]);
+
+  const translationsUpsert = findOperation(
+    client,
+    (operation) => operation.table === 'word_translations' && operation.action === 'upsert',
+    'missing word_translations upsert',
+  );
+  assert.deepEqual(translationsUpsert.payload, [
+    {
+      word_id: 'word-1',
+      lexicon_sense_id: null,
+      translation_ja: 'りんご',
+      normalized_translation_ja: 'りんご',
+      source: 'scan',
+      meaning_rank: 1,
+      position: 0,
+      is_primary: true,
     },
   ]);
 

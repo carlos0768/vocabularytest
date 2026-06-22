@@ -12,6 +12,7 @@ import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { WordDetailView } from '@/components/word/WordDetailView';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
@@ -1788,7 +1789,9 @@ function WordRow({
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
               {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-              <span className="truncate">{word.japanese}</span>
+              <span className="truncate">
+                <TranslationDisplay word={word} compact />
+              </span>
             </div>
           </div>
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
@@ -1807,7 +1810,9 @@ function WordRow({
           <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
           <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
             {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-            <span className="truncate">{word.japanese}</span>
+            <span className="truncate">
+              <TranslationDisplay word={word} compact />
+            </span>
           </div>
         </button>
 

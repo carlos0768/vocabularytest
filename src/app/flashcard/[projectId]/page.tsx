@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
@@ -587,7 +588,7 @@ export default function FlashcardPage() {
               <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで意味を表示</div>
             </div>
             <div className="ds-fc-face back">
-              <div className="ja">{currentWord?.japanese}</div>
+              <div className="ja">{currentWord && <TranslationDisplay word={currentWord} />}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{getPartOfSpeechLabel(tag)}</span>)}
               </div>
@@ -785,7 +786,9 @@ export default function FlashcardPage() {
               }}
             >
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                <h2 className="text-3xl font-bold text-white">{currentWord?.japanese}</h2>
+                <h2 className="text-3xl font-bold text-white">
+                  {currentWord && <TranslationDisplay word={currentWord} />}
+                </h2>
                 <p className="text-sm text-white/60">{currentWord?.english}</p>
                 {currentWord?.pronunciation && (
                   <p className="font-mono text-xs text-white/50">{currentWord.pronunciation}</p>

@@ -1,5 +1,6 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
+import type { CustomSection } from '@/types';
 
 export interface ServerCloudProjectInsertParams {
   userId: string;
@@ -20,12 +21,14 @@ export interface ServerCloudWordForInsert {
   english: string;
   japanese: string;
   lexiconEntryId?: string;
+  lexiconSenseId?: string;
   distractors: string[];
   exampleSentence?: string;
   exampleSentenceJa?: string;
   pronunciation?: string;
   partOfSpeechTags?: string[];
   sourceModes?: ExtractMode[];
+  customSections?: CustomSection[];
 }
 
 export interface ServerCloudWordInsertPayload {
@@ -33,12 +36,14 @@ export interface ServerCloudWordInsertPayload {
   english: string;
   japanese: string;
   lexicon_entry_id: string | null;
+  lexicon_sense_id: string | null;
   distractors: string[];
   example_sentence: string | null;
   example_sentence_ja: string | null;
   pronunciation: string | null;
   part_of_speech_tags?: string[];
   source_modes?: ExtractMode[];
+  custom_sections: CustomSection[];
 }
 
 type MaybePostgrestColumnError = {
@@ -75,12 +80,14 @@ export function buildServerCloudWordsInsertPayload(
     english: word.english,
     japanese: word.japanese,
     lexicon_entry_id: word.lexiconEntryId ?? null,
+    lexicon_sense_id: word.lexiconSenseId ?? null,
     distractors: word.distractors,
     example_sentence: word.exampleSentence || null,
     example_sentence_ja: word.exampleSentenceJa || null,
     pronunciation: word.pronunciation || null,
     part_of_speech_tags: word.partOfSpeechTags,
     source_modes: word.sourceModes,
+    custom_sections: word.customSections ?? [],
   }));
 }
 
@@ -110,11 +117,13 @@ export function stripSourceModesFromServerCloudWordsInsertPayload(
     english: word.english,
     japanese: word.japanese,
     lexicon_entry_id: word.lexicon_entry_id,
+    lexicon_sense_id: word.lexicon_sense_id,
     distractors: word.distractors,
     example_sentence: word.example_sentence,
     example_sentence_ja: word.example_sentence_ja,
     pronunciation: word.pronunciation,
     part_of_speech_tags: word.part_of_speech_tags,
+    custom_sections: word.custom_sections,
   }));
 }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { shuffleArray } from '@/lib/utils';
 import type { Word } from '@/types';
@@ -221,7 +222,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
             }}
           >
             <div className="flex flex-col items-center text-center mb-4">
-              <h2 className="text-2xl font-bold">{currentWord.japanese}</h2>
+              <h2 className="text-2xl font-bold"><TranslationDisplay word={currentWord} /></h2>
               <p className="mt-1 text-sm text-white/60">{currentWord.english}</p>
               {currentWord.pronunciation && (
                 <p className="mt-0.5 font-mono text-xs text-white/50">

@@ -13,6 +13,10 @@ import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
+import {
+  buildWordTranslationInsertRows,
+  normalizeWordForTranslationPersistence,
+} from '@/lib/words/translation-persistence';
 import { z } from 'zod';
 
 const relatedWordSchema = z.object({
@@ -39,14 +43,39 @@ const wordOrderQuizSchema = z.object({
   generatedAt: z.string().datetime(),
 }).strict();
 
+const customSectionSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  title: z.string().trim().max(120),
+  content: z.string().trim().max(2000),
+}).strict();
+
+const translationSchema = z.object({
+  japanese: z.string().trim().min(1).max(300).optional(),
+  translationJa: z.string().trim().min(1).max(300).optional(),
+  translation_ja: z.string().trim().min(1).max(300).optional(),
+  source: z.enum(['scan', 'ai', 'user']).optional(),
+  meaningRank: z.number().int().min(1).max(20).optional(),
+  meaning_rank: z.number().int().min(1).max(20).optional(),
+  annotationRanges: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  annotation_ranges: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  lexiconSenseId: z.string().uuid().optional(),
+  lexicon_sense_id: z.string().uuid().optional(),
+}).strict().refine(
+  (translation) => Boolean(translation.japanese || translation.translationJa || translation.translation_ja),
+  { message: 'translation must include japanese, translationJa, or translation_ja' },
+);
+
 const wordInputSchema = z.object({
   id: z.string().uuid().optional(),
   projectId: z.string().uuid(),
   english: z.string().trim().min(1).max(200),
   japanese: z.string().trim().max(300).default(''),
+  rawJapanese: z.string().trim().max(500).optional(),
+  translations: z.array(translationSchema).max(20).optional(),
   vocabularyType: z.enum(['active', 'passive']).nullable().optional(),
   japaneseSource: z.enum(['scan', 'ai']).optional(),
   lexiconEntryId: z.string().uuid().optional(),
+  lexiconSenseId: z.string().uuid().optional(),
   distractors: z.array(z.string().trim().min(1).max(300)).max(10).default([]),
   exampleSentence: z.string().trim().max(500).optional(),
   exampleSentenceJa: z.string().trim().max(500).optional(),
@@ -57,6 +86,7 @@ const wordInputSchema = z.object({
   insightsGeneratedAt: z.string().datetime().optional(),
   insightsVersion: z.number().int().min(1).max(100).optional(),
   wordOrderQuiz: wordOrderQuizSchema.optional(),
+  customSections: z.array(customSectionSchema).max(20).optional(),
   status: z.enum(['new', 'review', 'mastered']).optional(),
   createdAt: z.string().datetime().optional(),
   lastReviewedAt: z.string().datetime().optional(),
@@ -138,11 +168,13 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       return NextResponse.json({ success: false, error: '指定した単語帳にアクセスできません' }, { status: 403 });
     }
 
-    const immediateResolution = await resolveImmediateWords(words);
+    const normalizedRequestWords = words.map((word) => normalizeWordForTranslationPersistence(word));
+    const immediateResolution = await resolveImmediateWords(normalizedRequestWords);
     const wordsNeedingBackfill = immediateResolution.words.filter((word) => word.japanese.trim().length === 0);
-    const { words: translatedWords, aiBackfilledIndexes } = wordsNeedingBackfill.length > 0
+    const { words: translatedWordsRaw, aiBackfilledIndexes } = wordsNeedingBackfill.length > 0
       ? await backfillWords(immediateResolution.words)
       : { words: immediateResolution.words, aiBackfilledIndexes: [] };
+    const translatedWords = translatedWordsRaw.map((word) => normalizeWordForTranslationPersistence(word));
 
     console.log('[words/create] Immediate resolution finished', {
       requestedWordCount: words.length,
@@ -163,6 +195,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         japanese: word.japanese,
         vocabulary_type: word.vocabularyType ?? null,
         lexicon_entry_id: word.lexiconEntryId ?? null,
+        lexicon_sense_id: word.lexiconSenseId ?? null,
         distractors: word.distractors,
         example_sentence: word.exampleSentence ?? null,
         example_sentence_ja: word.exampleSentenceJa ?? null,
@@ -181,6 +214,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         interval_days: word.intervalDays ?? defaultSR.intervalDays,
         repetition: word.repetition ?? defaultSR.repetition,
         is_favorite: word.isFavorite ?? false,
+        custom_sections: word.customSections ?? [],
       } as Record<string, unknown>;
 
       if (word.id) {
@@ -200,6 +234,21 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
+    const createdWordRows = (data ?? []) as WordRow[];
+    const translationRows = buildWordTranslationInsertRows(
+      translatedWords,
+      createdWordRows.map((row) => row.id),
+    );
+    if (translationRows.length > 0) {
+      const { error: translationError } = await supabase
+        .from('word_translations')
+        .upsert(translationRows, { onConflict: 'word_id,normalized_translation_ja' });
+
+      if (translationError) {
+        return NextResponse.json({ success: false, error: translationError.message }, { status: 500 });
+      }
+    }
+
     const aiTranslatedIndexes = new Set<number>([
       ...aiBackfilledIndexes,
       ...translatedWords
@@ -209,11 +258,20 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
     const aiTranslatedWordIds = Array.from(aiTranslatedIndexes)
       .map((index) => ((data ?? []) as WordRow[])[index]?.id)
       .filter((value): value is string => typeof value === 'string' && value.length > 0);
-    const createdWordRows = (data ?? []) as WordRow[];
+    const createdWordRowsWithTranslations = translationRows.length > 0
+      ? await supabase
+        .from('words')
+        .select(RESOLVED_WORD_SELECT_COLUMNS)
+        .in('id', createdWordRows.map((row) => row.id))
+      : { data: createdWordRows, error: null };
+    if (createdWordRowsWithTranslations.error) {
+      return NextResponse.json({ success: false, error: createdWordRowsWithTranslations.error.message }, { status: 500 });
+    }
+    const createdRowsForResponse = (createdWordRowsWithTranslations.data ?? createdWordRows) as WordRow[];
 
     runAfter(async () => {
       const aiTranslatedWordIdSet = new Set(aiTranslatedWordIds);
-      const pendingWordIds = createdWordRows
+      const pendingWordIds = createdRowsForResponse
         .filter((row) => needsWordLexiconResolution({
           lexiconEntryId: row.lexicon_entry_id ?? null,
           partOfSpeechTags: row.part_of_speech_tags,
@@ -242,7 +300,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       }
 
       try {
-        const summary = await prefillWordOrderQuizzesForWords(createdWordRows, {
+        const summary = await prefillWordOrderQuizzesForWords(createdRowsForResponse, {
           getUpdateClient: () => getSupabaseAdmin(),
         });
         if (summary.requested > 0) {
@@ -255,7 +313,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
 
     return NextResponse.json({
       success: true,
-      words: createdWordRows.map(mapWordFromRow),
+      words: createdRowsForResponse.map(mapWordFromRow),
       lexiconEntries: immediateResolution.lexiconEntries,
     });
   } catch (error) {

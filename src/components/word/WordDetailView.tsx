@@ -9,6 +9,7 @@ import { getRepository } from '@/lib/db';
 import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 
 const STATUS_LABELS: Record<string, string> = {
   mastered: '習得済',
@@ -532,7 +533,7 @@ export function WordDetailView({
           ) : (
             <p className="mt-3 text-[17px] font-bold leading-[1.55] text-[var(--solid-ink)]">
               {posDisplay && <span className="mr-2 text-[14px] text-[var(--color-ink-muted)]">({posDisplay})</span>}
-              {word.japanese}
+              <TranslationDisplay word={word} />
             </p>
           )}
         </section>

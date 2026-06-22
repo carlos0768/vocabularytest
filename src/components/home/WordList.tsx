@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { Button } from '@/components/ui';
+import { formatJapaneseForDisplay } from '@/lib/words/display';
 import type { Word, WordStatus } from '@/types';
 
 export function nextStatus(current: WordStatus): WordStatus {
@@ -258,7 +260,9 @@ function WordItem({
               />
             )}
           </div>
-          <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={word.japanese}>{word.japanese}</p>
+          <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={formatJapaneseForDisplay(word)}>
+            <TranslationDisplay word={word} compact />
+          </p>
           {showProjectName && word.projectTitle && (
             <p className="text-xs text-[var(--color-primary)] mt-1 whitespace-nowrap">{word.projectTitle}</p>
           )}
@@ -343,7 +347,7 @@ export function WordList({
     return words.filter(
       (word) =>
         word.english.toLowerCase().includes(query) ||
-        word.japanese.toLowerCase().includes(query)
+        formatJapaneseForDisplay(word).toLowerCase().includes(query)
     );
   }, [words, searchQuery]);
 

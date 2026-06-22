@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { DesktopFavoritesView, DesktopWrongAnswersView } from '@/components/desktop/DesktopFavorites';
 import { Icon } from '@/components/ui/Icon';
 import { WordDetailView } from '@/components/word/WordDetailView';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
@@ -329,7 +330,9 @@ function FavoritesPageContent() {
                         <span className="font-mono text-[9px] text-[var(--color-muted)]">{word.partOfSpeechTags[0]}</span>
                       )}
                     </div>
-                    <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
+                    <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">
+                      <TranslationDisplay word={word} compact />
+                    </div>
                     <div className="mt-[3px] truncate font-mono text-[9px] text-[var(--color-muted)]">{word.projectTitle}</div>
                   </button>
                   <StatusPill kind={word.status} />
@@ -521,7 +524,9 @@ function MobileWrongAnswersView({
                   </span>
                   <span className="font-mono text-[9px] font-bold text-[var(--color-error)]">{word.wrongCount}回</span>
                 </div>
-                <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
+                <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">
+                  <TranslationDisplay word={word} compact />
+                </div>
               </div>
               <Link
                 href={`/flashcard/${word.projectId || 'all'}?from=${returnPath}`}
