@@ -943,7 +943,6 @@ export default function ProjectPage() {
             backgroundColor: bg,
             backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
             borderColor: 'var(--solid-ink)',
-            boxShadow: '2.5px 2.5px 0 var(--solid-ink)',
           }}
         >
           {!project.iconImage && project.title.charAt(0)}
@@ -1195,7 +1194,6 @@ export default function ProjectPage() {
                 background: '#faf7f1',
                 border: '2px solid var(--solid-ink)',
                 borderRadius: 20,
-                boxShadow: '4px 5px 0 var(--solid-ink)',
               }}
             >
               <WordDetailView
@@ -1296,7 +1294,7 @@ export default function ProjectPage() {
             style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
           />
           <div className="absolute inset-0 flex items-center justify-center px-5">
-            <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5" style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+            <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5">
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">RENAME</div>
               <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">名称変更</h2>
               <input
@@ -1306,7 +1304,7 @@ export default function ProjectPage() {
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirmRename(); }}
                 autoFocus
                 maxLength={60}
-                className="mt-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)]"
+                className="mt-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none"
               />
               <div className="mt-4 flex gap-2">
                 <button
@@ -1360,7 +1358,8 @@ function DeleteProjectModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+
+
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             DELETE
@@ -1444,7 +1443,8 @@ function ManualWordModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[400px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+
+
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             ADD WORD
@@ -1470,7 +1470,7 @@ function ManualWordModal({
                 disabled={loading}
                 maxLength={50}
                 autoFocus
-                className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-60"
+                className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
               />
             </div>
             <div>
@@ -1485,7 +1485,7 @@ function ManualWordModal({
                 placeholder="例: 美しい"
                 disabled={loading}
                 maxLength={100}
-                className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-60"
+                className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
               />
             </div>
 
@@ -2190,7 +2190,8 @@ function BulkDeleteModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+
+
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             DELETE
@@ -2257,7 +2258,8 @@ function ImportToProjectModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+
+
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             COPY TO
@@ -2355,7 +2357,8 @@ function SingleWordDeleteModal({
       <div className="absolute inset-0 flex items-center justify-center px-5">
         <div
           className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5"
-          style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
+
+
         >
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
             DELETE
