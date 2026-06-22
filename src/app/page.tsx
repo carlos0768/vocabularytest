@@ -462,12 +462,12 @@ export default function HomePage() {
         <div className="flex items-center gap-2">
           <Link
             href="/favorites"
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-accent)]"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-accent)]"
             aria-label="保存済み"
           >
             <Icon name="bookmark" size={16} filled />
           </Link>
-          <div className="flex items-center gap-[5px] rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
+          <div className="flex items-center gap-[5px] rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
             <span className="inline-flex text-[var(--color-warning)]">
               <Icon name="local_fire_department" size={13} filled />
             </span>
@@ -479,7 +479,7 @@ export default function HomePage() {
 
       {error && (
         <div className="px-[18px] pb-3">
-          <SolidPanel className="!rounded-[12px] !shadow-none border-[var(--color-error)]" faceClassName="!p-3 text-xs font-bold text-[var(--color-error)]">
+          <SolidPanel className="!rounded-[12px] !shadow-none !border-2 border-[var(--color-error)]" faceClassName="!p-3 text-xs font-bold text-[var(--color-error)]">
             {error}
           </SolidPanel>
         </div>
@@ -488,7 +488,7 @@ export default function HomePage() {
       <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5">
         {goalState === 'empty' ? (
           <button type="button" onClick={() => setVocabScanOpen(true)} className="block text-left">
-            <SolidPanel className="!rounded-2xl !shadow-none" faceClassName="!p-3 min-h-[120px]">
+            <SolidPanel className="!rounded-2xl !shadow-none !border-2" faceClassName="!p-3 min-h-[120px]">
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
@@ -514,7 +514,7 @@ export default function HomePage() {
           </button>
         ) : goalState === 'learn' ? (
           <Link href="/quiz/all?learn=1&from=/" className="block">
-            <SolidPanel className="!rounded-2xl !shadow-none" faceClassName="!p-3 min-h-[120px]">
+            <SolidPanel className="!rounded-2xl !shadow-none !border-2" faceClassName="!p-3 min-h-[120px]">
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
@@ -541,7 +541,7 @@ export default function HomePage() {
           </Link>
         ) : (
           <Link href="/quiz/all?review=1&from=/" className="block">
-            <SolidPanel className="!rounded-2xl !shadow-none" faceClassName="!p-3 min-h-[120px]">
+            <SolidPanel className="!rounded-2xl !shadow-none !border-2" faceClassName="!p-3 min-h-[120px]">
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
@@ -568,7 +568,7 @@ export default function HomePage() {
           </Link>
         )}
 
-        <SolidPanel className="!rounded-2xl !shadow-none" faceClassName="!p-3 min-h-[120px]">
+        <SolidPanel className="!rounded-2xl !shadow-none !border-2" faceClassName="!p-3 min-h-[120px]">
           <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
             MASTERY
           </div>
@@ -617,6 +617,7 @@ export default function HomePage() {
             title="単語帳はまだありません"
             description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
             noShadow
+            className="!border-2"
             action={
               <Link href="/scan" className="solid-link-primary">
                 <Icon name="add_a_photo" size={16} />
@@ -1254,12 +1255,12 @@ function ProjectRow({ project }: { project: HomeProjectStats }) {
   return (
     <Link href={`/project/${project.id}`}>
       <SolidPanel
-        className="!rounded-[14px] !shadow-none transition-all duration-100 active:translate-x-px active:translate-y-px"
+        className="!rounded-[14px] !shadow-none !border-2 transition-all duration-100 active:translate-x-px active:translate-y-px"
         faceClassName="!p-[13px]"
       >
         <div className="flex items-center gap-[13px]">
           <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
             style={{ background: project.iconImage ? `center / cover url(${project.iconImage})` : bg }}
           >
             {!project.iconImage && project.title.charAt(0)}

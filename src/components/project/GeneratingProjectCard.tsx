@@ -11,7 +11,7 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
   return (
     <SolidPanel
       as="div"
-      className="!rounded-[14px] !shadow-none cursor-default select-none pointer-events-none"
+      className="!rounded-[14px] !shadow-none !border-2 cursor-default select-none pointer-events-none"
       faceClassName="!p-[13px]"
     >
       <div
@@ -22,7 +22,7 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
         aria-label={`${title} を生成中`}
       >
         <div
-          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] overflow-hidden bg-[var(--color-surface-secondary)]"
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] overflow-hidden bg-[var(--color-surface-secondary)]"
           style={iconDataUrl ? { background: `center / cover url(${iconDataUrl})` } : undefined}
         >
           {!iconDataUrl && (
