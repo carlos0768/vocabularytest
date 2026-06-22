@@ -271,10 +271,11 @@ function DSDesktopWordOrderPanel({
   onRemoveToken: (index: number) => void;
 }) {
   const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
+  const revealed = isRevealed && result != null;
+  const isCorrectResult = result === 'correct';
   const answerStateClass = isRevealed ? (result === 'correct' ? ' correct' : ' wrong') : '';
   const answerIsFull = selectedTokens.length >= question.answerTokens.length;
   const example = getWordOrderExample(question);
-  // モバイル版と同様に、文中の固定単語（デフォルト表示）と空欄を並べて表示する
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
     token,
     index,
@@ -293,11 +294,22 @@ function DSDesktopWordOrderPanel({
         <div className="muted ds-word-order-help">単語をクリックして正しい順に並べてください</div>
       </div>
 
-      <div className={`ds-wo-answer${answerStateClass}`}>
+      <div
+        className={`ds-wo-answer${answerStateClass}`}
+        style={revealed ? {
+          borderColor: isCorrectResult ? 'var(--color-accent-ink)' : '#b91c1c',
+          background: isCorrectResult ? 'var(--color-accent)' : 'var(--color-error)',
+          boxShadow: `3px 4px 0 ${isCorrectResult ? 'var(--color-accent-ink)' : '#b91c1c'}`,
+        } : undefined}
+      >
         {sentenceItems.map(({ token, index, answerIndex }) => {
           if (token !== WORD_ORDER_BLANK_TOKEN) {
             return (
-              <span key={`${token}-${index}`} className="ds-wo-fixed">
+              <span
+                key={`${token}-${index}`}
+                className="ds-wo-fixed"
+                style={revealed ? { color: '#fff', borderColor: 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.12)' } : undefined}
+              >
                 {token}
               </span>
             );
@@ -306,7 +318,14 @@ function DSDesktopWordOrderPanel({
           const selected = answerIndex === null ? undefined : selectedTokens[answerIndex];
 
           if (!selected) {
-            return <span key={`blank-${index}`} className="ds-wo-blank" aria-label="空欄" />;
+            return (
+              <span
+                key={`blank-${index}`}
+                className="ds-wo-blank"
+                aria-label="空欄"
+                style={revealed ? { borderColor: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.08)' } : undefined}
+              />
+            );
           }
 
           return (
@@ -316,6 +335,12 @@ function DSDesktopWordOrderPanel({
               className="ds-tile in-answer"
               onClick={() => answerIndex !== null && onRemoveToken(answerIndex)}
               disabled={isRevealed}
+              style={revealed ? {
+                background: 'rgba(255,255,255,0.22)',
+                color: '#fff',
+                borderColor: 'rgba(255,255,255,0.2)',
+                boxShadow: `2px 3px 0 ${isCorrectResult ? 'var(--color-accent-ink)' : '#b91c1c'}`,
+              } : undefined}
             >
               {selected}
               {!isRevealed && (
