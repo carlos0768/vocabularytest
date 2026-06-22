@@ -44,6 +44,7 @@ Rules:
 - `annotationRanges` is temporary input used only during persistence.
 - Text listed in `annotationRanges` is removed from the saved translation.
 - Annotation text is moved to `words.custom_sections` under the fixed section `訳注`.
+- Japanese words inside parentheses, brackets, or slashes are still translations when they can stand alone as quiz answers. For example, `感覚 [分別]` becomes two translations, not one translation plus one note.
 
 Example:
 
@@ -56,16 +57,22 @@ Example:
       "japanese": "敬服する",
       "source": "scan",
       "meaningRank": 1,
-      "annotationRanges": ["に(~のことで)", "[感心]"]
+      "annotationRanges": ["に(~のことで)"]
+    },
+    {
+      "japanese": "感心する",
+      "source": "scan",
+      "meaningRank": 2,
+      "annotationRanges": ["に(~のことで)"]
     }
   ]
 }
 ```
 
-The saved `word_translations.translation_ja` is `敬服する`. The saved custom section is:
+The saved `word_translations.translation_ja` rows are `敬服する` and `感心する`. The saved custom section is:
 
 ```json
-{ "id": "translation-notes", "title": "訳注", "content": "に(~のことで)\n[感心]" }
+{ "id": "translation-notes", "title": "訳注", "content": "に(~のことで)" }
 ```
 
 ## Persistence and frontend behavior
