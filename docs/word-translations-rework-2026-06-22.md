@@ -14,12 +14,12 @@ The goal is to avoid packing multiple meanings into one string such as `1. æ„Ÿè¦
 - `translation_ja`: clean Japanese translation for display and quiz seeds
 - `normalized_translation_ja`: normalized unique key per word
 - `source`: `scan`, `ai`, or `user`
-- `lexicon_sense_id`: optional link to `lexicon_senses`
+- `lexicon_sense_id`: optional link to `lexicon_senses`; the migration creates the column even when `lexicon_senses` is absent and adds the foreign key only when the table exists
 - `meaning_rank`: 1 is the primary meaning, 2+ are secondary meanings
 - `position`: display order
 - `is_primary`: primary row marker
 
-Existing rows are backfilled from `words.japanese` as rank 1 primary translations. `words.japanese` is intentionally kept for older code paths, search fallbacks, example generation prompts, and quiz logic that expects a single primary meaning.
+Existing rows are backfilled from `words.japanese` as rank 1 primary translations. The backfill uses `words.lexicon_sense_id` and `normalize_lexicon_translation_key(text)` only when they exist, so the migration can run against older production schemas. `words.japanese` is intentionally kept for older code paths, search fallbacks, example generation prompts, and quiz logic that expects a single primary meaning.
 
 ## AI output and normalization
 
@@ -112,3 +112,10 @@ Final checks:
 - `npx tsc --noEmit`
 - `npx eslint ...` for the changed implementation and test files
 - `npx tsx --test ...` for the updated parser, create-word, scan-job, persistence, auth/notification fixture, quiz, and example-generation tests
+- Supabase preview branch `word-translations-rework` with production data accepted `20260622090000_create_word_translations.sql`.
+- Preview branch backfill result: `words` with non-null `japanese` = 19,158 and `word_translations` rows = 19,158.
+- All backfilled rows in the preview branch are rank 1 primary rows; no `translation_ja IS NULL` rows were produced.
+
+Operational note:
+
+- The linked main project migration history currently reports later local migrations from `20260530120000` onward as pending. Do not run a blind `supabase db push --linked` against main for only this change unless that migration history is reconciled first. To apply just this rework, run this migration SQL directly in the Supabase SQL editor or repair/apply the pending migration history intentionally.
