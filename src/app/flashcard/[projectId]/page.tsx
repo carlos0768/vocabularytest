@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
@@ -61,7 +62,7 @@ function HeaderBtn({
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
       aria-haspopup={ariaHasPopup}
-      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>
@@ -85,7 +86,7 @@ function ActionChip({
   return (
     <button type="button" onClick={onClick} className="flex flex-col items-center gap-[5px]">
       <div
-        className="flex h-[42px] w-[42px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_2px_0_var(--solid-ink)]"
+        className="flex h-[42px] w-[42px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]"
         style={{ color: tint }}
       >
         <Icon name={icon} size={16} filled={filled} />
@@ -110,7 +111,7 @@ function NavBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-[42px] w-[42px] items-center justify-center rounded-[21px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+      className="flex h-[42px] w-[42px] items-center justify-center rounded-[21px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>
@@ -587,7 +588,7 @@ export default function FlashcardPage() {
               <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで意味を表示</div>
             </div>
             <div className="ds-fc-face back">
-              <div className="ja">{currentWord?.japanese}</div>
+              <div className="ja">{currentWord && <TranslationDisplay word={currentWord} />}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{getPartOfSpeechLabel(tag)}</span>)}
               </div>
@@ -651,7 +652,7 @@ export default function FlashcardPage() {
               />
               <div
                 role="menu"
-                className="absolute right-0 top-[48px] z-20 w-[132px] rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-white p-1.5 shadow-[2px_2px_0_var(--solid-ink)]"
+                className="absolute right-0 top-[48px] z-20 w-[132px] rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-1.5"
               >
                 {FLASHCARD_SORT_OPTIONS.map((option) => {
                   const selected = sortOrder === option.value;
@@ -714,7 +715,7 @@ export default function FlashcardPage() {
             }}
           >
             <div
-              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
               style={{
                 backfaceVisibility: 'hidden',
                 boxShadow: '4px 4px 0 var(--solid-ink)',
@@ -747,7 +748,7 @@ export default function FlashcardPage() {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); speakWord(); }}
-                  className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-[13px] py-[7px] text-xs font-bold text-[var(--solid-ink)] shadow-[1.5px_1.5px_0_var(--solid-ink)]"
+                  className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-[13px] py-[7px] text-xs font-bold text-[var(--solid-ink)]"
                 >
                   <Icon name="volume_up" size={14} /> 発音
                 </button>
@@ -775,7 +776,7 @@ export default function FlashcardPage() {
             </div>
 
             <div
-              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
               style={{
                 backfaceVisibility: 'hidden',
                 boxShadow: '4px 4px 0 rgba(0,0,0,0.3)',
@@ -785,7 +786,9 @@ export default function FlashcardPage() {
               }}
             >
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                <h2 className="text-3xl font-bold text-white">{currentWord?.japanese}</h2>
+                <h2 className="text-3xl font-bold text-white">
+                  {currentWord && <TranslationDisplay word={currentWord} />}
+                </h2>
                 <p className="text-sm text-white/60">{currentWord?.english}</p>
                 {currentWord?.pronunciation && (
                   <p className="font-mono text-xs text-white/50">{currentWord.pronunciation}</p>
@@ -853,14 +856,14 @@ export default function FlashcardPage() {
       {/* Edit modal */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-background)] p-6 shadow-[3px_4px_0_var(--solid-ink)]">
+          <div className="w-full max-w-sm rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] p-6">
             <h2 className="mb-4 font-display text-lg font-black text-[var(--solid-ink)]">単語を編集</h2>
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">英単語</label>
                 <input
                   type="text" value={editEnglish} onChange={(e) => setEditEnglish(e.target.value)}
-                  className="w-full rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-sm font-bold text-[var(--solid-ink)] focus:outline-none"
+                  className="w-full rounded-lg border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-sm font-bold text-[var(--solid-ink)] focus:outline-none"
                   placeholder="英単語"
                 />
               </div>
@@ -868,7 +871,7 @@ export default function FlashcardPage() {
                 <label className="mb-1 block font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">日本語訳</label>
                 <input
                   type="text" value={editJapanese} onChange={(e) => setEditJapanese(e.target.value)}
-                  className="w-full rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 text-sm text-[var(--solid-ink)] focus:outline-none"
+                  className="w-full rounded-lg border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-sm text-[var(--solid-ink)] focus:outline-none"
                   placeholder="日本語訳"
                 />
               </div>

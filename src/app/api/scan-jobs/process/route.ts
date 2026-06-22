@@ -77,6 +77,11 @@ import {
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import {
+  buildWordTranslationInsertRows,
+  normalizeWordForTranslationPersistence,
+} from '@/lib/words/translation-persistence';
+import type { CustomSection, WordTranslation } from '@/types';
+import {
   insertProjectWithSourceLabelsCompat,
   selectProjectWithSourceLabelsCompat,
   updateProjectSourceLabelsCompat,
@@ -138,15 +143,19 @@ export interface ProcessJobDeps {
 interface ProcessedExtractedWord {
   english: string;
   japanese: string;
+  rawJapanese?: string;
+  translations?: WordTranslation[];
   japaneseSource?: 'scan' | 'ai';
   sourceModes?: ExtractMode[];
   lexiconEntryId?: string;
+  lexiconSenseId?: string;
   cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
   pronunciation?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
+  customSections?: CustomSection[];
 }
 
 // Keep internal timeout below platform timeout to fail gracefully.
@@ -578,18 +587,23 @@ function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
     // Filter out placeholder/invalid Japanese translations
     const INVALID_JAPANESE = ['unknown', '不明', 'n/a', '-', '---'];
     const normalizedJapanese = INVALID_JAPANESE.includes(japanese.toLowerCase()) ? '' : japanese;
-
-    parsed.push({
+    const normalizedWord = normalizeWordForTranslationPersistence({
       english,
       japanese: normalizedJapanese,
+      rawJapanese: firstNonEmpty(word.rawJapanese),
+      translations: word.translations,
       japaneseSource: normalizedJapanese ? normalizeJapaneseSource(word.japaneseSource) : undefined,
       sourceModes: normalizeSourceModes(word.sourceModes, []),
+      lexiconSenseId: firstNonEmpty(word.lexiconSenseId),
       distractors: mergeDistractors([], word.distractors),
       partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
       pronunciation: firstNonEmpty(word.pronunciation),
       exampleSentence: firstNonEmpty(word.exampleSentence),
       exampleSentenceJa: firstNonEmpty(word.exampleSentenceJa),
+      customSections: word.customSections,
     });
+
+    parsed.push(normalizedWord);
   }
 
   return parsed;
@@ -616,6 +630,8 @@ function dedupeExtractedWords(
       deduped.push({
         english: source.english,
         japanese: source.japanese,
+        rawJapanese: source.rawJapanese,
+        translations: source.translations,
         japaneseSource: source.japaneseSource,
         sourceModes: normalizedSourceModesOverride
           ? [...normalizedSourceModesOverride]
@@ -625,6 +641,7 @@ function dedupeExtractedWords(
         pronunciation: firstNonEmpty(source.pronunciation),
         exampleSentence: firstNonEmpty(source.exampleSentence),
         exampleSentenceJa: firstNonEmpty(source.exampleSentenceJa),
+        customSections: source.customSections,
       });
       continue;
     }
@@ -633,6 +650,10 @@ function dedupeExtractedWords(
     deduped[existingIndex] = {
       english: existing.english,
       japanese: existing.japanese,
+      rawJapanese: existing.rawJapanese ?? source.rawJapanese,
+      translations: existing.translations && existing.translations.length > 0
+        ? existing.translations
+        : source.translations,
       japaneseSource: preferJapaneseSource(existing.japaneseSource, source.japaneseSource),
       sourceModes: normalizedSourceModesOverride
         ? [...normalizedSourceModesOverride]
@@ -645,6 +666,7 @@ function dedupeExtractedWords(
       pronunciation: existing.pronunciation ?? firstNonEmpty(source.pronunciation),
       exampleSentence: existing.exampleSentence ?? firstNonEmpty(source.exampleSentence),
       exampleSentenceJa: existing.exampleSentenceJa ?? firstNonEmpty(source.exampleSentenceJa),
+      customSections: existing.customSections ?? source.customSections,
     };
   }
 
@@ -998,7 +1020,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const resolvedWords = applySourceModesFromScanModes(
         resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords,
         modes,
-      );
+      ).map((word) => normalizeWordForTranslationPersistence(word));
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
       console.log('[scan-jobs/process] Extraction finished', {
@@ -1228,6 +1250,23 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       }
 
       const insertedWordsArray = insertedWords ?? [];
+      const translationRows = buildWordTranslationInsertRows(
+        resolvedWords,
+        insertedWordsArray.map((word: { id: string }) => word.id),
+      );
+      if (translationRows.length > 0) {
+        const { error: translationError } = await supabaseAdmin
+          .from('word_translations')
+          .upsert(translationRows, { onConflict: 'word_id,normalized_translation_ja' });
+
+        if (translationError) {
+          console.error('[scan-jobs/process] Word translations insert error:', translationError);
+          if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: translationError })) {
+            await supabaseAdmin.from('projects').delete().eq('id', projectId);
+          }
+          throw new Error('Failed to insert word translations');
+        }
+      }
       const aiTranslatedWordIds = resolvedWords
         .map((word, index) => (word.japaneseSource === 'ai' ? insertedWordsArray[index]?.id : null))
         .filter((value): value is string => typeof value === 'string' && value.length > 0);

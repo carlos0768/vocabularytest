@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigat
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { TypeInQuizField } from '@/components/quiz';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import {
@@ -51,6 +52,7 @@ import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-dist
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
+import { formatJapaneseForDisplay } from '@/lib/words/display';
 import { useAuth } from '@/hooks/use-auth';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -237,11 +239,11 @@ function DSQuizOption({
         style={{ transform: 'translate(2.5px, 2.5px)', background: shadowColor }}
       />
       <div
-        className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] px-3.5 py-3.5"
+        className="relative flex items-center gap-[11px] rounded-xl border-2 px-3.5 py-3.5"
         style={{ background: faceBg, borderColor }}
       >
         <div
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-[1.25px] border-[var(--solid-ink)] font-mono text-[11px] font-bold"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 border-[var(--solid-ink)] font-mono text-[11px] font-bold"
           style={{ background: badgeBg, color: badgeColor }}
         >
           {String.fromCharCode(65 + index)}
@@ -289,7 +291,7 @@ function DSDesktopWordOrderPanel({
     <div className="ds-word-order-stage">
       <div className="ds-word-order-prompt">
         <span className="ds-tag plain">日本語訳</span>
-        <div className="ds-word-order-meaning">{question.word.japanese}</div>
+        <div className="ds-word-order-meaning"><TranslationDisplay word={question.word} /></div>
         <div className="muted ds-word-order-help">単語をクリックして正しい順に並べてください</div>
       </div>
 
@@ -394,7 +396,7 @@ function DSWordOrderPanel({
 
   return (
     <div className="mt-[18px] space-y-4">
-      <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-white p-4 shadow-[2px_3px_0_var(--solid-ink)]">
+      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
         <div className="flex min-h-[76px] flex-wrap items-center gap-2">
           {sentenceItems.map(({ token, index, answerIndex }) => {
             if (token !== WORD_ORDER_BLANK_TOKEN) {
@@ -416,7 +418,7 @@ function DSWordOrderPanel({
                 type="button"
                 onClick={() => selected && answerIndex !== null && onRemoveToken(answerIndex)}
                 disabled={isRevealed || !selected}
-                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-[1.5px] border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-default"
+                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-default"
               >
                 {selected || ''}
               </button>
@@ -432,7 +434,7 @@ function DSWordOrderPanel({
             type="button"
             onClick={() => onSelectToken(token)}
             disabled={isRevealed || selectedTokens.length >= question.answerTokens.length}
-            className="relative min-h-12 rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)] disabled:shadow-[2px_3px_0_var(--color-border)]"
+            className="relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)]"
           >
             {token}
           </button>
@@ -1210,7 +1212,7 @@ export default function QuizPage() {
           <Icon name="close" size={22} />
         </button>
         <div className="w-full max-w-sm px-6">
-          <div className="w-full rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center shadow-[3px_4px_0_var(--solid-ink)]">
+          <div className="w-full rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(61,122,78,0.08)]">
               <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
             </div>
@@ -1257,13 +1259,14 @@ export default function QuizPage() {
         : isActiveVocab
           ? 'タイプ入力'
           : '4択クイズ';
+  const displayJapanese = currentQuestion ? formatJapaneseForDisplay(currentQuestion.word) : undefined;
   const desktopPrompt = currentIsWordOrder
-    ? currentQuestion?.word.japanese
+    ? displayJapanese
     : isActiveVocab
-      ? currentQuestion?.word.japanese
+      ? displayJapanese
       : quizDirection === 'en-to-ja'
         ? currentQuestion?.word.english
-        : currentQuestion?.word.japanese;
+        : displayJapanese;
   const desktopPhonetic = !currentIsWordOrder && !isActiveVocab
     ? currentQuestion?.word.pronunciation
     : '';
@@ -1525,17 +1528,16 @@ export default function QuizPage() {
         </div>
 
         {/* Word display — big solid plate */}
-        <div className="relative">
-          <div className="absolute inset-0 rounded-[18px] translate-x-[3px] translate-y-[4px] bg-[var(--solid-ink)]" />
-          <div className="relative rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
+        <div>
+          <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
             <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
               {currentIsWordOrder
-                ? currentQuestion?.word.japanese
+                ? displayJapanese
                 : isActiveVocab
-                ? currentQuestion?.word.japanese
-                : quizDirection === 'en-to-ja'
-                  ? currentQuestion?.word.english
-                  : currentQuestion?.word.japanese}
+                  ? displayJapanese
+                  : quizDirection === 'en-to-ja'
+                    ? currentQuestion?.word.english
+                    : displayJapanese}
             </div>
             {!isActiveVocab && !currentIsWordOrder && (
               <div className="mt-2.5 flex justify-center">
@@ -1604,7 +1606,7 @@ export default function QuizPage() {
             )}
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
               <div
-                className="rounded-xl border-[1.5px] p-3 text-center"
+                className="rounded-xl border-2 p-3 text-center"
                 style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
               >
                 <p className="text-sm font-bold text-white/85">正解</p>

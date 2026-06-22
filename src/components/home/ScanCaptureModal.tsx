@@ -69,7 +69,7 @@ export function ScanCaptureModal({
           style={{
             maxWidth: 480,
             background: '#faf7f1',
-            border: '1.5px solid var(--solid-ink)',
+            border: '2px solid var(--solid-ink)',
             borderBottomWidth: 0,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
@@ -95,7 +95,7 @@ export function ScanCaptureModal({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
             >
               <Icon name="close" size={14} />
             </button>
@@ -110,7 +110,7 @@ export function ScanCaptureModal({
                   key={m.k}
                   type="button"
                   onClick={() => setActiveMode(m.k)}
-                  className="flex items-center gap-[11px] rounded-[10px] border-[1.25px] bg-white px-3 py-[11px] text-left text-[var(--solid-ink)] transition-all"
+                  className="flex items-center gap-[11px] rounded-[10px] border-2 bg-white px-3 py-[11px] text-left text-[var(--solid-ink)] transition-all"
                   style={{
                     borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
                     boxShadow: active ? '2px 3px 0 var(--solid-ink)' : 'none',

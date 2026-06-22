@@ -166,9 +166,8 @@ export function BottomNav() {
           style={{
             margin: '0 14px',
             background: '#fff',
-            border: '1.25px solid var(--solid-ink)',
+            border: '2px solid var(--solid-ink)',
             borderRadius: 22,
-            boxShadow: '3px 3px 0 var(--solid-ink)',
             padding: '8px 10px',
             display: 'flex',
             justifyContent: 'space-around',
@@ -188,13 +187,8 @@ export function BottomNav() {
                   onClick={() => setCreateSheetOpen(true)}
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: 2,
-                    color: 'var(--solid-ink)',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 9,
-                    fontWeight: 700,
+                    justifyContent: 'center',
                     background: 'none',
                     border: 'none',
                     padding: '4px 6px',
@@ -211,13 +205,11 @@ export function BottomNav() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      border: '1.25px solid var(--solid-ink)',
-                      marginBottom: 2,
+                      border: '2px solid var(--solid-ink)',
                     }}
                   >
                     <Icon />
                   </div>
-                  <span style={{ color: 'var(--solid-ink)' }}>{tab.label}</span>
                 </button>
               );
             }

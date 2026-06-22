@@ -64,7 +64,7 @@ export default function CorrectionInputPage() {
     <div className="relative flex min-h-full flex-col pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
       {submitting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5 shadow-[3px_3px_0_var(--solid-ink)]">
+          <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5">
             <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
             <span className="text-[13px] font-bold text-[var(--solid-ink)]">添削中...</span>
           </div>
@@ -91,11 +91,11 @@ export default function CorrectionInputPage() {
       </div>
 
       <div className="px-[18px] pb-3">
-        <div className="grid grid-cols-2 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[rgba(26,26,26,0.05)] p-[3px]">
+        <div className="grid grid-cols-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[rgba(26,26,26,0.05)] p-[3px]">
           <div className="flex items-center justify-center gap-1.5 rounded-[7px] py-2 text-xs font-bold text-[var(--color-muted)]">
             <Icon name="photo_camera" size={13} /> スキャン
           </div>
-          <div className="flex items-center justify-center gap-1.5 rounded-[7px] border-[1.25px] border-[var(--solid-ink)] bg-white py-2 text-xs font-bold text-[var(--solid-ink)] shadow-[1.5px_1.5px_0_var(--solid-ink)]">
+          <div className="flex items-center justify-center gap-1.5 rounded-[7px] border-2 border-[var(--solid-ink)] bg-white py-2 text-xs font-bold text-[var(--solid-ink)]">
             <Icon name="edit" size={13} /> 直接入力
           </div>
         </div>
@@ -109,7 +109,7 @@ export default function CorrectionInputPage() {
               key={topic}
               type="button"
               onClick={() => setPurpose(topic)}
-              className="rounded-full border-[1.25px] border-[var(--solid-ink)] px-2.5 py-[5px] text-[11px] font-bold"
+              className="rounded-full border-2 border-[var(--solid-ink)] px-2.5 py-[5px] text-[11px] font-bold"
               style={{ background: purpose === topic ? 'var(--solid-ink)' : '#fff', color: purpose === topic ? '#fff' : 'var(--solid-ink)' }}
             >
               {topic}
@@ -121,7 +121,7 @@ export default function CorrectionInputPage() {
       <div className="flex flex-1 px-[18px] pb-3">
         <div className="relative w-full">
           <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <div className="relative min-h-[220px] rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3.5 pb-9 pt-3.5">
+          <div className="relative min-h-[220px] rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3.5 pb-9 pt-3.5">
             <textarea
               value={text}
               maxLength={MAX_CHARS}
@@ -141,7 +141,7 @@ export default function CorrectionInputPage() {
       <div className="px-[18px] pb-7 pt-1">
         <button type="button" onClick={submit} disabled={submitting || authLoading} className="relative block w-full disabled:opacity-60">
           <span className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <span className="relative flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-white">
+          <span className="relative flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-white">
             <Icon name={submitting ? 'progress_activity' : 'auto_awesome'} size={15} />
             {submitting ? '添削中...' : isPro ? '添削する' : 'Proで添削する'}
           </span>

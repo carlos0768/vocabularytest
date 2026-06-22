@@ -75,7 +75,7 @@ export function MultiShotCaptureView({
           type="button"
           onClick={onClose}
           aria-label="閉じる"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
         >
           <Icon name="close" size={16} />
         </button>
@@ -91,7 +91,7 @@ export function MultiShotCaptureView({
           type="button"
           onClick={onAddFromLibrary}
           disabled={atCapacity}
-          className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
         >
           <Icon name="photo_library" size={14} />
           ライブラリ
@@ -100,7 +100,7 @@ export function MultiShotCaptureView({
 
       {/* Latest shot preview */}
       <div
-        className="relative mx-4 mt-3 min-h-0 flex-1 overflow-hidden rounded-[16px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]"
+        className="relative mx-4 mt-3 min-h-0 flex-1 overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]"
         style={{ boxShadow: '3px 3px 0 var(--solid-ink)' }}
       >
         {latest ? (
@@ -112,7 +112,7 @@ export function MultiShotCaptureView({
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full border-[1.5px] border-dashed border-[var(--solid-ink)] text-[var(--solid-ink)]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-[var(--solid-ink)] text-[var(--solid-ink)]">
               <Icon name="photo_camera" size={26} />
             </div>
             <div className="text-[14px] font-bold text-[var(--solid-ink)]">最初の1枚を撮影しましょう</div>
@@ -146,7 +146,7 @@ export function MultiShotCaptureView({
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="h-[58px] w-[44px] shrink-0 rounded-[8px] border-[1.25px] border-dashed"
+                className="h-[58px] w-[44px] shrink-0 rounded-[8px] border-2 border-dashed"
                 style={{ borderColor: 'rgba(26,26,26,0.25)' }}
               />
             ))}
@@ -162,7 +162,7 @@ export function MultiShotCaptureView({
                 <img
                   src={shot.url}
                   alt={`撮影した写真 ${i + 1}`}
-                  className="h-[58px] w-[44px] rounded-[8px] border-[1.25px] border-[var(--solid-ink)] object-cover"
+                  className="h-[58px] w-[44px] rounded-[8px] border-2 border-[var(--solid-ink)] object-cover"
                   style={{ boxShadow: '1.5px 1.5px 0 var(--solid-ink)' }}
                 />
                 <span className="absolute bottom-1 left-1 rounded-[4px] bg-[var(--solid-ink)] px-1 font-mono text-[9px] font-bold leading-[14px] text-white">
@@ -172,7 +172,7 @@ export function MultiShotCaptureView({
                   type="button"
                   onClick={() => onRemove(shot.id)}
                   aria-label={`写真 ${i + 1} を削除`}
-                  className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+                  className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
                 >
                   <Icon name="close" size={11} />
                 </button>
@@ -183,7 +183,7 @@ export function MultiShotCaptureView({
                 type="button"
                 onClick={onShoot}
                 aria-label="さらに撮影"
-                className="flex h-[58px] w-[44px] shrink-0 items-center justify-center rounded-[8px] border-[1.25px] border-dashed border-[var(--solid-ink)] text-[var(--solid-ink)]"
+                className="flex h-[58px] w-[44px] shrink-0 items-center justify-center rounded-[8px] border-2 border-dashed border-[var(--solid-ink)] text-[var(--solid-ink)]"
               >
                 <Icon name="add" size={20} />
               </button>
@@ -234,7 +234,7 @@ export function MultiShotCaptureView({
               <span className="absolute inset-0 rounded-full bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
             )}
             <span
-              className="absolute inset-0 flex items-center justify-center rounded-full border-[1.5px]"
+              className="absolute inset-0 flex items-center justify-center rounded-full border-2"
               style={{
                 background: count > 0 ? 'var(--color-accent)' : 'var(--color-surface-secondary)',
                 borderColor: count > 0 ? 'var(--solid-ink)' : 'var(--color-border)',
@@ -244,7 +244,7 @@ export function MultiShotCaptureView({
               <Icon name="check" size={26} />
             </span>
             {count > 0 && (
-              <span className="absolute -right-1 -top-1 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-1 font-mono text-[10px] font-bold text-[var(--solid-ink)]">
+              <span className="absolute -right-1 -top-1 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white px-1 font-mono text-[10px] font-bold text-[var(--solid-ink)]">
                 {count}
               </span>
             )}

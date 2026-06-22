@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { formatJapaneseForDisplay } from '@/lib/words/display';
 import type { Project, Word } from '@/types';
 
 export function DesktopSharedDetailView({
@@ -62,7 +64,7 @@ export function DesktopSharedDetailView({
       return words.filter((word) => {
         if (ap !== 'all' && (word.vocabularyType || 'none') !== ap) return false;
         if (!q) return true;
-        return word.english.toLowerCase().includes(q) || word.japanese.toLowerCase().includes(q);
+        return word.english.toLowerCase().includes(q) || formatJapaneseForDisplay(word).toLowerCase().includes(q);
       });
     },
     [ap, isPreviewLocked, q, words],
@@ -182,7 +184,7 @@ export function DesktopSharedDetailView({
                     </td>
                     <td style={{ textAlign: 'center' }}><span style={textStyle}><ApBadge value={word.vocabularyType} /></span></td>
                     <td className="pos"><span style={textStyle}>{desktopPosShort(word.partOfSpeechTags)}</span></td>
-                    <td className="ja"><span style={textStyle}>{word.japanese}</span></td>
+                    <td className="ja"><span style={textStyle}><TranslationDisplay word={word} compact /></span></td>
                     <td className="cefr"><span className="cefr-pill" style={textStyle}>{word.cefrLevel || '-'}</span></td>
                   </tr>
                 );

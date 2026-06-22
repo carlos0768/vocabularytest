@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
 import {
   addHomeImmediateScanResult,
@@ -350,7 +351,7 @@ export function DesktopScanView({
             }}
             onClick={openFilePicker}
           >
-            <div style={{ width: 74, height: 74, borderRadius: 20, background: '#fff', border: '1.5px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+            <div style={{ width: 74, height: 74, borderRadius: 20, background: '#fff', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
               <Icon name="cloud_upload" style={{ fontSize: 36, color: 'var(--color-accent)' }} />
             </div>
             <div>
@@ -696,7 +697,7 @@ function DesktopScanConfirmRow({
       </td>
       <td className="en">{word.english || `単語 ${index + 1}`}</td>
       <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
-      <td className="ja">{word.japanese || '-'}</td>
+      <td className="ja">{word.japanese ? <TranslationDisplay word={word} compact /> : '-'}</td>
       <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
       <td onClick={(event) => event.stopPropagation()}>
         <div style={{ display: 'flex', gap: 4 }}>

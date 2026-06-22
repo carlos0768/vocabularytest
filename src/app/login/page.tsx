@@ -109,7 +109,7 @@ function LoginForm() {
       <div className="px-[14px] pt-1">
         <Link
           href="/"
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />
@@ -132,7 +132,7 @@ function LoginForm() {
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-2.5 px-6 pb-3">
           {error && (
-            <div className="rounded-[10px] border-[1.25px] border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2.5 text-xs font-bold text-[var(--color-error)]">
+            <div className="rounded-[10px] border-2 border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2.5 text-xs font-bold text-[var(--color-error)]">
               {error}
             </div>
           )}
@@ -178,10 +178,9 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading || email.trim().length === 0 || password.length === 0}
-            className="group relative w-full disabled:pointer-events-none disabled:opacity-60"
+            className="group w-full disabled:pointer-events-none disabled:opacity-60"
           >
-            <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)] transition-transform group-active:translate-x-[1px] group-active:translate-y-[1px]" />
-            <div className="relative flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
+            <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
               {loading && <Icon name="progress_activity" size={16} className="animate-spin" />}
               {loading ? 'ログイン中...' : 'ログイン'}
             </div>
@@ -204,7 +203,7 @@ function LoginForm() {
       <div className="flex flex-col gap-2 px-6 pb-3">
         <Link
           href={`/signup?redirect=${encodeURIComponent(redirect)}`}
-          className="flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)]"
+          className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
         >
           <Icon name="person_add" size={16} />
           新規登録する
@@ -257,7 +256,7 @@ function FormField({
       <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
         {label}
       </div>
-      <div className="flex items-center gap-2 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-[11px] shadow-[2px_2px_0_var(--solid-ink)]">
+      <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px]">
         <input
           type={type || 'text'}
           value={value}

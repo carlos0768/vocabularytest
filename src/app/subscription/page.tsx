@@ -86,7 +86,7 @@ export default function SubscriptionPage() {
         <div className="relative">
           <div className="absolute inset-0 rounded-[18px] bg-[var(--solid-ink)]" style={{ transform: 'translate(3px, 3px)' }} />
           <div
-            className="relative overflow-hidden rounded-[18px] border-[1.25px] border-[var(--solid-ink)] p-[22px_18px]"
+            className="relative overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-[22px_18px]"
             style={{ background: 'linear-gradient(135deg, oklch(0.96 0.04 130), oklch(0.92 0.06 96))' }}
           >
             <div className="absolute -right-5 -top-5 h-[110px] w-[110px] rounded-full bg-[var(--color-accent)] opacity-10" />
@@ -132,7 +132,7 @@ export default function SubscriptionPage() {
         </div>
         <div
           className="overflow-hidden rounded-xl bg-white"
-          style={{ border: '1.25px solid var(--solid-ink)', boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}
+          style={{ border: '2px solid var(--solid-ink)', boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}
         >
           <div
             className="grid items-center px-3 py-2.5"
@@ -169,7 +169,7 @@ export default function SubscriptionPage() {
           className="relative w-full disabled:opacity-65"
         >
           <span className="absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]" style={{ transform: 'translate(3px, 3px)' }} />
-          <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-center font-[var(--font-body)] text-sm font-bold text-white">
+          <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-center font-[var(--font-body)] text-sm font-bold text-white">
             {processing && <Icon name="progress_activity" size={16} className="animate-spin" />}
             {isPro ? '現在Proプランです' : user ? 'Proプランに登録' : 'ログインして登録'}
           </span>

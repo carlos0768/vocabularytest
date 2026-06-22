@@ -27,7 +27,7 @@ function createWord(overrides: Partial<Word> & Pick<Word, 'id' | 'english' | 'ja
   return {
     projectId: 'project-1',
     distractors: [],
-    status: 'unlearned',
+    status: 'new',
     createdAt: '2026-01-01T00:00:00.000Z',
     easeFactor: 2.5,
     intervalDays: 0,

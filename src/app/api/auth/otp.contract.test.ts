@@ -93,8 +93,8 @@ class FakeOtpQuery {
     return this.client.resolveSingle<T>(this.operation);
   }
 
-  then<TResult1 = { data: null; error: null }, TResult2 = never>(
-    onfulfilled?: ((value: { data: null; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
+  then<TResult1 = { data: null; error: { message: string } | null }, TResult2 = never>(
+    onfulfilled?: ((value: { data: null; error: { message: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.client.resolveMutation(this.operation).then(onfulfilled, onrejected);
@@ -279,7 +279,7 @@ function findOtpUpdate(client: FakeOtpAdminClient, payload: Record<string, unkno
     operation.table === 'otp_requests' &&
     operation.action === 'update' &&
     isRecord(operation.payload) &&
-    Object.entries(payload).every(([key, value]) => operation.payload?.[key] === value)
+    Object.entries(payload).every(([key, value]) => (operation.payload as Record<string, unknown>)[key] === value)
   );
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopSharedDetailView } from '@/components/desktop/DesktopSharedDetail';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
@@ -455,7 +456,7 @@ export default function SharedDetailPage() {
                 if (!locked) handleToggleSelect(word.id);
               }}
               disabled={locked}
-              className="flex items-center gap-2.5 rounded-lg border-[1.25px] bg-[var(--color-surface)] px-3 py-2.5 text-left"
+              className="flex items-center gap-2.5 rounded-lg border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left"
               style={{
                 borderColor: selected ? 'var(--solid-ink)' : 'var(--color-border)',
                 opacity: locked ? 0.82 : 1,
@@ -469,7 +470,9 @@ export default function SharedDetailPage() {
                 {word.partOfSpeechTags?.[0] && (
                   <span className={`font-mono text-[9px] italic text-[var(--color-muted)] ${previewTextClass}`}>{word.partOfSpeechTags[0]}</span>
                 )}
-                <span className={`ml-1 truncate text-[11px] text-[var(--color-muted)] ${previewTextClass}`}>{word.japanese}</span>
+                <span className={`ml-1 truncate text-[11px] text-[var(--color-muted)] ${previewTextClass}`}>
+                  <TranslationDisplay word={word} compact />
+                </span>
               </div>
               {locked && <Icon name="lock" size={13} className="text-[var(--color-muted)]" />}
             </button>
@@ -538,7 +541,7 @@ function SharedHeaderBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2 text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+      className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white px-2 text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>

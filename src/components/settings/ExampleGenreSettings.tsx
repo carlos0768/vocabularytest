@@ -98,8 +98,8 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
               key={genre}
               className={
                 isMobile
-                  ? 'inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent-light,oklch(0.94_0.06_130))] px-2.5 py-1 font-display text-[12px] font-bold text-[var(--solid-ink)]'
-                  : 'inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-accent-light,oklch(0.94_0.06_130))] px-3 py-1.5 font-display text-[13px] font-bold text-[var(--solid-ink)]'
+                  ? 'inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light,oklch(0.94_0.06_130))] px-2.5 py-1 font-display text-[12px] font-bold text-[var(--solid-ink)]'
+                  : 'inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light,oklch(0.94_0.06_130))] px-3 py-1.5 font-display text-[13px] font-bold text-[var(--solid-ink)]'
               }
             >
               {genre}
@@ -141,8 +141,8 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
               }}
               className={
                 isMobile
-                  ? 'min-w-0 flex-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 font-display text-[12px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
-                  : 'min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 font-display text-[13px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
+                  ? 'min-w-0 flex-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1.5 font-display text-[12px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
+                  : 'min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 font-display text-[13px] font-bold text-[var(--solid-ink)] outline-none focus:shadow-[2px_2px_0_var(--color-accent)] disabled:opacity-50'
               }
             />
             <button
@@ -151,8 +151,8 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
               disabled={busy || atLimit || !inputValue.trim()}
               className={
                 isMobile
-                  ? 'flex items-center gap-0.5 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white disabled:opacity-50'
-                  : 'flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white disabled:opacity-50'
+                  ? 'flex items-center gap-0.5 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white disabled:opacity-50'
+                  : 'flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white disabled:opacity-50'
               }
             >
               <Icon name="add" size={isMobile ? 14 : 16} />
@@ -174,8 +174,8 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
                     onClick={() => void addGenre(genre)}
                     className={
                       isMobile
-                        ? 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
-                        : 'rounded-full border-[1.25px] border-[var(--color-border)] bg-white px-3 py-1 text-[12px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
+                        ? 'rounded-full border-2 border-[var(--color-border)] bg-white px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
+                        : 'rounded-full border-2 border-[var(--color-border)] bg-white px-3 py-1 text-[12px] font-bold text-[var(--color-secondary-text)] disabled:opacity-40'
                     }
                   >
                     + {genre}
@@ -193,8 +193,8 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
             href="/subscription"
             className={
               isMobile
-                ? 'flex items-center justify-center gap-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white'
-                : 'flex items-center justify-center gap-1.5 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white'
+                ? 'flex items-center justify-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white'
+                : 'flex items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white'
             }
           >
             <Icon name="workspace_premium" size={isMobile ? 14 : 16} />
@@ -244,7 +244,7 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
   return (
     <section>
       <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">例文のパーソナライズ</div>
-      <div className="overflow-hidden rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+      <div className="overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
         <div className="flex items-center gap-2.5 border-b border-[var(--color-border-light)] px-3 py-[11px]">
           <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)]">
             <Icon

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import type { Word, WordRepository } from '@/types';
 
 interface VocabularyTabProps {
@@ -272,7 +273,9 @@ export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTa
 
                 {/* Japanese translation */}
                 <div className="text-center">
-                  <p className="text-lg font-semibold text-[var(--color-foreground)]">{currentWord.japanese}</p>
+                  <p className="text-lg font-semibold text-[var(--color-foreground)]">
+                    <TranslationDisplay word={currentWord} />
+                  </p>
                 </div>
               </div>
             </div>

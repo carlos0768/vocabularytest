@@ -19,6 +19,7 @@ const word: Word = {
   easeFactor: 2.5,
   intervalDays: 1,
   repetition: 1,
+  isFavorite: false,
 };
 
 test('getTypeInCorrectAnswer preserves active and direction rules', () => {
