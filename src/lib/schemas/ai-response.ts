@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { EXTRACT_MODES, normalizeExtractModes } from '@/lib/scan/mode-provider';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
+import { normalizeWordTranslationPayload } from '../../../shared/word-translations';
 
 // Zod schema for validating OpenAI API response
 // This ensures robustness against malformed AI outputs
@@ -9,41 +10,65 @@ import { normalizeSourceLabels } from '../../../shared/source-labels';
 export const AIWordSchema = z.object({
   english: z.string(),
   japanese: z.string().optional().default(''),
+  rawJapanese: z.string().optional(),
+  translations: z.array(z.union([
+    z.string(),
+    z.object({
+      japanese: z.string().optional(),
+      translationJa: z.string().optional(),
+      translation_ja: z.string().optional(),
+      source: z.string().optional(),
+      japaneseSource: z.string().optional(),
+      annotationRanges: z.array(z.string()).optional(),
+      annotation_ranges: z.array(z.string()).optional(),
+      lexiconSenseId: z.string().optional(),
+      lexicon_sense_id: z.string().optional(),
+      meaningRank: z.number().int().min(1).optional(),
+      meaning_rank: z.number().int().min(1).optional(),
+    }).passthrough(),
+  ])).optional(),
   japaneseSource: z.string().optional(),
+  lexiconSenseId: z.string().optional(),
   sourceModes: z.array(z.enum(EXTRACT_MODES)).nullish(),
   distractors: z.array(z.string()).default([]),
   partOfSpeechTags: z.array(z.string()).nullish().transform((tags) => tags ?? []),
+  customSections: z.unknown().optional(),
   // Optional example sentence fields (Pro feature)
   exampleSentence: z.string().optional().nullable(),
   exampleSentenceJa: z.string().optional().nullable(),
 }).transform((word) => {
   const {
     japaneseSource: rawJapaneseSource,
+    rawJapanese,
+    translations: rawTranslations,
+    customSections: rawCustomSections,
     sourceModes: rawSourceModes,
     exampleSentence: rawExampleSentence,
     exampleSentenceJa: rawExampleSentenceJa,
     ...rest
   } = word;
-  // Sanitize japanese: treat "unknown", "不明", empty as missing
-  const INVALID_JAPANESE = ['unknown', '不明', 'n/a', 'N/A', '-', '---', ''];
-  const sanitizedJapanese = INVALID_JAPANESE.includes(word.japanese?.trim() ?? '')
-    ? ''
-    : word.japanese;
-  const japaneseSource = rawJapaneseSource === 'scan' || rawJapaneseSource === 'ai'
-    ? rawJapaneseSource
-    : undefined;
+  const translationPayload = normalizeWordTranslationPayload({
+    translations: rawTranslations,
+    japanese: word.japanese,
+    rawJapanese,
+    japaneseSource: rawJapaneseSource,
+    lexiconSenseId: word.lexiconSenseId,
+    customSections: rawCustomSections,
+  });
   const sourceModes = normalizeExtractModes(rawSourceModes, []);
   return {
     ...rest,
     english: word.english || '---',
-    japanese: sanitizedJapanese,
+    japanese: translationPayload.japanese,
     // Keep distractors as-is (empty array if not provided, will be generated on quiz start)
     distractors: word.distractors,
     partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
+    ...(translationPayload.translations.length > 0 ? { translations: translationPayload.translations } : {}),
     ...(sourceModes.length > 0 ? { sourceModes } : {}),
     ...(rawExampleSentence ? { exampleSentence: rawExampleSentence } : {}),
     ...(rawExampleSentenceJa ? { exampleSentenceJa: rawExampleSentenceJa } : {}),
-    ...(sanitizedJapanese && japaneseSource ? { japaneseSource } : {}),
+    ...(translationPayload.customSections ? { customSections: translationPayload.customSections } : {}),
+    ...(translationPayload.japanese && translationPayload.japaneseSource ? { japaneseSource: translationPayload.japaneseSource } : {}),
   };
 });
 

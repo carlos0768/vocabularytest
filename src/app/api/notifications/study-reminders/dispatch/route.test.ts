@@ -68,7 +68,7 @@ test('study reminder dispatch does not persist last_sent_key when delivery fails
   const response = await handleStudyReminderDispatch(
     request({ now: '2026-06-01T23:00:00.000Z' }),
     {
-      authorize: () => ({ ok: true, source: 'test' }),
+      authorize: () => ({ ok: true, source: 'INTERNAL_WORKER_TOKEN' }),
       getAdmin: () => admin as never,
       sendNotifications: async () => ({ sent: 0, removed: 0, failed: 1 }),
     },
@@ -99,7 +99,7 @@ test('study reminder dispatch persists last_sent_key after a successful delivery
   const response = await handleStudyReminderDispatch(
     request({ now: '2026-06-01T23:00:00.000Z' }),
     {
-      authorize: () => ({ ok: true, source: 'test' }),
+      authorize: () => ({ ok: true, source: 'INTERNAL_WORKER_TOKEN' }),
       getAdmin: () => admin as never,
       sendNotifications: async () => ({ sent: 1, removed: 0, failed: 0 }),
     },

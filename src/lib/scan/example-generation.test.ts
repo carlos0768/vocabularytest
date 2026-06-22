@@ -6,6 +6,7 @@ import {
   buildClientLocalExampleSeedWords,
   buildServerCloudExampleSeedWords,
   buildServerCloudExampleUpdatePayload,
+  type ClientLocalExampleWord,
 } from '@/lib/scan/example-generation';
 
 test('buildClientLocalExampleSeedWords uses index strings as client_local placeholder ids', () => {
@@ -57,7 +58,7 @@ test('buildClientLocalExampleSeedWords excludes words that already have examples
 });
 
 test('applyClientLocalGeneratedExamples applies examples, Japanese, and POS when generated examples exist', () => {
-  const words = [
+  const words: Array<ClientLocalExampleWord & { distractors: string[] }> = [
     {
       english: 'adapt',
       japanese: '適応する',

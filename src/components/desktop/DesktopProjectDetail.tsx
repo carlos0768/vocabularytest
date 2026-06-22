@@ -16,6 +16,7 @@ import {
   desktopThumbColor,
 } from '@/components/desktop/desktop-data';
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
@@ -94,14 +95,15 @@ export function DesktopProjectDetailView({
   const [hiddenCols, setHiddenCols] = useState<Set<'en' | 'ja'>>(new Set());
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [nowMs, setNowMs] = useState(0);
-  const [railCollapsed, setRailCollapsed] = useState(false);
-
-  useEffect(() => {
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
     try {
       const stored = localStorage.getItem('merken-rail-collapsed');
-      if (stored === 'true') setRailCollapsed(true);
-    } catch {}
-  }, []);
+      return stored === 'true';
+    } catch {
+      return false;
+    }
+  });
   const bg = desktopThumbColor(project.id);
 
   useEffect(() => {
@@ -393,7 +395,7 @@ export function DesktopProjectDetailView({
                     </td>
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     {hiddenCols.has('ja') ? null : (
-                      <td className="ja">{word.japanese}</td>
+                      <td className="ja"><TranslationDisplay word={word} compact /></td>
                     )}
                     <td style={{ textAlign: 'center' }}>
                       <DesktopVocabularyTypeBadge
@@ -553,7 +555,7 @@ function ReviewRail({
               <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="en">{item.word.english}</div>
-                  <div className="ja">{item.word.japanese}</div>
+                  <div className="ja"><TranslationDisplay word={item.word} compact /></div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span className="when">{formatPastLabel(item.lastWrongAt, nowMs)}</span>
@@ -566,7 +568,7 @@ function ReviewRail({
               <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="en">{item.word.english}</div>
-                  <div className="ja">{item.word.japanese}</div>
+                  <div className="ja"><TranslationDisplay word={item.word} compact /></div>
                 </div>
                 <div className="ds-mem">
                   <div className="bar">
@@ -689,27 +691,41 @@ function DesktopWordDetailModal({
                   <span key={tag} className="ds-tag accent">{desktopPosLabel([tag])}</span>
                 ))}
               </div>
-              <div className="word-ja">{word.japanese}</div>
+              <div className="word-ja"><TranslationDisplay word={word} /></div>
             </div>
           </div>
 
-          {(word.exampleSentence || word.exampleSentenceJa) && (
-            <div style={{ paddingTop: 2 }}>
+          <div style={{ paddingTop: 2 }}>
               <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <Icon name="auto_awesome" style={{ fontSize: 14 }} />AI 例文
               </div>
-              {word.exampleSentence && (
-                <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
-                  {renderExample(word.exampleSentence, word.english)}
-                </div>
-              )}
-              {word.exampleSentenceJa && (
-                <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>
-                  {word.exampleSentenceJa}
+              {word.exampleSentence ? (
+                <>
+                  <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
+                    {renderExample(word.exampleSentence, word.english)}
+                  </div>
+                  {word.exampleSentenceJa && (
+                    <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>
+                      {word.exampleSentenceJa}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 16, color: 'var(--color-accent)' }} />
+                    <span style={{ fontSize: 13, color: 'var(--color-muted)', fontWeight: 500 }}>
+                      例文を生成中...
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className="ds-shimmer" style={{ height: 14, borderRadius: 6, width: '90%' }} />
+                    <div className="ds-shimmer" style={{ height: 14, borderRadius: 6, width: '70%' }} />
+                    <div className="ds-shimmer" style={{ height: 12, borderRadius: 6, width: '55%', marginTop: 4 }} />
+                  </div>
                 </div>
               )}
             </div>
-          )}
 
           {word.relatedWords && word.relatedWords.length > 0 && (
             <div>

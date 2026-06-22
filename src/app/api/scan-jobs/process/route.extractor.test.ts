@@ -13,7 +13,7 @@ const successWords = {
       {
         english: 'apple',
         japanese: 'りんご',
-        japaneseSource: 'scan',
+        japaneseSource: 'scan' as const,
         distractors: ['ばなな', 'ぶどう', 'もも'],
         partOfSpeechTags: ['noun'],
         exampleSentence: undefined,
@@ -94,7 +94,7 @@ test('extractFromImage uses one composite extraction call for multiple modes', a
             {
               english: 'look forward to',
               japanese: '楽しみに待つ',
-              japaneseSource: 'scan',
+              japaneseSource: 'scan' as const,
               sourceModes: ['idiom'],
               distractors: [],
               partOfSpeechTags: ['idiom'],

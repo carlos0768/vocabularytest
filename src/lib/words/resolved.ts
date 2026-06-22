@@ -4,13 +4,13 @@ export const LEXICON_ENTRY_SELECT_COLUMNS =
   'id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, created_at, updated_at' as const;
 
 export const RESOLVED_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections, word_translations(id, word_id, lexicon_sense_id, translation_ja, normalized_translation_ja, source, meaning_rank, position, is_primary, created_at, updated_at), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_TEXT_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_sense_id, word_translations(id, word_id, lexicon_sense_id, translation_ja, normalized_translation_ja, source, meaning_rank, position, is_primary, created_at, updated_at), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, created_at, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  `id, project_id, english, japanese, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, created_at, word_translations(id, word_id, lexicon_sense_id, translation_ja, normalized_translation_ja, source, meaning_rank, position, is_primary, created_at, updated_at), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS =
   `${RESOLVED_WORD_TEXT_SELECT_COLUMNS}, embedding` as const;
@@ -25,6 +25,7 @@ export type ResolvableWordRow = {
   english: string;
   japanese: string;
   lexicon_entry_id?: string | null;
+  lexicon_sense_id?: string | null;
   lexicon_entries?: LexiconJoinRow | LexiconJoinRow[] | null;
 };
 

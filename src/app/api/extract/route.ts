@@ -26,6 +26,7 @@ import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
 
 export type { ExtractMode } from '@/lib/scan/mode-provider';
 
@@ -319,7 +320,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     const extractedWords = applySourceModesFromScanModes(
       resolved?.words ?? rollbackResult?.words ?? result.data.words,
       modes,
-    );
+    ).map((word) => normalizeWordForTranslationPersistence(word));
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
     console.log('[extract] Extraction done', {

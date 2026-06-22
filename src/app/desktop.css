@@ -800,6 +800,14 @@ button.ds-tile { appearance: none; }
 .ds-actionbar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 16px 0 4px; background: linear-gradient(transparent, var(--color-background) 30%); margin-top: 4px; }
 .ds-actionbar .grow { flex: 1; }
 
+/* ── Shimmer skeleton ────────────────────────────────────── */
+.ds-shimmer {
+  background: linear-gradient(90deg, var(--color-border) 25%, rgba(255,255,255,0.5) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: dsShimmer 1.5s ease-in-out infinite;
+}
+@keyframes dsShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
 /* ── Next.js live shell integration ───────────────────────── */
 .ds-live-shell {
   min-height: 100dvh;

@@ -1,5 +1,5 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET } from './source-labels';
-import { JAPANESE_PARENTHESIS_RULES } from './japanese-format';
+import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES } from './japanese-format';
 
 // 丸をつけた単語のみ抽出するプロンプト (Gemini用)
 export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは画像内の「手書きの丸で囲まれた語」だけを抽出する検査器です。
@@ -29,6 +29,14 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
       "english": "word",
       "japanese": "意味",
       "japaneseSource": "scan",
+      "translations": [
+        {
+          "japanese": "意味",
+          "source": "scan",
+          "meaningRank": 1,
+          "annotationRanges": []
+        }
+      ],
       "partOfSpeechTags": ["noun"]
     }
   ]
@@ -39,6 +47,7 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 - 同一語を重複出力しないでください。
 - japaneseSource は日本語訳が画像に見えている場合だけ "scan" を使ってください。
 ${JAPANESE_PARENTHESIS_RULES}
+${JAPANESE_TRANSLATION_STRUCTURE_RULES}
 - 手書きの丸で囲まれた語が見つからない場合は {"words": []} を返してください。${SOURCE_LABEL_NOTES}`;
 
 export const CIRCLED_WORD_USER_PROMPT = `この画像から、ユーザーが手書きで丸（○/楕円）を付けた語だけを抽出してください。丸で囲みが確認できない語は除外してください。
@@ -49,7 +58,8 @@ export const CIRCLED_WORD_USER_PROMPT = `この画像から、ユーザーが手
 - チェック、下線、ハイライトのみで丸囲みがない語
 
 丸が日本語側にある場合は、対応する英単語と日本語訳を返し、japaneseSource は "scan" にしてください。日本語訳が画像にない場合は japanese は空文字 "" にし、japaneseSource は付けないでください。各語には最も適切な主分類を1つだけ partOfSpeechTags に入れてください。sourceLabels には物理教材名だけを入れ、"鉄壁" や "LEAP" のような具体的書名だけを返してください。"英語教材" や "参考書" のような一般名詞は返さず、教材名不明のノート画像なら ["ノート"] を返してください。
-${JAPANESE_PARENTHESIS_RULES}`;
+${JAPANESE_PARENTHESIS_RULES}
+${JAPANESE_TRANSLATION_STRUCTURE_RULES}`;
 
 export const CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT = `あなたは画像監査担当です。与えられた候補語リストから、手書きの丸（○/楕円）で囲まれている語だけを残してください。
 
@@ -65,6 +75,9 @@ export const CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT = `あなたは画像監査
       "english": "word",
       "japanese": "意味",
       "japaneseSource": "scan",
+      "translations": [
+        { "japanese": "意味", "source": "scan", "meaningRank": 1, "annotationRanges": [] }
+      ],
       "partOfSpeechTags": ["noun"]
     }
   ]
@@ -73,4 +86,5 @@ export const CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT = `あなたは画像監査
 注意:
 - 候補リストに存在しない語を追加しないでください。
 ${JAPANESE_PARENTHESIS_RULES}
+${JAPANESE_TRANSLATION_STRUCTURE_RULES}
 - JSONのみを出力してください。`;

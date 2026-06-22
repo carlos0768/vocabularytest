@@ -2,14 +2,17 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Icon } from '@/components/ui';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { formatJapaneseForDisplay } from '@/lib/words/display';
 import type { SubscriptionStatus, Word } from '@/types';
 
 interface LocalSearchResult {
   id: string;
   english: string;
   japanese: string;
+  translations?: Word['translations'];
   projectId: string;
   projectTitle: string;
   score: number;
@@ -35,7 +38,7 @@ export default function SearchPage() {
     const scored = words
       .map((word) => {
         const english = word.english.toLowerCase();
-        const japanese = word.japanese.toLowerCase();
+        const japanese = formatJapaneseForDisplay(word).toLowerCase();
 
         let score = 0;
         if (english === trimmed || japanese === trimmed) {
@@ -48,7 +51,7 @@ export default function SearchPage() {
 
         if (score === 0) return null;
 
-        return {
+        const result: LocalSearchResult = {
           id: word.id,
           english: word.english,
           japanese: word.japanese,
@@ -56,6 +59,10 @@ export default function SearchPage() {
           projectTitle: projectTitleMap.get(word.projectId) || '',
           score,
         };
+        if (word.translations) {
+          result.translations = word.translations;
+        }
+        return result;
       })
       .filter((result): result is LocalSearchResult => result !== null)
       .sort((a, b) => b.score - a.score);
@@ -192,7 +199,7 @@ export default function SearchPage() {
                       {result.english}
                     </p>
                     <p className="text-sm text-[var(--color-muted)]">
-                      {result.japanese}
+                      <TranslationDisplay word={result} compact />
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-3">

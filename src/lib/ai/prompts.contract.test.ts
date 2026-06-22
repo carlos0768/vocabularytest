@@ -24,7 +24,10 @@ import {
   getEikenFilterInstruction,
   getEikenLevelsAbove,
 } from '@/lib/ai/prompts';
-import { JAPANESE_PARENTHESIS_RULES } from '@/lib/ai/prompts/japanese-format';
+import {
+  JAPANESE_PARENTHESIS_RULES,
+  JAPANESE_TRANSLATION_STRUCTURE_RULES,
+} from '@/lib/ai/prompts/japanese-format';
 
 const expectedPromptExports = [
   'CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT',
@@ -152,6 +155,36 @@ test('word extraction prompts reject one-sided Japanese parentheses', () => {
       '片側だけの括弧は出力禁止',
       '本質が)Aにある',
       '自己チェック',
+    ]);
+  }
+});
+
+test('translation structure rules distinguish alternate meanings from annotation notes', () => {
+  assertIncludesAll('JAPANESE_TRANSLATION_STRUCTURE_RULES', JAPANESE_TRANSLATION_STRUCTURE_RULES, [
+    '訳注ではなく別の日本語訳',
+    'annotationRanges に日本語の別訳を入れてはいけない',
+    'クイズの答えとして自然に使える語',
+    '"感覚 [分別]"',
+    '"意味する（平均）"',
+    '[感心]',
+  ]);
+
+  const prompts = [
+    ['WORD_EXTRACTION_SYSTEM_PROMPT', WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT', WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT],
+    ['CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT', CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT', CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT],
+    ['EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT', EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT],
+    ['IDIOM_EXTRACTION_SYSTEM_PROMPT', IDIOM_EXTRACTION_SYSTEM_PROMPT],
+    ['HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT', HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['HIGHLIGHTED_WORD_VERIFICATION_SYSTEM_PROMPT', HIGHLIGHTED_WORD_VERIFICATION_SYSTEM_PROMPT],
+  ] as const;
+
+  for (const [name, prompt] of prompts) {
+    assertIncludesAll(name, prompt, [
+      '訳注ではなく別の日本語訳',
+      'annotationRanges に日本語の別訳を入れてはいけない',
+      'クイズの答えとして自然に使える語',
     ]);
   }
 });

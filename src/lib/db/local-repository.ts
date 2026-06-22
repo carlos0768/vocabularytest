@@ -3,6 +3,7 @@ import { getDb } from './dexie';
 import type { LexiconEntry, Project, Word, WordRepository, Collection, CollectionProject } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
+import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
 
 // Local implementation of WordRepository using Dexie (IndexedDB)
 // Used for Free tier users - data stays on device
@@ -76,7 +77,7 @@ export class LocalWordRepository implements WordRepository {
     const now = new Date().toISOString();
     const defaultSR = getDefaultSpacedRepetitionFields();
     const newWords: Word[] = words.map((word) => ({
-      ...word,
+      ...normalizeWordForTranslationPersistence(word),
       ...defaultSR,
       id: uuidv4(),
       createdAt: now,

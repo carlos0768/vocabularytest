@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopSharedDetailView } from '@/components/desktop/DesktopSharedDetail';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
@@ -469,7 +470,9 @@ export default function SharedDetailPage() {
                 {word.partOfSpeechTags?.[0] && (
                   <span className={`font-mono text-[9px] italic text-[var(--color-muted)] ${previewTextClass}`}>{word.partOfSpeechTags[0]}</span>
                 )}
-                <span className={`ml-1 truncate text-[11px] text-[var(--color-muted)] ${previewTextClass}`}>{word.japanese}</span>
+                <span className={`ml-1 truncate text-[11px] text-[var(--color-muted)] ${previewTextClass}`}>
+                  <TranslationDisplay word={word} compact />
+                </span>
               </div>
               {locked && <Icon name="lock" size={13} className="text-[var(--color-muted)]" />}
             </button>

@@ -14,6 +14,7 @@ type InsertWordRow = Record<string, unknown>;
 
 class FakeWordsCreateClient {
   public insertedRows: InsertWordRow[] = [];
+  public translationRows: InsertWordRow[] = [];
 
   constructor(
     private readonly userId: string,
@@ -48,6 +49,12 @@ class FakeWordsCreateClient {
 
     if (table === 'words') {
       return {
+        select: () => ({
+          in: async () => ({
+            data: this.returnedWords,
+            error: null,
+          }),
+        }),
         insert: (rows: InsertWordRow[]) => {
           this.insertedRows = rows.map((row) => ({ ...row }));
           return {
@@ -59,6 +66,18 @@ class FakeWordsCreateClient {
         },
         upsert: () => {
           throw new Error('upsert should not be called in this test');
+        },
+      };
+    }
+
+    if (table === 'word_translations') {
+      return {
+        upsert: async (rows: InsertWordRow[]) => {
+          this.translationRows = rows.map((row) => ({ ...row }));
+          return {
+            data: null,
+            error: null,
+          };
         },
       };
     }
@@ -225,6 +244,31 @@ test('words/create inserts raw words, returns resolved lexicon entries, and enqu
   assert.equal(fakeClient.insertedRows[0]?.['word_order_quiz'], null);
   assert.equal(fakeClient.insertedRows[1]?.['vocabulary_type'], null);
   assert.equal(fakeClient.insertedRows[1]?.['english'], 'compose');
+  assert.deepEqual(
+    fakeClient.translationRows.map((row) => ({
+      word_id: row.word_id,
+      translation_ja: row.translation_ja,
+      meaning_rank: row.meaning_rank,
+      is_primary: row.is_primary,
+      source: row.source,
+    })),
+    [
+      {
+        word_id: resolvedWordId,
+        translation_ja: '本',
+        meaning_rank: 1,
+        is_primary: true,
+        source: null,
+      },
+      {
+        word_id: unresolvedWordId,
+        translation_ja: '作曲する',
+        meaning_rank: 1,
+        is_primary: true,
+        source: 'ai',
+      },
+    ],
+  );
   assert.deepEqual(enqueued, [
     {
       source: 'manual',
@@ -445,5 +489,82 @@ test('words/create uses master-first resolution before legacy backfill', async (
   assert.equal(
     fakeClient.insertedRows[0]?.['lexicon_entry_id'],
     'bbbbbbbb-3333-4333-8333-333333333333',
+  );
+});
+
+test('words/create persists split translations with sequential meaning ranks', async () => {
+  const projectId = '11111111-1111-4111-8111-111111111111';
+  const createdAt = new Date('2026-03-15T00:00:00.000Z').toISOString();
+  const wordId = '88888888-8888-4888-8888-888888888888';
+
+  const fakeClient = new FakeWordsCreateClient(
+    'user-1',
+    new Set([projectId]),
+    [
+      {
+        id: wordId,
+        project_id: projectId,
+        english: 'sense',
+        japanese: '感覚',
+        lexicon_entry_id: null,
+        distractors: [],
+        part_of_speech_tags: ['noun'],
+        created_at: createdAt,
+        status: 'new',
+        ease_factor: 2.5,
+        interval_days: 0,
+        repetition: 0,
+        is_favorite: false,
+        lexicon_entries: null,
+      },
+    ],
+  );
+
+  let afterPromise = Promise.resolve();
+
+  const response = await handleWordsCreatePost(
+    jsonRequest({
+      words: [
+        {
+          projectId,
+          english: 'sense',
+          japanese: '感覚;分別',
+          japaneseSource: 'scan',
+          translations: [
+            { japanese: '感覚;分別', source: 'scan', meaningRank: 1 },
+          ],
+          partOfSpeechTags: ['noun'],
+        },
+      ],
+    }),
+    {
+      createClient: async () => fakeClient as never,
+      runAfter: (task) => {
+        runAfterImmediately(task, (promise) => {
+          afterPromise = promise;
+        });
+      },
+      resolveImmediateWords: async (words) => createImmediateResolutionResult(words),
+      backfillWords: async (words) => ({ words, aiBackfilledIndexes: [] }),
+      enqueueJobs: async () => [],
+      triggerJobProcessing: async () => undefined,
+    },
+  );
+
+  await afterPromise;
+
+  assert.equal(response.status, 200);
+  assert.equal(fakeClient.insertedRows[0]?.['japanese'], '感覚');
+  assert.deepEqual(
+    fakeClient.translationRows.map((row) => ({
+      translation_ja: row.translation_ja,
+      meaning_rank: row.meaning_rank,
+      is_primary: row.is_primary,
+      position: row.position,
+    })),
+    [
+      { translation_ja: '感覚', meaning_rank: 1, is_primary: true, position: 0 },
+      { translation_ja: '分別', meaning_rank: 2, is_primary: false, position: 1 },
+    ],
   );
 });

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
@@ -580,7 +581,7 @@ export default function QuickResponsePage() {
         {currentWord && (
           <div className="w-full max-w-sm text-center animate-fade-in-up">
             <h1 className="text-4xl font-extrabold text-[var(--color-foreground)] mb-8 tracking-tight">
-              {currentWord.japanese}
+              <TranslationDisplay word={currentWord} />
             </h1>
 
             {phase === 'listening' && (
