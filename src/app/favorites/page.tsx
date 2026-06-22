@@ -236,9 +236,8 @@ function FavoritesPageContent() {
           </div>
 
           <div className="px-[18px] pb-3.5 pt-1 lg:pt-4">
-            <div className="relative">
-              <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-2xl bg-[var(--color-accent)]" />
-              <div className="relative overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
+            <div>
+              <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
                 <div className="pointer-events-none absolute -right-3.5 -top-4 opacity-10 text-[var(--color-accent)]">
                   <Icon name="bookmark" size={120} filled />
                 </div>
@@ -472,9 +471,8 @@ function MobileWrongAnswersView({
       </div>
 
       <div className="px-[18px] pb-3.5 pt-1">
-        <div className="relative">
-          <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-2xl bg-[var(--color-error)]" />
-          <div className="relative overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
+        <div>
+          <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
             <div className="flex items-center gap-1.5 text-[var(--color-error)]">
               <Icon name="flag" size={13} filled />
               <span className="font-mono text-[10px] font-bold tracking-[0.08em]">WRONG ANSWERS</span>

@@ -29,10 +29,9 @@ export default function ContactPage() {
 
       {/* Hero card */}
       <div className="px-[18px] pb-3.5">
-        <div className="relative">
-          <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
+        <div>
           <div
-            className="relative rounded-xl border-2 border-[var(--solid-ink)] p-3.5"
+            className="rounded-xl border-2 border-[var(--solid-ink)] p-3.5"
             style={{ background: 'linear-gradient(135deg, oklch(0.94 0.06 130), #fff)' }}
           >
             <div className="flex items-center gap-1">

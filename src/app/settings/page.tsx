@@ -313,9 +313,8 @@ export default function SettingsPage() {
       {/* Upgrade banner (Free only) */}
       {billingEnabled && !isPro && isAuthenticated && (
         <div className="px-[18px] pb-4">
-          <div className="relative">
-            <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-[12px] bg-[var(--color-accent)]" />
-            <Link href="/subscription" className="relative flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.94_0.06_130)] to-white p-[12px_14px]">
+          <div>
+            <Link href="/subscription" className="flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.94_0.06_130)] to-white p-[12px_14px]">
               <div className="flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-accent)]">UPGRADE</span>

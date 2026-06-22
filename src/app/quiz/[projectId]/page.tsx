@@ -1525,9 +1525,8 @@ export default function QuizPage() {
         </div>
 
         {/* Word display — big solid plate */}
-        <div className="relative">
-          <div className="absolute inset-0 rounded-[18px] translate-x-[3px] translate-y-[4px] bg-[var(--solid-ink)]" />
-          <div className="relative rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
+        <div>
+          <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
             <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
               {currentIsWordOrder
                 ? currentQuestion?.word.japanese

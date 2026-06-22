@@ -415,9 +415,8 @@ export default function SharedPageClient({
           </div>
 
           {groupPanelOpen && (
-            <div className="relative mb-3">
-              <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-              <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3">
+            <div className="mb-3">
+              <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3">
                 <div className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">グループに参加・作成</div>
                 <div className="mb-2 flex gap-2">
                   <input
@@ -464,10 +463,9 @@ export default function SharedPageClient({
                   key={group.id}
                   type="button"
                   onClick={() => setSelectedGroupId(group.id)}
-                  className="relative block text-left"
+                  className="block text-left"
                 >
-                  <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-                  <div className="relative flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
+                  <div className="flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
                     <div
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
                       style={{ background: thumbColor(group.id) }}
@@ -493,9 +491,8 @@ export default function SharedPageClient({
           )}
 
           {groupsError && (
-            <div className="relative mt-2">
-              <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
-              <div className="relative rounded-xl border-2 border-red-700 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
+            <div className="mt-2">
+              <div className="rounded-xl border-2 border-red-700 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
                 {groupsError}
               </div>
             </div>
@@ -547,9 +544,8 @@ export default function SharedPageClient({
         {activeTab === 'groups' && !selectedGroupId ? null : (
           <>
             {activeTab === 'groups' && groupProjectsLoading && (
-              <div className="relative">
-                <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-                <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-4 text-sm font-bold text-[var(--color-muted)]">
+              <div>
+                <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-4 text-sm font-bold text-[var(--color-muted)]">
                   <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
                   読み込み中...
                 </div>
@@ -557,9 +553,8 @@ export default function SharedPageClient({
             )}
 
             {mobileProjects.length === 0 && !(activeTab === 'groups' && groupProjectsLoading) ? (
-              <div className="relative">
-                <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-                <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
+              <div>
+                <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
                   {activeTab === 'public'
                     ? '公開中の単語帳はまだありません'
                     : 'このグループの単語帳はまだありません'}
@@ -572,9 +567,8 @@ export default function SharedPageClient({
             )}
 
             {groupProjectsError && activeTab === 'groups' && (
-              <div className="relative">
-                <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
-                <div className="relative rounded-xl border-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+              <div>
+                <div className="rounded-xl border-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                   {groupProjectsError}
                 </div>
               </div>
@@ -593,10 +587,9 @@ export default function SharedPageClient({
             type="button"
             onClick={handleLoadMorePublic}
             disabled={loadingMorePublic}
-            className="relative mt-2 disabled:opacity-60"
+            className="mt-2 disabled:opacity-60"
           >
-            <span className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-[var(--solid-ink)]" />
-            <span className="relative flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)]">
+            <span className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)]">
               {loadingMorePublic ? (
                 <>
                   <Icon name="progress_activity" size={18} className="animate-spin" />
@@ -626,7 +619,7 @@ function FilterChip({ label, count, active = false, onClick }: { label: string; 
       style={{
         background: active ? 'var(--solid-ink)' : '#fff',
         color: active ? '#fff' : 'var(--solid-ink)',
-        border: `1.25px solid ${active ? 'var(--solid-ink)' : 'var(--color-border)'}`,
+        border: `2px solid ${active ? 'var(--solid-ink)' : 'var(--color-border)'}`,
       }}
     >
       {label}
@@ -650,9 +643,8 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
       : '共有ユーザー';
 
   return (
-    <Link href={href} className="relative block">
-      <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-      <div className="relative flex items-center gap-[11px] rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+    <Link href={href} className="block">
+      <div className="flex items-center gap-[11px] rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div
           className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 bg-cover bg-center font-display text-[22px] font-extrabold text-white"
           style={{

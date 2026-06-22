@@ -178,10 +178,9 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading || email.trim().length === 0 || password.length === 0}
-            className="group relative w-full disabled:pointer-events-none disabled:opacity-60"
+            className="group w-full disabled:pointer-events-none disabled:opacity-60"
           >
-            <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)] transition-transform group-active:translate-x-[1px] group-active:translate-y-[1px]" />
-            <div className="relative flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
+            <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
               {loading && <Icon name="progress_activity" size={16} className="animate-spin" />}
               {loading ? 'ログイン中...' : 'ログイン'}
             </div>

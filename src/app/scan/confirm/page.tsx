@@ -417,13 +417,12 @@ export default function ConfirmPage() {
         >
           <Icon name="close" size={13} />
         </button>
-        <div className="relative flex-1">
-          <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-xl bg-[var(--solid-ink)]" />
+        <div className="flex-1">
           <button
             type="button"
             onClick={handleSaveProject}
             disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
-            className="relative flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 text-sm font-bold text-white disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 text-sm font-bold text-white disabled:opacity-50"
           >
             {saving ? (
               <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> 保存中...</>
