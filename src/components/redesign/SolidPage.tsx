@@ -391,15 +391,19 @@ export function SolidEmpty({
   title,
   description,
   action,
+  className,
+  noShadow,
 }: {
   icon: string;
   title: string;
   description: string;
   action?: ReactNode;
+  className?: string;
+  noShadow?: boolean;
 }) {
   return (
-    <SolidPanel faceClassName="p-8 text-center">
-      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] shadow-[3px_4px_0_var(--solid-ink)]">
+    <SolidPanel className={cn(noShadow && '!shadow-none', className)} faceClassName="p-8 text-center">
+      <div className={cn("mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]", noShadow ? '' : 'shadow-[3px_4px_0_var(--solid-ink)]')}>
         <Icon name={icon} size={30} className="text-[var(--solid-ink)]" />
       </div>
       <h2 className="text-lg font-black text-[var(--solid-ink)]">{title}</h2>

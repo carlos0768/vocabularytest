@@ -11,7 +11,7 @@ export function GeneratingProjectCard({ title, iconDataUrl }: GeneratingProjectC
   return (
     <SolidPanel
       as="div"
-      className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] cursor-default select-none pointer-events-none"
+      className="!rounded-[14px] !shadow-none cursor-default select-none pointer-events-none"
       faceClassName="!p-[13px]"
     >
       <div
