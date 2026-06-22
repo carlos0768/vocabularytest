@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { Fragment, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import {
@@ -66,6 +66,8 @@ export function DesktopProjectDetailView({
   onCycleVocabularyType,
   onDeleteWord,
   onBulkDelete,
+  onScan,
+  onManualAdd,
 }: {
   project: Project;
   projectId: string;
@@ -88,7 +90,11 @@ export function DesktopProjectDetailView({
   onCycleVocabularyType: (word: Word) => void;
   onDeleteWord: (wordId: string) => void;
   onBulkDelete: () => void;
+  onScan: () => void;
+  onManualAdd: () => void;
 }) {
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
@@ -210,10 +216,43 @@ export function DesktopProjectDetailView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title={project.title} crumb="単語帳 / 一覧">
-        <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="school">クイズ</DesktopButton>
-        <DesktopButton href={`/flashcard/${projectId}`} icon="style">カード</DesktopButton>
-        <DesktopButton onClick={onRename} icon="edit" title="単語帳名を変更">名称変更</DesktopButton>
-        <DesktopButton href={`/scan?projectId=${encodeURIComponent(projectId)}`} icon="photo_camera">追加</DesktopButton>
+        <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="school" title="クイズ">{''}</DesktopButton>
+        <DesktopButton href={`/flashcard/${projectId}`} icon="style" title="カード">{''}</DesktopButton>
+        <DesktopButton onClick={onRename} icon="edit" title="名称変更">{''}</DesktopButton>
+        <div ref={addMenuRef} style={{ position: 'relative' }}>
+          <DesktopButton onClick={() => setAddMenuOpen((v) => !v)} icon="add" title="単語を追加">{''}</DesktopButton>
+          {addMenuOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-40 cursor-default bg-transparent"
+                aria-label="メニューを閉じる"
+                onClick={() => setAddMenuOpen(false)}
+              />
+              <div
+                className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                  onClick={() => { setAddMenuOpen(false); onScan(); }}
+                >
+                  <Icon name="photo_camera" style={{ fontSize: 18 }} />
+                  スキャンで追加
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                  onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
+                >
+                  <Icon name="edit" style={{ fontSize: 18 }} />
+                  手動で追加
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </DesktopTopbar>
 
       <div className={`ds-scroll ds-project-detail-grid${railCollapsed ? ' ds-project-detail-grid--rail-collapsed' : ''}`}>
