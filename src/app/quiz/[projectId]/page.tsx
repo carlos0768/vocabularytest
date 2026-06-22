@@ -400,9 +400,9 @@ function DSWordOrderPanel({
       <div
         className="rounded-[18px] border-[1.5px] p-4"
         style={{
-          borderColor: revealed ? (isCorrect ? 'var(--color-success)' : 'var(--color-error)') : 'var(--solid-ink)',
-          background: revealed ? (isCorrect ? 'rgba(61,122,78,0.08)' : 'rgba(184,72,72,0.08)') : '#fff',
-          boxShadow: `2px 3px 0 ${revealed ? (isCorrect ? 'var(--color-success)' : 'var(--color-error)') : 'var(--solid-ink)'}`,
+          borderColor: revealed ? (isCorrect ? 'var(--color-success)' : '#b91c1c') : 'var(--solid-ink)',
+          background: revealed ? (isCorrect ? 'var(--color-success)' : 'var(--color-error)') : '#fff',
+          boxShadow: `2px 3px 0 ${revealed ? (isCorrect ? 'var(--color-success)' : '#b91c1c') : 'var(--solid-ink)'}`,
         }}
       >
         <div className="flex min-h-[76px] flex-wrap items-center gap-2">
@@ -411,7 +411,16 @@ function DSWordOrderPanel({
               return (
                 <span
                   key={`${token}-${index}`}
-                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
+                  className="inline-flex min-h-10 items-center rounded-xl border px-3 text-[15px] font-bold"
+                  style={revealed ? {
+                    color: '#fff',
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    background: 'rgba(255,255,255,0.12)',
+                  } : {
+                    color: 'var(--solid-ink)',
+                    borderColor: 'var(--color-border)',
+                    background: 'rgba(26,26,26,0.04)',
+                  }}
                 >
                   {token}
                 </span>
@@ -429,9 +438,14 @@ function DSWordOrderPanel({
                 className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-[1.5px] px-3 text-[15px] font-black disabled:cursor-default"
                 style={revealed && selected ? {
                   borderStyle: 'solid',
-                  borderColor: isCorrect ? 'var(--color-success)' : 'var(--color-error)',
-                  background: isCorrect ? 'var(--color-success)' : 'var(--color-error)',
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  background: 'rgba(255,255,255,0.22)',
                   color: '#fff',
+                } : revealed ? {
+                  borderStyle: 'dashed',
+                  borderColor: 'rgba(255,255,255,0.35)',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: 'var(--solid-ink)',
                 } : {
                   borderStyle: 'dashed',
                   borderColor: 'var(--solid-ink)',
