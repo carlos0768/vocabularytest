@@ -655,7 +655,7 @@ function GuestHomePage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f3f0e9] font-[var(--font-body)] text-[#1a1a1a] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <header className="mx-auto max-w-[1200px] px-5 md:px-10">
-        <div className="flex items-center justify-between border-b-[1.5px] border-[#1a1a1a] py-6">
+        <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] py-6">
           <RootLandingBrand />
           <nav className="flex items-center gap-7">
             <Link href="#how" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">使い方</Link>
@@ -675,7 +675,7 @@ function GuestHomePage() {
       </header>
 
       <section className="mx-auto max-w-[1200px] px-5 md:px-10">
-        <div className="grid items-center gap-10 border-b-[1.5px] border-[#1a1a1a] py-14 lg:grid-cols-[1.05fr_1fr] lg:py-20">
+        <div className="grid items-center gap-10 border-b-2 border-[#1a1a1a] py-14 lg:grid-cols-[1.05fr_1fr] lg:py-20">
           <div>
             <p className="mb-5 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)] before:h-[1.5px] before:w-5 before:bg-[var(--color-accent)]">
               AI vocabulary notebook
@@ -690,14 +690,14 @@ function GuestHomePage() {
             <div className="mt-9 flex flex-wrap items-center gap-4">
               <Link
                 href="/signup?redirect=/"
-                className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-[#1a1a1a] bg-[#1a1a1a] px-7 text-base font-bold text-white shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[#1a1a1a] bg-[#1a1a1a] px-7 text-base font-bold text-white shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]"
               >
                 無料で始める
                 <Icon name="arrow_forward" size={18} />
               </Link>
               <Link
                 href="#how"
-                className="inline-flex items-center gap-2 border-b-[1.5px] border-[#1a1a1a] px-1 py-1 font-display text-sm font-bold text-[#1a1a1a] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                className="inline-flex items-center gap-2 border-b-2 border-[#1a1a1a] px-1 py-1 font-display text-sm font-bold text-[#1a1a1a] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
               >
                 使い方を見る
                 <Icon name="arrow_forward" size={16} />
@@ -720,7 +720,7 @@ function GuestHomePage() {
         </div>
       </section>
 
-      <section className="overflow-hidden border-b-[1.5px] border-[#1a1a1a] py-5" aria-label="MERKENで扱える教材">
+      <section className="overflow-hidden border-b-2 border-[#1a1a1a] py-5" aria-label="MERKENで扱える教材">
         <div className="mx-auto flex max-w-[1200px] flex-wrap gap-x-8 gap-y-3 px-5 font-display text-lg font-black md:px-10">
           {['教科書', 'プリント', 'ノート', '英検対策', '熟語・イディオム', '保存済み復習', 'フラッシュカード'].map((item, index) => (
             <span key={item} className={`inline-flex items-center gap-3 ${index % 2 === 1 ? 'text-[#8a857a]' : 'text-[#1a1a1a]'}`}>
@@ -731,23 +731,23 @@ function GuestHomePage() {
         </div>
       </section>
 
-      <section id="how" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section id="how" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="01"
           label="How it works"
           title={<>撮る、確認する、<br />覚える。</>}
           body="手入力やコピペを前提にせず、教材の写真から単語帳を作ります。登録後すぐにホーム、スキャン、単語帳、クイズへ進める構成です。"
         />
-        <div className="grid border-l-[1.5px] border-t-[1.5px] border-[#1a1a1a] md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid border-l-[1.5px] border-t-2 border-[#1a1a1a] md:grid-cols-2 lg:grid-cols-4">
           {ROOT_LANDING_WORKFLOW.map((item, index) => (
-            <article key={item.step} className="flex min-h-[280px] flex-col gap-4 border-b-[1.5px] border-r-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-6">
+            <article key={item.step} className="flex min-h-[280px] flex-col gap-4 border-b-2 border-r-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-6">
               <div className="flex items-baseline gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a857a]">
                 <span className="text-[var(--color-accent)]">{item.step}</span>
                 {item.label}
               </div>
               <h3 className="font-display text-2xl font-black">{item.title}</h3>
               <p className="text-[13px] leading-6 text-[#555]">{item.body}</p>
-              <div className="mt-auto flex h-[130px] items-center justify-center overflow-hidden rounded-[10px] border-[1.25px] border-[#1a1a1a] bg-white p-4">
+              <div className="mt-auto flex h-[130px] items-center justify-center overflow-hidden rounded-[10px] border-2 border-[#1a1a1a] bg-white p-4">
                 <RootLandingStepArt index={index} />
               </div>
             </article>
@@ -755,7 +755,7 @@ function GuestHomePage() {
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section id="features" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="02"
           label="What's inside"
@@ -774,7 +774,7 @@ function GuestHomePage() {
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {ROOT_LANDING_SCAN_MODES.map((mode) => (
-                <article key={mode.label} className="rounded-[14px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[3px_4px_0_#1a1a1a]">
+                <article key={mode.label} className="rounded-[14px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[3px_4px_0_#1a1a1a]">
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
                     <Icon name={mode.icon} size={20} />
                   </div>
@@ -785,7 +785,7 @@ function GuestHomePage() {
               ))}
             </div>
           </div>
-          <div className="rounded-[18px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[4px_6px_0_#1a1a1a]">
+          <div className="rounded-[18px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[4px_6px_0_#1a1a1a]">
             <Image
               src="/lp/scan-modes.png"
               alt="MERKENのスキャンモード画面"
@@ -797,7 +797,7 @@ function GuestHomePage() {
         </div>
 
         <div className="mt-20 grid gap-16 border-t border-dashed border-[#1a1a1a]/20 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div className="order-2 rounded-[16px] border-[1.5px] border-[#1a1a1a] bg-[#fffdf7] p-7 shadow-[4px_6px_0_#1a1a1a] [background-image:linear-gradient(transparent_31px,rgba(26,26,26,0.08)_32px,transparent_33px)] [background-size:100%_32px] lg:order-1">
+          <div className="order-2 rounded-[16px] border-2 border-[#1a1a1a] bg-[#fffdf7] p-7 shadow-[4px_6px_0_#1a1a1a] [background-image:linear-gradient(transparent_31px,rgba(26,26,26,0.08)_32px,transparent_33px)] [background-size:100%_32px] lg:order-1">
             <div className="border-l border-[#e8b4b8] pl-6">
               <div className="flex items-baseline justify-between gap-4">
                 <div>
@@ -833,7 +833,7 @@ function GuestHomePage() {
 
         <div className="mt-20 grid gap-6 border-t border-dashed border-[#1a1a1a]/20 pt-20 sm:grid-cols-2 lg:grid-cols-4">
           {ROOT_LANDING_STUDY_FEATURES.map((feature) => (
-            <article key={feature.title} className="rounded-[16px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-6 shadow-[4px_6px_0_#1a1a1a]">
+            <article key={feature.title} className="rounded-[16px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-6 shadow-[4px_6px_0_#1a1a1a]">
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#1a1a1a] text-white">
                 <Icon name={feature.icon} size={24} />
               </div>
@@ -846,7 +846,7 @@ function GuestHomePage() {
 
       <LpDemoSection />
 
-      <section className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="04"
           label="Progress"
@@ -861,13 +861,13 @@ function GuestHomePage() {
               ['マイ単語帳', '直近の単語帳をホームから開ける'],
               ['保存済み', 'あとで見返したい単語だけを集めて復習'],
             ].map(([title, body]) => (
-              <div key={title} className="rounded-[14px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-5 shadow-[3px_4px_0_#1a1a1a]">
+              <div key={title} className="rounded-[14px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-5 shadow-[3px_4px_0_#1a1a1a]">
                 <h3 className="font-display text-xl font-black">{title}</h3>
                 <p className="mt-2 text-sm leading-7 text-[#555]">{body}</p>
               </div>
             ))}
           </div>
-          <div className="rounded-[18px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[4px_6px_0_#1a1a1a]">
+          <div className="rounded-[18px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[4px_6px_0_#1a1a1a]">
             <Image
               src="/lp/home.png"
               alt="MERKENのホーム画面"
@@ -880,7 +880,7 @@ function GuestHomePage() {
       </section>
 
       {billingEnabled && (
-        <section id="pricing" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+        <section id="pricing" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
           <RootLandingSectionHeading
             number="05"
             label="Pricing"
@@ -905,22 +905,22 @@ function GuestHomePage() {
         </section>
       )}
 
-      <section id="faq" className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section id="faq" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="06"
           label="FAQ"
           title={<>よくある質問。</>}
           body="このLPでは、今のサイトで実際に使える導線と制限だけを説明します。公開対象外の機能は掲載していません。"
         />
-        <div className="border-t-[1.5px] border-[#1a1a1a]">
+        <div className="border-t-2 border-[#1a1a1a]">
           {ROOT_LANDING_FAQS.map((item, index) => (
-            <details key={item.q} className="group border-b-[1.5px] border-[#1a1a1a] py-6" open={index === 0}>
+            <details key={item.q} className="group border-b-2 border-[#1a1a1a] py-6" open={index === 0}>
               <summary className="grid cursor-pointer list-none grid-cols-[64px_1fr_32px] items-start gap-4">
                 <span className="pt-1 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a857a]">
                   Q. {String(index + 1).padStart(2, '0')}
                 </span>
                 <span className="font-display text-xl font-black leading-7">{item.q}</span>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#1a1a1a] transition-transform group-open:rotate-45 group-open:bg-[#1a1a1a] group-open:text-white">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1a1a1a] transition-transform group-open:rotate-45 group-open:bg-[#1a1a1a] group-open:text-white">
                   +
                 </span>
               </summary>
@@ -944,14 +944,14 @@ function GuestHomePage() {
           <div className="mt-9 flex flex-wrap gap-4">
             <Link
               href="/signup?redirect=/"
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-[#14532d] bg-[var(--color-accent)] px-7 text-base font-bold text-white shadow-[3px_4px_0_#14532d]"
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[#14532d] bg-[var(--color-accent)] px-7 text-base font-bold text-white shadow-[3px_4px_0_#14532d]"
             >
               無料で始める
               <Icon name="arrow_forward" size={18} />
             </Link>
             <Link
               href="/login?redirect=/"
-              className="inline-flex items-center justify-center gap-2 border-b-[1.5px] border-white/40 px-1 py-1 font-display text-sm font-bold text-white transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              className="inline-flex items-center justify-center gap-2 border-b-2 border-white/40 px-1 py-1 font-display text-sm font-bold text-white transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
             >
               ログイン
               <Icon name="arrow_forward" size={16} />
@@ -1122,7 +1122,7 @@ function RootLandingStepArt({ index }: { index: number }) {
         {['厳格な', '簡素な', '派手な'].map((item, itemIndex) => (
           <div
             key={item}
-            className={`mb-1.5 rounded-md border-[1.25px] border-[#1a1a1a] px-2 py-1 text-[10px] ${itemIndex === 1 ? 'bg-[var(--color-accent)] text-white' : 'bg-white text-[#1a1a1a]'}`}
+            className={`mb-1.5 rounded-md border-2 border-[#1a1a1a] px-2 py-1 text-[10px] ${itemIndex === 1 ? 'bg-[var(--color-accent)] text-white' : 'bg-white text-[#1a1a1a]'}`}
           >
             {String.fromCharCode(65 + itemIndex)}. {item}
           </div>
@@ -1158,7 +1158,7 @@ function RootLandingPricingCard({
   pro?: boolean;
 }) {
   return (
-    <article className={`relative flex min-h-[430px] flex-col rounded-[20px] border-[1.5px] border-[#1a1a1a] p-8 shadow-[4px_6px_0_#1a1a1a] ${pro ? 'bg-[#1a1a1a] text-white' : 'bg-[#faf7f1] text-[#1a1a1a]'}`}>
+    <article className={`relative flex min-h-[430px] flex-col rounded-[20px] border-2 border-[#1a1a1a] p-8 shadow-[4px_6px_0_#1a1a1a] ${pro ? 'bg-[#1a1a1a] text-white' : 'bg-[#faf7f1] text-[#1a1a1a]'}`}>
       {pro && (
         <span className="absolute right-6 top-6 rounded-full bg-[var(--color-accent)] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white">
           Pro
@@ -1166,7 +1166,7 @@ function RootLandingPricingCard({
       )}
       <p className={`font-mono text-[11px] font-bold uppercase tracking-[0.14em] ${pro ? 'text-white/60' : 'text-[#8a857a]'}`}>{plan}</p>
       <h3 className="mt-3 font-display text-3xl font-black">{pro ? 'もっと続ける' : 'まず試す'}</h3>
-      <div className={`my-5 flex items-end gap-2 border-b-[1.5px] pb-4 ${pro ? 'border-white/25' : 'border-[#1a1a1a]'}`}>
+      <div className={`my-5 flex items-end gap-2 border-b-2 pb-4 ${pro ? 'border-white/25' : 'border-[#1a1a1a]'}`}>
         <span className="font-display text-6xl font-black leading-none tracking-normal">{price}</span>
         <span className="pb-1 font-display text-base font-bold">円</span>
         <span className={`ml-auto pb-1 font-mono text-[11px] ${pro ? 'text-white/60' : 'text-[#8a857a]'}`}>/ 月</span>
@@ -1183,7 +1183,7 @@ function RootLandingPricingCard({
       <div className="mt-auto pt-8">
         <Link
           href={pro ? '/signup?redirect=/subscription' : '/signup?redirect=/'}
-          className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-[#1a1a1a] text-sm font-bold shadow-[2px_3px_0_#1a1a1a] ${pro ? 'bg-white text-[#1a1a1a]' : 'bg-[#1a1a1a] text-white'}`}
+          className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border-2 border-[#1a1a1a] text-sm font-bold shadow-[2px_3px_0_#1a1a1a] ${pro ? 'bg-white text-[#1a1a1a]' : 'bg-[#1a1a1a] text-white'}`}
         >
           {pro ? '無料登録して始める' : '無料で始める'}
           <Icon name="arrow_forward" size={16} />

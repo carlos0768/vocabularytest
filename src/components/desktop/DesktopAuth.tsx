@@ -134,7 +134,7 @@ export function DesktopAuthError({ children }: { children: ReactNode }) {
     <div
       aria-live="polite"
       style={{
-        border: '1.5px solid var(--color-error)',
+        border: '2px solid var(--color-error)',
         borderRadius: 'var(--radius-md)',
         background: 'var(--color-error-light)',
         color: 'var(--color-error)',
@@ -226,7 +226,7 @@ export function DesktopAuthOAuth({
                     width: 20,
                     height: 20,
                     borderRadius: 999,
-                    border: '1.25px solid var(--solid-ink)',
+                    border: '2px solid var(--solid-ink)',
                     fontFamily: 'var(--font-display)',
                     fontWeight: 800,
                     fontSize: 11,

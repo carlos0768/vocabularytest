@@ -178,7 +178,7 @@ export default function ProjectListPage() {
       </div>
 
       <div className="px-[18px] pb-2.5 pt-1">
-        <label className="flex items-center gap-2 rounded-full border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-[var(--color-muted)]">
+        <label className="flex items-center gap-2 rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-[var(--color-muted)]">
           <Icon name="search" size={15} />
           <input
             type="search"
@@ -198,8 +198,8 @@ export default function ProjectListPage() {
             onClick={() => setSort(s.k)}
             className={`inline-flex shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
               sort === s.k
-                ? 'border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-                : 'border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
+                ? 'border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
             }`}
           >
             <Icon name={s.icon} size={12} />
@@ -252,12 +252,12 @@ function BookRow({ project }: { project: ProjectRowStats }) {
   return (
     <Link href={`/project/${project.id}`}>
       <SolidPanel
-        className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
+        className="!rounded-[14px] ! transition-all duration-100 active:translate-x-px active:translate-y-px active:!"
         faceClassName="!p-[13px]"
       >
         <div className="flex items-center gap-[13px]">
           <div
-            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-center bg-cover font-display text-[18px] font-extrabold text-white"
+            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-center bg-cover font-display text-[18px] font-extrabold text-white"
             style={{ backgroundColor: bg, backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
           >
             {!project.iconImage && project.title.charAt(0)}

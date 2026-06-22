@@ -75,7 +75,7 @@ export function ProjectCard(props: ProjectCardProps) {
         className="card card-interactive flex items-center gap-4 p-4"
       >
         <div
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-[1.5px] border-[var(--solid-ink)] text-xl font-black text-white shadow-[2px_3px_0_var(--solid-ink)]"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-2 border-[var(--solid-ink)] text-xl font-black text-white"
           style={{ backgroundColor: iconColor }}
         >
           {project.title.charAt(0) === 'ス' ? 'ス' : project.title.charAt(0).toUpperCase()}
@@ -117,7 +117,7 @@ export function ProjectCard(props: ProjectCardProps) {
         {showMenu && menuItems && menuItems.length > 0 && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-2 top-12 z-20 min-w-[160px] rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] py-1 shadow-[3px_4px_0_var(--solid-ink)]">
+          <div className="absolute right-2 top-12 z-20 min-w-[160px] rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-1">
             {menuItems.map((item) => (
               <button
                 key={item.label}

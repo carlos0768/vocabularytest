@@ -39,12 +39,12 @@ export default function CollectionsPage() {
           return (
             <Link key={c.id} href={`/collections/${c.id}`}>
               <SolidPanel
-                className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:!shadow-[1px_1px_0_var(--solid-ink)]"
+                className="!rounded-[14px] ! transition-all duration-100 active:translate-x-px active:translate-y-px active:!"
                 faceClassName="!p-[13px]"
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
                     style={{ background: bg }}
                   >
                     {c.title.charAt(0)}

@@ -28,14 +28,14 @@ export default function ParserScanPage() {
         <div className="mt-4 flex gap-2.5">
           <div className="relative flex-1">
             <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-            <div className="relative flex items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-6 py-3.5 text-sm font-bold text-white">
+            <div className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-6 py-3.5 text-sm font-bold text-white">
               <Icon name="photo_camera" size={16} />
               カメラ
             </div>
           </div>
           <div className="relative flex-1">
             <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-            <div className="relative flex items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-6 py-3.5 text-sm font-bold text-[var(--solid-ink)]">
+            <div className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-6 py-3.5 text-sm font-bold text-[var(--solid-ink)]">
               <Icon name="image" size={16} />
               写真
             </div>

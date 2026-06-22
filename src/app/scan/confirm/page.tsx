@@ -315,7 +315,7 @@ export default function ConfirmPage() {
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
-        <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none">
+        <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
           <Icon name="chevron_left" size={18} />
         </button>
         <div className="flex flex-1 flex-col items-center gap-px">
@@ -324,7 +324,7 @@ export default function ConfirmPage() {
             {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
           </div>
         </div>
-        <button type="button" onClick={handleAddManualWord} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none">
+        <button type="button" onClick={handleAddManualWord} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
           <Icon name="add" size={18} />
         </button>
       </div>
@@ -332,7 +332,7 @@ export default function ConfirmPage() {
       {/* Scan preview + project name */}
       <div className="flex items-center gap-2.5 px-[18px] pb-3 pt-0.5">
         <div
-          className="relative h-[68px] w-[54px] shrink-0 overflow-hidden rounded border-[1.25px] border-[var(--solid-ink)] shadow-[1.5px_1.5px_0_var(--solid-ink)]"
+          className="relative h-[68px] w-[54px] shrink-0 overflow-hidden rounded border-2 border-[var(--solid-ink)]"
           style={{ background: 'linear-gradient(135deg, #d4c9a8, #e8dfc2)' }}
         >
           {[8, 16, 24, 34, 42, 50, 58].map((y, i) => (
@@ -342,11 +342,11 @@ export default function ConfirmPage() {
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] font-bold tracking-[0.06em] text-[var(--color-muted)]">PROJECT</div>
           {isAddingToExisting ? (
-            <div className="mt-[3px] rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-[7px]">
+            <div className="mt-[3px] rounded-lg border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px]">
               <div className="text-sm font-bold text-[var(--solid-ink)]">既存の単語帳に追加</div>
             </div>
           ) : (
-            <div className="mt-[3px] flex items-center gap-1.5 rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-[7px]">
+            <div className="mt-[3px] flex items-center gap-1.5 rounded-lg border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px]">
               <input
                 type="text"
                 value={projectTitle}
@@ -413,7 +413,7 @@ export default function ConfirmPage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-1 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+          className="inline-flex items-center gap-1 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
         >
           <Icon name="close" size={13} />
         </button>
@@ -423,7 +423,7 @@ export default function ConfirmPage() {
             type="button"
             onClick={handleSaveProject}
             disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
-            className="relative flex w-full items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 text-sm font-bold text-white disabled:opacity-50"
+            className="relative flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 text-sm font-bold text-white disabled:opacity-50"
           >
             {saving ? (
               <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> 保存中...</>
@@ -441,7 +441,7 @@ export default function ConfirmPage() {
 /* ---------- Stat chip ---------- */
 function StatChip({ label, value, accent = 'var(--solid-ink)' }: { label: string; value: number; accent?: string }) {
   return (
-    <div className="flex flex-1 flex-col gap-0.5 rounded-lg border-[1.25px] border-[var(--color-border)] bg-white px-2.5 py-2">
+    <div className="flex flex-1 flex-col gap-0.5 rounded-lg border-2 border-[var(--color-border)] bg-white px-2.5 py-2">
       <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">{label}</span>
       <span className="font-display text-lg font-extrabold tabular-nums leading-none" style={{ color: accent }}>{value}</span>
     </div>
@@ -503,7 +503,7 @@ function EditingWordRow({
   const [japanese, setJapanese] = useState(w.japanese);
 
   return (
-    <div className="rounded-[10px] border-[1.5px] border-[var(--solid-ink)] bg-[#faf7f1] p-3 shadow-[2px_2px_0_var(--solid-ink)]">
+    <div className="rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-3">
       <div className="mb-2 flex gap-2">
         <div className="flex-1">
           <div className="mb-[3px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">英単語</div>
@@ -514,7 +514,7 @@ function EditingWordRow({
               onChange={(e) => setEnglish(e.target.value)}
               autoFocus
               placeholder="英単語"
-              className="w-full rounded-md border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-[7px] font-display text-[13px] font-bold text-[var(--solid-ink)] focus:outline-none"
+              className="w-full rounded-md border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px] font-display text-[13px] font-bold text-[var(--solid-ink)] focus:outline-none"
             />
           </div>
         </div>
@@ -525,7 +525,7 @@ function EditingWordRow({
             value={japanese}
             onChange={(e) => setJapanese(e.target.value)}
             placeholder="日本語訳"
-            className="w-full rounded-md border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-[7px] text-xs text-[var(--solid-ink)] focus:outline-none"
+            className="w-full rounded-md border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px] text-xs text-[var(--solid-ink)] focus:outline-none"
           />
         </div>
       </div>

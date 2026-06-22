@@ -17,7 +17,7 @@ export default function ContactPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="chevron_left" size={16} />
           </button>
@@ -32,7 +32,7 @@ export default function ContactPage() {
         <div className="relative">
           <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
           <div
-            className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] p-3.5"
+            className="relative rounded-xl border-2 border-[var(--solid-ink)] p-3.5"
             style={{ background: 'linear-gradient(135deg, oklch(0.94 0.06 130), #fff)' }}
           >
             <div className="flex items-center gap-1">
@@ -53,7 +53,7 @@ export default function ContactPage() {
         <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">連絡先</div>
         <a
           href="mailto:support@merken.jp"
-          className="flex items-center gap-3 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+          className="flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <span className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
             <Icon name="mail" size={16} />
@@ -86,7 +86,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
       <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
         {label}
       </div>
-      <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
         {children}
       </div>
     </div>

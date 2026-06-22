@@ -361,7 +361,7 @@ export default function SharedPageClient({
         </div>
       </div>
 
-      <div className="mx-[14px] mt-2 flex border-[1.25px] border-[var(--solid-ink)] bg-white p-[3px]">
+      <div className="mx-[14px] mt-2 flex border-2 border-[var(--solid-ink)] bg-white p-[3px]">
         <button
           type="button"
           onClick={() => setActiveTab('public')}
@@ -407,7 +407,7 @@ export default function SharedPageClient({
             <button
               type="button"
               onClick={() => setGroupPanelOpen((v) => !v)}
-              className="inline-flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="settings" size={14} />
               管理
@@ -417,20 +417,20 @@ export default function SharedPageClient({
           {groupPanelOpen && (
             <div className="relative mb-3">
               <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-              <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-3">
+              <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3">
                 <div className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">グループに参加・作成</div>
                 <div className="mb-2 flex gap-2">
                   <input
                     value={joinGroupCode}
                     onChange={(event) => setJoinGroupCode(event.target.value)}
                     placeholder="招待コードを入力"
-                    className="min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
+                    className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => void handleJoinGroup()}
                     disabled={groupActionLoading === 'join' || !joinGroupCode.trim()}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
                   >
                     <Icon name={groupActionLoading === 'join' ? 'progress_activity' : 'login'} size={14} className={groupActionLoading === 'join' ? 'animate-spin' : undefined} />
                     参加
@@ -441,13 +441,13 @@ export default function SharedPageClient({
                     value={createGroupName}
                     onChange={(event) => setCreateGroupName(event.target.value)}
                     placeholder="新しいグループ名"
-                    className="min-w-0 flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
+                    className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => void handleCreateGroup()}
                     disabled={groupActionLoading === 'create' || !createGroupName.trim()}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
                   >
                     <Icon name={groupActionLoading === 'create' ? 'progress_activity' : 'add'} size={14} className={groupActionLoading === 'create' ? 'animate-spin' : undefined} />
                     作成
@@ -467,9 +467,9 @@ export default function SharedPageClient({
                   className="relative block text-left"
                 >
                   <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-                  <div className="relative flex items-center gap-3 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
+                  <div className="relative flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
                     <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
                       style={{ background: thumbColor(group.id) }}
                     >
                       {group.name.charAt(0)}
@@ -495,7 +495,7 @@ export default function SharedPageClient({
           {groupsError && (
             <div className="relative mt-2">
               <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
-              <div className="relative rounded-xl border-[1.25px] border-red-700 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
+              <div className="relative rounded-xl border-2 border-red-700 bg-red-50 px-3 py-2.5 text-[12px] font-bold text-red-700">
                 {groupsError}
               </div>
             </div>
@@ -509,7 +509,7 @@ export default function SharedPageClient({
             <button
               type="button"
               onClick={() => setSelectedGroupId(null)}
-              className="inline-flex items-center gap-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="arrow_back" size={14} />
               戻る
@@ -530,11 +530,11 @@ export default function SharedPageClient({
           </div>
 
           {selectedGroup && (
-            <div className="mb-3 flex items-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2">
+            <div className="mb-3 flex items-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-2">
               <span className="min-w-0 flex-1 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">
                 招待 {formatInviteCode(selectedGroup.inviteCode)}
               </span>
-              <button type="button" onClick={() => void handleCopyGroupInvite()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border-[1.25px] border-[var(--solid-ink)] px-2 py-1 text-[11px] font-bold text-[var(--solid-ink)]">
+              <button type="button" onClick={() => void handleCopyGroupInvite()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border-2 border-[var(--solid-ink)] px-2 py-1 text-[11px] font-bold text-[var(--solid-ink)]">
                 <Icon name="content_copy" size={12} />
                 コピー
               </button>
@@ -549,7 +549,7 @@ export default function SharedPageClient({
             {activeTab === 'groups' && groupProjectsLoading && (
               <div className="relative">
                 <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-                <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-4 text-sm font-bold text-[var(--color-muted)]">
+                <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-4 text-sm font-bold text-[var(--color-muted)]">
                   <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
                   読み込み中...
                 </div>
@@ -559,7 +559,7 @@ export default function SharedPageClient({
             {mobileProjects.length === 0 && !(activeTab === 'groups' && groupProjectsLoading) ? (
               <div className="relative">
                 <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-                <div className="relative rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
+                <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
                   {activeTab === 'public'
                     ? '公開中の単語帳はまだありません'
                     : 'このグループの単語帳はまだありません'}
@@ -574,7 +574,7 @@ export default function SharedPageClient({
             {groupProjectsError && activeTab === 'groups' && (
               <div className="relative">
                 <div className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-red-800" />
-                <div className="relative rounded-xl border-[1.25px] border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                <div className="relative rounded-xl border-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                   {groupProjectsError}
                 </div>
               </div>
@@ -596,7 +596,7 @@ export default function SharedPageClient({
             className="relative mt-2 disabled:opacity-60"
           >
             <span className="absolute inset-0 translate-x-[2px] translate-y-[2px] rounded-xl bg-[var(--solid-ink)]" />
-            <span className="relative flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)]">
+            <span className="relative flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)]">
               {loadingMorePublic ? (
                 <>
                   <Icon name="progress_activity" size={18} className="animate-spin" />
@@ -652,9 +652,9 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
   return (
     <Link href={href} className="relative block">
       <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-xl bg-[var(--solid-ink)]" />
-      <div className="relative flex items-center gap-[11px] rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+      <div className="relative flex items-center gap-[11px] rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div
-          className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-[1.25px] bg-cover bg-center font-display text-[22px] font-extrabold text-white"
+          className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 bg-cover bg-center font-display text-[22px] font-extrabold text-white"
           style={{
             backgroundColor: bg,
             backgroundImage: project.project.iconImage ? `url(${project.project.iconImage})` : undefined,

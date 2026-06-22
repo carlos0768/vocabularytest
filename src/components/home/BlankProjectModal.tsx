@@ -54,7 +54,7 @@ export function BlankProjectModal({
         style={{
           background: 'var(--color-background)',
           borderRadius: '20px 20px 0 0',
-          border: '1.25px solid var(--solid-ink)',
+          border: '2px solid var(--solid-ink)',
           borderBottom: 'none',
           boxShadow: '0 -4px 0 var(--solid-ink)',
           padding: '0 0 max(1.5rem, env(safe-area-inset-bottom))',
@@ -79,7 +79,7 @@ export function BlankProjectModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-[1.25px] border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--color-muted)]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--color-muted)]"
           >
             <Icon name="close" size={15} />
           </button>
@@ -93,7 +93,7 @@ export function BlankProjectModal({
               単語帳名
             </div>
             <div
-              className="relative overflow-hidden rounded-[10px] border-[1.25px] border-[var(--solid-ink)]"
+              className="relative overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)]"
               style={{ boxShadow: '2px 2px 0 var(--solid-ink)' }}
             >
               <input
@@ -114,7 +114,7 @@ export function BlankProjectModal({
               メモ <span className="normal-case tracking-normal text-[var(--color-muted)] opacity-70">（任意）</span>
             </div>
             <div
-              className="relative overflow-hidden rounded-[10px] border-[1.25px] border-[var(--solid-ink)]"
+              className="relative overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)]"
               style={{ boxShadow: '2px 2px 0 var(--solid-ink)' }}
             >
               <textarea
@@ -134,7 +134,7 @@ export function BlankProjectModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-all active:opacity-70 disabled:opacity-50"
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-all active:opacity-70 disabled:opacity-50"
             >
               キャンセル
             </button>

@@ -119,7 +119,7 @@ export function WelcomeOverlay({ open, onClose, onSkip, onStartScan }: WelcomeOv
 
             {/* Card */}
             <div
-              className="relative overflow-hidden rounded-[24px] border-[1.5px] border-[var(--solid-ink)]"
+              className="relative overflow-hidden rounded-[24px] border-2 border-[var(--solid-ink)]"
               style={{
                 background:
                   'linear-gradient(168deg, oklch(0.985 0.018 110) 0%, oklch(0.97 0.04 130) 55%, oklch(0.94 0.06 96) 100%)',
@@ -162,7 +162,7 @@ export function WelcomeOverlay({ open, onClose, onSkip, onStartScan }: WelcomeOv
                 type="button"
                 onClick={handleSkip}
                 aria-label="スキップ"
-                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
                 <Icon name="close" size={16} />
               </button>
@@ -174,7 +174,7 @@ export function WelcomeOverlay({ open, onClose, onSkip, onStartScan }: WelcomeOv
                     MERKEN
                   </span>
                   <span className="inline-block h-[5px] w-[5px] -translate-y-[2px] bg-[var(--color-accent)]" />
-                  <span className="ml-1 inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2 py-[2px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--solid-ink)]">
+                  <span className="ml-1 inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2 py-[2px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--solid-ink)]">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
                     HELLO
                   </span>
@@ -212,16 +212,16 @@ export function WelcomeOverlay({ open, onClose, onSkip, onStartScan }: WelcomeOv
                         className="absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]"
                         style={{ transform: 'translate(2.5px, 3px)' }}
                       />
-                      <div className="relative flex items-center gap-3 rounded-[14px] border-[1.5px] border-[var(--solid-ink)] bg-white px-3 py-3">
+                      <div className="relative flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3">
                         <div
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-[1.5px] border-[var(--solid-ink)] shadow-[1.5px_1.5px_0_var(--solid-ink)]"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)]"
                           style={{ background: card.accentSub, color: card.accent }}
                         >
                           <Icon name={card.icon} size={22} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] font-mono text-[10px] font-bold leading-none text-white">
+                            <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-mono text-[10px] font-bold leading-none text-white">
                               {i + 1}
                             </span>
                             <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">
@@ -251,7 +251,7 @@ export function WelcomeOverlay({ open, onClose, onSkip, onStartScan }: WelcomeOv
                     className="absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]"
                     style={{ transform: 'translate(3px, 3.5px)' }}
                   />
-                  <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-[14px] text-[15px] font-bold text-white">
+                  <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-[14px] text-[15px] font-bold text-white">
                     <Icon name="photo_camera" size={18} />
                     最初の1枚を撮影
                     <Icon name="arrow_forward" size={16} />
