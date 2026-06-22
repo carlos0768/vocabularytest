@@ -77,7 +77,7 @@ export function ProjectShareSheet({
           style={{
             maxWidth: 480,
             background: '#faf7f1',
-            border: '1.5px solid var(--solid-ink)',
+            border: '2px solid var(--solid-ink)',
             borderBottomWidth: 0,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
@@ -104,7 +104,7 @@ export function ProjectShareSheet({
               type="button"
               onClick={onClose}
               aria-label="閉じる"
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
             >
               <Icon name="close" size={14} />
             </button>
@@ -120,7 +120,7 @@ export function ProjectShareSheet({
                 type="button"
                 disabled={updatingScope || preparing}
                 onClick={() => void onSelectScope('public')}
-                className="rounded-[10px] border-[1.25px] border-[var(--solid-ink)] p-3 text-left transition-all disabled:opacity-50"
+                className="rounded-[10px] border-2 border-[var(--solid-ink)] p-3 text-left transition-all disabled:opacity-50"
                 style={{
                   background: shareScope === 'public' ? 'var(--solid-ink)' : '#fff',
                   color: shareScope === 'public' ? '#fff' : 'var(--solid-ink)',
@@ -147,7 +147,7 @@ export function ProjectShareSheet({
                 type="button"
                 disabled={updatingScope || preparing}
                 onClick={() => void onSelectScope('private')}
-                className="rounded-[10px] border-[1.25px] border-[var(--solid-ink)] p-3 text-left transition-all disabled:opacity-50"
+                className="rounded-[10px] border-2 border-[var(--solid-ink)] p-3 text-left transition-all disabled:opacity-50"
                 style={{
                   background: shareScope === 'private' ? 'var(--solid-ink)' : '#fff',
                   color: shareScope === 'private' ? '#fff' : 'var(--solid-ink)',
@@ -205,7 +205,7 @@ export function ProjectShareSheet({
                       type="button"
                       disabled={preparing || updating || !onToggleGroupShare}
                       onClick={() => onToggleGroupShare?.(group)}
-                      className="flex items-center gap-2 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-left disabled:opacity-50"
+                      className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-left disabled:opacity-50"
                     >
                       <div
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)]"
@@ -244,7 +244,7 @@ export function ProjectShareSheet({
                   type="button"
                   disabled={preparing || !shareUrl}
                   onClick={() => void onShareLink(shareUrl)}
-                  className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
                 >
                   <Icon name="ios_share" size={11} />
                   共有
@@ -253,7 +253,7 @@ export function ProjectShareSheet({
                   type="button"
                   disabled={preparing || !shareUrl}
                   onClick={() => void onCopyShareLink(shareUrl)}
-                  className="inline-flex items-center gap-1 rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
                 >
                   <Icon name={shareLinkCopied ? 'check' : 'content_copy'} size={11} />
                   {shareLinkCopied ? 'コピー済み' : 'コピー'}

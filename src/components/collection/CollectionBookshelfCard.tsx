@@ -63,7 +63,7 @@ export function CollectionBookshelfCard({
   return (
     <Link
       href={`/collections/${id}`}
-      className="block rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 pb-2.5 shadow-[3px_4px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+      className="block rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 pb-2.5 transition-all active:translate-x-px active:translate-y-px active:"
     >
       {/* Bookshelf area */}
       <div className="flex items-end justify-center gap-0 min-h-[68px] px-2 pt-2 pb-0">

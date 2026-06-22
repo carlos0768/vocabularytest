@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
@@ -12,13 +13,37 @@ export function DesktopSettingsView({
   username,
   isPro,
   onSignOut,
+  onUsernameChange,
+  usernameSaving,
+  usernameError,
 }: {
   email?: string | null;
   username?: string | null;
   isPro: boolean;
   onSignOut: () => void;
+  onUsernameChange?: (newUsername: string) => Promise<boolean>;
+  usernameSaving?: boolean;
+  usernameError?: string | null;
 }) {
   const billingEnabled = isBillingEnabled();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editInput, setEditInput] = useState('');
+
+  const startEditing = () => {
+    setEditInput(username ?? '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditInput('');
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (usernameSaving || !editInput.trim() || !onUsernameChange) return;
+    const success = await onUsernameChange(editInput);
+    if (success) setIsEditing(false);
+  };
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -45,7 +70,66 @@ export function DesktopSettingsView({
                 <Icon name={isPro ? 'bolt' : 'person'} filled style={{ fontSize: 13 }} />
                 {isPro ? 'PRO' : 'FREE'}
               </span>
+              {email && !isEditing && onUsernameChange && (
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="ds-set-row-action"
+                  style={{ marginLeft: 8, background: 'none', border: '1px solid var(--color-border)', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: 'var(--color-secondary-text)' }}
+                >
+                  <Icon name="edit" style={{ fontSize: 15 }} />
+                  変更
+                </button>
+              )}
             </div>
+            {isEditing && (
+              <div className="ds-set-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, padding: '14px 16px' }}>
+                <label htmlFor="desktop-username" style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', letterSpacing: '0.05em' }}>
+                  ユーザー名
+                </label>
+                <input
+                  id="desktop-username"
+                  type="text"
+                  value={editInput}
+                  onChange={(e) => setEditInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); void handleSave(); }
+                    if (e.key === 'Escape') cancelEditing();
+                  }}
+                  maxLength={20}
+                  autoFocus
+                  placeholder="ユーザー名を入力"
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 14, outline: 'none' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-muted)' }}>
+                  <span>1〜20文字</span>
+                  <span>{editInput.length}/20</span>
+                </div>
+                {usernameError && (
+                  <p style={{ margin: 0, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--color-error)', background: 'rgba(239,68,68,0.08)', fontSize: 12, fontWeight: 600, color: 'var(--color-error)' }}>
+                    {usernameError}
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => void handleSave()}
+                    disabled={usernameSaving || !editInput.trim()}
+                    style={{ flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, background: 'var(--color-foreground, #111)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (usernameSaving || !editInput.trim()) ? 0.5 : 1 }}
+                  >
+                    {usernameSaving ? '保存中...' : '保存'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditing}
+                    disabled={usernameSaving}
+                    style={{ flex: 1, padding: '8px 0', border: '1px solid var(--color-border)', borderRadius: 8, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            )}
             {email && (
               <button type="button" className="ds-set-row" style={{ width: '100%', cursor: 'pointer', background: '#fff', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left' }} onClick={onSignOut}>
                 <div className="ic" style={{ background: 'var(--color-error-light)' }}><Icon name="logout" style={{ color: 'var(--color-error)' }} /></div>

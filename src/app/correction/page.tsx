@@ -101,7 +101,7 @@ export default function CorrectionHistoryPage() {
       </div>
 
       <div className="px-[18px] pb-3">
-        <div className="grid grid-cols-3 overflow-hidden rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white">
+        <div className="grid grid-cols-3 overflow-hidden rounded-xl border-2 border-[var(--solid-ink)] bg-white">
           {[
             { label: '添削回数', value: stats.total, sub: `今月 +${stats.monthDelta}` },
             { label: '平均スコア', value: stats.avgScore, sub: 'score' },
@@ -125,7 +125,7 @@ export default function CorrectionHistoryPage() {
             <div className="text-[13px] font-bold text-[var(--solid-ink)]">{user && !isPro ? 'Proで添削を使う' : '新しく添削する'}</div>
             <div className="mt-0.5 text-[10.5px] text-[var(--color-muted)]">テキスト入力からAI添削を開始</div>
           </div>
-          <div className="inline-flex items-center gap-[5px] rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-background)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)]">
+          <div className="inline-flex items-center gap-[5px] rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--color-background)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)]">
             <Icon name="edit" size={11} />
             入力
           </div>
@@ -143,16 +143,16 @@ export default function CorrectionHistoryPage() {
 
       <div className="flex flex-col gap-2 px-[18px]">
         {authLoading || (user && isPro && loading) ? (
-          <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>
+          <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>
         ) : !user ? (
-          <Link href="/login?redirect=/correction" className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">ログインして履歴を見る</Link>
+          <Link href="/login?redirect=/correction" className="rounded-xl border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">ログインして履歴を見る</Link>
         ) : !isPro ? (
-          <Link href="/subscription" className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">Proで添削APIを有効化</Link>
+          <Link href="/subscription" className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">Proで添削APIを有効化</Link>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border-[1.25px] border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">まだ添削履歴がありません</div>
+          <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">まだ添削履歴がありません</div>
         ) : (
           items.map((item) => (
-            <Link key={item.id} href={`/correction/result?id=${item.id}`} className="relative flex items-stretch gap-[11px] rounded-xl bg-white px-3 py-[11px]" style={{ border: '1.25px solid var(--color-border)' }}>
+            <Link key={item.id} href={`/correction/result?id=${item.id}`} className="relative flex items-stretch gap-[11px] rounded-xl bg-white px-3 py-[11px]" style={{ border: '2px solid var(--color-border)' }}>
               <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]">
                 <div className="tabular-nums text-[19px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-display)', color: scoreColor(item.score) }}>{item.score}</div>
                 <div className="mt-0.5 font-mono text-[7.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">SCORE</div>

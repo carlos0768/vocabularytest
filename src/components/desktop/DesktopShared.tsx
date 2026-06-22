@@ -93,7 +93,7 @@ export function DesktopSharedView({
       </DesktopTopbar>
       <div className="ds-scroll">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-          <div style={{ display: 'inline-flex', borderRadius: 0, border: '1.5px solid var(--solid-ink)', background: '#fff', padding: 3 }}>
+          <div style={{ display: 'inline-flex', borderRadius: 0, border: '2px solid var(--solid-ink)', background: '#fff', padding: 3 }}>
             <button
               type="button"
               onClick={() => onActiveTabChange('public')}
@@ -150,7 +150,7 @@ export function DesktopSharedView({
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                    border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                    border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
                     cursor: 'pointer', transition: 'transform 0.1s',
                   }}
                   className="active:translate-x-px active:translate-y-px"
@@ -163,7 +163,7 @@ export function DesktopSharedView({
               {groupPanelOpen && (
                 <div style={{ position: 'relative', marginBottom: 14 }}>
                   <div style={{ position: 'absolute', inset: 0, transform: 'translate(2.5px, 2.5px)', borderRadius: 12, background: 'var(--solid-ink)' }} />
-                  <div style={{ position: 'relative', borderRadius: 12, border: '1.25px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+                  <div style={{ position: 'relative', borderRadius: 12, border: '2px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
                     {selectedGroup && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--color-border)' }}>
                         <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'var(--solid-ink)', color: '#fff' }}>{selectedGroup.role === 'owner' ? 'オーナー' : 'メンバー'}</span>
@@ -174,7 +174,7 @@ export function DesktopSharedView({
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
                             padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                            border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                            border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
                             cursor: 'pointer',
                           }}
                         >
@@ -198,7 +198,7 @@ export function DesktopSharedView({
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4,
                           padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                          border: '1.25px solid var(--solid-ink)', background: 'var(--solid-ink)', color: '#fff',
+                          border: '2px solid var(--solid-ink)', background: 'var(--solid-ink)', color: '#fff',
                           cursor: 'pointer', opacity: (groupActionLoading === 'join' || !joinGroupCode.trim()) ? 0.4 : 1,
                         }}
                       >
@@ -221,7 +221,7 @@ export function DesktopSharedView({
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4,
                           padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                          border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                          border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
                           cursor: 'pointer', opacity: (groupActionLoading === 'create' || !createGroupName.trim()) ? 0.4 : 1,
                         }}
                       >
@@ -246,13 +246,13 @@ export function DesktopSharedView({
                     <div style={{
                       position: 'relative', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '12px 14px', borderRadius: 12,
-                      border: '1.25px solid var(--solid-ink)', background: '#fff',
+                      border: '2px solid var(--solid-ink)', background: '#fff',
                       transition: 'transform 0.1s',
                     }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
                         background: desktopThumbColor(group.id), color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0,
-                        border: '1.25px solid var(--solid-ink)',
+                        border: '2px solid var(--solid-ink)',
                       }}>
                         {group.name.charAt(0)}
                       </div>
@@ -268,7 +268,7 @@ export function DesktopSharedView({
               {!groupsLoading && groups.length === 0 && (
                 <div style={{ position: 'relative', marginTop: 8 }}>
                   <div style={{ position: 'absolute', inset: 0, transform: 'translate(2.5px, 2.5px)', borderRadius: 12, background: 'var(--solid-ink)' }} />
-                  <div style={{ position: 'relative', borderRadius: 12, border: '1.25px solid var(--solid-ink)', background: '#fff', padding: '28px 0', textAlign: 'center' }}>
+                  <div style={{ position: 'relative', borderRadius: 12, border: '2px solid var(--solid-ink)', background: '#fff', padding: '28px 0', textAlign: 'center' }}>
                     <Icon name="group_add" style={{ fontSize: 28, opacity: 0.3, display: 'block', margin: '0 auto 6px' }} />
                     <div className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>グループに参加しましょう</div>
                   </div>
@@ -278,7 +278,7 @@ export function DesktopSharedView({
               {groupsError && (
                 <div style={{ position: 'relative', marginTop: 10 }}>
                   <div style={{ position: 'absolute', inset: 0, transform: 'translate(2px, 2px)', borderRadius: 12, background: '#991b1b' }} />
-                  <div style={{ position: 'relative', borderRadius: 12, border: '1.25px solid #b91c1c', background: '#fef2f2', padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>
+                  <div style={{ position: 'relative', borderRadius: 12, border: '2px solid #b91c1c', background: '#fef2f2', padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>
                     {groupsError}
                   </div>
                 </div>
@@ -296,7 +296,7 @@ export function DesktopSharedView({
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                  border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                  border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
                   cursor: 'pointer', transition: 'transform 0.1s',
                 }}
                 className="active:translate-x-px active:translate-y-px"
@@ -316,7 +316,7 @@ export function DesktopSharedView({
             {selectedGroup && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14,
-                padding: '10px 14px', borderRadius: 12, border: '1.25px solid var(--solid-ink)', background: '#fff',
+                padding: '10px 14px', borderRadius: 12, border: '2px solid var(--solid-ink)', background: '#fff',
               }}>
                 <span className="mono muted" style={{ flex: 1, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   招待 {formatInviteCode(selectedGroup.inviteCode)}
@@ -327,7 +327,7 @@ export function DesktopSharedView({
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
                     padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                    border: '1.25px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
+                    border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--solid-ink)',
                     cursor: 'pointer',
                   }}
                 >

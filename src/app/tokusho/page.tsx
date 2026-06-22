@@ -78,7 +78,7 @@ export default function TokushoPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="chevron_left" size={16} />
           </button>
@@ -92,7 +92,7 @@ export default function TokushoPage() {
 
       {/* Intro */}
       <div className="px-[18px] pb-3.5">
-        <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
           <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
             特定商取引法第11条に基づき、Pro 購読サービスの提供に関する事項を以下の通り表示します。
           </p>
@@ -121,7 +121,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
       <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
         {label}
       </div>
-      <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white p-[12px_14px] shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
         {children}
       </div>
     </div>

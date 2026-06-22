@@ -142,7 +142,7 @@ export function StudyModeCard({
                 : `${accent.hoverBg} active:opacity-80 transition-all cursor-pointer`
             }`
           : `${styles.bg} ${styles.glow} border border-[var(--color-border)] ${
-              disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer'
+              disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-card transition-all cursor-pointer'
             }`
       }`}
     >

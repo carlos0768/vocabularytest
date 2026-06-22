@@ -149,7 +149,7 @@ export default function ParserResultPage() {
     return (
       <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-5 text-center font-[var(--font-body)]">
         <div className="mb-3 text-sm font-bold text-[var(--solid-ink)]">{error || '解析結果が見つかりません'}</div>
-        <Link href="/parser/new" className="inline-flex rounded-lg border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2 text-xs font-bold text-[var(--solid-ink)]">新しく解析する</Link>
+        <Link href="/parser/new" className="inline-flex rounded-lg border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-xs font-bold text-[var(--solid-ink)]">新しく解析する</Link>
       </div>
     );
   }
@@ -173,7 +173,7 @@ export default function ParserResultPage() {
           <span className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">① 原文 + 節分け</span>
           <span className="font-mono text-[9px] text-[var(--color-muted)]">{result.wordCount} 語</span>
         </div>
-        <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3.5 py-3.5 text-[13.5px] leading-[2.1] tracking-[0.005em] text-[var(--solid-ink)]" style={{ fontFamily: 'IBM Plex Mono, ui-monospace, monospace' }}>
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3.5 py-3.5 text-[13.5px] leading-[2.1] tracking-[0.005em] text-[var(--solid-ink)]" style={{ fontFamily: 'IBM Plex Mono, ui-monospace, monospace' }}>
           {result.tokens.map((token, i) => (
             <span key={`${token.text}-${i}`}>
               <Tok kind={(token.clauseId ? clauseKindById.get(token.clauseId) : 'phrase') ?? 'phrase'} role={token.role}>{token.text}</Tok>{' '}
@@ -195,14 +195,14 @@ export default function ParserResultPage() {
           <span className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">② 構造ツリー</span>
           <span className="rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-white">{result.depth}</span>
         </div>
-        <div className="rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white px-3.5 py-3.5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3.5 py-3.5">
           <TreeNode node={result.tree} />
         </div>
       </div>
 
       <div className="px-[18px] pb-3 pt-1">
         <div className="mb-[7px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">訳</div>
-        <div className="rounded-[10px] border-[1.25px] border-[var(--color-border)] bg-[var(--color-background)] px-[13px] py-[11px] text-[12.5px] font-medium leading-[1.65] text-[var(--solid-ink)]">
+        <div className="rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-background)] px-[13px] py-[11px] text-[12.5px] font-medium leading-[1.65] text-[var(--solid-ink)]">
           {result.translationJa}
         </div>
       </div>
@@ -223,13 +223,13 @@ export default function ParserResultPage() {
       <div className="flex gap-2.5 px-[18px] pb-7 pt-2">
         <button type="button" className="relative flex-1">
           <span className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-white py-[13px] text-[13px] font-bold text-[var(--solid-ink)]">
+          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white py-[13px] text-[13px] font-bold text-[var(--solid-ink)]">
             <Icon name="volume_up" size={14} /> 音読
           </span>
         </button>
         <button type="button" onClick={saveWords} disabled={saving || result.wordCandidates.length === 0} className="relative disabled:opacity-60" style={{ flex: 1.4 }}>
           <span className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-[13px] text-[13px] font-bold text-white">
+          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-[13px] text-[13px] font-bold text-white">
             <Icon name="menu_book" size={14} /> {saving ? '保存中...' : '単語帳に保存'}
           </span>
         </button>

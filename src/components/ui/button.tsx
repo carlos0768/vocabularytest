@@ -18,7 +18,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'inline-flex items-center justify-center font-semibold transition-all duration-200',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
           variant !== 'ghost' &&
-            'border-[1.5px] border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]',
+            'border-2 border-[var(--solid-ink)] active:translate-x-px active:translate-y-px active:',
           'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none',
           variant === 'primary' && [
             'bg-[var(--color-foreground)] text-white',

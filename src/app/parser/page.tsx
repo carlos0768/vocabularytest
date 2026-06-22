@@ -91,7 +91,7 @@ export default function ParserHistoryPage() {
       </div>
 
       <div className="px-[18px] pb-3">
-        <div className="grid grid-cols-3 overflow-hidden rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white">
+        <div className="grid grid-cols-3 overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
           {[
             { label: '解析回数', value: stats.totalAnalyses, sub: `今月 +${stats.monthDelta}` },
             { label: '平均節数', value: stats.avgClauseCount, sub: '/ 文' },
@@ -107,7 +107,7 @@ export default function ParserHistoryPage() {
       </div>
 
       <div className="px-[18px] pb-3.5">
-        <Link href={user ? (isPro ? '/parser/new' : '/subscription') : '/login?redirect=/parser'} className="flex items-center gap-2.5 rounded-[12px] border-[1.25px] border-dashed border-[var(--solid-ink)] bg-white px-3 py-[11px]">
+        <Link href={user ? (isPro ? '/parser/new' : '/subscription') : '/login?redirect=/parser'} className="flex items-center gap-2.5 rounded-[12px] border-2 border-dashed border-[var(--solid-ink)] bg-white px-3 py-[11px]">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--solid-ink)] text-white">
             <Icon name={user && !isPro ? 'workspace_premium' : 'add'} size={16} />
           </div>
@@ -115,7 +115,7 @@ export default function ParserHistoryPage() {
             <div className="text-[13px] font-bold text-[var(--solid-ink)]">{user && !isPro ? 'Proで構造解析を使う' : '新しく解析する'}</div>
             <div className="mt-0.5 text-[10.5px] text-[var(--color-muted)]">テキスト入力から構文解析を開始</div>
           </div>
-          <div className="inline-flex items-center gap-1.5 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)]">
+          <div className="inline-flex items-center gap-1.5 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--solid-ink)]">
             <Icon name="edit" size={11} />
             入力
           </div>
@@ -133,16 +133,16 @@ export default function ParserHistoryPage() {
 
       <div className="flex flex-col gap-2 px-[18px]">
         {authLoading || (user && isPro && loading) ? (
-          <div className="rounded-[12px] border-[1.25px] border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>
+          <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>
         ) : !user ? (
-          <Link href="/login?redirect=/parser" className="rounded-[12px] border-[1.25px] border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">ログインして履歴を見る</Link>
+          <Link href="/login?redirect=/parser" className="rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">ログインして履歴を見る</Link>
         ) : !isPro ? (
-          <Link href="/subscription" className="rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">Proで構造解析APIを有効化</Link>
+          <Link href="/subscription" className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">Proで構造解析APIを有効化</Link>
         ) : items.length === 0 ? (
-          <div className="rounded-[12px] border-[1.25px] border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">まだ解析履歴がありません</div>
+          <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">まだ解析履歴がありません</div>
         ) : (
           items.map((item) => (
-            <Link key={item.id} href={`/parser/result?id=${item.id}`} className="block rounded-[12px] border-[1.25px] border-[var(--color-border)] bg-white px-3 py-[11px]">
+            <Link key={item.id} href={`/parser/result?id=${item.id}`} className="block rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-[11px]">
               <div className="mb-1.5 flex items-center gap-1.5">
                 <span className="rounded-[3px] bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">{DEPTH_LABELS[item.depth]}</span>
                 {item.depth === 'tree' && <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">PRO</span>}

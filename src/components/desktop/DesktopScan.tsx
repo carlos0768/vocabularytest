@@ -351,7 +351,7 @@ export function DesktopScanView({
             }}
             onClick={openFilePicker}
           >
-            <div style={{ width: 74, height: 74, borderRadius: 20, background: '#fff', border: '1.5px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+            <div style={{ width: 74, height: 74, borderRadius: 20, background: '#fff', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
               <Icon name="cloud_upload" style={{ fontSize: 36, color: 'var(--color-accent)' }} />
             </div>
             <div>

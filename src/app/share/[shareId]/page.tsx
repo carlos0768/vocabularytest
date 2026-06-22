@@ -456,7 +456,7 @@ export default function SharedDetailPage() {
                 if (!locked) handleToggleSelect(word.id);
               }}
               disabled={locked}
-              className="flex items-center gap-2.5 rounded-lg border-[1.25px] bg-[var(--color-surface)] px-3 py-2.5 text-left"
+              className="flex items-center gap-2.5 rounded-lg border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left"
               style={{
                 borderColor: selected ? 'var(--solid-ink)' : 'var(--color-border)',
                 opacity: locked ? 0.82 : 1,
@@ -541,7 +541,7 @@ function SharedHeaderBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-[1.25px] border-[var(--solid-ink)] bg-white px-2 text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none"
+      className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white px-2 text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>

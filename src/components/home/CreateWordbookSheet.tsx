@@ -120,7 +120,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
           style={{
             maxWidth: 480,
             background: '#faf7f1',
-            border: '1.5px solid var(--solid-ink)',
+            border: '2px solid var(--solid-ink)',
             borderBottomWidth: 0,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
@@ -141,7 +141,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                   type="button"
                   onClick={() => setStep('method')}
                   aria-label="戻る"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
                 >
                   <Icon name="arrow_back" size={14} />
                 </button>
@@ -169,7 +169,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
             >
               <Icon name="close" size={14} />
             </button>
@@ -192,7 +192,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                   )}
                 </div>
                 <div
-                  className="overflow-hidden rounded-[10px] border-[1.25px] border-[var(--solid-ink)]"
+                  className="overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)]"
                   style={{ boxShadow: '2px 2px 0 var(--solid-ink)' }}
                 >
                   <input
@@ -223,7 +223,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                         setMethod(m.k);
                         if (m.k === 'blank' && !trimmedName) nameInputRef.current?.focus();
                       }}
-                      className="flex items-center gap-3 rounded-[14px] border-[1.5px] bg-white px-4 py-3.5 text-left transition-all"
+                      className="flex items-center gap-3 rounded-[14px] border-2 bg-white px-4 py-3.5 text-left transition-all"
                       style={{
                         borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
                         boxShadow: active ? '2px 3px 0 var(--solid-ink)' : 'none',
