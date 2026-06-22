@@ -54,7 +54,7 @@ export function HintBanner({
         style={{ transform: 'translate(2.5px, 3px)' }}
       />
       <div
-        className="relative flex items-center gap-3 rounded-[14px] border-[1.5px] border-[var(--solid-ink)] px-3.5 py-3"
+        className="relative flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] px-3.5 py-3"
         style={{ background: palette.bg }}
       >
         <motion.div
@@ -62,7 +62,7 @@ export function HintBanner({
           initial={{ scale: 0.85, rotate: -8 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-[1.5px] border-[var(--solid-ink)] bg-white shadow-[1.5px_1.5px_0_var(--solid-ink)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white"
           style={{ color: palette.accent }}
         >
           <Icon name={icon} size={20} filled />

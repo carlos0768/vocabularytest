@@ -66,7 +66,7 @@ export function OAuthProviderButtons({
             aria-label={`${label}で続ける`}
           >
             <span className="inline-flex items-center gap-2.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] font-display text-[11px] font-black leading-none">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] font-display text-[11px] font-black leading-none">
                 {isLoading ? (
                   <Icon name="progress_activity" size={13} className="animate-spin" />
                 ) : (

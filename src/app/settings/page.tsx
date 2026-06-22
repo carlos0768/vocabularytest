@@ -199,19 +199,19 @@ export default function SettingsPage() {
       {/* Profile card */}
       <div className="px-[18px] pb-[14px]">
         {authLoading ? (
-          <SolidPanel className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)]" faceClassName="!p-[14px]">
+          <SolidPanel className="!rounded-[14px] !" faceClassName="!p-[14px]">
             <div className="flex h-14 items-center justify-center">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-foreground)] border-t-transparent" />
             </div>
           </SolidPanel>
         ) : isAuthenticated ? (
           <SolidPanel
-            className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)]"
+            className="!rounded-[14px] !"
             faceClassName="!p-[14px]"
           >
             <div>
               <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
                   {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -229,7 +229,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={startEditingUsername}
                     disabled={profileLoading}
-                    className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 font-display text-[12px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px active:shadow-none"
+                    className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-3 font-display text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
                   >
                     <Icon name="edit" size={14} />
                     変更
@@ -259,7 +259,7 @@ export default function SettingsPage() {
                     maxLength={20}
                     autoFocus
                     placeholder="ユーザー名を入力"
-                    className="mt-1.5 w-full rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
+                    className="mt-1.5 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
                   />
                   <div className="mt-1.5 flex items-center justify-between gap-2">
                     <p className="font-mono text-[9px] text-[var(--color-muted)]">1-20文字</p>
@@ -275,7 +275,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={handleSaveUsername}
                       disabled={profileSaving || !usernameInput.trim()}
-                      className="flex-1 rounded-[9px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px active:shadow-none"
+                      className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
                     >
                       {profileSaving ? '保存中...' : '保存'}
                     </button>
@@ -283,7 +283,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={cancelEditingUsername}
                       disabled={profileSaving}
-                      className="flex-1 rounded-[9px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       キャンセル
                     </button>
@@ -293,16 +293,16 @@ export default function SettingsPage() {
             </div>
           </SolidPanel>
         ) : (
-          <SolidPanel className="!rounded-[14px] !shadow-[2.5px_2.5px_0_var(--solid-ink)]" faceClassName="!p-[14px]">
+          <SolidPanel className="!rounded-[14px] !" faceClassName="!p-[14px]">
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
                 <Icon name="person" size={28} className="text-[var(--solid-ink)]" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-display text-base font-bold text-[var(--solid-ink)]">ゲスト</div>
                 <div className="mt-0.5 text-xs text-[var(--color-muted)]">ログインしてデータを保存</div>
               </div>
-              <Link href="/login" className="rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 font-display text-sm font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-none">
+              <Link href="/login" className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 font-display text-sm font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px">
                 ログイン
               </Link>
             </div>
@@ -313,9 +313,8 @@ export default function SettingsPage() {
       {/* Upgrade banner (Free only) */}
       {billingEnabled && !isPro && isAuthenticated && (
         <div className="px-[18px] pb-4">
-          <div className="relative">
-            <div className="absolute inset-0 translate-x-[2.5px] translate-y-[2.5px] rounded-[12px] bg-[var(--color-accent)]" />
-            <Link href="/subscription" className="relative flex items-center gap-2.5 rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.94_0.06_130)] to-white p-[12px_14px]">
+          <div>
+            <Link href="/subscription" className="flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.94_0.06_130)] to-white p-[12px_14px]">
               <div className="flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-accent)]">UPGRADE</span>
@@ -325,7 +324,7 @@ export default function SettingsPage() {
                 <div className="mt-[3px] font-display text-sm font-bold text-[var(--solid-ink)]">Pro でぜんぶ使う</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">スキャン無制限・デバイス無制限</div>
               </div>
-              <div className="rounded-[8px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-white shadow-[2px_2px_0_var(--color-accent)]">見る</div>
+              <div className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-white shadow-[2px_2px_0_var(--color-accent)]">見る</div>
             </Link>
           </div>
         </div>
@@ -383,7 +382,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full rounded-[12px] border-[1.25px] border-[var(--color-error)] bg-white py-3 font-display text-[13px] font-bold text-[var(--color-error)]"
+            className="w-full rounded-[12px] border-2 border-[var(--color-error)] bg-white py-3 font-display text-[13px] font-bold text-[var(--color-error)]"
           >
             ログアウト
           </button>
@@ -422,7 +421,7 @@ export default function SettingsPage() {
               type="button"
               onClick={closeModal}
               disabled={subscriptionActionLoading}
-              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               戻る
             </button>
@@ -430,7 +429,7 @@ export default function SettingsPage() {
               type="button"
               onClick={handleCancelSubscription}
               disabled={subscriptionActionLoading}
-              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px active:shadow-none"
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px"
             >
               {subscriptionActionLoading ? '処理中...' : '更新停止'}
             </button>
@@ -469,7 +468,7 @@ export default function SettingsPage() {
               type="button"
               onClick={closeModal}
               disabled={accountDeleteLoading}
-              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               戻る
             </button>
@@ -477,7 +476,7 @@ export default function SettingsPage() {
               type="button"
               onClick={handleDeleteAccount}
               disabled={accountDeleteLoading}
-              className="flex-1 rounded-[10px] border-[1.25px] border-[var(--color-error)] bg-[var(--color-error)] py-3 font-display text-[13px] font-bold text-white transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px"
+              className="flex-1 rounded-[10px] border-2 border-[var(--color-error)] bg-[var(--color-error)] py-3 font-display text-[13px] font-bold text-white transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px"
             >
               {accountDeleteLoading ? '削除中...' : '削除する'}
             </button>
@@ -492,7 +491,7 @@ function SettingsGroup({ label, children }: { label: string; children: React.Rea
   return (
     <div className="px-[18px] pb-3">
       <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</div>
-      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-[1.25px] border-[var(--solid-ink)] bg-white shadow-[2.5px_2.5px_0_var(--solid-ink)]">
+      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
         {children}
       </div>
     </div>

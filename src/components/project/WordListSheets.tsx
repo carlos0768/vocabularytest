@@ -46,7 +46,7 @@ function BottomSheetShell({ open, onClose, title, children, footer }: BottomShee
       />
       {/* Mobile: bottom sheet / Desktop (lg+): centered solid card */}
       <div
-        className="relative flex max-h-[80vh] w-full animate-fade-in-up flex-col rounded-t-[20px] border-[1.5px] border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:max-w-[460px] lg:rounded-[20px] lg:border-b-[1.5px] lg:shadow-[4px_5px_0_var(--solid-ink)]"
+        className="relative flex max-h-[80vh] w-full animate-fade-in-up flex-col rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:max-w-[460px] lg:rounded-[20px] lg:border-b-2 lg:"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle */}
@@ -62,7 +62,7 @@ function BottomSheetShell({ open, onClose, title, children, footer }: BottomShee
             type="button"
             onClick={onClose}
             aria-label="閉じる"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-[1.25px] border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
           >
             <Icon name="close" size={14} />
           </button>
@@ -120,7 +120,7 @@ export function WordFilterSheet({
             className="relative flex-1 disabled:opacity-40"
           >
             <div className="absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)]">
+            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)]">
               リセット
             </span>
           </button>
@@ -130,7 +130,7 @@ export function WordFilterSheet({
             className="relative flex-1"
           >
             <div className="absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-bold text-white">
+            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-bold text-white">
               適用
             </span>
           </button>
@@ -139,13 +139,13 @@ export function WordFilterSheet({
     >
       <div className="space-y-5">
         {/* Bookmark */}
-        <label className="flex cursor-pointer items-center justify-between rounded-[10px] border-[1.25px] border-[var(--solid-ink)] bg-white px-3.5 py-3">
+        <label className="flex cursor-pointer items-center justify-between rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3.5 py-3">
           <span className="flex items-center gap-2 text-[13px] font-bold text-[var(--solid-ink)]">
             <Icon name="bookmark" size={15} filled={bookmark} />
             ブックマークのみ
           </span>
           <div
-            className="flex h-5 w-5 items-center justify-center rounded-[4px] border-[1.25px] border-[var(--solid-ink)]"
+            className="flex h-5 w-5 items-center justify-center rounded-[4px] border-2 border-[var(--solid-ink)]"
             style={{ background: bookmark ? 'var(--solid-ink)' : 'transparent' }}
           >
             {bookmark && (
@@ -175,7 +175,7 @@ export function WordFilterSheet({
                 key={val}
                 type="button"
                 onClick={() => onActivenessChange(val)}
-                className="inline-flex items-center rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
+                className="inline-flex items-center rounded-full border-2 border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                 style={{
                   background: activeness === val ? 'var(--solid-ink)' : '#fff',
                   color: activeness === val ? '#fff' : 'var(--solid-ink)',
@@ -195,7 +195,7 @@ export function WordFilterSheet({
               <button
                 type="button"
                 onClick={() => onPosChange(null)}
-                className="inline-flex items-center rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
+                className="inline-flex items-center rounded-full border-2 border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                 style={{
                   background: !pos ? 'var(--solid-ink)' : '#fff',
                   color: !pos ? '#fff' : 'var(--solid-ink)',
@@ -208,7 +208,7 @@ export function WordFilterSheet({
                   key={p}
                   type="button"
                   onClick={() => onPosChange(p)}
-                  className="inline-flex items-center rounded-full border-[1.25px] border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
+                  className="inline-flex items-center rounded-full border-2 border-[var(--solid-ink)] px-[10px] py-[6px] text-[11px] font-bold transition-colors"
                   style={{
                     background: pos === p ? 'var(--solid-ink)' : '#fff',
                     color: pos === p ? '#fff' : 'var(--solid-ink)',
@@ -249,7 +249,7 @@ export function WordSortSheet({ open, onClose, sortOrder, onSortOrderChange }: W
               key={opt.value}
               type="button"
               onClick={() => { onSortOrderChange(opt.value); onClose(); }}
-              className="flex items-center gap-[11px] rounded-[10px] border-[1.25px] border-[var(--solid-ink)] px-3 py-[11px] text-left transition-all"
+              className="flex items-center gap-[11px] rounded-[10px] border-2 border-[var(--solid-ink)] px-3 py-[11px] text-left transition-all"
               style={{
                 background: selected ? 'var(--solid-ink)' : '#fff',
                 color: selected ? '#fff' : 'var(--solid-ink)',

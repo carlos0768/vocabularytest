@@ -197,7 +197,7 @@ export default function StatsPage() {
                 <span className="text-[13px] font-bold text-[var(--solid-ink)]">%</span>
                 <span className="ml-1 text-[11px] text-[var(--color-muted)]">習得済</span>
               </div>
-              <div className="mt-2.5 flex overflow-hidden rounded-[4px] border-[1.25px] border-[var(--solid-ink)]" style={{ height: 10 }}>
+              <div className="mt-2.5 flex overflow-hidden rounded-[4px] border-2 border-[var(--solid-ink)]" style={{ height: 10 }}>
                 <div style={{ flex: mastered, background: 'var(--color-success)' }} />
                 <div style={{ flex: review, background: 'var(--color-warning)' }} />
                 <div style={{ flex: newWords, background: 'rgba(26,26,26,0.15)' }} />
@@ -231,7 +231,7 @@ function KPI({
 }) {
   return (
     <SolidPanel
-      className="!rounded-xl !shadow-[2.5px_2.5px_0_var(--solid-ink)]"
+      className="!rounded-xl !"
       faceClassName="!p-3"
     >
       <div

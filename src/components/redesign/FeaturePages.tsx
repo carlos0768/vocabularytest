@@ -72,7 +72,7 @@ export function CorrectionHistoryPage() {
           <SectionTitle label="履歴" value={`${correctionHistory.length}件`} />
           <div className="mt-4 space-y-3">
             {correctionHistory.map((item) => (
-              <Link key={item.title} href="/correction/result" className="block rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-white p-4 transition hover:bg-[var(--color-surface-secondary)]">
+              <Link key={item.title} href="/correction/result" className="block rounded-xl border-2 border-[var(--solid-ink)] bg-white p-4 transition hover:bg-[var(--color-surface-secondary)]">
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-[var(--color-foreground)] font-display text-white">
                     <span className="text-xl font-black leading-none">{item.score}</span>
@@ -125,7 +125,7 @@ export function CorrectionInputPage() {
             <span
               key={item}
               className={cn(
-                'rounded-full border-[1.5px] px-3 py-1.5 text-sm font-bold',
+                'rounded-full border-2 px-3 py-1.5 text-sm font-bold',
                 index === 0 ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-white' : 'border-[var(--color-border)] bg-white text-[var(--color-foreground)]'
               )}
             >
@@ -134,7 +134,7 @@ export function CorrectionInputPage() {
           ))}
         </div>
         <textarea
-          className="mt-5 min-h-64 w-full resize-none rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="mt-5 min-h-64 w-full resize-none rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           defaultValue={'When I was a child, I have lived in a small town. Every morning I am walking to school with my friends, and we discussing about many things.'}
         />
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -248,13 +248,13 @@ export function ParserInputPage() {
         <SectionTitle label="解析の深さ" value="Pro対応" />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {['SVOのみ', '節を分ける', 'ツリー詳細'].map((item, index) => (
-            <div key={item} className={cn('rounded-xl border-[1.5px] p-3 text-sm font-bold', index === 1 ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-white' : 'border-[var(--color-border)] bg-white')}>
+            <div key={item} className={cn('rounded-xl border-2 p-3 text-sm font-bold', index === 1 ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-white' : 'border-[var(--color-border)] bg-white')}>
               {item}
             </div>
           ))}
         </div>
         <textarea
-          className="mt-5 min-h-56 w-full resize-none rounded-2xl border-[1.5px] border-[var(--solid-ink)] bg-white p-4 font-mono text-[14px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="mt-5 min-h-56 w-full resize-none rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 font-mono text-[14px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           defaultValue={"Although she had never spoken in public before, she delivered the speech that changed the company's direction with confidence that surprised everyone in the room."}
         />
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -280,7 +280,7 @@ export function ParserResultPage() {
       <div className="space-y-5">
         <SolidPanel className="p-5">
           <SectionTitle label="原文 + 節分け" value="27語" />
-          <div className="mt-4 rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-white p-4 font-mono text-[14px] leading-9">
+          <div className="mt-4 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-4 font-mono text-[14px] leading-9">
             <Clause tone="blue" tag="M">Although</Clause> <Clause tone="blue" tag="S">she</Clause> <Clause tone="blue" tag="V">had never spoken</Clause> <Clause tone="blue">in public before</Clause>, <Clause tone="accent" tag="S">she</Clause> <Clause tone="accent" tag="V">delivered</Clause> <Clause tone="accent" tag="O">the speech</Clause> <Clause tone="accent" tag="M">that changed the company&apos;s direction</Clause> <Clause tone="gold">with confidence that surprised everyone in the room</Clause>.
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -368,7 +368,7 @@ function FeatureShell({
 
 function SolidPanel({ children, className, inverse = false }: { children: ReactNode; className?: string; inverse?: boolean }) {
   return (
-    <section className={cn('rounded-[var(--radius-xl)] border-[1.5px] border-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-ink)]', inverse ? 'bg-[var(--color-foreground)]' : 'bg-[var(--color-surface)]', className)}>
+    <section className={cn('rounded-[var(--radius-xl)] border-2 border-[var(--solid-ink)]', inverse ? 'bg-[var(--color-foreground)]' : 'bg-[var(--color-surface)]', className)}>
       {children}
     </section>
   );

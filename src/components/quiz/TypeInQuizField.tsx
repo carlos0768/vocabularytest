@@ -206,7 +206,7 @@ export function TypeInQuizField({
         style={{ transform: 'translate(2.5px, 3.5px)', background: shadowColor }}
       />
       <div
-        className="relative rounded-xl border-[1.5px] transition-colors"
+        className="relative rounded-xl border-2 transition-colors"
         style={{ background: faceBg, borderColor }}
       >
         {content}
