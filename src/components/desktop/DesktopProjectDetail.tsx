@@ -695,23 +695,37 @@ function DesktopWordDetailModal({
             </div>
           </div>
 
-          {(word.exampleSentence || word.exampleSentenceJa) && (
-            <div style={{ paddingTop: 2 }}>
+          <div style={{ paddingTop: 2 }}>
               <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <Icon name="auto_awesome" style={{ fontSize: 14 }} />AI 例文
               </div>
-              {word.exampleSentence && (
-                <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
-                  {renderExample(word.exampleSentence, word.english)}
-                </div>
-              )}
-              {word.exampleSentenceJa && (
-                <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>
-                  {word.exampleSentenceJa}
+              {word.exampleSentence ? (
+                <>
+                  <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
+                    {renderExample(word.exampleSentence, word.english)}
+                  </div>
+                  {word.exampleSentenceJa && (
+                    <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>
+                      {word.exampleSentenceJa}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 16, color: 'var(--color-accent)' }} />
+                    <span style={{ fontSize: 13, color: 'var(--color-muted)', fontWeight: 500 }}>
+                      例文を生成中...
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className="ds-shimmer" style={{ height: 14, borderRadius: 6, width: '90%' }} />
+                    <div className="ds-shimmer" style={{ height: 14, borderRadius: 6, width: '70%' }} />
+                    <div className="ds-shimmer" style={{ height: 12, borderRadius: 6, width: '55%', marginTop: 4 }} />
+                  </div>
                 </div>
               )}
             </div>
-          )}
 
           {word.relatedWords && word.relatedWords.length > 0 && (
             <div>
