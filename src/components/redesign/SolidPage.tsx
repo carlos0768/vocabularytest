@@ -8,19 +8,13 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/utils';
 
-/* ---------- Solid primitives (Tailwind hard-shadow flavor) ---------- */
-/**
- * Surface that renders the Merken Solid hard-shadow look using
- * Tailwind utility classes — no `.solid-plate` DOM. Cleaner appearance
- * than the canonical plate stack while still emitting the
- * 1.5px ink border + 3/4px offset shadow the design system expects.
- */
+/* ---------- Solid primitives (Tailwind thick-border flavor) ---------- */
 const SOLID_BASE =
-  'rounded-[var(--solid-radius)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[3px_4px_0_var(--solid-ink)]';
+  'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
 const SOLID_INTERACTIVE =
-  'transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]';
+  'transition-all duration-100 active:translate-x-px active:translate-y-px';
 const SOLID_BTN_BASE =
-  'rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)]';
+  'rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)]';
 
 export function Solid({
   children,
@@ -40,8 +34,8 @@ export function Solid({
       className={cn(
         SOLID_BASE,
         interactive && SOLID_INTERACTIVE,
-        variant === 'sm' && '!rounded-[var(--solid-radius-sm)] shadow-[2px_3px_0_var(--solid-ink)]',
-        variant === 'tile' && '!rounded-[var(--solid-radius-tile)] shadow-[2px_3px_0_var(--solid-ink)] aspect-[3/4] overflow-hidden',
+        variant === 'sm' && '!rounded-[var(--solid-radius-sm)]',
+        variant === 'tile' && '!rounded-[var(--solid-radius-tile)] aspect-[3/4] overflow-hidden',
         variant === 'inverse' && 'bg-[var(--solid-ink)] text-white',
         variant === 'accent' && 'bg-[var(--color-accent)] text-white border-[var(--color-accent-ink)]',
         className,
@@ -160,7 +154,7 @@ export function SolidTile({
   interactive?: boolean;
 }) {
   const wrapperClass = cn(
-    'block aspect-[3/4] overflow-hidden rounded-[var(--solid-radius-tile)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]',
+    'block aspect-[3/4] overflow-hidden rounded-[var(--solid-radius-tile)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]',
     interactive && SOLID_INTERACTIVE,
     className,
   );
@@ -264,7 +258,7 @@ export function SolidPanel({
   return (
     <Component
       className={cn(
-        'rounded-[var(--solid-radius)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[3px_4px_0_var(--solid-ink)]',
+        'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]',
         className,
       )}
     >
@@ -319,7 +313,7 @@ export function SolidStatCard({
 
   return (
     <SolidPanel faceClassName="p-4">
-      <div className={cn('mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] border-[1.5px] border-[var(--solid-ink)]', toneClass)}>
+      <div className={cn('mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] border-2 border-[var(--solid-ink)]', toneClass)}>
         <Icon name={icon} size={22} />
       </div>
       <p className="text-xs font-bold text-[var(--color-muted)]">{label}</p>
@@ -392,18 +386,16 @@ export function SolidEmpty({
   description,
   action,
   className,
-  noShadow,
 }: {
   icon: string;
   title: string;
   description: string;
   action?: ReactNode;
   className?: string;
-  noShadow?: boolean;
 }) {
   return (
-    <SolidPanel className={cn(noShadow && '!shadow-none', className)} faceClassName="p-8 text-center">
-      <div className={cn("mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]", noShadow ? '' : 'shadow-[3px_4px_0_var(--solid-ink)]')}>
+    <SolidPanel className={className} faceClassName="p-8 text-center">
+      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
         <Icon name={icon} size={30} className="text-[var(--solid-ink)]" />
       </div>
       <h2 className="text-lg font-black text-[var(--solid-ink)]">{title}</h2>
