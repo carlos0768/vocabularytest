@@ -16,6 +16,7 @@ import {
   desktopThumbColor,
 } from '@/components/desktop/desktop-data';
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
@@ -94,14 +95,15 @@ export function DesktopProjectDetailView({
   const [hiddenCols, setHiddenCols] = useState<Set<'en' | 'ja'>>(new Set());
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [nowMs, setNowMs] = useState(0);
-  const [railCollapsed, setRailCollapsed] = useState(false);
-
-  useEffect(() => {
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
     try {
       const stored = localStorage.getItem('merken-rail-collapsed');
-      if (stored === 'true') setRailCollapsed(true);
-    } catch {}
-  }, []);
+      return stored === 'true';
+    } catch {
+      return false;
+    }
+  });
   const bg = desktopThumbColor(project.id);
 
   useEffect(() => {
@@ -393,7 +395,7 @@ export function DesktopProjectDetailView({
                     </td>
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     {hiddenCols.has('ja') ? null : (
-                      <td className="ja">{word.japanese}</td>
+                      <td className="ja"><TranslationDisplay word={word} compact /></td>
                     )}
                     <td style={{ textAlign: 'center' }}>
                       <DesktopVocabularyTypeBadge
@@ -553,7 +555,7 @@ function ReviewRail({
               <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="en">{item.word.english}</div>
-                  <div className="ja">{item.word.japanese}</div>
+                  <div className="ja"><TranslationDisplay word={item.word} compact /></div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span className="when">{formatPastLabel(item.lastWrongAt, nowMs)}</span>
@@ -566,7 +568,7 @@ function ReviewRail({
               <button key={item.word.id} type="button" className="ds-railrow" onClick={() => onPick(item.word.id)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="en">{item.word.english}</div>
-                  <div className="ja">{item.word.japanese}</div>
+                  <div className="ja"><TranslationDisplay word={item.word} compact /></div>
                 </div>
                 <div className="ds-mem">
                   <div className="bar">
@@ -689,7 +691,7 @@ function DesktopWordDetailModal({
                   <span key={tag} className="ds-tag accent">{desktopPosLabel([tag])}</span>
                 ))}
               </div>
-              <div className="word-ja">{word.japanese}</div>
+              <div className="word-ja"><TranslationDisplay word={word} /></div>
             </div>
           </div>
 

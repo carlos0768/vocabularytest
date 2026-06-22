@@ -11,6 +11,7 @@ import type {
   CollectionProject,
   RelatedWord,
   UsagePattern,
+  WordTranslation,
   WordOrderQuizCache,
 } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
@@ -18,6 +19,11 @@ import {
   normalizeLexiconDatasetSources,
   normalizeLexiconTranslation,
 } from '../lexicon';
+import {
+  normalizeCustomSections as normalizeCustomSectionsValue,
+  normalizeTranslationText,
+  normalizeWordTranslationPayload,
+} from '../word-translations';
 
 // ============ Default Values ============
 
@@ -130,6 +136,7 @@ export interface WordRow {
   japanese: string;
   vocabulary_type?: string | null;
   lexicon_entry_id?: string | null;
+  lexicon_sense_id?: string | null;
   distractors: string[];
   example_sentence?: string | null;
   example_sentence_ja?: string | null;
@@ -150,6 +157,21 @@ export interface WordRow {
   is_favorite?: boolean | null;
   custom_sections?: unknown | null;
   lexicon_entries?: LexiconEntryRow | LexiconEntryRow[] | null;
+  word_translations?: WordTranslationRow[] | null;
+}
+
+export interface WordTranslationRow {
+  id?: string | null;
+  word_id?: string | null;
+  lexicon_sense_id?: string | null;
+  translation_ja?: string | null;
+  normalized_translation_ja?: string | null;
+  source?: string | null;
+  meaning_rank?: number | null;
+  position?: number | null;
+  is_primary?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface LexiconEntryRow {
@@ -195,11 +217,70 @@ function resolveWordEnglish(row: WordRow): string {
 }
 
 function resolveWordJapanese(row: WordRow): string {
+  const primaryTranslation = resolveWordTranslations(row)[0]?.translationJa;
+  if (primaryTranslation) {
+    return primaryTranslation;
+  }
+
   const lexicon = resolveLexiconRow(row.lexicon_entries);
   return (
     normalizeLexiconTranslation(lexicon?.translation_ja) ??
     row.japanese
   );
+}
+
+function normalizeWordTranslationRows(value: unknown): WordTranslation[] {
+  if (!Array.isArray(value)) return [];
+  const translations: WordTranslation[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as WordTranslationRow;
+    const translationJa = normalizeTranslationText(row.translation_ja);
+    if (!translationJa) continue;
+    const normalizedTranslationJa = normalizeTranslationText(row.normalized_translation_ja) || translationJa;
+    const key = normalizedTranslationJa.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    translations.push({
+      id: row.id ?? undefined,
+      wordId: row.word_id ?? undefined,
+      lexiconSenseId: row.lexicon_sense_id ?? undefined,
+      translationJa,
+      normalizedTranslationJa,
+      source: row.source === 'scan' || row.source === 'ai' || row.source === 'user' ? row.source : undefined,
+      meaningRank: typeof row.meaning_rank === 'number' && row.meaning_rank > 0 ? row.meaning_rank : translations.length + 1,
+      position: typeof row.position === 'number' ? row.position : translations.length,
+      isPrimary: row.is_primary ?? false,
+      createdAt: row.created_at ?? undefined,
+      updatedAt: row.updated_at ?? undefined,
+    });
+  }
+
+  return translations
+    .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.position - b.position)
+    .map((translation, index) => ({
+      ...translation,
+      meaningRank: typeof translation.meaningRank === 'number' && translation.meaningRank > 0
+        ? translation.meaningRank
+        : index + 1,
+      position: index,
+      isPrimary: index === 0,
+    }));
+}
+
+function resolveWordTranslations(row: WordRow): WordTranslation[] {
+  const normalizedRows = normalizeWordTranslationRows(row.word_translations);
+  if (normalizedRows.length > 0) {
+    return normalizedRows;
+  }
+
+  const lexicon = resolveLexiconRow(row.lexicon_entries);
+  return normalizeWordTranslationPayload({
+    japanese: normalizeLexiconTranslation(lexicon?.translation_ja) ?? row.japanese,
+    lexiconSenseId: row.lexicon_sense_id,
+  }).translations;
 }
 
 function resolveWordCefrLevel(row: WordRow): string | undefined {
@@ -348,8 +429,10 @@ export function mapWordFromRow(row: WordRow): Word {
     projectId: row.project_id,
     english: resolveWordEnglish(row),
     japanese: resolveWordJapanese(row),
+    translations: resolveWordTranslations(row),
     vocabularyType: normalizeVocabularyType(row.vocabulary_type),
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
+    lexiconSenseId: row.lexicon_sense_id ?? undefined,
     cefrLevel: resolveWordCefrLevel(row),
     distractors: normalizeDistractors(row.distractors),
     exampleSentence: resolveWordExampleSentence(row),
@@ -374,20 +457,8 @@ export function mapWordFromRow(row: WordRow): Word {
 }
 
 function normalizeCustomSections(raw: unknown): CustomSection[] | undefined {
-  if (!raw) return undefined;
-  const arr = Array.isArray(raw) ? raw : typeof raw === 'string' ? JSON.parse(raw) : [];
-  if (!Array.isArray(arr)) return undefined;
-  return arr.filter(
-    (s: unknown): s is CustomSection => {
-      if (typeof s !== 'object' || s === null) return false;
-      const section = s as Record<string, unknown>;
-      return (
-        typeof section.id === 'string' &&
-        typeof section.title === 'string' &&
-        typeof section.content === 'string'
-      );
-    },
-  );
+  const sections = normalizeCustomSectionsValue(raw);
+  return sections.length > 0 ? sections : undefined;
 }
 
 export type WordInput = Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>;
@@ -398,6 +469,7 @@ export function mapWordToInsert(word: WordInput): {
   japanese: string;
   vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
+  lexicon_sense_id?: string;
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
@@ -413,6 +485,7 @@ export function mapWordToInsert(word: WordInput): {
   interval_days: number;
   repetition: number;
   is_favorite: boolean;
+  custom_sections?: CustomSection[];
 } {
   const defaultSR = getDefaultSpacedRepetitionFields();
   return {
@@ -421,6 +494,7 @@ export function mapWordToInsert(word: WordInput): {
     japanese: word.japanese,
     vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
+    lexicon_sense_id: word.lexiconSenseId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
@@ -436,6 +510,7 @@ export function mapWordToInsert(word: WordInput): {
     interval_days: defaultSR.intervalDays,
     repetition: defaultSR.repetition,
     is_favorite: false,
+    custom_sections: word.customSections,
   };
 }
 
@@ -446,6 +521,7 @@ export function mapWordToInsertWithId(word: Word): {
   japanese: string;
   vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
+  lexicon_sense_id?: string;
   distractors: string[];
   example_sentence?: string;
   example_sentence_ja?: string;
@@ -464,6 +540,7 @@ export function mapWordToInsertWithId(word: Word): {
   interval_days: number;
   repetition: number;
   is_favorite: boolean;
+  custom_sections?: CustomSection[];
 } {
   return {
     id: word.id,
@@ -472,6 +549,7 @@ export function mapWordToInsertWithId(word: Word): {
     japanese: word.japanese,
     vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
+    lexicon_sense_id: word.lexiconSenseId,
     distractors: word.distractors,
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
@@ -490,6 +568,7 @@ export function mapWordToInsertWithId(word: Word): {
     interval_days: word.intervalDays,
     repetition: word.repetition,
     is_favorite: word.isFavorite,
+    custom_sections: word.customSections,
   };
 }
 
@@ -500,6 +579,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
   if (updates.vocabularyType !== undefined) updateData.vocabulary_type = updates.vocabularyType;
   if (updates.lexiconEntryId !== undefined) updateData.lexicon_entry_id = updates.lexiconEntryId;
+  if (updates.lexiconSenseId !== undefined) updateData.lexicon_sense_id = updates.lexiconSenseId;
   if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
   if (updates.status !== undefined) updateData.status = updates.status;
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;

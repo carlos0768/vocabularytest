@@ -46,6 +46,30 @@ export interface LexiconSense {
   updatedAt: string;
 }
 
+export type WordTranslationSource = 'scan' | 'ai' | 'user';
+
+export interface WordTranslation {
+  id?: string;
+  wordId?: string;
+  lexiconSenseId?: string;
+  translationJa: string;
+  normalizedTranslationJa: string;
+  source?: WordTranslationSource;
+  meaningRank: number;
+  position: number;
+  isPrimary: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AIJapaneseTranslation {
+  japanese: string;
+  source?: Extract<WordTranslationSource, 'scan' | 'ai'>;
+  annotationRanges?: string[];
+  lexiconSenseId?: string;
+  meaningRank?: number;
+}
+
 export interface LexiconEntry {
   id: string;
   headword: string;
@@ -124,6 +148,7 @@ export interface Word {
   projectId: string;
   english: string;
   japanese: string;
+  translations?: WordTranslation[];
   vocabularyType?: VocabularyType | null;
   japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
@@ -197,6 +222,8 @@ export interface CollectionProject {
 export interface AIWordExtraction {
   english: string;
   japanese: string;
+  rawJapanese?: string;
+  translations?: WordTranslation[];
   japaneseSource?: 'scan' | 'ai';
   sourceModes?: Array<'all' | 'circled' | 'eiken' | 'idiom'>;
   lexiconEntryId?: string;
@@ -207,6 +234,7 @@ export interface AIWordExtraction {
   pronunciation?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
+  customSections?: CustomSection[];
 }
 
 export interface AIResponse {

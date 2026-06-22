@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
+import { normalizeWordTranslationPayload } from '../../../shared/word-translations';
+import type { ValidatedAIResponse } from './ai-response';
 
 // Schema for highlighted word extraction with enhanced detection features
 // Based on research findings for Gemini 2.5 Flash capabilities
@@ -33,9 +35,27 @@ export const HighlightedWordSchema = z.object({
   // Core word data
   english: z.string(),
   japanese: z.string(),
+  rawJapanese: z.string().optional(),
+  translations: z.array(z.union([
+    z.string(),
+    z.object({
+      japanese: z.string().optional(),
+      translationJa: z.string().optional(),
+      translation_ja: z.string().optional(),
+      source: z.string().optional(),
+      japaneseSource: z.string().optional(),
+      annotationRanges: z.array(z.string()).optional(),
+      annotation_ranges: z.array(z.string()).optional(),
+      lexiconSenseId: z.string().optional(),
+      lexicon_sense_id: z.string().optional(),
+      meaningRank: z.number().int().min(1).optional(),
+      meaning_rank: z.number().int().min(1).optional(),
+    }).passthrough(),
+  ])).optional(),
   japaneseSource: z.string().optional(),
   distractors: z.array(z.string()).default([]),
   partOfSpeechTags: z.array(z.string()).default([]),
+  customSections: z.unknown().optional(),
 
   // Example sentences (Pro feature)
   exampleSentence: z.string().optional().nullable(),
@@ -106,34 +126,35 @@ export function filterByConfidence(
 
 // Convert highlighted response to standard AI response format
 // This ensures compatibility with existing app infrastructure
-export function convertToStandardFormat(highlighted: HighlightedResponse): {
-  words: Array<{
-    english: string;
-    japanese: string;
-    japaneseSource?: 'scan' | 'ai';
-    distractors: string[];
-    partOfSpeechTags: string[];
-    exampleSentence: string | undefined;
-    exampleSentenceJa: string | undefined;
-  }>;
-  sourceLabels: string[];
-} {
+export function convertToStandardFormat(highlighted: HighlightedResponse): ValidatedAIResponse {
   return {
-    words: highlighted.words.map((word) => ({
-      english: word.english || '---',
-      japanese: word.japanese ?? '',
-      distractors: [
-        word.distractors[0] || '選択肢1',
-        word.distractors[1] || '選択肢2',
-        word.distractors[2] || '選択肢3',
-      ],
-      partOfSpeechTags: word.partOfSpeechTags ?? [],
-      exampleSentence: word.exampleSentence ?? undefined,
-      exampleSentenceJa: word.exampleSentenceJa ?? undefined,
-      ...(word.japaneseSource === 'scan' || word.japaneseSource === 'ai'
-        ? { japaneseSource: word.japaneseSource }
-        : {}),
-    })),
+    words: highlighted.words.map((word) => {
+      const translationPayload = normalizeWordTranslationPayload({
+        translations: word.translations,
+        japanese: word.japanese,
+        rawJapanese: word.rawJapanese,
+        japaneseSource: word.japaneseSource,
+        customSections: word.customSections,
+      });
+      return {
+        english: word.english || '---',
+        japanese: translationPayload.japanese,
+        distractors: [
+          word.distractors[0] || '選択肢1',
+          word.distractors[1] || '選択肢2',
+          word.distractors[2] || '選択肢3',
+        ],
+        partOfSpeechTags: word.partOfSpeechTags ?? [],
+        exampleSentence: word.exampleSentence ?? undefined,
+        exampleSentenceJa: word.exampleSentenceJa ?? undefined,
+        rawJapanese: word.rawJapanese,
+        ...(translationPayload.translations.length > 0 ? { translations: translationPayload.translations } : {}),
+        ...(translationPayload.customSections ? { customSections: translationPayload.customSections } : {}),
+        ...(translationPayload.japanese && translationPayload.japaneseSource
+          ? { japaneseSource: translationPayload.japaneseSource }
+          : {}),
+      };
+    }),
     sourceLabels: normalizeSourceLabels(highlighted.sourceLabels),
   };
 }

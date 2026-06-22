@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
 import {
   addHomeImmediateScanResult,
@@ -696,7 +697,7 @@ function DesktopScanConfirmRow({
       </td>
       <td className="en">{word.english || `単語 ${index + 1}`}</td>
       <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
-      <td className="ja">{word.japanese || '-'}</td>
+      <td className="ja">{word.japanese ? <TranslationDisplay word={word} compact /> : '-'}</td>
       <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
       <td onClick={(event) => event.stopPropagation()}>
         <div style={{ display: 'flex', gap: 4 }}>

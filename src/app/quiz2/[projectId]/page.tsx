@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -436,7 +437,9 @@ export default function Quiz2Page() {
             {showAnswer && (
               <div className="mt-6 pt-5 border-t border-[var(--color-border-light)]">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)] mb-2">答え</p>
-                <p className="text-2xl font-bold text-[var(--color-primary)]">{currentWord?.japanese}</p>
+                <p className="text-2xl font-bold text-[var(--color-primary)]">
+                  {currentWord && <TranslationDisplay word={currentWord} />}
+                </p>
               </div>
             )}
           </section>

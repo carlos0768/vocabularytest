@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useToast } from '@/components/ui/toast';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
@@ -146,7 +147,9 @@ function WordRow({ word, onCycleStatus, onCycleVocabularyType, onToggleFavorite 
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
               {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-              <span className="truncate">{word.japanese}</span>
+              <span className="truncate">
+                <TranslationDisplay word={word} compact />
+              </span>
             </div>
           </Link>
           <VocabularyTypeButton vocabularyType={word.vocabularyType} onClick={onCycleVocabularyType} className="shrink-0" />
