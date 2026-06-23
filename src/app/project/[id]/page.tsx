@@ -1724,7 +1724,7 @@ function StatusSquares({
       aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済み'}`}
       className="shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]"
     >
-      <div className="flex flex-col gap-[0.5px]">
+      <div className="flex flex-col gap-[1.5px]">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
