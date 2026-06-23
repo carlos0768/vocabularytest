@@ -118,9 +118,9 @@ function StatusSquares({ wordId, status, onStatusChange }: {
   return (
     <button type="button" onClick={handleClick}
       aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済み'}`}
-      className="shrink-0 rounded p-0.5 transition-colors active:bg-[rgba(26,26,26,0.06)]"
+      className="shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]"
     >
-      <div className="flex flex-col gap-[2px]">
+      <div className="flex flex-col gap-[0.5px]">
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-[13px] w-[13px] rounded-[2.5px] border-2 border-[var(--solid-ink)]"
             style={{ background: i < filledCount ? 'var(--solid-ink)' : 'transparent' }} />
