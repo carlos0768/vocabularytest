@@ -26,6 +26,7 @@ import {
   type CollectionProjectRow,
 } from '../../../shared/db';
 import {
+  RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS,
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
   RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS,
@@ -34,6 +35,7 @@ import {
   RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
   SHARE_VIEW_WORD_SELECT_COLUMNS,
   SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION,
   SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY,
   SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE,
   SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
@@ -46,6 +48,7 @@ import {
 export const WORDS_SELECT_COLUMNS = RESOLVED_WORD_SELECT_COLUMNS;
 const WORDS_SELECT_COLUMNS_WITHOUT_SENSES = RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES;
 const WORDS_SELECT_COLUMNS_BASIC = RESOLVED_WORD_SELECT_COLUMNS_BASIC;
+const WORDS_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION = RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS;
 const WORDS_SELECT_COLUMNS_DISPLAY = RESOLVED_WORD_DISPLAY_SELECT_COLUMNS;
 const WORDS_SELECT_COLUMNS_EXAMPLE = RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS;
 const WORDS_SELECT_COLUMNS_MINIMAL = RESOLVED_WORD_MINIMAL_SELECT_COLUMNS;
@@ -112,6 +115,7 @@ export class RemoteWordRepository implements WordRepository {
       primary: string;
       withoutSenses: string;
       basic: string;
+      displayWithPronunciation: string;
       display: string;
       example: string;
       minimal: string;
@@ -141,9 +145,18 @@ export class RemoteWordRepository implements WordRepository {
       return basic;
     }
 
-    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with display word columns`, {
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with display word columns including pronunciation`, {
       code: basic.error?.code,
       message: basic.error?.message,
+    });
+    const displayWithPronunciation = await buildQuery(columns.displayWithPronunciation);
+    if (!shouldRetryWordSelectWithoutRelations(displayWithPronunciation.error)) {
+      return displayWithPronunciation;
+    }
+
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with display word columns`, {
+      code: displayWithPronunciation.error?.code,
+      message: displayWithPronunciation.error?.message,
     });
     const display = await buildQuery(columns.display);
     if (!shouldRetryWordSelectWithoutRelations(display.error)) {
@@ -174,6 +187,7 @@ export class RemoteWordRepository implements WordRepository {
       primary: WORDS_SELECT_COLUMNS,
       withoutSenses: WORDS_SELECT_COLUMNS_WITHOUT_SENSES,
       basic: WORDS_SELECT_COLUMNS_BASIC,
+      displayWithPronunciation: WORDS_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION,
       display: WORDS_SELECT_COLUMNS_DISPLAY,
       example: WORDS_SELECT_COLUMNS_EXAMPLE,
       minimal: WORDS_SELECT_COLUMNS_MINIMAL,
@@ -189,6 +203,7 @@ export class RemoteWordRepository implements WordRepository {
       primary: SHARE_VIEW_WORD_SELECT_COLUMNS,
       withoutSenses: SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
       basic: SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+      displayWithPronunciation: SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION,
       display: SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY,
       example: SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE,
       minimal: SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,

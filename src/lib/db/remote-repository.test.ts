@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { WORDS_SELECT_COLUMNS } from './remote-repository';
 import {
+  RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS,
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
   RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS,
   RESOLVED_WORD_MINIMAL_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_BASIC,
   SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION,
   SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY,
   SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE,
   SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
@@ -69,6 +71,7 @@ test('word read methods query through compatibility fallback helpers', () => {
   assert.match(source, /primary: WORDS_SELECT_COLUMNS/);
   assert.match(source, /withoutSenses: WORDS_SELECT_COLUMNS_WITHOUT_SENSES/);
   assert.match(source, /basic: WORDS_SELECT_COLUMNS_BASIC/);
+  assert.match(source, /displayWithPronunciation: WORDS_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION/);
   assert.match(source, /display: WORDS_SELECT_COLUMNS_DISPLAY/);
   assert.match(source, /example: WORDS_SELECT_COLUMNS_EXAMPLE/);
   assert.match(source, /minimal: WORDS_SELECT_COLUMNS_MINIMAL/);
@@ -97,6 +100,8 @@ test('basic word compatibility selects avoid all relation embeds', () => {
   for (const columns of [
     RESOLVED_WORD_SELECT_COLUMNS_BASIC,
     SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+    RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS,
+    SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION,
     RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
     SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY,
     RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS,
@@ -115,10 +120,22 @@ test('basic word compatibility selects avoid all relation embeds', () => {
 });
 
 test('display word compatibility selects keep examples and part of speech before minimal fallback', () => {
+  assert.equal(
+    RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS,
+    SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION,
+  );
+  assert.equal(RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS.includes('example_sentence'), true);
+  assert.equal(RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS.includes('example_sentence_ja'), true);
+  assert.equal(RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS.includes('part_of_speech_tags'), true);
+  assert.equal(RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS.includes('pronunciation'), true);
+  assert.equal(RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS.includes('custom_sections'), false);
+  assert.equal(RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS.includes('lexicon_sense_id'), false);
+
   assert.equal(RESOLVED_WORD_DISPLAY_SELECT_COLUMNS, SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY);
   assert.equal(RESOLVED_WORD_DISPLAY_SELECT_COLUMNS.includes('example_sentence'), true);
   assert.equal(RESOLVED_WORD_DISPLAY_SELECT_COLUMNS.includes('example_sentence_ja'), true);
   assert.equal(RESOLVED_WORD_DISPLAY_SELECT_COLUMNS.includes('part_of_speech_tags'), true);
+  assert.equal(RESOLVED_WORD_DISPLAY_SELECT_COLUMNS.includes('pronunciation'), false);
   assert.equal(RESOLVED_WORD_DISPLAY_SELECT_COLUMNS.includes('custom_sections'), false);
   assert.equal(RESOLVED_WORD_DISPLAY_SELECT_COLUMNS.includes('lexicon_sense_id'), false);
 
@@ -134,6 +151,7 @@ test('shared preview fetches only a limited page with an exact count through fal
   assert.match(source, /primary: SHARE_VIEW_WORD_SELECT_COLUMNS/);
   assert.match(source, /withoutSenses: SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES/);
   assert.match(source, /basic: SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC/);
+  assert.match(source, /displayWithPronunciation: SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION/);
   assert.match(source, /display: SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY/);
   assert.match(source, /example: SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE/);
   assert.match(source, /minimal: SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL/);
