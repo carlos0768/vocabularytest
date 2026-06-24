@@ -18,6 +18,9 @@ export const RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS =
 export const SHARE_VIEW_WORD_BASE_SELECT_COLUMNS =
   'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, created_at' as const;
 
+export const RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS =
+  'id, project_id, english, japanese, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite' as const;
+
 export const RESOLVED_WORD_DISPLAY_SELECT_COLUMNS =
   'id, project_id, english, japanese, distractors, example_sentence, example_sentence_ja, part_of_speech_tags, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite' as const;
 
@@ -56,6 +59,9 @@ export const SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES =
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC =
   SHARE_VIEW_WORD_BASE_SELECT_COLUMNS;
+
+export const SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION =
+  RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS;
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY =
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS;
