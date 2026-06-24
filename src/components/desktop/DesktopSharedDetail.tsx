@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
-import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
+import { desktopPosLabel, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { formatJapaneseForDisplay } from '@/lib/words/display';
@@ -183,7 +183,7 @@ export function DesktopSharedDetailView({
                       {locked && <Icon name="lock" style={{ marginLeft: 6, fontSize: 14, color: 'var(--color-muted)' }} />}
                     </td>
                     <td style={{ textAlign: 'center' }}><span style={textStyle}><ApBadge value={word.vocabularyType} /></span></td>
-                    <td className="pos"><span style={textStyle}>{desktopPosShort(word.partOfSpeechTags)}</span></td>
+                    <td className="pos"><span style={textStyle}>{desktopPosLabel(word.partOfSpeechTags)}</span></td>
                     <td className="ja"><span style={textStyle}><TranslationDisplay word={word} compact /></span></td>
                     <td className="cefr"><span className="cefr-pill" style={textStyle}>{word.cefrLevel || '-'}</span></td>
                   </tr>

@@ -2,6 +2,8 @@ import type { Project, Word } from '@/types';
 
 export type SharedProjectAccessRole = 'owner' | 'editor' | 'viewer';
 export type StudyGroupMembershipRole = 'owner' | 'member';
+export type StudyGroupVisibility = 'private' | 'public';
+export type SharedDiscoverCategory = 'all' | 'users' | 'projects' | 'groups';
 
 export type SharedProjectCard = {
   project: Project;
@@ -48,6 +50,7 @@ export type StudyGroupSummary = {
   name: string;
   inviteCode: string;
   role: StudyGroupMembershipRole;
+  visibility: StudyGroupVisibility;
   memberCount: number;
   projectCount: number;
   createdAt: string;
@@ -62,4 +65,31 @@ export type StudyGroupsPayload = {
 export type StudyGroupProjectListPayload = {
   group: StudyGroupSummary;
   projects: SharedProjectCard[];
+};
+
+export type SharedUserSummary = {
+  userId: string;
+  username: string | null;
+  projectCount: number;
+  wordCount: number;
+  likeCount: number;
+  latestProjectTitle: string | null;
+};
+
+export type PublicStudyGroupSummary = {
+  id: string;
+  name: string;
+  visibility: 'public';
+  memberCount: number;
+  projectCount: number;
+  createdAt: string;
+  ownerUsername?: string | null;
+};
+
+export type SharedDiscoverPayload = {
+  category: SharedDiscoverCategory;
+  users: SharedUserSummary[];
+  projects: SharedProjectCard[];
+  groups: PublicStudyGroupSummary[];
+  nextCursor: string | null;
 };

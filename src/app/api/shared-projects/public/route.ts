@@ -12,11 +12,13 @@ export async function handleSharedProjectsPublicGet(
   const fetchPublicProjects = deps.listPublicSharedProjects ?? listPublicSharedProjects;
   const limit = Number(request.nextUrl.searchParams.get('limit') ?? '');
   const cursor = request.nextUrl.searchParams.get('cursor');
+  const query = request.nextUrl.searchParams.get('q');
 
   try {
     const payload = await fetchPublicProjects({
       limit: Number.isFinite(limit) ? limit : undefined,
       cursor,
+      query,
     });
 
     return NextResponse.json(payload, {

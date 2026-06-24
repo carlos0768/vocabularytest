@@ -1,8 +1,10 @@
 'use client';
 
+import { useRef } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import type { ProjectShareScope } from '@/types';
+import { parseSharedTagsInput } from '../../../shared/shared-tags';
 
 function buildShareUrl(shareId: string): string {
   const path = `/share/${encodeURIComponent(shareId)}`;
@@ -18,7 +20,10 @@ type ProjectShareSheetProps = {
   shareScope: ProjectShareScope;
   preparing: boolean;
   updatingScope: boolean;
+  sharedTags?: string[];
+  updatingTags?: boolean;
   onSelectScope: (scope: ProjectShareScope) => Promise<void>;
+  onSaveSharedTags?: (tags: string[]) => Promise<void>;
   onCopyShareLink: (shareUrl: string) => void | Promise<void>;
   onShareLink: (shareUrl: string) => void | Promise<void>;
   shareLinkCopied: boolean;
@@ -37,7 +42,10 @@ export function ProjectShareSheet({
   shareScope,
   preparing,
   updatingScope,
+  sharedTags = [],
+  updatingTags = false,
   onSelectScope,
+  onSaveSharedTags,
   onCopyShareLink,
   onShareLink,
   shareLinkCopied,
@@ -47,6 +55,9 @@ export function ProjectShareSheet({
   groupSharingUpdatingId = null,
   onToggleGroupShare,
 }: ProjectShareSheetProps) {
+  const sharedTagsValue = sharedTags.join(', ');
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
   if (!open) return null;
 
   const shareUrl = shareId ? buildShareUrl(shareId) : '';
@@ -232,6 +243,31 @@ export function ProjectShareSheet({
                 {groupsError}
               </div>
             )}
+          </div>
+
+          <div className="mb-3">
+            <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              <Icon name="sell" size={11} />
+              タグ
+            </div>
+            <div className="flex gap-2">
+              <input
+                key={sharedTagsValue}
+                ref={tagInputRef}
+                defaultValue={sharedTagsValue}
+                placeholder="例: TOEIC, 熟語, 高校英語"
+                className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] outline-none"
+              />
+              <button
+                type="button"
+                disabled={preparing || updatingTags || !onSaveSharedTags}
+                onClick={() => void onSaveSharedTags?.(parseSharedTagsInput(tagInputRef.current?.value ?? sharedTagsValue))}
+                className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+              >
+                <Icon name={updatingTags ? 'progress_activity' : 'check'} size={14} className={updatingTags ? 'animate-spin' : undefined} />
+                保存
+              </button>
+            </div>
           </div>
 
           <div className="mb-3 rounded-[10px] border border-dashed border-[var(--solid-ink)] bg-[rgba(26,26,26,0.04)] p-[11px]">

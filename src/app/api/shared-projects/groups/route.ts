@@ -9,6 +9,7 @@ import {
 
 const createStudyGroupSchema = z.object({
   name: z.string().trim().min(1).max(40),
+  visibility: z.enum(['private', 'public']).optional(),
 }).strict();
 
 type StudyGroupsGetDeps = {
@@ -61,7 +62,7 @@ export async function handleStudyGroupsPost(
     });
     if (!parsed.ok) return parsed.response;
 
-    const group = await createGroup(auth.user.id, parsed.data.name);
+    const group = await createGroup(auth.user.id, parsed.data.name, parsed.data.visibility ?? 'private');
     return NextResponse.json({ success: true, group }, { status: 201 });
   } catch (error) {
     console.error('study-groups create error:', error);
