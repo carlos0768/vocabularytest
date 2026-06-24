@@ -1,4 +1,5 @@
 import type { Project, Word } from '@/types';
+import { summarizeWordMemory } from '@/lib/words/memory';
 
 export interface HomeWordStatusCounts {
   masteredTotal: number;
@@ -14,22 +15,23 @@ export interface HomeProjectSections {
 
 const HOME_PROJECT_LIMIT = 8;
 
-export function countHomeWordStatuses(words: readonly Pick<Word, 'status'>[]): HomeWordStatusCounts {
-  let masteredTotal = 0;
-  let learningTotal = 0;
-  let unlearnedTotal = 0;
+export function countHomeWordStatuses(words: readonly Partial<Word>[]): HomeWordStatusCounts {
+  const summary = summarizeWordMemory(words.map((word, index) => ({
+    english: 'english' in word && typeof word.english === 'string' ? word.english : `word-${index}`,
+    japanese: 'japanese' in word && typeof word.japanese === 'string' ? word.japanese : `word-${index}`,
+    projectId: 'projectId' in word && typeof word.projectId === 'string' ? word.projectId : undefined,
+    status: word.status,
+    lexiconEntryId: 'lexiconEntryId' in word && typeof word.lexiconEntryId === 'string' ? word.lexiconEntryId : undefined,
+    lexiconSenseId: 'lexiconSenseId' in word && typeof word.lexiconSenseId === 'string' ? word.lexiconSenseId : undefined,
+    lexiconDistinctKey: 'lexiconDistinctKey' in word && typeof word.lexiconDistinctKey === 'string' ? word.lexiconDistinctKey : undefined,
+    lexiconSenseIsPrimary: 'lexiconSenseIsPrimary' in word && typeof word.lexiconSenseIsPrimary === 'boolean' ? word.lexiconSenseIsPrimary : undefined,
+  })));
 
-  for (const word of words) {
-    if (word.status === 'mastered') {
-      masteredTotal++;
-    } else if (word.status === 'review') {
-      learningTotal++;
-    } else {
-      unlearnedTotal++;
-    }
-  }
-
-  return { masteredTotal, learningTotal, unlearnedTotal };
+  return {
+    masteredTotal: summary.mastered,
+    learningTotal: summary.learning,
+    unlearnedTotal: summary.unlearned,
+  };
 }
 
 export function calculateHomeCompletionPercent(masteredTotal: number, totalWords: number): number {

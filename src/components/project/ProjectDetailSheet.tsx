@@ -16,6 +16,7 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
+import { groupWordsByMemory, summarizeWordMemory, type WordMemoryGroup } from '@/lib/words/memory';
 import type { Project, SubscriptionStatus, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -130,19 +131,21 @@ function StatusSquares({ wordId, status, onStatusChange }: {
   );
 }
 
-function WordRow({ word, onCycleStatus, onCycleVocabularyType, onToggleFavorite }: {
+function WordRow({ word, memoryGroup, onCycleStatus, onCycleVocabularyType, onToggleFavorite }: {
   word: Word;
+  memoryGroup?: WordMemoryGroup<Word>;
   onCycleStatus: (s: WordStatus) => void;
   onCycleVocabularyType: () => void;
   onToggleFavorite: () => void;
 }) {
   const pos = word.partOfSpeechTags?.[0] ?? null;
+  const displayStatus = memoryGroup?.status ?? word.status;
   return (
     <div className="relative">
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
       <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white px-[13px] py-2">
         <div className="flex items-center gap-2.5">
-          <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
+          <StatusSquares wordId={word.id} status={displayStatus} onStatusChange={onCycleStatus} />
           <Link href={`/word/${word.id}?from=${encodeURIComponent('/projects')}`} className="min-w-0 flex-1">
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
@@ -150,6 +153,11 @@ function WordRow({ word, onCycleStatus, onCycleVocabularyType, onToggleFavorite 
               <span className="truncate">
                 <TranslationDisplay word={word} compact />
               </span>
+              {memoryGroup?.isDistinctGroup && (
+                <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums">
+                  {memoryGroup.memoryRate}%
+                </span>
+              )}
             </div>
           </Link>
           <VocabularyTypeButton vocabularyType={word.vocabularyType} onClick={onCycleVocabularyType} className="shrink-0" />
@@ -247,12 +255,15 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
   useEffect(() => { void loadProject(); }, [loadProject]);
   useEffect(() => { if (project?.id) markProjectVisited(project.id); }, [project?.id]);
 
-  const counts = useMemo(() => ({
-    total: words.length,
-    mastered: words.filter((w) => w.status === 'mastered').length,
-    learning: words.filter((w) => w.status === 'review').length,
-    newCount: words.filter((w) => w.status === 'new').length,
-  }), [words]);
+  const counts = useMemo(() => {
+    const summary = summarizeWordMemory(words);
+    return {
+      total: summary.total,
+      mastered: summary.mastered,
+      learning: summary.learning,
+      newCount: summary.unlearned,
+    };
+  }, [words]);
 
   const wordFilterActive = wordFilterBookmark || wordFilterActiveness !== 'all' || wordFilterPos !== null;
 
@@ -277,6 +288,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
     }
     return base;
   }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
+  const filteredWordGroups = useMemo(() => groupWordsByMemory(filteredWords), [filteredWords]);
 
   const handleCycleStatus = (wordId: string, newStatus: WordStatus) => {
     const word = words.find((w) => w.id === wordId);
@@ -426,7 +438,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
             <div className="flex items-center gap-1.5">
               {(wordFilterActive || query) && (
                 <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
-                  {filteredWords.length}/{counts.total}
+                  {filteredWordGroups.length}/{counts.total}
                 </span>
               )}
               <button type="button" onClick={() => setWordShowFilterSheet(true)} aria-label="フィルタ"
@@ -447,20 +459,24 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
                 <Icon name="progress_activity" size={20} className="animate-spin" />
                 <span className="ml-2 text-sm">単語を読み込み中...</span>
               </div>
-            ) : filteredWords.length === 0 ? (
+            ) : filteredWordGroups.length === 0 ? (
               <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
                 {query ? '一致する単語がありません' : '単語がありません'}
               </div>
             ) : (
-              filteredWords.map((word) => (
+              filteredWordGroups.map((group) => {
+                const word = group.representative;
+                return (
                 <WordRow
-                  key={word.id}
+                  key={group.key}
                   word={word}
-                  onCycleStatus={(s) => handleCycleStatus(word.id, s)}
+                  memoryGroup={group}
+                  onCycleStatus={(s) => group.words.forEach((item) => handleCycleStatus(item.id, s))}
                   onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
                   onToggleFavorite={() => void handleToggleFavorite(word)}
                 />
-              ))
+                );
+              })
             )}
           </div>
         </div>

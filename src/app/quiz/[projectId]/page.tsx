@@ -50,6 +50,7 @@ import {
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
+import { selectPrimaryMeaningWords } from '@/lib/words/memory';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
 import { formatJapaneseForDisplay } from '@/lib/words/display';
@@ -673,8 +674,9 @@ export default function QuizPage() {
     return generateQuizQuestions(words, count, direction, undefined, {
       allowPendingWordOrderFallback: true,
       preserveOrder: reminderMode,
+      primaryOnly: !isPro,
     });
-  }, [reminderMode]);
+  }, [isPro, reminderMode]);
 
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
@@ -894,6 +896,10 @@ export default function QuizPage() {
             try { loadedWords = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
           }
           sourceWords = loadedWords;
+        }
+
+        if (!isPro) {
+          sourceWords = selectPrimaryMeaningWords(sourceWords);
         }
 
         if (!reviewMode && !learnMode && !wrongMode && !favoritesMode && !reminderMode) {

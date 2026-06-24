@@ -188,7 +188,7 @@ export function TypeInQuizField({
   }
 
   let faceBg = 'var(--color-surface)';
-  let borderColor = 'var(--solid-ink)';
+  const borderColor = 'var(--solid-ink)';
   let shadowColor = 'var(--solid-ink)';
 
   if (result === 'correct') {

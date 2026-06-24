@@ -27,6 +27,7 @@ import {
   calculateHomeCompletionPercent,
   countHomeWordStatuses,
 } from '@/lib/home/home-page-selectors';
+import { summarizeWordMemory } from '@/lib/words/memory';
 import {
   clearHomeGeneratingWordbook,
   consumeHomeGeneratingWordbook,
@@ -188,10 +189,11 @@ async function getProjectsWithWords(
   return {
     projectsWithStats: buildProjectStats(projects, wordsByProject).map((project) => {
       const words = wordsByProject[project.id] ?? [];
+      const memorySummary = summarizeWordMemory(words);
       return {
         ...project,
-        reviewWords: words.filter((word) => word.status === 'review').length,
-        newWords: words.filter((word) => word.status === 'new').length,
+        reviewWords: memorySummary.learning,
+        newWords: memorySummary.unlearned,
       };
     }),
     allWords: Object.values(wordsByProject).flat(),
@@ -202,11 +204,12 @@ function buildHomeStats(allWords: Word[]): HomeStats {
   const daily = getDailyStats();
   const dueWords = getWordsDueForReview(allWords);
   const statusCounts = countHomeWordStatuses(allWords);
+  const memorySummary = summarizeWordMemory(allWords);
   return {
     dueCount: dueWords.length,
     completedToday: daily.todayCount,
     streakDays: getStreakDays(),
-    totalWords: allWords.length,
+    totalWords: memorySummary.total,
     mastered: statusCounts.masteredTotal,
     review: statusCounts.learningTotal,
     newW: statusCounts.unlearnedTotal,

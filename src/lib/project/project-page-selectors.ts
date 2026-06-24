@@ -1,4 +1,5 @@
 import type { VocabularyType, WordStatus } from '@/types';
+import { summarizeWordMemory } from '@/lib/words/memory';
 
 export type ProjectWordSortOrder = 'createdAsc' | 'alphabetical' | 'statusAsc';
 export type ProjectWordActivenessFilter = 'all' | 'active' | 'passive';
@@ -25,10 +26,15 @@ export interface ProjectPageWord {
   english: string;
   japanese: string;
   createdAt: string;
+  projectId?: string;
   status?: WordStatus;
   isFavorite?: boolean;
   vocabularyType?: VocabularyType | null;
   partOfSpeechTags?: string[];
+  lexiconEntryId?: string;
+  lexiconSenseId?: string;
+  lexiconDistinctKey?: string;
+  lexiconSenseIsPrimary?: boolean;
 }
 
 const STATUS_SORT_ORDER: Record<WordStatus, number> = {
@@ -47,26 +53,23 @@ const POS_LABELS: Record<string, string> = {
   phrasal_verb: '句',
 };
 
-export function countProjectWordStats(words: readonly Pick<ProjectPageWord, 'status'>[]): ProjectWordStats {
-  let mastered = 0;
-  let learning = 0;
-  let unlearned = 0;
-
-  for (const word of words) {
-    if (word.status === 'mastered') {
-      mastered++;
-    } else if (word.status === 'review') {
-      learning++;
-    } else {
-      unlearned++;
-    }
-  }
+export function countProjectWordStats(words: readonly Partial<ProjectPageWord>[]): ProjectWordStats {
+  const summary = summarizeWordMemory(words.map((word, index) => ({
+    english: 'english' in word && typeof word.english === 'string' ? word.english : `word-${index}`,
+    japanese: 'japanese' in word && typeof word.japanese === 'string' ? word.japanese : `word-${index}`,
+    projectId: 'projectId' in word && typeof word.projectId === 'string' ? word.projectId : undefined,
+    status: word.status,
+    lexiconEntryId: 'lexiconEntryId' in word && typeof word.lexiconEntryId === 'string' ? word.lexiconEntryId : undefined,
+    lexiconSenseId: 'lexiconSenseId' in word && typeof word.lexiconSenseId === 'string' ? word.lexiconSenseId : undefined,
+    lexiconDistinctKey: 'lexiconDistinctKey' in word && typeof word.lexiconDistinctKey === 'string' ? word.lexiconDistinctKey : undefined,
+    lexiconSenseIsPrimary: 'lexiconSenseIsPrimary' in word && typeof word.lexiconSenseIsPrimary === 'boolean' ? word.lexiconSenseIsPrimary : undefined,
+  })));
 
   return {
-    total: words.length,
-    mastered,
-    learning,
-    unlearned,
+    total: summary.total,
+    mastered: summary.mastered,
+    learning: summary.learning,
+    unlearned: summary.unlearned,
   };
 }
 

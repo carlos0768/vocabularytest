@@ -20,6 +20,7 @@ export interface ServerCloudProjectInsertPayload {
 export interface ServerCloudWordForInsert {
   english: string;
   japanese: string;
+  japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
   lexiconSenseId?: string;
   distractors: string[];
@@ -35,6 +36,7 @@ export interface ServerCloudWordInsertPayload {
   project_id: string;
   english: string;
   japanese: string;
+  japanese_source: 'scan' | 'ai' | null;
   lexicon_entry_id: string | null;
   lexicon_sense_id: string | null;
   distractors: string[];
@@ -79,6 +81,7 @@ export function buildServerCloudWordsInsertPayload(
     project_id: projectId,
     english: word.english,
     japanese: word.japanese,
+    japanese_source: word.japaneseSource ?? null,
     lexicon_entry_id: word.lexiconEntryId ?? null,
     lexicon_sense_id: word.lexiconSenseId ?? null,
     distractors: word.distractors,
@@ -116,6 +119,7 @@ export function stripSourceModesFromServerCloudWordsInsertPayload(
     project_id: word.project_id,
     english: word.english,
     japanese: word.japanese,
+    japanese_source: word.japanese_source,
     lexicon_entry_id: word.lexicon_entry_id,
     lexicon_sense_id: word.lexicon_sense_id,
     distractors: word.distractors,

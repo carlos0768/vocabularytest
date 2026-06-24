@@ -33,14 +33,13 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [scrollEnding, setScrollEnding] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  useEffect(() => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
-      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-      if (stored === 'true') setSidebarCollapsed(true);
-    } catch {}
-  }, []);
+      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => {
