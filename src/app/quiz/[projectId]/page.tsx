@@ -1206,13 +1206,23 @@ export default function QuizPage() {
       <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
         <div className="flex-1 overflow-y-auto">
           <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', padding: '40px 0 24px' }}>
-            {/* Score summary bar */}
-            <div className="ds-card" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, lineHeight: 1 }}>
-                {results.correct}<span style={{ fontSize: 16, color: 'var(--color-secondary-text)' }}>/{results.total}</span>
+            {/* Score card */}
+            <div className="ds-card" style={{ padding: '20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, lineHeight: 1 }}>
+                  {results.correct}<span style={{ fontSize: 16, color: 'var(--color-secondary-text)' }}>/{results.total}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="ds-prog"><div className="fi" style={{ width: `${percentage}%` }} /></div>
+                </div>
+                <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>{percentage}%</span>
               </div>
-              <div className="ds-prog" style={{ flex: 1 }}><div className="fi" style={{ width: `${percentage}%` }} /></div>
-              <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{percentage}%</span>
+              <p style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: 'var(--color-secondary-text)' }}>{getQuizCompletionMessage(percentage)}</p>
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <span className="ds-status mastered"><span className="ds-sdot c-mastered" />正解 {answerResults.filter(r => r === true).length}</span>
+                <span className="ds-status review"><span className="ds-sdot c-review" />不正解 {answerResults.filter(r => r === false).length}</span>
+                <span className="ds-status new"><span className="ds-sdot c-new" />スキップ {answerResults.filter(r => r === 'skip').length}</span>
+              </div>
             </div>
             {/* Desktop word results */}
             <div className="ds-card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
@@ -1256,16 +1266,30 @@ export default function QuizPage() {
       {/* Mobile completion */}
       <div className="fixed inset-0 z-30 flex flex-col overflow-y-auto bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
         <div className="mx-auto w-full max-w-sm px-5" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 24px))' }}>
-          {/* Score summary */}
-          <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3">
-            <div className="font-display text-[28px] font-black tabular-nums text-[var(--solid-ink)]">
-              {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
-            </div>
-            <div className="flex flex-1 flex-col gap-1">
-              <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
+          {/* Score card */}
+          <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className="font-display text-[32px] font-black tabular-nums text-[var(--solid-ink)]">
+                {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
               </div>
-              <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">正答率 {percentage}%</span>
+              <div className="flex flex-1 flex-col gap-1">
+                <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                  <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
+                </div>
+              </div>
+              <span className="font-display text-[20px] font-black tabular-nums text-[var(--solid-ink)]">{percentage}%</span>
+            </div>
+            <p className="mt-2.5 text-[13px] font-bold text-[var(--color-secondary-text)]">{getQuizCompletionMessage(percentage)}</p>
+            <div className="mt-3 flex gap-3">
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-success)]" />正解 {answerResults.filter(r => r === true).length}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-error)]" />不正解 {answerResults.filter(r => r === false).length}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-warning)]" />スキップ {answerResults.filter(r => r === 'skip').length}
+              </span>
             </div>
           </div>
           {/* Word results list */}
@@ -1300,17 +1324,8 @@ export default function QuizPage() {
           </div>
           {/* Action buttons */}
           <div className="mt-3 space-y-3">
-            {reviewMode || learnMode ? (
-              <>
-                <SolidButton variant="accent" onClick={goToNextReviewQuiz} iconRight="arrow_forward" className="w-full justify-center">次へ進む</SolidButton>
-                <SolidButton variant="accent" onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
-              </>
-            ) : (
-              <>
-                <SolidButton variant="accent" onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
-                <SolidButton onClick={backToProject} className="w-full justify-center">単語一覧に戻る</SolidButton>
-              </>
-            )}
+            <SolidButton variant="accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart} iconRight="arrow_forward" className="w-full justify-center">次へ</SolidButton>
+            <SolidButton onClick={backToProject} className="w-full justify-center">終了する</SolidButton>
           </div>
         </div>
       </div>
