@@ -179,10 +179,29 @@ test('word insert compatibility detects missing lexicon_sense_id schema errors',
   assert.equal(isMissingWordsSourceModesColumn(error), false);
 });
 
+test('word insert compatibility detects missing japanese_source schema errors', () => {
+  const error = {
+    code: 'PGRST204',
+    message: "Could not find the 'japanese_source' column of 'words' in the schema cache",
+  };
+
+  assert.equal(getMissingWordsCompatColumn(error), 'japanese_source');
+  assert.equal(isMissingWordsLexiconSenseIdColumn(error), false);
+  assert.equal(isMissingWordsSourceModesColumn(error), false);
+});
+
 test('getServerCloudWordsInsertSelectColumns can omit lexicon_sense_id', () => {
   assert.equal(getServerCloudWordsInsertSelectColumns().includes('lexicon_sense_id'), true);
   assert.equal(
     getServerCloudWordsInsertSelectColumns({ omitLexiconSenseId: true }).includes('lexicon_sense_id'),
+    false,
+  );
+});
+
+test('getServerCloudWordsInsertSelectColumns can omit japanese_source', () => {
+  assert.equal(getServerCloudWordsInsertSelectColumns().includes('japanese_source'), true);
+  assert.equal(
+    getServerCloudWordsInsertSelectColumns({ omitJapaneseSource: true }).includes('japanese_source'),
     false,
   );
 });
@@ -218,12 +237,13 @@ test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_mode
   ]);
 });
 
-test('stripServerCloudWordsInsertPayloadForCompat can omit source_modes and lexicon_sense_id', () => {
+test('stripServerCloudWordsInsertPayloadForCompat can omit compatibility columns', () => {
   const payload = buildServerCloudWordsInsertPayload(
     [
       {
         english: 'elaborate',
         japanese: '詳しく説明する',
+        japaneseSource: 'scan',
         lexiconSenseId: 'sense-1',
         distractors: ['短くする', '無視する', '隠す'],
         sourceModes: ['all'],
@@ -233,10 +253,12 @@ test('stripServerCloudWordsInsertPayloadForCompat can omit source_modes and lexi
   );
 
   const stripped = stripServerCloudWordsInsertPayloadForCompat(payload, {
+    omitJapaneseSource: true,
     omitSourceModes: true,
     omitLexiconSenseId: true,
   });
 
+  assert.equal('japanese_source' in stripped[0], false);
   assert.equal('source_modes' in stripped[0], false);
   assert.equal('lexicon_sense_id' in stripped[0], false);
   assert.equal(stripped[0]?.japanese, '詳しく説明する');

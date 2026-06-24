@@ -1247,18 +1247,23 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const dbInsertStart = Date.now();
       let insertedWords: InsertedServerCloudWord[] | null = null;
       let wordsError: unknown = null;
+      let omitJapaneseSource = false;
       let omitSourceModes = false;
       let omitLexiconSenseId = false;
 
-      for (let attempt = 0; attempt < 3; attempt += 1) {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
         const insertPayload =
-          omitSourceModes || omitLexiconSenseId
+          omitJapaneseSource || omitSourceModes || omitLexiconSenseId
             ? stripServerCloudWordsInsertPayloadForCompat(wordsToInsert, {
+                omitJapaneseSource,
                 omitSourceModes,
                 omitLexiconSenseId,
               })
             : wordsToInsert;
-        const selectColumns = getServerCloudWordsInsertSelectColumns({ omitLexiconSenseId });
+        const selectColumns = getServerCloudWordsInsertSelectColumns({
+          omitJapaneseSource,
+          omitLexiconSenseId,
+        });
         const result = await supabaseAdmin
           .from('words')
           .insert(insertPayload)
@@ -1269,6 +1274,14 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (!wordsError) break;
 
         const missingColumn = getMissingWordsCompatColumn(wordsError);
+        if (missingColumn === 'japanese_source' && !omitJapaneseSource) {
+          omitJapaneseSource = true;
+          console.warn('[scan-jobs/process] words.japanese_source compatibility fallback used', {
+            jobId,
+            message: result.error?.message,
+          });
+          continue;
+        }
         if (missingColumn === 'source_modes' && !omitSourceModes) {
           omitSourceModes = true;
           console.warn('[scan-jobs/process] words.source_modes compatibility fallback used', {

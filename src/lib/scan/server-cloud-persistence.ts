@@ -55,9 +55,10 @@ type MaybePostgrestColumnError = {
   hint?: unknown;
 };
 
-export type MissingWordsCompatColumn = 'source_modes' | 'lexicon_sense_id';
+export type MissingWordsCompatColumn = 'japanese_source' | 'source_modes' | 'lexicon_sense_id';
 
 export type ServerCloudWordsInsertCompatOptions = {
+  omitJapaneseSource?: boolean;
   omitSourceModes?: boolean;
   omitLexiconSenseId?: boolean;
 };
@@ -128,6 +129,14 @@ export function getMissingWordsCompatColumn(error: unknown): MissingWordsCompatC
 
   const message = `${candidate.message ?? ''} ${candidate.details ?? ''} ${candidate.hint ?? ''}`.toLowerCase();
   if (
+    message.includes('words.japanese_source')
+    || message.includes("'japanese_source' column of 'words'")
+    || message.includes('japanese_source')
+  ) {
+    return 'japanese_source';
+  }
+
+  if (
     message.includes('words.source_modes')
     || message.includes("'source_modes' column of 'words'")
     || message.includes('source_modes')
@@ -158,6 +167,7 @@ export function getServerCloudWordsInsertSelectColumns(
   options: ServerCloudWordsInsertCompatOptions = {},
 ): string {
   return SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS
+    .filter((column) => !(options.omitJapaneseSource && column === 'japanese_source'))
     .filter((column) => !(options.omitLexiconSenseId && column === 'lexicon_sense_id'))
     .join(', ');
 }
@@ -171,7 +181,6 @@ export function stripServerCloudWordsInsertPayloadForCompat(
       project_id: word.project_id,
       english: word.english,
       japanese: word.japanese,
-      japanese_source: word.japanese_source,
       lexicon_entry_id: word.lexicon_entry_id,
       distractors: word.distractors,
       example_sentence: word.example_sentence,
@@ -183,6 +192,9 @@ export function stripServerCloudWordsInsertPayloadForCompat(
 
     if (!options.omitLexiconSenseId) {
       row.lexicon_sense_id = word.lexicon_sense_id;
+    }
+    if (!options.omitJapaneseSource) {
+      row.japanese_source = word.japanese_source;
     }
     if (!options.omitSourceModes) {
       row.source_modes = word.source_modes;
