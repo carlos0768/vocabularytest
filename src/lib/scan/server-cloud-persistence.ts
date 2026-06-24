@@ -55,6 +55,28 @@ type MaybePostgrestColumnError = {
   hint?: unknown;
 };
 
+export type MissingWordsCompatColumn = 'source_modes' | 'lexicon_sense_id';
+
+export type ServerCloudWordsInsertCompatOptions = {
+  omitSourceModes?: boolean;
+  omitLexiconSenseId?: boolean;
+};
+
+const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
+  'id',
+  'english',
+  'japanese',
+  'japanese_source',
+  'lexicon_entry_id',
+  'lexicon_sense_id',
+  'distractors',
+  'example_sentence',
+  'example_sentence_ja',
+  'pronunciation',
+  'part_of_speech_tags',
+  'word_order_quiz',
+] as const;
+
 export function buildServerCloudProjectInsertPayload(
   params: ServerCloudProjectInsertParams,
 ): ServerCloudProjectInsertPayload {
@@ -94,41 +116,86 @@ export function buildServerCloudWordsInsertPayload(
   }));
 }
 
-export function isMissingWordsSourceModesColumn(error: unknown): boolean {
+export function getMissingWordsCompatColumn(error: unknown): MissingWordsCompatColumn | null {
   if (typeof error !== 'object' || error === null) {
-    return false;
+    return null;
   }
 
   const candidate = error as MaybePostgrestColumnError;
   if (candidate.code !== '42703' && candidate.code !== 'PGRST204') {
-    return false;
+    return null;
   }
 
   const message = `${candidate.message ?? ''} ${candidate.details ?? ''} ${candidate.hint ?? ''}`.toLowerCase();
-  return (
+  if (
     message.includes('words.source_modes')
     || message.includes("'source_modes' column of 'words'")
     || message.includes('source_modes')
-  );
+  ) {
+    return 'source_modes';
+  }
+
+  if (
+    message.includes('words.lexicon_sense_id')
+    || message.includes("'lexicon_sense_id' column of 'words'")
+    || message.includes('lexicon_sense_id')
+  ) {
+    return 'lexicon_sense_id';
+  }
+
+  return null;
+}
+
+export function isMissingWordsSourceModesColumn(error: unknown): boolean {
+  return getMissingWordsCompatColumn(error) === 'source_modes';
+}
+
+export function isMissingWordsLexiconSenseIdColumn(error: unknown): boolean {
+  return getMissingWordsCompatColumn(error) === 'lexicon_sense_id';
+}
+
+export function getServerCloudWordsInsertSelectColumns(
+  options: ServerCloudWordsInsertCompatOptions = {},
+): string {
+  return SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS
+    .filter((column) => !(options.omitLexiconSenseId && column === 'lexicon_sense_id'))
+    .join(', ');
+}
+
+export function stripServerCloudWordsInsertPayloadForCompat(
+  payload: ServerCloudWordInsertPayload[],
+  options: ServerCloudWordsInsertCompatOptions,
+): Record<string, unknown>[] {
+  return payload.map((word) => {
+    const row: Record<string, unknown> = {
+      project_id: word.project_id,
+      english: word.english,
+      japanese: word.japanese,
+      japanese_source: word.japanese_source,
+      lexicon_entry_id: word.lexicon_entry_id,
+      distractors: word.distractors,
+      example_sentence: word.example_sentence,
+      example_sentence_ja: word.example_sentence_ja,
+      pronunciation: word.pronunciation,
+      part_of_speech_tags: word.part_of_speech_tags,
+      custom_sections: word.custom_sections,
+    };
+
+    if (!options.omitLexiconSenseId) {
+      row.lexicon_sense_id = word.lexicon_sense_id;
+    }
+    if (!options.omitSourceModes) {
+      row.source_modes = word.source_modes;
+    }
+
+    return row;
+  });
 }
 
 export function stripSourceModesFromServerCloudWordsInsertPayload(
   payload: ServerCloudWordInsertPayload[],
 ): Omit<ServerCloudWordInsertPayload, 'source_modes'>[] {
-  return payload.map((word) => ({
-    project_id: word.project_id,
-    english: word.english,
-    japanese: word.japanese,
-    japanese_source: word.japanese_source,
-    lexicon_entry_id: word.lexicon_entry_id,
-    lexicon_sense_id: word.lexicon_sense_id,
-    distractors: word.distractors,
-    example_sentence: word.example_sentence,
-    example_sentence_ja: word.example_sentence_ja,
-    pronunciation: word.pronunciation,
-    part_of_speech_tags: word.part_of_speech_tags,
-    custom_sections: word.custom_sections,
-  }));
+  return stripServerCloudWordsInsertPayloadForCompat(payload, { omitSourceModes: true }) as Omit<ServerCloudWordInsertPayload, 'source_modes'>[];
 }
 
 export function shouldRollbackServerCloudProjectAfterWordsInsertFailure(params: {

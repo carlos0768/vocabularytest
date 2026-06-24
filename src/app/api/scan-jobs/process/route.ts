@@ -30,9 +30,10 @@ import {
   buildServerCloudMergedProjectSourceLabels,
   buildServerCloudProjectInsertPayload,
   buildServerCloudWordsInsertPayload,
-  isMissingWordsSourceModesColumn,
+  getMissingWordsCompatColumn,
+  getServerCloudWordsInsertSelectColumns,
   shouldRollbackServerCloudProjectAfterWordsInsertFailure,
-  stripSourceModesFromServerCloudWordsInsertPayload,
+  stripServerCloudWordsInsertPayloadForCompat,
 } from '@/lib/scan/server-cloud-persistence';
 import { buildServerCloudScanJobResultPayload } from '@/lib/scan/server-cloud-result-payload';
 import {
@@ -40,6 +41,7 @@ import {
   buildClientLocalExampleSeedWords,
   buildServerCloudExampleSeedWords,
   buildServerCloudExampleUpdatePayload,
+  type ServerCloudExampleCandidateWord,
 } from '@/lib/scan/example-generation';
 import {
   buildScanJobCompletedNotificationParams,
@@ -58,9 +60,13 @@ import {
 import {
   buildQuizPrefillSeedWords,
   buildQuizPrefillWordUpdatePayload,
+  type QuizPrefillCandidateWord,
   type QuizPrefillSeedWord,
 } from '@/lib/scan/quiz-prefill';
-import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
+import {
+  prefillWordOrderQuizzesForWords,
+  type WordOrderQuizPrefillCandidateWord,
+} from '@/lib/scan/word-order-prefill';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -78,6 +84,7 @@ import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import {
   buildWordTranslationInsertRows,
+  isWordTranslationsSchemaError,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
 import type { CustomSection, WordTranslation } from '@/types';
@@ -159,6 +166,14 @@ interface ProcessedExtractedWord {
   exampleSentenceJa?: string;
   customSections?: CustomSection[];
 }
+
+type InsertedServerCloudWord =
+  ServerCloudExampleCandidateWord &
+  QuizPrefillCandidateWord &
+  WordOrderQuizPrefillCandidateWord & {
+    lexicon_entry_id?: string | null;
+    japaneseSource?: 'scan' | 'ai';
+  };
 
 // Keep internal timeout below platform timeout to fail gracefully.
 const EXTRACTION_TIMEOUT_MS = 4 * 60 * 1000 + 30 * 1000;
@@ -1230,26 +1245,50 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const wordsToInsert = buildServerCloudWordsInsertPayload(resolvedWords, projectId);
 
       const dbInsertStart = Date.now();
-      let { data: insertedWords, error: wordsError } = await supabaseAdmin
-        .from('words')
-        .insert(wordsToInsert)
-        .select('id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
-      timing.dbInsertMs = Date.now() - dbInsertStart;
+      let insertedWords: InsertedServerCloudWord[] | null = null;
+      let wordsError: unknown = null;
+      let omitSourceModes = false;
+      let omitLexiconSenseId = false;
 
-      if (wordsError && isMissingWordsSourceModesColumn(wordsError)) {
-        console.warn('[scan-jobs/process] words.source_modes compatibility fallback used', {
-          jobId,
-          message: wordsError.message,
-        });
-        const retryStart = Date.now();
-        const retryResult = await supabaseAdmin
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const insertPayload =
+          omitSourceModes || omitLexiconSenseId
+            ? stripServerCloudWordsInsertPayloadForCompat(wordsToInsert, {
+                omitSourceModes,
+                omitLexiconSenseId,
+              })
+            : wordsToInsert;
+        const selectColumns = getServerCloudWordsInsertSelectColumns({ omitLexiconSenseId });
+        const result = await supabaseAdmin
           .from('words')
-          .insert(stripSourceModesFromServerCloudWordsInsertPayload(wordsToInsert))
-          .select('id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
-        insertedWords = retryResult.data;
-        wordsError = retryResult.error;
-        timing.dbInsertMs += Date.now() - retryStart;
+          .insert(insertPayload)
+          .select(selectColumns);
+
+        insertedWords = (result.data ?? null) as InsertedServerCloudWord[] | null;
+        wordsError = result.error;
+        if (!wordsError) break;
+
+        const missingColumn = getMissingWordsCompatColumn(wordsError);
+        if (missingColumn === 'source_modes' && !omitSourceModes) {
+          omitSourceModes = true;
+          console.warn('[scan-jobs/process] words.source_modes compatibility fallback used', {
+            jobId,
+            message: result.error?.message,
+          });
+          continue;
+        }
+        if (missingColumn === 'lexicon_sense_id' && !omitLexiconSenseId) {
+          omitLexiconSenseId = true;
+          console.warn('[scan-jobs/process] words.lexicon_sense_id compatibility fallback used', {
+            jobId,
+            message: result.error?.message,
+          });
+          continue;
+        }
+
+        break;
       }
+      timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError) {
         console.error('[scan-jobs/process] Words insert error:', wordsError);
@@ -1270,11 +1309,18 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           .upsert(translationRows, { onConflict: 'word_id,normalized_translation_ja' });
 
         if (translationError) {
-          console.error('[scan-jobs/process] Word translations insert error:', translationError);
-          if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: translationError })) {
-            await supabaseAdmin.from('projects').delete().eq('id', projectId);
+          if (isWordTranslationsSchemaError(translationError)) {
+            console.warn('[scan-jobs/process] word_translations compatibility fallback used; continuing without translation rows', {
+              jobId,
+              message: translationError.message,
+            });
+          } else {
+            console.error('[scan-jobs/process] Word translations insert error:', translationError);
+            if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: translationError })) {
+              await supabaseAdmin.from('projects').delete().eq('id', projectId);
+            }
+            throw new Error('Failed to insert word translations');
           }
-          throw new Error('Failed to insert word translations');
         }
       }
       const aiTranslatedWordIds = resolvedWords

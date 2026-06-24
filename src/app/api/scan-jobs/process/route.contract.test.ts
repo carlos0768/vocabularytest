@@ -145,6 +145,7 @@ class FakeScanProcessClient {
       existingProject?: ProjectRow | null;
       wordsInsertError?: QueryError | null;
       wordsInsertResults?: QueryResult[];
+      wordTranslationsError?: QueryError | null;
       insertedWords?: InsertedWordRow[] | null;
       trace?: string[];
     },
@@ -288,7 +289,7 @@ class FakeScanProcessClient {
     if (operation.table === 'word_translations' && operation.action === 'upsert') {
       return {
         data: null,
-        error: null,
+        error: this.options.wordTranslationsError ?? null,
       };
     }
 
@@ -908,6 +909,76 @@ test('server_cloud retries words insert without source_modes when the database s
     operation.table === 'projects' &&
     operation.action === 'delete'
   ), false);
+});
+
+test('server_cloud retries words insert without lexicon_sense_id when the schema cache is older', async () => {
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob(),
+    userPreference: { ai_enabled: false },
+    wordsInsertResults: [
+      {
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message: "Could not find the 'lexicon_sense_id' column of 'words' in the schema cache",
+        },
+      },
+    ],
+  });
+
+  const response = await processJobById(JOB_ID, createServerCloudContractDeps(client));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    saveMode: 'server_cloud',
+    projectId: NEW_PROJECT_ID,
+    wordCount: 1,
+  });
+
+  const wordsInserts = client.operations.filter((operation) =>
+    operation.table === 'words' &&
+    operation.action === 'insert'
+  );
+  assert.equal(wordsInserts.length, 2);
+  assert.ok(Array.isArray(wordsInserts[0].payload));
+  assert.equal('lexicon_sense_id' in wordsInserts[0].payload[0], true);
+  assert.equal(wordsInserts[0].columns?.includes('lexicon_sense_id'), true);
+  assert.ok(Array.isArray(wordsInserts[1].payload));
+  assert.equal('lexicon_sense_id' in wordsInserts[1].payload[0], false);
+  assert.equal(wordsInserts[1].columns?.includes('lexicon_sense_id'), false);
+
+  const completedUpdate = findScanJobUpdate(client, 'completed');
+  assert.ok(isRecord(completedUpdate.payload));
+  assert.equal(completedUpdate.payload.status, 'completed');
+});
+
+test('server_cloud continues when word_translations schema is unavailable', async () => {
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob(),
+    userPreference: { ai_enabled: false },
+    wordTranslationsError: {
+      code: '42P01',
+      message: 'relation "word_translations" does not exist',
+    },
+  });
+
+  const response = await processJobById(JOB_ID, createServerCloudContractDeps(client));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    saveMode: 'server_cloud',
+    projectId: NEW_PROJECT_ID,
+    wordCount: 1,
+  });
+  assert.equal(client.operations.some((operation) =>
+    operation.table === 'projects' &&
+    operation.action === 'delete'
+  ), false);
+  const completedUpdate = findScanJobUpdate(client, 'completed');
+  assert.ok(isRecord(completedUpdate.payload));
+  assert.equal(completedUpdate.payload.status, 'completed');
 });
 
 test('server_cloud words insert failure rolls back only the newly created project before failed side effects', async () => {

@@ -16,6 +16,7 @@
 | [`billing-stripe-failure-runbook.md`](billing-stripe-failure-runbook.md) | Stripe課金反映失敗の初動対応 |
 | [`login-auth-failure-runbook.md`](login-auth-failure-runbook.md) | ログイン / 認証失敗の初動対応 |
 | [`supabase-incident-runbook.md`](supabase-incident-runbook.md) | Supabase接続障害 / migration事故の初動対応 |
+| [`word-schema-cache-incident-2026-06-24.md`](word-schema-cache-incident-2026-06-24.md) | word schema rollout時のmigration drift / PostgREST schema cache事故レポート |
 | [`ai-cost-spike-runbook.md`](ai-cost-spike-runbook.md) | AIコスト急増の初動対応 |
 | [`production-env-checklist.md`](production-env-checklist.md) | 本番環境変数の公開前 / 障害時チェックリスト |
 | [`scan-gemini-cloudrun-runbook.md`](scan-gemini-cloudrun-runbook.md) | Cloud Run経由のGeminiスキャン抽出の運用 |

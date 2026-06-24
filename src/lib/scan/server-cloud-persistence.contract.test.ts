@@ -5,8 +5,12 @@ import {
   buildServerCloudMergedProjectSourceLabels,
   buildServerCloudProjectInsertPayload,
   buildServerCloudWordsInsertPayload,
+  getMissingWordsCompatColumn,
+  getServerCloudWordsInsertSelectColumns,
+  isMissingWordsLexiconSenseIdColumn,
   isMissingWordsSourceModesColumn,
   shouldRollbackServerCloudProjectAfterWordsInsertFailure,
+  stripServerCloudWordsInsertPayloadForCompat,
   stripSourceModesFromServerCloudWordsInsertPayload,
 } from '@/lib/scan/server-cloud-persistence';
 
@@ -164,6 +168,25 @@ test('isMissingWordsSourceModesColumn detects missing source_modes schema errors
   );
 });
 
+test('word insert compatibility detects missing lexicon_sense_id schema errors', () => {
+  const error = {
+    code: 'PGRST204',
+    message: "Could not find the 'lexicon_sense_id' column of 'words' in the schema cache",
+  };
+
+  assert.equal(getMissingWordsCompatColumn(error), 'lexicon_sense_id');
+  assert.equal(isMissingWordsLexiconSenseIdColumn(error), true);
+  assert.equal(isMissingWordsSourceModesColumn(error), false);
+});
+
+test('getServerCloudWordsInsertSelectColumns can omit lexicon_sense_id', () => {
+  assert.equal(getServerCloudWordsInsertSelectColumns().includes('lexicon_sense_id'), true);
+  assert.equal(
+    getServerCloudWordsInsertSelectColumns({ omitLexiconSenseId: true }).includes('lexicon_sense_id'),
+    false,
+  );
+});
+
 test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_modes', () => {
   const payload = buildServerCloudWordsInsertPayload(
     [
@@ -193,4 +216,28 @@ test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_mode
       custom_sections: [],
     },
   ]);
+});
+
+test('stripServerCloudWordsInsertPayloadForCompat can omit source_modes and lexicon_sense_id', () => {
+  const payload = buildServerCloudWordsInsertPayload(
+    [
+      {
+        english: 'elaborate',
+        japanese: '詳しく説明する',
+        lexiconSenseId: 'sense-1',
+        distractors: ['短くする', '無視する', '隠す'],
+        sourceModes: ['all'],
+      },
+    ],
+    'project-123',
+  );
+
+  const stripped = stripServerCloudWordsInsertPayloadForCompat(payload, {
+    omitSourceModes: true,
+    omitLexiconSenseId: true,
+  });
+
+  assert.equal('source_modes' in stripped[0], false);
+  assert.equal('lexicon_sense_id' in stripped[0], false);
+  assert.equal(stripped[0]?.japanese, '詳しく説明する');
 });
