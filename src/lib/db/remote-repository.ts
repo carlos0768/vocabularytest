@@ -26,12 +26,16 @@ import {
   type CollectionProjectRow,
 } from '../../../shared/db';
 import {
+  RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
+  RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_BASIC,
   RESOLVED_WORD_MINIMAL_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
   SHARE_VIEW_WORD_SELECT_COLUMNS,
   SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE,
   SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
   SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
 } from '@/lib/words/resolved';
@@ -42,6 +46,8 @@ import {
 export const WORDS_SELECT_COLUMNS = RESOLVED_WORD_SELECT_COLUMNS;
 const WORDS_SELECT_COLUMNS_WITHOUT_SENSES = RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES;
 const WORDS_SELECT_COLUMNS_BASIC = RESOLVED_WORD_SELECT_COLUMNS_BASIC;
+const WORDS_SELECT_COLUMNS_DISPLAY = RESOLVED_WORD_DISPLAY_SELECT_COLUMNS;
+const WORDS_SELECT_COLUMNS_EXAMPLE = RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS;
 const WORDS_SELECT_COLUMNS_MINIMAL = RESOLVED_WORD_MINIMAL_SELECT_COLUMNS;
 
 type SupabaseSelectError = {
@@ -106,6 +112,8 @@ export class RemoteWordRepository implements WordRepository {
       primary: string;
       withoutSenses: string;
       basic: string;
+      display: string;
+      example: string;
       minimal: string;
       label: string;
     },
@@ -133,9 +141,27 @@ export class RemoteWordRepository implements WordRepository {
       return basic;
     }
 
-    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with minimal word columns`, {
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with display word columns`, {
       code: basic.error?.code,
       message: basic.error?.message,
+    });
+    const display = await buildQuery(columns.display);
+    if (!shouldRetryWordSelectWithoutRelations(display.error)) {
+      return display;
+    }
+
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with example word columns`, {
+      code: display.error?.code,
+      message: display.error?.message,
+    });
+    const example = await buildQuery(columns.example);
+    if (!shouldRetryWordSelectWithoutRelations(example.error)) {
+      return example;
+    }
+
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with minimal word columns`, {
+      code: example.error?.code,
+      message: example.error?.message,
     });
     return buildQuery(columns.minimal);
   }
@@ -148,6 +174,8 @@ export class RemoteWordRepository implements WordRepository {
       primary: WORDS_SELECT_COLUMNS,
       withoutSenses: WORDS_SELECT_COLUMNS_WITHOUT_SENSES,
       basic: WORDS_SELECT_COLUMNS_BASIC,
+      display: WORDS_SELECT_COLUMNS_DISPLAY,
+      example: WORDS_SELECT_COLUMNS_EXAMPLE,
       minimal: WORDS_SELECT_COLUMNS_MINIMAL,
       label,
     });
@@ -161,6 +189,8 @@ export class RemoteWordRepository implements WordRepository {
       primary: SHARE_VIEW_WORD_SELECT_COLUMNS,
       withoutSenses: SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
       basic: SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+      display: SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY,
+      example: SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE,
       minimal: SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
       label,
     });
