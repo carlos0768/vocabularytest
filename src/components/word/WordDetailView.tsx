@@ -7,23 +7,8 @@ import { SolidPanel, SolidButton } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
-import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
-
-const STATUS_LABELS: Record<string, string> = {
-  mastered: '習得済',
-  review: '学習中',
-  learning: '学習中',
-  new: '未学習',
-};
-
-const STATUS_STYLES: Record<string, { color: string; bg: string; border: string }> = {
-  mastered: { color: 'var(--color-success)', bg: 'var(--color-success-light)', border: 'var(--color-success)' },
-  review: { color: '#137fec', bg: 'rgba(19,127,236,0.1)', border: '#137fec' },
-  learning: { color: '#137fec', bg: 'rgba(19,127,236,0.1)', border: '#137fec' },
-  new: { color: 'var(--color-muted)', bg: '#fff', border: 'var(--color-border)' },
-};
 
 function formatCustomSectionValue(value: string, type: CustomColumn['type']): string {
   if (!value) return '';
@@ -248,34 +233,6 @@ export function WordDetailView({
     };
   }, [isEditing, slotCount]);
 
-  const handleToggleFavorite = useCallback(async () => {
-    if (!word) return;
-    const newFav = !word.isFavorite;
-    try {
-      await repository.updateWord(word.id, { isFavorite: newFav });
-      const updated = { ...word, isFavorite: newFav };
-      setWord((prev) => (prev ? { ...prev, isFavorite: newFav } : prev));
-      syncHomeCacheForWord(updated);
-      onWordUpdated?.(updated);
-    } catch (err) {
-      console.error('Failed to toggle favorite:', err);
-    }
-  }, [word, repository, syncHomeCacheForWord, onWordUpdated]);
-
-  const handleCycleVocabularyType = useCallback(async () => {
-    if (!word) return;
-    const nextVocabularyType = getNextVocabularyType(word.vocabularyType);
-    try {
-      await repository.updateWord(word.id, { vocabularyType: nextVocabularyType });
-      const updated = { ...word, vocabularyType: nextVocabularyType };
-      setWord((prev) => (prev ? { ...prev, vocabularyType: nextVocabularyType } : prev));
-      syncHomeCacheForWord(updated);
-      onWordUpdated?.(updated);
-    } catch (err) {
-      console.error('Failed to update vocabulary type:', err);
-    }
-  }, [word, repository, syncHomeCacheForWord, onWordUpdated]);
-
   const handleSpeak = useCallback(() => {
     if (!word) return;
     const utterance = new SpeechSynthesisUtterance(word.english);
@@ -376,9 +333,6 @@ export function WordDetailView({
     setSections(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   }, []);
 
-  const statusLabel = word?.status ? (STATUS_LABELS[word.status] ?? '未学習') : '未学習';
-  const statusStyle = word?.status ? (STATUS_STYLES[word.status] ?? STATUS_STYLES.new!) : STATUS_STYLES.new!;
-  const vocabularyTypeLabel = getVocabularyTypeLabel(word?.vocabularyType);
   const posDisplay = word?.partOfSpeechTags?.length
     ? word.partOfSpeechTags.map(p => POS_LABELS[p] ?? p).join('・')
     : null;
@@ -465,64 +419,23 @@ export function WordDetailView({
       </header>
 
       <main className="mx-auto w-full max-w-xl px-5 pt-1 sm:px-7">
-        <section className="pb-4">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="min-w-0 flex-1 break-words font-display text-[28px] font-black leading-[1.1] tracking-normal text-[var(--solid-ink)] sm:text-[32px]">
+        <section className="pb-2">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="min-w-0 break-words font-display text-[28px] font-black leading-[1.1] tracking-normal text-[var(--solid-ink)] sm:text-[32px]">
               {word.english}
             </h1>
-            <span
-              className="mt-1 shrink-0 rounded-full border-2 px-2.5 py-1 font-display text-[11px] font-bold"
-              style={{ color: statusStyle.color, background: statusStyle.bg, borderColor: statusStyle.border }}
-            >
-              {statusLabel}
-            </span>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
               onClick={handleSpeak}
-              className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-full border-2 border-[var(--solid-ink)] bg-white px-4 py-2 text-[14px] font-medium leading-none text-[var(--solid-ink)] sm:max-w-[58%]"
+              className="inline-flex shrink-0 items-center gap-1.5 text-[14px] font-medium leading-none text-[var(--color-ink-muted)]"
               aria-label="発音を再生"
             >
               <span className="min-w-0 truncate font-mono">{word.pronunciation || '―'}</span>
               <Icon name="volume_up" size={15} />
             </button>
-            <div className="flex-1" />
-            <button
-              type="button"
-              onClick={handleCycleVocabularyType}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border-2 px-3 font-display text-[12px] font-bold"
-              style={{
-                borderColor: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.5)' : 'var(--color-accent)',
-                background: word.vocabularyType === 'active' ? 'var(--color-accent-subtle)' : word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.08)' : '#fff',
-                color: word.vocabularyType === 'passive' ? 'var(--color-ink-muted)' : 'var(--color-accent)',
-              }}
-              aria-label={`語彙モード: ${vocabularyTypeLabel}`}
-            >
-              <span
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full font-display text-[10px] font-black text-white"
-                style={{ background: word.vocabularyType === 'passive' ? 'rgba(107,114,128,0.7)' : word.vocabularyType === 'active' ? 'var(--color-accent)' : 'var(--color-muted)' }}
-              >
-                {word.vocabularyType === 'active' ? 'A' : word.vocabularyType === 'passive' ? 'P' : '—'}
-              </span>
-              {vocabularyTypeLabel}
-            </button>
-            <button onClick={handleToggleFavorite} className="inline-flex h-8 w-7 shrink-0 items-center justify-center text-[#c37a35]" aria-label="お気に入り切替">
-              <Icon
-                name="bookmark"
-                size={20}
-                filled={word.isFavorite}
-              />
-            </button>
           </div>
-        </section>
 
-        <SectionDivider />
-
-        <section className="py-4">
-          <SectionHeading title="MEANING" />
           {isEditing ? (
-            <div className="space-y-1">
+            <div className="mt-3 space-y-1">
               <input
                 type="text"
                 value={editJapanese}
@@ -531,7 +444,7 @@ export function WordDetailView({
               />
             </div>
           ) : (
-            <p className="mt-3 text-[17px] font-bold leading-[1.55] text-[var(--solid-ink)]">
+            <p className="mt-2 text-[17px] font-bold leading-[1.55] text-[var(--solid-ink)]">
               {posDisplay && <span className="mr-2 text-[14px] text-[var(--color-ink-muted)]">({posDisplay})</span>}
               <TranslationDisplay word={word} />
             </p>
@@ -563,7 +476,7 @@ export function WordDetailView({
               />
             </div>
           ) : word.exampleSentence ? (
-            <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-4 py-4 shadow-[3px_3px_0_var(--color-accent)]">
+            <div>
               <div className="flex items-start gap-3">
                 <p className="min-w-0 flex-1 text-[15px] font-medium leading-[1.6] text-[var(--solid-ink)]">
                   {highlightWord(word.exampleSentence, word.english)}
@@ -583,7 +496,7 @@ export function WordDetailView({
               )}
             </div>
           ) : (
-            <p className="rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-4 text-[13px] font-medium text-[var(--color-muted)]">
+            <p className="text-[13px] font-medium text-[var(--color-muted)]">
               例文はまだ生成されていません
             </p>
           )}
