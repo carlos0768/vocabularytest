@@ -87,6 +87,57 @@ test('getWordsByProjectMap uses getAllWordsByProject for local repository', asyn
   assert.equal(result.p2.length, 1);
 });
 
+test('getWordsByProjectMap falls back from remote bulk to local bulk when available', async () => {
+  const calls: string[] = [];
+  const repo = {
+    getWords: async (projectId: string) => {
+      calls.push(`single:${projectId}`);
+      return [];
+    },
+    getAllWordsByProjectIds: async (projectIds: string[]) => {
+      calls.push(`bulk-remote:${projectIds.join(',')}`);
+      throw new Error('remote relation failed');
+    },
+    getAllWordsByProject: async (projectIds: string[]) => {
+      calls.push(`bulk-local:${projectIds.join(',')}`);
+      return {
+        p1: [createWord('p1', 'mastered')],
+      };
+    },
+  };
+
+  const result = await getWordsByProjectMap(repo, ['p1', 'p2']);
+
+  assert.deepEqual(calls, ['bulk-remote:p1,p2', 'bulk-local:p1,p2']);
+  assert.equal(result.p1.length, 1);
+  assert.deepEqual(result.p2, []);
+});
+
+test('getWordsByProjectMap keeps project keys when all bulk and one project load fail', async () => {
+  const calls: string[] = [];
+  const repo = {
+    getWords: async (projectId: string) => {
+      calls.push(`single:${projectId}`);
+      if (projectId === 'p2') throw new Error('single project failed');
+      return [createWord(projectId, 'new')];
+    },
+    getAllWordsByProjectIds: async (projectIds: string[]) => {
+      calls.push(`bulk-remote:${projectIds.join(',')}`);
+      throw new Error('remote bulk failed');
+    },
+    getAllWordsByProject: async (projectIds: string[]) => {
+      calls.push(`bulk-local:${projectIds.join(',')}`);
+      throw new Error('local bulk failed');
+    },
+  };
+
+  const result = await getWordsByProjectMap(repo, ['p1', 'p2']);
+
+  assert.deepEqual(calls, ['bulk-remote:p1,p2', 'bulk-local:p1,p2', 'single:p1', 'single:p2']);
+  assert.equal(result.p1.length, 1);
+  assert.deepEqual(result.p2, []);
+});
+
 test('buildProjectStats calculates totals/mastered/progress correctly', () => {
   const projects = [createProject('p1'), createProject('p2')];
   const wordsByProject: Record<string, Word[]> = {

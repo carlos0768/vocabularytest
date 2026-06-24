@@ -33,19 +33,40 @@ export async function getWordsByProjectMap(
   if (uniqueProjectIds.length === 0) return {};
 
   if (repository.getAllWordsByProjectIds) {
-    const wordsByProject = await repository.getAllWordsByProjectIds(uniqueProjectIds);
-    return withAllProjectKeys(uniqueProjectIds, wordsByProject);
+    try {
+      const wordsByProject = await repository.getAllWordsByProjectIds(uniqueProjectIds);
+      return withAllProjectKeys(uniqueProjectIds, wordsByProject);
+    } catch (error) {
+      console.warn('[load-helpers] getAllWordsByProjectIds failed; falling back to local bulk/per-project word loads', error);
+    }
   }
 
   if (repository.getAllWordsByProject) {
-    const wordsByProject = await repository.getAllWordsByProject(uniqueProjectIds);
-    return withAllProjectKeys(uniqueProjectIds, wordsByProject);
+    try {
+      const wordsByProject = await repository.getAllWordsByProject(uniqueProjectIds);
+      return withAllProjectKeys(uniqueProjectIds, wordsByProject);
+    } catch (error) {
+      console.warn('[load-helpers] getAllWordsByProject failed; falling back to per-project word loads', error);
+    }
   }
 
-  const wordsArrays = await Promise.all(uniqueProjectIds.map((projectId) => repository.getWords(projectId)));
-  const wordsByProject = Object.fromEntries(
-    uniqueProjectIds.map((projectId, index) => [projectId, wordsArrays[index] ?? []])
+  const wordsArrays = await Promise.allSettled(
+    uniqueProjectIds.map((projectId) => repository.getWords(projectId))
   );
+  const wordsByProject: Record<string, Word[]> = {};
+  uniqueProjectIds.forEach((projectId, index) => {
+    const result = wordsArrays[index];
+    if (result?.status === 'fulfilled') {
+      wordsByProject[projectId] = result.value ?? [];
+      return;
+    }
+
+    console.warn('[load-helpers] getWords failed; using an empty word list for project', {
+      projectId,
+      error: result?.reason,
+    });
+    wordsByProject[projectId] = [];
+  });
 
   return withAllProjectKeys(uniqueProjectIds, wordsByProject);
 }
