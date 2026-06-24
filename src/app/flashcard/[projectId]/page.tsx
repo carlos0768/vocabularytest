@@ -848,6 +848,9 @@ export default function FlashcardPage() {
         <NavBtn onClick={() => handlePrev(true)} aria-label="前のカード">
           <Icon name="chevron_left" size={18} />
         </NavBtn>
+        <NavBtn onClick={handleFlip} aria-label="カードを回転">
+          <Icon name="cached" size={18} />
+        </NavBtn>
         <NavBtn onClick={() => handleNext(true)} aria-label="次のカード">
           <Icon name="chevron_right" size={18} />
         </NavBtn>

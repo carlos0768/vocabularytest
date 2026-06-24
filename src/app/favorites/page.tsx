@@ -351,9 +351,10 @@ function FavoritesPageContent() {
             style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
             onClick={() => setSelectedWord(null)}
           />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={() => setSelectedWord(null)}>
             <div
               className="w-full overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',

@@ -77,7 +77,7 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
-  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('createdAsc');
+  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('statusAsc');
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
   const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
@@ -1187,9 +1187,10 @@ export default function ProjectPage() {
             style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
             onClick={() => setSelectedWord(null)}
           />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10">
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={() => setSelectedWord(null)}>
             <div
               className="w-full overflow-y-auto overscroll-contain"
+              onClick={(e) => e.stopPropagation()}
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
