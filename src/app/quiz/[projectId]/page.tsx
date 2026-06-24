@@ -1715,11 +1715,11 @@ export default function QuizPage() {
             )}
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
               <div
-                className="rounded-xl border-2 p-3 text-center"
-                style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
+                className="rounded-xl border p-3 text-center"
+                style={{ borderColor: 'var(--color-success)', background: 'rgba(61,122,78,0.08)' }}
               >
-                <p className="text-sm font-bold text-white/85">正解</p>
-                <p className="mt-1 text-lg font-black text-white">
+                <p className="text-sm font-bold text-[var(--solid-ink)]">正解</p>
+                <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">
                   {currentQuestion.word.english}
                 </p>
               </div>
