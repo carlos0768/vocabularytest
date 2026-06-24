@@ -10,7 +10,15 @@ import type {
   SharedProjectPreviewPayload,
   SharedProjectSummary,
 } from '@/lib/shared-projects/types';
-import { SHARE_VIEW_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import {
+  SHARE_VIEW_WORD_SELECT_COLUMNS,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
+} from '@/lib/words/resolved';
 import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
 
 type ProjectMembershipRow = {
@@ -54,6 +62,16 @@ const MAX_PUBLIC_PAGE_SIZE = 24;
 const PUBLIC_CURSOR_FETCH_PADDING = 24;
 const DEFAULT_SHARE_PREVIEW_WORD_LIMIT = 5;
 const MAX_SHARE_PREVIEW_WORD_LIMIT = 20;
+
+const SHARE_PREVIEW_WORD_SELECT_FALLBACKS = [
+  { label: 'primary', columns: SHARE_VIEW_WORD_SELECT_COLUMNS },
+  { label: 'without lexicon_senses', columns: SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES },
+  { label: 'without relation embeds', columns: SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC },
+  { label: 'display with pronunciation', columns: SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY_WITH_PRONUNCIATION },
+  { label: 'display', columns: SHARE_VIEW_WORD_SELECT_COLUMNS_DISPLAY },
+  { label: 'example', columns: SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE },
+  { label: 'minimal', columns: SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL },
+] as const;
 
 export class SharedProjectsSchemaUnavailableError extends Error {
   constructor(
@@ -105,6 +123,51 @@ export function extractShareCode(input: string): string | null {
   return SHARE_CODE_PATTERN.test(normalized) ? normalized : null;
 }
 
+function shouldRetrySharedPreviewWordSelect(error: SupabaseLikeError | null): boolean {
+  if (!error) return false;
+  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`;
+  return (
+    error.code === 'PGRST200'
+    || error.code === 'PGRST204'
+    || error.code === '42703'
+    || /schema cache/i.test(text)
+    || /column .* does not exist/i.test(text)
+    || /could not find .* column/i.test(text)
+    || /undefined column/i.test(text)
+    || /relationship/i.test(text)
+    || /word_translations|lexicon_senses|lexicon_sense_id/i.test(text)
+  );
+}
+
+async function selectSharePreviewWordsWithFallback(
+  admin: SupabaseAdminClient,
+  projectId: string,
+  limit: number,
+): Promise<{ data: WordRow[] | null; error: SupabaseLikeError | null; count?: number | null }> {
+  let lastResult: { data: WordRow[] | null; error: SupabaseLikeError | null; count?: number | null } | null = null;
+
+  for (const fallback of SHARE_PREVIEW_WORD_SELECT_FALLBACKS) {
+    const result = await admin
+      .from('words')
+      .select(fallback.columns, { count: 'exact' })
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(limit) as { data: WordRow[] | null; error: SupabaseLikeError | null; count?: number | null };
+
+    if (!shouldRetrySharedPreviewWordSelect(result.error)) {
+      return result;
+    }
+
+    lastResult = result;
+    console.warn(`[shared-projects] share preview word select fallback: ${fallback.label}`, {
+      code: result.error?.code,
+      message: result.error?.message,
+    });
+  }
+
+  return lastResult ?? { data: null, error: { message: 'shared_project_preview_words_failed' } };
+}
+
 export async function getProjectByShareCode(
   shareCode: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
@@ -132,12 +195,7 @@ export async function getSharedProjectPreviewByShareCode(
 
   const limit = clampSharePreviewWordLimit(wordLimit);
   const [wordsResult, usernameByUserId, metricsByProjectId] = await Promise.all([
-    admin
-      .from('words')
-      .select(SHARE_VIEW_WORD_SELECT_COLUMNS, { count: 'exact' })
-      .eq('project_id', projectRow.id)
-      .order('created_at', { ascending: false })
-      .limit(limit),
+    selectSharePreviewWordsWithFallback(admin, projectRow.id, limit),
     getUsernamesByUserIds(admin, [projectRow.user_id]),
     getSharedProjectMetrics([projectRow.id], admin),
   ]);

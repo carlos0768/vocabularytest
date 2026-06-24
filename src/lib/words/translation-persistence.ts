@@ -21,6 +21,13 @@ export type WordTranslationInsertRow = {
   is_primary: boolean;
 };
 
+type MaybePostgrestSchemaError = {
+  code?: unknown;
+  message?: unknown;
+  details?: unknown;
+  hint?: unknown;
+};
+
 export function normalizeWordForTranslationPersistence<T extends WordTranslationInput>(
   word: T,
 ): Omit<T, 'japanese' | 'japaneseSource' | 'translations' | 'lexiconSenseId' | 'customSections'> & {
@@ -91,4 +98,25 @@ export function buildWordTranslationInsertRows(
   });
 
   return rows;
+}
+
+export function isWordTranslationsSchemaError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const candidate = error as MaybePostgrestSchemaError;
+  const text = `${candidate.code ?? ''} ${candidate.message ?? ''} ${candidate.details ?? ''} ${candidate.hint ?? ''}`.toLowerCase();
+  return (
+    candidate.code === '42P01'
+    || candidate.code === '42703'
+    || candidate.code === 'PGRST200'
+    || candidate.code === 'PGRST204'
+  ) && (
+    text.includes('word_translations')
+    || text.includes('lexicon_sense_id')
+    || text.includes('schema cache')
+    || text.includes('could not find')
+    || text.includes('does not exist')
+  );
 }

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { ProjectRow } from '../../../../shared/db';
+import type { ProjectRow, WordRow } from '../../../../shared/db';
 import {
   extractShareCode,
+  getSharedProjectPreviewByShareCode,
   getSharedProjectMetrics,
   listAccessibleSharedProjects,
   listPublicSharedProjects,
@@ -37,10 +38,12 @@ type FakeAdminOptions = {
   joinedRows?: ProjectRow[];
   publicRows?: ProjectRow[];
   profileRows?: ProfileRow[];
+  previewWordRows?: WordRow[];
   rpcMetricsRows?: MetricsRow[];
   wordRows?: CountRow[];
   collaboratorRows?: CountRow[];
   shareCodeProject?: ProjectRow | null;
+  previewWordSelectErrorIncludes?: string;
   missing?: Array<'project_members' | 'share_scope' | 'shared_metrics_rpc'>;
   otherErrors?: Partial<Record<
     'owned' | 'memberships' | 'joined' | 'public' | 'profiles' | 'shareLookup' | 'rpcMetrics' | 'wordCounts' | 'collaborators',
@@ -147,7 +150,10 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
     return this.execute().then(onfulfilled, onrejected);
   }
 
-  upsert(_rows: unknown[], _options: unknown) {
+  upsert(rows: unknown[], options: unknown) {
+    void rows;
+    void options;
+
     if (this.missing.has('project_members')) {
       return Promise.resolve({ error: makeMissingProjectMembersError() });
     }
@@ -266,6 +272,30 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
       return { data: null, error: null, count };
     }
 
+    if (this.table === 'words' && this.hasFilter('project_id', 'eq')) {
+      if (
+        this.options.previewWordSelectErrorIncludes
+        && this.selectColumns.includes(this.options.previewWordSelectErrorIncludes)
+      ) {
+        return {
+          data: null,
+          error: {
+            code: 'PGRST200',
+            message: 'Could not find a relationship between words and word_translations in the schema cache',
+          },
+        };
+      }
+
+      const projectId = this.getFilterValue('project_id', 'eq');
+      let rows = (this.options.previewWordRows ?? []).filter((row) => row.project_id === projectId);
+      rows = rows.sort((left, right) => (left.created_at < right.created_at ? 1 : -1));
+      if (this.limitValue !== null) {
+        rows = rows.slice(0, this.limitValue);
+      }
+      const count = (this.options.previewWordRows ?? []).filter((row) => row.project_id === projectId).length;
+      return { data: rows as T[], error: null, count };
+    }
+
     if (this.table === 'project_members' && this.head && this.wantsCount) {
       const message = this.options.otherErrors?.collaborators;
       if (message) {
@@ -302,7 +332,11 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
       return rows;
     }
 
-    return rows.map(({ share_scope: _shareScope, ...row }) => row);
+    return rows.map((row) => {
+      const projected = { ...row };
+      delete projected.share_scope;
+      return projected;
+    });
   }
 
   private sortRows(rows: ProjectRow[]): ProjectRow[] {
@@ -335,6 +369,23 @@ function makeProjectRow(id: string, userId: string, overrides: Partial<ProjectRo
     created_at: '2026-03-29T00:00:00.000Z',
     share_id: `${id}-share`,
     share_scope: 'public',
+    is_favorite: false,
+    ...overrides,
+  };
+}
+
+function makeWordRow(id: string, projectId: string, overrides: Partial<WordRow> = {}): WordRow {
+  return {
+    id,
+    project_id: projectId,
+    english: `${id}-english`,
+    japanese: `${id}-japanese`,
+    distractors: [],
+    status: 'new',
+    created_at: '2026-03-29T00:00:00.000Z',
+    ease_factor: 2.5,
+    interval_days: 0,
+    repetition: 0,
     is_favorite: false,
     ...overrides,
   };
@@ -430,6 +481,34 @@ test('listPublicSharedProjects paginates with a cursor and avoids duplicates', a
   assert.deepEqual(firstPage.items.map((item) => item.project.id), ['public-3', 'public-2']);
   assert.equal(firstPage.nextCursor !== null, true);
   assert.deepEqual(secondPage.items.map((item) => item.project.id), ['public-1']);
+});
+
+test('getSharedProjectPreviewByShareCode falls back when relation embeds are unavailable', async () => {
+  const project = makeProjectRow('project-1', 'owner-1', { share_id: 'share-1' });
+  const admin = new FakeSharedProjectsAdmin({
+    shareCodeProject: project,
+    previewWordRows: [
+      makeWordRow('word-1', project.id, {
+        pronunciation: '/wɜːd/',
+        example_sentence: 'A word appears.',
+        example_sentence_ja: '単語が出ます。',
+        part_of_speech_tags: ['noun'],
+      }),
+    ],
+    previewWordSelectErrorIncludes: 'word_translations(',
+    rpcMetricsRows: [
+      { project_id: project.id, word_count: 1, collaborator_count: 1, like_count: 0 },
+    ],
+  });
+
+  const preview = await getSharedProjectPreviewByShareCode('share-1', 5, admin as never);
+
+  assert.ok(preview);
+  assert.equal(preview.project.id, project.id);
+  assert.equal(preview.words.length, 1);
+  assert.equal(preview.words[0]?.pronunciation, '/wɜːd/');
+  assert.deepEqual(preview.words[0]?.partOfSpeechTags, ['noun']);
+  assert.equal(preview.totalWordCount, 1);
 });
 
 test('getSharedProjectMetrics uses RPC results when available', async () => {
