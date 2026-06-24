@@ -211,21 +211,17 @@ function DSQuizOption({
   let icon: ReactNode = null;
 
   if (isCorrectAnswer) {
-    faceBg = 'var(--color-accent)';
-    borderColor = 'var(--color-accent-ink)';
-    shadowColor = 'var(--color-accent-ink)';
-    textColor = '#fff';
-    badgeBg = 'rgba(255,255,255,0.22)';
+    faceBg = 'rgba(61,122,78,0.08)';
+    shadowColor = 'var(--color-success)';
+    badgeBg = 'var(--color-success)';
     badgeColor = '#fff';
-    icon = <Icon name="check" size={18} className="text-white" />;
+    icon = <Icon name="check" size={18} className="text-[var(--color-success)]" />;
   } else if (isWrongAnswer) {
-    faceBg = 'var(--color-error)';
-    borderColor = '#b91c1c';
-    shadowColor = '#b91c1c';
-    textColor = '#fff';
-    badgeBg = 'rgba(255,255,255,0.22)';
+    faceBg = 'rgba(184,72,72,0.08)';
+    shadowColor = 'var(--color-error)';
+    badgeBg = 'var(--color-error)';
     badgeColor = '#fff';
-    icon = <Icon name="close" size={18} className="text-white" />;
+    icon = <Icon name="close" size={18} className="text-[var(--color-error)]" />;
   } else if (isInactive) {
     borderColor = 'var(--color-border)';
     shadowColor = 'var(--color-border)';
@@ -460,16 +456,16 @@ function DSWordOrderPanel({
 
       {isRevealed && (
         <div
-          className="rounded-xl border-2 p-3 text-center"
+          className="rounded-xl border p-3 text-center"
           style={{
-            borderColor: result === 'correct' ? 'var(--color-accent-ink)' : '#b91c1c',
-            background: result === 'correct' ? 'var(--color-accent)' : 'var(--color-error)',
+            borderColor: result === 'correct' ? 'var(--color-success)' : 'var(--color-error)',
+            background: result === 'correct' ? 'rgba(61,122,78,0.08)' : 'rgba(184,72,72,0.08)',
           }}
         >
-          <p className="text-sm font-bold text-white/85">
+          <p className="text-sm font-bold text-[var(--solid-ink)]">
             {result === 'correct' ? '正解' : '不正解'}
           </p>
-          <p className="mt-1 text-lg font-black text-white">{question.word.english}</p>
+          <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">{question.word.english}</p>
         </div>
       )}
 
@@ -1719,11 +1715,11 @@ export default function QuizPage() {
             )}
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
               <div
-                className="rounded-xl border-2 p-3 text-center"
-                style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
+                className="rounded-xl border p-3 text-center"
+                style={{ borderColor: 'var(--color-success)', background: 'rgba(61,122,78,0.08)' }}
               >
-                <p className="text-sm font-bold text-white/85">正解</p>
-                <p className="mt-1 text-lg font-black text-white">
+                <p className="text-sm font-bold text-[var(--solid-ink)]">正解</p>
+                <p className="mt-1 text-lg font-black text-[var(--solid-ink)]">
                   {currentQuestion.word.english}
                 </p>
               </div>

@@ -721,8 +721,8 @@
   border: 1.5px solid var(--solid-ink); background: #fff;
   box-shadow: inset 0 2px 0 rgba(0,0,0,0.03);
 }
-.ds-wo-answer.correct { border-color: var(--color-accent); background: var(--color-accent-light); }
-.ds-wo-answer.wrong { border-color: var(--color-error); background: var(--color-error-light); }
+.ds-wo-answer.correct { border-color: var(--color-accent-ink); background: var(--color-accent); }
+.ds-wo-answer.wrong { border-color: #b91c1c; background: var(--color-error); }
 .ds-wo-answer .ph { color: var(--color-muted); font-family: var(--font-mono); font-size: 13px; align-self: center; }
 /* 文中の固定単語（デフォルト表示）。クリック不可の静的タイル */
 .ds-wo-fixed {
