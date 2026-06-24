@@ -78,6 +78,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+type QuizAnswerResult = boolean | 'skip' | null;
+
 interface QuizPersistState {
   questions: QuizQuestion[];
   currentIndex: number;
@@ -86,7 +88,7 @@ interface QuizPersistState {
   wordOrderResult?: 'correct' | 'wrong' | null;
   isRevealed: boolean;
   results: { correct: number; total: number };
-  answerResults?: (boolean | null)[];
+  answerResults?: QuizAnswerResult[];
   questionCount: number;
   quizDirection: QuizDirection;
   timestamp: number;
@@ -443,7 +445,7 @@ function DSWordOrderPanel({
 
       {!isRevealed && (
         <SolidButton
-          variant="inverse"
+          variant="accent"
           onClick={onSubmit}
           disabled={!isReady}
           className="w-full justify-center"
@@ -527,7 +529,7 @@ export default function QuizPage() {
   const [wordOrderResult, setWordOrderResult] = useState<'correct' | 'wrong' | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [results, setResults] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
-  const [answerResults, setAnswerResults] = useState<(boolean | null)[]>([]);
+  const [answerResults, setAnswerResults] = useState<QuizAnswerResult[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [distractorError, setDistractorError] = useState<string | null>(null);
@@ -975,12 +977,12 @@ export default function QuizPage() {
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
 
-  const applyAnswerOutcome = async (word: Word, isCorrect: boolean) => {
+  const applyAnswerOutcome = async (word: Word, isCorrect: boolean, marker?: QuizAnswerResult) => {
     playAnswerFeedbackSound(isCorrect);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
     setAnswerResults((prev) => {
-      const next = prev.length === questions.length ? [...prev] : Array.from({ length: questions.length }, (_, i) => prev[i] ?? null);
-      next[currentIndex] = isCorrect;
+      const next: QuizAnswerResult[] = prev.length === questions.length ? [...prev] : Array.from({ length: questions.length }, (_, i) => prev[i] ?? null);
+      next[currentIndex] = marker ?? isCorrect;
       return next;
     });
     const recordProjectId = reviewMode || learnMode || favoritesMode || reminderMode ? word.projectId : projectId;
@@ -1010,6 +1012,12 @@ export default function QuizPage() {
     setIsRevealed(true);
     const isCorrect = index === currentQuestion.correctIndex;
     await applyAnswerOutcome(currentQuestion.word, isCorrect);
+  };
+
+  const handleSkip = async () => {
+    if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion) || isActiveVocab) return;
+    setIsRevealed(true);
+    await applyAnswerOutcome(currentQuestion.word, false, 'skip');
   };
 
   const handleTypeInSubmit = async () => {
@@ -1182,59 +1190,142 @@ export default function QuizPage() {
   /* ---------- Quiz complete ---------- */
   if (isComplete) {
     const percentage = calculateQuizScorePercentage(results);
-    const completionMessage = getQuizCompletionMessage(percentage);
+
+    const wordResultRows = questions.map((q, i) => {
+      const result = answerResults[i];
+      const isIncorrect = result === false || result === 'skip';
+      const marker = result === true ? '○' : result === 'skip' ? '？' : '×';
+      const markerColor = result === true ? 'var(--color-success)' : result === 'skip' ? 'var(--color-warning)' : 'var(--color-error)';
+      return { word: q.word, marker, markerColor, isIncorrect };
+    });
+
     return (
       <>
       <PwaInstallPromptModal open={pwaPromptOpen} onClose={() => setPwaPromptOpen(false)} />
-      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
-        <div className="ds-card" style={{ padding: '44px 56px', textAlign: 'center', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 18, background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-            <Icon name="trophy" filled style={{ fontSize: 38, color: '#d97706' }} />
+      {/* Desktop completion */}
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+        <div className="flex-1 overflow-y-auto">
+          <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', padding: '40px 0 24px' }}>
+            {/* Score card */}
+            <div className="ds-card" style={{ padding: '20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, lineHeight: 1 }}>
+                  {results.correct}<span style={{ fontSize: 16, color: 'var(--color-secondary-text)' }}>/{results.total}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="ds-prog"><div className="fi" style={{ width: `${percentage}%` }} /></div>
+                </div>
+                <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>{percentage}%</span>
+              </div>
+              <p style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: 'var(--color-secondary-text)' }}>{getQuizCompletionMessage(percentage)}</p>
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <span className="ds-status mastered"><span className="ds-sdot c-mastered" />正解 {answerResults.filter(r => r === true).length}</span>
+                <span className="ds-status review"><span className="ds-sdot c-review" />不正解 {answerResults.filter(r => r === false).length}</span>
+                <span className="ds-status new"><span className="ds-sdot c-new" />スキップ {answerResults.filter(r => r === 'skip').length}</span>
+              </div>
+            </div>
+            {/* Desktop word results */}
+            <div className="ds-card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(26,26,26,0.1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="format_list_bulleted" style={{ fontSize: 18, color: 'var(--color-muted)' }} />
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14 }}>解答一覧</span>
+              </div>
+              <table className="ds-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 44, textAlign: 'center' }} />
+                    <th style={{ minWidth: 120 }}>英単語</th>
+                    <th>日本語</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wordResultRows.map((row, i) => (
+                    <tr key={i}>
+                      <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 16, color: row.markerColor }}>{row.marker}</td>
+                      <td className="en" style={row.isIncorrect ? { color: 'var(--color-error)' } : undefined}>{row.word.english}</td>
+                      <td className="ja" style={row.isIncorrect ? { color: 'var(--color-error)', opacity: 0.8 } : undefined}><TranslationDisplay word={row.word} compact /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26 }}>クイズ完了</div>
-          <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 56, lineHeight: 1.1 }}>
-            {results.correct} <span style={{ fontSize: 24, color: 'var(--color-secondary-text)' }}>/ {results.total}</span>
-          </div>
-          <div className="muted" style={{ fontSize: 14 }}>正答率 {percentage}%</div>
-          <div className="ds-prog" style={{ width: '100%', marginTop: 12 }}><div className="fi" style={{ width: `${percentage}%` }} /></div>
-          <p className="muted" style={{ margin: '12px 0 14px', fontSize: 14 }}>{completionMessage}</p>
-          <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-            <button type="button" className="ds-btn" onClick={handleRestart}><Icon name="replay" />もう一度</button>
-            <button type="button" className="ds-btn dark" onClick={reviewMode || learnMode ? goToNextReviewQuiz : backToProject}>
-              <Icon name={reviewMode || learnMode ? 'arrow_forward' : 'check'} />
-              {reviewMode || learnMode ? '次へ進む' : '終了する'}
+        </div>
+        {/* Fixed footer buttons */}
+        <div style={{ borderTop: '1px solid rgba(26,26,26,0.1)', background: 'var(--color-background)', padding: '14px 0' }}>
+          <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="ds-btn accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart}>
+              <Icon name="arrow_forward" />次へ
+            </button>
+            <button type="button" className="ds-btn dark" onClick={backToProject}>
+              <Icon name="check" />終了する
             </button>
           </div>
         </div>
       </div>
-      <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
-        <button type="button" onClick={backToProject} className="absolute left-4 inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]" style={{ top: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}>
-          <Icon name="close" size={22} />
-        </button>
-        <div className="w-full max-w-sm px-6">
-          <div className="w-full rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(61,122,78,0.08)]">
-              <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
+      {/* Mobile completion */}
+      <div className="fixed inset-0 z-30 flex flex-col overflow-y-auto bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+        <div className="mx-auto w-full max-w-sm px-5" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 24px))' }}>
+          {/* Score card */}
+          <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className="font-display text-[32px] font-black tabular-nums text-[var(--solid-ink)]">
+                {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
+              </div>
+              <div className="flex flex-1 flex-col gap-1">
+                <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                  <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
+                </div>
+              </div>
+              <span className="font-display text-[20px] font-black tabular-nums text-[var(--solid-ink)]">{percentage}%</span>
             </div>
-            <h1 className="mb-2 font-display text-2xl font-black text-[var(--solid-ink)]">クイズ完了!</h1>
-            <p className="mb-1 font-mono text-5xl font-black text-[var(--color-success)]">{percentage}%</p>
-            <p className="mb-6 text-[var(--color-muted)]">{results.total}問中 {results.correct}問正解</p>
-            <p className="mb-8 text-[var(--solid-ink)]">
-              {completionMessage}
-            </p>
-            <div className="space-y-3">
-              {reviewMode || learnMode ? (
-                <>
-                  <SolidButton variant="inverse" onClick={goToNextReviewQuiz} iconRight="arrow_forward" className="w-full justify-center">次へ進む</SolidButton>
-                  <SolidButton onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
-                </>
-              ) : (
-                <>
-                  <SolidButton variant="inverse" onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
-                  <SolidButton onClick={backToProject} className="w-full justify-center">単語一覧に戻る</SolidButton>
-                </>
-              )}
+            <p className="mt-2.5 text-[13px] font-bold text-[var(--color-secondary-text)]">{getQuizCompletionMessage(percentage)}</p>
+            <div className="mt-3 flex gap-3">
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-success)]" />正解 {answerResults.filter(r => r === true).length}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-error)]" />不正解 {answerResults.filter(r => r === false).length}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-warning)]" />スキップ {answerResults.filter(r => r === 'skip').length}
+              </span>
             </div>
+          </div>
+          {/* Word results list */}
+          <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
+            <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3">
+              <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)]" />
+              <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">解答一覧</h3>
+            </div>
+            <div className="divide-y divide-[rgba(26,26,26,0.08)]">
+              {wordResultRows.map((row, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="w-5 text-center text-[16px] font-black" style={{ color: row.markerColor }}>
+                    {row.marker}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className="text-[14px] font-bold"
+                      style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--solid-ink)' }}
+                    >
+                      {row.word.english}
+                    </span>
+                    <span
+                      className="ml-2 text-[12px]"
+                      style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--color-muted)', opacity: row.isIncorrect ? 0.8 : 1 }}
+                    >
+                      {formatJapaneseForDisplay(row.word)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Action buttons */}
+          <div className="mt-3 space-y-3">
+            <SolidButton variant="accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart} iconRight="arrow_forward" className="w-full justify-center">次へ</SolidButton>
+            <SolidButton onClick={backToProject} className="w-full justify-center">終了する</SolidButton>
           </div>
         </div>
       </div>
@@ -1462,9 +1553,16 @@ export default function QuizPage() {
               </button>
             </>
           ) : (
-            <span className="muted mono" style={{ fontSize: 12 }}>
-              {isActiveVocab ? '英単語を入力してください' : '意味として正しいものを選んでください'}
-            </span>
+            <>
+              <span className="muted mono" style={{ fontSize: 12 }}>
+                {isActiveVocab ? '英単語を入力してください' : '意味として正しいものを選んでください'}
+              </span>
+              {!isActiveVocab && !currentIsWordOrder && (
+                <button type="button" className="ds-btn ghost" onClick={handleSkip} style={{ marginLeft: 'auto' }}>
+                  わからない
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -1492,7 +1590,9 @@ export default function QuizPage() {
                         ? 'var(--color-success)'
                         : answerResults[i] === false
                           ? 'var(--color-error)'
-                          : 'rgba(26,26,26,0.1)'
+                          : answerResults[i] === 'skip'
+                            ? 'var(--color-warning)'
+                            : 'rgba(26,26,26,0.1)'
                       : i === currentIndex
                         ? 'var(--solid-ink)'
                         : 'rgba(26,26,26,0.1)',
@@ -1585,6 +1685,15 @@ export default function QuizPage() {
                 disabled={isRevealed}
               />
             ))}
+            {!isRevealed && (
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-white py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
+              >
+                わからない
+              </button>
+            )}
           </div>
         ) : (
           <div className="mt-[18px] w-full space-y-4">
@@ -1600,7 +1709,7 @@ export default function QuizPage() {
               variant="solid"
             />
             {!isRevealed && (
-              <SolidButton variant="inverse" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
+              <SolidButton variant="accent" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
                 回答する
               </SolidButton>
             )}
@@ -1638,7 +1747,7 @@ export default function QuizPage() {
           className="shrink-0 bg-[var(--color-background)] px-5 pt-3"
           style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))' }}
         >
-          <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
+          <SolidButton variant="accent" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ
           </SolidButton>
         </div>
