@@ -1734,7 +1734,7 @@ export default function QuizPage() {
           className="shrink-0 bg-[var(--color-background)] px-5 pt-3"
           style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))' }}
         >
-          <SolidButton variant="inverse" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
+          <SolidButton variant="accent" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
             次へ
           </SolidButton>
         </div>
