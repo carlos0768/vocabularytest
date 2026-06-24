@@ -25,12 +25,46 @@ import {
   type CollectionRow,
   type CollectionProjectRow,
 } from '../../../shared/db';
-import { RESOLVED_WORD_SELECT_COLUMNS, SHARE_VIEW_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import {
+  RESOLVED_WORD_SELECT_COLUMNS,
+  RESOLVED_WORD_SELECT_COLUMNS_BASIC,
+  RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
+  SHARE_VIEW_WORD_SELECT_COLUMNS,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
+} from '@/lib/words/resolved';
 
 // Remote implementation of WordRepository using Supabase
 // Used for Pro tier users - data synced across devices
 
 export const WORDS_SELECT_COLUMNS = RESOLVED_WORD_SELECT_COLUMNS;
+const WORDS_SELECT_COLUMNS_WITHOUT_SENSES = RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES;
+const WORDS_SELECT_COLUMNS_BASIC = RESOLVED_WORD_SELECT_COLUMNS_BASIC;
+
+type SupabaseSelectError = {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
+type SupabaseSelectResult = {
+  data: unknown;
+  error: SupabaseSelectError | null;
+  count?: number | null;
+};
+
+function shouldRetryWordSelectWithoutRelations(error: SupabaseSelectError | null): boolean {
+  if (!error) return false;
+  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`;
+  return (
+    error.code === 'PGRST200'
+    || error.code === 'PGRST204'
+    || /schema cache/i.test(text)
+    || /relationship/i.test(text)
+    || /word_translations|lexicon_senses/i.test(text)
+  );
+}
 
 export type SharedWordsPreview = {
   words: Word[];
@@ -57,6 +91,60 @@ export class RemoteWordRepository implements WordRepository {
       headers.Authorization = `Bearer ${session.access_token}`;
     }
     return headers;
+  }
+
+  private async selectWordsWithFallback<T extends SupabaseSelectResult>(
+    buildQuery: (columns: string) => PromiseLike<T>,
+    columns: {
+      primary: string;
+      withoutSenses: string;
+      basic: string;
+      label: string;
+    },
+  ): Promise<T> {
+    const primary = await buildQuery(columns.primary);
+    if (!shouldRetryWordSelectWithoutRelations(primary.error)) {
+      return primary;
+    }
+
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback without lexicon_senses`, {
+      code: primary.error?.code,
+      message: primary.error?.message,
+    });
+    const withoutSenses = await buildQuery(columns.withoutSenses);
+    if (!shouldRetryWordSelectWithoutRelations(withoutSenses.error)) {
+      return withoutSenses;
+    }
+
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback without translation relations`, {
+      code: withoutSenses.error?.code,
+      message: withoutSenses.error?.message,
+    });
+    return buildQuery(columns.basic);
+  }
+
+  private async selectFullWordsWithFallback<T extends SupabaseSelectResult>(
+    buildQuery: (columns: string) => PromiseLike<T>,
+    label: string,
+  ): Promise<T> {
+    return this.selectWordsWithFallback(buildQuery, {
+      primary: WORDS_SELECT_COLUMNS,
+      withoutSenses: WORDS_SELECT_COLUMNS_WITHOUT_SENSES,
+      basic: WORDS_SELECT_COLUMNS_BASIC,
+      label,
+    });
+  }
+
+  private async selectShareWordsWithFallback<T extends SupabaseSelectResult>(
+    buildQuery: (columns: string) => PromiseLike<T>,
+    label: string,
+  ): Promise<T> {
+    return this.selectWordsWithFallback(buildQuery, {
+      primary: SHARE_VIEW_WORD_SELECT_COLUMNS,
+      withoutSenses: SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
+      basic: SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+      label,
+    });
   }
 
   // ============ Projects ============
@@ -279,15 +367,18 @@ export class RemoteWordRepository implements WordRepository {
   }
 
   async getWords(projectId: string): Promise<Word[]> {
-    const { data, error } = await this.supabase
-      .from('words')
-      .select(WORDS_SELECT_COLUMNS)
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+    const { data, error } = await this.selectFullWordsWithFallback(
+      (columns) => this.supabase
+        .from('words')
+        .select(columns)
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false }),
+      'getWords',
+    );
 
     if (error) throw new Error(`Failed to get words: ${error.message}`);
 
-    return (data as WordRow[]).map(mapWordFromRow);
+    return (data as unknown as WordRow[]).map(mapWordFromRow);
   }
 
   /**
@@ -295,46 +386,56 @@ export class RemoteWordRepository implements WordRepository {
    * Omits heavy fields (related_words, usage_patterns, SM-2 fields) not needed for share display.
    */
   async getWordsForShareView(projectId: string): Promise<Word[]> {
-    const { data, error } = await this.supabase
-      .from('words')
-      .select(SHARE_VIEW_WORD_SELECT_COLUMNS)
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+    const { data, error } = await this.selectShareWordsWithFallback(
+      (columns) => this.supabase
+        .from('words')
+        .select(columns)
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false }),
+      'getWordsForShareView',
+    );
 
     if (error) throw new Error(`Failed to get shared words: ${error.message}`);
 
-    return (data as WordRow[]).map(mapWordFromRow);
+    return (data as unknown as WordRow[]).map(mapWordFromRow);
   }
 
   async getWordsForSharePreview(projectId: string, limit = 5): Promise<SharedWordsPreview> {
-    const { data, error, count } = await this.supabase
-      .from('words')
-      .select(SHARE_VIEW_WORD_SELECT_COLUMNS, { count: 'exact' })
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    const { data, error, count } = await this.selectShareWordsWithFallback(
+      (columns) => this.supabase
+        .from('words')
+        .select(columns, { count: 'exact' })
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      'getWordsForSharePreview',
+    );
 
     if (error) throw new Error(`Failed to get shared word preview: ${error.message}`);
 
+    const rows = data as unknown as WordRow[];
     return {
-      words: (data as WordRow[]).map(mapWordFromRow),
-      totalCount: count ?? data?.length ?? 0,
+      words: rows.map(mapWordFromRow),
+      totalCount: count ?? rows.length,
     };
   }
 
   async getWord(id: string): Promise<Word | undefined> {
-    const { data, error } = await this.supabase
-      .from('words')
-      .select(WORDS_SELECT_COLUMNS)
-      .eq('id', id)
-      .single();
+    const { data, error } = await this.selectFullWordsWithFallback(
+      (columns) => this.supabase
+        .from('words')
+        .select(columns)
+        .eq('id', id)
+        .single(),
+      'getWord',
+    );
 
     if (error) {
       if (error.code === 'PGRST116') return undefined;
       throw new Error(`Failed to get word: ${error.message}`);
     }
 
-    return mapWordFromRow(data as WordRow);
+    return mapWordFromRow(data as unknown as WordRow);
   }
 
   async updateWord(id: string, updates: Partial<Word>): Promise<void> {
@@ -374,11 +475,14 @@ export class RemoteWordRepository implements WordRepository {
   async getAllWordsByProjectIds(projectIds: string[]): Promise<Record<string, Word[]>> {
     if (projectIds.length === 0) return {};
 
-    const { data, error } = await this.supabase
-      .from('words')
-      .select(WORDS_SELECT_COLUMNS)
-      .in('project_id', projectIds)
-      .order('created_at', { ascending: false });
+    const { data, error } = await this.selectFullWordsWithFallback(
+      (columns) => this.supabase
+        .from('words')
+        .select(columns)
+        .in('project_id', projectIds)
+        .order('created_at', { ascending: false }),
+      'getAllWordsByProjectIds',
+    );
 
     if (error) throw new Error(`Failed to get all words: ${error.message}`);
 
@@ -386,7 +490,7 @@ export class RemoteWordRepository implements WordRepository {
     for (const pid of projectIds) {
       grouped[pid] = [];
     }
-    for (const row of (data as WordRow[])) {
+    for (const row of (data as unknown as WordRow[])) {
       const word = mapWordFromRow(row);
       if (grouped[word.projectId]) {
         grouped[word.projectId].push(word);
@@ -399,14 +503,17 @@ export class RemoteWordRepository implements WordRepository {
   async getWordsUpdatedSince(projectIds: string[], since: string): Promise<Word[]> {
     if (projectIds.length === 0) return [];
 
-    const { data, error } = await this.supabase
-      .from('words')
-      .select(WORDS_SELECT_COLUMNS)
-      .in('project_id', projectIds)
-      .gt('updated_at', since);
+    const { data, error } = await this.selectFullWordsWithFallback(
+      (columns) => this.supabase
+        .from('words')
+        .select(columns)
+        .in('project_id', projectIds)
+        .gt('updated_at', since),
+      'getWordsUpdatedSince',
+    );
 
     if (error) throw new Error(`Failed to get updated words: ${error.message}`);
-    return (data as WordRow[]).map(mapWordFromRow);
+    return (data as unknown as WordRow[]).map(mapWordFromRow);
   }
 
   /** Fetch only word IDs for given projects (lightweight, for deletion detection) */
@@ -470,15 +577,18 @@ export class RemoteWordRepository implements WordRepository {
     const project = await this.getProjectByShareId(shareId);
     if (!project) return [];
 
-    const { data, error } = await this.supabase
-      .from('words')
-      .select(WORDS_SELECT_COLUMNS)
-      .eq('project_id', project.id)
-      .order('created_at', { ascending: false });
+    const { data, error } = await this.selectFullWordsWithFallback(
+      (columns) => this.supabase
+        .from('words')
+        .select(columns)
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false }),
+      'getWordsByShareId',
+    );
 
     if (error) throw new Error(`Failed to get shared words: ${error.message}`);
 
-    return (data as WordRow[]).map(mapWordFromRow);
+    return (data as unknown as WordRow[]).map(mapWordFromRow);
   }
 
   /**

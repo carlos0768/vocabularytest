@@ -39,6 +39,9 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
     'translation_ja',
     'translation_source',
     'updated_at',
+    'word_translations(',
+    'lexicon_senses(',
+    'distinct_key',
   ];
 
   for (const fragment of expectedFragments) {
@@ -50,32 +53,39 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
   }
 });
 
-test('word read methods query with WORDS_SELECT_COLUMNS', () => {
+test('word read methods query through compatibility fallback helpers', () => {
   const source = fs.readFileSync(new URL('./remote-repository.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /primary: WORDS_SELECT_COLUMNS/);
+  assert.match(source, /withoutSenses: WORDS_SELECT_COLUMNS_WITHOUT_SENSES/);
+  assert.match(source, /basic: WORDS_SELECT_COLUMNS_BASIC/);
 
   assert.match(
     source,
-    /async getWords\(projectId: string\): Promise<Word\[]> \{[\s\S]*?\.from\('words'\)[\s\S]*?\.select\(WORDS_SELECT_COLUMNS\)/
+    /async getWords\(projectId: string\): Promise<Word\[]> \{[\s\S]*?this\.selectFullWordsWithFallback\([\s\S]*?\.from\('words'\)[\s\S]*?\.select\(columns\)/
   );
   assert.match(
     source,
-    /async getWord\(id: string\): Promise<Word \| undefined> \{[\s\S]*?\.from\('words'\)[\s\S]*?\.select\(WORDS_SELECT_COLUMNS\)/
+    /async getWord\(id: string\): Promise<Word \| undefined> \{[\s\S]*?this\.selectFullWordsWithFallback\([\s\S]*?\.from\('words'\)[\s\S]*?\.select\(columns\)/
   );
   assert.match(
     source,
-    /async getAllWordsByProjectIds\(projectIds: string\[\]\): Promise<Record<string, Word\[]>> \{[\s\S]*?\.from\('words'\)[\s\S]*?\.select\(WORDS_SELECT_COLUMNS\)/
+    /async getAllWordsByProjectIds\(projectIds: string\[\]\): Promise<Record<string, Word\[]>> \{[\s\S]*?this\.selectFullWordsWithFallback\([\s\S]*?\.from\('words'\)[\s\S]*?\.select\(columns\)/
   );
   assert.match(
     source,
-    /async getWordsByShareId\(shareId: string\): Promise<Word\[]> \{[\s\S]*?\.from\('words'\)[\s\S]*?\.select\(WORDS_SELECT_COLUMNS\)/
+    /async getWordsByShareId\(shareId: string\): Promise<Word\[]> \{[\s\S]*?this\.selectFullWordsWithFallback\([\s\S]*?\.from\('words'\)[\s\S]*?\.select\(columns\)/
   );
 });
 
-test('shared preview fetches only a limited page with an exact count', () => {
+test('shared preview fetches only a limited page with an exact count through fallback helper', () => {
   const source = fs.readFileSync(new URL('./remote-repository.ts', import.meta.url), 'utf8');
 
+  assert.match(source, /primary: SHARE_VIEW_WORD_SELECT_COLUMNS/);
+  assert.match(source, /withoutSenses: SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES/);
+  assert.match(source, /basic: SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC/);
   assert.match(
     source,
-    /async getWordsForSharePreview\(projectId: string, limit = 5\): Promise<SharedWordsPreview> \{[\s\S]*?\.select\(SHARE_VIEW_WORD_SELECT_COLUMNS, \{ count: 'exact' \}\)[\s\S]*?\.limit\(limit\)/
+    /async getWordsForSharePreview\(projectId: string, limit = 5\): Promise<SharedWordsPreview> \{[\s\S]*?this\.selectShareWordsWithFallback\([\s\S]*?\.select\(columns, \{ count: 'exact' \}\)[\s\S]*?\.limit\(limit\)/
   );
 });
