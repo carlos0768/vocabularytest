@@ -66,6 +66,8 @@ test('word read methods query through compatibility fallback helpers', () => {
   assert.match(source, /withoutSenses: WORDS_SELECT_COLUMNS_WITHOUT_SENSES/);
   assert.match(source, /basic: WORDS_SELECT_COLUMNS_BASIC/);
   assert.match(source, /minimal: WORDS_SELECT_COLUMNS_MINIMAL/);
+  assert.match(source, /error\.code === '42703'/);
+  assert.match(source, /column \.\* does not exist/);
 
   assert.match(
     source,

@@ -25,6 +25,28 @@ function withAllProjectKeys(
   return normalized;
 }
 
+function summarizeLoadError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    const parts = [
+      typeof record.code === 'string' ? record.code : undefined,
+      typeof record.message === 'string' ? record.message : undefined,
+      typeof record.details === 'string' ? record.details : undefined,
+      typeof record.hint === 'string' ? record.hint : undefined,
+    ].filter(Boolean);
+    if (parts.length > 0) return parts.join(' | ');
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 export async function getWordsByProjectMap(
   repository: WordReadRepository,
   projectIds: string[]
@@ -61,8 +83,10 @@ export async function getWordsByProjectMap(
       return;
     }
 
-    console.warn('[load-helpers] getWords failed; using an empty word list for project', {
+    const summary = summarizeLoadError(result?.reason);
+    console.warn(`[load-helpers] getWords failed for project ${projectId}: ${summary}; using an empty word list`, {
       projectId,
+      summary,
       error: result?.reason,
     });
     wordsByProject[projectId] = [];

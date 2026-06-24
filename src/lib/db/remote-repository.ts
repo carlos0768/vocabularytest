@@ -63,7 +63,11 @@ function shouldRetryWordSelectWithoutRelations(error: SupabaseSelectError | null
   return (
     error.code === 'PGRST200'
     || error.code === 'PGRST204'
+    || error.code === '42703'
     || /schema cache/i.test(text)
+    || /column .* does not exist/i.test(text)
+    || /could not find .* column/i.test(text)
+    || /undefined column/i.test(text)
     || /relationship/i.test(text)
     || /word_translations|lexicon_senses/i.test(text)
   );
