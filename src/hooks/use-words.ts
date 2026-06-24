@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
+import { summarizeWordMemory } from '@/lib/words/memory';
 import type { Word, WordStatus, SubscriptionStatus } from '@/types';
 
 // Hook for managing words within a project
@@ -132,11 +133,12 @@ export function useWords(projectId: string | null) {
   }, [authLoading, loadWords]);
 
   // Stats
+  const memorySummary = summarizeWordMemory(words);
   const stats = {
-    total: words.length,
-    new: words.filter((w) => w.status === 'new').length,
-    review: words.filter((w) => w.status === 'review').length,
-    mastered: words.filter((w) => w.status === 'mastered').length,
+    total: memorySummary.total,
+    new: memorySummary.unlearned,
+    review: memorySummary.learning,
+    mastered: memorySummary.mastered,
   };
 
   return {

@@ -26,6 +26,11 @@ function word(
     isFavorite = false,
     vocabularyType = null,
     partOfSpeechTags,
+    projectId,
+    lexiconEntryId,
+    lexiconSenseId,
+    lexiconDistinctKey,
+    lexiconSenseIsPrimary,
   }: {
     english?: string;
     japanese?: string;
@@ -34,6 +39,11 @@ function word(
     isFavorite?: boolean;
     vocabularyType?: VocabularyType | null;
     partOfSpeechTags?: string[];
+    projectId?: string;
+    lexiconEntryId?: string;
+    lexiconSenseId?: string;
+    lexiconDistinctKey?: string;
+    lexiconSenseIsPrimary?: boolean;
   } = {},
 ): TestWord {
   return {
@@ -45,6 +55,11 @@ function word(
     isFavorite,
     vocabularyType,
     partOfSpeechTags,
+    projectId,
+    lexiconEntryId,
+    lexiconSenseId,
+    lexiconDistinctKey,
+    lexiconSenseIsPrimary,
   };
 }
 
@@ -81,6 +96,36 @@ test('countProjectWordStats counts mastered, review, new, and missing status wor
     mastered: 1,
     learning: 1,
     unlearned: 2,
+  });
+});
+
+test('countProjectWordStats treats distinct sense progress as one memory-rate word', () => {
+  const stats = countProjectWordStats([
+    word('free-primary', {
+      english: 'free',
+      japanese: '自由な',
+      status: 'mastered',
+      projectId: 'project-1',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-primary',
+      lexiconSenseIsPrimary: true,
+    }),
+    word('free-cost', {
+      english: 'free',
+      japanese: '無料の',
+      status: 'new',
+      projectId: 'project-1',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-cost',
+      lexiconDistinctKey: 'cost',
+    }),
+  ]);
+
+  assert.deepEqual(stats, {
+    total: 1,
+    mastered: 0,
+    learning: 1,
+    unlearned: 0,
   });
 });
 

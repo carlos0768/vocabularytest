@@ -20,6 +20,7 @@ import {
   EMPTY_DESKTOP_STUDY_SUMMARY,
   type DesktopStudySummaryStats,
 } from '@/lib/desktop-study-summary';
+import { summarizeWordMemory } from '@/lib/words/memory';
 import { getGuestUserId } from '@/lib/utils';
 import type { Project, SubscriptionStatus } from '@/types';
 
@@ -53,10 +54,11 @@ async function addStatsToProjects(
   );
   const rows = buildProjectStats(projects, wordsByProject).map((project) => {
     const words = wordsByProject[project.id] ?? [];
+    const memorySummary = summarizeWordMemory(words);
     return {
       ...project,
-      reviewWords: words.filter((word) => word.status === 'review').length,
-      newWords: words.filter((word) => word.status === 'new').length,
+      reviewWords: memorySummary.learning,
+      newWords: memorySummary.unlearned,
     };
   });
 

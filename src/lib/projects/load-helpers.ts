@@ -1,4 +1,5 @@
 import type { Project, Word } from '@/types';
+import { summarizeWordMemory } from '@/lib/words/memory';
 
 export interface ProjectWithStats extends Project {
   totalWords: number;
@@ -55,8 +56,9 @@ export function buildProjectStats(
 ): ProjectWithStats[] {
   return projects.map((project) => {
     const words = wordsByProject[project.id] ?? [];
-    const masteredWords = words.filter((word) => word.status === 'mastered').length;
-    const totalWords = words.length;
+    const memorySummary = summarizeWordMemory(words);
+    const masteredWords = memorySummary.mastered;
+    const totalWords = memorySummary.total;
     const progress = totalWords > 0 ? Math.round((masteredWords / totalWords) * 100) : 0;
 
     let lastUsedAt: string | null = null;

@@ -1,6 +1,7 @@
 import { countHomeWordStatuses } from '@/lib/home/home-page-selectors';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { getDailyStats, getStreakDays } from '@/lib/utils';
+import { summarizeWordMemory } from '@/lib/words/memory';
 import type { Word } from '@/types';
 
 export type DesktopStudySummaryStats = {
@@ -26,12 +27,13 @@ export const EMPTY_DESKTOP_STUDY_SUMMARY: DesktopStudySummaryStats = {
 export function buildDesktopStudySummaryStats(words: Word[]): DesktopStudySummaryStats {
   const daily = getDailyStats();
   const statusCounts = countHomeWordStatuses(words);
+  const memorySummary = summarizeWordMemory(words);
 
   return {
     dueCount: getWordsDueForReview(words).length,
     completedToday: daily.todayCount,
     streakDays: getStreakDays(),
-    totalWords: words.length,
+    totalWords: memorySummary.total,
     mastered: statusCounts.masteredTotal,
     review: statusCounts.learningTotal,
     newW: statusCounts.unlearnedTotal,

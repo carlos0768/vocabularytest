@@ -395,6 +395,16 @@ test('/api/extract runs one composite extraction and overwrites sourceModes from
       english: 'look forward to',
       japanese: '楽しみに待つ',
       japaneseSource: 'scan',
+      translations: [
+        {
+          translationJa: '楽しみに待つ',
+          normalizedTranslationJa: '楽しみに待つ',
+          source: 'scan',
+          meaningRank: 1,
+          position: 0,
+          isPrimary: true,
+        },
+      ],
       sourceModes: ['all', 'idiom', 'eiken'],
       distractors: [],
       partOfSpeechTags: ['idiom'],
@@ -550,6 +560,16 @@ test('/api/extract success response keeps scanInfo, sourceLabels, lexiconEntries
       english: 'book',
       japanese: '本',
       japaneseSource: 'scan',
+      translations: [
+        {
+          translationJa: '本',
+          normalizedTranslationJa: '本',
+          source: 'scan',
+          meaningRank: 1,
+          position: 0,
+          isPrimary: true,
+        },
+      ],
       sourceModes: ['all'],
       distractors: ['ペン', '机', '紙'],
       partOfSpeechTags: ['noun'],

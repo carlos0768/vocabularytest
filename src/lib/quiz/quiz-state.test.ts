@@ -114,6 +114,59 @@ test('generateQuizQuestions falls back to other Japanese words when stored distr
   assert.equal(question.correctIndex, 0);
 });
 
+test('generateQuizQuestions primaryOnly skips explicit distinct non-primary meanings', () => {
+  const questions = generateQuizQuestions([
+    createWord({
+      id: 'free-primary',
+      english: 'free',
+      japanese: '自由な',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-primary',
+      lexiconSenseIsPrimary: true,
+    }),
+    createWord({
+      id: 'free-cost',
+      english: 'free',
+      japanese: '無料の',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-cost',
+      lexiconDistinctKey: 'cost',
+    }),
+  ], 3, 'en-to-ja', identityShuffle, { preserveOrder: true, primaryOnly: true });
+
+  assert.deepEqual(questions.map((question) => question.word.id), ['free-primary']);
+});
+
+test('generateQuizQuestions allows distinct meanings of the same word as distractors', () => {
+  const [question] = generateQuizQuestions([
+    createWord({
+      id: 'free-primary',
+      english: 'free',
+      japanese: '自由な',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-primary',
+      lexiconSenseIsPrimary: true,
+    }),
+    createWord({
+      id: 'free-cost',
+      english: 'free',
+      japanese: '無料の',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-cost',
+      lexiconDistinctKey: 'cost',
+    }),
+    createWord({
+      id: 'plain',
+      english: 'plain',
+      japanese: '明白な',
+    }),
+  ], 1, 'en-to-ja', identityShuffle, { preserveOrder: true });
+
+  assert.equal(question.word.id, 'free-primary');
+  assert.ok(question.options.includes('無料の'));
+  assert.equal(question.correctIndex, 0);
+});
+
 test('generateQuizQuestions builds ja-to-en options from other words and English generic fallback', () => {
   const words = [
     createWord({

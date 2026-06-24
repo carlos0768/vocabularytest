@@ -19,6 +19,7 @@ import {
 } from '@/lib/utils';
 import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
+import { summarizeWordMemory } from '@/lib/words/memory';
 import type { SubscriptionStatus, Word } from '@/types';
 
 export interface CachedStats {
@@ -367,25 +368,26 @@ function buildStatsFromHomeCache(): {
   const projectWords = getCachedProjectWords();
 
   const allWords: Word[] = [];
-  let totalWords = 0;
-  let masteredWords = 0;
-  let reviewWords = 0;
-  let newWords = 0;
   let favoriteWords = 0;
 
   for (const project of projects) {
     const words = projectWords[project.id] || [];
     allWords.push(...words);
-    totalWords += words.length;
     for (const word of words) {
-      if (word.status === 'mastered') masteredWords++;
-      else if (word.status === 'review') reviewWords++;
-      else newWords++;
       if (word.isFavorite) favoriteWords++;
     }
   }
 
-  return { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords, allWords };
+  const memorySummary = summarizeWordMemory(allWords);
+  return {
+    totalProjects: projects.length,
+    totalWords: memorySummary.total,
+    masteredWords: memorySummary.mastered,
+    reviewWords: memorySummary.learning,
+    newWords: memorySummary.unlearned,
+    favoriteWords,
+    allWords,
+  };
 }
 
 async function fetchStatsData(
@@ -415,23 +417,40 @@ async function fetchStatsData(
 
     if (hasRemoteData) {
       wordStats = await fetchStatsViaRpc(userId);
-      // Fetch mastered words directly from Supabase for mastery history chart
       try {
-        const supabase = createBrowserClient();
-        const { data, error } = await supabase
-          .from('words')
-          .select('status, created_at, last_reviewed_at')
-          .eq('user_id', userId)
-          .eq('status', 'mastered');
-        if (!error && data) {
-          allWords = data.map(row => ({
-            status: row.status,
-            createdAt: row.created_at,
-            lastReviewedAt: row.last_reviewed_at ?? undefined,
-          })) as unknown as Word[];
-        }
+        const { getRepository } = await import('@/lib/db');
+        const repository = getRepository(subscriptionStatus, wasPro ?? false);
+        const projects = await repository.getProjects(userId);
+        const allWordsArrays = await Promise.all(projects.map((project) => repository.getWords(project.id)));
+        allWords = allWordsArrays.flat();
+        const memorySummary = summarizeWordMemory(allWords);
+        wordStats = {
+          totalProjects: projects.length,
+          totalWords: memorySummary.total,
+          masteredWords: memorySummary.mastered,
+          reviewWords: memorySummary.learning,
+          newWords: memorySummary.unlearned,
+          favoriteWords: allWords.filter((word) => word.isFavorite).length,
+        };
       } catch {
-        // Fallback: mastery history will be empty
+        // Fetch mastered words directly from Supabase for mastery history chart
+        try {
+          const supabase = createBrowserClient();
+          const { data, error } = await supabase
+            .from('words')
+            .select('status, created_at, last_reviewed_at')
+            .eq('user_id', userId)
+            .eq('status', 'mastered');
+          if (!error && data) {
+            allWords = data.map(row => ({
+              status: row.status,
+              createdAt: row.created_at,
+              lastReviewedAt: row.last_reviewed_at ?? undefined,
+            })) as unknown as Word[];
+          }
+        } catch {
+          // Fallback: mastery history will be empty
+        }
       }
     } else {
       // Try home-cache first (no DB query)
@@ -450,21 +469,21 @@ async function fetchStatsData(
         );
         allWords = allWordsArrays.flat();
 
-        let totalWords = 0;
-        let masteredWords = 0;
-        let reviewWords = 0;
-        let newWords = 0;
         let favoriteWords = 0;
 
         for (const word of allWords) {
-          totalWords++;
-          if (word.status === 'mastered') masteredWords++;
-          else if (word.status === 'review') reviewWords++;
-          else newWords++;
           if (word.isFavorite) favoriteWords++;
         }
 
-        wordStats = { totalProjects: projects.length, totalWords, masteredWords, reviewWords, newWords, favoriteWords };
+        const memorySummary = summarizeWordMemory(allWords);
+        wordStats = {
+          totalProjects: projects.length,
+          totalWords: memorySummary.total,
+          masteredWords: memorySummary.mastered,
+          reviewWords: memorySummary.learning,
+          newWords: memorySummary.unlearned,
+          favoriteWords,
+        };
       }
     }
 

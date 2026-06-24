@@ -36,6 +36,7 @@ export interface LexiconSense {
   lexiconEntryId: string;
   translationJa: string;
   normalizedTranslationJa: string;
+  distinctKey?: string;
   meaningSummary?: string;
   usageNotes?: string;
   exampleSentence?: string;
@@ -153,6 +154,8 @@ export interface Word {
   japaneseSource?: 'scan' | 'ai';
   lexiconEntryId?: string;
   lexiconSenseId?: string;
+  lexiconDistinctKey?: string;
+  lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
@@ -228,6 +231,8 @@ export interface AIWordExtraction {
   sourceModes?: Array<'all' | 'circled' | 'eiken' | 'idiom'>;
   lexiconEntryId?: string;
   lexiconSenseId?: string;
+  lexiconDistinctKey?: string;
+  lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];

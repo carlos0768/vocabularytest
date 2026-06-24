@@ -19,7 +19,7 @@ function createProject(id: string): Project {
 
 let wordCounter = 0;
 
-function createWord(projectId: string, status: Word['status'] = 'new'): Word {
+function createWord(projectId: string, status: Word['status'] = 'new', overrides: Partial<Word> = {}): Word {
   wordCounter += 1;
   return {
     id: `${projectId}_${status}_${wordCounter}`,
@@ -33,6 +33,7 @@ function createWord(projectId: string, status: Word['status'] = 'new'): Word {
     intervalDays: 0,
     repetition: 0,
     isFavorite: false,
+    ...overrides,
   };
 }
 
@@ -106,6 +107,36 @@ test('buildProjectStats calculates totals/mastered/progress correctly', () => {
   assert.equal(stats[1].totalWords, 1);
   assert.equal(stats[1].masteredWords, 0);
   assert.equal(stats[1].progress, 0);
+});
+
+test('buildProjectStats uses grouped distinct memory totals', () => {
+  const projects = [createProject('p1')];
+  const wordsByProject: Record<string, Word[]> = {
+    p1: [
+      createWord('p1', 'mastered', {
+        id: 'free-primary',
+        english: 'free',
+        japanese: '自由な',
+        lexiconEntryId: 'lex-free',
+        lexiconSenseId: 'sense-primary',
+        lexiconSenseIsPrimary: true,
+      }),
+      createWord('p1', 'new', {
+        id: 'free-cost',
+        english: 'free',
+        japanese: '無料の',
+        lexiconEntryId: 'lex-free',
+        lexiconSenseId: 'sense-cost',
+        lexiconDistinctKey: 'cost',
+      }),
+    ],
+  };
+
+  const [stats] = buildProjectStats(projects, wordsByProject);
+
+  assert.equal(stats.totalWords, 1);
+  assert.equal(stats.masteredWords, 0);
+  assert.equal(stats.progress, 0);
 });
 
 test('mergeProjectsById removes duplicates and keeps first entry order', () => {
