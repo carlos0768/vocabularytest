@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { normalizeSingleLineEnvValue, readSingleLineEnv } from './env';
 import { clearAllUserStats } from './utils';
 
 class MemoryStorage implements Storage {
@@ -69,4 +70,20 @@ test('clearAllUserStats removes all local learning stats', () => {
       value: previousLocalStorage,
     });
   }
+});
+
+test('normalizeSingleLineEnvValue removes literal and actual newlines from token env values', () => {
+  assert.equal(normalizeSingleLineEnvValue('  key-value\\n'), 'key-value');
+  assert.equal(normalizeSingleLineEnvValue('key-value\n'), 'key-value');
+  assert.equal(normalizeSingleLineEnvValue('key\r\nvalue'), 'keyvalue');
+  assert.equal(normalizeSingleLineEnvValue(undefined), '');
+});
+
+test('readSingleLineEnv reads normalized values from an env map', () => {
+  assert.equal(
+    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', {
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key\\n',
+    }),
+    'anon-key',
+  );
 });

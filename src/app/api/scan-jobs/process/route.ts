@@ -8,6 +8,7 @@ import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { extractCompositeWordsFromImage } from '@/lib/ai/extract-composite-words';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { readSingleLineEnv } from '@/lib/env';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
@@ -106,8 +107,8 @@ let supabaseAdmin: SupabaseClient | null = null;
 
 function getSupabaseAdmin(): SupabaseClient {
   if (!supabaseAdmin) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
+    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
     supabaseAdmin = createClient(
       url.startsWith('http') ? url : `https://${url}`,
       key

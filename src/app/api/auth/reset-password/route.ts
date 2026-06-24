@@ -5,6 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { readSingleLineEnv } from '@/lib/env';
 import {
   buildOtpInsertPayload,
   evaluateAuthOtpCode,
@@ -16,8 +17,8 @@ import {
 
 // Service Role client for admin operations
 function getAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabaseUrl = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const serviceRoleKey = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -27,8 +28,8 @@ function getAdminClient() {
 async function getServerClient() {
   const cookieStore = await cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     {
       cookies: {
         getAll() {

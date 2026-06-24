@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { readSingleLineEnv } from '@/lib/env';
 import { createClient } from '@/lib/supabase/server';
 import { cancelSubscriptionAtPeriodEnd } from '@/lib/stripe';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 
 function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!url || !key) {
     throw new Error('Supabase environment variables not configured');

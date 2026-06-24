@@ -1,12 +1,13 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { normalizeSingleLineEnvValue } from '@/lib/env';
 
 let supabaseInstance: SupabaseClient | null = null;
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    normalizeSingleLineEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    normalizeSingleLineEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   );
 }
 
@@ -18,8 +19,8 @@ export function createClient(): SupabaseClient {
     return supabaseInstance;
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = normalizeSingleLineEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const key = normalizeSingleLineEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
   // During build time or if env vars are missing, return a placeholder
   // that will be properly initialized at runtime
