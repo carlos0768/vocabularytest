@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { readSingleLineEnv } from '@/lib/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import {
   getEffectiveSubscriptionStatus,
@@ -10,8 +11,8 @@ let supabaseAdmin: SupabaseClient | null = null;
 
 function getSupabaseAdmin(): SupabaseClient {
   if (!supabaseAdmin) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
+    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
 
     supabaseAdmin = createClient(
       url.startsWith('http') ? url : `https://${url}`,

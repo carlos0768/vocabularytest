@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { normalizeOAuthRedirectPath } from '@/lib/auth/oauth';
+import { readSingleLineEnv } from '@/lib/env';
 
 // Paths that require authentication check.
 const protectedPaths = [
@@ -29,8 +30,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const key = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
   // Local/offline development may run without Supabase env.
   // In that case, skip middleware auth enforcement instead of crashing.

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { readSingleLineEnv } from '@/lib/env';
 import { calculateEstimatedApiCost } from './pricing';
 
 type EventStatus = 'succeeded' | 'failed';
@@ -24,8 +25,8 @@ let adminClient: SupabaseClient | null = null;
 function getAdminClient(): SupabaseClient | null {
   if (adminClient) return adminClient;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
   if (!url || !key) return null;
 
   adminClient = createClient(url, key, {

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { readSingleLineEnv } from '@/lib/env';
 
 type ApiCostEventRow = {
   id: string;
@@ -26,8 +27,8 @@ function toNumber(value: unknown): number {
 }
 
 function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!url || !key) {
     throw new Error('Supabase environment variables not configured');

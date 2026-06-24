@@ -1,4 +1,5 @@
 import type { User } from '@supabase/supabase-js';
+import { normalizeSingleLineEnvValue } from '@/lib/env';
 
 export interface CachedSupabaseSessionSnapshot {
   accessToken: string;
@@ -15,7 +16,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseSupabaseProjectRef(): string | null {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl = normalizeSingleLineEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
   if (!supabaseUrl) return null;
   const match = supabaseUrl.match(/^https:\/\/([^.]+)\.supabase\.co/);
   return match?.[1] ?? null;

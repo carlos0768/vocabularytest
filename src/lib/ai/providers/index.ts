@@ -11,6 +11,7 @@ import type { AIProvider } from './types';
 import { createGeminiProvider } from './gemini';
 import { createOpenAIProvider } from './openai';
 import { CloudRunProvider } from './cloud-run';
+import { readSingleLineEnv } from '@/lib/env';
 
 // Re-export types and classes
 export { AIError } from './types';
@@ -26,8 +27,8 @@ export { CloudRunProvider } from './cloud-run';
 const providerCache = new Map<string, AIProvider>();
 
 function getCloudRunConfig(): { url?: string; authToken?: string; enabled: boolean } {
-  const url = process.env.CLOUD_RUN_URL?.trim();
-  const authToken = process.env.CLOUD_RUN_AUTH_TOKEN?.trim();
+  const url = readSingleLineEnv('CLOUD_RUN_URL');
+  const authToken = readSingleLineEnv('CLOUD_RUN_AUTH_TOKEN');
   return {
     url,
     authToken,
