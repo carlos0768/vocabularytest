@@ -77,7 +77,7 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
-  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('createdAsc');
+  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('statusAsc');
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
   const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
