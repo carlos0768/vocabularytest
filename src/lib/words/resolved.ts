@@ -9,14 +9,41 @@ export const LEXICON_SENSE_SELECT_COLUMNS =
 export const WORD_TRANSLATION_SELECT_COLUMNS =
   'id, word_id, lexicon_sense_id, translation_ja, normalized_translation_ja, source, meaning_rank, position, is_primary, created_at, updated_at' as const;
 
+export const RESOLVED_WORD_BASE_SELECT_COLUMNS =
+  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections' as const;
+
+export const RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS =
+  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id' as const;
+
+export const SHARE_VIEW_WORD_BASE_SELECT_COLUMNS =
+  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, created_at' as const;
+
 export const RESOLVED_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
+  `${RESOLVED_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
+
+export const RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES =
+  `${RESOLVED_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+
+export const RESOLVED_WORD_SELECT_COLUMNS_BASIC =
+  `${RESOLVED_WORD_BASE_SELECT_COLUMNS}, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_TEXT_SELECT_COLUMNS =
-  `id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
+  `${RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
+
+export const RESOLVED_WORD_TEXT_SELECT_COLUMNS_WITHOUT_SENSES =
+  `${RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+
+export const RESOLVED_WORD_TEXT_SELECT_COLUMNS_BASIC =
+  `${RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS}, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS =
-  `id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, created_at, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
+  `${SHARE_VIEW_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
+
+export const SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES =
+  `${SHARE_VIEW_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+
+export const SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC =
+  `${SHARE_VIEW_WORD_BASE_SELECT_COLUMNS}, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS =
   `${RESOLVED_WORD_TEXT_SELECT_COLUMNS}, embedding` as const;
