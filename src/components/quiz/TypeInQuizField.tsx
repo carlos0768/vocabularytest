@@ -79,18 +79,14 @@ export function TypeInQuizField({
         ? 'border-[#b91c1c] bg-[var(--color-error)]'
         : 'border-[var(--color-border)] bg-[var(--color-surface)] focus-within:border-[var(--color-foreground)]';
 
-  const typedColorClass = isSolid
-    ? result === 'correct'
-      ? 'text-[var(--color-success)]'
-      : result === 'wrong'
-        ? 'text-[var(--color-error)]'
-        : 'text-[var(--solid-ink)]'
-    : result
-      ? 'text-white'
+  const typedColorClass = result
+    ? 'text-white'
+    : isSolid
+      ? 'text-[var(--solid-ink)]'
       : 'text-[var(--color-foreground)]';
 
   const underscoreClass = `${
-    !isSolid && result ? 'text-white/60' : 'text-[var(--color-muted)]/50'
+    result ? 'text-white/60' : 'text-[var(--color-muted)]/50'
   } font-medium text-xl min-w-[0.55em] text-center`;
   const hintClass = 'text-[var(--color-muted)]/70 font-medium text-xl';
   const caretClass = isSolid ? 'bg-[var(--color-accent)]' : 'bg-blue-600';
@@ -134,10 +130,7 @@ export function TypeInQuizField({
         <Icon
           name={result === 'correct' ? 'check' : 'close'}
           size={20}
-          className={`ml-1.5 shrink-0 ${isSolid
-            ? result === 'correct' ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
-            : 'text-white'
-          }`}
+          className="ml-1.5 shrink-0 text-white"
         />
       )}
     </div>
@@ -188,15 +181,17 @@ export function TypeInQuizField({
   }
 
   let faceBg = 'var(--color-surface)';
-  const borderColor = 'var(--solid-ink)';
+  let borderColor = 'var(--solid-ink)';
   let shadowColor = 'var(--solid-ink)';
 
   if (result === 'correct') {
-    faceBg = 'rgba(61,122,78,0.08)';
-    shadowColor = 'var(--color-success)';
+    faceBg = 'var(--color-accent)';
+    borderColor = 'var(--color-accent-ink)';
+    shadowColor = 'var(--color-accent-ink)';
   } else if (result === 'wrong') {
-    faceBg = 'rgba(184,72,72,0.08)';
-    shadowColor = 'var(--color-error)';
+    faceBg = 'var(--color-error)';
+    borderColor = '#b91c1c';
+    shadowColor = '#b91c1c';
   }
 
   return (
