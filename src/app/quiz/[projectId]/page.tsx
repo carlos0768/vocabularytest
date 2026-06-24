@@ -1203,47 +1203,53 @@ export default function QuizPage() {
       <>
       <PwaInstallPromptModal open={pwaPromptOpen} onClose={() => setPwaPromptOpen(false)} />
       {/* Desktop completion */}
-      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col items-center overflow-y-auto bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
-        <div style={{ width: '100%', maxWidth: 520, padding: '40px 0' }}>
-          {/* Score summary bar */}
-          <div className="ds-card" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, lineHeight: 1 }}>
-              {results.correct}<span style={{ fontSize: 16, color: 'var(--color-secondary-text)' }}>/{results.total}</span>
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+        <div className="flex-1 overflow-y-auto">
+          <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', padding: '40px 0 24px' }}>
+            {/* Score summary bar */}
+            <div className="ds-card" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, lineHeight: 1 }}>
+                {results.correct}<span style={{ fontSize: 16, color: 'var(--color-secondary-text)' }}>/{results.total}</span>
+              </div>
+              <div className="ds-prog" style={{ flex: 1 }}><div className="fi" style={{ width: `${percentage}%` }} /></div>
+              <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{percentage}%</span>
             </div>
-            <div className="ds-prog" style={{ flex: 1 }}><div className="fi" style={{ width: `${percentage}%` }} /></div>
-            <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{percentage}%</span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="ds-btn accent" onClick={handleRestart}><Icon name="replay" />もう一度</button>
-              <button type="button" className="ds-btn dark" onClick={reviewMode || learnMode ? goToNextReviewQuiz : backToProject}>
-                <Icon name={reviewMode || learnMode ? 'arrow_forward' : 'check'} />
-                {reviewMode || learnMode ? '次へ進む' : '終了する'}
-              </button>
+            {/* Desktop word results */}
+            <div className="ds-card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(26,26,26,0.1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="format_list_bulleted" style={{ fontSize: 18, color: 'var(--color-muted)' }} />
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14 }}>解答一覧</span>
+              </div>
+              <table className="ds-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 44, textAlign: 'center' }} />
+                    <th style={{ minWidth: 120 }}>英単語</th>
+                    <th>日本語</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wordResultRows.map((row, i) => (
+                    <tr key={i}>
+                      <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 16, color: row.markerColor }}>{row.marker}</td>
+                      <td className="en" style={row.isIncorrect ? { color: 'var(--color-error)' } : undefined}>{row.word.english}</td>
+                      <td className="ja" style={row.isIncorrect ? { color: 'var(--color-error)', opacity: 0.8 } : undefined}><TranslationDisplay word={row.word} compact /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-          {/* Desktop word results */}
-          <div className="ds-card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(26,26,26,0.1)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Icon name="format_list_bulleted" style={{ fontSize: 18, color: 'var(--color-muted)' }} />
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14 }}>解答一覧</span>
-            </div>
-            <table className="ds-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 44, textAlign: 'center' }} />
-                  <th style={{ minWidth: 120 }}>英単語</th>
-                  <th>日本語</th>
-                </tr>
-              </thead>
-              <tbody>
-                {wordResultRows.map((row, i) => (
-                  <tr key={i}>
-                    <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 16, color: row.markerColor }}>{row.marker}</td>
-                    <td className="en" style={row.isIncorrect ? { color: 'var(--color-error)' } : undefined}>{row.word.english}</td>
-                    <td className="ja" style={row.isIncorrect ? { color: 'var(--color-error)', opacity: 0.8 } : undefined}><TranslationDisplay word={row.word} compact /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        </div>
+        {/* Fixed footer buttons */}
+        <div style={{ borderTop: '1px solid rgba(26,26,26,0.1)', background: 'var(--color-background)', padding: '14px 0' }}>
+          <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="ds-btn accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart}>
+              <Icon name="arrow_forward" />次へ
+            </button>
+            <button type="button" className="ds-btn dark" onClick={backToProject}>
+              <Icon name="check" />終了する
+            </button>
           </div>
         </div>
       </div>
