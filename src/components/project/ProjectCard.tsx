@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { summarizeWordMemory } from '@/lib/words/memory';
 import type { Project, Word } from '@/types';
 
 interface MenuItem {
@@ -54,10 +55,11 @@ export function ProjectCard(props: ProjectCardProps) {
   let unlearned: number;
 
   if (props.words) {
-    total = props.words.length;
-    mastered = props.words.filter((w) => w.status === 'mastered').length;
-    learning = props.words.filter((w) => w.status === 'review').length;
-    unlearned = props.words.filter((w) => !w.status || w.status === 'new').length;
+    const summary = summarizeWordMemory(props.words);
+    total = summary.total;
+    mastered = summary.mastered;
+    learning = summary.learning;
+    unlearned = summary.unlearned;
   } else {
     total = props.totalWords;
     mastered = props.masteredWords;

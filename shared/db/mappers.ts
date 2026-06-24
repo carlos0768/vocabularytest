@@ -7,6 +7,7 @@ import type {
   CustomSection,
   VocabularyType,
   LexiconEntry,
+  LexiconSense,
   Collection,
   CollectionProject,
   RelatedWord,
@@ -134,6 +135,7 @@ export interface WordRow {
   project_id: string;
   english: string;
   japanese: string;
+  japanese_source?: string | null;
   vocabulary_type?: string | null;
   lexicon_entry_id?: string | null;
   lexicon_sense_id?: string | null;
@@ -158,6 +160,7 @@ export interface WordRow {
   custom_sections?: unknown | null;
   lexicon_entries?: LexiconEntryRow | LexiconEntryRow[] | null;
   word_translations?: WordTranslationRow[] | null;
+  lexicon_senses?: LexiconSenseRow | LexiconSenseRow[] | null;
 }
 
 export interface WordTranslationRow {
@@ -181,10 +184,31 @@ export interface LexiconEntryRow {
   pos: string;
   cefr_level?: string | null;
   dataset_sources?: string[] | null;
+  primary_sense_id?: string | null;
   translation_ja?: string | null;
+  normalized_translation_ja?: string | null;
+  distinct_key?: string | null;
+  meaning_summary?: string | null;
+  usage_notes?: string | null;
   translation_source?: string | null;
   example_sentence?: string | null;
   example_sentence_ja?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LexiconSenseRow {
+  id: string;
+  lexicon_entry_id: string;
+  translation_ja: string;
+  normalized_translation_ja: string;
+  distinct_key?: string | null;
+  meaning_summary?: string | null;
+  usage_notes?: string | null;
+  example_sentence?: string | null;
+  example_sentence_ja?: string | null;
+  translation_source?: string | null;
+  is_primary?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -209,6 +233,15 @@ function resolveLexiconRow(
   return value ?? null;
 }
 
+function resolveLexiconSenseRow(
+  value: WordRow['lexicon_senses'],
+): LexiconSenseRow | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+  return value ?? null;
+}
+
 function resolveWordEnglish(row: WordRow): string {
   return (
     toNonEmptyString(resolveLexiconRow(row.lexicon_entries)?.headword) ??
@@ -223,7 +256,9 @@ function resolveWordJapanese(row: WordRow): string {
   }
 
   const lexicon = resolveLexiconRow(row.lexicon_entries);
+  const sense = resolveLexiconSenseRow(row.lexicon_senses);
   return (
+    normalizeLexiconTranslation(sense?.translation_ja) ??
     normalizeLexiconTranslation(lexicon?.translation_ja) ??
     row.japanese
   );
@@ -277,9 +312,12 @@ function resolveWordTranslations(row: WordRow): WordTranslation[] {
   }
 
   const lexicon = resolveLexiconRow(row.lexicon_entries);
+  const sense = resolveLexiconSenseRow(row.lexicon_senses);
   return normalizeWordTranslationPayload({
-    japanese: normalizeLexiconTranslation(lexicon?.translation_ja) ?? row.japanese,
-    lexiconSenseId: row.lexicon_sense_id,
+    japanese: normalizeLexiconTranslation(sense?.translation_ja)
+      ?? normalizeLexiconTranslation(lexicon?.translation_ja)
+      ?? row.japanese,
+    lexiconSenseId: row.lexicon_sense_id ?? sense?.id,
   }).translations;
 }
 
@@ -305,7 +343,30 @@ function normalizeVocabularyType(value: unknown): VocabularyType | null {
   return value === 'active' || value === 'passive' ? value : null;
 }
 
+function normalizeJapaneseSource(value: unknown): Word['japaneseSource'] | undefined {
+  return value === 'scan' || value === 'ai' ? value : undefined;
+}
+
+export function mapLexiconSenseFromRow(row: LexiconSenseRow): LexiconSense {
+  return {
+    id: row.id,
+    lexiconEntryId: row.lexicon_entry_id,
+    translationJa: row.translation_ja,
+    normalizedTranslationJa: row.normalized_translation_ja,
+    distinctKey: toNonEmptyString(row.distinct_key) ?? undefined,
+    meaningSummary: toNonEmptyString(row.meaning_summary) ?? undefined,
+    usageNotes: toNonEmptyString(row.usage_notes) ?? undefined,
+    exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
+    exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
+    translationSource: toNonEmptyString(row.translation_source) ?? undefined,
+    isPrimary: row.is_primary ?? false,
+    createdAt: row.created_at ?? new Date(0).toISOString(),
+    updatedAt: row.updated_at ?? new Date(0).toISOString(),
+  };
+}
+
 export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
+  const primarySenseTranslation = normalizeLexiconTranslation(row.translation_ja);
   return {
     id: row.id,
     headword: row.headword,
@@ -313,7 +374,24 @@ export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
     pos: row.pos,
     cefrLevel: row.cefr_level ?? undefined,
     datasetSources: normalizeLexiconDatasetSources(row.dataset_sources ?? []),
-    translationJa: normalizeLexiconTranslation(row.translation_ja) ?? undefined,
+    primarySense: row.primary_sense_id && primarySenseTranslation
+      ? {
+          id: row.primary_sense_id,
+          lexiconEntryId: row.id,
+          translationJa: primarySenseTranslation,
+          normalizedTranslationJa: row.normalized_translation_ja ?? primarySenseTranslation,
+          distinctKey: toNonEmptyString(row.distinct_key) ?? undefined,
+          meaningSummary: toNonEmptyString(row.meaning_summary) ?? undefined,
+          usageNotes: toNonEmptyString(row.usage_notes) ?? undefined,
+          exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
+          exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
+          translationSource: row.translation_source ?? undefined,
+          isPrimary: true,
+          createdAt: row.created_at ?? new Date(0).toISOString(),
+          updatedAt: row.updated_at ?? new Date(0).toISOString(),
+        }
+      : undefined,
+    translationJa: primarySenseTranslation ?? undefined,
     translationSource: row.translation_source ?? undefined,
     exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
     exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
@@ -424,15 +502,19 @@ function normalizeWordOrderQuizCache(value: unknown): WordOrderQuizCache | undef
 
 export function mapWordFromRow(row: WordRow): Word {
   const defaultSR = getDefaultSpacedRepetitionFields();
+  const linkedSense = resolveLexiconSenseRow(row.lexicon_senses);
   return {
     id: row.id,
     projectId: row.project_id,
     english: resolveWordEnglish(row),
     japanese: resolveWordJapanese(row),
     translations: resolveWordTranslations(row),
+    japaneseSource: normalizeJapaneseSource(row.japanese_source),
     vocabularyType: normalizeVocabularyType(row.vocabulary_type),
     lexiconEntryId: row.lexicon_entry_id ?? undefined,
-    lexiconSenseId: row.lexicon_sense_id ?? undefined,
+    lexiconSenseId: row.lexicon_sense_id ?? linkedSense?.id ?? undefined,
+    lexiconDistinctKey: toNonEmptyString(linkedSense?.distinct_key) ?? undefined,
+    lexiconSenseIsPrimary: linkedSense?.is_primary ?? undefined,
     cefrLevel: resolveWordCefrLevel(row),
     distractors: normalizeDistractors(row.distractors),
     exampleSentence: resolveWordExampleSentence(row),
@@ -467,6 +549,7 @@ export function mapWordToInsert(word: WordInput): {
   project_id: string;
   english: string;
   japanese: string;
+  japanese_source?: Word['japaneseSource'];
   vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
   lexicon_sense_id?: string;
@@ -492,6 +575,7 @@ export function mapWordToInsert(word: WordInput): {
     project_id: word.projectId,
     english: word.english,
     japanese: word.japanese,
+    japanese_source: word.japaneseSource,
     vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
     lexicon_sense_id: word.lexiconSenseId,
@@ -519,6 +603,7 @@ export function mapWordToInsertWithId(word: Word): {
   project_id: string;
   english: string;
   japanese: string;
+  japanese_source?: Word['japaneseSource'];
   vocabulary_type?: VocabularyType | null;
   lexicon_entry_id?: string;
   lexicon_sense_id?: string;
@@ -547,6 +632,7 @@ export function mapWordToInsertWithId(word: Word): {
     project_id: word.projectId,
     english: word.english,
     japanese: word.japanese,
+    japanese_source: word.japaneseSource,
     vocabulary_type: word.vocabularyType ?? null,
     lexicon_entry_id: word.lexiconEntryId,
     lexicon_sense_id: word.lexiconSenseId,
@@ -577,6 +663,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
 
   if (updates.english !== undefined) updateData.english = updates.english;
   if (updates.japanese !== undefined) updateData.japanese = updates.japanese;
+  if (updates.japaneseSource !== undefined) updateData.japanese_source = updates.japaneseSource;
   if (updates.vocabularyType !== undefined) updateData.vocabulary_type = updates.vocabularyType;
   if (updates.lexiconEntryId !== undefined) updateData.lexicon_entry_id = updates.lexiconEntryId;
   if (updates.lexiconSenseId !== undefined) updateData.lexicon_sense_id = updates.lexiconSenseId;

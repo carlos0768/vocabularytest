@@ -149,6 +149,8 @@ interface ProcessedExtractedWord {
   sourceModes?: ExtractMode[];
   lexiconEntryId?: string;
   lexiconSenseId?: string;
+  lexiconDistinctKey?: string;
+  lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
@@ -633,6 +635,10 @@ function dedupeExtractedWords(
         rawJapanese: source.rawJapanese,
         translations: source.translations,
         japaneseSource: source.japaneseSource,
+        lexiconEntryId: source.lexiconEntryId,
+        lexiconSenseId: source.lexiconSenseId,
+        lexiconDistinctKey: source.lexiconDistinctKey,
+        lexiconSenseIsPrimary: source.lexiconSenseIsPrimary,
         sourceModes: normalizedSourceModesOverride
           ? [...normalizedSourceModesOverride]
           : source.sourceModes,
@@ -655,6 +661,10 @@ function dedupeExtractedWords(
         ? existing.translations
         : source.translations,
       japaneseSource: preferJapaneseSource(existing.japaneseSource, source.japaneseSource),
+      lexiconEntryId: existing.lexiconEntryId ?? source.lexiconEntryId,
+      lexiconSenseId: existing.lexiconSenseId ?? source.lexiconSenseId,
+      lexiconDistinctKey: existing.lexiconDistinctKey ?? source.lexiconDistinctKey,
+      lexiconSenseIsPrimary: existing.lexiconSenseIsPrimary ?? source.lexiconSenseIsPrimary,
       sourceModes: normalizedSourceModesOverride
         ? [...normalizedSourceModesOverride]
         : mergeExtractSourceModes(existing.sourceModes, source.sourceModes),
@@ -1223,7 +1233,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let { data: insertedWords, error: wordsError } = await supabaseAdmin
         .from('words')
         .insert(wordsToInsert)
-        .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
+        .select('id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
       timing.dbInsertMs = Date.now() - dbInsertStart;
 
       if (wordsError && isMissingWordsSourceModesColumn(wordsError)) {
@@ -1235,7 +1245,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         const retryResult = await supabaseAdmin
           .from('words')
           .insert(stripSourceModesFromServerCloudWordsInsertPayload(wordsToInsert))
-          .select('id, english, japanese, lexicon_entry_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
+          .select('id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz');
         insertedWords = retryResult.data;
         wordsError = retryResult.error;
         timing.dbInsertMs += Date.now() - retryStart;

@@ -23,7 +23,12 @@ interface LexiconEntryRow {
   pos: string;
   cefr_level: string | null;
   dataset_sources: string[] | null;
+  primary_sense_id?: string | null;
   translation_ja: string | null;
+  normalized_translation_ja?: string | null;
+  distinct_key?: string | null;
+  meaning_summary?: string | null;
+  usage_notes?: string | null;
   translation_source: string | null;
   example_sentence: string | null;
   example_sentence_ja: string | null;
@@ -45,12 +50,15 @@ interface ImmediateWordInput extends Omit<
 
 export type ResolvedImmediateWord<T extends ImmediateWordInput = ImmediateWordInput> = Omit<
   T,
-  'english' | 'japanese' | 'japaneseSource' | 'lexiconEntryId' | 'cefrLevel' | 'partOfSpeechTags'
+  'english' | 'japanese' | 'japaneseSource' | 'lexiconEntryId' | 'lexiconSenseId' | 'cefrLevel' | 'partOfSpeechTags'
 > & {
   english: string;
   japanese: string;
   japaneseSource?: LexiconTranslationSource;
   lexiconEntryId?: string;
+  lexiconSenseId?: string;
+  lexiconDistinctKey?: string;
+  lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
   partOfSpeechTags?: string[];
 };
@@ -99,6 +107,7 @@ interface PreferredJapaneseValue {
 }
 
 function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
+  const translationJa = normalizeLexiconTranslation(row.translation_ja) ?? undefined;
   return {
     id: row.id,
     headword: row.headword,
@@ -106,7 +115,24 @@ function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
     pos: row.pos,
     cefrLevel: row.cefr_level ?? undefined,
     datasetSources: row.dataset_sources ?? [],
-    translationJa: normalizeLexiconTranslation(row.translation_ja) ?? undefined,
+    primarySense: row.primary_sense_id && translationJa
+      ? {
+          id: row.primary_sense_id,
+          lexiconEntryId: row.id,
+          translationJa,
+          normalizedTranslationJa: row.normalized_translation_ja ?? translationJa,
+          distinctKey: row.distinct_key ?? undefined,
+          meaningSummary: row.meaning_summary ?? undefined,
+          usageNotes: row.usage_notes ?? undefined,
+          exampleSentence: row.example_sentence ?? undefined,
+          exampleSentenceJa: row.example_sentence_ja ?? undefined,
+          translationSource: row.translation_source ?? undefined,
+          isPrimary: true,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }
+      : undefined,
+    translationJa,
     translationSource: row.translation_source ?? undefined,
     exampleSentence: row.example_sentence ?? undefined,
     exampleSentenceJa: row.example_sentence_ja ?? undefined,
@@ -158,8 +184,8 @@ async function lookupLexiconEntriesByKeysDirect(
   const positions = Array.from(new Set(keys.map((key) => key.pos)));
 
   const { data, error } = await supabaseAdmin
-    .from('lexicon_entries')
-    .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, example_sentence, example_sentence_ja, created_at, updated_at')
+    .from('lexicon_entry_resolved_rows')
+    .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, primary_sense_id, translation_ja, normalized_translation_ja, distinct_key, meaning_summary, usage_notes, translation_source, example_sentence, example_sentence_ja, created_at, updated_at')
     .in('normalized_headword', normalizedHeadwords)
     .in('pos', positions);
 
@@ -359,6 +385,11 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
     if (entry?.id) {
       masterHitCount += 1;
     }
+    const primarySense = entry?.primarySense;
+    const usesPrimarySense = Boolean(
+      primarySense?.id &&
+      normalizeUsableJapanese(primarySense.translationJa) === normalizeUsableJapanese(japanese),
+    );
 
     return {
       ...word.original,
@@ -366,6 +397,9 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       japanese,
       japaneseSource,
       lexiconEntryId: entry?.id ?? word.original.lexiconEntryId,
+      lexiconSenseId: usesPrimarySense ? primarySense?.id : word.original.lexiconSenseId,
+      lexiconDistinctKey: usesPrimarySense ? primarySense?.distinctKey : word.original.lexiconDistinctKey,
+      lexiconSenseIsPrimary: usesPrimarySense ? true : word.original.lexiconSenseIsPrimary,
       cefrLevel: entry?.cefrLevel ?? word.original.cefrLevel,
       partOfSpeechTags: word.partOfSpeechTags,
       exampleSentence: word.original.exampleSentence ?? (masterExampleSentence || undefined),

@@ -6,6 +6,10 @@ import {
   isWordOrderEligible,
 } from '@/lib/quiz/word-order';
 import { isActiveQuizWord } from '@/lib/quiz/active-answer';
+import {
+  isSameWordMeaning,
+  selectPrimaryMeaningWords,
+} from '@/lib/words/memory';
 
 export type QuizDirection = 'en-to-ja' | 'ja-to-en';
 
@@ -36,11 +40,12 @@ export function generateQuizQuestions(
   count: number,
   direction: QuizDirection = 'en-to-ja',
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
-  settings: { allowPendingWordOrderFallback?: boolean; preserveOrder?: boolean } = {},
+  settings: { allowPendingWordOrderFallback?: boolean; preserveOrder?: boolean; primaryOnly?: boolean } = {},
 ): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
+  const quizWords = settings.primaryOnly ? selectPrimaryMeaningWords(words) : words;
 
-  for (const word of settings.preserveOrder ? words : sortWordsByPriority(words)) {
+  for (const word of settings.preserveOrder ? quizWords : sortWordsByPriority(quizWords)) {
     if (questions.length >= count) break;
 
     if (!isActiveQuizWord(word) && isWordOrderEligible(word)) {
@@ -55,7 +60,7 @@ export function generateQuizQuestions(
 
     if (direction === 'ja-to-en') {
       const correctEn = word.english.trim().toLowerCase();
-      const otherWords = words.filter((item) => item.id !== word.id);
+      const otherWords = quizWords.filter((item) => item.id !== word.id && !isSameWordMeaning(item, word));
       let englishDistractors = shuffle(otherWords)
         .map((item) => item.english)
         .filter((english) => english.trim().toLowerCase() !== correctEn);
@@ -89,17 +94,26 @@ export function generateQuizQuestions(
     }
 
     const correctJa = word.japanese.trim().toLowerCase();
+    const sameMeaningTranslations = new Set(
+      quizWords
+        .filter((item) => item.id !== word.id && isSameWordMeaning(item, word))
+        .map((item) => item.japanese.trim().toLowerCase())
+        .filter(Boolean),
+    );
     let distractors: string[] = [...(word.distractors || [])];
 
     if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
-      const otherWords = words.filter((item) => item.id !== word.id);
+      const otherWords = quizWords.filter((item) => item.id !== word.id && !isSameWordMeaning(item, word));
       distractors = shuffle(otherWords)
         .map((item) => item.japanese)
         .filter((japanese) => japanese.trim().toLowerCase() !== correctJa);
     }
 
     distractors = [...new Set(distractors.map((distractor) => distractor.trim()))].filter(
-      (distractor) => distractor.length > 0 && distractor.toLowerCase() !== correctJa,
+      (distractor) => {
+        const normalized = distractor.toLowerCase();
+        return distractor.length > 0 && normalized !== correctJa && !sameMeaningTranslations.has(normalized);
+      },
     );
 
     let genericIndex = 0;

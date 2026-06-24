@@ -35,6 +35,7 @@ import {
   type ProjectWordActivenessFilter,
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
+import { groupWordsByMemory, type WordMemoryGroup } from '@/lib/words/memory';
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -218,17 +219,36 @@ export default function ProjectPage() {
       partOfSpeech: wordFilterPos,
     });
   }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
+  const filteredWordGroups = useMemo(() => groupWordsByMemory(filteredWords), [filteredWords]);
+  const filteredGroupWords = useMemo(
+    () => filteredWordGroups.flatMap((group) => group.words),
+    [filteredWordGroups],
+  );
+  const selectedDisplayedGroupCount = useMemo(
+    () => filteredWordGroups.filter((group) => group.words.some((word) => selectedWordIds.has(word.id))).length,
+    [filteredWordGroups, selectedWordIds],
+  );
+  const allFilteredGroupsSelected = filteredWordGroups.length > 0
+    && filteredWordGroups.every((group) => group.words.every((word) => selectedWordIds.has(word.id)));
+  const selectedFilteredWords = useMemo(
+    () => filteredGroupWords.filter((word) => selectedWordIds.has(word.id)),
+    [filteredGroupWords, selectedWordIds],
+  );
 
   const handleExitSelectMode = useCallback(() => {
     setSelectMode(false);
     setSelectedWordIds(new Set());
   }, []);
 
-  const handleToggleSelectWord = useCallback((wordId: string) => {
+  const handleToggleSelectWordGroup = useCallback((group: WordMemoryGroup<Word>) => {
+    const ids = group.words.map((word) => word.id);
     setSelectedWordIds((prev) => {
       const next = new Set(prev);
-      if (next.has(wordId)) next.delete(wordId);
-      else next.add(wordId);
+      const selected = ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (selected) next.delete(id);
+        else next.add(id);
+      }
       return next;
     });
   }, []);
@@ -894,7 +914,7 @@ export default function ProjectPage() {
           if (selectMode) handleExitSelectMode();
           else { setSelectMode(true); setSelectedWordIds(new Set()); }
         }}
-        onToggleSelectWord={handleToggleSelectWord}
+        onToggleSelectWordGroup={handleToggleSelectWordGroup}
         onRename={handleOpenRename}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
@@ -1051,7 +1071,7 @@ export default function ProjectPage() {
         </label>
         {(wordFilterActive || query) && (
           <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
-            {filteredWords.length}/{counts.total}
+            {filteredWordGroups.length}/{counts.total}
           </span>
         )}
         <button
@@ -1098,25 +1118,30 @@ export default function ProjectPage() {
             <Icon name="progress_activity" size={20} className="animate-spin" />
             <span className="ml-2 text-sm">単語を読み込み中...</span>
           </div>
-        ) : filteredWords.length === 0 ? (
+        ) : filteredWordGroups.length === 0 ? (
           <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
             {query ? '一致する単語がありません' : '単語がありません'}
           </div>
         ) : (
           <div className="divide-y divide-[var(--color-border)]">
-            {filteredWords.map((word) => (
+            {filteredWordGroups.map((group) => {
+              const word = group.representative;
+              const selected = group.words.every((item) => selectedWordIds.has(item.id));
+              return (
               <WordRow
-                key={word.id}
+                key={group.key}
                 word={word}
+                memoryGroup={group}
                 selectMode={selectMode}
-                selected={selectedWordIds.has(word.id)}
-                onToggleSelect={() => handleToggleSelectWord(word.id)}
-                onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
+                selected={selected}
+                onToggleSelect={() => handleToggleSelectWordGroup(group)}
+                onCycleStatus={(newStatus) => group.words.forEach((item) => handleCycleStatus(item.id, newStatus))}
                 onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
                 onToggleFavorite={() => void handleToggleFavorite(word)}
                 onSelect={() => setSelectedWord(word)}
               />
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1248,21 +1273,20 @@ export default function ProjectPage() {
 
       <BulkActionBar
         open={selectMode}
-        selectedCount={selectedWordIds.size}
-        totalCount={filteredWords.length}
-        allSelected={filteredWords.length > 0 && filteredWords.every((w) => selectedWordIds.has(w.id))}
+        selectedCount={selectedDisplayedGroupCount}
+        totalCount={filteredWordGroups.length}
+        allSelected={allFilteredGroupsSelected}
         allFavoriteInSelection={
-          selectedWordIds.size > 0 &&
-          filteredWords.filter((w) => selectedWordIds.has(w.id)).every((w) => w.isFavorite)
+          selectedFilteredWords.length > 0 &&
+          selectedFilteredWords.every((w) => w.isFavorite)
         }
         favoriteLoading={bulkFavoriteLoading}
         vocabularyTypeLoading={bulkVocabularyTypeLoading}
         importLoading={bulkImportLoading}
         onCancel={handleExitSelectMode}
         onToggleSelectAll={() => {
-          if (filteredWords.length === 0) return;
-          const allSel = filteredWords.every((w) => selectedWordIds.has(w.id));
-          setSelectedWordIds(allSel ? new Set() : new Set(filteredWords.map((w) => w.id)));
+          if (filteredWordGroups.length === 0) return;
+          setSelectedWordIds(allFilteredGroupsSelected ? new Set() : new Set(filteredGroupWords.map((w) => w.id)));
         }}
         onBulkFavorite={() => void handleBulkToggleFavorite()}
         onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
@@ -1757,6 +1781,7 @@ function StatusPill({ kind }: { kind: WordStatus }) {
 
 function WordRow({
   word,
+  memoryGroup,
   selectMode,
   selected,
   onToggleSelect,
@@ -1766,6 +1791,7 @@ function WordRow({
   onSelect,
 }: {
   word: Word;
+  memoryGroup?: WordMemoryGroup<Word>;
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
@@ -1775,6 +1801,8 @@ function WordRow({
   onSelect: () => void;
 }) {
   const pos = word.partOfSpeechTags?.[0] ?? null;
+  const displayStatus = memoryGroup?.status ?? word.status;
+  const isDistinctGroup = memoryGroup?.isDistinctGroup === true;
 
   if (selectMode) {
     return (
@@ -1795,6 +1823,11 @@ function WordRow({
               <span className="truncate">
                 <TranslationDisplay word={word} compact />
               </span>
+              {isDistinctGroup && (
+                <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums">
+                  {memoryGroup.memoryRate}%
+                </span>
+              )}
             </div>
           </div>
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
@@ -1807,7 +1840,7 @@ function WordRow({
   return (
     <div className="px-1 py-2.5">
       <div className="flex items-center gap-2.5">
-        <StatusSquares wordId={word.id} status={word.status} onStatusChange={onCycleStatus} />
+        <StatusSquares wordId={word.id} status={displayStatus} onStatusChange={onCycleStatus} />
 
         <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
           <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
@@ -1817,6 +1850,7 @@ function WordRow({
               <TranslationDisplay word={word} compact />
             </span>
           </div>
+          <WordMemoryGroupSummary memoryGroup={memoryGroup} />
         </button>
 
         <VocabularyTypeButton
@@ -1833,6 +1867,30 @@ function WordRow({
           <Icon name="bookmark" size={22} filled={word.isFavorite} />
         </button>
       </div>
+    </div>
+  );
+}
+
+function WordMemoryGroupSummary({ memoryGroup }: { memoryGroup?: WordMemoryGroup<Word> }) {
+  if (!memoryGroup?.isDistinctGroup) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-[var(--color-muted)]">
+      <span className="rounded-full border border-[var(--color-border)] bg-white px-1.5 py-[2px] font-mono font-bold tabular-nums">
+        暗記率 {memoryGroup.memoryRate}%
+      </span>
+      {memoryGroup.senses.map((sense) => (
+        <span
+          key={sense.key}
+          className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.03)] px-1.5 py-[2px]"
+        >
+          <span className="shrink-0 font-mono text-[9px] font-bold">
+            {sense.isPrimary ? '主' : '別'}
+          </span>
+          <span className="max-w-[120px] truncate">{sense.japanese}</span>
+          <StatusPill kind={sense.status} />
+        </span>
+      ))}
     </div>
   );
 }

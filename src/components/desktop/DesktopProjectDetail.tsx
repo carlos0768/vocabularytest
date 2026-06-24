@@ -18,6 +18,7 @@ import {
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
+import { groupWordsByMemory, type WordMemoryGroup } from '@/lib/words/memory';
 import type { Project, Word, WordStatus } from '@/types';
 
 type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
@@ -60,7 +61,7 @@ export function DesktopProjectDetailView({
   onOpenFilterSheet,
   onOpenSortSheet,
   onToggleSelectMode,
-  onToggleSelectWord,
+  onToggleSelectWordGroup,
   onRename,
   onToggleFavorite,
   onCycleVocabularyType,
@@ -84,7 +85,7 @@ export function DesktopProjectDetailView({
   onOpenFilterSheet: () => void;
   onOpenSortSheet: () => void;
   onToggleSelectMode: () => void;
-  onToggleSelectWord: (wordId: string) => void;
+  onToggleSelectWordGroup: (group: WordMemoryGroup<Word>) => void;
   onRename: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
@@ -144,6 +145,11 @@ export function DesktopProjectDetailView({
       return result * sortDir;
     });
   }, [filteredWords, sortDir, sortKey]);
+  const rowGroups = useMemo(() => groupWordsByMemory(rows), [rows]);
+  const visibleRepresentativeWords = useMemo(
+    () => rowGroups.map((group) => group.representative),
+    [rowGroups],
+  );
 
   const recentWrongRows = useMemo<RecentWrongRailItem[]>(() => {
     const wordById = new Map(words.map((word) => [word.id, word]));
@@ -184,9 +190,11 @@ export function DesktopProjectDetailView({
 
   const selectedWord = selectedWordId ? words.find((word) => word.id === selectedWordId) ?? null : null;
   const modalWords = useMemo(() => {
-    if (!selectedWord) return rows;
-    return rows.some((word) => word.id === selectedWord.id) ? rows : [selectedWord, ...rows];
-  }, [rows, selectedWord]);
+    if (!selectedWord) return visibleRepresentativeWords;
+    return visibleRepresentativeWords.some((word) => word.id === selectedWord.id)
+      ? visibleRepresentativeWords
+      : [selectedWord, ...visibleRepresentativeWords];
+  }, [selectedWord, visibleRepresentativeWords]);
   const pctMastered = counts.total > 0 ? Math.round((counts.mastered / counts.total) * 100) : 0;
 
   const toggleSort = (key: SortKey) => {
@@ -342,7 +350,7 @@ export function DesktopProjectDetailView({
             )}
             {(filterActive || query.trim()) && (
               <span className="mono muted tnum" style={{ fontSize: 12 }}>
-                {rows.length} / {counts.total}
+                {rowGroups.length} / {counts.total}
               </span>
             )}
             <div style={{ flex: 1 }} />
@@ -391,12 +399,14 @@ export function DesktopProjectDetailView({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((word) => {
-                  const isChecked = selectedWordIds.has(word.id);
+                {rowGroups.map((group) => {
+                  const word = group.representative;
+                  const isChecked = group.words.every((item) => selectedWordIds.has(item.id));
+                  const displayStatus = group.status;
                   return (
                   <tr
-                    key={word.id}
-                    onClick={() => (selectMode ? onToggleSelectWord(word.id) : setSelectedWordId(word.id))}
+                    key={group.key}
+                    onClick={() => (selectMode ? onToggleSelectWordGroup(group) : setSelectedWordId(word.id))}
                     style={
                       (selectMode ? isChecked : selectedWordId === word.id)
                         ? { background: 'var(--color-accent-subtle)' }
@@ -434,7 +444,12 @@ export function DesktopProjectDetailView({
                     </td>
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     {hiddenCols.has('ja') ? null : (
-                      <td className="ja"><TranslationDisplay word={word} compact /></td>
+                      <td className="ja">
+                        <TranslationDisplay word={word} compact />
+                        {group.isDistinctGroup && (
+                          <DesktopMemoryGroupSummary group={group} />
+                        )}
+                      </td>
                     )}
                     <td style={{ textAlign: 'center' }}>
                       <DesktopVocabularyTypeBadge
@@ -442,7 +457,7 @@ export function DesktopProjectDetailView({
                         onClick={() => onCycleVocabularyType(word)}
                       />
                     </td>
-                    <td><span className={'ds-status ' + word.status}><span className={'ds-sdot c-' + word.status} />{DESKTOP_STATUS_LABEL[word.status]}</span></td>
+                    <td><span className={'ds-status ' + displayStatus}><span className={'ds-sdot c-' + displayStatus} />{DESKTOP_STATUS_LABEL[displayStatus]}</span></td>
                   </tr>
                   );
                 })}
@@ -454,12 +469,12 @@ export function DesktopProjectDetailView({
                 単語を読み込み中...
               </div>
             )}
-            {wordsLoaded && rows.length === 0 && (
+            {wordsLoaded && rowGroups.length === 0 && (
               <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
             )}
           </div>
           <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>
-            {rows.length} / {counts.total} 語を表示・行をクリックで詳細を表示
+            {rowGroups.length} / {counts.total} 語を表示・行をクリックで詳細を表示
           </div>
         </div>
 
@@ -496,6 +511,16 @@ export function DesktopProjectDetailView({
           }}
         />
       )}
+    </div>
+  );
+}
+
+function DesktopMemoryGroupSummary({ group }: { group: WordMemoryGroup<Word> }) {
+  return (
+    <div className="mono muted" style={{ marginTop: 3, fontSize: 10, lineHeight: 1.5 }}>
+      暗記率 {group.memoryRate}% · {group.senses.map((sense) => (
+        `${sense.isPrimary ? '主' : '別'}:${sense.japanese}/${DESKTOP_STATUS_LABEL[sense.status]}`
+      )).join(' · ')}
     </div>
   );
 }
