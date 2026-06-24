@@ -1190,7 +1190,6 @@ export default function QuizPage() {
   /* ---------- Quiz complete ---------- */
   if (isComplete) {
     const percentage = calculateQuizScorePercentage(results);
-    const completionMessage = getQuizCompletionMessage(percentage);
 
     const wordResultRows = questions.map((q, i) => {
       const result = answerResults[i];
@@ -1206,19 +1205,15 @@ export default function QuizPage() {
       {/* Desktop completion */}
       <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col items-center overflow-y-auto bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
         <div style={{ width: '100%', maxWidth: 520, padding: '40px 0' }}>
-          <div className="ds-card" style={{ padding: '44px 56px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 72, height: 72, borderRadius: 18, background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <Icon name="trophy" filled style={{ fontSize: 38, color: '#d97706' }} />
+          {/* Score summary bar */}
+          <div className="ds-card" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, lineHeight: 1 }}>
+              {results.correct}<span style={{ fontSize: 16, color: 'var(--color-secondary-text)' }}>/{results.total}</span>
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26 }}>クイズ完了</div>
-            <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 56, lineHeight: 1.1 }}>
-              {results.correct} <span style={{ fontSize: 24, color: 'var(--color-secondary-text)' }}>/ {results.total}</span>
-            </div>
-            <div className="muted" style={{ fontSize: 14 }}>正答率 {percentage}%</div>
-            <div className="ds-prog" style={{ width: '100%', marginTop: 12 }}><div className="fi" style={{ width: `${percentage}%` }} /></div>
-            <p className="muted" style={{ margin: '12px 0 14px', fontSize: 14 }}>{completionMessage}</p>
-            <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-              <button type="button" className="ds-btn" onClick={handleRestart}><Icon name="replay" />もう一度</button>
+            <div className="ds-prog" style={{ flex: 1 }}><div className="fi" style={{ width: `${percentage}%` }} /></div>
+            <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{percentage}%</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="ds-btn accent" onClick={handleRestart}><Icon name="replay" />もう一度</button>
               <button type="button" className="ds-btn dark" onClick={reviewMode || learnMode ? goToNextReviewQuiz : backToProject}>
                 <Icon name={reviewMode || learnMode ? 'arrow_forward' : 'check'} />
                 {reviewMode || learnMode ? '次へ進む' : '終了する'}
@@ -1254,24 +1249,21 @@ export default function QuizPage() {
       </div>
       {/* Mobile completion */}
       <div className="fixed inset-0 z-30 flex flex-col overflow-y-auto bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
-        <button type="button" onClick={backToProject} className="absolute left-4 z-10 inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]" style={{ top: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}>
-          <Icon name="close" size={22} />
-        </button>
-        <div className="mx-auto w-full max-w-sm px-5" style={{ paddingTop: 'max(52px, calc(env(safe-area-inset-top) + 52px))', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 24px))' }}>
-          {/* Score card */}
-          <div className="w-full rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(61,122,78,0.08)]">
-              <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
+        <div className="mx-auto w-full max-w-sm px-5" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 24px))' }}>
+          {/* Score summary */}
+          <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3">
+            <div className="font-display text-[28px] font-black tabular-nums text-[var(--solid-ink)]">
+              {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
             </div>
-            <h1 className="mb-2 font-display text-2xl font-black text-[var(--solid-ink)]">クイズ完了!</h1>
-            <p className="mb-1 font-mono text-5xl font-black text-[var(--color-success)]">{percentage}%</p>
-            <p className="mb-6 text-[var(--color-muted)]">{results.total}問中 {results.correct}問正解</p>
-            <p className="text-[var(--solid-ink)]">
-              {completionMessage}
-            </p>
+            <div className="flex flex-1 flex-col gap-1">
+              <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
+              </div>
+              <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">正答率 {percentage}%</span>
+            </div>
           </div>
           {/* Word results list */}
-          <div className="mt-4 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
+          <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
             <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3">
               <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)]" />
               <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">解答一覧</h3>
@@ -1301,15 +1293,15 @@ export default function QuizPage() {
             </div>
           </div>
           {/* Action buttons */}
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 space-y-3">
             {reviewMode || learnMode ? (
               <>
-                <SolidButton variant="inverse" onClick={goToNextReviewQuiz} iconRight="arrow_forward" className="w-full justify-center">次へ進む</SolidButton>
-                <SolidButton onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
+                <SolidButton variant="accent" onClick={goToNextReviewQuiz} iconRight="arrow_forward" className="w-full justify-center">次へ進む</SolidButton>
+                <SolidButton variant="accent" onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
               </>
             ) : (
               <>
-                <SolidButton variant="inverse" onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
+                <SolidButton variant="accent" onClick={handleRestart} iconLeft="refresh" className="w-full justify-center">もう一度</SolidButton>
                 <SolidButton onClick={backToProject} className="w-full justify-center">単語一覧に戻る</SolidButton>
               </>
             )}
