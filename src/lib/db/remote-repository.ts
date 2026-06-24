@@ -28,9 +28,11 @@ import {
 import {
   RESOLVED_WORD_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_BASIC,
+  RESOLVED_WORD_MINIMAL_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
   SHARE_VIEW_WORD_SELECT_COLUMNS,
   SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+  SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
   SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
 } from '@/lib/words/resolved';
 
@@ -40,6 +42,7 @@ import {
 export const WORDS_SELECT_COLUMNS = RESOLVED_WORD_SELECT_COLUMNS;
 const WORDS_SELECT_COLUMNS_WITHOUT_SENSES = RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES;
 const WORDS_SELECT_COLUMNS_BASIC = RESOLVED_WORD_SELECT_COLUMNS_BASIC;
+const WORDS_SELECT_COLUMNS_MINIMAL = RESOLVED_WORD_MINIMAL_SELECT_COLUMNS;
 
 type SupabaseSelectError = {
   code?: string;
@@ -60,7 +63,11 @@ function shouldRetryWordSelectWithoutRelations(error: SupabaseSelectError | null
   return (
     error.code === 'PGRST200'
     || error.code === 'PGRST204'
+    || error.code === '42703'
     || /schema cache/i.test(text)
+    || /column .* does not exist/i.test(text)
+    || /could not find .* column/i.test(text)
+    || /undefined column/i.test(text)
     || /relationship/i.test(text)
     || /word_translations|lexicon_senses/i.test(text)
   );
@@ -99,6 +106,7 @@ export class RemoteWordRepository implements WordRepository {
       primary: string;
       withoutSenses: string;
       basic: string;
+      minimal: string;
       label: string;
     },
   ): Promise<T> {
@@ -116,11 +124,20 @@ export class RemoteWordRepository implements WordRepository {
       return withoutSenses;
     }
 
-    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback without translation relations`, {
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback without relation embeds`, {
       code: withoutSenses.error?.code,
       message: withoutSenses.error?.message,
     });
-    return buildQuery(columns.basic);
+    const basic = await buildQuery(columns.basic);
+    if (!shouldRetryWordSelectWithoutRelations(basic.error)) {
+      return basic;
+    }
+
+    console.warn(`[RemoteRepo] ${columns.label} compatibility fallback with minimal word columns`, {
+      code: basic.error?.code,
+      message: basic.error?.message,
+    });
+    return buildQuery(columns.minimal);
   }
 
   private async selectFullWordsWithFallback<T extends SupabaseSelectResult>(
@@ -131,6 +148,7 @@ export class RemoteWordRepository implements WordRepository {
       primary: WORDS_SELECT_COLUMNS,
       withoutSenses: WORDS_SELECT_COLUMNS_WITHOUT_SENSES,
       basic: WORDS_SELECT_COLUMNS_BASIC,
+      minimal: WORDS_SELECT_COLUMNS_MINIMAL,
       label,
     });
   }
@@ -143,6 +161,7 @@ export class RemoteWordRepository implements WordRepository {
       primary: SHARE_VIEW_WORD_SELECT_COLUMNS,
       withoutSenses: SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
       basic: SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC,
+      minimal: SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
       label,
     });
   }

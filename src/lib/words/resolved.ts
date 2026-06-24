@@ -18,6 +18,9 @@ export const RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS =
 export const SHARE_VIEW_WORD_BASE_SELECT_COLUMNS =
   'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, created_at' as const;
 
+export const RESOLVED_WORD_MINIMAL_SELECT_COLUMNS =
+  'id, project_id, english, japanese, distractors, status, created_at' as const;
+
 export const RESOLVED_WORD_SELECT_COLUMNS =
   `${RESOLVED_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
 
@@ -25,7 +28,7 @@ export const RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES =
   `${RESOLVED_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_SELECT_COLUMNS_BASIC =
-  `${RESOLVED_WORD_BASE_SELECT_COLUMNS}, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  RESOLVED_WORD_BASE_SELECT_COLUMNS;
 
 export const RESOLVED_WORD_TEXT_SELECT_COLUMNS =
   `${RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
@@ -34,7 +37,10 @@ export const RESOLVED_WORD_TEXT_SELECT_COLUMNS_WITHOUT_SENSES =
   `${RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_TEXT_SELECT_COLUMNS_BASIC =
-  `${RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS}, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS;
+
+export const RESOLVED_WORD_TEXT_SELECT_COLUMNS_MINIMAL =
+  RESOLVED_WORD_MINIMAL_SELECT_COLUMNS;
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS =
   `${SHARE_VIEW_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS}), lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
@@ -43,7 +49,10 @@ export const SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES =
   `${SHARE_VIEW_WORD_BASE_SELECT_COLUMNS}, word_translations(${WORD_TRANSLATION_SELECT_COLUMNS}), lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
 
 export const SHARE_VIEW_WORD_SELECT_COLUMNS_BASIC =
-  `${SHARE_VIEW_WORD_BASE_SELECT_COLUMNS}, lexicon_entries(${LEXICON_ENTRY_SELECT_COLUMNS})` as const;
+  SHARE_VIEW_WORD_BASE_SELECT_COLUMNS;
+
+export const SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL =
+  RESOLVED_WORD_MINIMAL_SELECT_COLUMNS;
 
 export const RESOLVED_WORD_WITH_EMBEDDING_SELECT_COLUMNS =
   `${RESOLVED_WORD_TEXT_SELECT_COLUMNS}, embedding` as const;
