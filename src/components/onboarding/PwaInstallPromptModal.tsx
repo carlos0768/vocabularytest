@@ -232,7 +232,26 @@ export function PwaInstallPromptModal({ open, onClose }: PwaInstallPromptModalPr
   );
 }
 
+export async function triggerNativeInstall(): Promise<boolean> {
+  if (!cachedDeferredPrompt) return false;
+  try {
+    await cachedDeferredPrompt.prompt();
+    const choice = await cachedDeferredPrompt.userChoice;
+    if (choice.outcome === 'accepted') {
+      try { localStorage.setItem(INSTALLED_KEY, '1'); } catch { /* ignore */ }
+      cachedDeferredPrompt = null;
+      return true;
+    }
+  } catch { /* ignore */ }
+  cachedDeferredPrompt = null;
+  return false;
+}
+
 export const pwaPromptUtils = {
   isStandalone,
+  isIos,
   hasDeferredPrompt: () => cachedDeferredPrompt !== null,
+  isInstalled: () => {
+    try { return localStorage.getItem(INSTALLED_KEY) === '1'; } catch { return false; }
+  },
 };

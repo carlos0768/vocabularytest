@@ -43,6 +43,19 @@ const EMPTY_FRIENDS: FriendsHomePayload = {
   outgoing: [],
 };
 
+const AVATAR_PALETTE = [
+  '#f97316', '#06b6d4', '#8b5cf6', '#ec4899',
+  '#14b8a6', '#f59e0b', '#6366f1', '#10b981',
+];
+
+function avatarColor(identifier: string): string {
+  let hash = 0;
+  for (let i = 0; i < identifier.length; i++) {
+    hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
+  }
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+
 function displayName(profile: FriendProfile): string {
   return profile.username?.trim() || `@${profile.accountId}`;
 }
@@ -351,10 +364,10 @@ function FriendsContent({
   }
 
   return (
-    <div className="ds-scroll grid gap-4 px-[18px] lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6 lg:px-[34px]">
+    <div className="ds-scroll grid gap-4 px-[18px] lg:grid-cols-[1fr_280px] lg:gap-5 lg:px-[34px]">
       <main className="min-w-0">
         {error && (
-          <div className="mb-4 rounded-[10px] border border-[var(--color-error)] bg-[rgba(239,68,68,0.08)] px-3 py-2 text-[12px] font-bold text-[var(--color-error)]">
+          <div className="mb-4 rounded-[12px] border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] font-bold text-[#dc2626]">
             {error}
           </div>
         )}
@@ -366,7 +379,7 @@ function FriendsContent({
         />
       </main>
 
-      <aside className="flex min-w-0 flex-col gap-4">
+      <aside className="flex min-w-0 flex-col gap-3">
         <ProfileSection profile={profile} onCopyAccountId={onCopyAccountId} />
         <SearchSection
           query={query}
@@ -407,21 +420,21 @@ function ProfileSection({
   if (!profile) return null;
 
   return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-4">
-      <div className="flex items-center gap-3">
-        <Avatar profile={profile} />
+    <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
+      <div className="flex items-center gap-2.5">
+        <Avatar profile={profile} size="sm" />
         <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(profile)}</div>
-          <div className="mt-0.5 truncate font-mono text-[11px] font-bold text-[var(--color-muted)]">@{profile.accountId}</div>
+          <div className="truncate font-display text-[13px] font-extrabold text-[var(--solid-ink)]">{displayName(profile)}</div>
+          <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{profile.accountId}</div>
         </div>
         <button
           type="button"
           onClick={onCopyAccountId}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-colors hover:bg-[var(--color-surface-secondary)]"
           title="アカウントIDをコピー"
           aria-label="アカウントIDをコピー"
         >
-          <Icon name="content_copy" size={16} />
+          <Icon name="content_copy" size={14} />
         </button>
       </div>
     </SolidPanel>
@@ -448,7 +461,7 @@ function SearchSection({
   onSendRequest: (accountId: string) => void;
 }) {
   return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-4">
+    <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
       <form onSubmit={onSearchSubmit} className="flex gap-2">
         <div className="hidden flex-1 lg:block">
           <DesktopSearchBox
@@ -469,25 +482,25 @@ function SearchSection({
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="inline-flex h-[42px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-[38px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-white disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="検索"
         >
-          <Icon name={loading ? 'progress_activity' : 'search'} className={loading ? 'animate-spin' : ''} size={18} />
+          <Icon name={loading ? 'progress_activity' : 'search'} className={loading ? 'animate-spin' : ''} size={16} />
         </button>
       </form>
 
       {error && (
-        <div className="mt-3 rounded-[8px] border border-[var(--color-error)] bg-[rgba(239,68,68,0.08)] px-2.5 py-2 text-[11px] font-bold text-[var(--color-error)]">
+        <div className="mt-2 rounded-[8px] border border-[#fca5a5] bg-[#fef2f2] px-2.5 py-2 text-[11px] font-bold text-[#dc2626]">
           {error}
         </div>
       )}
 
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-2 flex flex-col gap-1.5">
         {results.map((result) => (
-          <div key={result.userId} className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-2">
+          <div key={result.userId} className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-2.5 py-2">
             <Avatar profile={result} size="sm" />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{displayName(result)}</div>
+              <div className="truncate text-[12px] font-extrabold text-[var(--solid-ink)]">{displayName(result)}</div>
               <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{result.accountId}</div>
             </div>
             <SearchResultAction
@@ -498,7 +511,7 @@ function SearchSection({
           </div>
         ))}
         {!loading && query.trim() && results.length === 0 && (
-          <div className="rounded-[10px] border border-dashed border-[var(--color-border)] px-3 py-5 text-center text-[12px] font-bold text-[var(--color-muted)]">
+          <div className="rounded-[10px] border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-[11px] font-bold text-[var(--color-muted)]">
             見つかりませんでした
           </div>
         )}
@@ -526,15 +539,15 @@ function SearchResultAction({
     return <StatusChip label="承認待ち" />;
   }
 
-  const loading = actionLoading === `request:${result.accountId}`;
+  const isLoading = actionLoading === `request:${result.accountId}`;
   return (
     <button
       type="button"
       onClick={() => onSendRequest(result.accountId)}
       disabled={Boolean(actionLoading)}
-      className="inline-flex h-8 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 text-[11px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[#6366f1] bg-[#6366f1] px-2 text-[11px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <Icon name={loading ? 'progress_activity' : 'person_add'} className={loading ? 'animate-spin' : ''} size={14} />
+      <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
       申請
     </button>
   );
@@ -554,28 +567,28 @@ function RequestsSection({
   onRemoveFriend: (friendshipId: string) => void;
 }) {
   return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-4">
+    <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
       <SectionTitle icon="mark_email_unread" label="申請" count={incoming.length + outgoing.length} />
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-2 flex flex-col gap-1.5">
         {incoming.map((item) => (
           <FriendRow key={item.id} friendship={item}>
             <button
               type="button"
               onClick={() => onRespondRequest(item.id, 'accept')}
               disabled={Boolean(actionLoading)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white disabled:opacity-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border-2 border-[#059669] bg-[#059669] text-white disabled:opacity-50"
               aria-label="承認"
             >
-              <Icon name={actionLoading === `accept:${item.id}` ? 'progress_activity' : 'check'} className={actionLoading === `accept:${item.id}` ? 'animate-spin' : ''} size={15} />
+              <Icon name={actionLoading === `accept:${item.id}` ? 'progress_activity' : 'check'} className={actionLoading === `accept:${item.id}` ? 'animate-spin' : ''} size={14} />
             </button>
             <button
               type="button"
               onClick={() => onRespondRequest(item.id, 'decline')}
               disabled={Boolean(actionLoading)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
               aria-label="拒否"
             >
-              <Icon name="close" size={15} />
+              <Icon name="close" size={14} />
             </button>
           </FriendRow>
         ))}
@@ -586,10 +599,10 @@ function RequestsSection({
               type="button"
               onClick={() => onRemoveFriend(item.id)}
               disabled={Boolean(actionLoading)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
               aria-label="申請を取り消す"
             >
-              <Icon name="close" size={15} />
+              <Icon name="close" size={14} />
             </button>
           </FriendRow>
         ))}
@@ -608,24 +621,24 @@ function FriendsSection({
   onRemoveFriend: (friendshipId: string) => void;
 }) {
   return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-4">
+    <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
       <SectionTitle icon="groups" label="フレンド" count={friends.length} />
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-2 flex flex-col gap-1.5">
         {friends.map((friend) => (
           <FriendRow key={friend.id} friendship={friend}>
             <button
               type="button"
               onClick={() => onRemoveFriend(friend.id)}
               disabled={Boolean(actionLoading)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
               aria-label="フレンド解除"
             >
-              <Icon name={actionLoading === `delete:${friend.id}` ? 'progress_activity' : 'person_remove'} className={actionLoading === `delete:${friend.id}` ? 'animate-spin' : ''} size={15} />
+              <Icon name={actionLoading === `delete:${friend.id}` ? 'progress_activity' : 'person_remove'} className={actionLoading === `delete:${friend.id}` ? 'animate-spin' : ''} size={14} />
             </button>
           </FriendRow>
         ))}
         {friends.length === 0 && (
-          <div className="rounded-[10px] border border-dashed border-[var(--color-border)] px-3 py-5 text-center text-[12px] font-bold text-[var(--color-muted)]">
+          <div className="rounded-[10px] border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-[11px] font-bold text-[var(--color-muted)]">
             フレンドはいません
           </div>
         )}
@@ -646,27 +659,34 @@ function TimelineSection({
   onToggleSession: (sessionId: string) => void;
 }) {
   return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-0">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
-        <SectionTitle icon="timeline" label="タイムライン" count={sessions.length} />
-        {timelineLoading && <Icon name="progress_activity" className="animate-spin text-[var(--color-muted)]" size={17} />}
-      </div>
-      <div className="divide-y divide-[var(--color-border)]">
-        {sessions.map((session) => (
-          <TimelineItem
-            key={session.id}
-            session={session}
-            expanded={expanded.has(session.id)}
-            onToggle={() => onToggleSession(session.id)}
-          />
-        ))}
-        {!timelineLoading && sessions.length === 0 && (
-          <div className="px-4 py-12 text-center text-[13px] font-bold text-[var(--color-muted)]">
-            セッションはまだありません
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#eef2ff]">
+            <Icon name="timeline" size={16} className="text-[#6366f1]" />
           </div>
-        )}
+          <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">タイムライン</span>
+        </div>
+        {timelineLoading && <Icon name="progress_activity" className="animate-spin text-[var(--color-muted)]" size={18} />}
       </div>
-    </SolidPanel>
+      {sessions.map((session) => (
+        <TimelineItem
+          key={session.id}
+          session={session}
+          expanded={expanded.has(session.id)}
+          onToggle={() => onToggleSession(session.id)}
+        />
+      ))}
+      {!timelineLoading && sessions.length === 0 && (
+        <div className="rounded-[16px] border-2 border-dashed border-[var(--color-border)] px-5 py-14 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#eef2ff]">
+            <Icon name="timeline" size={28} className="text-[#6366f1]" />
+          </div>
+          <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">セッションはまだありません</div>
+          <div className="mt-1 text-[12px] text-[var(--color-muted)]">フレンドが学習を始めるとここに表示されます</div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -679,47 +699,55 @@ function TimelineItem({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const color = avatarColor(session.profile.accountId);
+
   return (
-    <article className="bg-white">
+    <article
+      className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] transition-shadow hover:shadow-[4px_4px_0_rgba(0,0,0,0.08)]"
+      style={{ borderLeftWidth: '5px', borderLeftColor: color }}
+    >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-[var(--color-surface-secondary)]"
+        className="flex w-full items-start gap-4 px-5 py-5 text-left transition-colors hover:bg-[var(--color-surface-secondary)]"
       >
         <Avatar profile={session.profile} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
-            <span className="font-mono text-[10px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="truncate font-display text-[17px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
+            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] font-bold text-[var(--color-muted)]">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-bold text-[var(--color-muted)]">
             <span>{formatSessionTime(session.startedAt)}</span>
-            <span>{formatTimeOnly(session.startedAt)}-{formatTimeOnly(session.expiresAt)}</span>
+            <span className="text-[var(--color-border)]">·</span>
+            <span>{formatTimeOnly(session.startedAt)} – {formatTimeOnly(session.expiresAt)}</span>
           </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <MetricChip icon="quiz" label={`${session.answerCount}問`} />
-            <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
+            <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
           </div>
         </div>
-        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
+        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={22} className="mt-1.5 shrink-0 text-[var(--color-muted)]" />
       </button>
       {expanded && (
-        <div className="pl-[72px] pr-4 pb-4">
-          {session.words.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {session.words.map((word) => (
-                <div key={word.id} className="rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-2">
-                  <div className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
-                  <div className="mt-0.5 text-[12px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[10px] border border-dashed border-[var(--color-border)] px-3 py-4 text-[12px] font-bold text-[var(--color-muted)]">
-              習得済みに変わった単語はありません
-            </div>
-          )}
+        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-5 py-4">
+          <div className="pl-[52px]">
+            {session.words.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {session.words.map((word) => (
+                  <div key={word.id} className="rounded-[12px] border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3">
+                    <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
+                    <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[12px] border border-dashed border-[var(--color-border)] px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
+                習得済みに変わった単語はありません
+              </div>
+            )}
+          </div>
         </div>
       )}
     </article>
@@ -734,10 +762,10 @@ function FriendRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-2">
+    <div className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-2.5 py-2">
       <Avatar profile={friendship.profile} size="sm" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{displayName(friendship.profile)}</div>
+        <div className="truncate text-[12px] font-extrabold text-[var(--solid-ink)]">{displayName(friendship.profile)}</div>
         <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{friendship.profile.accountId}</div>
       </div>
       {children}
@@ -753,9 +781,13 @@ function Avatar({
   size?: 'sm' | 'md';
 }) {
   const label = (profile.username || profile.accountId || '?').charAt(0).toUpperCase();
-  const dimension = size === 'sm' ? 'h-9 w-9 rounded-[9px] text-[14px]' : 'h-11 w-11 rounded-[11px] text-[17px]';
+  const color = avatarColor(profile.accountId);
+  const dimension = size === 'sm' ? 'h-9 w-9 rounded-[9px] text-[14px]' : 'h-12 w-12 rounded-[12px] text-[18px]';
   return (
-    <div className={`flex shrink-0 items-center justify-center border-2 border-[var(--solid-ink)] bg-[oklch(0.72_0.12_184)] font-display font-extrabold text-white ${dimension}`}>
+    <div
+      className={`flex shrink-0 items-center justify-center border-2 border-[var(--solid-ink)] font-display font-extrabold text-white ${dimension}`}
+      style={{ backgroundColor: color }}
+    >
       {label}
     </div>
   );
@@ -772,10 +804,10 @@ function SectionTitle({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon name={icon} size={17} className="text-[var(--solid-ink)]" />
-      <span className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">{label}</span>
+      <Icon name={icon} size={16} className="text-[#6366f1]" />
+      <span className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">{label}</span>
       {typeof count === 'number' && (
-        <span className="rounded-[5px] bg-[var(--solid-ink)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">{count}</span>
+        <span className="rounded-full bg-[#6366f1] px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">{count}</span>
       )}
     </div>
   );
@@ -783,7 +815,7 @@ function SectionTitle({
 
 function StatusChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex h-8 items-center rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2.5 text-[11px] font-bold text-[var(--color-muted)]">
+    <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">
       {label}
     </span>
   );
@@ -792,13 +824,20 @@ function StatusChip({ label }: { label: string }) {
 function MetricChip({
   icon,
   label,
+  variant = 'default',
 }: {
   icon: string;
   label: string;
+  variant?: 'quiz' | 'mastered' | 'default';
 }) {
+  const styles = {
+    quiz: 'border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5]',
+    mastered: 'border-[#a7f3d0] bg-[#ecfdf5] text-[#059669]',
+    default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
+  };
   return (
-    <span className="inline-flex items-center gap-1 rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 py-1 text-[11px] font-extrabold text-[var(--solid-ink)]">
-      <Icon name={icon} size={13} />
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-extrabold ${styles[variant]}`}>
+      <Icon name={icon} size={14} />
       {label}
     </span>
   );

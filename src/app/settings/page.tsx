@@ -219,7 +219,6 @@ export default function SettingsPage() {
 
       {isAuthenticated && (
         <SettingsGroup label="アカウント">
-          <SettingsRow icon="group" label="フレンド" description="アカウントID検索、申請、学習タイムライン" href="/friends" />
           <SettingsRow icon="manage_accounts" label="プラン・アカウント管理" description="プラン確認、サブスクリプション、アカウント削除" href="/settings/account" />
         </SettingsGroup>
       )}

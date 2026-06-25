@@ -10,6 +10,7 @@ import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
+import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
@@ -487,6 +488,8 @@ export default function HomePage() {
           </SolidPanel>
         </div>
       )}
+
+      <PwaInstallBanner />
 
       <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5">
         {goalState === 'empty' ? (
