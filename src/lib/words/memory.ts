@@ -6,6 +6,15 @@ export interface WordMemoryInput {
   english: string;
   japanese: string;
   status?: WordStatus;
+  translations?: Array<{
+    translationJa: string;
+    normalizedTranslationJa?: string;
+    distinctKey?: string;
+    lexiconSenseId?: string;
+    lexiconSenseIsPrimary?: boolean;
+    isPrimary?: boolean;
+    status?: WordStatus;
+  }>;
   lexiconEntryId?: string;
   lexiconSenseId?: string;
   lexiconDistinctKey?: string;
@@ -93,6 +102,55 @@ export function isSameWordMeaning(a: WordMemoryInput, b: WordMemoryInput): boole
     && getWordMemorySenseKey(a) === getWordMemorySenseKey(b);
 }
 
+function getTranslationMemorySenseKey(
+  translation: NonNullable<WordMemoryInput['translations']>[number],
+): string {
+  const distinctKey = normalizeKeyPart(translation.distinctKey);
+  if (distinctKey) return `distinct:${distinctKey}`;
+  if (translation.lexiconSenseIsPrimary) return 'primary';
+  if (translation.lexiconSenseId) return `sense:${translation.lexiconSenseId}`;
+  return `ja:${normalizeKeyPart(translation.normalizedTranslationJa || translation.translationJa)}`;
+}
+
+function isPrimaryTranslation(
+  translation: NonNullable<WordMemoryInput['translations']>[number],
+): boolean {
+  if (translation.lexiconSenseIsPrimary === true) return true;
+  if (translation.lexiconSenseIsPrimary === false) return false;
+  return Boolean(translation.isPrimary) && !normalizeKeyPart(translation.distinctKey);
+}
+
+function getWordMemorySenses<T extends WordMemoryInput>(word: T): WordMemorySense<T>[] {
+  const senses: WordMemorySense<T>[] = [{
+    key: getWordMemorySenseKey(word),
+    word,
+    japanese: word.japanese,
+    status: word.status ?? 'new',
+    memoryRate: getWordMemoryRate(word),
+    isPrimary: isPrimaryMeaningWord(word),
+  }];
+  const seen = new Set(senses.map((sense) => sense.key));
+
+  for (const translation of word.translations ?? []) {
+    const distinctKey = normalizeKeyPart(translation.distinctKey);
+    if (!distinctKey) continue;
+    const key = getTranslationMemorySenseKey(translation);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const status = translation.status ?? 'new';
+    senses.push({
+      key,
+      word,
+      japanese: translation.translationJa,
+      status,
+      memoryRate: getWordMemoryRate({ status }),
+      isPrimary: isPrimaryTranslation(translation),
+    });
+  }
+
+  return senses;
+}
+
 function pickBestSenseWord<T extends WordMemoryInput>(current: T | undefined, incoming: T): T {
   if (!current) return incoming;
   const currentRank = STATUS_RANK[current.status ?? 'new'];
@@ -116,9 +174,11 @@ export function groupWordsByMemory<T extends WordMemoryInput>(words: readonly T[
     const hasExplicitDistinct = bucketWords.some((word) =>
       normalizeKeyPart(word.lexiconDistinctKey).length > 0 ||
       Boolean(word.lexiconSenseId) ||
-      typeof word.lexiconSenseIsPrimary === 'boolean'
+      typeof word.lexiconSenseIsPrimary === 'boolean' ||
+      (word.translations ?? []).some((translation) => normalizeKeyPart(translation.distinctKey).length > 0)
     );
-    const uniqueSenseKeys = new Set(bucketWords.map(getWordMemorySenseKey));
+    const bucketSenses = bucketWords.flatMap(getWordMemorySenses);
+    const uniqueSenseKeys = new Set(bucketSenses.map((sense) => sense.key));
     const isDistinctGroup = hasExplicitDistinct && uniqueSenseKeys.size > 1;
 
     if (!isDistinctGroup) {
@@ -144,23 +204,23 @@ export function groupWordsByMemory<T extends WordMemoryInput>(words: readonly T[
       continue;
     }
 
-    const bestWordBySense = new Map<string, T>();
-    for (const word of bucketWords) {
-      const senseKey = getWordMemorySenseKey(word);
-      bestWordBySense.set(senseKey, pickBestSenseWord(bestWordBySense.get(senseKey), word));
+    const bestSenseByKey = new Map<string, WordMemorySense<T>>();
+    for (const sense of bucketSenses) {
+      const current = bestSenseByKey.get(sense.key);
+      if (!current) {
+        bestSenseByKey.set(sense.key, sense);
+        continue;
+      }
+      const pickedWord = pickBestSenseWord(current.word, sense.word);
+      const currentRank = STATUS_RANK[current.status];
+      const incomingRank = STATUS_RANK[sense.status];
+      bestSenseByKey.set(
+        sense.key,
+        incomingRank > currentRank || pickedWord === sense.word ? sense : current,
+      );
     }
 
-    const senses = [...bestWordBySense.entries()].map(([senseKey, word]) => {
-      const status = word.status ?? 'new';
-      return {
-        key: senseKey,
-        word,
-        japanese: word.japanese,
-        status,
-        memoryRate: getWordMemoryRate(word),
-        isPrimary: isPrimaryMeaningWord(word),
-      };
-    });
+    const senses = [...bestSenseByKey.values()];
     const memoryRate = Math.round(
       senses.reduce((sum, sense) => sum + sense.memoryRate, 0) / Math.max(1, senses.length),
     );

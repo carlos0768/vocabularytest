@@ -73,53 +73,6 @@ export function normalizeWordForTranslationPersistence<T extends WordTranslation
   };
 }
 
-function getTranslationJapaneseSource(
-  translation: WordTranslation,
-  fallback?: 'scan' | 'ai',
-): 'scan' | 'ai' | undefined {
-  return translation.source === 'scan' || translation.source === 'ai'
-    ? translation.source
-    : fallback;
-}
-
-export function expandWordsByTranslationsForPersistence<T extends WordTranslationInput>(
-  words: readonly T[],
-): Array<ReturnType<typeof normalizeWordForTranslationPersistence<T>>> {
-  const expanded: Array<ReturnType<typeof normalizeWordForTranslationPersistence<T>>> = [];
-
-  for (const word of words) {
-    const normalizedWord = normalizeWordForTranslationPersistence(word);
-    const translations = normalizedWord.translations ?? [];
-
-    if (word.id || translations.length <= 1) {
-      expanded.push(normalizedWord);
-      continue;
-    }
-
-    const seen = new Set<string>();
-    for (const translation of translations) {
-      const normalizedTranslation = (translation.normalizedTranslationJa || translation.translationJa).trim().toLowerCase();
-      if (!normalizedTranslation || seen.has(normalizedTranslation)) continue;
-      seen.add(normalizedTranslation);
-
-      expanded.push({
-        ...normalizedWord,
-        japanese: translation.translationJa,
-        japaneseSource: getTranslationJapaneseSource(translation, normalizedWord.japaneseSource),
-        lexiconSenseId: translation.lexiconSenseId ?? (translation.isPrimary ? normalizedWord.lexiconSenseId : undefined),
-        translations: [{
-          ...translation,
-          meaningRank: 1,
-          position: 0,
-          isPrimary: true,
-        }],
-      });
-    }
-  }
-
-  return expanded;
-}
-
 export function buildWordTranslationInsertRows(
   words: readonly WordTranslationInput[],
   insertedWordIds: readonly string[],

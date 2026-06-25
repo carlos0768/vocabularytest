@@ -53,12 +53,20 @@ export interface WordTranslation {
   id?: string;
   wordId?: string;
   lexiconSenseId?: string;
+  distinctKey?: string;
+  lexiconSenseIsPrimary?: boolean;
   translationJa: string;
   normalizedTranslationJa: string;
   source?: WordTranslationSource;
   meaningRank: number;
   position: number;
   isPrimary: boolean;
+  status?: WordStatus;
+  lastReviewedAt?: string;
+  nextReviewAt?: string;
+  easeFactor?: number;
+  intervalDays?: number;
+  repetition?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -180,6 +188,14 @@ export interface Word {
   wordOrderQuiz?: WordOrderQuizCache;
   // User-created custom sections
   customSections?: CustomSection[];
+  quizTarget?: {
+    kind: 'word' | 'translation';
+    key: string;
+    wordId: string;
+    translationId?: string;
+    lexiconSenseId?: string;
+    distinctKey?: string;
+  };
 }
 
 export interface Project {

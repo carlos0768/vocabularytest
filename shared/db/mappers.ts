@@ -182,12 +182,19 @@ export interface WordTranslationRow {
   id?: string | null;
   word_id?: string | null;
   lexicon_sense_id?: string | null;
+  lexicon_senses?: LexiconSenseRow | LexiconSenseRow[] | null;
   translation_ja?: string | null;
   normalized_translation_ja?: string | null;
   source?: string | null;
   meaning_rank?: number | null;
   position?: number | null;
   is_primary?: boolean | null;
+  status?: string | null;
+  last_reviewed_at?: string | null;
+  next_review_at?: string | null;
+  ease_factor?: number | null;
+  interval_days?: number | null;
+  repetition?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -239,6 +246,12 @@ function normalizeDistractors(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string');
 }
 
+function normalizeWordStatus(value: unknown): Word['status'] | undefined {
+  return value === 'new' || value === 'review' || value === 'mastered'
+    ? value
+    : undefined;
+}
+
 function resolveLexiconRow(
   value: WordRow['lexicon_entries'],
 ): LexiconEntryRow | null {
@@ -287,6 +300,7 @@ function normalizeWordTranslationRows(value: unknown): WordTranslation[] {
   for (const item of value) {
     if (!item || typeof item !== 'object') continue;
     const row = item as WordTranslationRow;
+    const sense = resolveLexiconSenseRow(row.lexicon_senses);
     const translationJa = normalizeTranslationText(row.translation_ja);
     if (!translationJa) continue;
     const normalizedTranslationJa = normalizeTranslationText(row.normalized_translation_ja) || translationJa;
@@ -296,13 +310,21 @@ function normalizeWordTranslationRows(value: unknown): WordTranslation[] {
     translations.push({
       id: row.id ?? undefined,
       wordId: row.word_id ?? undefined,
-      lexiconSenseId: row.lexicon_sense_id ?? undefined,
+      lexiconSenseId: row.lexicon_sense_id ?? sense?.id ?? undefined,
+      distinctKey: toNonEmptyString(sense?.distinct_key) ?? undefined,
+      lexiconSenseIsPrimary: sense?.is_primary ?? undefined,
       translationJa,
       normalizedTranslationJa,
       source: row.source === 'scan' || row.source === 'ai' || row.source === 'user' ? row.source : undefined,
       meaningRank: typeof row.meaning_rank === 'number' && row.meaning_rank > 0 ? row.meaning_rank : translations.length + 1,
       position: typeof row.position === 'number' ? row.position : translations.length,
       isPrimary: row.is_primary ?? false,
+      status: normalizeWordStatus(row.status),
+      lastReviewedAt: row.last_reviewed_at ?? undefined,
+      nextReviewAt: row.next_review_at ?? undefined,
+      easeFactor: row.ease_factor ?? undefined,
+      intervalDays: row.interval_days ?? undefined,
+      repetition: row.repetition ?? undefined,
       createdAt: row.created_at ?? undefined,
       updatedAt: row.updated_at ?? undefined,
     });
@@ -328,12 +350,18 @@ function resolveWordTranslations(row: WordRow): WordTranslation[] {
 
   const lexicon = resolveLexiconRow(row.lexicon_entries);
   const sense = resolveLexiconSenseRow(row.lexicon_senses);
-  return normalizeWordTranslationPayload({
+  const fallback = normalizeWordTranslationPayload({
     japanese: normalizeLexiconTranslation(sense?.translation_ja)
       ?? normalizeLexiconTranslation(lexicon?.translation_ja)
       ?? row.japanese,
     lexiconSenseId: row.lexicon_sense_id ?? sense?.id,
   }).translations;
+
+  return fallback.map((translation) => ({
+    ...translation,
+    distinctKey: toNonEmptyString(sense?.distinct_key) ?? undefined,
+    lexiconSenseIsPrimary: sense?.is_primary ?? undefined,
+  }));
 }
 
 function resolveWordCefrLevel(row: WordRow): string | undefined {

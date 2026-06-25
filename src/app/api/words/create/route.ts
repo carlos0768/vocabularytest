@@ -15,7 +15,6 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
 import {
   buildWordTranslationInsertRows,
-  expandWordsByTranslationsForPersistence,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
 import { z } from 'zod';
@@ -176,12 +175,10 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       ? await backfillWords(immediateResolution.words)
       : { words: immediateResolution.words, aiBackfilledIndexes: [] };
     const aiBackfilledIndexSet = new Set(aiBackfilledIndexes);
-    const translatedWords = expandWordsByTranslationsForPersistence(
-      translatedWordsRaw.map((word, index) => normalizeWordForTranslationPersistence({
-        ...word,
-        ...(aiBackfilledIndexSet.has(index) ? { japaneseSource: 'ai' as const } : {}),
-      })),
-    );
+    const translatedWords = translatedWordsRaw.map((word, index) => normalizeWordForTranslationPersistence({
+      ...word,
+      ...(aiBackfilledIndexSet.has(index) ? { japaneseSource: 'ai' as const } : {}),
+    }));
 
     console.log('[words/create] Immediate resolution finished', {
       requestedWordCount: words.length,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import {
@@ -18,24 +18,30 @@ function isDismissed(): boolean {
   }
 }
 
+function getInitialBannerState(): {
+  visible: boolean;
+  variant: 'native' | 'ios' | null;
+} {
+  if (pwaPromptUtils.isStandalone() || pwaPromptUtils.isInstalled() || isDismissed()) {
+    return { visible: false, variant: null };
+  }
+
+  if (pwaPromptUtils.hasDeferredPrompt()) {
+    return { visible: true, variant: 'native' };
+  }
+
+  if (pwaPromptUtils.isIos()) {
+    return { visible: true, variant: 'ios' };
+  }
+
+  return { visible: false, variant: null };
+}
+
 export function PwaInstallBanner() {
-  const [visible, setVisible] = useState(false);
-  const [variant, setVariant] = useState<'native' | 'ios' | null>(null);
-
-  useEffect(() => {
-    if (pwaPromptUtils.isStandalone() || pwaPromptUtils.isInstalled() || isDismissed()) return;
-
-    if (pwaPromptUtils.hasDeferredPrompt()) {
-      setVariant('native');
-      setVisible(true);
-    } else if (pwaPromptUtils.isIos()) {
-      setVariant('ios');
-      setVisible(true);
-    }
-  }, []);
+  const [{ visible, variant }, setBannerState] = useState(getInitialBannerState);
 
   const dismiss = useCallback(() => {
-    setVisible(false);
+    setBannerState((state) => ({ ...state, visible: false }));
     try {
       localStorage.setItem(DISMISSED_KEY, '1');
     } catch { /* ignore */ }
@@ -43,7 +49,7 @@ export function PwaInstallBanner() {
 
   const handleInstall = useCallback(async () => {
     await triggerNativeInstall();
-    setVisible(false);
+    setBannerState((state) => ({ ...state, visible: false }));
     try {
       localStorage.setItem(DISMISSED_KEY, '1');
     } catch { /* ignore */ }

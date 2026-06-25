@@ -137,6 +137,82 @@ test('generateQuizQuestions primaryOnly skips explicit distinct non-primary mean
   assert.deepEqual(questions.map((question) => question.word.id), ['free-primary']);
 });
 
+test('generateQuizQuestions expands distinct translations without splitting stored words', () => {
+  const questions = generateQuizQuestions([
+    createWord({
+      id: 'word-free',
+      english: 'free',
+      japanese: '自由な',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-primary',
+      lexiconSenseIsPrimary: true,
+      translations: [
+        {
+          id: 'translation-primary',
+          wordId: 'word-free',
+          lexiconSenseId: 'sense-primary',
+          translationJa: '自由な',
+          normalizedTranslationJa: '自由な',
+          meaningRank: 1,
+          position: 0,
+          isPrimary: true,
+          lexiconSenseIsPrimary: true,
+          status: 'mastered',
+        },
+        {
+          id: 'translation-cost',
+          wordId: 'word-free',
+          lexiconSenseId: 'sense-cost',
+          distinctKey: 'cost',
+          translationJa: '無料の',
+          normalizedTranslationJa: '無料の',
+          meaningRank: 2,
+          position: 1,
+          isPrimary: false,
+          lexiconSenseIsPrimary: false,
+          status: 'new',
+        },
+      ],
+    }),
+    createWord({ id: 'plain', english: 'plain', japanese: '明白な' }),
+  ], 3, 'en-to-ja', identityShuffle, { preserveOrder: true });
+
+  assert.deepEqual(questions.map((question) => question.word.japanese), ['自由な', '無料の', '明白な']);
+  assert.deepEqual(questions.map((question) => question.word.id), ['word-free', 'word-free', 'plain']);
+  assert.equal(questions[1]?.word.quizTarget?.kind, 'translation');
+  assert.equal(questions[1]?.word.quizTarget?.translationId, 'translation-cost');
+  assert.equal(questions[1]?.word.status, 'new');
+});
+
+test('generateQuizQuestions primaryOnly does not expand distinct translations', () => {
+  const questions = generateQuizQuestions([
+    createWord({
+      id: 'word-free',
+      english: 'free',
+      japanese: '自由な',
+      translations: [
+        {
+          translationJa: '自由な',
+          normalizedTranslationJa: '自由な',
+          meaningRank: 1,
+          position: 0,
+          isPrimary: true,
+        },
+        {
+          distinctKey: 'cost',
+          translationJa: '無料の',
+          normalizedTranslationJa: '無料の',
+          meaningRank: 2,
+          position: 1,
+          isPrimary: false,
+        },
+      ],
+    }),
+  ], 3, 'en-to-ja', identityShuffle, { preserveOrder: true, primaryOnly: true });
+
+  assert.deepEqual(questions.map((question) => question.word.japanese), ['自由な']);
+});
+
 test('generateQuizQuestions allows distinct meanings of the same word as distractors', () => {
   const [question] = generateQuizQuestions([
     createWord({
