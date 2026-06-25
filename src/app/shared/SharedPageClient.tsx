@@ -10,13 +10,11 @@ import { useToast } from '@/components/ui/toast';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import type {
-  PublicStudyGroupSummary,
   SharedDiscoverCategory,
   SharedDiscoverPayload,
   SharedProjectCard,
-  StudyGroupSummary,
 } from '@/lib/shared-projects/types';
-import type { Project, ProjectShareScope } from '@/types';
+import type { Project } from '@/types';
 import { normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
 
 type SharedPageClientProps = {
@@ -25,30 +23,11 @@ type SharedPageClientProps = {
 
 type DiscoverResponse = SharedDiscoverPayload | { error?: string };
 
-type StudyGroupsResponse = {
-  success?: boolean;
-  groups?: StudyGroupSummary[];
-  error?: string;
-};
-
-type StudyGroupMutationResponse = {
-  success?: boolean;
-  group?: StudyGroupSummary;
-  error?: string;
-};
-
-type StudyGroupProjectMutationResponse = {
-  success?: boolean;
-  project?: SharedProjectCard;
-  error?: string;
-};
-
 type ShareCategory = Exclude<SharedDiscoverCategory, 'all'>;
 
 const CATEGORY_META: Record<ShareCategory, { label: string; icon: string; description: string }> = {
   users: { label: 'ユーザー', icon: 'person', description: '公開単語帳を持つ学習者' },
   projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳' },
-  groups: { label: 'グループ', icon: 'group', description: '公開中の学習グループ' },
 };
 
 const EMPTY_DISCOVER: SharedDiscoverPayload = {
@@ -77,13 +56,11 @@ function buildDiscoverUrl(category: SharedDiscoverCategory, query: string, curso
 function mergeDiscoverPage(current: SharedDiscoverPayload, incoming: SharedDiscoverPayload): SharedDiscoverPayload {
   const projectIds = new Set(current.projects.map((item) => item.project.id));
   const userIds = new Set(current.users.map((item) => item.userId));
-  const groupIds = new Set(current.groups.map((item) => item.id));
 
   return {
     ...incoming,
     users: [...current.users, ...incoming.users.filter((item) => !userIds.has(item.userId))],
     projects: [...current.projects, ...incoming.projects.filter((item) => !projectIds.has(item.project.id))],
-    groups: [...current.groups, ...incoming.groups.filter((item) => !groupIds.has(item.id))],
   };
 }
 
@@ -110,18 +87,9 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [ownProjectsLoading, setOwnProjectsLoading] = useState(false);
   const [ownProjectsError, setOwnProjectsError] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [shareScope, setShareScope] = useState<ProjectShareScope>('public');
   const [shareTagDraft, setShareTagDraft] = useState('');
-  const [shareGroups, setShareGroups] = useState<StudyGroupSummary[]>([]);
-  const [shareGroupsLoading, setShareGroupsLoading] = useState(false);
-  const [shareGroupsError, setShareGroupsError] = useState<string | null>(null);
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
-  const [initialGroupIds, setInitialGroupIds] = useState<Set<string>>(new Set());
   const [shareSaving, setShareSaving] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
-  const [createGroupName, setCreateGroupName] = useState('');
-  const [createGroupPublic, setCreateGroupPublic] = useState(false);
-  const [createGroupLoading, setCreateGroupLoading] = useState(false);
 
   const selectedProject = useMemo(
     () => ownProjects.find((project) => project.id === selectedProjectId) ?? null,
@@ -189,35 +157,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     }
   }, [isPro, user]);
 
-  const loadShareGroups = useCallback(async (projectId: string) => {
-    setShareGroupsLoading(true);
-    setShareGroupsError(null);
-
-    try {
-      const response = await fetch(`/api/shared-projects/groups?projectId=${encodeURIComponent(projectId)}`, {
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => null) as StudyGroupsResponse | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'study_groups_fetch_failed');
-      }
-
-      const groups = payload.groups ?? [];
-      const sharedIds = new Set(groups.filter((group) => group.projectShared).map((group) => group.id));
-      setShareGroups(groups);
-      setSelectedGroupIds(sharedIds);
-      setInitialGroupIds(new Set(sharedIds));
-    } catch (groupsError) {
-      console.error('Failed to load groups for sharing:', groupsError);
-      setShareGroups([]);
-      setSelectedGroupIds(new Set());
-      setInitialGroupIds(new Set());
-      setShareGroupsError('グループ一覧を読み込めませんでした。');
-    } finally {
-      setShareGroupsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (!shareSheetOpen || !user || !isPro) return;
     void loadOwnProjects();
@@ -225,10 +164,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   useEffect(() => {
     if (!shareSheetOpen || !selectedProject || !user || !isPro) return;
-    setShareScope(selectedProject.shareScope === 'public' ? 'public' : 'private');
     setShareTagDraft((selectedProject.sharedTags ?? []).join(', '));
-    void loadShareGroups(selectedProject.id);
-  }, [isPro, loadShareGroups, selectedProject, shareSheetOpen, user]);
+  }, [isPro, selectedProject, shareSheetOpen, user]);
 
   async function handleLoadMore() {
     if (category === 'all' || !discover.nextCursor || loadingMore) return;
@@ -267,35 +204,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     setError(null);
   }
 
-  async function handleCreateGroup() {
-    const name = createGroupName.trim();
-    if (!name || createGroupLoading) return;
-
-    setCreateGroupLoading(true);
-    setShareGroupsError(null);
-
-    try {
-      const response = await fetch('/api/shared-projects/groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, visibility: createGroupPublic ? 'public' : 'private' }),
-      });
-      const payload = await response.json().catch(() => null) as StudyGroupMutationResponse | null;
-      if (!response.ok || !payload?.success || !payload.group) {
-        throw new Error(payload?.error || 'study_group_create_failed');
-      }
-
-      setShareGroups((current) => [payload.group!, ...current.filter((group) => group.id !== payload.group!.id)]);
-      setCreateGroupName('');
-      setCreateGroupPublic(false);
-    } catch (createError) {
-      console.error('Failed to create study group:', createError);
-      setShareGroupsError('グループを作成できませんでした。');
-    } finally {
-      setCreateGroupLoading(false);
-    }
-  }
-
   async function handleSaveShare() {
     if (!selectedProject || shareSaving) return;
 
@@ -310,28 +218,19 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
       const sharedTags = parseSharedTagsInput(shareTagDraft);
       await remoteRepository.updateProject(selectedProject.id, {
-        shareScope,
+        shareScope: 'public',
         sharedTags,
       });
-
-      const addedGroupIds = Array.from(selectedGroupIds).filter((groupId) => !initialGroupIds.has(groupId));
-      const removedGroupIds = Array.from(initialGroupIds).filter((groupId) => !selectedGroupIds.has(groupId));
-
-      await Promise.all([
-        ...addedGroupIds.map((groupId) => mutateGroupProject(groupId, selectedProject.id, 'POST')),
-        ...removedGroupIds.map((groupId) => mutateGroupProject(groupId, selectedProject.id, 'DELETE')),
-      ]);
 
       const updatedProject: Project = {
         ...selectedProject,
         shareId,
-        shareScope,
+        shareScope: 'public',
         sharedTags,
       };
       setOwnProjects((current) => current.map((project) => (
         project.id === updatedProject.id ? updatedProject : project
       )));
-      setInitialGroupIds(new Set(selectedGroupIds));
       invalidateHomeCache();
       setRefreshNonce((value) => value + 1);
       setShareSheetOpen(false);
@@ -346,18 +245,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     }
   }
 
-  async function mutateGroupProject(groupId: string, projectId: string, method: 'POST' | 'DELETE') {
-    const response = await fetch(
-      `/api/shared-projects/groups/${encodeURIComponent(groupId)}/projects/${encodeURIComponent(projectId)}`,
-      { method },
-    );
-    const payload = await response.json().catch(() => null) as StudyGroupProjectMutationResponse | null;
-    if (!response.ok || !payload?.success) {
-      throw new Error(payload?.error || 'グループ共有の更新に失敗しました。');
-    }
-  }
-
-  const allEmpty = discover.users.length === 0 && discover.projects.length === 0 && discover.groups.length === 0;
+  const allEmpty = discover.users.length === 0 && discover.projects.length === 0;
 
   return (
     <>
@@ -405,14 +293,14 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={category === 'all' ? 'ユーザー・単語帳・グループを検索' : `${CATEGORY_META[category].label}を検索`}
+              placeholder={category === 'all' ? 'ユーザー・単語帳を検索' : `${CATEGORY_META[category].label}を検索`}
               className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
             />
           </label>
         </div>
 
         {category === 'all' ? (
-          <div className="grid grid-cols-3 gap-2 px-[14px] py-3">
+          <div className="grid grid-cols-2 gap-2 px-[14px] py-3">
             {(Object.keys(CATEGORY_META) as ShareCategory[]).map((key) => (
               <button
                 key={key}
@@ -452,13 +340,11 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             <>
               <UserSection users={discover.users} />
               <ProjectSection projects={discover.projects} />
-              <GroupSection groups={discover.groups} />
             </>
           ) : (
             <>
               {category === 'users' && <UserSection users={discover.users} />}
               {category === 'projects' && <ProjectSection projects={discover.projects} />}
-              {category === 'groups' && <GroupSection groups={discover.groups} />}
               {discover.nextCursor && (
                 <button
                   type="button"
@@ -487,35 +373,15 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         ownProjectsError={ownProjectsError}
         selectedProjectId={selectedProjectId}
         selectedProject={selectedProject}
-        shareScope={shareScope}
         shareTagDraft={shareTagDraft}
-        groups={shareGroups}
-        groupsLoading={shareGroupsLoading}
-        groupsError={shareGroupsError}
-        selectedGroupIds={selectedGroupIds}
         saving={shareSaving}
         error={shareError}
-        createGroupName={createGroupName}
-        createGroupPublic={createGroupPublic}
-        createGroupLoading={createGroupLoading}
         onClose={() => setShareSheetOpen(false)}
         onLogin={() => router.push('/login?redirect=/shared')}
         onUpgrade={() => router.push('/subscription')}
         onRetryProjects={() => void loadOwnProjects()}
         onProjectSelect={setSelectedProjectId}
-        onScopeChange={setShareScope}
         onTagDraftChange={setShareTagDraft}
-        onToggleGroup={(groupId) => {
-          setSelectedGroupIds((current) => {
-            const next = new Set(current);
-            if (next.has(groupId)) next.delete(groupId);
-            else next.add(groupId);
-            return next;
-          });
-        }}
-        onCreateGroupNameChange={setCreateGroupName}
-        onCreateGroupPublicChange={setCreateGroupPublic}
-        onCreateGroup={() => void handleCreateGroup()}
         onSave={() => void handleSaveShare()}
       />
     </>
@@ -570,36 +436,6 @@ function ProjectSection({ projects }: { projects: SharedProjectCard[] }) {
       <SectionLabel icon="menu_book" label="単語帳" count={projects.length} />
       <div className="flex flex-col gap-2">
         {projects.map((project) => <ProjectCard key={project.project.id} project={project} />)}
-      </div>
-    </section>
-  );
-}
-
-function GroupSection({ groups }: { groups: PublicStudyGroupSummary[] }) {
-  if (groups.length === 0) return null;
-  return (
-    <section>
-      <SectionLabel icon="group" label="グループ" count={groups.length} />
-      <div className="flex flex-col gap-2">
-        {groups.map((group) => (
-          <div key={group.id} className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[15px] font-extrabold text-white"
-                style={{ background: thumbColor(group.id) }}
-              >
-                {group.name.charAt(0)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{group.name}</div>
-                <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">{group.memberCount}人 · {group.projectCount}冊</div>
-              </div>
-              <span className="rounded px-[7px] py-[3px] font-mono text-[9px] font-bold text-white" style={{ background: 'var(--solid-ink)' }}>
-                公開
-              </span>
-            </div>
-          </div>
-        ))}
       </div>
     </section>
   );
@@ -696,28 +532,15 @@ function ShareWordbookSheet({
   ownProjectsError,
   selectedProjectId,
   selectedProject,
-  shareScope,
   shareTagDraft,
-  groups,
-  groupsLoading,
-  groupsError,
-  selectedGroupIds,
   saving,
   error,
-  createGroupName,
-  createGroupPublic,
-  createGroupLoading,
   onClose,
   onLogin,
   onUpgrade,
   onRetryProjects,
   onProjectSelect,
-  onScopeChange,
   onTagDraftChange,
-  onToggleGroup,
-  onCreateGroupNameChange,
-  onCreateGroupPublicChange,
-  onCreateGroup,
   onSave,
 }: {
   open: boolean;
@@ -729,28 +552,15 @@ function ShareWordbookSheet({
   ownProjectsError: string | null;
   selectedProjectId: string | null;
   selectedProject: Project | null;
-  shareScope: ProjectShareScope;
   shareTagDraft: string;
-  groups: StudyGroupSummary[];
-  groupsLoading: boolean;
-  groupsError: string | null;
-  selectedGroupIds: Set<string>;
   saving: boolean;
   error: string | null;
-  createGroupName: string;
-  createGroupPublic: boolean;
-  createGroupLoading: boolean;
   onClose: () => void;
   onLogin: () => void;
   onUpgrade: () => void;
   onRetryProjects: () => void;
   onProjectSelect: (projectId: string) => void;
-  onScopeChange: (scope: ProjectShareScope) => void;
   onTagDraftChange: (value: string) => void;
-  onToggleGroup: (groupId: string) => void;
-  onCreateGroupNameChange: (value: string) => void;
-  onCreateGroupPublicChange: (value: boolean) => void;
-  onCreateGroup: () => void;
   onSave: () => void;
 }) {
   if (!open) return null;
@@ -852,13 +662,6 @@ function ShareWordbookSheet({
                 )}
               </SheetSection>
 
-              <SheetSection icon="public" label="公開設定">
-                <div className="grid grid-cols-2 gap-2">
-                  <ScopeButton label="共有ページに公開" active={shareScope === 'public'} onClick={() => onScopeChange('public')} />
-                  <ScopeButton label="リンク限定" active={shareScope === 'private'} onClick={() => onScopeChange('private')} />
-                </div>
-              </SheetSection>
-
               <SheetSection icon="sell" label="タグ">
                 <input
                   value={shareTagDraft}
@@ -869,69 +672,6 @@ function ShareWordbookSheet({
                 <div className="mt-1.5 text-[10px] font-semibold text-[var(--color-muted)]">
                   カンマ区切りで最大8個
                 </div>
-              </SheetSection>
-
-              <SheetSection icon="group" label="グループ">
-                <div className="mb-2 flex gap-2">
-                  <input
-                    value={createGroupName}
-                    onChange={(event) => onCreateGroupNameChange(event.target.value)}
-                    placeholder="新しいグループ名"
-                    className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onCreateGroupPublicChange(!createGroupPublic)}
-                    className="rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-2 text-[11px] font-bold text-[var(--solid-ink)]"
-                  >
-                    {createGroupPublic ? '公開' : '非公開'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onCreateGroup}
-                    disabled={createGroupLoading || !createGroupName.trim()}
-                    className="rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[12px] font-bold text-white disabled:opacity-40"
-                  >
-                    {createGroupLoading ? <Icon name="progress_activity" size={14} className="animate-spin" /> : '作成'}
-                  </button>
-                </div>
-                {groupsLoading ? (
-                  <SheetState icon="progress_activity" spin message="読み込み中..." />
-                ) : groups.length === 0 ? (
-                  <div className="rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-3 text-[12px] text-[var(--color-muted)]">
-                    所属グループはまだありません
-                  </div>
-                ) : (
-                  <div className="flex max-h-[150px] flex-col gap-2 overflow-y-auto pr-1">
-                    {groups.map((group) => {
-                      const selected = selectedGroupIds.has(group.id);
-                      return (
-                        <button
-                          key={group.id}
-                          type="button"
-                          onClick={() => onToggleGroup(group.id)}
-                          className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-left"
-                        >
-                          <span
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)]"
-                            style={{ background: selected ? 'var(--solid-ink)' : '#fff', color: selected ? '#fff' : 'var(--solid-ink)' }}
-                          >
-                            <Icon name={selected ? 'check' : 'group'} size={14} />
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-[12px] font-bold text-[var(--solid-ink)]">{group.name}</span>
-                          <span className="rounded-full border border-[var(--solid-ink)] px-2 py-0.5 text-[9px] font-bold text-[var(--solid-ink)]">
-                            {group.visibility === 'public' ? '公開' : '非公開'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {groupsError && (
-                  <div className="mt-2 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
-                    {groupsError}
-                  </div>
-                )}
               </SheetSection>
 
               {error && (
@@ -966,22 +706,6 @@ function SheetSection({ icon, label, children }: { icon: string; label: string; 
       </div>
       {children}
     </div>
-  );
-}
-
-function ScopeButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-[10px] border-2 border-[var(--solid-ink)] px-3 py-2 text-left text-[12px] font-bold"
-      style={{
-        background: active ? 'var(--solid-ink)' : '#fff',
-        color: active ? '#fff' : 'var(--solid-ink)',
-      }}
-    >
-      {label}
-    </button>
   );
 }
 

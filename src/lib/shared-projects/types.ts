@@ -3,7 +3,7 @@ import type { Project, Word } from '@/types';
 export type SharedProjectAccessRole = 'owner' | 'editor' | 'viewer';
 export type StudyGroupMembershipRole = 'owner' | 'member';
 export type StudyGroupVisibility = 'private' | 'public';
-export type SharedDiscoverCategory = 'all' | 'users' | 'projects' | 'groups';
+export type SharedDiscoverCategory = 'all' | 'users' | 'projects';
 
 export type SharedProjectCard = {
   project: Project;

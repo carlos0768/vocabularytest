@@ -5,7 +5,6 @@ import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/des
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import type {
-  PublicStudyGroupSummary,
   SharedDiscoverCategory,
   SharedDiscoverPayload,
   SharedProjectCard,
@@ -15,7 +14,6 @@ import type {
 const CATEGORY_META: Record<Exclude<SharedDiscoverCategory, 'all'>, { label: string; icon: string; description: string }> = {
   users: { label: 'ユーザー', icon: 'person', description: '公開単語帳を持つ学習者' },
   projects: { label: '単語帳', icon: 'menu_book', description: 'みんなが公開している単語帳' },
-  groups: { label: 'グループ', icon: 'group', description: '公開中の学習グループ' },
 };
 
 export function DesktopSharedView({
@@ -53,7 +51,7 @@ export function DesktopSharedView({
         crumb={isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}
       >
         <DesktopSearchBox
-          placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳・グループを検索'}
+          placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           style={{ minWidth: 280 }}
@@ -75,7 +73,7 @@ export function DesktopSharedView({
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 24 }}>
             {(Object.keys(CATEGORY_META) as Array<Exclude<SharedDiscoverCategory, 'all'>>).map((key) => (
               <button
                 key={key}
@@ -133,7 +131,6 @@ export function DesktopSharedView({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
             <UserGrid users={payload.users} />
             <ProjectGrid projects={payload.projects} />
-            <GroupGrid groups={payload.groups} />
           </div>
         )}
       </div>
@@ -156,7 +153,6 @@ function CategoryResults({
     <>
       {category === 'users' && <UserGrid users={payload.users} />}
       {category === 'projects' && <ProjectGrid projects={payload.projects} />}
-      {category === 'groups' && <GroupGrid groups={payload.groups} />}
       {payload.nextCursor && (
         <button type="button" onClick={onLoadMore} disabled={loadingMore} className="ds-btn" style={{ marginTop: 18 }}>
           <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} className={loadingMore ? 'animate-spin' : undefined} />
@@ -217,41 +213,6 @@ function ProjectGrid({ projects }: { projects: SharedProjectCard[] }) {
       {projects.length === 0 ? <EmptyCard label="該当する単語帳はありません" /> : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
           {projects.map((project) => <DesktopSharedCard key={project.project.id} project={project} />)}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function GroupGrid({ groups }: { groups: PublicStudyGroupSummary[] }) {
-  return (
-    <section>
-      <SectionTitle count={groups.length}>グループ</SectionTitle>
-      {groups.length === 0 ? <EmptyCard label="該当するグループはありません" /> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-          {groups.map((group) => (
-            <div key={group.id} className="ds-card" style={{ padding: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div
-                  className="ds-project-icon"
-                  style={{ width: 42, height: 42, borderRadius: 12, background: desktopThumbColor(group.id) }}
-                >
-                  {group.name.charAt(0)}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {group.name}
-                  </div>
-                  <div className="muted" style={{ marginTop: 3, fontSize: 12 }}>
-                    {group.memberCount}人 · {group.projectCount}冊
-                  </div>
-                </div>
-              </div>
-              <div className="muted mono" style={{ marginTop: 12, fontSize: 11 }}>
-                {group.ownerUsername ? `@${group.ownerUsername}` : '公開グループ'}
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </section>

@@ -1,5 +1,4 @@
 import SharedPageClient from './SharedPageClient';
-import { listPublicStudyGroups } from '@/app/api/shared-projects/groups/shared';
 import { listPublicSharedProjects, listPublicSharedUsers } from '@/app/api/shared-projects/shared';
 import { readSingleLineEnv } from '@/lib/env';
 import type { SharedDiscoverPayload } from '@/lib/shared-projects/types';
@@ -25,16 +24,15 @@ export default async function SharedPage() {
     try {
       new URL(normalizedSupabaseUrl);
 
-      const [users, projects, groups] = await Promise.all([
+      const [users, projects] = await Promise.all([
         listPublicSharedUsers({ limit: 6 }),
         listPublicSharedProjects({ limit: 6 }),
-        listPublicStudyGroups({ limit: 6 }),
       ]);
       initialDiscover = {
         category: 'all',
         users: users.users,
         projects: projects.items,
-        groups: groups.groups,
+        groups: [],
         nextCursor: null,
       };
     } catch (error) {

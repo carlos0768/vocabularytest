@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SharedDiscoverCategory, SharedDiscoverPayload } from '@/lib/shared-projects/types';
-import { listPublicStudyGroups } from '../groups/shared';
 import { listPublicSharedProjects, listPublicSharedUsers } from '../shared';
 
-const DISCOVER_CATEGORIES = new Set<SharedDiscoverCategory>(['all', 'users', 'projects', 'groups']);
+const DISCOVER_CATEGORIES = new Set<SharedDiscoverCategory>(['all', 'users', 'projects']);
 
 type DiscoverGetDeps = {
   listPublicSharedProjects?: typeof listPublicSharedProjects;
   listPublicSharedUsers?: typeof listPublicSharedUsers;
-  listPublicStudyGroups?: typeof listPublicStudyGroups;
 };
 
 export async function handleSharedProjectsDiscoverGet(
@@ -17,7 +15,6 @@ export async function handleSharedProjectsDiscoverGet(
 ) {
   const listProjects = deps.listPublicSharedProjects ?? listPublicSharedProjects;
   const listUsers = deps.listPublicSharedUsers ?? listPublicSharedUsers;
-  const listGroups = deps.listPublicStudyGroups ?? listPublicStudyGroups;
 
   const requestedCategory = request.nextUrl.searchParams.get('category') ?? 'all';
   const category: SharedDiscoverCategory = DISCOVER_CATEGORIES.has(requestedCategory as SharedDiscoverCategory)
@@ -37,20 +34,16 @@ export async function handleSharedProjectsDiscoverGet(
     } else if (category === 'projects') {
       const result = await listProjects({ limit: normalizedLimit, cursor, query });
       payload = { category, users: [], projects: result.items, groups: [], nextCursor: result.nextCursor };
-    } else if (category === 'groups') {
-      const result = await listGroups({ limit: normalizedLimit, cursor, query });
-      payload = { category, users: [], projects: [], groups: result.groups, nextCursor: result.nextCursor };
     } else {
-      const [users, projects, groups] = await Promise.all([
+      const [users, projects] = await Promise.all([
         listUsers({ limit: 6, query }),
         listProjects({ limit: 6, query }),
-        listGroups({ limit: 6, query }),
       ]);
       payload = {
         category,
         users: users.users,
         projects: projects.items,
-        groups: groups.groups,
+        groups: [],
         nextCursor: null,
       };
     }
