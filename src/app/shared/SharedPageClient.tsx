@@ -15,7 +15,7 @@ import type {
   SharedProjectCard,
 } from '@/lib/shared-projects/types';
 import type { Project } from '@/types';
-import { normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
+import { formatSharedTag, normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
 
 type SharedPageClientProps = {
   initialDiscover: SharedDiscoverPayload;
@@ -164,7 +164,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   useEffect(() => {
     if (!shareSheetOpen || !selectedProject || !user || !isPro) return;
-    setShareTagDraft((selectedProject.sharedTags ?? []).join(', '));
+    setShareTagDraft((selectedProject.sharedTags ?? []).map(formatSharedTag).join(', '));
   }, [isPro, selectedProject, shareSheetOpen, user]);
 
   async function handleLoadMore() {
@@ -487,7 +487,7 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
           <div className="mt-2 flex flex-wrap gap-1.5 pl-[61px]">
             {project.project.sharedTags!.slice(0, 4).map((tag) => (
               <span key={tag} className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-muted)]">
-                #{tag}
+                {formatSharedTag(tag)}
               </span>
             ))}
           </div>
@@ -666,11 +666,11 @@ function ShareWordbookSheet({
                 <input
                   value={shareTagDraft}
                   onChange={(event) => onTagDraftChange(event.target.value)}
-                  placeholder="例: TOEIC, 熟語, 高校英語"
+                  placeholder="例: /TOEIC, /熟語, /高校英語"
                   className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
                 />
                 <div className="mt-1.5 text-[10px] font-semibold text-[var(--color-muted)]">
-                  カンマ区切りで最大8個
+                  先頭に / を付けて最大8個
                 </div>
               </SheetSection>
 

@@ -21,6 +21,7 @@ import {
   SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
 } from '@/lib/words/resolved';
 import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
+import { formatSharedTag } from '../../../../shared/shared-tags';
 
 type ProjectMembershipRow = {
   project_id: string;
@@ -960,7 +961,9 @@ function projectMatchesSearch(
   if (!query) return true;
   if (includesSearchText(row.title, query)) return true;
   if (includesSearchText(ownerUsername, query)) return true;
-  return (row.shared_tags ?? []).some((tag) => includesSearchText(String(tag), query));
+  return (row.shared_tags ?? []).some((tag) => (
+    includesSearchText(String(tag), query) || includesSearchText(formatSharedTag(String(tag)), query)
+  ));
 }
 
 function encodeOffsetCursor(offset: number): string {

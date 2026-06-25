@@ -1,18 +1,35 @@
 const MAX_SHARED_TAGS = 8;
 const MAX_SHARED_TAG_LENGTH = 20;
 
-export function normalizeSharedTags(tags?: readonly string[] | null): string[] {
+type NormalizeSharedTagsOptions = {
+  requireSlashPrefix?: boolean;
+};
+
+function normalizeSharedTag(tag: string, options: NormalizeSharedTagsOptions): string | null {
+  const trimmed = tag.trim();
+  if (!trimmed) return null;
+  if (options.requireSlashPrefix && !/^[/／]/.test(trimmed)) return null;
+
+  const normalized = trimmed
+    .replace(/^[/／#]+/, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, MAX_SHARED_TAG_LENGTH);
+
+  return normalized || null;
+}
+
+export function normalizeSharedTags(
+  tags?: readonly string[] | null,
+  options: NormalizeSharedTagsOptions = {},
+): string[] {
   if (!tags || tags.length === 0) return [];
 
   const result: string[] = [];
   const seen = new Set<string>();
 
   for (const tag of tags) {
-    const normalized = tag
-      .trim()
-      .replace(/^#+/, '')
-      .replace(/\s+/g, ' ')
-      .slice(0, MAX_SHARED_TAG_LENGTH);
+    const normalized = normalizeSharedTag(tag, options);
     if (!normalized) continue;
 
     const key = normalized.toLowerCase();
@@ -26,5 +43,14 @@ export function normalizeSharedTags(tags?: readonly string[] | null): string[] {
 }
 
 export function parseSharedTagsInput(input: string): string[] {
-  return normalizeSharedTags(input.split(/[,、\n]/g));
+  const candidates = input
+    .split(/[,、\n]/g)
+    .flatMap((part) => part.split(/\s+(?=[/／])/g));
+
+  return normalizeSharedTags(candidates, { requireSlashPrefix: true });
+}
+
+export function formatSharedTag(tag: string): string {
+  const normalized = normalizeSharedTags([tag])[0];
+  return normalized ? `/${normalized}` : '';
 }

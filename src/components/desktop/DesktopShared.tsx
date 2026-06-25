@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
+import { formatSharedTag } from '../../../shared/shared-tags';
 import type {
   SharedDiscoverCategory,
   SharedDiscoverPayload,
@@ -247,7 +248,7 @@ function DesktopSharedCard({ project }: { project: SharedProjectCard }) {
       </div>
       {(project.project.sharedTags ?? []).length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {project.project.sharedTags!.slice(0, 4).map((tag) => <span key={tag} className="ds-tag accent">#{tag}</span>)}
+          {project.project.sharedTags!.slice(0, 4).map((tag) => <span key={tag} className="ds-tag accent">{formatSharedTag(tag)}</span>)}
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

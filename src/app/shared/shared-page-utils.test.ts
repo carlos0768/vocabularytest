@@ -7,6 +7,11 @@ import {
   mergeMetricsIntoCards,
   mergeUniqueProjectCards,
 } from './shared-page-utils';
+import {
+  formatSharedTag,
+  normalizeSharedTags,
+  parseSharedTagsInput,
+} from '../../../shared/shared-tags';
 
 function makeCard(id: string, overrides: Partial<SharedProjectCard> = {}): SharedProjectCard {
   return {
@@ -51,4 +56,17 @@ test('collectMetricProjectIds skips cards that already have counts', () => {
   );
 
   assert.deepEqual(ids, ['project-2']);
+});
+
+test('parseSharedTagsInput only accepts slash-prefixed tags', () => {
+  assert.deepEqual(
+    parseSharedTagsInput('TOEIC, /熟語, ／高校英語\n/eiken /academic words'),
+    ['熟語', '高校英語', 'eiken', 'academic words'],
+  );
+  assert.deepEqual(parseSharedTagsInput('TOEIC, 熟語, 高校英語'), []);
+});
+
+test('normalizeSharedTags keeps storage slashless while display uses slash', () => {
+  assert.deepEqual(normalizeSharedTags(['/TOEIC', '#熟語', '高校英語']), ['TOEIC', '熟語', '高校英語']);
+  assert.equal(formatSharedTag('#TOEIC'), '/TOEIC');
 });
