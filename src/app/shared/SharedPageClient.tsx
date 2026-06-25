@@ -15,7 +15,8 @@ import type {
   SharedDiscoverPayload,
   SharedProjectCard,
 } from '@/lib/shared-projects/types';
-import type { FriendSearchResult } from '@/lib/friends/types';
+import type { FollowSearchResult } from '@/lib/follows/types';
+import type { PublicStudyGroupSummary } from '@/lib/shared-projects/types';
 import type { Project } from '@/types';
 import { formatSharedTag, normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
 
@@ -26,22 +27,29 @@ type SharedPageClientProps = {
 type DiscoverResponse = SharedDiscoverPayload | { error?: string };
 
 type ShareCategory = Exclude<SharedDiscoverCategory, 'all'>;
-type PageCategory = ShareCategory | 'friends';
+type PageCategory = ShareCategory | 'groups';
 
 const CATEGORY_META: Record<PageCategory, { label: string; icon: string; description: string }> = {
-  users: { label: 'ユーザー', icon: 'person', description: '学習者アカウント' },
+  users: { label: 'ユーザー', icon: 'person', description: '学習者をフォロー' },
   projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳' },
-  friends: { label: 'フレンド検索', icon: 'person_add', description: 'アカウントIDで検索・申請' },
+  groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探す' },
 };
 
-type FriendSearchApiResponse = {
+type FollowSearchApiResponse = {
   success?: boolean;
-  results?: FriendSearchResult[];
+  results?: FollowSearchResult[];
   error?: string;
 };
 
-type FriendMutationResponse = {
+type FollowMutationResponse = {
   success?: boolean;
+  error?: string;
+};
+
+type GroupSearchApiResponse = {
+  success?: boolean;
+  groups?: PublicStudyGroupSummary[];
+  nextCursor?: string | null;
   error?: string;
 };
 
@@ -88,16 +96,15 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const { user, isPro, isAuthenticated, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
-  const [category, setCategory] = useState<SharedDiscoverCategory | 'friends'>('all');
+  const [category, setCategory] = useState<SharedDiscoverCategory | 'groups'>('all');
   const [query, setQuery] = useState('');
   const [discover, setDiscover] = useState<SharedDiscoverPayload>(initialDiscover);
   const [loading, setLoading] = useState(false);
 
-  const [friendQuery, setFriendQuery] = useState('');
-  const [friendResults, setFriendResults] = useState<FriendSearchResult[]>([]);
-  const [friendLoading, setFriendLoading] = useState(false);
-  const [friendError, setFriendError] = useState<string | null>(null);
-  const [friendActionLoading, setFriendActionLoading] = useState<string | null>(null);
+  const [groupQuery, setGroupQuery] = useState('');
+  const [groupResults, setGroupResults] = useState<PublicStudyGroupSummary[]>([]);
+  const [groupLoading, setGroupLoading] = useState(false);
+  const [groupError, setGroupError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -118,7 +125,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   );
 
   useEffect(() => {
-    if (category === 'friends') return;
+    if (category === 'groups') return;
 
     const canUseInitial = !hasUsedInitialRef.current && category === 'all' && !query.trim() && refreshNonce === 0;
     if (canUseInitial) {
@@ -191,7 +198,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   }, [isPro, selectedProject, shareSheetOpen, user]);
 
   async function handleLoadMore() {
-    if (category === 'all' || category === 'friends' || !discover.nextCursor || loadingMore) return;
+    if (category === 'all' || category === 'groups' || !discover.nextCursor || loadingMore) return;
 
     setLoadingMore(true);
     setError(null);
@@ -227,46 +234,24 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     setError(null);
   }
 
-  async function handleFriendSearch() {
-    const trimmed = friendQuery.trim();
-    if (!trimmed) return;
-    setFriendLoading(true);
-    setFriendError(null);
+  async function handleGroupSearch() {
+    const trimmed = groupQuery.trim();
+    setGroupLoading(true);
+    setGroupError(null);
     try {
-      const response = await fetch(`/api/friends/search?q=${encodeURIComponent(trimmed)}`, { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as FriendSearchApiResponse | null;
+      const params = new URLSearchParams({ limit: '20' });
+      if (trimmed) params.set('q', trimmed);
+      const response = await fetch(`/api/shared-projects/groups/public?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as GroupSearchApiResponse | null;
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'friend_search_failed');
+        throw new Error(payload?.error || 'group_search_failed');
       }
-      setFriendResults(payload.results ?? []);
+      setGroupResults(payload.groups ?? []);
     } catch {
-      setFriendError('ユーザー検索に失敗しました。');
-      setFriendResults([]);
+      setGroupError('グループ検索に失敗しました。');
+      setGroupResults([]);
     } finally {
-      setFriendLoading(false);
-    }
-  }
-
-  async function handleSendFriendRequest(accountId: string) {
-    if (friendActionLoading) return;
-    setFriendActionLoading(`request:${accountId}`);
-    try {
-      const response = await fetch('/api/friends/requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId }),
-      });
-      const payload = await response.json().catch(() => null) as FriendMutationResponse | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'friend_request_failed');
-      }
-      showToast({ message: 'フレンド申請を送信しました', type: 'success' });
-      if (friendQuery.trim()) await handleFriendSearch();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : '申請に失敗しました。';
-      showToast({ message, type: 'error' });
-    } finally {
-      setFriendActionLoading(null);
+      setGroupLoading(false);
     }
   }
 
@@ -318,7 +303,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   return (
     <>
       <DesktopSharedView
-        category={category === 'friends' ? 'all' : category}
+        category={category === 'groups' ? 'all' : category}
         query={query}
         payload={discover}
         loading={loading}
@@ -353,7 +338,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         </div>
 
-        {category !== 'friends' && (
+        {category !== 'groups' && (
           <div className="px-[14px] pt-2">
             <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
               <Icon name="search" size={16} />
@@ -400,17 +385,14 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         )}
 
-        {category === 'friends' ? (
-          <FriendSearchSection
-            isAuthenticated={isAuthenticated}
-            friendQuery={friendQuery}
-            friendResults={friendResults}
-            friendLoading={friendLoading}
-            friendError={friendError}
-            friendActionLoading={friendActionLoading}
-            onQueryChange={setFriendQuery}
-            onSearch={() => void handleFriendSearch()}
-            onSendRequest={(accountId) => void handleSendFriendRequest(accountId)}
+        {category === 'groups' ? (
+          <GroupSearchSection
+            groupQuery={groupQuery}
+            groupResults={groupResults}
+            groupLoading={groupLoading}
+            groupError={groupError}
+            onQueryChange={setGroupQuery}
+            onSearch={() => void handleGroupSearch()}
           />
         ) : shouldShowResults && (
           <div className="flex flex-col gap-4 px-[14px]">
@@ -485,6 +467,34 @@ function SectionLabel({ icon, label, count }: { icon: string; label: string; cou
 }
 
 function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
+  const { isAuthenticated } = useAuth();
+  const { showToast } = useToast();
+  const [followLoading, setFollowLoading] = useState<string | null>(null);
+  const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
+
+  const handleFollow = async (accountId: string | null) => {
+    if (!accountId || followLoading) return;
+    setFollowLoading(accountId);
+    try {
+      const response = await fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+      const payload = await response.json().catch(() => null) as FollowMutationResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'follow_failed');
+      }
+      setFollowedIds((prev) => new Set([...prev, accountId]));
+      showToast({ message: 'フォローしました', type: 'success' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'フォローに失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setFollowLoading(null);
+    }
+  };
+
   if (users.length === 0) return null;
   return (
     <section>
@@ -493,10 +503,15 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
         {users.map((user) => {
           const accountLabel = user.accountId ? `@${user.accountId}` : user.username ? `@${user.username}` : 'ユーザー';
           const avatarLabel = (user.accountId ?? user.username ?? 'U').charAt(0).toUpperCase();
+          const isFollowed = followedIds.has(user.accountId ?? '');
+          const isLoading = followLoading === user.accountId;
 
           return (
             <div key={user.userId} className="flex items-center gap-3 px-1 py-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--color-surface-secondary)] font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
+                style={{ backgroundColor: thumbColor(user.userId) }}
+              >
                 {avatarLabel}
               </div>
               <div className="min-w-0 flex-1">
@@ -507,6 +522,21 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
                   {user.username ?? 'アカウント'}
                 </div>
               </div>
+              {isAuthenticated && user.accountId && (
+                isFollowed ? (
+                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フォロー中</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleFollow(user.accountId)}
+                    disabled={Boolean(followLoading)}
+                    className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2 text-[11px] font-bold text-white disabled:opacity-50"
+                  >
+                    <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
+                    フォロー
+                  </button>
+                )
+              )}
             </div>
           );
         })}
@@ -832,36 +862,24 @@ function SheetActionState({
   );
 }
 
-function FriendSearchSection({
-  isAuthenticated,
-  friendQuery,
-  friendResults,
-  friendLoading,
-  friendError,
-  friendActionLoading,
+function GroupSearchSection({
+  groupQuery,
+  groupResults,
+  groupLoading,
+  groupError,
   onQueryChange,
   onSearch,
-  onSendRequest,
 }: {
-  isAuthenticated: boolean;
-  friendQuery: string;
-  friendResults: FriendSearchResult[];
-  friendLoading: boolean;
-  friendError: string | null;
-  friendActionLoading: string | null;
+  groupQuery: string;
+  groupResults: PublicStudyGroupSummary[];
+  groupLoading: boolean;
+  groupError: string | null;
   onQueryChange: (value: string) => void;
   onSearch: () => void;
-  onSendRequest: (accountId: string) => void;
 }) {
-  if (!isAuthenticated) {
-    return (
-      <div className="px-[14px]">
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
-          ログインするとフレンド検索できます
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    onSearch();
+  }, []);
 
   return (
     <div className="flex flex-col gap-3 px-[14px]">
@@ -872,66 +890,61 @@ function FriendSearchSection({
         <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
           <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
           <input
-            value={friendQuery}
+            value={groupQuery}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="アカウントIDで検索"
+            placeholder="グループ名で検索"
             className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
           />
         </label>
         <button
           type="submit"
-          disabled={friendLoading || !friendQuery.trim()}
+          disabled={groupLoading}
           className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
           aria-label="検索"
         >
-          <Icon name={friendLoading ? 'progress_activity' : 'arrow_forward'} className={friendLoading ? 'animate-spin' : ''} size={16} />
+          <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : ''} size={16} />
         </button>
       </form>
 
-      {friendError && <ErrorBox message={friendError} />}
+      {groupError && <ErrorBox message={groupError} />}
 
-      {friendResults.length > 0 && (
+      {groupLoading && groupResults.length === 0 && <LoadingBox />}
+
+      {groupResults.length > 0 && (
         <div className="flex flex-col gap-2">
-          {friendResults.map((result) => {
-            const avatarLabel = (result.username || result.accountId || '?').charAt(0).toUpperCase();
-            const isLoading = friendActionLoading === `request:${result.accountId}`;
-
-            return (
-              <div key={result.userId} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--color-surface-secondary)] font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
-                  {avatarLabel}
+          {groupResults.map((group) => (
+            <div key={group.id} className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[16px] font-extrabold text-white"
+                  style={{ backgroundColor: thumbColor(group.id) }}
+                >
+                  {group.name.charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">
-                    {result.username?.trim() || `@${result.accountId}`}
+                  <div className="truncate text-[14px] font-extrabold text-[var(--solid-ink)]">{group.name}</div>
+                  <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
+                    <span className="flex items-center gap-0.5">
+                      <Icon name="group" size={12} />
+                      {group.memberCount}人
+                    </span>
+                    <span className="flex items-center gap-0.5">
+                      <Icon name="menu_book" size={12} />
+                      {group.projectCount}冊
+                    </span>
+                    {group.ownerUsername && (
+                      <span className="truncate">@{group.ownerUsername}</span>
+                    )}
                   </div>
-                  <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{result.accountId}</div>
                 </div>
-                {result.relationship === 'friend' ? (
-                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フレンド</span>
-                ) : result.relationship === 'outgoing' ? (
-                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">申請中</span>
-                ) : result.relationship === 'incoming' ? (
-                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">承認待ち</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onSendRequest(result.accountId)}
-                    disabled={Boolean(friendActionLoading)}
-                    className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] px-2 text-[11px] font-bold text-white disabled:opacity-50"
-                  >
-                    <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
-                    申請
-                  </button>
-                )}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
-      {!friendLoading && friendQuery.trim() && friendResults.length === 0 && !friendError && (
-        <EmptyBox message="ユーザーが見つかりませんでした" />
+      {!groupLoading && groupResults.length === 0 && !groupError && (
+        <EmptyBox message="公開グループがありません" />
       )}
     </div>
   );

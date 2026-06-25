@@ -104,7 +104,7 @@ export default function StatsPage() {
     }
     setTimelineLoading(true);
     try {
-      const response = await fetch('/api/friends/timeline?limit=40', { cache: 'no-store' });
+      const response = await fetch('/api/follows/timeline?limit=40', { cache: 'no-store' });
       const payload = await response.json().catch(() => null) as TimelineApiResponse | null;
       if (response.ok && payload?.success) {
         setSessions(payload.sessions ?? []);
@@ -308,11 +308,11 @@ export default function StatsPage() {
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent-light)]">
               <Icon name="group" size={28} className="text-[var(--color-accent)]" />
             </div>
-            <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">フレンドの活動はまだありません</div>
-            <div className="mt-1 text-[12px] text-[var(--color-muted)]">フレンドが学習を始めるとここに表示されます</div>
-            <Link href="/friends" className="mt-4 inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-4 py-2 text-[12px] font-bold text-[var(--solid-ink)]">
+            <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">まだ活動がありません</div>
+            <div className="mt-1 text-[12px] text-[var(--color-muted)]">ユーザーをフォローすると活動が表示されます</div>
+            <Link href="/shared" className="mt-4 inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-4 py-2 text-[12px] font-bold text-[var(--solid-ink)]">
               <Icon name="person_add" size={14} />
-              フレンドを見つける
+              ユーザーを探す
             </Link>
           </div>
         ) : (
