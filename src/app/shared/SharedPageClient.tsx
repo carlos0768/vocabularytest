@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type {
   SharedDiscoverCategory,
   SharedDiscoverPayload,
@@ -219,14 +220,14 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
       const sharedTags = parseSharedTagsInput(shareTagDraft);
       await remoteRepository.updateProject(selectedProject.id, {
         shareScope: 'public',
-        sharedTags,
       });
+      const savedSharedTags = await saveProjectSharedTags(selectedProject.id, sharedTags);
 
       const updatedProject: Project = {
         ...selectedProject,
         shareId,
         shareScope: 'public',
-        sharedTags,
+        sharedTags: savedSharedTags,
       };
       setOwnProjects((current) => current.map((project) => (
         project.id === updatedProject.id ? updatedProject : project

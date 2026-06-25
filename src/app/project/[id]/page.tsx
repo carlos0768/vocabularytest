@@ -20,6 +20,7 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
+import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import {
   getNextVocabularyType,
@@ -576,8 +577,8 @@ export default function ProjectPage() {
 
     setShareTagsUpdating(true);
     try {
-      await mutationRepository.updateProject(project.id, { sharedTags });
-      setProject((p) => (p ? { ...p, sharedTags } : p));
+      const savedSharedTags = await saveProjectSharedTags(project.id, sharedTags);
+      setProject((p) => (p ? { ...p, sharedTags: savedSharedTags } : p));
       invalidateHomeCache();
       showToast({ message: '共有タグを保存しました', type: 'success' });
     } catch (tagsError) {

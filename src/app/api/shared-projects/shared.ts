@@ -20,6 +20,7 @@ import {
   SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
   SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
 } from '@/lib/words/resolved';
+import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
 import { formatSharedTag } from '../../../../shared/shared-tags';
 
@@ -28,7 +29,12 @@ type ProjectMembershipRow = {
   role: string | null;
 };
 
-type SharedSchemaDependency = 'project_members' | 'share_scope' | 'shared_metrics_rpc' | 'shared_tags';
+type SharedSchemaDependency =
+  | 'project_members'
+  | 'share_scope'
+  | 'shared_metrics_rpc'
+  | 'shared_tags'
+  | 'shared_tag_embeddings';
 
 type SupabaseLikeError = {
   code?: string | null;
@@ -65,6 +71,8 @@ const PROJECT_SHARED_SELECT_COLUMNS_WITHOUT_SHARED_TAGS = `${PROJECT_BASE_SELECT
 const DEFAULT_PUBLIC_PAGE_SIZE = 8;
 const MAX_PUBLIC_PAGE_SIZE = 24;
 const PUBLIC_CURSOR_FETCH_PADDING = 24;
+const PUBLIC_VECTOR_MATCH_THRESHOLD = 0.2;
+const PUBLIC_VECTOR_MATCH_LIMIT = 120;
 const DEFAULT_SHARE_PREVIEW_WORD_LIMIT = 5;
 const MAX_SHARE_PREVIEW_WORD_LIMIT = 20;
 
@@ -442,8 +450,28 @@ export async function listPublicSharedProjects(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<PublicSharedProjectListPayload> {
   const limit = clampPublicPageSize(options.limit);
-  const cursor = decodePublicCursor(options.cursor ?? null);
   const query = normalizeSearchQuery(options.query);
+
+  if (query) {
+    const cursorOffset = decodeOffsetCursor(options.cursor ?? null);
+    const searchRows = await searchPublicProjects(admin, query, cursorOffset + limit + 1);
+    const pageRows = searchRows.slice(cursorOffset, cursorOffset + limit);
+    const usernameByUserId = await getUsernamesByUserIds(admin, pageRows.map((row) => row.user_id));
+    const metricsByProjectId = await getSharedProjectMetrics(pageRows.map((row) => row.id), admin);
+
+    return {
+      items: pageRows.map((row) => {
+        const card = mapSharedProjectCard(row, 'viewer', usernameByUserId);
+        const metrics = metricsByProjectId.get(row.id);
+        return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
+      }),
+      nextCursor: searchRows.length > cursorOffset + limit
+        ? encodeOffsetCursor(cursorOffset + limit)
+        : null,
+    };
+  }
+
+  const cursor = decodePublicCursor(options.cursor ?? null);
 
   let rows: ProjectRow[];
   try {
@@ -493,24 +521,26 @@ export async function listPublicSharedUsers(
   const projectLimit = Math.max(80, (cursorOffset + limit + 1) * 4);
 
   let rows: ProjectRow[] = [];
-  try {
-    rows = await fetchPublicProjectsForUserDiscovery(admin, projectLimit, true);
-  } catch (error) {
-    if (getSharedProjectsSchemaIssue(error) === 'shared_tags') {
-      logSharedProjectsFallback('shared_tags', error);
-      rows = await fetchPublicProjectsForUserDiscovery(admin, projectLimit, false);
-    } else if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
-      logSharedProjectsFallback('share_scope', error);
-      return { users: [], nextCursor: null };
-    } else {
-      throw error;
+  if (query) {
+    rows = await searchPublicProjects(admin, query, projectLimit);
+  } else {
+    try {
+      rows = await fetchPublicProjectsForUserDiscovery(admin, projectLimit, true);
+    } catch (error) {
+      if (getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+        logSharedProjectsFallback('shared_tags', error);
+        rows = await fetchPublicProjectsForUserDiscovery(admin, projectLimit, false);
+      } else if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
+        logSharedProjectsFallback('share_scope', error);
+        return { users: [], nextCursor: null };
+      } else {
+        throw error;
+      }
     }
   }
 
   const usernameByUserId = await getUsernamesByUserIds(admin, rows.map((row) => row.user_id));
-  const matchingRows = query
-    ? rows.filter((row) => projectMatchesSearch(row, usernameByUserId.get(row.user_id), query))
-    : rows;
+  const matchingRows = rows;
   const projectIds = matchingRows.map((row) => row.id);
   const metricsByProjectId = await getSharedProjectMetrics(projectIds, admin);
   const userById = new Map<string, SharedUserSummary>();
@@ -663,6 +693,7 @@ export function getSharedProjectsSchemaIssue(error: unknown): SharedSchemaDepend
 
   if (
     normalized.includes('shared_tags')
+    && !normalized.includes('shared_tags_embedding')
     && (
       normalized.includes('does not exist')
       || normalized.includes('column')
@@ -671,6 +702,22 @@ export function getSharedProjectsSchemaIssue(error: unknown): SharedSchemaDepend
     )
   ) {
     return 'shared_tags';
+  }
+
+  if (
+    (
+      normalized.includes('shared_tags_embedding')
+      || normalized.includes('match_public_shared_projects_by_tag_embedding')
+    )
+    && (
+      normalized.includes('does not exist')
+      || normalized.includes('column')
+      || normalized.includes('function')
+      || normalized.includes('schema cache')
+      || normalized.includes('could not find')
+    )
+  ) {
+    return 'shared_tag_embeddings';
   }
 
   if (
@@ -822,6 +869,97 @@ async function fetchPublicProjectsForUserDiscovery(
   }
 
   return (data ?? []) as unknown as ProjectRow[];
+}
+
+async function searchPublicProjects(
+  admin: SupabaseAdminClient,
+  query: string,
+  desiredCount: number,
+): Promise<ProjectRow[]> {
+  const fetchLimit = Math.max(desiredCount + PUBLIC_CURSOR_FETCH_PADDING, 80);
+  const [textRows, vectorRows] = await Promise.all([
+    fetchPublicTextSearchRows(admin, query, fetchLimit),
+    fetchPublicProjectsBySharedTagEmbedding(
+      admin,
+      query,
+      Math.max(desiredCount + PUBLIC_CURSOR_FETCH_PADDING, PUBLIC_VECTOR_MATCH_LIMIT),
+    ),
+  ]);
+
+  const usernameByUserId = await getUsernamesByUserIds(admin, textRows.map((row) => row.user_id));
+  const textMatches = textRows.filter((row) => projectMatchesSearch(row, usernameByUserId.get(row.user_id), query));
+
+  return mergeProjectRowsById(vectorRows, textMatches);
+}
+
+async function fetchPublicTextSearchRows(
+  admin: SupabaseAdminClient,
+  query: string,
+  fetchLimit: number,
+): Promise<ProjectRow[]> {
+  try {
+    return await fetchPublicProjectsPage(admin, fetchLimit, null, Boolean(query), true);
+  } catch (error) {
+    if (getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      return fetchPublicProjectsPage(admin, fetchLimit, null, Boolean(query), false);
+    }
+    if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
+      logSharedProjectsFallback('share_scope', error);
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function fetchPublicProjectsBySharedTagEmbedding(
+  admin: SupabaseAdminClient,
+  query: string,
+  matchCount: number,
+): Promise<ProjectRow[]> {
+  let queryEmbedding: number[] | null = null;
+  try {
+    queryEmbedding = await createSharedSearchEmbedding(query);
+  } catch (error) {
+    console.warn('shared tag search embedding generation failed:', error);
+    return [];
+  }
+
+  if (!queryEmbedding) return [];
+
+  const { data, error } = await admin.rpc('match_public_shared_projects_by_tag_embedding', {
+    query_embedding: queryEmbedding,
+    match_threshold: PUBLIC_VECTOR_MATCH_THRESHOLD,
+    match_count: matchCount,
+  });
+
+  if (error) {
+    const schemaIssue = getSharedProjectsSchemaIssue(error);
+    if (schemaIssue === 'shared_tag_embeddings') {
+      logSharedProjectsFallback('shared_tag_embeddings', error);
+      return [];
+    }
+
+    console.warn('shared tag vector search failed:', error);
+    return [];
+  }
+
+  return (data ?? []) as unknown as ProjectRow[];
+}
+
+function mergeProjectRowsById(...groups: ProjectRow[][]): ProjectRow[] {
+  const rows: ProjectRow[] = [];
+  const seen = new Set<string>();
+
+  for (const group of groups) {
+    for (const row of group) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
+    }
+  }
+
+  return rows;
 }
 
 async function getSharedProjectMetricsFallback(
