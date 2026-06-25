@@ -105,7 +105,7 @@ function LoginForm() {
         </div>
       </DesktopAuthShell>
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[#f3f0e9] pt-3 font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px] lg:hidden">
       <div className="px-[14px] pt-1">
         <Link
           href="/"
@@ -180,7 +180,7 @@ function LoginForm() {
             disabled={loading || email.trim().length === 0 || password.length === 0}
             className="group w-full disabled:pointer-events-none disabled:opacity-60"
           >
-            <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
+            <div className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]">
               {loading && <Icon name="progress_activity" size={16} className="animate-spin" />}
               {loading ? 'ログイン中...' : 'ログイン'}
             </div>
@@ -195,15 +195,15 @@ function LoginForm() {
       />
 
       <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
-        <div className="h-px flex-1 bg-[var(--color-border)]" />
-        <span className="font-mono text-[10px] text-[var(--color-muted)]">または</span>
-        <div className="h-px flex-1 bg-[var(--color-border)]" />
+        <div className="h-px flex-1 bg-[rgba(26,26,26,0.15)]" />
+        <span className="font-mono text-[10px] text-[#8a857a]">または</span>
+        <div className="h-px flex-1 bg-[rgba(26,26,26,0.15)]" />
       </div>
 
       <div className="flex flex-col gap-2 px-6 pb-3">
         <Link
           href={`/signup?redirect=${encodeURIComponent(redirect)}`}
-          className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+          className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-ink)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_var(--solid-ink)]"
         >
           <Icon name="person_add" size={16} />
           新規登録する
@@ -218,7 +218,7 @@ function LoginForm() {
 
 function LoginFallback() {
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)]">
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
     </div>
   );
@@ -253,7 +253,7 @@ function FormField({
 }) {
   return (
     <label className="block">
-      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[#8a857a]">
         {label}
       </div>
       <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px]">
