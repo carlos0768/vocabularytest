@@ -44,6 +44,8 @@ export function DesktopSharedView({
 }) {
   const isCategory = category !== 'all';
   const activeMeta = isCategory ? CATEGORY_META[category] : null;
+  const hasQuery = query.trim().length > 0;
+  const shouldShowResults = isCategory || hasQuery || loading || Boolean(error);
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -110,29 +112,33 @@ export function DesktopSharedView({
           </div>
         )}
 
-        {error && (
-          <div className="ds-card" style={{ marginBottom: 16, padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
-            {error}
-          </div>
-        )}
+        {shouldShowResults && (
+          <>
+            {error && (
+              <div className="ds-card" style={{ marginBottom: 16, padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
+                {error}
+              </div>
+            )}
 
-        {loading ? (
-          <div className="ds-card" style={{ padding: 34, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Icon name="progress_activity" className="animate-spin" />
-            検索中...
-          </div>
-        ) : isCategory ? (
-          <CategoryResults
-            category={category as Exclude<SharedDiscoverCategory, 'all'>}
-            payload={payload}
-            onLoadMore={onLoadMore}
-            loadingMore={loadingMore}
-          />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-            <UserGrid users={payload.users} />
-            <ProjectGrid projects={payload.projects} />
-          </div>
+            {loading ? (
+              <div className="ds-card" style={{ padding: 34, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Icon name="progress_activity" className="animate-spin" />
+                検索中...
+              </div>
+            ) : isCategory ? (
+              <CategoryResults
+                category={category as Exclude<SharedDiscoverCategory, 'all'>}
+                payload={payload}
+                onLoadMore={onLoadMore}
+                loadingMore={loadingMore}
+              />
+            ) : hasQuery ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+                <UserGrid users={payload.users} />
+                <ProjectGrid projects={payload.projects} />
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>

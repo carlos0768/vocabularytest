@@ -246,7 +246,9 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     }
   }
 
+  const hasQuery = query.trim().length > 0;
   const allEmpty = discover.users.length === 0 && discover.projects.length === 0;
+  const shouldShowResults = category !== 'all' || hasQuery || loading || Boolean(error);
 
   return (
     <>
@@ -331,37 +333,39 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         )}
 
-        <div className="flex flex-col gap-4 px-[14px]">
-          {error && <ErrorBox message={error} />}
-          {loading ? (
-            <LoadingBox />
-          ) : allEmpty ? (
-            <EmptyBox message={query.trim() ? '検索結果がありません' : '公開中の項目はまだありません'} />
-          ) : category === 'all' ? (
-            <>
-              <UserSection users={discover.users} />
-              <ProjectSection projects={discover.projects} />
-            </>
-          ) : (
-            <>
-              {category === 'users' && <UserSection users={discover.users} />}
-              {category === 'projects' && <ProjectSection projects={discover.projects} />}
-              {discover.nextCursor && (
-                <button
-                  type="button"
-                  onClick={() => void handleLoadMore()}
-                  disabled={loadingMore}
-                  className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)] disabled:opacity-60"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} size={18} className={loadingMore ? 'animate-spin' : undefined} />
-                    {loadingMore ? '読み込み中...' : 'もっと見る'}
-                  </span>
-                </button>
-              )}
-            </>
-          )}
-        </div>
+        {shouldShowResults && (
+          <div className="flex flex-col gap-4 px-[14px]">
+            {error && <ErrorBox message={error} />}
+            {loading ? (
+              <LoadingBox />
+            ) : allEmpty ? (
+              <EmptyBox message="検索結果がありません" />
+            ) : category === 'all' ? (
+              <>
+                <UserSection users={discover.users} />
+                <ProjectSection projects={discover.projects} />
+              </>
+            ) : (
+              <>
+                {category === 'users' && <UserSection users={discover.users} />}
+                {category === 'projects' && <ProjectSection projects={discover.projects} />}
+                {discover.nextCursor && (
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadMore()}
+                    disabled={loadingMore}
+                    className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)] disabled:opacity-60"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} size={18} className={loadingMore ? 'animate-spin' : undefined} />
+                      {loadingMore ? '読み込み中...' : 'もっと見る'}
+                    </span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <ShareWordbookSheet
