@@ -20,6 +20,7 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
+import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import {
   getNextVocabularyType,
@@ -98,6 +99,7 @@ export default function ProjectPage() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [sharePrepareLoading, setSharePrepareLoading] = useState(false);
   const [shareScopeUpdating, setShareScopeUpdating] = useState(false);
+  const [shareTagsUpdating, setShareTagsUpdating] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [shareGroups, setShareGroups] = useState<StudyGroupSummary[]>([]);
   const [shareGroupsLoading, setShareGroupsLoading] = useState(false);
@@ -567,6 +569,23 @@ export default function ProjectPage() {
       showToast({ message: '公開設定の更新に失敗しました', type: 'error' });
     } finally {
       setShareScopeUpdating(false);
+    }
+  };
+
+  const handleSaveSharedTags = async (sharedTags: string[]) => {
+    if (!project || shareTagsUpdating) return;
+
+    setShareTagsUpdating(true);
+    try {
+      const savedSharedTags = await saveProjectSharedTags(project.id, sharedTags);
+      setProject((p) => (p ? { ...p, sharedTags: savedSharedTags } : p));
+      invalidateHomeCache();
+      showToast({ message: '共有タグを保存しました', type: 'success' });
+    } catch (tagsError) {
+      console.error('Failed to update shared tags:', tagsError);
+      showToast({ message: 'タグの保存に失敗しました', type: 'error' });
+    } finally {
+      setShareTagsUpdating(false);
     }
   };
 
@@ -1186,7 +1205,10 @@ export default function ProjectPage() {
         shareScope={project.shareScope === 'public' ? 'public' : 'private'}
         preparing={sharePrepareLoading}
         updatingScope={shareScopeUpdating}
+        sharedTags={project.sharedTags ?? []}
+        updatingTags={shareTagsUpdating}
         onSelectScope={handleSelectShareScope}
+        onSaveSharedTags={handleSaveSharedTags}
         onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
         onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
         shareLinkCopied={shareLinkCopied}

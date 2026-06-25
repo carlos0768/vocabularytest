@@ -16,6 +16,7 @@ import type {
   WordOrderQuizCache,
 } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
+import { normalizeSharedTags } from '../shared-tags';
 import {
   normalizeLexiconDatasetSources,
   normalizeLexiconTranslation,
@@ -43,7 +44,9 @@ export interface ProjectRow {
   user_id: string;
   title: string;
   source_labels?: unknown[] | null;
+  shared_tags?: unknown[] | null;
   icon_image?: string | null;
+  description?: string | null;
   created_at: string;
   share_id?: string | null;
   share_scope?: string | null;
@@ -57,6 +60,8 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     userId: row.user_id,
     title: row.title,
     sourceLabels: normalizeSourceLabels(row.source_labels),
+    sharedTags: normalizeSharedTags(normalizeStringArray(row.shared_tags, 8)),
+    description: row.description ?? undefined,
     iconImage: row.icon_image ?? undefined,
     createdAt: row.created_at,
     shareId: row.share_id ?? undefined,
@@ -73,6 +78,8 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
   title: string;
   source_labels: string[];
   icon_image?: string;
+  shared_tags?: string[];
+  description?: string;
   imported_from_share_id?: string;
 } {
   return {
@@ -80,6 +87,8 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
     title: project.title,
     source_labels: normalizeSourceLabels(project.sourceLabels),
     ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
+    ...(project.sharedTags !== undefined && { shared_tags: normalizeSharedTags(project.sharedTags) }),
+    ...(project.description !== undefined && { description: project.description }),
     ...(project.importedFromShareId !== undefined && {
       imported_from_share_id: project.importedFromShareId,
     }),
@@ -92,6 +101,8 @@ export function mapProjectToInsertWithId(project: Project): {
   title: string;
   source_labels: string[];
   icon_image?: string;
+  shared_tags?: string[];
+  description?: string;
   created_at: string;
   share_id?: string;
   share_scope?: string;
@@ -104,6 +115,8 @@ export function mapProjectToInsertWithId(project: Project): {
     title: project.title,
     source_labels: normalizeSourceLabels(project.sourceLabels),
     ...(project.iconImage !== undefined && { icon_image: project.iconImage }),
+    ...(project.sharedTags !== undefined && { shared_tags: normalizeSharedTags(project.sharedTags) }),
+    ...(project.description !== undefined && { description: project.description }),
     created_at: project.createdAt,
     ...(project.shareId !== undefined && { share_id: project.shareId }),
     ...(project.shareScope !== undefined && { share_scope: project.shareScope }),
@@ -118,6 +131,8 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
   const updateData: Record<string, unknown> = {};
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.sourceLabels !== undefined) updateData.source_labels = normalizeSourceLabels(updates.sourceLabels);
+  if (updates.sharedTags !== undefined) updateData.shared_tags = normalizeSharedTags(updates.sharedTags);
+  if (updates.description !== undefined) updateData.description = updates.description;
   if (updates.iconImage !== undefined) updateData.icon_image = updates.iconImage;
   if (updates.shareId !== undefined) updateData.share_id = updates.shareId;
   if (updates.shareScope !== undefined) updateData.share_scope = updates.shareScope;

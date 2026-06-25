@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import type {
+  PublicStudyGroupSummary,
   SharedProjectAccessRole,
   SharedProjectCard,
   SharedProjectMetrics,
@@ -8,6 +9,7 @@ import type {
   StudyGroupProjectListPayload,
   StudyGroupsPayload,
   StudyGroupSummary,
+  StudyGroupVisibility,
 } from '@/lib/shared-projects/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../../shared/db';
 import { getSharedProjectMetrics } from '../shared';
@@ -19,6 +21,7 @@ type StudyGroupRow = {
   owner_user_id: string;
   name: string;
   invite_code: string;
+  visibility?: string | null;
   created_at: string;
 };
 
@@ -43,10 +46,28 @@ type ListStudyGroupsOptions = {
   projectId?: string | null;
 };
 
-const STUDY_GROUP_SELECT_COLUMNS = 'id,owner_user_id,name,invite_code,created_at';
-const PROJECT_GROUP_SELECT_COLUMNS = 'id,user_id,title,source_labels,icon_image,created_at,share_id,is_favorite,description,share_scope';
+type PublicStudyGroupsOptions = {
+  limit?: number;
+  cursor?: string | null;
+  query?: string | null;
+};
+
+type PublicStudyGroupsPayload = {
+  groups: PublicStudyGroupSummary[];
+  nextCursor: string | null;
+};
+
+type StudyGroupCursor = {
+  createdAt: string;
+  id: string;
+};
+
+const STUDY_GROUP_SELECT_COLUMNS = 'id,owner_user_id,name,invite_code,visibility,created_at';
+const PROJECT_GROUP_SELECT_COLUMNS = 'id,user_id,title,source_labels,shared_tags,icon_image,created_at,share_id,is_favorite,description,share_scope';
 const GROUP_INVITE_CODE_PATTERN = /^[A-Za-z0-9_]{4,64}$/;
 const CREATE_INVITE_CODE_RETRIES = 5;
+const DEFAULT_PUBLIC_GROUP_PAGE_SIZE = 12;
+const MAX_PUBLIC_GROUP_PAGE_SIZE = 36;
 
 export function normalizeGroupInviteCode(input: string): string | null {
   const normalized = input.trim().replace(/[\s-]+/g, '');
@@ -112,9 +133,11 @@ export async function listStudyGroupsForUser(
 export async function createStudyGroup(
   userId: string,
   name: string,
+  visibility: StudyGroupVisibility = 'private',
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<StudyGroupSummary> {
   const normalizedName = name.trim();
+  const normalizedVisibility = normalizeStudyGroupVisibility(visibility);
 
   for (let attempt = 0; attempt < CREATE_INVITE_CODE_RETRIES; attempt += 1) {
     const inviteCode = generateGroupInviteCode();
@@ -124,6 +147,7 @@ export async function createStudyGroup(
         owner_user_id: userId,
         name: normalizedName,
         invite_code: inviteCode,
+        visibility: normalizedVisibility,
       })
       .select(STUDY_GROUP_SELECT_COLUMNS)
       .single<StudyGroupRow>();
@@ -151,6 +175,62 @@ export async function createStudyGroup(
   }
 
   throw new Error('study_group_invite_code_generation_failed');
+}
+
+export async function listPublicStudyGroups(
+  options: PublicStudyGroupsOptions = {},
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<PublicStudyGroupsPayload> {
+  const limit = clampPublicGroupPageSize(options.limit);
+  const cursor = decodePublicGroupCursor(options.cursor ?? null);
+  const query = normalizeSearchQuery(options.query);
+  const fetchSize = query ? Math.max(limit + 1, 80) : limit + 1;
+
+  let request = admin
+    .from('study_groups')
+    .select(STUDY_GROUP_SELECT_COLUMNS)
+    .eq('visibility', 'public')
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
+
+  if (cursor) {
+    request = request.lte('created_at', cursor.createdAt);
+  }
+
+  const { data, error } = await request.limit(fetchSize);
+  if (error) {
+    throw new Error(error.message || 'public_study_groups_lookup_failed');
+  }
+
+  const rows = ((data ?? []) as StudyGroupRow[])
+    .filter((row) => !cursor || compareGroupRowAgainstCursor(row, cursor) > 0);
+  const ownerUsernameByUserId = await getUsernamesByUserIds(admin, rows.map((row) => row.owner_user_id));
+  const matchingRows = query
+    ? rows.filter((row) => {
+      const ownerUsername = ownerUsernameByUserId.get(row.owner_user_id) ?? '';
+      return includesSearchText(row.name, query) || includesSearchText(ownerUsername, query);
+    })
+    : rows;
+  const pageRows = matchingRows.slice(0, limit);
+  const countsByGroupId = await getStudyGroupCounts(pageRows.map((row) => row.id), admin);
+
+  return {
+    groups: pageRows.map((row) => {
+      const counts = countsByGroupId.get(row.id) ?? { memberCount: 0, projectCount: 0 };
+      return {
+        id: row.id,
+        name: row.name,
+        visibility: 'public' as const,
+        memberCount: counts.memberCount,
+        projectCount: counts.projectCount,
+        createdAt: row.created_at,
+        ownerUsername: ownerUsernameByUserId.get(row.owner_user_id) ?? null,
+      };
+    }),
+    nextCursor: matchingRows.length > limit
+      ? encodePublicGroupCursor(matchingRows[limit - 1]!)
+      : null,
+  };
 }
 
 export async function joinStudyGroupByInviteCode(
@@ -594,6 +674,7 @@ function mapStudyGroupSummary(
     name: row.name,
     inviteCode: row.invite_code,
     role,
+    visibility: normalizeStudyGroupVisibility(row.visibility),
     memberCount: counts.memberCount,
     projectCount: counts.projectCount,
     createdAt: row.created_at,
@@ -621,6 +702,54 @@ function mapSharedProjectCardForGroup(
 
 function normalizeStudyGroupRole(role: string | null | undefined): StudyGroupMembershipRole {
   return role === 'owner' ? 'owner' : 'member';
+}
+
+function normalizeStudyGroupVisibility(value: string | null | undefined): StudyGroupVisibility {
+  return value === 'public' ? 'public' : 'private';
+}
+
+function normalizeSearchQuery(query?: string | null): string {
+  return (query ?? '').trim().toLowerCase();
+}
+
+function includesSearchText(value: string | null | undefined, query: string): boolean {
+  return value?.toLowerCase().includes(query) ?? false;
+}
+
+function clampPublicGroupPageSize(limit?: number): number {
+  if (!Number.isFinite(limit)) return DEFAULT_PUBLIC_GROUP_PAGE_SIZE;
+  return Math.max(1, Math.min(MAX_PUBLIC_GROUP_PAGE_SIZE, Math.floor(Number(limit))));
+}
+
+function encodePublicGroupCursor(row: Pick<StudyGroupRow, 'created_at' | 'id'>): string {
+  return Buffer.from(
+    JSON.stringify({
+      createdAt: row.created_at,
+      id: row.id,
+    }),
+    'utf8',
+  ).toString('base64url');
+}
+
+function decodePublicGroupCursor(cursor: string | null): StudyGroupCursor | null {
+  if (!cursor) return null;
+
+  try {
+    const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as Partial<StudyGroupCursor>;
+    if (typeof value.createdAt === 'string' && typeof value.id === 'string') {
+      return { createdAt: value.createdAt, id: value.id };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function compareGroupRowAgainstCursor(row: Pick<StudyGroupRow, 'created_at' | 'id'>, cursor: StudyGroupCursor): number {
+  const createdAtDiff = cursor.createdAt.localeCompare(row.created_at);
+  if (createdAtDiff !== 0) return createdAtDiff;
+  return cursor.id.localeCompare(row.id);
 }
 
 function generateGroupInviteCode(): string {

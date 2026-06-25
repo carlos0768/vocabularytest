@@ -188,6 +188,7 @@ export interface Project {
   title: string;
   description?: string; // Optional free-form description shown on the detail page
   sourceLabels: string[]; // Physical source labels extracted from scans
+  sharedTags?: string[]; // User-facing tags for public shared-library discovery
   iconImage?: string; // Base64 data URL icon shown on project cards
   createdAt: string; // ISO string
   isSynced?: boolean; // Local-only flag for cloud sync status

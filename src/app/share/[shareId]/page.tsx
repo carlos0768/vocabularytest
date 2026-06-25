@@ -14,6 +14,7 @@ import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import type { SharedProjectPreviewPayload } from '@/lib/shared-projects/types';
 import type { Project, Word } from '@/types';
 
@@ -468,7 +469,7 @@ export default function SharedDetailPage() {
               <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
                 <span className={`font-display text-[14px] font-bold text-[var(--solid-ink)] ${previewTextClass}`}>{word.english}</span>
                 {word.partOfSpeechTags?.[0] && (
-                  <span className={`font-mono text-[9px] italic text-[var(--color-muted)] ${previewTextClass}`}>{word.partOfSpeechTags[0]}</span>
+                  <span className={`text-[10px] font-bold text-[var(--color-muted)] ${previewTextClass}`}>{getPartOfSpeechLabel(word.partOfSpeechTags[0])}</span>
                 )}
                 <span className={`ml-1 truncate text-[11px] text-[var(--color-muted)] ${previewTextClass}`}>
                   <TranslationDisplay word={word} compact />

@@ -37,6 +37,7 @@ test('study group join returns the joined group', async () => {
       name: 'Class A',
       inviteCode,
       role: 'member',
+      visibility: 'private',
       memberCount: 3,
       projectCount: 2,
       createdAt: '2026-06-14T00:00:00.000Z',

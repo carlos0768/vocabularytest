@@ -1,13 +1,18 @@
 import SharedPageClient from './SharedPageClient';
-import { listPublicSharedProjects } from '@/app/api/shared-projects/shared';
+import { listPublicSharedProjects, listPublicSharedUsers } from '@/app/api/shared-projects/shared';
 import { readSingleLineEnv } from '@/lib/env';
-import type { SharedProjectCard } from '@/lib/shared-projects/types';
+import type { SharedDiscoverPayload } from '@/lib/shared-projects/types';
 
 export const revalidate = 60;
 
 export default async function SharedPage() {
-  let initialPublicItems: SharedProjectCard[] = [];
-  let initialPublicNextCursor: string | null = null;
+  let initialDiscover: SharedDiscoverPayload = {
+    category: 'all',
+    users: [],
+    projects: [],
+    groups: [],
+    nextCursor: null,
+  };
 
   const supabaseUrl = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
   const serviceRoleKey = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
@@ -18,9 +23,17 @@ export default async function SharedPage() {
   if (normalizedSupabaseUrl && serviceRoleKey) {
     try {
       new URL(normalizedSupabaseUrl);
-      const payload = await listPublicSharedProjects({ limit: 8 });
-      initialPublicItems = payload.items;
-      initialPublicNextCursor = payload.nextCursor;
+      const [users, projects] = await Promise.all([
+        listPublicSharedUsers({ limit: 6 }),
+        listPublicSharedProjects({ limit: 6 }),
+      ]);
+      initialDiscover = {
+        category: 'all',
+        users: users.users,
+        projects: projects.items,
+        groups: [],
+        nextCursor: null,
+      };
     } catch (error) {
       console.error('Failed to prerender public shared projects:', error);
     }
@@ -28,8 +41,7 @@ export default async function SharedPage() {
 
   return (
     <SharedPageClient
-      initialPublicItems={initialPublicItems}
-      initialPublicNextCursor={initialPublicNextCursor}
+      initialDiscover={initialDiscover}
     />
   );
 }

@@ -6,6 +6,7 @@ import type {
   PublicSharedProjectListPayload,
   SharedProjectAccessRole,
   SharedProjectCard,
+  SharedUserSummary,
   SharedProjectMetrics,
   SharedProjectPreviewPayload,
   SharedProjectSummary,
@@ -19,14 +20,21 @@ import {
   SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
   SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
 } from '@/lib/words/resolved';
+import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
+import { formatSharedTag } from '../../../../shared/shared-tags';
 
 type ProjectMembershipRow = {
   project_id: string;
   role: string | null;
 };
 
-type SharedSchemaDependency = 'project_members' | 'share_scope' | 'shared_metrics_rpc';
+type SharedSchemaDependency =
+  | 'project_members'
+  | 'share_scope'
+  | 'shared_metrics_rpc'
+  | 'shared_tags'
+  | 'shared_tag_embeddings';
 
 type SupabaseLikeError = {
   code?: string | null;
@@ -50,16 +58,21 @@ type SharedProjectCursor = {
 type PublicSharedProjectListOptions = {
   limit?: number;
   cursor?: string | null;
+  query?: string | null;
 };
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
 const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,64}$/;
-const PROJECT_BASE_SELECT_COLUMNS = 'id,user_id,title,source_labels,icon_image,created_at,share_id,is_favorite,description';
+const PROJECT_BASE_SELECT_COLUMNS = 'id,user_id,title,source_labels,shared_tags,icon_image,created_at,share_id,is_favorite,description';
+const PROJECT_BASE_SELECT_COLUMNS_WITHOUT_SHARED_TAGS = 'id,user_id,title,source_labels,icon_image,created_at,share_id,is_favorite,description';
 const PROJECT_SHARED_SELECT_COLUMNS = `${PROJECT_BASE_SELECT_COLUMNS},share_scope`;
+const PROJECT_SHARED_SELECT_COLUMNS_WITHOUT_SHARED_TAGS = `${PROJECT_BASE_SELECT_COLUMNS_WITHOUT_SHARED_TAGS},share_scope`;
 const DEFAULT_PUBLIC_PAGE_SIZE = 8;
 const MAX_PUBLIC_PAGE_SIZE = 24;
 const PUBLIC_CURSOR_FETCH_PADDING = 24;
+const PUBLIC_VECTOR_MATCH_THRESHOLD = 0.2;
+const PUBLIC_VECTOR_MATCH_LIMIT = 120;
 const DEFAULT_SHARE_PREVIEW_WORD_LIMIT = 5;
 const MAX_SHARE_PREVIEW_WORD_LIMIT = 20;
 
@@ -437,27 +450,54 @@ export async function listPublicSharedProjects(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<PublicSharedProjectListPayload> {
   const limit = clampPublicPageSize(options.limit);
+  const query = normalizeSearchQuery(options.query);
+
+  if (query) {
+    const cursorOffset = decodeOffsetCursor(options.cursor ?? null);
+    const searchRows = await searchPublicProjects(admin, query, cursorOffset + limit + 1);
+    const pageRows = searchRows.slice(cursorOffset, cursorOffset + limit);
+    const usernameByUserId = await getUsernamesByUserIds(admin, pageRows.map((row) => row.user_id));
+    const metricsByProjectId = await getSharedProjectMetrics(pageRows.map((row) => row.id), admin);
+
+    return {
+      items: pageRows.map((row) => {
+        const card = mapSharedProjectCard(row, 'viewer', usernameByUserId);
+        const metrics = metricsByProjectId.get(row.id);
+        return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
+      }),
+      nextCursor: searchRows.length > cursorOffset + limit
+        ? encodeOffsetCursor(cursorOffset + limit)
+        : null,
+    };
+  }
+
   const cursor = decodePublicCursor(options.cursor ?? null);
 
   let rows: ProjectRow[];
   try {
-    rows = await fetchPublicProjectsPage(admin, limit, cursor);
+    rows = await fetchPublicProjectsPage(admin, limit, cursor, Boolean(query), true);
   } catch (error) {
     if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
       logSharedProjectsFallback('share_scope', error);
       return { items: [], nextCursor: null };
     }
-    throw error;
+    if (getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      rows = await fetchPublicProjectsPage(admin, limit, cursor, Boolean(query), false);
+    } else {
+      throw error;
+    }
   }
 
   const filteredRows = cursor
     ? rows.filter((row) => compareRowAgainstCursor(row, cursor) > 0)
     : rows;
-  const pageRows = filteredRows.slice(0, limit);
-  const [usernameByUserId, metricsByProjectId] = await Promise.all([
-    getUsernamesByUserIds(admin, pageRows.map((row) => row.user_id)),
-    getSharedProjectMetrics(pageRows.map((row) => row.id), admin),
-  ]);
+  const usernameByUserId = await getUsernamesByUserIds(admin, filteredRows.map((row) => row.user_id));
+  const matchingRows = query
+    ? filteredRows.filter((row) => projectMatchesSearch(row, usernameByUserId.get(row.user_id), query))
+    : filteredRows;
+  const pageRows = matchingRows.slice(0, limit);
+  const metricsByProjectId = await getSharedProjectMetrics(pageRows.map((row) => row.id), admin);
 
   return {
     items: pageRows.map((row) => {
@@ -465,8 +505,74 @@ export async function listPublicSharedProjects(
       const metrics = metricsByProjectId.get(row.id);
       return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
     }),
-    nextCursor: pageRows.length === limit
-      ? encodePublicCursor(pageRows[pageRows.length - 1]!)
+    nextCursor: matchingRows.length > limit
+      ? encodePublicCursor(matchingRows[limit - 1]!)
+      : null,
+  };
+}
+
+export async function listPublicSharedUsers(
+  options: Pick<PublicSharedProjectListOptions, 'limit' | 'cursor' | 'query'> = {},
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<{ users: SharedUserSummary[]; nextCursor: string | null }> {
+  const limit = clampPublicPageSize(options.limit);
+  const query = normalizeSearchQuery(options.query);
+  const cursorOffset = decodeOffsetCursor(options.cursor ?? null);
+  const projectLimit = Math.max(80, (cursorOffset + limit + 1) * 4);
+
+  let rows: ProjectRow[] = [];
+  if (query) {
+    rows = await searchPublicProjects(admin, query, projectLimit);
+  } else {
+    try {
+      rows = await fetchPublicProjectsForUserDiscovery(admin, projectLimit, true);
+    } catch (error) {
+      if (getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+        logSharedProjectsFallback('shared_tags', error);
+        rows = await fetchPublicProjectsForUserDiscovery(admin, projectLimit, false);
+      } else if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
+        logSharedProjectsFallback('share_scope', error);
+        return { users: [], nextCursor: null };
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  const usernameByUserId = await getUsernamesByUserIds(admin, rows.map((row) => row.user_id));
+  const matchingRows = rows;
+  const projectIds = matchingRows.map((row) => row.id);
+  const metricsByProjectId = await getSharedProjectMetrics(projectIds, admin);
+  const userById = new Map<string, SharedUserSummary>();
+
+  for (const row of matchingRows) {
+    const metrics = metricsByProjectId.get(row.id) ?? { wordCount: 0, collaboratorCount: 1, likeCount: 0 };
+    const existing = userById.get(row.user_id);
+    if (existing) {
+      existing.projectCount += 1;
+      existing.wordCount += metrics.wordCount;
+      existing.likeCount += metrics.likeCount;
+      continue;
+    }
+
+    userById.set(row.user_id, {
+      userId: row.user_id,
+      username: usernameByUserId.get(row.user_id) ?? null,
+      projectCount: 1,
+      wordCount: metrics.wordCount,
+      likeCount: metrics.likeCount,
+      latestProjectTitle: row.title,
+    });
+  }
+
+  const users = Array.from(userById.values())
+    .sort((a, b) => b.projectCount - a.projectCount || b.likeCount - a.likeCount);
+  const pageUsers = users.slice(cursorOffset, cursorOffset + limit);
+
+  return {
+    users: pageUsers,
+    nextCursor: users.length > cursorOffset + limit
+      ? encodeOffsetCursor(cursorOffset + limit)
       : null,
   };
 }
@@ -586,6 +692,35 @@ export function getSharedProjectsSchemaIssue(error: unknown): SharedSchemaDepend
   }
 
   if (
+    normalized.includes('shared_tags')
+    && !normalized.includes('shared_tags_embedding')
+    && (
+      normalized.includes('does not exist')
+      || normalized.includes('column')
+      || normalized.includes('schema cache')
+      || normalized.includes('could not find')
+    )
+  ) {
+    return 'shared_tags';
+  }
+
+  if (
+    (
+      normalized.includes('shared_tags_embedding')
+      || normalized.includes('match_public_shared_projects_by_tag_embedding')
+    )
+    && (
+      normalized.includes('does not exist')
+      || normalized.includes('column')
+      || normalized.includes('function')
+      || normalized.includes('schema cache')
+      || normalized.includes('could not find')
+    )
+  ) {
+    return 'shared_tag_embeddings';
+  }
+
+  if (
     normalized.includes('get_shared_project_metrics')
     && (
       normalized.includes('does not exist')
@@ -604,10 +739,13 @@ async function fetchOwnedProjects(
   admin: SupabaseAdminClient,
   userId: string,
   includeShareScope: boolean,
+  includeSharedTags = true,
 ): Promise<ProjectRow[]> {
+  const baseColumns = includeSharedTags ? PROJECT_BASE_SELECT_COLUMNS : PROJECT_BASE_SELECT_COLUMNS_WITHOUT_SHARED_TAGS;
+  const sharedColumns = includeSharedTags ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_SHARED_SELECT_COLUMNS_WITHOUT_SHARED_TAGS;
   let query = admin
     .from('projects')
-    .select(includeShareScope ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_BASE_SELECT_COLUMNS)
+    .select(includeShareScope ? sharedColumns : baseColumns)
     .eq('user_id', userId)
     .not('share_id', 'is', null);
 
@@ -618,6 +756,10 @@ async function fetchOwnedProjects(
   const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
+    if (includeSharedTags && getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      return fetchOwnedProjects(admin, userId, includeShareScope, false);
+    }
     throw new Error(error.message || 'shared_owned_lookup_failed');
   }
 
@@ -645,16 +787,23 @@ async function fetchProjectsByIds(
   admin: SupabaseAdminClient,
   projectIds: string[],
   includeShareScope: boolean,
+  includeSharedTags = true,
 ): Promise<ProjectRow[]> {
   if (projectIds.length === 0) return [];
 
+  const baseColumns = includeSharedTags ? PROJECT_BASE_SELECT_COLUMNS : PROJECT_BASE_SELECT_COLUMNS_WITHOUT_SHARED_TAGS;
+  const sharedColumns = includeSharedTags ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_SHARED_SELECT_COLUMNS_WITHOUT_SHARED_TAGS;
   const { data, error } = await admin
     .from('projects')
-    .select(includeShareScope ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_BASE_SELECT_COLUMNS)
+    .select(includeShareScope ? sharedColumns : baseColumns)
     .in('id', projectIds)
     .order('created_at', { ascending: false });
 
   if (error) {
+    if (includeSharedTags && getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      return fetchProjectsByIds(admin, projectIds, includeShareScope, false);
+    }
     throw new Error(error.message || 'shared_joined_projects_lookup_failed');
   }
 
@@ -665,11 +814,17 @@ async function fetchPublicProjectsPage(
   admin: SupabaseAdminClient,
   limit: number,
   cursor: SharedProjectCursor | null,
+  isSearch = false,
+  includeSharedTags = true,
 ): Promise<ProjectRow[]> {
-  const fetchSize = cursor ? limit + PUBLIC_CURSOR_FETCH_PADDING : limit + 1;
+  const fetchSize = isSearch
+    ? Math.max(limit + PUBLIC_CURSOR_FETCH_PADDING, 80)
+    : cursor
+      ? limit + PUBLIC_CURSOR_FETCH_PADDING
+      : limit + 1;
   let query = admin
     .from('projects')
-    .select(PROJECT_SHARED_SELECT_COLUMNS)
+    .select(includeSharedTags ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_SHARED_SELECT_COLUMNS_WITHOUT_SHARED_TAGS)
     .eq('share_scope', 'public')
     .not('share_id', 'is', null)
     .order('created_at', { ascending: false })
@@ -681,10 +836,130 @@ async function fetchPublicProjectsPage(
 
   const { data, error } = await query.limit(fetchSize);
   if (error) {
+    if (includeSharedTags && getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      return fetchPublicProjectsPage(admin, limit, cursor, isSearch, false);
+    }
     throw new Error(error.message || 'public_shared_projects_lookup_failed');
   }
 
   return (data ?? []) as unknown as ProjectRow[];
+}
+
+async function fetchPublicProjectsForUserDiscovery(
+  admin: SupabaseAdminClient,
+  limit: number,
+  includeSharedTags = true,
+): Promise<ProjectRow[]> {
+  const { data, error } = await admin
+    .from('projects')
+    .select(includeSharedTags ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_SHARED_SELECT_COLUMNS_WITHOUT_SHARED_TAGS)
+    .eq('share_scope', 'public')
+    .not('share_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (includeSharedTags && getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      return fetchPublicProjectsForUserDiscovery(admin, limit, false);
+    }
+    throw new Error(error.message || 'public_shared_user_projects_lookup_failed');
+  }
+
+  return (data ?? []) as unknown as ProjectRow[];
+}
+
+async function searchPublicProjects(
+  admin: SupabaseAdminClient,
+  query: string,
+  desiredCount: number,
+): Promise<ProjectRow[]> {
+  const fetchLimit = Math.max(desiredCount + PUBLIC_CURSOR_FETCH_PADDING, 80);
+  const [textRows, vectorRows] = await Promise.all([
+    fetchPublicTextSearchRows(admin, query, fetchLimit),
+    fetchPublicProjectsBySharedTagEmbedding(
+      admin,
+      query,
+      Math.max(desiredCount + PUBLIC_CURSOR_FETCH_PADDING, PUBLIC_VECTOR_MATCH_LIMIT),
+    ),
+  ]);
+
+  const usernameByUserId = await getUsernamesByUserIds(admin, textRows.map((row) => row.user_id));
+  const textMatches = textRows.filter((row) => projectMatchesSearch(row, usernameByUserId.get(row.user_id), query));
+
+  return mergeProjectRowsById(vectorRows, textMatches);
+}
+
+async function fetchPublicTextSearchRows(
+  admin: SupabaseAdminClient,
+  query: string,
+  fetchLimit: number,
+): Promise<ProjectRow[]> {
+  try {
+    return await fetchPublicProjectsPage(admin, fetchLimit, null, Boolean(query), true);
+  } catch (error) {
+    if (getSharedProjectsSchemaIssue(error) === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      return fetchPublicProjectsPage(admin, fetchLimit, null, Boolean(query), false);
+    }
+    if (getSharedProjectsSchemaIssue(error) === 'share_scope') {
+      logSharedProjectsFallback('share_scope', error);
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function fetchPublicProjectsBySharedTagEmbedding(
+  admin: SupabaseAdminClient,
+  query: string,
+  matchCount: number,
+): Promise<ProjectRow[]> {
+  let queryEmbedding: number[] | null = null;
+  try {
+    queryEmbedding = await createSharedSearchEmbedding(query);
+  } catch (error) {
+    console.warn('shared tag search embedding generation failed:', error);
+    return [];
+  }
+
+  if (!queryEmbedding) return [];
+
+  const { data, error } = await admin.rpc('match_public_shared_projects_by_tag_embedding', {
+    query_embedding: queryEmbedding,
+    match_threshold: PUBLIC_VECTOR_MATCH_THRESHOLD,
+    match_count: matchCount,
+  });
+
+  if (error) {
+    const schemaIssue = getSharedProjectsSchemaIssue(error);
+    if (schemaIssue === 'shared_tag_embeddings') {
+      logSharedProjectsFallback('shared_tag_embeddings', error);
+      return [];
+    }
+
+    console.warn('shared tag vector search failed:', error);
+    return [];
+  }
+
+  return (data ?? []) as unknown as ProjectRow[];
+}
+
+function mergeProjectRowsById(...groups: ProjectRow[][]): ProjectRow[] {
+  const rows: ProjectRow[] = [];
+  const seen = new Set<string>();
+
+  for (const group of groups) {
+    for (const row of group) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
+    }
+  }
+
+  return rows;
 }
 
 async function getSharedProjectMetricsFallback(
@@ -806,6 +1081,43 @@ function clampPublicPageSize(limit?: number): number {
 function clampSharePreviewWordLimit(limit: number): number {
   if (!Number.isFinite(limit)) return DEFAULT_SHARE_PREVIEW_WORD_LIMIT;
   return Math.max(0, Math.min(MAX_SHARE_PREVIEW_WORD_LIMIT, Math.floor(limit)));
+}
+
+function normalizeSearchQuery(query?: string | null): string {
+  return (query ?? '').trim().toLowerCase();
+}
+
+function includesSearchText(value: string | null | undefined, query: string): boolean {
+  return value?.toLowerCase().includes(query) ?? false;
+}
+
+function projectMatchesSearch(
+  row: ProjectRow,
+  ownerUsername: string | null | undefined,
+  query: string,
+): boolean {
+  if (!query) return true;
+  if (includesSearchText(row.title, query)) return true;
+  if (includesSearchText(ownerUsername, query)) return true;
+  return (row.shared_tags ?? []).some((tag) => (
+    includesSearchText(String(tag), query) || includesSearchText(formatSharedTag(String(tag)), query)
+  ));
+}
+
+function encodeOffsetCursor(offset: number): string {
+  return Buffer.from(JSON.stringify({ offset }), 'utf8').toString('base64url');
+}
+
+function decodeOffsetCursor(cursor: string | null): number {
+  if (!cursor) return 0;
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { offset?: unknown };
+    return typeof parsed.offset === 'number' && Number.isFinite(parsed.offset) && parsed.offset > 0
+      ? Math.floor(parsed.offset)
+      : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function encodePublicCursor(row: Pick<ProjectRow, 'created_at' | 'id'>): string {
