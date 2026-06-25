@@ -20,6 +20,12 @@ type ProfileRow = {
   account_id?: string | null;
 };
 
+type ProfileRouteDeps = {
+  resolveUserId?: typeof resolveUserId;
+  getAdmin?: typeof getSupabaseAdmin;
+  ensureProfile?: typeof ensureFriendProfile;
+};
+
 function profileDisplayName(row: ProfileRow | null | undefined): string | null {
   return row?.display_name?.trim() || row?.username?.trim() || row?.user_handle?.trim() || null;
 }
@@ -88,17 +94,22 @@ async function resolveUserId(request: NextRequest): Promise<string | null> {
   return user.id;
 }
 
-export async function GET(request: NextRequest) {
+export async function handleProfileGet(
+  request: NextRequest,
+  deps: ProfileRouteDeps = {},
+) {
   try {
-    const userId = await resolveUserId(request);
+    const resolveUser = deps.resolveUserId ?? resolveUserId;
+    const userId = await resolveUser(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Use service role after session verification so cookie/JWT → PostgREST auth
     // cannot block reads (avoids 500 when RLS or JWT claims do not attach in this route).
-    const admin = getSupabaseAdmin();
-    const ensuredProfile = await ensureFriendProfile(userId, admin);
+    const admin = (deps.getAdmin ?? getSupabaseAdmin)();
+    const ensureProfile = deps.ensureProfile ?? ensureFriendProfile;
+    const ensuredProfile = await ensureProfile(userId, admin);
     const data = await fetchProfileRow(admin, userId);
 
     return NextResponse.json({
@@ -111,9 +122,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function handleProfilePut(
+  request: NextRequest,
+  deps: ProfileRouteDeps = {},
+) {
   try {
-    const userId = await resolveUserId(request);
+    const resolveUser = deps.resolveUserId ?? resolveUserId;
+    const userId = await resolveUser(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -125,8 +140,9 @@ export async function PUT(request: NextRequest) {
       return parsed.response;
     }
 
-    const admin = getSupabaseAdmin();
-    const ensuredProfile = await ensureFriendProfile(userId, admin);
+    const admin = (deps.getAdmin ?? getSupabaseAdmin)();
+    const ensureProfile = deps.ensureProfile ?? ensureFriendProfile;
+    const ensuredProfile = await ensureProfile(userId, admin);
     let { data, error } = await admin
       .from('profiles')
       .upsert(
@@ -171,4 +187,12 @@ export async function PUT(request: NextRequest) {
     console.error('Profile PUT error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleProfileGet(request);
+}
+
+export async function PUT(request: NextRequest) {
+  return handleProfilePut(request);
 }
