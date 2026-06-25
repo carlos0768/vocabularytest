@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { DesktopButton, DesktopSearchBox } from '@/components/desktop/DesktopChrome';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { formatSharedTag } from '../../../shared/shared-tags';
@@ -49,20 +49,30 @@ export function DesktopSharedView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar
-        title={isCategory ? activeMeta!.label : '共有ライブラリ'}
-        crumb={isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}
+      <div
+        className="ds-top"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 420px) minmax(0, 1fr)',
+          alignItems: 'center',
+        }}
       >
+        <div style={{ minWidth: 0 }}>
+          <div className="crumb">{isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}</div>
+          <h1>{isCategory ? activeMeta!.label : '共有ライブラリ'}</h1>
+        </div>
         <DesktopSearchBox
           placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          style={{ minWidth: 280 }}
+          style={{ width: '100%', minWidth: 0 }}
         />
-        <DesktopButton variant="dark" icon="add" onClick={onOpenShareSheet}>
-          共有
-        </DesktopButton>
-      </DesktopTopbar>
+        <div style={{ justifySelf: 'end' }}>
+          <DesktopButton variant="dark" icon="add" onClick={onOpenShareSheet}>
+            共有
+          </DesktopButton>
+        </div>
+      </div>
 
       <div className="ds-scroll">
         {isCategory ? (
