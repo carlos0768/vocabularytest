@@ -79,7 +79,9 @@ export function getWordMemorySenseKey(word: WordMemoryInput): string {
 }
 
 export function isPrimaryMeaningWord(word: WordMemoryInput): boolean {
-  return !normalizeKeyPart(word.lexiconDistinctKey) || word.lexiconSenseIsPrimary === true;
+  if (word.lexiconSenseIsPrimary === true) return true;
+  if (word.lexiconSenseIsPrimary === false) return false;
+  return !normalizeKeyPart(word.lexiconDistinctKey);
 }
 
 export function selectPrimaryMeaningWords<T extends WordMemoryInput>(words: readonly T[]): T[] {
@@ -111,7 +113,11 @@ export function groupWordsByMemory<T extends WordMemoryInput>(words: readonly T[
   });
 
   for (const [key, bucketWords] of buckets.entries()) {
-    const hasExplicitDistinct = bucketWords.some((word) => normalizeKeyPart(word.lexiconDistinctKey).length > 0);
+    const hasExplicitDistinct = bucketWords.some((word) =>
+      normalizeKeyPart(word.lexiconDistinctKey).length > 0 ||
+      Boolean(word.lexiconSenseId) ||
+      typeof word.lexiconSenseIsPrimary === 'boolean'
+    );
     const uniqueSenseKeys = new Set(bucketWords.map(getWordMemorySenseKey));
     const isDistinctGroup = hasExplicitDistinct && uniqueSenseKeys.size > 1;
 
