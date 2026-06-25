@@ -118,8 +118,8 @@ export function ScanModeModal({
               <Icon name="photo_camera" size={24} className="text-[var(--color-primary)]" />
             </div>
             <div>
-              <p className="font-semibold text-[var(--color-foreground)]">すべての単語</p>
-              <p className="text-sm text-[var(--color-muted)]">難しい単語を優先して最大30語抽出</p>
+              <p className="font-semibold text-[var(--color-foreground)]">単語帳取込</p>
+              <p className="text-sm text-[var(--color-muted)]">単語帳形式の単語を抽出</p>
             </div>
           </button>
 
