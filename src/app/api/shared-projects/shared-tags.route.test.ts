@@ -12,9 +12,21 @@ function jsonRequest(body: unknown) {
   });
 }
 
-test('shared project tags PATCH rejects tags without slash prefix', async () => {
+test('shared project tags PATCH rejects tags without hash prefix', async () => {
   const res = await handleSharedProjectSharedTagsPatch(
     jsonRequest({ sharedTags: ['TOEIC'] }),
+    { params: Promise.resolve({ projectId: 'project-1' }) },
+    {
+      requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'user-1' } as never }),
+    },
+  );
+
+  assert.equal(res.status, 400);
+});
+
+test('shared project tags PATCH rejects slash-prefixed tags', async () => {
+  const res = await handleSharedProjectSharedTagsPatch(
+    jsonRequest({ sharedTags: ['/TOEIC'] }),
     { params: Promise.resolve({ projectId: 'project-1' }) },
     {
       requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'user-1' } as never }),
@@ -29,7 +41,7 @@ test('shared project tags PATCH saves normalized tags with embedding', async () 
   let updateArgs: unknown[] = [];
 
   const res = await handleSharedProjectSharedTagsPatch(
-    jsonRequest({ sharedTags: ['/TOEIC', '／熟語'] }),
+    jsonRequest({ sharedTags: ['#TOEIC', '＃熟語'] }),
     { params: Promise.resolve({ projectId: 'project-1' }) },
     {
       requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'user-1' } as never }),

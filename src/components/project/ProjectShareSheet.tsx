@@ -245,7 +245,7 @@ export function ProjectShareSheet({
                 key={sharedTagsValue}
                 ref={tagInputRef}
                 defaultValue={sharedTagsValue}
-                placeholder="例: /TOEIC, /熟語, /高校英語"
+                placeholder="例: #TOEIC, #熟語, #高校英語"
                 className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] outline-none"
               />
               <button

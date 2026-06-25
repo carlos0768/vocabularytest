@@ -2,16 +2,16 @@ const MAX_SHARED_TAGS = 8;
 const MAX_SHARED_TAG_LENGTH = 20;
 
 type NormalizeSharedTagsOptions = {
-  requireSlashPrefix?: boolean;
+  requireHashPrefix?: boolean;
 };
 
 function normalizeSharedTag(tag: string, options: NormalizeSharedTagsOptions): string | null {
   const trimmed = tag.trim();
   if (!trimmed) return null;
-  if (options.requireSlashPrefix && !/^[/／]/.test(trimmed)) return null;
+  if (options.requireHashPrefix && !/^[#＃]/.test(trimmed)) return null;
 
   const normalized = trimmed
-    .replace(/^[/／#]+/, '')
+    .replace(/^[#＃/／]+/, '')
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, MAX_SHARED_TAG_LENGTH);
@@ -45,12 +45,12 @@ export function normalizeSharedTags(
 export function parseSharedTagsInput(input: string): string[] {
   const candidates = input
     .split(/[,、\n]/g)
-    .flatMap((part) => part.split(/\s+(?=[/／])/g));
+    .flatMap((part) => part.split(/\s+(?=[#＃])/g));
 
-  return normalizeSharedTags(candidates, { requireSlashPrefix: true });
+  return normalizeSharedTags(candidates, { requireHashPrefix: true });
 }
 
 export function formatSharedTag(tag: string): string {
   const normalized = normalizeSharedTags([tag])[0];
-  return normalized ? `/${normalized}` : '';
+  return normalized ? `#${normalized}` : '';
 }

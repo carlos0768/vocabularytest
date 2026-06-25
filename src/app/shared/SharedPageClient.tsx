@@ -671,7 +671,7 @@ function ShareWordbookSheet({
                 <input
                   value={shareTagDraft}
                   onChange={(event) => onTagDraftChange(event.target.value)}
-                  placeholder="例: /TOEIC, /熟語, /高校英語"
+                  placeholder="例: #TOEIC, #熟語, #高校英語"
                   className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
                 />
                 <div className="mt-1.5 text-[10px] font-semibold text-[var(--color-muted)]">

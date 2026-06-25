@@ -10,7 +10,7 @@ import {
 } from '../../shared';
 
 const sharedTagsPatchSchema = z.object({
-  sharedTags: z.array(z.string().trim().min(1).max(64).regex(/^[/／]/)).max(8),
+  sharedTags: z.array(z.string().trim().min(1).max(64).regex(/^[#＃]/)).max(8),
 }).strict();
 
 type SharedTagsPatchDeps = {
@@ -50,7 +50,7 @@ export async function handleSharedProjectSharedTagsPatch(
     }
 
     const parsed = await parseJsonWithSchema(request, sharedTagsPatchSchema, {
-      invalidMessage: 'タグは / から始めてください。',
+      invalidMessage: 'タグは # から始めてください。',
     });
     if (!parsed.ok) {
       return parsed.response;
