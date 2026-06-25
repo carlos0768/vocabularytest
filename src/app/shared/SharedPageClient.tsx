@@ -1109,7 +1109,9 @@ function GroupSearchSection({
       )}
 
       {!groupLoading && groupResults.length === 0 && !groupError && (
-        <EmptyBox message="公開グループがありません" />
+        <div className="py-8 text-center text-[13px] font-bold text-[var(--color-muted)]">
+          公開グループがありません
+        </div>
       )}
     </div>
   );
