@@ -8,13 +8,14 @@ const SESSION_CACHE_KEY = 'merken_profile_cache';
 interface ProfileCache {
   userId: string;
   username: string | null;
+  accountId: string | null;
 }
 
 let cache: ProfileCache | null = null;
 
-function readCache(userId: string): string | null | undefined {
+function readCache(userId: string): Pick<ProfileCache, 'username' | 'accountId'> | undefined {
   if (cache && cache.userId === userId) {
-    return cache.username;
+    return { username: cache.username, accountId: cache.accountId };
   }
 
   try {
@@ -22,15 +23,19 @@ function readCache(userId: string): string | null | undefined {
     if (!raw) return undefined;
     const parsed = JSON.parse(raw) as ProfileCache;
     if (parsed.userId !== userId) return undefined;
-    cache = parsed;
-    return parsed.username;
+    cache = {
+      userId: parsed.userId,
+      username: parsed.username,
+      accountId: parsed.accountId ?? null,
+    };
+    return { username: cache.username, accountId: cache.accountId };
   } catch {
     return undefined;
   }
 }
 
-function writeCache(userId: string, username: string | null) {
-  cache = { userId, username };
+function writeCache(userId: string, username: string | null, accountId: string | null) {
+  cache = { userId, username, accountId };
   try {
     sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cache));
   } catch {
@@ -49,6 +54,7 @@ function clearCache() {
 
 interface ProfileState {
   username: string | null;
+  accountId: string | null;
   loading: boolean;
   saving: boolean;
   error: string | null;
@@ -59,6 +65,7 @@ interface ProfileState {
 export function useProfile(): ProfileState {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [username, setUsernameState] = useState<string | null>(null);
+  const [accountId, setAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +74,7 @@ export function useProfile(): ProfileState {
     if (authLoading) return;
     if (!isAuthenticated || !user?.id) {
       setUsernameState(null);
+      setAccountId(null);
       setLoading(false);
       setError(null);
       clearCache();
@@ -76,7 +84,8 @@ export function useProfile(): ProfileState {
     const cachedValue = readCache(user.id);
     const hasCachedValue = cachedValue !== undefined;
     if (hasCachedValue) {
-      setUsernameState(cachedValue);
+      setUsernameState(cachedValue.username);
+      setAccountId(cachedValue.accountId);
       setLoading(false);
     } else {
       setLoading(true);
@@ -93,10 +102,12 @@ export function useProfile(): ProfileState {
         throw new Error('プロフィールの取得に失敗しました');
       }
 
-      const data = await response.json() as { username: string | null };
+      const data = await response.json() as { username: string | null; accountId?: string | null };
       const normalized = typeof data.username === 'string' ? data.username : null;
+      const normalizedAccountId = typeof data.accountId === 'string' ? data.accountId : null;
       setUsernameState(normalized);
-      writeCache(user.id, normalized);
+      setAccountId(normalizedAccountId);
+      writeCache(user.id, normalized, normalizedAccountId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'プロフィールの取得に失敗しました');
     } finally {
@@ -112,9 +123,10 @@ export function useProfile(): ProfileState {
     if (!isAuthenticated || !user?.id) return false;
 
     const previousValue = username;
+    const previousAccountId = accountId;
     const trimmed = newUsername.trim();
     setUsernameState(trimmed);
-    writeCache(user.id, trimmed);
+    writeCache(user.id, trimmed, accountId);
     setSaving(true);
     setError(null);
 
@@ -130,23 +142,27 @@ export function useProfile(): ProfileState {
         throw new Error(data?.error ?? 'ユーザー名の保存に失敗しました');
       }
 
-      const data = await response.json() as { username: string | null };
+      const data = await response.json() as { username: string | null; accountId?: string | null };
       const normalized = typeof data.username === 'string' ? data.username : null;
+      const normalizedAccountId = typeof data.accountId === 'string' ? data.accountId : accountId;
       setUsernameState(normalized);
-      writeCache(user.id, normalized);
+      setAccountId(normalizedAccountId);
+      writeCache(user.id, normalized, normalizedAccountId);
       return true;
     } catch (err) {
       setUsernameState(previousValue);
-      writeCache(user.id, previousValue);
+      setAccountId(previousAccountId);
+      writeCache(user.id, previousValue, previousAccountId);
       setError(err instanceof Error ? err.message : 'ユーザー名の保存に失敗しました');
       return false;
     } finally {
       setSaving(false);
     }
-  }, [username, isAuthenticated, user?.id]);
+  }, [accountId, username, isAuthenticated, user?.id]);
 
   return {
     username,
+    accountId,
     loading,
     saving,
     error,

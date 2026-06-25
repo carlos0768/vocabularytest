@@ -350,6 +350,7 @@ export interface Profile {
   displayName: string | null;
   userHandle: string | null;
   eikenLevel: EikenLevel;
+  accountId: string;
 }
 
 // ============ Auth Types ============

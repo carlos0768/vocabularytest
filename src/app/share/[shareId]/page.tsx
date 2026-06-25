@@ -125,6 +125,7 @@ export default function SharedDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [ownerUsername, setOwnerUsername] = useState<string | null>(null);
+  const [ownerAccountId, setOwnerAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -156,6 +157,7 @@ export default function SharedDetailPage() {
         setTotalWordCount(previewData.totalWordCount);
         setLikeCount(previewData.likeCount);
         setOwnerUsername(previewData.ownerUsername);
+        setOwnerAccountId(previewData.ownerAccountId);
       } catch (loadError) {
         console.error('Failed to load shared project:', loadError);
         if (!cancelled) setError('単語帳の読み込みに失敗しました');
@@ -215,7 +217,7 @@ export default function SharedDetailPage() {
   );
   const importTargetWords = isPro ? (selectMode ? selectedWords : words) : [];
   const importBusy = importing || preparingRewardedDownloadAd;
-  const ownerLabel = ownerUsername ? `@${ownerUsername}` : '共有ユーザー';
+  const ownerLabel = ownerAccountId ? `@${ownerAccountId}` : ownerUsername ? `@${ownerUsername}` : '共有ユーザー';
   const loginRedirectHref = `/login?redirect=${encodeURIComponent(`/share/${shareId}`)}`;
   const lockedPreviewWordCount = isPreviewLocked
     ? Math.max(0, totalWordCount - Math.min(SHARE_PREVIEW_CLEAR_WORD_COUNT, totalWordCount))

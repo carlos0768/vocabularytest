@@ -21,6 +21,7 @@ export default function SettingsPage() {
   } = useAuth();
   const {
     username,
+    accountId,
     loading: profileLoading,
     saving: profileSaving,
     error: profileError,
@@ -60,6 +61,7 @@ export default function SettingsPage() {
       <DesktopSettingsView
         email={user?.email}
         username={username}
+        accountId={accountId}
         isPro={isPro}
         onSignOut={() => void handleSignOut()}
         onUsernameChange={setUsername}
@@ -96,6 +98,9 @@ export default function SettingsPage() {
                     {profileLoading ? '読み込み中...' : (username ?? 'ユーザー名未設定')}
                   </div>
                   <div className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-muted)]">{user?.email}</div>
+                  {accountId && (
+                    <div className="mt-0.5 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{accountId}</div>
+                  )}
                   <div className="mt-1.5 inline-flex items-center gap-1 rounded-[4px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-white">
                     <Icon name="auto_awesome" size={10} />
                     {isPro ? 'PRO PLAN' : 'FREE PLAN'}
@@ -214,6 +219,7 @@ export default function SettingsPage() {
 
       {isAuthenticated && (
         <SettingsGroup label="アカウント">
+          <SettingsRow icon="group" label="フレンド" description="アカウントID検索、申請、学習タイムライン" href="/friends" />
           <SettingsRow icon="manage_accounts" label="プラン・アカウント管理" description="プラン確認、サブスクリプション、アカウント削除" href="/settings/account" />
         </SettingsGroup>
       )}

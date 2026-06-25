@@ -8,6 +8,7 @@ import {
   getSharedProjectMetrics,
   listAccessibleSharedProjects,
   listPublicSharedProjects,
+  listPublicSharedUsers,
 } from './shared';
 
 type MembershipRow = {
@@ -19,6 +20,7 @@ type MembershipRow = {
 type ProfileRow = {
   user_id: string;
   username: string | null;
+  account_id?: string | null;
 };
 
 type CountRow = {
@@ -481,6 +483,24 @@ test('listPublicSharedProjects paginates with a cursor and avoids duplicates', a
   assert.deepEqual(firstPage.items.map((item) => item.project.id), ['public-3', 'public-2']);
   assert.equal(firstPage.nextCursor !== null, true);
   assert.deepEqual(secondPage.items.map((item) => item.project.id), ['public-1']);
+});
+
+test('listPublicSharedUsers returns account summaries without wordbook titles', async () => {
+  const admin = new FakeSharedProjectsAdmin({
+    publicRows: [
+      makeProjectRow('public-1', 'owner-1', { created_at: '2026-03-29T01:00:00.000Z' }),
+    ],
+    profileRows: [
+      { user_id: 'owner-1', username: 'owner', account_id: 'mkowner' },
+    ],
+  });
+
+  const payload = await listPublicSharedUsers({ limit: 4 }, admin as never);
+
+  assert.equal(payload.users.length, 1);
+  assert.equal(payload.users[0]?.username, 'owner');
+  assert.equal(payload.users[0]?.accountId, 'mkowner');
+  assert.equal('latestProjectTitle' in payload.users[0]!, false);
 });
 
 test('getSharedProjectPreviewByShareCode falls back when relation embeds are unavailable', async () => {

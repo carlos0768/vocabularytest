@@ -15,6 +15,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
 import {
   buildWordTranslationInsertRows,
+  expandWordsByTranslationsForPersistence,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
 import { z } from 'zod';
@@ -174,7 +175,13 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
     const { words: translatedWordsRaw, aiBackfilledIndexes } = wordsNeedingBackfill.length > 0
       ? await backfillWords(immediateResolution.words)
       : { words: immediateResolution.words, aiBackfilledIndexes: [] };
-    const translatedWords = translatedWordsRaw.map((word) => normalizeWordForTranslationPersistence(word));
+    const aiBackfilledIndexSet = new Set(aiBackfilledIndexes);
+    const translatedWords = expandWordsByTranslationsForPersistence(
+      translatedWordsRaw.map((word, index) => normalizeWordForTranslationPersistence({
+        ...word,
+        ...(aiBackfilledIndexSet.has(index) ? { japaneseSource: 'ai' as const } : {}),
+      })),
+    );
 
     console.log('[words/create] Immediate resolution finished', {
       requestedWordCount: words.length,
@@ -250,14 +257,8 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       }
     }
 
-    const aiTranslatedIndexes = new Set<number>([
-      ...aiBackfilledIndexes,
-      ...translatedWords
-        .map((word, index) => (word.japaneseSource === 'ai' ? index : -1))
-        .filter((index) => index >= 0),
-    ]);
-    const aiTranslatedWordIds = Array.from(aiTranslatedIndexes)
-      .map((index) => ((data ?? []) as WordRow[])[index]?.id)
+    const aiTranslatedWordIds = translatedWords
+      .map((word, index) => (word.japaneseSource === 'ai' ? ((data ?? []) as WordRow[])[index]?.id : null))
       .filter((value): value is string => typeof value === 'string' && value.length > 0);
     const createdWordRowsWithTranslations = translationRows.length > 0
       ? await supabase

@@ -39,6 +39,7 @@ function makePreviewPayload(): SharedProjectPreviewPayload {
     totalWordCount: 12,
     likeCount: 3,
     ownerUsername: 'owner',
+    ownerAccountId: 'mkowner',
   };
 }
 

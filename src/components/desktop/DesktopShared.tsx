@@ -13,7 +13,7 @@ import type {
 } from '@/lib/shared-projects/types';
 
 const CATEGORY_META: Record<Exclude<SharedDiscoverCategory, 'all'>, { label: string; icon: string; description: string }> = {
-  users: { label: 'ユーザー', icon: 'person', description: '公開単語帳を持つ学習者' },
+  users: { label: 'ユーザー', icon: 'person', description: '学習者アカウント' },
   projects: { label: '単語帳', icon: 'menu_book', description: 'みんなが公開している単語帳' },
 };
 
@@ -194,29 +194,37 @@ function UserGrid({ users }: { users: SharedUserSummary[] }) {
     <section>
       <SectionTitle count={users.length}>ユーザー</SectionTitle>
       {users.length === 0 ? <EmptyCard label="該当するユーザーはいません" /> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-          {users.map((user) => (
-            <div key={user.userId} className="ds-card" style={{ padding: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {users.map((user) => {
+            const accountLabel = user.accountId ? `@${user.accountId}` : user.username ? `@${user.username}` : 'ユーザー';
+            const avatarLabel = (user.accountId ?? user.username ?? 'U').charAt(0).toUpperCase();
+
+            return (
+              <div
+                key={user.userId}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '42px minmax(0, 1fr)',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '13px 0',
+                  borderBottom: '1px solid var(--color-border)',
+                }}
+              >
                 <div className="ds-avatar" style={{ width: 42, height: 42, borderRadius: 12 }}>
-                  {(user.username ?? 'U').charAt(0).toUpperCase()}
+                  {avatarLabel}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {user.username ? `@${user.username}` : 'ユーザー'}
+                  <div className="mono" style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {accountLabel}
                   </div>
-                  <div className="muted" style={{ marginTop: 3, fontSize: 12 }}>
-                    {user.projectCount}冊 · {user.wordCount}語
+                  <div className="muted" style={{ marginTop: 3, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user.username ?? 'アカウント'}
                   </div>
                 </div>
               </div>
-              {user.latestProjectTitle && (
-                <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-                  最新: {user.latestProjectTitle}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -240,6 +248,8 @@ function DesktopSharedCard({ project }: { project: SharedProjectCard }) {
   const href = project.project.shareId ? `/share/${project.project.shareId}` : '/shared';
   const ownerLabel = project.accessRole === 'owner'
     ? '自分'
+    : project.ownerAccountId
+      ? `@${project.ownerAccountId}`
     : project.ownerUsername
       ? `@${project.ownerUsername}`
       : '共有ユーザー';
