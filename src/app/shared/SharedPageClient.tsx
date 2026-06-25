@@ -105,6 +105,11 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [groupResults, setGroupResults] = useState<PublicStudyGroupSummary[]>([]);
   const [groupLoading, setGroupLoading] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
+
+  const [userQuery, setUserQuery] = useState('');
+  const [userResults, setUserResults] = useState<FollowSearchResult[]>([]);
+  const [userLoading, setUserLoading] = useState(false);
+  const [userError, setUserError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -255,6 +260,27 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     }
   }
 
+  async function handleUserSearch() {
+    const trimmed = userQuery.trim();
+    if (!trimmed) return;
+    setUserLoading(true);
+    setUserError(null);
+    try {
+      const params = new URLSearchParams({ q: trimmed });
+      const response = await fetch(`/api/follows/search?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as FollowSearchApiResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'user_search_failed');
+      }
+      setUserResults(payload.results ?? []);
+    } catch {
+      setUserError('ユーザー検索に失敗しました。');
+      setUserResults([]);
+    } finally {
+      setUserLoading(false);
+    }
+  }
+
   async function handleSaveShare() {
     if (!selectedProject || shareSaving) return;
 
@@ -338,7 +364,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         </div>
 
-        {category !== 'groups' && (
+        {category !== 'groups' && category !== 'users' && (
           <div className="px-[14px] pt-2">
             <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
               <Icon name="search" size={16} />
@@ -394,6 +420,15 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             onQueryChange={setGroupQuery}
             onSearch={() => void handleGroupSearch()}
           />
+        ) : category === 'users' ? (
+          <UserSearchSection
+            userQuery={userQuery}
+            userResults={userResults}
+            userLoading={userLoading}
+            userError={userError}
+            onQueryChange={setUserQuery}
+            onSearch={() => void handleUserSearch()}
+          />
         ) : shouldShowResults && (
           <div className="flex flex-col gap-4 px-[14px]">
             {error && <ErrorBox message={error} />}
@@ -408,7 +443,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
               </>
             ) : (
               <>
-                {category === 'users' && <UserSection users={discover.users} />}
                 {category === 'projects' && <ProjectSection projects={discover.projects} />}
                 {discover.nextCursor && (
                   <button
@@ -858,6 +892,137 @@ function SheetActionState({
       >
         {actionLabel}
       </button>
+    </div>
+  );
+}
+
+function UserSearchSection({
+  userQuery,
+  userResults,
+  userLoading,
+  userError,
+  onQueryChange,
+  onSearch,
+}: {
+  userQuery: string;
+  userResults: FollowSearchResult[];
+  userLoading: boolean;
+  userError: string | null;
+  onQueryChange: (value: string) => void;
+  onSearch: () => void;
+}) {
+  const { isAuthenticated } = useAuth();
+  const { showToast } = useToast();
+  const [followLoading, setFollowLoading] = useState<string | null>(null);
+  const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
+
+  const handleFollow = async (accountId: string) => {
+    if (followLoading) return;
+    setFollowLoading(accountId);
+    try {
+      const response = await fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+      const payload = await response.json().catch(() => null) as FollowMutationResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'follow_failed');
+      }
+      setFollowedIds((prev) => new Set([...prev, accountId]));
+      showToast({ message: 'フォローリクエストを送信しました', type: 'success' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'フォローに失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setFollowLoading(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 px-[14px]">
+      <form
+        onSubmit={(e) => { e.preventDefault(); onSearch(); }}
+        className="flex gap-2"
+      >
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+          <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+          <input
+            value={userQuery}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="ユーザー名・IDで検索"
+            className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={userLoading || !userQuery.trim()}
+          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
+          aria-label="検索"
+        >
+          <Icon name={userLoading ? 'progress_activity' : 'arrow_forward'} className={userLoading ? 'animate-spin' : ''} size={16} />
+        </button>
+      </form>
+
+      {userError && <ErrorBox message={userError} />}
+
+      {userLoading && userResults.length === 0 && <LoadingBox />}
+
+      {userResults.length > 0 && (
+        <div className="divide-y divide-[var(--color-border)]">
+          {userResults.map((result) => {
+            const isFollowed = followedIds.has(result.accountId) || result.relationship === 'following' || result.relationship === 'mutual';
+            const isPending = result.relationship === 'pending';
+            const isLoading = followLoading === result.accountId;
+
+            return (
+              <div key={result.userId} className="flex items-center gap-3 px-1 py-3">
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
+                  style={{ backgroundColor: thumbColor(result.userId) }}
+                >
+                  {(result.accountId ?? 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-mono text-[12px] font-extrabold text-[var(--solid-ink)]">
+                    @{result.accountId}
+                  </div>
+                  <div className="mt-0.5 truncate text-[11px] text-[var(--color-muted)]">
+                    {result.username ?? 'アカウント'}
+                  </div>
+                </div>
+                {isAuthenticated && (
+                  isFollowed ? (
+                    <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フォロー中</span>
+                  ) : isPending ? (
+                    <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">申請中</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleFollow(result.accountId)}
+                      disabled={Boolean(followLoading)}
+                      className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2 text-[11px] font-bold text-white disabled:opacity-50"
+                    >
+                      <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
+                      フォロー
+                    </button>
+                  )
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!userLoading && userResults.length === 0 && userQuery.trim() && !userError && (
+        <EmptyBox message="ユーザーが見つかりませんでした" />
+      )}
+
+      {!userQuery.trim() && !userLoading && (
+        <div className="py-8 text-center text-[13px] font-bold text-[var(--color-muted)]">
+          ユーザー名またはIDで検索してください
+        </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 type ProfileRow = {
   user_id: string;
   username: string | null;
+  display_name: string | null;
   account_id: string | null;
   is_public: boolean;
 };
@@ -53,7 +54,7 @@ type QuizSessionWordRow = {
 };
 
 const FOLLOW_SELECT = 'id,follower_id,following_id,status,created_at,responded_at';
-const PROFILE_SELECT = 'user_id,username,account_id,is_public';
+const PROFILE_SELECT = 'user_id,username,display_name,account_id,is_public';
 const QUIZ_SESSION_SELECT = 'id,user_id,started_at,expires_at,last_answered_at,answer_count,mastered_count';
 const ACCOUNT_ID_PATTERN = /^[a-z0-9_]{4,24}$/;
 
@@ -315,13 +316,40 @@ export async function searchUsersForFollow(
         .limit(20)
     : Promise.resolve({ data: [], error: null });
 
-  const [exactResult, usernameResult] = await Promise.all([exactAccountQuery, usernameQuery]);
+  const displayNameQuery = normalizedText
+    ? admin
+        .from('profiles')
+        .select(PROFILE_SELECT)
+        .ilike('display_name', `%${normalizedText}%`)
+        .neq('user_id', userId)
+        .limit(20)
+    : Promise.resolve({ data: [], error: null });
+
+  const handleQuery = normalizedText
+    ? admin
+        .from('profiles')
+        .select(PROFILE_SELECT)
+        .ilike('user_handle', `%${normalizedText}%`)
+        .neq('user_id', userId)
+        .limit(20)
+    : Promise.resolve({ data: [], error: null });
+
+  const [exactResult, usernameResult, displayNameResult, handleResult] = await Promise.all([
+    exactAccountQuery, usernameQuery, displayNameQuery, handleQuery,
+  ]);
 
   if (exactResult.error) throw new Error(exactResult.error.message || 'account_search_failed');
   if (usernameResult.error) throw new Error(usernameResult.error.message || 'username_search_failed');
+  if (displayNameResult.error) throw new Error(displayNameResult.error.message || 'display_name_search_failed');
+  if (handleResult.error) throw new Error(handleResult.error.message || 'handle_search_failed');
 
   const profilesByUserId = new Map<string, ProfileRow>();
-  for (const row of [...(exactResult.data ?? []), ...(usernameResult.data ?? [])] as ProfileRow[]) {
+  for (const row of [
+    ...(exactResult.data ?? []),
+    ...(usernameResult.data ?? []),
+    ...(displayNameResult.data ?? []),
+    ...(handleResult.data ?? []),
+  ] as ProfileRow[]) {
     if (row.account_id) profilesByUserId.set(row.user_id, row);
   }
 
