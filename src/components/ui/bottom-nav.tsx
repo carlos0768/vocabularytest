@@ -106,7 +106,7 @@ const TABS: TabItem[] = [
   },
   {
     k: 'stats',
-    label: '進歩',
+    label: 'フレンド',
     href: '/stats',
     matchPaths: ['/stats'],
     IconDefault: StatsIcon,

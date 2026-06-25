@@ -399,7 +399,7 @@ function TimelineItem({
             <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
           </div>
         </div>
-        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
+        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={22} className="mt-1.5 shrink-0 text-[var(--color-muted)]" />
       </button>
       {expanded && (
         <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
