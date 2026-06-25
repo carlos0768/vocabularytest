@@ -304,16 +304,8 @@ export default function StatsPage() {
             <Icon name="progress_activity" size={20} className="animate-spin" />
           </div>
         ) : sessions.length === 0 ? (
-          <div className="mx-[18px] mt-2 rounded-[16px] border-2 border-dashed border-[var(--color-border)] px-5 py-14 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent-light)]">
-              <Icon name="group" size={28} className="text-[var(--color-accent)]" />
-            </div>
-            <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">まだ活動がありません</div>
-            <div className="mt-1 text-[12px] text-[var(--color-muted)]">ユーザーをフォローすると活動が表示されます</div>
-            <Link href="/shared" className="mt-4 inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-4 py-2 text-[12px] font-bold text-[var(--solid-ink)]">
-              <Icon name="person_add" size={14} />
-              ユーザーを探す
-            </Link>
+          <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
+            まだ活動がありません
           </div>
         ) : (
           sessions.map((session) => (
@@ -375,7 +367,7 @@ function TimelineItem({
                 ))}
               </div>
             ) : (
-              <div className="rounded-[12px] border border-dashed border-[var(--color-border)] px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
+              <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
                 習得済みに変わった単語はありません
               </div>
             )}

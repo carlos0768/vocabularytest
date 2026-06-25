@@ -242,12 +242,8 @@ export default function FriendsPage() {
         )}
 
         {!timelineLoading && sessions.length === 0 && (
-          <div className="mx-[18px] mt-4 rounded-[16px] border-2 border-dashed border-[var(--color-border)] px-5 py-14 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent-light)]">
-              <Icon name="group" size={28} className="text-[var(--color-accent)]" />
-            </div>
-            <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">まだ活動がありません</div>
-            <div className="mt-1 text-[12px] text-[var(--color-muted)]">ユーザーをフォローすると活動が表示されます</div>
+          <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
+            まだ活動がありません
           </div>
         )}
 
@@ -418,7 +414,7 @@ function TimelineItem({
                 ))}
               </div>
             ) : (
-              <div className="rounded-[12px] border border-dashed border-[var(--color-border)] px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
+              <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
                 習得済みに変わった単語はありません
               </div>
             )}
