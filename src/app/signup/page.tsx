@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
@@ -21,9 +21,22 @@ import {
   buildSignupVerifyRequestBody,
   isSignupOtpComplete,
   resolveSignupRouteError,
+  validateOnboardingData,
   validateSignupCredentials,
+  type EikenLevelOption,
+  type OnboardingData,
   type SignupStep,
 } from '@/lib/auth/signup-flow';
+
+const EIKEN_LEVELS: { value: EikenLevelOption; label: string }[] = [
+  { value: '5', label: '5級' },
+  { value: '4', label: '4級' },
+  { value: '3', label: '3級' },
+  { value: 'pre2', label: '準2級' },
+  { value: '2', label: '2級' },
+  { value: 'pre1', label: '準1級' },
+  { value: '1', label: '1級' },
+];
 
 async function readJson(response: Response): Promise<unknown> {
   try {
@@ -37,7 +50,16 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
 
-  const [step, setStep] = useState<SignupStep>('form');
+  const [step, setStep] = useState<SignupStep>('onboarding');
+
+  // Onboarding state
+  const [displayName, setDisplayName] = useState('');
+  const [userHandle, setUserHandle] = useState('');
+  const [eikenLevel, setEikenLevel] = useState<EikenLevelOption>(null);
+  const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
+  const [handleChecking, setHandleChecking] = useState(false);
+
+  // Auth state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -47,6 +69,8 @@ function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const checkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = window.setTimeout(() => {
@@ -55,7 +79,49 @@ function SignupForm() {
     return () => window.clearTimeout(timer);
   }, [resendCooldown]);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const checkHandleAvailability = useCallback((handle: string) => {
+    if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+    if (!/^[a-z0-9_]{3,20}$/.test(handle)) {
+      setHandleAvailable(null);
+      return;
+    }
+    setHandleChecking(true);
+    checkTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/check-handle?handle=${encodeURIComponent(handle)}`);
+        const data = await res.json() as { available?: boolean };
+        setHandleAvailable(data.available ?? false);
+      } catch {
+        setHandleAvailable(null);
+      } finally {
+        setHandleChecking(false);
+      }
+    }, 400);
+  }, []);
+
+  const handleUserHandleChange = (value: string) => {
+    const normalized = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setUserHandle(normalized);
+    setHandleAvailable(null);
+    checkHandleAvailability(normalized);
+  };
+
+  const handleOnboardingSubmit = () => {
+    setError(null);
+    const onboarding: OnboardingData = { displayName, userHandle, eikenLevel };
+    const validation = validateOnboardingData(onboarding);
+    if (!validation.ok) {
+      setError(validation.error);
+      return;
+    }
+    if (handleAvailable === false) {
+      setError('このIDは既に使われています');
+      return;
+    }
+    setStep('form');
+  };
+
+  const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (loading) return;
 
@@ -96,6 +162,7 @@ function SignupForm() {
     setError(null);
     setLoading(true);
     try {
+      const onboarding: OnboardingData = { displayName, userHandle, eikenLevel };
       const response = await fetch('/api/auth/signup-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -103,6 +170,7 @@ function SignupForm() {
           email,
           code: otpCode,
           password,
+          onboarding,
         })),
       });
       const data = await readJson(response);
@@ -147,6 +215,10 @@ function SignupForm() {
     }
   };
 
+  const stepIndex = step === 'onboarding' ? 1 : step === 'form' ? 2 : 3;
+  const totalSteps = 3;
+
+  // ── OTP Step ─────────────────────────────────────────────
   if (step === 'otp') {
     return (
       <>
@@ -205,7 +277,8 @@ function SignupForm() {
 
         <div className="lg:hidden">
           <SignupShell
-            stepLabel="2/2"
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
             title="メールを確認"
             description="届いた6桁の認証コードを入力してください。"
             onBack={() => {
@@ -274,77 +347,262 @@ function SignupForm() {
     );
   }
 
+  // ── Form Step (email + password) ─────────────────────────
+  if (step === 'form') {
+    return (
+      <>
+        <DesktopAuthShell
+          title="アカウントを作成"
+          description="無料で始められます。クレジットカード不要。"
+        >
+          <form onSubmit={handleFormSubmit}>
+            {error && <DesktopAuthError>{error}</DesktopAuthError>}
+            <DesktopAuthField
+              label="メールアドレス"
+              placeholder="you@example.com"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              autoComplete="email"
+              disabled={loading}
+            />
+            <DesktopAuthField
+              label="パスワード"
+              placeholder="8文字以上"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={setPassword}
+              autoComplete="new-password"
+              disabled={loading}
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 800, color: 'var(--color-muted)' }}
+                  aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                >
+                  {showPassword ? '非表示' : '表示'}
+                </button>
+              }
+            />
+            <DesktopAuthField
+              label="パスワード（確認）"
+              placeholder="もう一度入力"
+              type={showPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              autoComplete="new-password"
+              disabled={loading}
+            />
+            <DesktopAuthPrimaryButton
+              variant="accent"
+              disabled={
+                loading ||
+                email.trim().length === 0 ||
+                password.length === 0 ||
+                confirmPassword.length === 0
+              }
+            >
+              {loading ? '送信中...' : '認証コードを送信'}
+            </DesktopAuthPrimaryButton>
+          </form>
+
+          <DesktopAuthOAuth
+            redirectPath={redirect}
+            disabled={loading}
+            onError={(message) => setError(message || null)}
+          />
+
+          <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
+            登録すると
+            <Link href="/terms" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>利用規約</Link>
+            と
+            <Link href="/privacy" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>プライバシーポリシー</Link>
+            に同意したものとみなされます。
+          </div>
+          <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 16 }}>
+            すでにアカウントをお持ちの方は{' '}
+            <Link
+              href={`/login?redirect=${encodeURIComponent(redirect)}`}
+              style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}
+            >
+              ログイン
+            </Link>
+          </div>
+        </DesktopAuthShell>
+
+        <div className="lg:hidden">
+          <SignupShell
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
+            title="アカウント情報"
+            description="メールアドレスとパスワードを入力してください。"
+            onBack={() => {
+              setStep('onboarding');
+              setError(null);
+            }}
+          >
+            <form onSubmit={handleFormSubmit}>
+              <div className="flex flex-col gap-2.5 px-6 pb-3">
+                {error && <ErrorMessage>{error}</ErrorMessage>}
+
+                <FormField
+                  label="メールアドレス"
+                  placeholder="kenta@example.com"
+                  type="email"
+                  value={email}
+                  onChange={setEmail}
+                  autoComplete="email"
+                  disabled={loading}
+                />
+
+                <FormField
+                  label="パスワード"
+                  placeholder="8文字以上"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete="new-password"
+                  disabled={loading}
+                  trailing={
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                      aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                    >
+                      {showPassword ? '非表示' : '表示'}
+                    </button>
+                  }
+                />
+
+                <FormField
+                  label="パスワード（確認）"
+                  placeholder="もう一度入力"
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  autoComplete="new-password"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="px-6 pb-4">
+                <PrimaryAction
+                  type="submit"
+                  disabled={
+                    loading ||
+                    email.trim().length === 0 ||
+                    password.length === 0 ||
+                    confirmPassword.length === 0
+                  }
+                >
+                  {loading ? '送信中...' : '認証コードを送信'}
+                </PrimaryAction>
+              </div>
+            </form>
+
+            <OAuthProviderButtons
+              redirectPath={redirect}
+              disabled={loading}
+              onError={(message) => setError(message || null)}
+            />
+
+            <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
+              <div className="h-px flex-1 bg-[var(--color-border)]" />
+              <span className="font-mono text-[10px] text-[var(--color-muted)]">または</span>
+              <div className="h-px flex-1 bg-[var(--color-border)]" />
+            </div>
+
+            <div className="flex flex-col gap-2 px-6 pb-3">
+              <Link
+                href={`/login?redirect=${encodeURIComponent(redirect)}`}
+                className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+              >
+                <Icon name="login" size={16} />
+                ログインする
+              </Link>
+            </div>
+          </SignupShell>
+        </div>
+      </>
+    );
+  }
+
+  // ── Onboarding Step ──────────────────────────────────────
+  const onboardingValid =
+    displayName.trim().length >= 1 &&
+    /^[a-z0-9_]{3,20}$/.test(userHandle) &&
+    handleAvailable !== false;
+
   return (
     <>
+      {/* Desktop */}
       <DesktopAuthShell
-        title="アカウントを作成"
-        description="無料で始められます。クレジットカード不要。"
+        title="プロフィール設定"
+        description=""
       >
-        <form onSubmit={handleSubmit}>
-          {error && <DesktopAuthError>{error}</DesktopAuthError>}
-          <DesktopAuthField
-            label="メールアドレス"
-            placeholder="you@example.com"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            autoComplete="email"
-            disabled={loading}
-          />
-          <DesktopAuthField
-            label="パスワード"
-            placeholder="8文字以上"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={setPassword}
-            autoComplete="new-password"
-            disabled={loading}
-            trailing={
-              <button
-                type="button"
-                onClick={() => setShowPassword((value) => !value)}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 800, color: 'var(--color-muted)' }}
-                aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
-              >
-                {showPassword ? '非表示' : '表示'}
-              </button>
-            }
-          />
-          <DesktopAuthField
-            label="パスワード（確認）"
-            placeholder="もう一度入力"
-            type={showPassword ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={setConfirmPassword}
-            autoComplete="new-password"
-            disabled={loading}
-          />
-          <DesktopAuthPrimaryButton
-            variant="accent"
-            disabled={
-              loading ||
-              email.trim().length === 0 ||
-              password.length === 0 ||
-              confirmPassword.length === 0
-            }
-          >
-            {loading ? '送信中...' : '無料で始める'}
-          </DesktopAuthPrimaryButton>
-        </form>
-
-        <DesktopAuthOAuth
-          redirectPath={redirect}
+        {error && <DesktopAuthError>{error}</DesktopAuthError>}
+        <DesktopAuthField
+          label="ユーザー名"
+          placeholder="山田太郎"
+          type="text"
+          value={displayName}
+          onChange={setDisplayName}
+          autoComplete="name"
           disabled={loading}
-          onError={(message) => setError(message || null)}
         />
-
-        <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
-          登録すると
-          <Link href="/terms" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>利用規約</Link>
-          と
-          <Link href="/privacy" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>プライバシーポリシー</Link>
-          に同意したものとみなされます。
+        <div className="ds-field">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 7 }}>
+            <label style={{ marginBottom: 0 }}>ユーザーID</label>
+            {userHandle.length >= 3 && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: handleChecking ? 'var(--color-muted)' : handleAvailable ? 'var(--color-accent)' : handleAvailable === false ? 'var(--color-error)' : 'var(--color-muted)' }}>
+                {handleChecking ? '確認中...' : handleAvailable ? '利用可能' : handleAvailable === false ? '使用済み' : ''}
+              </span>
+            )}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="ds-input"
+              type="text"
+              value={userHandle}
+              onChange={(e) => handleUserHandleChange(e.target.value)}
+              placeholder="kenta_123"
+              autoComplete="username"
+              style={{ paddingLeft: 30 }}
+            />
+            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, fontWeight: 700, color: 'var(--color-muted)' }}>@</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 5 }}>
+            半角英小文字・数字・アンダースコア（3〜20文字）
+          </div>
         </div>
+        <div className="ds-field">
+          <label>英検レベル（任意）</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+            {EIKEN_LEVELS.map((level) => (
+              <button
+                key={level.value}
+                type="button"
+                onClick={() => setEikenLevel(eikenLevel === level.value ? null : level.value)}
+                className={`ds-chip ${eikenLevel === level.value ? 'active' : ''}`}
+              >
+                {level.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 8 }}>
+            英検の級に合わせて学習レベルを調整します。あとから変更できます。
+          </div>
+        </div>
+        <DesktopAuthPrimaryButton
+          type="button"
+          variant="accent"
+          disabled={!onboardingValid}
+          onClick={handleOnboardingSubmit}
+        >
+          次へ進む
+        </DesktopAuthPrimaryButton>
         <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 16 }}>
           すでにアカウントをお持ちの方は{' '}
           <Link
@@ -356,78 +614,89 @@ function SignupForm() {
         </div>
       </DesktopAuthShell>
 
+      {/* Mobile */}
       <div className="lg:hidden">
         <SignupShell
-          stepLabel="1/2"
-          title="新規登録"
-          description="メールアドレスとパスワードでアカウントを作成します。"
+          stepIndex={stepIndex}
+          totalSteps={totalSteps}
+          title="プロフィール設定"
+          description=""
           backHref="/"
         >
-          <form onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-2.5 px-6 pb-3">
-              {error && <ErrorMessage>{error}</ErrorMessage>}
+          <div className="flex flex-col gap-3 px-6 pb-3">
+            {error && <ErrorMessage>{error}</ErrorMessage>}
 
-              <FormField
-                label="メールアドレス"
-                placeholder="kenta@example.com"
-                type="email"
-                value={email}
-                onChange={setEmail}
-                autoComplete="email"
-                disabled={loading}
-              />
+            <FormField
+              label="ユーザー名"
+              placeholder="山田太郎"
+              type="text"
+              value={displayName}
+              onChange={setDisplayName}
+              autoComplete="name"
+            />
 
-              <FormField
-                label="パスワード"
-                placeholder="8文字以上"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={setPassword}
-                autoComplete="new-password"
-                disabled={loading}
-                trailing={
+            <div>
+              <div className="mb-[5px] flex items-center justify-between pl-0.5">
+                <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+                  ユーザーID
+                </span>
+                {userHandle.length >= 3 && (
+                  <span className={`text-[10px] font-bold ${handleChecking ? 'text-[var(--color-muted)]' : handleAvailable ? 'text-[var(--color-accent)]' : handleAvailable === false ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'}`}>
+                    {handleChecking ? '確認中...' : handleAvailable ? '利用可能' : handleAvailable === false ? '使用済み' : ''}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-0 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px]">
+                <span className="mr-1 text-sm font-bold text-[var(--color-muted)]">@</span>
+                <input
+                  type="text"
+                  value={userHandle}
+                  onChange={(e) => handleUserHandleChange(e.target.value)}
+                  placeholder="kenta_123"
+                  autoComplete="username"
+                  className="flex-1 border-none bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                />
+              </div>
+              <div className="mt-1 pl-0.5 text-[10px] text-[var(--color-muted)]">
+                半角英小文字・数字・_（3〜20文字）
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+                英検レベル（任意）
+              </div>
+              <div className="flex flex-wrap gap-[7px]">
+                {EIKEN_LEVELS.map((level) => (
                   <button
+                    key={level.value}
                     type="button"
-                    onClick={() => setShowPassword((value) => !value)}
-                    className="font-mono text-[10px] font-bold text-[var(--color-muted)]"
-                    aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                    onClick={() => setEikenLevel(eikenLevel === level.value ? null : level.value)}
+                    className={`rounded-[10px] border-2 px-3.5 py-2 text-[12px] font-bold transition-all ${
+                      eikenLevel === level.value
+                        ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white shadow-[2px_3px_0_var(--solid-ink)]'
+                        : 'border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]'
+                    }`}
                   >
-                    {showPassword ? '非表示' : '表示'}
+                    {level.label}
                   </button>
-                }
-              />
-
-              <FormField
-                label="パスワード（確認）"
-                placeholder="もう一度入力"
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                autoComplete="new-password"
-                disabled={loading}
-              />
+                ))}
+              </div>
+              <div className="mt-2 pl-0.5 text-[10px] leading-relaxed text-[var(--color-muted)]">
+                英検の級に合わせて学習レベルを調整します。あとから変更できます。
+              </div>
             </div>
+          </div>
 
-            <div className="px-6 pb-4">
-              <PrimaryAction
-                type="submit"
-                disabled={
-                  loading ||
-                  email.trim().length === 0 ||
-                  password.length === 0 ||
-                  confirmPassword.length === 0
-                }
-              >
-                {loading ? '送信中...' : '認証コードを送信'}
-              </PrimaryAction>
-            </div>
-          </form>
-
-          <OAuthProviderButtons
-            redirectPath={redirect}
-            disabled={loading}
-            onError={(message) => setError(message || null)}
-          />
+          <div className="px-6 pb-4 pt-2">
+            <PrimaryAction
+              type="button"
+              disabled={!onboardingValid}
+              onClick={handleOnboardingSubmit}
+            >
+              次へ進む
+            </PrimaryAction>
+          </div>
 
           <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
             <div className="h-px flex-1 bg-[var(--color-border)]" />
@@ -451,14 +720,16 @@ function SignupForm() {
 }
 
 function SignupShell({
-  stepLabel,
+  stepIndex,
+  totalSteps,
   title,
   description,
   backHref,
   onBack,
   children,
 }: {
-  stepLabel: string;
+  stepIndex: number;
+  totalSteps: number;
   title: string;
   description: string;
   backHref?: string;
@@ -468,7 +739,7 @@ function SignupShell({
   const backClassName = 'flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px';
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[#f3f0e9] pt-3 font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <div className="flex items-center gap-2 px-[14px] pt-1">
         {backHref ? (
           <Link href={backHref} className={backClassName} aria-label="戻る">
@@ -486,17 +757,17 @@ function SignupShell({
         )}
         <div className="flex-1" />
         <div className="mr-1.5 flex items-center gap-1">
-          <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--color-muted)]">
-            {stepLabel}
+          <span className="font-mono text-[10px] font-bold tabular-nums text-[#8a857a]">
+            {stepIndex}/{totalSteps}
           </span>
           <div className="flex gap-[3px]">
-            {[1, 2].map((item) => (
+            {Array.from({ length: totalSteps }, (_, i) => (
               <div
-                key={item}
+                key={i}
                 className="h-1 w-[18px] rounded-sm"
                 style={{
                   background:
-                    Number(stepLabel[0]) >= item
+                    stepIndex > i
                       ? 'var(--solid-ink)'
                       : 'rgba(26,26,26,0.15)',
                 }}
@@ -517,7 +788,7 @@ function SignupShell({
         <div className="font-display text-2xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
           {title}
         </div>
-        <div className="mt-1 text-xs text-[var(--color-muted)]">{description}</div>
+        <div className="mt-1 text-xs text-[#8a857a]">{description}</div>
       </div>
 
       {children}
@@ -556,7 +827,7 @@ function PrimaryAction({
       onClick={onClick}
       className="group w-full disabled:pointer-events-none disabled:opacity-60"
     >
-      <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white">
+      <div className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]">
         {children}
       </div>
     </button>
@@ -565,7 +836,7 @@ function PrimaryAction({
 
 function SignupFallback() {
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center bg-[var(--color-background)] font-[var(--font-body)]">
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
     </div>
   );
@@ -600,7 +871,7 @@ function FormField({
 }) {
   return (
     <label className="block">
-      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[#8a857a]">
         {label}
       </div>
       <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px]">

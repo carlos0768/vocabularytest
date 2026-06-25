@@ -45,7 +45,10 @@ const requestSchema = z.object({
   email: z.string().trim().email().max(254),
   code: z.string().trim().regex(/^\d{6}$/),
   password: z.string().min(8).max(128),
-}).strict();
+  display_name: z.string().trim().min(1).max(30).optional(),
+  user_handle: z.string().regex(/^[a-z0-9_]{3,20}$/).optional(),
+  eiken_level: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional(),
+});
 
 export type SignupVerifyRouteDeps = {
   getAdminClient?: typeof getAdminClient;
@@ -67,7 +70,7 @@ export async function handleSignupVerifyPost(
     if (!parsed.ok) {
       return parsed.response;
     }
-    const { email, code, password } = parsed.data;
+    const { email, code, password, display_name, user_handle, eiken_level } = parsed.data;
 
     const adminClient = (deps.getAdminClient ?? getAdminClient)();
     const normalizedEmail = normalizeOtpEmail(email);
@@ -201,6 +204,20 @@ export async function handleSignupVerifyPost(
       );
     }
 
+    // Save onboarding profile fields if provided
+    const userId = sessionData.user?.id;
+    if (userId && (display_name || user_handle || eiken_level !== undefined)) {
+      const profileUpdate: Record<string, unknown> = {};
+      if (display_name) profileUpdate.display_name = display_name;
+      if (user_handle) profileUpdate.user_handle = user_handle;
+      if (eiken_level !== undefined) profileUpdate.eiken_level = eiken_level;
+
+      await adminClient
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('user_id', userId);
+    }
+
     // 使用済みOTPを削除
     await adminClient
       .from('otp_requests')
@@ -210,7 +227,7 @@ export async function handleSignupVerifyPost(
     return NextResponse.json({
       success: true,
       user: {
-        id: sessionData.user?.id,
+        id: userId,
         email: sessionData.user?.email,
       },
     });

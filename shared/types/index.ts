@@ -342,9 +342,14 @@ export interface UserState {
 
 // ============ Profile Types ============
 
+export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
+
 export interface Profile {
   userId: string;
   username: string | null;
+  displayName: string | null;
+  userHandle: string | null;
+  eikenLevel: EikenLevel;
   accountId: string;
 }
 
