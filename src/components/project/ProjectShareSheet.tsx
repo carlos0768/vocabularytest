@@ -62,16 +62,6 @@ export function ProjectShareSheet({
 
   const shareUrl = shareId ? buildShareUrl(shareId) : '';
 
-  const scopeSummary =
-    shareScope === 'public'
-      ? '公開単語帳として共有ページに表示されます'
-      : 'リンクを知っている人だけが開けます';
-
-  const scopeDescription =
-    shareScope === 'public'
-      ? '共有タブの公開単語帳一覧からそのまま見つけられます。'
-      : '共有ページの一覧には出ません。リンクを送った相手だけが開けます。';
-
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
       <button
@@ -270,52 +260,27 @@ export function ProjectShareSheet({
             </div>
           </div>
 
-          <div className="mb-3 rounded-[10px] border border-dashed border-[var(--solid-ink)] bg-[rgba(26,26,26,0.04)] p-[11px]">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-                共有リンク
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={preparing || !shareUrl}
-                  onClick={() => void onShareLink(shareUrl)}
-                  className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
-                >
-                  <Icon name="ios_share" size={11} />
-                  共有
-                </button>
-                <button
-                  type="button"
-                  disabled={preparing || !shareUrl}
-                  onClick={() => void onCopyShareLink(shareUrl)}
-                  className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
-                >
-                  <Icon name={shareLinkCopied ? 'check' : 'content_copy'} size={11} />
-                  {shareLinkCopied ? 'コピー済み' : 'コピー'}
-                </button>
-              </div>
-            </div>
-            {preparing || !shareUrl ? (
-              <div className="flex h-9 items-center gap-2 text-[12px] text-[var(--color-muted)]">
-                <Icon name="progress_activity" size={14} className="animate-spin" />
-                準備中...
-              </div>
-            ) : (
-              <p className="break-all font-mono text-[12px] font-bold leading-[1.5] text-[var(--solid-ink)]">
-                {shareUrl}
-              </p>
-            )}
-            <p className="mt-1.5 text-[10.5px] leading-[1.5] text-[var(--color-muted)]">{scopeDescription}</p>
-            <p className="mt-0.5 text-[10.5px] font-bold leading-[1.5] text-[var(--solid-ink)]">{scopeSummary}</p>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={preparing || !shareUrl}
+              onClick={() => void onShareLink(shareUrl)}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+            >
+              <Icon name={preparing ? 'progress_activity' : 'ios_share'} size={15} className={preparing ? 'animate-spin' : undefined} />
+              共有
+            </button>
+            <button
+              type="button"
+              disabled={preparing || !shareUrl}
+              onClick={() => void onCopyShareLink(shareUrl)}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+            >
+              <Icon name={shareLinkCopied ? 'check' : preparing ? 'progress_activity' : 'content_copy'} size={15} className={preparing ? 'animate-spin' : undefined} />
+              コピー
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 rounded-[10px] border border-dashed border-[rgba(19,127,236,0.3)] bg-[rgba(19,127,236,0.06)] px-[11px] py-[9px]">
-            <Icon name="info" size={14} className="text-[#137fec]" />
-            <span className="text-[11px] leading-[1.5] text-[var(--color-muted)]">
-              公開をオフにしても、リンクを知っている人はこの単語帳を開けます。
-            </span>
-          </div>
         </div>
       </div>
     </div>
