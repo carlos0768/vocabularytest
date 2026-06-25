@@ -27,7 +27,7 @@ type DiscoverResponse = SharedDiscoverPayload | { error?: string };
 type ShareCategory = Exclude<SharedDiscoverCategory, 'all'>;
 
 const CATEGORY_META: Record<ShareCategory, { label: string; icon: string; description: string }> = {
-  users: { label: 'ユーザー', icon: 'person', description: '公開単語帳を持つ学習者' },
+  users: { label: 'ユーザー', icon: 'person', description: '学習者アカウント' },
   projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳' },
 };
 
@@ -410,25 +410,27 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
   return (
     <section>
       <SectionLabel icon="person" label="ユーザー" count={users.length} />
-      <div className="flex flex-col gap-2">
-        {users.map((user) => (
-          <div key={user.userId} className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] font-display text-[15px] font-extrabold text-[var(--solid-ink)]">
-                {(user.username ?? 'U').charAt(0).toUpperCase()}
+      <div className="divide-y divide-[var(--color-border)]">
+        {users.map((user) => {
+          const accountLabel = user.accountId ? `@${user.accountId}` : user.username ? `@${user.username}` : 'ユーザー';
+          const avatarLabel = (user.accountId ?? user.username ?? 'U').charAt(0).toUpperCase();
+
+          return (
+            <div key={user.userId} className="flex items-center gap-3 px-1 py-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--color-surface-secondary)] font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+                {avatarLabel}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">
-                  {user.username ? `@${user.username}` : 'ユーザー'}
+                <div className="truncate font-mono text-[12px] font-extrabold text-[var(--solid-ink)]">
+                  {accountLabel}
                 </div>
-                <div className="mt-0.5 text-[11px] text-[var(--color-muted)]">
-                  {user.projectCount}冊 · {user.wordCount}語
+                <div className="mt-0.5 truncate text-[11px] text-[var(--color-muted)]">
+                  {user.username ?? 'アカウント'}
                 </div>
               </div>
-              <div className="font-mono text-[10px] text-[var(--color-muted)]">{user.likeCount} likes</div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -451,6 +453,8 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
   const bg = thumbColor(project.project.id);
   const ownerLabel = project.accessRole === 'owner'
     ? '自分'
+    : project.ownerAccountId
+      ? `@${project.ownerAccountId}`
     : project.ownerUsername
       ? `@${project.ownerUsername}`
       : '共有ユーザー';

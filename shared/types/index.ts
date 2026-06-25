@@ -345,6 +345,7 @@ export interface UserState {
 export interface Profile {
   userId: string;
   username: string | null;
+  accountId: string;
 }
 
 // ============ Auth Types ============
