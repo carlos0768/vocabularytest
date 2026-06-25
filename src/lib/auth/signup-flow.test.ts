@@ -10,10 +10,11 @@ import {
   isSignupOtpComplete,
   resolveSignupRouteError,
   validateSignupCredentials,
+  validateOnboardingData,
 } from './signup-flow';
 
-test('signup flow is fixed to form then otp without onboarding steps', () => {
-  assert.deepEqual(SIGNUP_STEPS, ['form', 'otp']);
+test('signup flow includes onboarding, form, then otp steps', () => {
+  assert.deepEqual(SIGNUP_STEPS, ['onboarding', 'form', 'otp']);
   assert.equal(SIGNUP_OTP_LENGTH, 6);
   assert.equal(SIGNUP_RESEND_COOLDOWN_SECONDS, 60);
 });
@@ -66,6 +67,49 @@ test('signup request bodies use the existing OTP API contracts', () => {
       code: '123456',
       password: 'password123',
     },
+  );
+
+  assert.deepEqual(
+    buildSignupVerifyRequestBody({
+      email: 'User@Example.COM',
+      code: '123456',
+      password: 'password123',
+      onboarding: {
+        displayName: ' 山田太郎 ',
+        userHandle: 'kenta_123',
+        eikenLevel: '3',
+      },
+    }),
+    {
+      email: 'User@Example.COM',
+      code: '123456',
+      password: 'password123',
+      display_name: '山田太郎',
+      user_handle: 'kenta_123',
+      eiken_level: '3',
+    },
+  );
+});
+
+test('validateOnboardingData validates name and handle', () => {
+  assert.deepEqual(
+    validateOnboardingData({ displayName: '', userHandle: 'abc', eikenLevel: null }),
+    { ok: false, error: 'ユーザー名は1〜30文字で入力してください' },
+  );
+
+  assert.deepEqual(
+    validateOnboardingData({ displayName: '山田太郎', userHandle: 'ab', eikenLevel: null }),
+    { ok: false, error: 'IDは半角英小文字・数字・アンダースコアで3〜20文字です' },
+  );
+
+  assert.deepEqual(
+    validateOnboardingData({ displayName: '山田太郎', userHandle: 'AB_UPPER', eikenLevel: null }),
+    { ok: false, error: 'IDは半角英小文字・数字・アンダースコアで3〜20文字です' },
+  );
+
+  assert.deepEqual(
+    validateOnboardingData({ displayName: '山田太郎', userHandle: 'kenta_123', eikenLevel: '3' }),
+    { ok: true },
   );
 });
 

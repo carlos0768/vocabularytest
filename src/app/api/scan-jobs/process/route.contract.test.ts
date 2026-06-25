@@ -720,6 +720,89 @@ test('server_cloud writes source_modes from normalized scan_modes instead of AI 
   assert.deepEqual(wordsInsert.payload[0]?.source_modes, ['all', 'idiom', 'eiken']);
 });
 
+test('server_cloud expands split translations before inserting quiz words', async () => {
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob(),
+    userPreference: { ai_enabled: false },
+  });
+
+  const response = await processJobById(
+    JOB_ID,
+    createServerCloudContractDeps(client, {
+      extractImage: async () => ({
+        result: {
+          success: true,
+          data: {
+            words: [
+              {
+                english: 'sense',
+                japanese: '感覚;分別',
+                japaneseSource: 'scan',
+                translations: [
+                  { japanese: '感覚;分別', source: 'scan', meaningRank: 1 },
+                ],
+                distractors: [],
+                partOfSpeechTags: ['noun'],
+              },
+            ],
+            sourceLabels: ['鉄壁'],
+          },
+        },
+      }),
+      resolveImmediateWords: async (words) => ({
+        words: words.map((word) => ({
+          ...word,
+          lexiconEntryId: 'lexicon-sense',
+          exampleSentence: 'The word has several senses.',
+          exampleSentenceJa: 'その単語には複数の意味があります。',
+          partOfSpeechTags: ['noun'],
+        })) as never,
+        lexiconEntries: [],
+        metrics: {
+          lookupKeyCount: 1,
+          masterHitCount: 1,
+          masterTranslationHitCount: 1,
+          aiMissCount: 0,
+          lookupElapsedMs: 0,
+          translationElapsedMs: 0,
+          totalElapsedMs: 0,
+        },
+      }),
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    saveMode: 'server_cloud',
+    projectId: NEW_PROJECT_ID,
+    wordCount: 2,
+  });
+
+  const wordsInsert = findOperation(
+    client,
+    (operation) => operation.table === 'words' && operation.action === 'insert',
+    'missing words insert',
+  );
+  assert.ok(Array.isArray(wordsInsert.payload));
+  assert.deepEqual(wordsInsert.payload.map((row) => row.japanese), ['感覚', '分別']);
+
+  const translationsUpsert = findOperation(
+    client,
+    (operation) => operation.table === 'word_translations' && operation.action === 'upsert',
+    'missing word_translations upsert',
+  );
+  assert.deepEqual(translationsUpsert.payload.map((row) => ({
+    word_id: row.word_id,
+    translation_ja: row.translation_ja,
+    is_primary: row.is_primary,
+    position: row.position,
+  })), [
+    { word_id: 'word-1', translation_ja: '感覚', is_primary: true, position: 0 },
+    { word_id: 'word-2', translation_ja: '分別', is_primary: true, position: 0 },
+  ]);
+});
+
 test('server_cloud new project completion keeps project insert, words insert, and completed update contract', async () => {
   const trace: string[] = [];
   const client = new FakeScanProcessClient({

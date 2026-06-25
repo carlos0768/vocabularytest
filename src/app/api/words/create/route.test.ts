@@ -492,10 +492,11 @@ test('words/create uses master-first resolution before legacy backfill', async (
   );
 });
 
-test('words/create persists split translations with sequential meaning ranks', async () => {
+test('words/create expands split translations into separate persisted words', async () => {
   const projectId = '11111111-1111-4111-8111-111111111111';
   const createdAt = new Date('2026-03-15T00:00:00.000Z').toISOString();
   const wordId = '88888888-8888-4888-8888-888888888888';
+  const secondWordId = '99999999-9999-4999-8999-999999999999';
 
   const fakeClient = new FakeWordsCreateClient(
     'user-1',
@@ -506,6 +507,22 @@ test('words/create persists split translations with sequential meaning ranks', a
         project_id: projectId,
         english: 'sense',
         japanese: '感覚',
+        lexicon_entry_id: null,
+        distractors: [],
+        part_of_speech_tags: ['noun'],
+        created_at: createdAt,
+        status: 'new',
+        ease_factor: 2.5,
+        interval_days: 0,
+        repetition: 0,
+        is_favorite: false,
+        lexicon_entries: null,
+      },
+      {
+        id: secondWordId,
+        project_id: projectId,
+        english: 'sense',
+        japanese: '分別',
         lexicon_entry_id: null,
         distractors: [],
         part_of_speech_tags: ['noun'],
@@ -555,16 +572,18 @@ test('words/create persists split translations with sequential meaning ranks', a
 
   assert.equal(response.status, 200);
   assert.equal(fakeClient.insertedRows[0]?.['japanese'], '感覚');
+  assert.equal(fakeClient.insertedRows[1]?.['japanese'], '分別');
   assert.deepEqual(
     fakeClient.translationRows.map((row) => ({
+      word_id: row.word_id,
       translation_ja: row.translation_ja,
       meaning_rank: row.meaning_rank,
       is_primary: row.is_primary,
       position: row.position,
     })),
     [
-      { translation_ja: '感覚', meaning_rank: 1, is_primary: true, position: 0 },
-      { translation_ja: '分別', meaning_rank: 2, is_primary: false, position: 1 },
+      { word_id: wordId, translation_ja: '感覚', meaning_rank: 1, is_primary: true, position: 0 },
+      { word_id: secondWordId, translation_ja: '分別', meaning_rank: 1, is_primary: true, position: 0 },
     ],
   );
 });

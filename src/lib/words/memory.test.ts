@@ -63,7 +63,7 @@ test('groupWordsByMemory leaves non-distinct same-English translations as separa
   assert.equal(groups[1]?.isDistinctGroup, false);
 });
 
-test('selectPrimaryMeaningWords excludes explicit distinct non-primary senses', () => {
+test('selectPrimaryMeaningWords excludes linked non-primary senses', () => {
   const words = [
     word({
       id: 'free-primary',
@@ -79,10 +79,39 @@ test('selectPrimaryMeaningWords excludes explicit distinct non-primary senses', 
       japanese: '無料の',
       lexiconEntryId: 'lex-free',
       lexiconSenseId: 'sense-cost',
-      lexiconDistinctKey: 'cost',
+      lexiconSenseIsPrimary: false,
     }),
     word({ id: 'plain', english: 'plain', japanese: '明白な' }),
   ];
 
   assert.deepEqual(selectPrimaryMeaningWords(words).map((item) => item.id), ['free-primary', 'plain']);
+});
+
+test('groupWordsByMemory treats linked non-primary senses as one memory-rate word', () => {
+  const words = [
+    word({
+      id: 'sense-primary',
+      english: 'sense',
+      japanese: '感覚',
+      status: 'mastered',
+      lexiconEntryId: 'lex-sense',
+      lexiconSenseId: 'sense-primary',
+      lexiconSenseIsPrimary: true,
+    }),
+    word({
+      id: 'sense-discernment',
+      english: 'sense',
+      japanese: '分別',
+      status: 'new',
+      lexiconEntryId: 'lex-sense',
+      lexiconSenseId: 'sense-discernment',
+      lexiconSenseIsPrimary: false,
+    }),
+  ];
+
+  const [group] = groupWordsByMemory(words);
+
+  assert.equal(group?.isDistinctGroup, true);
+  assert.equal(group?.memoryRate, 50);
+  assert.deepEqual(selectPrimaryMeaningWords(words).map((item) => item.id), ['sense-primary']);
 });
