@@ -3,6 +3,7 @@ import {
   ensureFriendProfile,
   normalizeAccountIdInput,
   buildDefaultAccountId,
+  getFriendSchemaIssue,
 } from '@/lib/friends/server';
 import type { FriendProfile, FriendTimelineSession, QuizSessionWordSummary } from '@/lib/friends/types';
 import type {
@@ -19,8 +20,9 @@ type ProfileRow = {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  account_id: string | null;
-  is_public: boolean;
+  user_handle?: string | null;
+  account_id?: string | null;
+  is_public?: boolean;
 };
 
 type FollowRow = {
@@ -54,15 +56,25 @@ type QuizSessionWordRow = {
 };
 
 const FOLLOW_SELECT = 'id,follower_id,following_id,status,created_at,responded_at';
-const PROFILE_SELECT = 'user_id,username,display_name,account_id,is_public';
+const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id,is_public';
+const PROFILE_ACCOUNT_SELECT = 'user_id,username,account_id';
+const PROFILE_BASIC_SELECT = 'user_id,username';
 const QUIZ_SESSION_SELECT = 'id,user_id,started_at,expires_at,last_answered_at,answer_count,mastered_count';
-const ACCOUNT_ID_PATTERN = /^[a-z0-9_]{4,24}$/;
+const ACCOUNT_ID_PATTERN = /^[a-z0-9_]{3,24}$/;
+
+function isProfileSchemaIssue(error: unknown): boolean {
+  const issue = getFriendSchemaIssue(error);
+  return issue === 'profiles_account_id'
+    || issue === 'profiles_display_name'
+    || issue === 'profiles_user_handle'
+    || issue === 'profiles_is_public';
+}
 
 function toProfile(row: ProfileRow): FriendProfile {
   return {
     userId: row.user_id,
-    username: row.username ?? null,
-    accountId: row.account_id ?? buildDefaultAccountId(row.user_id),
+    username: row.display_name?.trim() || row.username?.trim() || row.user_handle?.trim() || null,
+    accountId: row.account_id?.trim() || row.user_handle?.trim() || buildDefaultAccountId(row.user_id),
   };
 }
 
@@ -88,6 +100,10 @@ async function getProfilesByUserIds(
     .in('user_id', uniqueIds);
 
   if (error) {
+    if (isProfileSchemaIssue(error)) {
+      const fallback = await getProfilesByUserIdsCompat(uniqueIds, admin);
+      if (fallback) return fallback;
+    }
     for (const uid of uniqueIds) map.set(uid, fallbackProfile(uid));
     return map;
   }
@@ -96,6 +112,44 @@ async function getProfilesByUserIds(
     map.set(row.user_id, toProfile(row));
   }
   for (const uid of uniqueIds) {
+    if (!map.has(uid)) map.set(uid, fallbackProfile(uid));
+  }
+  return map;
+}
+
+async function getProfilesByUserIdsCompat(
+  userIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<Map<string, FriendProfile> | null> {
+  const map = new Map<string, FriendProfile>();
+  const account = await admin
+    .from('profiles')
+    .select(PROFILE_ACCOUNT_SELECT)
+    .in('user_id', userIds);
+
+  if (!account.error) {
+    for (const row of (account.data ?? []) as ProfileRow[]) {
+      map.set(row.user_id, toProfile(row));
+    }
+    for (const uid of userIds) {
+      if (!map.has(uid)) map.set(uid, fallbackProfile(uid));
+    }
+    return map;
+  }
+
+  if (!isProfileSchemaIssue(account.error)) return null;
+
+  const basic = await admin
+    .from('profiles')
+    .select(PROFILE_BASIC_SELECT)
+    .in('user_id', userIds);
+
+  if (basic.error) return null;
+
+  for (const row of (basic.data ?? []) as ProfileRow[]) {
+    map.set(row.user_id, toProfile(row));
+  }
+  for (const uid of userIds) {
     if (!map.has(uid)) map.set(uid, fallbackProfile(uid));
   }
   return map;
@@ -130,7 +184,18 @@ export async function listFollowsHome(
     .or(`follower_id.eq.${userId},following_id.eq.${userId}`)
     .order('created_at', { ascending: false });
 
-  if (error) throw new Error(error.message || 'follows_lookup_failed');
+  if (error) {
+    if (getFriendSchemaIssue(error) === 'user_follows') {
+      return {
+        profile,
+        following: [],
+        followers: [],
+        pendingIncoming: [],
+        pendingOutgoing: [],
+      };
+    }
+    throw new Error(error.message || 'follows_lookup_failed');
+  }
 
   const rows = (followRows ?? []) as FollowRow[];
   const otherUserIds = rows.map((r) =>
@@ -168,18 +233,14 @@ export async function followUser(
     throw new FollowError('invalid_account_id');
   }
 
-  const { data: targetRow, error: targetError } = await admin
-    .from('profiles')
-    .select(PROFILE_SELECT)
-    .eq('account_id', normalized)
-    .maybeSingle<ProfileRow>();
+  const { data: targetRow, error: targetError } = await findProfileByPublicId(normalized, admin);
 
   if (targetError) throw new Error(targetError.message || 'target_profile_lookup_failed');
-  if (!targetRow?.account_id) throw new FollowError('target_not_found');
+  if (!targetRow) throw new FollowError('target_not_found');
   if (targetRow.user_id === userId) throw new FollowError('self_follow');
 
   const targetProfile = toProfile(targetRow);
-  const isPublic = targetRow.is_public;
+  const isPublic = targetRow.is_public ?? true;
 
   const { data: existing } = await admin
     .from('user_follows')
@@ -219,6 +280,49 @@ export async function followUser(
   }
 
   return toFollowSummary(data, userId, new Map([[targetProfile.userId, targetProfile]]));
+}
+
+async function findProfileByPublicId(
+  publicId: string,
+  admin: SupabaseAdminClient,
+): Promise<{ data: ProfileRow | null; error: { message?: string | null } | null }> {
+  const byAccount = await admin
+    .from('profiles')
+    .select(PROFILE_SELECT)
+    .eq('account_id', publicId)
+    .maybeSingle<ProfileRow>();
+
+  if (!byAccount.error && byAccount.data) return { data: byAccount.data, error: null };
+  if (byAccount.error && !isProfileSchemaIssue(byAccount.error)) {
+    return { data: null, error: byAccount.error };
+  }
+
+  const byHandle = await admin
+    .from('profiles')
+    .select('user_id,username,display_name,user_handle,is_public')
+    .eq('user_handle', publicId)
+    .maybeSingle<ProfileRow>();
+
+  if (!byHandle.error) return { data: byHandle.data ?? null, error: null };
+  if (!isProfileSchemaIssue(byHandle.error)) return { data: null, error: byHandle.error };
+
+  const byHandleBasic = await admin
+    .from('profiles')
+    .select('user_id,username,user_handle')
+    .eq('user_handle', publicId)
+    .maybeSingle<ProfileRow>();
+
+  if (!byHandleBasic.error) return { data: byHandleBasic.data ?? null, error: null };
+  if (!isProfileSchemaIssue(byHandleBasic.error)) return { data: null, error: byHandleBasic.error };
+
+  const byUsername = await admin
+    .from('profiles')
+    .select(PROFILE_BASIC_SELECT)
+    .eq('username', publicId)
+    .maybeSingle<ProfileRow>();
+
+  if (byUsername.error) return { data: null, error: byUsername.error };
+  return { data: byUsername.data ?? null, error: null };
 }
 
 export async function unfollowUser(
@@ -338,19 +442,28 @@ export async function searchUsersForFollow(
     exactAccountQuery, usernameQuery, displayNameQuery, handleQuery,
   ]);
 
-  if (exactResult.error) throw new Error(exactResult.error.message || 'account_search_failed');
-  if (usernameResult.error) throw new Error(usernameResult.error.message || 'username_search_failed');
-  if (displayNameResult.error) throw new Error(displayNameResult.error.message || 'display_name_search_failed');
-  if (handleResult.error) throw new Error(handleResult.error.message || 'handle_search_failed');
+  const hasProfileSchemaIssue = [exactResult, usernameResult, displayNameResult, handleResult]
+    .some((result) => result.error && isProfileSchemaIssue(result.error));
+
+  if (exactResult.error && !isProfileSchemaIssue(exactResult.error)) throw new Error(exactResult.error.message || 'account_search_failed');
+  if (usernameResult.error && !isProfileSchemaIssue(usernameResult.error)) throw new Error(usernameResult.error.message || 'username_search_failed');
+  if (displayNameResult.error && !isProfileSchemaIssue(displayNameResult.error)) throw new Error(displayNameResult.error.message || 'display_name_search_failed');
+  if (handleResult.error && !isProfileSchemaIssue(handleResult.error)) throw new Error(handleResult.error.message || 'handle_search_failed');
 
   const profilesByUserId = new Map<string, ProfileRow>();
   for (const row of [
-    ...(exactResult.data ?? []),
-    ...(usernameResult.data ?? []),
-    ...(displayNameResult.data ?? []),
-    ...(handleResult.data ?? []),
+    ...(exactResult.error ? [] : exactResult.data ?? []),
+    ...(usernameResult.error ? [] : usernameResult.data ?? []),
+    ...(displayNameResult.error ? [] : displayNameResult.data ?? []),
+    ...(handleResult.error ? [] : handleResult.data ?? []),
   ] as ProfileRow[]) {
-    if (row.account_id) profilesByUserId.set(row.user_id, row);
+    profilesByUserId.set(row.user_id, row);
+  }
+
+  if (profilesByUserId.size === 0 && hasProfileSchemaIssue && normalizedText) {
+    for (const row of await searchProfilesCompat(userId, normalizedText, admin)) {
+      profilesByUserId.set(row.user_id, row);
+    }
   }
 
   if (profilesByUserId.size === 0) return [];
@@ -361,7 +474,17 @@ export async function searchUsersForFollow(
     .select(FOLLOW_SELECT)
     .or(`follower_id.eq.${userId},following_id.eq.${userId}`);
 
-  if (followError) throw new Error(followError.message || 'follow_search_lookup_failed');
+  if (followError) {
+    if (getFriendSchemaIssue(followError) === 'user_follows') {
+      return [...profilesByUserId.values()].map((row) => ({
+        ...toProfile(row),
+        isPublic: row.is_public ?? true,
+        relationship: 'none',
+        followId: null,
+      }));
+    }
+    throw new Error(followError.message || 'follow_search_lookup_failed');
+  }
 
   const outgoing = new Map<string, FollowRow>();
   const incoming = new Map<string, FollowRow>();
@@ -393,11 +516,39 @@ export async function searchUsersForFollow(
 
       return {
         ...profile,
-        isPublic: row.is_public,
+        isPublic: row.is_public ?? true,
         relationship,
         followId,
       };
     });
+}
+
+async function searchProfilesCompat(
+  userId: string,
+  text: string,
+  admin: SupabaseAdminClient,
+): Promise<ProfileRow[]> {
+  const rows: ProfileRow[] = [];
+
+  const username = await admin
+    .from('profiles')
+    .select(PROFILE_BASIC_SELECT)
+    .ilike('username', `%${text}%`)
+    .neq('user_id', userId)
+    .limit(20);
+
+  if (!username.error) rows.push(...((username.data ?? []) as ProfileRow[]));
+
+  const handle = await admin
+    .from('profiles')
+    .select('user_id,username,user_handle')
+    .ilike('user_handle', `%${text}%`)
+    .neq('user_id', userId)
+    .limit(20);
+
+  if (!handle.error) rows.push(...((handle.data ?? []) as ProfileRow[]));
+
+  return rows;
 }
 
 async function getActiveFollowingUserIds(
@@ -410,7 +561,10 @@ async function getActiveFollowingUserIds(
     .eq('follower_id', userId)
     .eq('status', 'active');
 
-  if (error) throw new Error(error.message || 'following_ids_lookup_failed');
+  if (error) {
+    if (getFriendSchemaIssue(error) === 'user_follows') return [];
+    throw new Error(error.message || 'following_ids_lookup_failed');
+  }
   return (data ?? []).map((row: { following_id: string }) => row.following_id);
 }
 
@@ -475,7 +629,10 @@ export async function listFollowTimeline(
     .order('started_at', { ascending: false })
     .limit(Math.max(1, Math.min(limit, 80)));
 
-  if (sessionError) throw new Error(sessionError.message || 'timeline_sessions_lookup_failed');
+  if (sessionError) {
+    if (getFriendSchemaIssue(sessionError) === 'quiz_sessions') return [];
+    throw new Error(sessionError.message || 'timeline_sessions_lookup_failed');
+  }
 
   const sessions = (sessionRows ?? []) as QuizSessionRow[];
   const sessionIds = sessions.map((s) => s.id);
@@ -511,7 +668,10 @@ async function getSessionWordsBySessionId(
     .in('session_id', sessionIds)
     .order('mastered_at', { ascending: true });
 
-  if (error) throw new Error(error.message || 'timeline_words_lookup_failed');
+  if (error) {
+    if (getFriendSchemaIssue(error) === 'quiz_session_words') return map;
+    throw new Error(error.message || 'timeline_words_lookup_failed');
+  }
 
   for (const row of (data ?? []) as QuizSessionWordRow[]) {
     const words = map.get(row.session_id) ?? [];

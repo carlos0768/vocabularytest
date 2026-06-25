@@ -15,7 +15,9 @@ type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 type ProfileRow = {
   user_id: string;
   username: string | null;
-  account_id: string | null;
+  display_name?: string | null;
+  user_handle?: string | null;
+  account_id?: string | null;
 };
 
 type FriendshipRow = {
@@ -48,6 +50,24 @@ type QuizSessionWordRow = {
   mastered_at: string;
 };
 
+type SupabaseLikeError = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
+type FriendSchemaDependency =
+  | 'profiles_account_id'
+  | 'profiles_display_name'
+  | 'profiles_user_handle'
+  | 'profiles_is_public'
+  | 'user_friendships'
+  | 'user_follows'
+  | 'study_group_members'
+  | 'quiz_sessions'
+  | 'quiz_session_words';
+
 export type QuizSessionAnswerEvent = {
   wordId: string;
   projectId?: string | null;
@@ -57,10 +77,13 @@ export type QuizSessionAnswerEvent = {
 };
 
 const FRIENDSHIP_SELECT = 'id,requester_id,addressee_id,status,created_at,responded_at';
-const PROFILE_SELECT = 'user_id,username,account_id';
+const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id';
+const PROFILE_ACCOUNT_SELECT = 'user_id,username,account_id';
+const PROFILE_BASIC_SELECT = 'user_id,username';
 const QUIZ_SESSION_SELECT = 'id,user_id,started_at,expires_at,last_answered_at,answer_count,mastered_count';
-const ACCOUNT_ID_PATTERN = /^[a-z0-9_]{4,24}$/;
+const ACCOUNT_ID_PATTERN = /^[a-z0-9_]{3,24}$/;
 const SESSION_LENGTH_MS = 30 * 60 * 1000;
+const SKIPPED_SESSION_RECORD = { sessionId: '', masteredRecorded: false };
 
 export function normalizeAccountIdInput(input: string): string {
   return input
@@ -89,11 +112,75 @@ function isUniqueViolation(error: { code?: string | null } | null | undefined): 
   return error?.code === '23505';
 }
 
+export function normalizeFriendErrorText(error: unknown): string {
+  if (!error) return '';
+  if (typeof error === 'string') return error.toLowerCase();
+
+  const maybeError = error as SupabaseLikeError;
+  const parts = [
+    error instanceof Error ? error.message : '',
+    maybeError.code ?? '',
+    maybeError.message ?? '',
+    maybeError.details ?? '',
+    maybeError.hint ?? '',
+  ];
+
+  return parts.join(' ').trim().toLowerCase();
+}
+
+export function getFriendSchemaIssue(error: unknown): FriendSchemaDependency | null {
+  const normalized = normalizeFriendErrorText(error);
+  if (!normalized) return null;
+
+  for (const [column, issue] of [
+    ['account_id', 'profiles_account_id'],
+    ['display_name', 'profiles_display_name'],
+    ['user_handle', 'profiles_user_handle'],
+    ['is_public', 'profiles_is_public'],
+  ] as const) {
+    if (
+      normalized.includes(column)
+      && (
+        normalized.includes('does not exist')
+        || normalized.includes('column')
+        || normalized.includes('schema cache')
+        || normalized.includes('could not find')
+      )
+    ) {
+      return issue;
+    }
+  }
+
+  for (const table of ['user_friendships', 'user_follows', 'study_group_members', 'quiz_sessions', 'quiz_session_words'] as const) {
+    if (
+      normalized.includes(table)
+      && (
+        normalized.includes('does not exist')
+        || normalized.includes('relation')
+        || normalized.includes('schema cache')
+        || normalized.includes('could not find')
+      )
+    ) {
+      return table;
+    }
+  }
+
+  return null;
+}
+
+function isProfileSchemaIssue(error: unknown): boolean {
+  const issue = getFriendSchemaIssue(error);
+  return issue === 'profiles_account_id'
+    || issue === 'profiles_display_name'
+    || issue === 'profiles_user_handle'
+    || issue === 'profiles_is_public';
+}
+
 function toProfile(row: ProfileRow): FriendProfile {
   return {
     userId: row.user_id,
-    username: row.username ?? null,
-    accountId: row.account_id ?? buildDefaultAccountId(row.user_id),
+    username: row.display_name?.trim() || row.username?.trim() || row.user_handle?.trim() || null,
+    accountId: row.account_id?.trim() || row.user_handle?.trim() || buildDefaultAccountId(row.user_id),
   };
 }
 
@@ -146,6 +233,11 @@ async function getProfilesByUserIds(
     .in('user_id', uniqueIds);
 
   if (error) {
+    if (isProfileSchemaIssue(error)) {
+      const fallback = await getProfilesByUserIdsCompat(uniqueIds, admin);
+      if (fallback) return fallback;
+    }
+
     console.warn('[friends] profile lookup failed:', error.message);
     for (const userId of uniqueIds) map.set(userId, fallbackProfile(userId));
     return map;
@@ -161,6 +253,44 @@ async function getProfilesByUserIds(
   return map;
 }
 
+async function getProfilesByUserIdsCompat(
+  userIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<Map<string, FriendProfile> | null> {
+  const map = new Map<string, FriendProfile>();
+  const withAccount = await admin
+    .from('profiles')
+    .select(PROFILE_ACCOUNT_SELECT)
+    .in('user_id', userIds);
+
+  if (!withAccount.error) {
+    for (const row of (withAccount.data ?? []) as ProfileRow[]) {
+      map.set(row.user_id, toProfile(row));
+    }
+    for (const userId of userIds) {
+      if (!map.has(userId)) map.set(userId, fallbackProfile(userId));
+    }
+    return map;
+  }
+
+  if (!isProfileSchemaIssue(withAccount.error)) return null;
+
+  const basic = await admin
+    .from('profiles')
+    .select(PROFILE_BASIC_SELECT)
+    .in('user_id', userIds);
+
+  if (basic.error) return null;
+
+  for (const row of (basic.data ?? []) as ProfileRow[]) {
+    map.set(row.user_id, toProfile(row));
+  }
+  for (const userId of userIds) {
+    if (!map.has(userId)) map.set(userId, fallbackProfile(userId));
+  }
+  return map;
+}
+
 export async function ensureFriendProfile(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
@@ -172,6 +302,9 @@ export async function ensureFriendProfile(
     .maybeSingle<ProfileRow>();
 
   if (selectError) {
+    if (isProfileSchemaIssue(selectError)) {
+      return ensureFriendProfileCompat(userId, admin);
+    }
     throw new Error(selectError.message || 'profile_lookup_failed');
   }
 
@@ -190,10 +323,63 @@ export async function ensureFriendProfile(
     .single<ProfileRow>();
 
   if (error || !data) {
+    if (isProfileSchemaIssue(error)) {
+      return ensureFriendProfileCompat(userId, admin, existing ?? undefined);
+    }
     throw new Error(error?.message || 'profile_upsert_failed');
   }
 
   return toProfile(data);
+}
+
+async function ensureFriendProfileCompat(
+  userId: string,
+  admin: SupabaseAdminClient,
+  existing?: ProfileRow,
+): Promise<FriendProfile> {
+  const accountResult = await admin
+    .from('profiles')
+    .select(PROFILE_ACCOUNT_SELECT)
+    .eq('user_id', userId)
+    .maybeSingle<ProfileRow>();
+
+  if (!accountResult.error && accountResult.data) {
+    return toProfile(accountResult.data);
+  }
+
+  if (accountResult.error && !isProfileSchemaIssue(accountResult.error)) {
+    throw new Error(accountResult.error.message || 'profile_lookup_failed');
+  }
+
+  const basicResult = await admin
+    .from('profiles')
+    .select(PROFILE_BASIC_SELECT)
+    .eq('user_id', userId)
+    .maybeSingle<ProfileRow>();
+
+  if (!basicResult.error && basicResult.data) {
+    return toProfile(basicResult.data);
+  }
+
+  if (basicResult.error && !isProfileSchemaIssue(basicResult.error)) {
+    throw new Error(basicResult.error.message || 'profile_lookup_failed');
+  }
+
+  const inserted = await admin
+    .from('profiles')
+    .upsert({ user_id: userId }, { onConflict: 'user_id' })
+    .select(PROFILE_BASIC_SELECT)
+    .single<ProfileRow>();
+
+  if (!inserted.error && inserted.data) {
+    return toProfile(inserted.data);
+  }
+
+  if (inserted.error) {
+    console.warn('[friends] profile compatibility upsert failed:', inserted.error.message);
+  }
+
+  return existing ? toProfile(existing) : fallbackProfile(userId);
 }
 
 async function getFriendshipRowsForUser(
@@ -207,6 +393,9 @@ async function getFriendshipRowsForUser(
     .order('created_at', { ascending: false });
 
   if (error) {
+    if (getFriendSchemaIssue(error) === 'user_friendships') {
+      return [];
+    }
     throw new Error(error.message || 'friendships_lookup_failed');
   }
 
@@ -489,6 +678,9 @@ export async function listFriendTimeline(
     .limit(Math.max(1, Math.min(limit, 80)));
 
   if (sessionError) {
+    if (getFriendSchemaIssue(sessionError) === 'quiz_sessions') {
+      return [];
+    }
     throw new Error(sessionError.message || 'timeline_sessions_lookup_failed');
   }
 
@@ -527,6 +719,9 @@ async function getSessionWordsBySessionId(
     .order('mastered_at', { ascending: true });
 
   if (error) {
+    if (getFriendSchemaIssue(error) === 'quiz_session_words') {
+      return map;
+    }
     throw new Error(error.message || 'timeline_words_lookup_failed');
   }
 
@@ -566,6 +761,9 @@ export async function recordQuizSessionAnswer(
     .maybeSingle<QuizSessionRow>();
 
   if (activeError) {
+    if (getFriendSchemaIssue(activeError) === 'quiz_sessions') {
+      return SKIPPED_SESSION_RECORD;
+    }
     throw new Error(activeError.message || 'active_session_lookup_failed');
   }
 
@@ -587,6 +785,9 @@ export async function recordQuizSessionAnswer(
       .single<QuizSessionRow>();
 
     if (error || !data) {
+      if (getFriendSchemaIssue(error) === 'quiz_sessions') {
+        return SKIPPED_SESSION_RECORD;
+      }
       throw new Error(error?.message || 'quiz_session_create_failed');
     }
     session = data;
@@ -594,7 +795,8 @@ export async function recordQuizSessionAnswer(
 
   let masteredIncrement = 0;
   if (event.becameMastered) {
-    const { data: existingWord, error: existingWordError } = await admin
+    let existingWord: { id: string } | null = null;
+    const { data: existingWordResult, error: existingWordError } = await admin
       .from('quiz_session_words')
       .select('id')
       .eq('session_id', session.id)
@@ -602,7 +804,13 @@ export async function recordQuizSessionAnswer(
       .maybeSingle<{ id: string }>();
 
     if (existingWordError) {
-      throw new Error(existingWordError.message || 'session_word_lookup_failed');
+      if (getFriendSchemaIssue(existingWordError) === 'quiz_session_words') {
+        existingWord = { id: '__schema_unavailable__' };
+      } else {
+        throw new Error(existingWordError.message || 'session_word_lookup_failed');
+      }
+    } else {
+      existingWord = existingWordResult ?? null;
     }
 
     if (!existingWord) {
@@ -619,9 +827,13 @@ export async function recordQuizSessionAnswer(
         });
 
       if (insertWordError && !isUniqueViolation(insertWordError)) {
-        throw new Error(insertWordError.message || 'session_word_insert_failed');
+        if (getFriendSchemaIssue(insertWordError) === 'quiz_session_words') {
+          masteredIncrement = 0;
+        } else {
+          throw new Error(insertWordError.message || 'session_word_insert_failed');
+        }
       }
-      masteredIncrement = insertWordError ? 0 : 1;
+      if (!insertWordError) masteredIncrement = 1;
     }
   }
 
@@ -635,6 +847,9 @@ export async function recordQuizSessionAnswer(
     .eq('id', session.id);
 
   if (updateError) {
+    if (getFriendSchemaIssue(updateError) === 'quiz_sessions') {
+      return SKIPPED_SESSION_RECORD;
+    }
     throw new Error(updateError.message || 'quiz_session_update_failed');
   }
 

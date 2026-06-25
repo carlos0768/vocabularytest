@@ -207,15 +207,21 @@ export async function handleSignupVerifyPost(
     // Save onboarding profile fields if provided
     const userId = sessionData.user?.id;
     if (userId && (display_name || user_handle || eiken_level !== undefined)) {
-      const profileUpdate: Record<string, unknown> = {};
+      const profileUpdate: Record<string, unknown> = { user_id: userId };
+      if (display_name) profileUpdate.username = display_name;
       if (display_name) profileUpdate.display_name = display_name;
       if (user_handle) profileUpdate.user_handle = user_handle;
       if (eiken_level !== undefined) profileUpdate.eiken_level = eiken_level;
 
-      await adminClient
+      const { error: profileError } = await adminClient
         .from('profiles')
-        .update(profileUpdate)
-        .eq('user_id', userId);
+        .upsert(profileUpdate, { onConflict: 'user_id' });
+
+      if (profileError && display_name) {
+        await adminClient
+          .from('profiles')
+          .upsert({ user_id: userId, username: display_name }, { onConflict: 'user_id' });
+      }
     }
 
     // 使用済みOTPを削除
