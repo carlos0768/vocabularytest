@@ -540,12 +540,12 @@ function SignupForm() {
       {/* Desktop */}
       <DesktopAuthShell
         title="プロフィール設定"
-        description="まずは、あなたのことを教えてください。"
+        description=""
       >
         {error && <DesktopAuthError>{error}</DesktopAuthError>}
         <DesktopAuthField
           label="ユーザー名"
-          placeholder="けんた"
+          placeholder="山田太郎"
           type="text"
           value={displayName}
           onChange={setDisplayName}
@@ -620,7 +620,7 @@ function SignupForm() {
           stepIndex={stepIndex}
           totalSteps={totalSteps}
           title="プロフィール設定"
-          description="まずは、あなたのことを教えてください。"
+          description=""
           backHref="/"
         >
           <div className="flex flex-col gap-3 px-6 pb-3">
@@ -628,7 +628,7 @@ function SignupForm() {
 
             <FormField
               label="ユーザー名"
-              placeholder="けんた"
+              placeholder="山田太郎"
               type="text"
               value={displayName}
               onChange={setDisplayName}

@@ -75,7 +75,7 @@ test('signup request bodies use the existing OTP API contracts', () => {
       code: '123456',
       password: 'password123',
       onboarding: {
-        displayName: ' けんた ',
+        displayName: ' 山田太郎 ',
         userHandle: 'kenta_123',
         eikenLevel: '3',
       },
@@ -84,7 +84,7 @@ test('signup request bodies use the existing OTP API contracts', () => {
       email: 'User@Example.COM',
       code: '123456',
       password: 'password123',
-      display_name: 'けんた',
+      display_name: '山田太郎',
       user_handle: 'kenta_123',
       eiken_level: '3',
     },
@@ -98,17 +98,17 @@ test('validateOnboardingData validates name and handle', () => {
   );
 
   assert.deepEqual(
-    validateOnboardingData({ displayName: 'けんた', userHandle: 'ab', eikenLevel: null }),
+    validateOnboardingData({ displayName: '山田太郎', userHandle: 'ab', eikenLevel: null }),
     { ok: false, error: 'IDは半角英小文字・数字・アンダースコアで3〜20文字です' },
   );
 
   assert.deepEqual(
-    validateOnboardingData({ displayName: 'けんた', userHandle: 'AB_UPPER', eikenLevel: null }),
+    validateOnboardingData({ displayName: '山田太郎', userHandle: 'AB_UPPER', eikenLevel: null }),
     { ok: false, error: 'IDは半角英小文字・数字・アンダースコアで3〜20文字です' },
   );
 
   assert.deepEqual(
-    validateOnboardingData({ displayName: 'けんた', userHandle: 'kenta_123', eikenLevel: '3' }),
+    validateOnboardingData({ displayName: '山田太郎', userHandle: 'kenta_123', eikenLevel: '3' }),
     { ok: true },
   );
 });
