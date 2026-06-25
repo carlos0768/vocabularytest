@@ -720,7 +720,7 @@ test('server_cloud writes source_modes from normalized scan_modes instead of AI 
   assert.deepEqual(wordsInsert.payload[0]?.source_modes, ['all', 'idiom', 'eiken']);
 });
 
-test('server_cloud expands split translations before inserting quiz words', async () => {
+test('server_cloud keeps split translations on one inserted word', async () => {
   const client = new FakeScanProcessClient({
     claimedJob: pendingServerCloudJob(),
     userPreference: { ai_enabled: false },
@@ -776,7 +776,7 @@ test('server_cloud expands split translations before inserting quiz words', asyn
     success: true,
     saveMode: 'server_cloud',
     projectId: NEW_PROJECT_ID,
-    wordCount: 2,
+    wordCount: 1,
   });
 
   const wordsInsert = findOperation(
@@ -785,7 +785,7 @@ test('server_cloud expands split translations before inserting quiz words', asyn
     'missing words insert',
   );
   assert.ok(Array.isArray(wordsInsert.payload));
-  assert.deepEqual(wordsInsert.payload.map((row) => row.japanese), ['感覚', '分別']);
+  assert.deepEqual(wordsInsert.payload.map((row) => row.japanese), ['感覚']);
 
   const translationsUpsert = findOperation(
     client,
@@ -799,7 +799,7 @@ test('server_cloud expands split translations before inserting quiz words', asyn
     position: row.position,
   })), [
     { word_id: 'word-1', translation_ja: '感覚', is_primary: true, position: 0 },
-    { word_id: 'word-2', translation_ja: '分別', is_primary: true, position: 0 },
+    { word_id: 'word-1', translation_ja: '分別', is_primary: false, position: 1 },
   ]);
 });
 

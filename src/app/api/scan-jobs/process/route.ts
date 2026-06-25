@@ -85,7 +85,6 @@ import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import {
   buildWordTranslationInsertRows,
-  expandWordsByTranslationsForPersistence,
   isWordTranslationsSchemaError,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
@@ -1044,12 +1043,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         ? null
         : await backfillWords(dedupedWords);
       timing.lexiconResolutionMs = Date.now() - lexiconResolutionStart;
-      const resolvedWords = expandWordsByTranslationsForPersistence(
-        applySourceModesFromScanModes(
-          resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords,
-          modes,
-        ).map((word) => normalizeWordForTranslationPersistence(word)),
-      );
+      const resolvedWords = applySourceModesFromScanModes(
+        resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords,
+        modes,
+      ).map((word) => normalizeWordForTranslationPersistence(word));
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
       console.log('[scan-jobs/process] Extraction finished', {

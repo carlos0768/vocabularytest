@@ -492,11 +492,10 @@ test('words/create uses master-first resolution before legacy backfill', async (
   );
 });
 
-test('words/create expands split translations into separate persisted words', async () => {
+test('words/create keeps split translations on one persisted word', async () => {
   const projectId = '11111111-1111-4111-8111-111111111111';
   const createdAt = new Date('2026-03-15T00:00:00.000Z').toISOString();
   const wordId = '88888888-8888-4888-8888-888888888888';
-  const secondWordId = '99999999-9999-4999-8999-999999999999';
 
   const fakeClient = new FakeWordsCreateClient(
     'user-1',
@@ -507,22 +506,6 @@ test('words/create expands split translations into separate persisted words', as
         project_id: projectId,
         english: 'sense',
         japanese: '感覚',
-        lexicon_entry_id: null,
-        distractors: [],
-        part_of_speech_tags: ['noun'],
-        created_at: createdAt,
-        status: 'new',
-        ease_factor: 2.5,
-        interval_days: 0,
-        repetition: 0,
-        is_favorite: false,
-        lexicon_entries: null,
-      },
-      {
-        id: secondWordId,
-        project_id: projectId,
-        english: 'sense',
-        japanese: '分別',
         lexicon_entry_id: null,
         distractors: [],
         part_of_speech_tags: ['noun'],
@@ -571,8 +554,8 @@ test('words/create expands split translations into separate persisted words', as
   await afterPromise;
 
   assert.equal(response.status, 200);
+  assert.equal(fakeClient.insertedRows.length, 1);
   assert.equal(fakeClient.insertedRows[0]?.['japanese'], '感覚');
-  assert.equal(fakeClient.insertedRows[1]?.['japanese'], '分別');
   assert.deepEqual(
     fakeClient.translationRows.map((row) => ({
       word_id: row.word_id,
@@ -583,7 +566,7 @@ test('words/create expands split translations into separate persisted words', as
     })),
     [
       { word_id: wordId, translation_ja: '感覚', meaning_rank: 1, is_primary: true, position: 0 },
-      { word_id: secondWordId, translation_ja: '分別', meaning_rank: 1, is_primary: true, position: 0 },
+      { word_id: wordId, translation_ja: '分別', meaning_rank: 2, is_primary: false, position: 1 },
     ],
   );
 });

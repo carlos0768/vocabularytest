@@ -115,3 +115,43 @@ test('groupWordsByMemory treats linked non-primary senses as one memory-rate wor
   assert.equal(group?.memoryRate, 50);
   assert.deepEqual(selectPrimaryMeaningWords(words).map((item) => item.id), ['sense-primary']);
 });
+
+test('groupWordsByMemory computes memory rate from distinct translations on one word', () => {
+  const words = [
+    word({
+      id: 'word-free',
+      english: 'free',
+      japanese: '自由な',
+      status: 'mastered',
+      lexiconEntryId: 'lex-free',
+      lexiconSenseId: 'sense-primary',
+      lexiconSenseIsPrimary: true,
+      translations: [
+        {
+          translationJa: '自由な',
+          normalizedTranslationJa: '自由な',
+          isPrimary: true,
+          lexiconSenseId: 'sense-primary',
+          lexiconSenseIsPrimary: true,
+          status: 'mastered',
+        },
+        {
+          translationJa: '無料の',
+          normalizedTranslationJa: '無料の',
+          distinctKey: 'cost',
+          isPrimary: false,
+          lexiconSenseId: 'sense-cost',
+          lexiconSenseIsPrimary: false,
+          status: 'new',
+        },
+      ],
+    }),
+  ];
+
+  const [group] = groupWordsByMemory(words);
+
+  assert.equal(group?.isDistinctGroup, true);
+  assert.equal(group?.memoryRate, 50);
+  assert.equal(group?.status, 'review');
+  assert.deepEqual(group?.senses.map((sense) => sense.japanese), ['自由な', '無料の']);
+});

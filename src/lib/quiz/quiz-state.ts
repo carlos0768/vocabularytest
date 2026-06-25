@@ -10,6 +10,11 @@ import {
   isSameWordMeaning,
   selectPrimaryMeaningWords,
 } from '@/lib/words/memory';
+import {
+  expandWordsForQuizTargets,
+  getQuizTargetKey,
+  isTranslationQuizTarget,
+} from '@/lib/quiz/translation-targets';
 
 export type QuizDirection = 'en-to-ja' | 'ja-to-en';
 
@@ -43,12 +48,13 @@ export function generateQuizQuestions(
   settings: { allowPendingWordOrderFallback?: boolean; preserveOrder?: boolean; primaryOnly?: boolean } = {},
 ): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
-  const quizWords = settings.primaryOnly ? selectPrimaryMeaningWords(words) : words;
+  const sourceWords = settings.primaryOnly ? selectPrimaryMeaningWords(words) : words;
+  const quizWords = expandWordsForQuizTargets(sourceWords, { primaryOnly: settings.primaryOnly });
 
   for (const word of settings.preserveOrder ? quizWords : sortWordsByPriority(quizWords)) {
     if (questions.length >= count) break;
 
-    if (!isActiveQuizWord(word) && isWordOrderEligible(word)) {
+    if (!isTranslationQuizTarget(word) && !isActiveQuizWord(word) && isWordOrderEligible(word)) {
       const wordOrderQuestion = buildWordOrderQuestion(word, shuffle);
       if (wordOrderQuestion) {
         questions.push(wordOrderQuestion);
@@ -60,7 +66,8 @@ export function generateQuizQuestions(
 
     if (direction === 'ja-to-en') {
       const correctEn = word.english.trim().toLowerCase();
-      const otherWords = quizWords.filter((item) => item.id !== word.id && !isSameWordMeaning(item, word));
+      const wordTargetKey = getQuizTargetKey(word);
+      const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && !isSameWordMeaning(item, word));
       let englishDistractors = shuffle(otherWords)
         .map((item) => item.english)
         .filter((english) => english.trim().toLowerCase() !== correctEn);
@@ -94,16 +101,17 @@ export function generateQuizQuestions(
     }
 
     const correctJa = word.japanese.trim().toLowerCase();
+    const wordTargetKey = getQuizTargetKey(word);
     const sameMeaningTranslations = new Set(
       quizWords
-        .filter((item) => item.id !== word.id && isSameWordMeaning(item, word))
+        .filter((item) => getQuizTargetKey(item) !== wordTargetKey && isSameWordMeaning(item, word))
         .map((item) => item.japanese.trim().toLowerCase())
         .filter(Boolean),
     );
     let distractors: string[] = [...(word.distractors || [])];
 
     if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
-      const otherWords = quizWords.filter((item) => item.id !== word.id && !isSameWordMeaning(item, word));
+      const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && !isSameWordMeaning(item, word));
       distractors = shuffle(otherWords)
         .map((item) => item.japanese)
         .filter((japanese) => japanese.trim().toLowerCase() !== correctJa);
@@ -147,11 +155,13 @@ export function applyWordOrderQuestionsToPendingQuiz(
   currentIndex: number,
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
 ): QuizQuestion[] {
-  const wordById = new Map(words.map((word) => [word.id, word]));
+  const wordByTargetKey = new Map(
+    expandWordsForQuizTargets(words).map((word) => [getQuizTargetKey(word), word]),
+  );
   const wordOrderQuestionWordIds = new Set(
     questions
       .filter((question) => question.type === 'word-order')
-      .map((question) => question.word.id),
+      .map((question) => getQuizTargetKey(question.word)),
   );
   const insertAfterCurrent: QuizQuestion[] = [];
   let changed = false;
@@ -165,7 +175,12 @@ export function applyWordOrderQuestionsToPendingQuiz(
       return question;
     }
 
-    const updatedWord = wordById.get(question.word.id);
+    if (isTranslationQuizTarget(question.word)) {
+      return question;
+    }
+
+    const questionTargetKey = getQuizTargetKey(question.word);
+    const updatedWord = wordByTargetKey.get(questionTargetKey);
     if (!updatedWord) {
       return question;
     }
@@ -179,16 +194,16 @@ export function applyWordOrderQuestionsToPendingQuiz(
     }
 
     if (index <= currentIndex) {
-      if (!wordOrderQuestionWordIds.has(question.word.id)) {
+      if (!wordOrderQuestionWordIds.has(questionTargetKey)) {
         insertAfterCurrent.push(wordOrderQuestion);
-        wordOrderQuestionWordIds.add(question.word.id);
+        wordOrderQuestionWordIds.add(questionTargetKey);
         changed = true;
       }
       return question;
     }
 
     changed = true;
-    wordOrderQuestionWordIds.add(question.word.id);
+    wordOrderQuestionWordIds.add(questionTargetKey);
     return wordOrderQuestion;
   });
 

@@ -8,6 +8,7 @@ import { TypeInQuizField } from '@/components/quiz';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { createBrowserClient } from '@/lib/supabase';
 import {
   recordCorrectAnswer,
   recordWrongAnswer,
@@ -16,7 +17,7 @@ import {
   getWrongAnswers,
   type WrongAnswer,
 } from '@/lib/utils';
-import { getWordsDueForReview, sortWordsByPriority } from '@/lib/spaced-repetition';
+import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
   applyWordOrderQuestionsToPendingQuiz,
@@ -50,6 +51,14 @@ import {
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
+import { mapTranslationProgressUpdatesToRow } from '@/lib/quiz/translation-progress';
+import {
+  getQuizTargetCount,
+  hasDueQuizTarget,
+  hasUnmasteredQuizTarget,
+  isTranslationQuizTarget,
+  mergeTranslationProgress,
+} from '@/lib/quiz/translation-targets';
 import { selectPrimaryMeaningWords } from '@/lib/words/memory';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { formatPartOfSpeechLabels } from '@/lib/part-of-speech-labels';
@@ -886,8 +895,8 @@ export default function QuizPage() {
             });
           } else {
             sourceWords = reviewMode
-              ? getWordsDueForReview(allFlat)
-              : allFlat.filter((w) => w.status !== 'mastered');
+              ? allFlat.filter((w) => hasDueQuizTarget(w, { primaryOnly: !isPro }))
+              : allFlat.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
           }
         } else if (collectionId) {
           sourceWords = await loadCollectionWords(collectionId);
@@ -906,7 +915,7 @@ export default function QuizPage() {
         }
 
         if (!reviewMode && !learnMode && !wrongMode && !favoritesMode && !reminderMode) {
-          const nonMastered = sourceWords.filter((w) => w.status !== 'mastered');
+          const nonMastered = sourceWords.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
           if (nonMastered.length > 0) sourceWords = nonMastered;
         }
 
@@ -919,7 +928,8 @@ export default function QuizPage() {
         const prioritized = reminderMode ? sourceWords : sortWordsByPriority(sourceWords);
         setAllWords(prioritized);
 
-        const resolvedCount = Math.max(1, Math.min(questionCount ?? prioritized.length, prioritized.length, MAX_NORMAL_QUIZ_QUESTION_COUNT));
+        const targetCount = getQuizTargetCount(prioritized, { primaryOnly: !isPro });
+        const resolvedCount = Math.max(1, Math.min(questionCount ?? targetCount, targetCount, MAX_NORMAL_QUIZ_QUESTION_COUNT));
         if (questionCount !== resolvedCount) setQuestionCount(resolvedCount);
 
         if (resolvedCount) {
@@ -945,12 +955,12 @@ export default function QuizPage() {
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
-        const pending = remoteWords.filter((w) => w.status !== 'mastered');
+        const pending = remoteWords.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
         if (pending.length > 0) setAllWords((prev) => pending.length > prev.length ? sortWordsByPriority(pending) : prev);
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId]);
+  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, isPro]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
@@ -1010,9 +1020,36 @@ export default function QuizPage() {
     recordActivity();
     try {
       const updates = outcomePlan.wordUpdates;
-      await repository.updateWord(word.id, updates);
-      setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
-      setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, ...updates } : w));
+      if (isTranslationQuizTarget(word) && word.quizTarget) {
+        const target = word.quizTarget;
+        const translationUpdates = {
+          status: updates.status,
+          lastReviewedAt: updates.lastReviewedAt,
+          nextReviewAt: updates.nextReviewAt,
+          easeFactor: updates.easeFactor,
+          intervalDays: updates.intervalDays,
+          repetition: updates.repetition,
+        };
+
+        if (target.translationId) {
+          const { error } = await createBrowserClient()
+            .from('word_translations')
+            .update(mapTranslationProgressUpdatesToRow(translationUpdates))
+            .eq('id', target.translationId);
+          if (error) throw new Error(error.message);
+        }
+
+        setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
+        setAllWords((prev) => prev.map((w) => (
+          w.id === target.wordId
+            ? mergeTranslationProgress(w, target, translationUpdates)
+            : w
+        )));
+      } else {
+        await repository.updateWord(word.id, updates);
+        setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
+        setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, ...updates } : w));
+      }
       if (user) {
         fetch('/api/quiz-sessions/events', {
           method: 'POST',
@@ -1110,7 +1147,8 @@ export default function QuizPage() {
 
   const handleRestart = async () => {
     clearQuizState();
-    const count = Math.max(1, Math.min(questionCount ?? allWords.length ?? DEFAULT_QUESTION_COUNT, allWords.length || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
+    const targetCount = getQuizTargetCount(allWords, { primaryOnly: !isPro });
+    const count = Math.max(1, Math.min(questionCount ?? targetCount ?? DEFAULT_QUESTION_COUNT, targetCount || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
     if (allWords.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count);
     else setQuestions(generateQuestions(allWords, count, quizDirection));
     setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null); setIsRevealed(false);
@@ -1169,7 +1207,7 @@ export default function QuizPage() {
 
   /* ---------- Question count selection ---------- */
   if (!questionCount) {
-    const maxQ = Math.min(allWords.length, MAX_NORMAL_QUIZ_QUESTION_COUNT);
+    const maxQ = Math.min(getQuizTargetCount(allWords, { primaryOnly: !isPro }), MAX_NORMAL_QUIZ_QUESTION_COUNT);
     const { parsedInput: parsed, isValidInput: isValid } = parseQuizQuestionCountInput(inputCount, maxQ);
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3">
