@@ -243,7 +243,7 @@ export default function FriendsPage() {
 
         {!timelineLoading && sessions.length === 0 && (
           <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
-            まだ活動がありません
+            まだ学習セッションがありません。クイズを始めると、ここにフィードが表示されます。
           </div>
         )}
 
@@ -263,7 +263,7 @@ export default function FriendsPage() {
   return (
     <>
       <div className="hidden h-full min-h-0 flex-col lg:flex">
-        <DesktopTopbar title="フレンド" crumb="学習タイムライン">
+        <DesktopTopbar title="フィード" crumb="学習タイムライン">
           <DesktopButton href="/shared" icon="hub" variant="ghost">共有ライブラリ</DesktopButton>
         </DesktopTopbar>
         <div className="ds-scroll">
