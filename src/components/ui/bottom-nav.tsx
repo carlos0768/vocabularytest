@@ -17,7 +17,7 @@ const HomeIconFilled = () => (
   </svg>
 );
 
-const FriendsIcon = () => (
+const SharedIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="9" cy="8" r="3"/>
     <path d="M3.5 20a5.5 5.5 0 0111 0"/>
@@ -26,7 +26,7 @@ const FriendsIcon = () => (
   </svg>
 );
 
-const FriendsIconFilled = () => (
+const SharedIconFilled = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="9" cy="8" r="3"/>
     <path d="M3.5 20a5.5 5.5 0 0111 0"/>
@@ -90,12 +90,12 @@ const TABS: TabItem[] = [
     IconActive: HomeIconFilled,
   },
   {
-    k: 'friends',
-    label: 'フレンド',
-    href: '/friends',
-    matchPaths: ['/friends'],
-    IconDefault: FriendsIcon,
-    IconActive: FriendsIconFilled,
+    k: 'shared',
+    label: '共有',
+    href: '/shared',
+    matchPaths: ['/shared', '/share'],
+    IconDefault: SharedIcon,
+    IconActive: SharedIconFilled,
   },
   {
     k: 'create',

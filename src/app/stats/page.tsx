@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { DesktopStatsView } from '@/components/desktop/DesktopStats';
+import { FriendsPanel } from '@/components/friends/FriendsPanel';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -19,6 +20,8 @@ type StatsLoadState = {
   stats: CachedStats | null;
 };
 
+type StatsSection = 'overview' | 'friends';
+
 function heatLevel(count: number): number {
   if (count <= 0) return 0;
   if (count < 5) return 1;
@@ -28,6 +31,7 @@ function heatLevel(count: number): number {
 
 export default function StatsPage() {
   const { user, subscription, isPro, wasPro, loading: authLoading } = useAuth();
+  const [activeSection, setActiveSection] = useState<StatsSection>('overview');
   const authStatsKey = authLoading ? null : user?.id ?? 'guest';
   const [statsState, setStatsState] = useState<StatsLoadState | null>(null);
   const stats = statsState?.authKey === authStatsKey ? statsState.stats : null;
@@ -68,9 +72,31 @@ export default function StatsPage() {
   const newWords = stats?.newWords ?? 0;
   const masteryPercent = totalWords > 0 ? Math.round((mastered / totalWords) * 100) : 0;
 
+  useEffect(() => {
+    const syncHash = () => {
+      setActiveSection(window.location.hash === '#friends' ? 'friends' : 'overview');
+    };
+
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, []);
+
+  const selectSection = (section: StatsSection) => {
+    setActiveSection(section);
+    const nextUrl = section === 'friends' ? `${window.location.pathname}#friends` : window.location.pathname;
+    window.history.replaceState(null, '', nextUrl);
+  };
+
   return (
     <>
-      <DesktopStatsView stats={stats} loading={loading} />
+      <DesktopStatsView
+        stats={stats}
+        loading={loading}
+        activeSection={activeSection}
+        onSectionChange={selectSection}
+        friendsPanel={<FriendsPanel embedded />}
+      />
       <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[18px] pb-3 pt-1">
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
@@ -81,7 +107,15 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {loading ? (
+      <div className="px-[18px] pb-3">
+        <StatsSectionTabs activeSection={activeSection} onSectionChange={selectSection} />
+      </div>
+
+      {activeSection === 'friends' ? (
+        <div className="px-[18px] pb-[110px]">
+          <FriendsPanel embedded />
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-20 text-[var(--color-muted)]">
           <Icon name="progress_activity" size={22} className="animate-spin" />
           <span className="ml-2 text-sm">読み込み中...</span>
@@ -213,6 +247,42 @@ export default function StatsPage() {
       )}
       </div>
     </>
+  );
+}
+
+function StatsSectionTabs({
+  activeSection,
+  onSectionChange,
+}: {
+  activeSection: StatsSection;
+  onSectionChange: (section: StatsSection) => void;
+}) {
+  const tabs: { key: StatsSection; label: string; icon: string }[] = [
+    { key: 'overview', label: '統計', icon: 'bar_chart' },
+    { key: 'friends', label: 'フレンド', icon: 'groups' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white p-1">
+      {tabs.map((tab) => {
+        const active = activeSection === tab.key;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => onSectionChange(tab.key)}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[8px] text-[12px] font-extrabold"
+            style={{
+              background: active ? 'var(--solid-ink)' : 'transparent',
+              color: active ? '#fff' : 'var(--solid-ink)',
+            }}
+          >
+            <Icon name={tab.icon} size={15} filled={active} />
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
