@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -351,7 +351,7 @@ function FriendsContent({
 
   if (!isAuthenticated) {
     return (
-      <div className="ds-scroll px-[18px]">
+      <div className="ds-scroll mx-auto max-w-[640px] px-[18px]">
         <SolidPanel className="!rounded-[14px]" faceClassName="!p-5 text-center">
           <Icon name="lock" size={28} className="mx-auto text-[var(--color-muted)]" />
           <div className="mt-3 font-display text-lg font-bold text-[var(--solid-ink)]">ログインが必要です</div>
@@ -364,34 +364,28 @@ function FriendsContent({
   }
 
   return (
-    <div className="ds-scroll grid gap-4 px-[18px] lg:grid-cols-[1fr_280px] lg:gap-5 lg:px-[34px]">
-      <main className="min-w-0">
-        {error && (
-          <div className="mb-4 rounded-[12px] border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] font-bold text-[#dc2626]">
-            {error}
-          </div>
-        )}
-        <TimelineSection
-          sessions={sessions}
-          timelineLoading={timelineLoading}
-          expanded={expanded}
-          onToggleSession={onToggleSession}
-        />
-      </main>
+    <div className="ds-scroll mx-auto max-w-[640px] px-[18px] lg:px-6">
+      {error && (
+        <div className="mb-3 rounded-[12px] border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] font-bold text-[#dc2626]">
+          {error}
+        </div>
+      )}
 
-      <aside className="flex min-w-0 flex-col gap-3">
-        <ProfileSection profile={profile} onCopyAccountId={onCopyAccountId} />
-        <SearchSection
-          query={query}
-          results={searchResults}
-          loading={searchLoading}
-          error={searchError}
-          actionLoading={actionLoading}
-          onQueryChange={onQueryChange}
-          onSearchSubmit={onSearchSubmit}
-          onSendRequest={onSendRequest}
-        />
-        {hasRequests && (
+      <FeedTopBar
+        profile={profile}
+        query={query}
+        searchLoading={searchLoading}
+        searchError={searchError}
+        searchResults={searchResults}
+        actionLoading={actionLoading}
+        onQueryChange={onQueryChange}
+        onSearchSubmit={onSearchSubmit}
+        onSendRequest={onSendRequest}
+        onCopyAccountId={onCopyAccountId}
+      />
+
+      {hasRequests && (
+        <div className="mb-3">
           <RequestsSection
             incoming={incoming}
             outgoing={outgoing}
@@ -399,124 +393,118 @@ function FriendsContent({
             onRespondRequest={onRespondRequest}
             onRemoveFriend={onRemoveFriend}
           />
-        )}
+        </div>
+      )}
+
+      <TimelineSection
+        sessions={sessions}
+        timelineLoading={timelineLoading}
+        expanded={expanded}
+        onToggleSession={onToggleSession}
+      />
+
+      <div className="mt-6 border-t border-[var(--color-border)] pt-5">
         <FriendsSection
           friends={friends}
           actionLoading={actionLoading}
           onRemoveFriend={onRemoveFriend}
         />
-      </aside>
+      </div>
     </div>
   );
 }
 
-function ProfileSection({
+function FeedTopBar({
   profile,
-  onCopyAccountId,
-}: {
-  profile: FriendProfile | null;
-  onCopyAccountId: () => void;
-}) {
-  if (!profile) return null;
-
-  return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
-      <div className="flex items-center gap-2.5">
-        <Avatar profile={profile} size="sm" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-[13px] font-extrabold text-[var(--solid-ink)]">{displayName(profile)}</div>
-          <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{profile.accountId}</div>
-        </div>
-        <button
-          type="button"
-          onClick={onCopyAccountId}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-colors hover:bg-[var(--color-surface-secondary)]"
-          title="アカウントIDをコピー"
-          aria-label="アカウントIDをコピー"
-        >
-          <Icon name="content_copy" size={14} />
-        </button>
-      </div>
-    </SolidPanel>
-  );
-}
-
-function SearchSection({
   query,
-  results,
-  loading,
-  error,
+  searchLoading,
+  searchError,
+  searchResults,
   actionLoading,
   onQueryChange,
   onSearchSubmit,
   onSendRequest,
+  onCopyAccountId,
 }: {
+  profile: FriendProfile | null;
   query: string;
-  results: FriendSearchResult[];
-  loading: boolean;
-  error: string | null;
+  searchLoading: boolean;
+  searchError: string | null;
+  searchResults: FriendSearchResult[];
   actionLoading: string | null;
   onQueryChange: (value: string) => void;
   onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSendRequest: (accountId: string) => void;
+  onCopyAccountId: () => void;
 }) {
   return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
-      <form onSubmit={onSearchSubmit} className="flex gap-2">
-        <div className="hidden flex-1 lg:block">
-          <DesktopSearchBox
-            placeholder="@account_id / ユーザー名"
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-          />
-        </div>
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 lg:hidden">
-          <Icon name="search" size={17} className="shrink-0 text-[var(--color-muted)]" />
-          <input
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="@account_id / ユーザー名"
-            className="min-w-0 flex-1 bg-transparent text-[13px] font-bold outline-none placeholder:text-[var(--color-muted)]"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={loading || !query.trim()}
-          className="inline-flex h-[38px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-white disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="検索"
-        >
-          <Icon name={loading ? 'progress_activity' : 'search'} className={loading ? 'animate-spin' : ''} size={16} />
-        </button>
-      </form>
+    <div className="mb-4">
+      <div className="flex items-center gap-2.5">
+        {profile && (
+          <>
+            <Avatar profile={profile} size="sm" />
+            <button
+              type="button"
+              onClick={onCopyAccountId}
+              className="mr-0.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2.5 text-[10px] font-bold text-[var(--color-muted)] transition-colors hover:bg-[var(--color-border)]"
+              title="アカウントIDをコピー"
+            >
+              @{profile.accountId}
+              <Icon name="content_copy" size={11} />
+            </button>
+          </>
+        )}
+        <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 gap-2">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3.5 py-2">
+            <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+            <input
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="ユーザーを検索"
+              className="min-w-0 flex-1 bg-transparent text-[13px] font-bold outline-none placeholder:text-[var(--color-muted)]"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={searchLoading || !query.trim()}
+            className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="検索"
+          >
+            <Icon name={searchLoading ? 'progress_activity' : 'arrow_forward'} className={searchLoading ? 'animate-spin' : ''} size={16} />
+          </button>
+        </form>
+      </div>
 
-      {error && (
-        <div className="mt-2 rounded-[8px] border border-[#fca5a5] bg-[#fef2f2] px-2.5 py-2 text-[11px] font-bold text-[#dc2626]">
-          {error}
+      {searchError && (
+        <div className="mt-2 rounded-[10px] border border-[#fca5a5] bg-[#fef2f2] px-3 py-2 text-[11px] font-bold text-[#dc2626]">
+          {searchError}
         </div>
       )}
 
-      <div className="mt-2 flex flex-col gap-1.5">
-        {results.map((result) => (
-          <div key={result.userId} className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-2.5 py-2">
-            <Avatar profile={result} size="sm" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12px] font-extrabold text-[var(--solid-ink)]">{displayName(result)}</div>
-              <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{result.accountId}</div>
+      {(searchResults.length > 0 || (query.trim() && !searchLoading)) && (
+        <div className="mt-2 flex flex-col gap-1.5">
+          {searchResults.map((result) => (
+            <div key={result.userId} className="flex items-center gap-2 rounded-[12px] border border-[var(--color-border)] bg-white px-3 py-2.5">
+              <Avatar profile={result} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{displayName(result)}</div>
+                <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{result.accountId}</div>
+              </div>
+              <SearchResultAction
+                result={result}
+                actionLoading={actionLoading}
+                onSendRequest={onSendRequest}
+              />
             </div>
-            <SearchResultAction
-              result={result}
-              actionLoading={actionLoading}
-              onSendRequest={onSendRequest}
-            />
-          </div>
-        ))}
-        {!loading && query.trim() && results.length === 0 && (
-          <div className="rounded-[10px] border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-[11px] font-bold text-[var(--color-muted)]">
-            見つかりませんでした
-          </div>
-        )}
-      </div>
-    </SolidPanel>
+          ))}
+          {!searchLoading && query.trim() && searchResults.length === 0 && (
+            <div className="rounded-[12px] border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-[12px] font-bold text-[var(--color-muted)]">
+              見つかりませんでした
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -545,7 +533,7 @@ function SearchResultAction({
       type="button"
       onClick={() => onSendRequest(result.accountId)}
       disabled={Boolean(actionLoading)}
-      className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[#6366f1] bg-[#6366f1] px-2 text-[11px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] px-2 text-[11px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
     >
       <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
       申請
@@ -662,8 +650,8 @@ function TimelineSection({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#eef2ff]">
-            <Icon name="timeline" size={16} className="text-[#6366f1]" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[var(--color-accent-light)]">
+            <Icon name="timeline" size={16} className="text-[var(--color-accent)]" />
           </div>
           <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">タイムライン</span>
         </div>
@@ -679,8 +667,8 @@ function TimelineSection({
       ))}
       {!timelineLoading && sessions.length === 0 && (
         <div className="rounded-[16px] border-2 border-dashed border-[var(--color-border)] px-5 py-14 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#eef2ff]">
-            <Icon name="timeline" size={28} className="text-[#6366f1]" />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent-light)]">
+            <Icon name="timeline" size={28} className="text-[var(--color-accent)]" />
           </div>
           <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">セッションはまだありません</div>
           <div className="mt-1 text-[12px] text-[var(--color-muted)]">フレンドが学習を始めるとここに表示されます</div>
@@ -736,7 +724,7 @@ function TimelineItem({
             {session.words.length > 0 ? (
               <div className="flex flex-col gap-2">
                 {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3">
+                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
                     <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
                     <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
                   </div>
@@ -804,10 +792,10 @@ function SectionTitle({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon name={icon} size={16} className="text-[#6366f1]" />
+      <Icon name={icon} size={16} className="text-[var(--color-accent)]" />
       <span className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">{label}</span>
       {typeof count === 'number' && (
-        <span className="rounded-full bg-[#6366f1] px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">{count}</span>
+        <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">{count}</span>
       )}
     </div>
   );
@@ -831,8 +819,8 @@ function MetricChip({
   variant?: 'quiz' | 'mastered' | 'default';
 }) {
   const styles = {
-    quiz: 'border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5]',
-    mastered: 'border-[#a7f3d0] bg-[#ecfdf5] text-[#059669]',
+    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
+    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
     default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
   };
   return (

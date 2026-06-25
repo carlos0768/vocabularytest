@@ -63,12 +63,12 @@ export function PwaInstallBanner() {
             className="relative overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] px-4 pb-4 pt-4"
             style={{
               background:
-                'linear-gradient(135deg, #ecfdf5 0%, #eef2ff 50%, #fdf2f8 100%)',
+                'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 50%, #fefce8 100%)',
             }}
           >
             <div
               aria-hidden
-              className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-[#6366f1] opacity-[0.07]"
+              className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-[var(--color-accent)] opacity-[0.07]"
             />
             <div
               aria-hidden
@@ -86,7 +86,7 @@ export function PwaInstallBanner() {
 
             <div className="flex items-start gap-3.5">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
-                <Icon name="install_mobile" size={22} className="text-[#6366f1]" />
+                <Icon name="install_mobile" size={22} className="text-[var(--color-accent)]" />
               </div>
               <div className="min-w-0 flex-1 pr-6">
                 <h3 className="font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">
@@ -104,7 +104,7 @@ export function PwaInstallBanner() {
                   <Icon
                     name="ios_share"
                     size={15}
-                    className="mt-0.5 shrink-0 text-[#6366f1]"
+                    className="mt-0.5 shrink-0 text-[var(--color-accent)]"
                   />
                   <div>
                     Safari の<span className="font-bold"> 共有 </span>ボタン →
@@ -126,7 +126,7 @@ export function PwaInstallBanner() {
                 <button
                   type="button"
                   onClick={handleInstall}
-                  className="flex-[1.4] rounded-[10px] border-2 border-[#4338ca] bg-[#6366f1] px-3 py-2.5 text-[12px] font-bold text-white shadow-[2px_2px_0_#3730a3]"
+                  className="flex-[1.4] rounded-[10px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-3 py-2.5 text-[12px] font-bold text-white shadow-[2px_2px_0_var(--color-accent-ink)]"
                 >
                   <span className="flex items-center justify-center gap-1.5">
                     <Icon name="download" size={14} />
