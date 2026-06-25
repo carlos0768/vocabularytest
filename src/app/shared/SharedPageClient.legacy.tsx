@@ -183,10 +183,12 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
       ? '参加中'
       : '公開中';
   const ownerLabel = project.accessRole === 'owner'
-    ? 'あなたの単語帳'
+    ? '自分'
+    : project.ownerAccountId
+      ? `@${project.ownerAccountId}`
     : project.ownerUsername
-      ? `${project.ownerUsername}さんの単語帳`
-      : '共有された単語帳';
+      ? `@${project.ownerUsername}`
+      : '共有ユーザー';
 
   return (
     <Link

@@ -11,6 +11,7 @@ import { isBillingEnabled } from '@/lib/billing/feature';
 export function DesktopSettingsView({
   email,
   username,
+  accountId,
   isPro,
   onSignOut,
   onUsernameChange,
@@ -19,6 +20,7 @@ export function DesktopSettingsView({
 }: {
   email?: string | null;
   username?: string | null;
+  accountId?: string | null;
   isPro: boolean;
   onSignOut: () => void;
   onUsernameChange?: (newUsername: string) => Promise<boolean>;
@@ -65,6 +67,7 @@ export function DesktopSettingsView({
               <div className="lab">
                 <div className="t">{username ?? 'ユーザー名未設定'}</div>
                 <div className="d">{email ?? 'ゲスト'}</div>
+                {accountId && <div className="d mono">@{accountId}</div>}
               </div>
               <span className="ds-pro-badge">
                 <Icon name={isPro ? 'bolt' : 'person'} filled style={{ fontSize: 13 }} />

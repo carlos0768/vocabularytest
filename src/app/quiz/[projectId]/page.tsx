@@ -996,7 +996,8 @@ export default function QuizPage() {
     });
     const recordProjectId = reviewMode || learnMode || favoritesMode || reminderMode ? word.projectId : projectId;
     const outcomePlan = buildQuizAnswerOutcomePlan({ word, isCorrect, recordProjectId });
-    if (isCorrect) recordCorrectAnswer(false);
+    const becameMastered = word.status !== 'mastered' && outcomePlan.wordUpdates.status === 'mastered';
+    if (isCorrect) recordCorrectAnswer(becameMastered);
     else if (outcomePlan.wrongAnswer) {
       recordWrongAnswer(
         outcomePlan.wrongAnswer.wordId,
@@ -1012,6 +1013,21 @@ export default function QuizPage() {
       await repository.updateWord(word.id, updates);
       setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
       setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, ...updates } : w));
+      if (user) {
+        fetch('/api/quiz-sessions/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wordId: word.id,
+            projectId: recordProjectId,
+            english: word.english,
+            japanese: word.japanese,
+            becameMastered,
+          }),
+        }).catch((error) => {
+          console.warn('Failed to record quiz session event:', error);
+        });
+      }
     } catch (error) { console.error('Failed to update spaced repetition:', error); }
   };
 

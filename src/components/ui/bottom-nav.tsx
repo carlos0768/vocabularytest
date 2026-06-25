@@ -17,35 +17,21 @@ const HomeIconFilled = () => (
   </svg>
 );
 
-const BookIcon = () => (
+const FriendsIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4h10a4 4 0 014 4v12H8a4 4 0 01-4-4V4z"/>
-    <path d="M4 4v12a4 4 0 014-4h10"/>
+    <circle cx="9" cy="8" r="3"/>
+    <path d="M3.5 20a5.5 5.5 0 0111 0"/>
+    <circle cx="17" cy="10" r="2.5"/>
+    <path d="M15.5 16.5a4.5 4.5 0 015 3.5"/>
   </svg>
 );
 
-const BookIconFilled = () => (
+const FriendsIconFilled = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4h10a4 4 0 014 4v12H8a4 4 0 01-4-4V4z"/>
-    <path d="M4 4v12a4 4 0 014-4h10"/>
-  </svg>
-);
-
-const SharedIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="6" cy="12" r="2.5"/>
-    <circle cx="18" cy="6" r="2.5"/>
-    <circle cx="18" cy="18" r="2.5"/>
-    <path d="M8 11l8-4M8 13l8 4"/>
-  </svg>
-);
-
-const SharedIconFilled = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="6" cy="12" r="2.5"/>
-    <circle cx="18" cy="6" r="2.5"/>
-    <circle cx="18" cy="18" r="2.5"/>
-    <path d="M8 11l8-4M8 13l8 4"/>
+    <circle cx="9" cy="8" r="3"/>
+    <path d="M3.5 20a5.5 5.5 0 0111 0"/>
+    <circle cx="17" cy="10" r="2.5"/>
+    <path d="M15.5 16.5a4.5 4.5 0 015 3.5"/>
   </svg>
 );
 
@@ -104,12 +90,12 @@ const TABS: TabItem[] = [
     IconActive: HomeIconFilled,
   },
   {
-    k: 'shared',
-    label: '共有',
-    href: '/shared',
-    matchPaths: ['/shared'],
-    IconDefault: SharedIcon,
-    IconActive: SharedIconFilled,
+    k: 'friends',
+    label: 'フレンド',
+    href: '/friends',
+    matchPaths: ['/friends'],
+    IconDefault: FriendsIcon,
+    IconActive: FriendsIconFilled,
   },
   {
     k: 'create',

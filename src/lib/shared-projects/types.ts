@@ -12,6 +12,7 @@ export type SharedProjectCard = {
   collaboratorCount?: number;
   likeCount?: number;
   ownerUsername?: string | null;
+  ownerAccountId?: string | null;
 };
 
 export type SharedProjectSummary = SharedProjectCard & {
@@ -35,6 +36,7 @@ export type SharedProjectPreviewPayload = {
   totalWordCount: number;
   likeCount: number;
   ownerUsername: string | null;
+  ownerAccountId: string | null;
 };
 
 export type SharedProjectMetrics = {
@@ -70,10 +72,10 @@ export type StudyGroupProjectListPayload = {
 export type SharedUserSummary = {
   userId: string;
   username: string | null;
+  accountId: string | null;
   projectCount: number;
   wordCount: number;
   likeCount: number;
-  latestProjectTitle: string | null;
 };
 
 export type PublicStudyGroupSummary = {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { ensureFriendProfile } from '@/lib/friends/server';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 
 const updateSchema = z.object({
@@ -14,6 +15,7 @@ const updateSchema = z.object({
 
 type ProfileRow = {
   username: string | null;
+  account_id: string | null;
 };
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
@@ -43,9 +45,10 @@ export async function GET(request: NextRequest) {
     // Use service role after session verification so cookie/JWT → PostgREST auth
     // cannot block reads (avoids 500 when RLS or JWT claims do not attach in this route).
     const admin = getSupabaseAdmin();
+    const ensuredProfile = await ensureFriendProfile(userId, admin);
     const { data, error } = await admin
       .from('profiles')
-      .select('username')
+      .select('username,account_id')
       .eq('user_id', userId)
       .maybeSingle<ProfileRow>();
 
@@ -56,6 +59,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       username: data?.username ?? null,
+      accountId: data?.account_id ?? ensuredProfile.accountId,
     });
   } catch (error) {
     console.error('Profile GET error:', error);
@@ -78,16 +82,18 @@ export async function PUT(request: NextRequest) {
     }
 
     const admin = getSupabaseAdmin();
+    const ensuredProfile = await ensureFriendProfile(userId, admin);
     const { data, error } = await admin
       .from('profiles')
       .upsert(
         {
           user_id: userId,
           username: parsed.data.username,
+          account_id: ensuredProfile.accountId,
         },
         { onConflict: 'user_id' }
       )
-      .select('username')
+      .select('username,account_id')
       .single<ProfileRow>();
 
     if (error) {
@@ -97,6 +103,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       username: data.username,
+      accountId: data.account_id,
     });
   } catch (error) {
     console.error('Profile PUT error:', error);

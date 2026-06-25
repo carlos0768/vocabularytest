@@ -55,6 +55,11 @@ type SharedProjectCursor = {
   id: string;
 };
 
+type SharedProfileSummary = {
+  username: string | null;
+  accountId: string | null;
+};
+
 type PublicSharedProjectListOptions = {
   limit?: number;
   cursor?: string | null;
@@ -207,11 +212,12 @@ export async function getSharedProjectPreviewByShareCode(
   if (!projectRow) return null;
 
   const limit = clampSharePreviewWordLimit(wordLimit);
-  const [wordsResult, usernameByUserId, metricsByProjectId] = await Promise.all([
+  const [wordsResult, profileByUserId, metricsByProjectId] = await Promise.all([
     selectSharePreviewWordsWithFallback(admin, projectRow.id, limit),
-    getUsernamesByUserIds(admin, [projectRow.user_id]),
+    getProfilesByUserIds(admin, [projectRow.user_id]),
     getSharedProjectMetrics([projectRow.id], admin),
   ]);
+  const ownerProfile = profileByUserId.get(projectRow.user_id);
 
   if (wordsResult.error) {
     throw new Error(wordsResult.error.message || 'shared_project_preview_words_failed');
@@ -222,7 +228,8 @@ export async function getSharedProjectPreviewByShareCode(
     words: ((wordsResult.data ?? []) as WordRow[]).map(mapWordFromRow),
     totalWordCount: wordsResult.count ?? wordsResult.data?.length ?? 0,
     likeCount: metricsByProjectId.get(projectRow.id)?.likeCount ?? 0,
-    ownerUsername: usernameByUserId.get(projectRow.user_id) ?? null,
+    ownerUsername: ownerProfile?.username ?? null,
+    ownerAccountId: ownerProfile?.accountId ?? null,
   };
 }
 
@@ -291,16 +298,16 @@ async function getOwnedOrMemberSharedProject(
 
   if (!accessRole) return null;
 
-  const [metricsByProjectId, usernameByUserId] = await Promise.all([
+  const [metricsByProjectId, profileByUserId] = await Promise.all([
     getSharedProjectMetrics([projectId], admin),
-    getUsernamesByUserIds(admin, [projectRow.user_id]),
+    getProfilesByUserIds(admin, [projectRow.user_id]),
   ]);
 
   return mapSharedProjectSummary(
     projectRow,
     accessRole,
     metricsByProjectId,
-    usernameByUserId,
+    profileByUserId,
   );
 }
 
@@ -323,16 +330,16 @@ export async function getPublicSharedProject(projectId: string): Promise<SharedP
   }
   if (!data) return null;
 
-  const [metricsByProjectId, usernameByUserId] = await Promise.all([
+  const [metricsByProjectId, profileByUserId] = await Promise.all([
     getSharedProjectMetrics([projectId], admin),
-    getUsernamesByUserIds(admin, [data.user_id]),
+    getProfilesByUserIds(admin, [data.user_id]),
   ]);
 
   return mapSharedProjectSummary(
     data,
     'viewer',
     metricsByProjectId,
-    usernameByUserId,
+    profileByUserId,
   );
 }
 
@@ -413,8 +420,8 @@ export async function listAccessibleSharedProjects(
   const allUserIds = Array.from(new Set(allRows.map((row) => row.user_id)));
   const allProjectIds = allRows.map((row) => row.id);
 
-  const [usernameByUserId, metricsByProjectId] = await Promise.all([
-    getUsernamesByUserIds(admin, allUserIds),
+  const [profileByUserId, metricsByProjectId] = await Promise.all([
+    getProfilesByUserIds(admin, allUserIds),
     getSharedProjectMetrics(allProjectIds, admin),
   ]);
 
@@ -423,7 +430,7 @@ export async function listAccessibleSharedProjects(
   );
 
   const owned = ownedRows.map((row) => {
-    const card = mapSharedProjectCard(row, 'owner', usernameByUserId);
+    const card = mapSharedProjectCard(row, 'owner', profileByUserId);
     const metrics = metricsByProjectId.get(row.id);
     return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
   });
@@ -435,7 +442,7 @@ export async function listAccessibleSharedProjects(
         const card = mapSharedProjectCard(
           row,
           membershipRoleByProjectId.get(row.id) ?? 'editor',
-          usernameByUserId,
+          profileByUserId,
         );
         const metrics = metricsByProjectId.get(row.id);
         return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
@@ -456,12 +463,12 @@ export async function listPublicSharedProjects(
     const cursorOffset = decodeOffsetCursor(options.cursor ?? null);
     const searchRows = await searchPublicProjects(admin, query, cursorOffset + limit + 1);
     const pageRows = searchRows.slice(cursorOffset, cursorOffset + limit);
-    const usernameByUserId = await getUsernamesByUserIds(admin, pageRows.map((row) => row.user_id));
+    const profileByUserId = await getProfilesByUserIds(admin, pageRows.map((row) => row.user_id));
     const metricsByProjectId = await getSharedProjectMetrics(pageRows.map((row) => row.id), admin);
 
     return {
       items: pageRows.map((row) => {
-        const card = mapSharedProjectCard(row, 'viewer', usernameByUserId);
+        const card = mapSharedProjectCard(row, 'viewer', profileByUserId);
         const metrics = metricsByProjectId.get(row.id);
         return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
       }),
@@ -492,16 +499,16 @@ export async function listPublicSharedProjects(
   const filteredRows = cursor
     ? rows.filter((row) => compareRowAgainstCursor(row, cursor) > 0)
     : rows;
-  const usernameByUserId = await getUsernamesByUserIds(admin, filteredRows.map((row) => row.user_id));
+  const profileByUserId = await getProfilesByUserIds(admin, filteredRows.map((row) => row.user_id));
   const matchingRows = query
-    ? filteredRows.filter((row) => projectMatchesSearch(row, usernameByUserId.get(row.user_id), query))
+    ? filteredRows.filter((row) => projectMatchesSearch(row, profileByUserId.get(row.user_id), query))
     : filteredRows;
   const pageRows = matchingRows.slice(0, limit);
   const metricsByProjectId = await getSharedProjectMetrics(pageRows.map((row) => row.id), admin);
 
   return {
     items: pageRows.map((row) => {
-      const card = mapSharedProjectCard(row, 'viewer', usernameByUserId);
+      const card = mapSharedProjectCard(row, 'viewer', profileByUserId);
       const metrics = metricsByProjectId.get(row.id);
       return { ...card, wordCount: metrics?.wordCount ?? 0, collaboratorCount: metrics?.collaboratorCount ?? 1, likeCount: metrics?.likeCount ?? 0 };
     }),
@@ -539,7 +546,7 @@ export async function listPublicSharedUsers(
     }
   }
 
-  const usernameByUserId = await getUsernamesByUserIds(admin, rows.map((row) => row.user_id));
+  const profileByUserId = await getProfilesByUserIds(admin, rows.map((row) => row.user_id));
   const matchingRows = rows;
   const projectIds = matchingRows.map((row) => row.id);
   const metricsByProjectId = await getSharedProjectMetrics(projectIds, admin);
@@ -557,11 +564,11 @@ export async function listPublicSharedUsers(
 
     userById.set(row.user_id, {
       userId: row.user_id,
-      username: usernameByUserId.get(row.user_id) ?? null,
+      username: profileByUserId.get(row.user_id)?.username ?? null,
+      accountId: profileByUserId.get(row.user_id)?.accountId ?? null,
       projectCount: 1,
       wordCount: metrics.wordCount,
       likeCount: metrics.likeCount,
-      latestProjectTitle: row.title,
     });
   }
 
@@ -886,8 +893,8 @@ async function searchPublicProjects(
     ),
   ]);
 
-  const usernameByUserId = await getUsernamesByUserIds(admin, textRows.map((row) => row.user_id));
-  const textMatches = textRows.filter((row) => projectMatchesSearch(row, usernameByUserId.get(row.user_id), query));
+  const profileByUserId = await getProfilesByUserIds(admin, textRows.map((row) => row.user_id));
+  const textMatches = textRows.filter((row) => projectMatchesSearch(row, profileByUserId.get(row.user_id), query));
 
   return mergeProjectRowsById(vectorRows, textMatches);
 }
@@ -1018,12 +1025,14 @@ async function getSharedProjectMetricsFallback(
 function mapSharedProjectCard(
   row: ProjectRow,
   accessRole: SharedProjectAccessRole,
-  usernameByUserId?: Map<string, string | null>,
+  profileByUserId?: Map<string, SharedProfileSummary>,
 ): SharedProjectCard {
+  const ownerProfile = profileByUserId?.get(row.user_id);
   return {
     project: mapProjectFromRow(row),
     accessRole,
-    ownerUsername: usernameByUserId?.get(row.user_id) ?? null,
+    ownerUsername: ownerProfile?.username ?? null,
+    ownerAccountId: ownerProfile?.accountId ?? null,
   };
 }
 
@@ -1031,23 +1040,23 @@ function mapSharedProjectSummary(
   row: ProjectRow,
   accessRole: SharedProjectAccessRole,
   metricsByProjectId: Map<string, SharedProjectMetrics>,
-  usernameByUserId?: Map<string, string | null>,
+  profileByUserId?: Map<string, SharedProfileSummary>,
 ): SharedProjectSummary {
   const metrics = metricsByProjectId.get(row.id) ?? { wordCount: 0, collaboratorCount: 1, likeCount: 0 };
 
   return {
-    ...mapSharedProjectCard(row, accessRole, usernameByUserId),
+    ...mapSharedProjectCard(row, accessRole, profileByUserId),
     wordCount: metrics.wordCount,
     collaboratorCount: metrics.collaboratorCount,
     likeCount: metrics.likeCount,
   };
 }
 
-async function getUsernamesByUserIds(
+async function getProfilesByUserIds(
   admin: SupabaseAdminClient,
   userIds: string[],
-): Promise<Map<string, string | null>> {
-  const result = new Map<string, string | null>();
+): Promise<Map<string, SharedProfileSummary>> {
+  const result = new Map<string, SharedProfileSummary>();
   if (userIds.length === 0) return result;
 
   const uniqueIds = Array.from(new Set(userIds));
@@ -1055,22 +1064,52 @@ async function getUsernamesByUserIds(
   try {
     const { data, error } = await admin
       .from('profiles')
-      .select('user_id, username')
+      .select('user_id, username, account_id')
       .in('user_id', uniqueIds);
 
     if (error) {
-      console.warn('Failed to fetch usernames for shared projects:', error.message);
+      if (isMissingProfileAccountId(error)) {
+        const fallback = await admin
+          .from('profiles')
+          .select('user_id, username')
+          .in('user_id', uniqueIds);
+
+        if (!fallback.error) {
+          for (const row of fallback.data ?? []) {
+            result.set(row.user_id as string, {
+              username: (row.username as string | null) ?? null,
+              accountId: null,
+            });
+          }
+          return result;
+        }
+      }
+
+      console.warn('Failed to fetch profiles for shared projects:', error.message);
       return result;
     }
 
     for (const row of data ?? []) {
-      result.set(row.user_id as string, (row.username as string | null) ?? null);
+      result.set(row.user_id as string, {
+        username: (row.username as string | null) ?? null,
+        accountId: (row.account_id as string | null) ?? null,
+      });
     }
   } catch {
     // profiles table may not exist yet; graceful fallback
   }
 
   return result;
+}
+
+function isMissingProfileAccountId(error: unknown): boolean {
+  const normalized = normalizeErrorText(error);
+  return normalized.includes('account_id') && (
+    normalized.includes('does not exist')
+    || normalized.includes('column')
+    || normalized.includes('schema cache')
+    || normalized.includes('could not find')
+  );
 }
 
 function clampPublicPageSize(limit?: number): number {
@@ -1084,7 +1123,7 @@ function clampSharePreviewWordLimit(limit: number): number {
 }
 
 function normalizeSearchQuery(query?: string | null): string {
-  return (query ?? '').trim().toLowerCase();
+  return (query ?? '').trim().replace(/^@+/, '').toLowerCase();
 }
 
 function includesSearchText(value: string | null | undefined, query: string): boolean {
@@ -1093,12 +1132,13 @@ function includesSearchText(value: string | null | undefined, query: string): bo
 
 function projectMatchesSearch(
   row: ProjectRow,
-  ownerUsername: string | null | undefined,
+  ownerProfile: SharedProfileSummary | undefined,
   query: string,
 ): boolean {
   if (!query) return true;
   if (includesSearchText(row.title, query)) return true;
-  if (includesSearchText(ownerUsername, query)) return true;
+  if (includesSearchText(ownerProfile?.username, query)) return true;
+  if (includesSearchText(ownerProfile?.accountId, query)) return true;
   return (row.shared_tags ?? []).some((tag) => (
     includesSearchText(String(tag), query) || includesSearchText(formatSharedTag(String(tag)), query)
   ));
