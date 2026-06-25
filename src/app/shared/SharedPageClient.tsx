@@ -15,6 +15,7 @@ import type {
   SharedDiscoverPayload,
   SharedProjectCard,
 } from '@/lib/shared-projects/types';
+import type { FriendSearchResult } from '@/lib/friends/types';
 import type { Project } from '@/types';
 import { formatSharedTag, normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
 
@@ -25,10 +26,23 @@ type SharedPageClientProps = {
 type DiscoverResponse = SharedDiscoverPayload | { error?: string };
 
 type ShareCategory = Exclude<SharedDiscoverCategory, 'all'>;
+type PageCategory = ShareCategory | 'friends';
 
-const CATEGORY_META: Record<ShareCategory, { label: string; icon: string; description: string }> = {
+const CATEGORY_META: Record<PageCategory, { label: string; icon: string; description: string }> = {
   users: { label: 'ユーザー', icon: 'person', description: '学習者アカウント' },
   projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳' },
+  friends: { label: 'フレンド検索', icon: 'person_add', description: 'アカウントIDで検索・申請' },
+};
+
+type FriendSearchApiResponse = {
+  success?: boolean;
+  results?: FriendSearchResult[];
+  error?: string;
+};
+
+type FriendMutationResponse = {
+  success?: boolean;
+  error?: string;
 };
 
 const EMPTY_DISCOVER: SharedDiscoverPayload = {
@@ -71,13 +85,19 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
-  const { user, isPro, loading: authLoading } = useAuth();
+  const { user, isPro, isAuthenticated, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
-  const [category, setCategory] = useState<SharedDiscoverCategory>('all');
+  const [category, setCategory] = useState<SharedDiscoverCategory | 'friends'>('all');
   const [query, setQuery] = useState('');
   const [discover, setDiscover] = useState<SharedDiscoverPayload>(initialDiscover);
   const [loading, setLoading] = useState(false);
+
+  const [friendQuery, setFriendQuery] = useState('');
+  const [friendResults, setFriendResults] = useState<FriendSearchResult[]>([]);
+  const [friendLoading, setFriendLoading] = useState(false);
+  const [friendError, setFriendError] = useState<string | null>(null);
+  const [friendActionLoading, setFriendActionLoading] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -98,6 +118,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   );
 
   useEffect(() => {
+    if (category === 'friends') return;
+
     const canUseInitial = !hasUsedInitialRef.current && category === 'all' && !query.trim() && refreshNonce === 0;
     if (canUseInitial) {
       hasUsedInitialRef.current = true;
@@ -169,7 +191,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   }, [isPro, selectedProject, shareSheetOpen, user]);
 
   async function handleLoadMore() {
-    if (category === 'all' || !discover.nextCursor || loadingMore) return;
+    if (category === 'all' || category === 'friends' || !discover.nextCursor || loadingMore) return;
 
     setLoadingMore(true);
     setError(null);
@@ -195,7 +217,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     setShareSheetOpen(true);
   }
 
-  function handleSelectCategory(nextCategory: ShareCategory) {
+  function handleSelectCategory(nextCategory: PageCategory) {
     setCategory(nextCategory);
     setError(null);
   }
@@ -203,6 +225,49 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   function handleBackToAll() {
     setCategory('all');
     setError(null);
+  }
+
+  async function handleFriendSearch() {
+    const trimmed = friendQuery.trim();
+    if (!trimmed) return;
+    setFriendLoading(true);
+    setFriendError(null);
+    try {
+      const response = await fetch(`/api/friends/search?q=${encodeURIComponent(trimmed)}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as FriendSearchApiResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'friend_search_failed');
+      }
+      setFriendResults(payload.results ?? []);
+    } catch {
+      setFriendError('ユーザー検索に失敗しました。');
+      setFriendResults([]);
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  async function handleSendFriendRequest(accountId: string) {
+    if (friendActionLoading) return;
+    setFriendActionLoading(`request:${accountId}`);
+    try {
+      const response = await fetch('/api/friends/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+      const payload = await response.json().catch(() => null) as FriendMutationResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'friend_request_failed');
+      }
+      showToast({ message: 'フレンド申請を送信しました', type: 'success' });
+      if (friendQuery.trim()) await handleFriendSearch();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '申請に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setFriendActionLoading(null);
+    }
   }
 
   async function handleSaveShare() {
@@ -253,7 +318,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   return (
     <>
       <DesktopSharedView
-        category={category}
+        category={category === 'friends' ? 'all' : category}
         query={query}
         payload={discover}
         loading={loading}
@@ -288,23 +353,25 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         </div>
 
-        <div className="px-[14px] pt-2">
-          <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
-            <Icon name="search" size={16} />
-            <span className="sr-only">共有ライブラリを検索</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={category === 'all' ? 'ユーザー・単語帳を検索' : `${CATEGORY_META[category].label}を検索`}
-              className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
-            />
-          </label>
-        </div>
+        {category !== 'friends' && (
+          <div className="px-[14px] pt-2">
+            <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
+              <Icon name="search" size={16} />
+              <span className="sr-only">共有ライブラリを検索</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={category === 'all' ? 'ユーザー・単語帳を検索' : `${CATEGORY_META[category].label}を検索`}
+                className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
+              />
+            </label>
+          </div>
+        )}
 
         {category === 'all' ? (
-          <div className="grid grid-cols-2 gap-2 px-[14px] py-3">
-            {(Object.keys(CATEGORY_META) as ShareCategory[]).map((key) => (
+          <div className="grid grid-cols-3 gap-2 px-[14px] py-3">
+            {(Object.keys(CATEGORY_META) as PageCategory[]).map((key) => (
               <button
                 key={key}
                 type="button"
@@ -312,7 +379,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
                 className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-2 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
                 <Icon name={CATEGORY_META[key].icon} size={19} className="text-[var(--solid-ink)]" />
-                <div className="mt-2 text-[13px] font-extrabold text-[var(--solid-ink)]">{CATEGORY_META[key].label}</div>
+                <div className="mt-2 text-[12px] font-extrabold text-[var(--solid-ink)]">{CATEGORY_META[key].label}</div>
               </button>
             ))}
           </div>
@@ -333,7 +400,19 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         )}
 
-        {shouldShowResults && (
+        {category === 'friends' ? (
+          <FriendSearchSection
+            isAuthenticated={isAuthenticated}
+            friendQuery={friendQuery}
+            friendResults={friendResults}
+            friendLoading={friendLoading}
+            friendError={friendError}
+            friendActionLoading={friendActionLoading}
+            onQueryChange={setFriendQuery}
+            onSearch={() => void handleFriendSearch()}
+            onSendRequest={(accountId) => void handleSendFriendRequest(accountId)}
+          />
+        ) : shouldShowResults && (
           <div className="flex flex-col gap-4 px-[14px]">
             {error && <ErrorBox message={error} />}
             {loading ? (
@@ -749,6 +828,111 @@ function SheetActionState({
       >
         {actionLabel}
       </button>
+    </div>
+  );
+}
+
+function FriendSearchSection({
+  isAuthenticated,
+  friendQuery,
+  friendResults,
+  friendLoading,
+  friendError,
+  friendActionLoading,
+  onQueryChange,
+  onSearch,
+  onSendRequest,
+}: {
+  isAuthenticated: boolean;
+  friendQuery: string;
+  friendResults: FriendSearchResult[];
+  friendLoading: boolean;
+  friendError: string | null;
+  friendActionLoading: string | null;
+  onQueryChange: (value: string) => void;
+  onSearch: () => void;
+  onSendRequest: (accountId: string) => void;
+}) {
+  if (!isAuthenticated) {
+    return (
+      <div className="px-[14px]">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
+          ログインするとフレンド検索できます
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 px-[14px]">
+      <form
+        onSubmit={(e) => { e.preventDefault(); onSearch(); }}
+        className="flex gap-2"
+      >
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+          <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+          <input
+            value={friendQuery}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="アカウントIDで検索"
+            className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={friendLoading || !friendQuery.trim()}
+          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
+          aria-label="検索"
+        >
+          <Icon name={friendLoading ? 'progress_activity' : 'arrow_forward'} className={friendLoading ? 'animate-spin' : ''} size={16} />
+        </button>
+      </form>
+
+      {friendError && <ErrorBox message={friendError} />}
+
+      {friendResults.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {friendResults.map((result) => {
+            const avatarLabel = (result.username || result.accountId || '?').charAt(0).toUpperCase();
+            const isLoading = friendActionLoading === `request:${result.accountId}`;
+
+            return (
+              <div key={result.userId} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--color-surface-secondary)] font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+                  {avatarLabel}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">
+                    {result.username?.trim() || `@${result.accountId}`}
+                  </div>
+                  <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{result.accountId}</div>
+                </div>
+                {result.relationship === 'friend' ? (
+                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フレンド</span>
+                ) : result.relationship === 'outgoing' ? (
+                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">申請中</span>
+                ) : result.relationship === 'incoming' ? (
+                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">承認待ち</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSendRequest(result.accountId)}
+                    disabled={Boolean(friendActionLoading)}
+                    className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] px-2 text-[11px] font-bold text-white disabled:opacity-50"
+                  >
+                    <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
+                    申請
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!friendLoading && friendQuery.trim() && friendResults.length === 0 && !friendError && (
+        <EmptyBox message="ユーザーが見つかりませんでした" />
+      )}
     </div>
   );
 }

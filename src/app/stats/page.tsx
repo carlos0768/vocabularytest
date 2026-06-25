@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { DesktopStatsView } from '@/components/desktop/DesktopStats';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
@@ -183,6 +184,25 @@ export default function StatsPage() {
                 <span>今週</span>
               </div>
             </SolidPanel>
+          </div>
+
+          <div className="px-[18px] pb-3">
+            <Link href="/friends" className="block">
+              <SolidPanel className="!rounded-[14px]" faceClassName="!p-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--color-accent-light)]">
+                      <Icon name="group" size={20} className="text-[var(--color-accent)]" />
+                    </div>
+                    <div>
+                      <div className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">フレンド</div>
+                      <div className="text-[11px] font-bold text-[var(--color-muted)]">学習タイムラインを見る</div>
+                    </div>
+                  </div>
+                  <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />
+                </div>
+              </SolidPanel>
+            </Link>
           </div>
 
           <div className="px-[18px] pb-[110px]">

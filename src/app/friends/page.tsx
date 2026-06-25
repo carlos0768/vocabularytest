@@ -8,7 +8,6 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import type {
   FriendProfile,
-  FriendSearchResult,
   FriendshipSummary,
   FriendsHomePayload,
   FriendTimelineSession,
@@ -22,12 +21,6 @@ type FriendsApiResponse = Partial<FriendsHomePayload> & {
 type TimelineApiResponse = {
   success?: boolean;
   sessions?: FriendTimelineSession[];
-  error?: string;
-};
-
-type SearchApiResponse = {
-  success?: boolean;
-  results?: FriendSearchResult[];
   error?: string;
 };
 
@@ -87,14 +80,9 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(true);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<FriendSearchResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const profile = home.profile.accountId ? home.profile : null;
   const hasRequests = home.incoming.length > 0 || home.outgoing.length > 0;
 
   const loadFriends = useCallback(async () => {
@@ -152,36 +140,6 @@ export default function FriendsPage() {
     void refreshAll();
   }, [authLoading, isAuthenticated, refreshAll]);
 
-  const runSearch = useCallback(async (nextQuery: string) => {
-    const trimmed = nextQuery.trim();
-    setSearchError(null);
-    if (!trimmed) {
-      setSearchResults([]);
-      return;
-    }
-
-    setSearchLoading(true);
-    try {
-      const response = await fetch(`/api/friends/search?q=${encodeURIComponent(trimmed)}`, { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as SearchApiResponse | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'friend_search_failed');
-      }
-      setSearchResults(payload.results ?? []);
-    } catch (searchLoadError) {
-      console.warn('Failed to search friends:', searchLoadError);
-      setSearchError('ユーザー検索に失敗しました。');
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  }, []);
-
-  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    void runSearch(query);
-  };
-
   const mutate = useCallback(async (
     key: string,
     request: () => Promise<Response>,
@@ -189,7 +147,6 @@ export default function FriendsPage() {
     if (actionLoading) return;
     setActionLoading(key);
     setError(null);
-    setSearchError(null);
     try {
       const response = await request();
       const payload = await response.json().catch(() => null) as MutationResponse | null;
@@ -197,20 +154,13 @@ export default function FriendsPage() {
         throw new Error(payload?.error || 'friend_mutation_failed');
       }
       await refreshAll();
-      if (query.trim()) await runSearch(query);
     } catch (mutationError) {
       const message = mutationError instanceof Error ? mutationError.message : '操作に失敗しました。';
-      setSearchError(message);
+      setError(message);
     } finally {
       setActionLoading(null);
     }
-  }, [actionLoading, query, refreshAll, runSearch]);
-
-  const sendRequest = (accountId: string) => mutate(`request:${accountId}`, () => fetch('/api/friends/requests', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accountId }),
-  }));
+  }, [actionLoading, refreshAll]);
 
   const respondRequest = (friendshipId: string, action: 'accept' | 'decline') => mutate(`${action}:${friendshipId}`, () => fetch('/api/friends/respond', {
     method: 'POST',
@@ -222,15 +172,6 @@ export default function FriendsPage() {
     method: 'DELETE',
   }));
 
-  const copyAccountId = async () => {
-    if (!profile?.accountId) return;
-    try {
-      await navigator.clipboard.writeText(`@${profile.accountId}`);
-    } catch {
-      // Clipboard is optional.
-    }
-  };
-
   const toggleSession = (sessionId: string) => {
     setExpanded((current) => {
       const next = new Set(current);
@@ -240,34 +181,88 @@ export default function FriendsPage() {
     });
   };
 
-  const renderContent = () => (
-    <FriendsContent
-      authLoading={authLoading}
-      isAuthenticated={isAuthenticated}
-      loading={loading}
-      timelineLoading={timelineLoading}
-      error={error}
-      profile={profile}
-      friends={home.friends}
-      incoming={home.incoming}
-      outgoing={home.outgoing}
-      hasRequests={hasRequests}
-      sessions={sessions}
-      query={query}
-      searchResults={searchResults}
-      searchLoading={searchLoading}
-      searchError={searchError}
-      actionLoading={actionLoading}
-      expanded={expanded}
-      onQueryChange={setQuery}
-      onSearchSubmit={handleSearchSubmit}
-      onSendRequest={sendRequest}
-      onRespondRequest={respondRequest}
-      onRemoveFriend={removeFriend}
-      onCopyAccountId={() => void copyAccountId()}
-      onToggleSession={toggleSession}
-    />
-  );
+  const renderContent = () => {
+    if (authLoading || loading) {
+      return (
+        <div className="flex items-center justify-center py-20 text-[var(--color-muted)]">
+          <Icon name="progress_activity" className="animate-spin" />
+          <span className="ml-2 text-sm font-bold">読み込み中...</span>
+        </div>
+      );
+    }
+
+    if (!isAuthenticated) {
+      return (
+        <div className="flex items-center justify-center px-[18px] py-20">
+          <SolidPanel className="!rounded-[14px]" faceClassName="!p-5 text-center">
+            <Icon name="lock" size={28} className="mx-auto text-[var(--color-muted)]" />
+            <div className="mt-3 font-display text-lg font-bold text-[var(--solid-ink)]">ログインが必要です</div>
+            <Link href="/login" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
+              ログイン
+            </Link>
+          </SolidPanel>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {error && (
+          <div className="mx-[18px] mb-3 flex items-center justify-between rounded-[12px] border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] font-bold text-[#dc2626]">
+            <span>{error}</span>
+            <button type="button" onClick={() => void refreshAll()} className="ml-3 underline">再試行</button>
+          </div>
+        )}
+
+        {hasRequests && (
+          <div className="mb-2 px-[18px]">
+            <RequestsSection
+              incoming={home.incoming}
+              outgoing={home.outgoing}
+              actionLoading={actionLoading}
+              onRespondRequest={respondRequest}
+              onRemoveFriend={removeFriend}
+            />
+          </div>
+        )}
+
+        {sessions.map((session) => (
+          <TimelineItem
+            key={session.id}
+            session={session}
+            expanded={expanded.has(session.id)}
+            onToggle={() => toggleSession(session.id)}
+          />
+        ))}
+
+        {timelineLoading && (
+          <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
+            <Icon name="progress_activity" className="animate-spin" size={20} />
+          </div>
+        )}
+
+        {!timelineLoading && sessions.length === 0 && (
+          <div className="mx-[18px] mt-4 rounded-[16px] border-2 border-dashed border-[var(--color-border)] px-5 py-14 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent-light)]">
+              <Icon name="group" size={28} className="text-[var(--color-accent)]" />
+            </div>
+            <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">セッションはまだありません</div>
+            <div className="mt-1 text-[12px] text-[var(--color-muted)]">フレンドが学習を始めるとここに表示されます</div>
+          </div>
+        )}
+
+        {home.friends.length > 0 && (
+          <div className="mx-[18px] mt-6 border-t border-[var(--color-border)] pt-5 pb-4">
+            <FriendsSection
+              friends={home.friends}
+              actionLoading={actionLoading}
+              onRemoveFriend={removeFriend}
+            />
+          </div>
+        )}
+      </>
+    );
+  };
 
   return (
     <>
@@ -275,269 +270,15 @@ export default function FriendsPage() {
         <DesktopTopbar title="フレンド" crumb="学習タイムライン">
           <DesktopButton href="/shared" icon="hub" variant="ghost">共有ライブラリ</DesktopButton>
         </DesktopTopbar>
-        {renderContent()}
+        <div className="ds-scroll">
+          {renderContent()}
+        </div>
       </div>
 
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-        <div className="px-[18px] pb-[14px] pt-1">
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">FRIENDS</div>
-          <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">フレンド</div>
-        </div>
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
         {renderContent()}
       </div>
     </>
-  );
-}
-
-function FriendsContent({
-  authLoading,
-  isAuthenticated,
-  loading,
-  timelineLoading,
-  error,
-  profile,
-  friends,
-  incoming,
-  outgoing,
-  hasRequests,
-  sessions,
-  query,
-  searchResults,
-  searchLoading,
-  searchError,
-  actionLoading,
-  expanded,
-  onQueryChange,
-  onSearchSubmit,
-  onSendRequest,
-  onRespondRequest,
-  onRemoveFriend,
-  onCopyAccountId,
-  onToggleSession,
-}: {
-  authLoading: boolean;
-  isAuthenticated: boolean;
-  loading: boolean;
-  timelineLoading: boolean;
-  error: string | null;
-  profile: FriendProfile | null;
-  friends: FriendshipSummary[];
-  incoming: FriendshipSummary[];
-  outgoing: FriendshipSummary[];
-  hasRequests: boolean;
-  sessions: FriendTimelineSession[];
-  query: string;
-  searchResults: FriendSearchResult[];
-  searchLoading: boolean;
-  searchError: string | null;
-  actionLoading: string | null;
-  expanded: Set<string>;
-  onQueryChange: (value: string) => void;
-  onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSendRequest: (accountId: string) => void;
-  onRespondRequest: (friendshipId: string, action: 'accept' | 'decline') => void;
-  onRemoveFriend: (friendshipId: string) => void;
-  onCopyAccountId: () => void;
-  onToggleSession: (sessionId: string) => void;
-}) {
-  if (authLoading || loading) {
-    return (
-      <div className="ds-scroll flex items-center justify-center px-[18px] text-[var(--color-muted)]">
-        <Icon name="progress_activity" className="animate-spin" />
-        <span className="ml-2 text-sm font-bold">読み込み中...</span>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="ds-scroll mx-auto max-w-[640px] px-[18px]">
-        <SolidPanel className="!rounded-[14px]" faceClassName="!p-5 text-center">
-          <Icon name="lock" size={28} className="mx-auto text-[var(--color-muted)]" />
-          <div className="mt-3 font-display text-lg font-bold text-[var(--solid-ink)]">ログインが必要です</div>
-          <Link href="/login" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
-            ログイン
-          </Link>
-        </SolidPanel>
-      </div>
-    );
-  }
-
-  return (
-    <div className="ds-scroll mx-auto max-w-[640px] px-[18px] lg:px-6">
-      {error && (
-        <div className="mb-3 rounded-[12px] border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] font-bold text-[#dc2626]">
-          {error}
-        </div>
-      )}
-
-      <FeedTopBar
-        profile={profile}
-        query={query}
-        searchLoading={searchLoading}
-        searchError={searchError}
-        searchResults={searchResults}
-        actionLoading={actionLoading}
-        onQueryChange={onQueryChange}
-        onSearchSubmit={onSearchSubmit}
-        onSendRequest={onSendRequest}
-        onCopyAccountId={onCopyAccountId}
-      />
-
-      {hasRequests && (
-        <div className="mb-3">
-          <RequestsSection
-            incoming={incoming}
-            outgoing={outgoing}
-            actionLoading={actionLoading}
-            onRespondRequest={onRespondRequest}
-            onRemoveFriend={onRemoveFriend}
-          />
-        </div>
-      )}
-
-      <TimelineSection
-        sessions={sessions}
-        timelineLoading={timelineLoading}
-        expanded={expanded}
-        onToggleSession={onToggleSession}
-      />
-
-      <div className="mt-6 border-t border-[var(--color-border)] pt-5">
-        <FriendsSection
-          friends={friends}
-          actionLoading={actionLoading}
-          onRemoveFriend={onRemoveFriend}
-        />
-      </div>
-    </div>
-  );
-}
-
-function FeedTopBar({
-  profile,
-  query,
-  searchLoading,
-  searchError,
-  searchResults,
-  actionLoading,
-  onQueryChange,
-  onSearchSubmit,
-  onSendRequest,
-  onCopyAccountId,
-}: {
-  profile: FriendProfile | null;
-  query: string;
-  searchLoading: boolean;
-  searchError: string | null;
-  searchResults: FriendSearchResult[];
-  actionLoading: string | null;
-  onQueryChange: (value: string) => void;
-  onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSendRequest: (accountId: string) => void;
-  onCopyAccountId: () => void;
-}) {
-  return (
-    <div className="mb-4">
-      <div className="flex items-center gap-2.5">
-        {profile && (
-          <>
-            <Avatar profile={profile} size="sm" />
-            <button
-              type="button"
-              onClick={onCopyAccountId}
-              className="mr-0.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2.5 text-[10px] font-bold text-[var(--color-muted)] transition-colors hover:bg-[var(--color-border)]"
-              title="アカウントIDをコピー"
-            >
-              @{profile.accountId}
-              <Icon name="content_copy" size={11} />
-            </button>
-          </>
-        )}
-        <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 gap-2">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3.5 py-2">
-            <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
-            <input
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="ユーザーを検索"
-              className="min-w-0 flex-1 bg-transparent text-[13px] font-bold outline-none placeholder:text-[var(--color-muted)]"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={searchLoading || !query.trim()}
-            className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="検索"
-          >
-            <Icon name={searchLoading ? 'progress_activity' : 'arrow_forward'} className={searchLoading ? 'animate-spin' : ''} size={16} />
-          </button>
-        </form>
-      </div>
-
-      {searchError && (
-        <div className="mt-2 rounded-[10px] border border-[#fca5a5] bg-[#fef2f2] px-3 py-2 text-[11px] font-bold text-[#dc2626]">
-          {searchError}
-        </div>
-      )}
-
-      {(searchResults.length > 0 || (query.trim() && !searchLoading)) && (
-        <div className="mt-2 flex flex-col gap-1.5">
-          {searchResults.map((result) => (
-            <div key={result.userId} className="flex items-center gap-2 rounded-[12px] border border-[var(--color-border)] bg-white px-3 py-2.5">
-              <Avatar profile={result} size="sm" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{displayName(result)}</div>
-                <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{result.accountId}</div>
-              </div>
-              <SearchResultAction
-                result={result}
-                actionLoading={actionLoading}
-                onSendRequest={onSendRequest}
-              />
-            </div>
-          ))}
-          {!searchLoading && query.trim() && searchResults.length === 0 && (
-            <div className="rounded-[12px] border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-[12px] font-bold text-[var(--color-muted)]">
-              見つかりませんでした
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SearchResultAction({
-  result,
-  actionLoading,
-  onSendRequest,
-}: {
-  result: FriendSearchResult;
-  actionLoading: string | null;
-  onSendRequest: (accountId: string) => void;
-}) {
-  if (result.relationship === 'friend') {
-    return <StatusChip label="フレンド" />;
-  }
-  if (result.relationship === 'outgoing') {
-    return <StatusChip label="申請中" />;
-  }
-  if (result.relationship === 'incoming') {
-    return <StatusChip label="承認待ち" />;
-  }
-
-  const isLoading = actionLoading === `request:${result.accountId}`;
-  return (
-    <button
-      type="button"
-      onClick={() => onSendRequest(result.accountId)}
-      disabled={Boolean(actionLoading)}
-      className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] px-2 text-[11px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
-      申請
-    </button>
   );
 }
 
@@ -609,7 +350,7 @@ function FriendsSection({
   onRemoveFriend: (friendshipId: string) => void;
 }) {
   return (
-    <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
+    <>
       <SectionTitle icon="groups" label="フレンド" count={friends.length} />
       <div className="mt-2 flex flex-col gap-1.5">
         {friends.map((friend) => (
@@ -625,56 +366,8 @@ function FriendsSection({
             </button>
           </FriendRow>
         ))}
-        {friends.length === 0 && (
-          <div className="rounded-[10px] border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-[11px] font-bold text-[var(--color-muted)]">
-            フレンドはいません
-          </div>
-        )}
       </div>
-    </SolidPanel>
-  );
-}
-
-function TimelineSection({
-  sessions,
-  timelineLoading,
-  expanded,
-  onToggleSession,
-}: {
-  sessions: FriendTimelineSession[];
-  timelineLoading: boolean;
-  expanded: Set<string>;
-  onToggleSession: (sessionId: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[var(--color-accent-light)]">
-            <Icon name="timeline" size={16} className="text-[var(--color-accent)]" />
-          </div>
-          <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">タイムライン</span>
-        </div>
-        {timelineLoading && <Icon name="progress_activity" className="animate-spin text-[var(--color-muted)]" size={18} />}
-      </div>
-      {sessions.map((session) => (
-        <TimelineItem
-          key={session.id}
-          session={session}
-          expanded={expanded.has(session.id)}
-          onToggle={() => onToggleSession(session.id)}
-        />
-      ))}
-      {!timelineLoading && sessions.length === 0 && (
-        <div className="rounded-[16px] border-2 border-dashed border-[var(--color-border)] px-5 py-14 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent-light)]">
-            <Icon name="timeline" size={28} className="text-[var(--color-accent)]" />
-          </div>
-          <div className="font-display text-[15px] font-bold text-[var(--color-muted)]">セッションはまだありません</div>
-          <div className="mt-1 text-[12px] text-[var(--color-muted)]">フレンドが学習を始めるとここに表示されます</div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -690,36 +383,30 @@ function TimelineItem({
   const color = avatarColor(session.profile.accountId);
 
   return (
-    <article
-      className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] transition-shadow hover:shadow-[4px_4px_0_rgba(0,0,0,0.08)]"
-      style={{ borderLeftWidth: '5px', borderLeftColor: color }}
-    >
+    <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-start gap-4 px-5 py-5 text-left transition-colors hover:bg-[var(--color-surface-secondary)]"
+        className="flex w-full items-start gap-3.5 px-[18px] py-4 text-left"
       >
         <Avatar profile={session.profile} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="truncate font-display text-[17px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
             <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-bold text-[var(--color-muted)]">
-            <span>{formatSessionTime(session.startedAt)}</span>
             <span className="text-[var(--color-border)]">·</span>
-            <span>{formatTimeOnly(session.startedAt)} – {formatTimeOnly(session.expiresAt)}</span>
+            <span className="text-[12px] font-bold text-[var(--color-muted)]">{formatSessionTime(session.startedAt)}</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
             <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
           </div>
         </div>
-        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={22} className="mt-1.5 shrink-0 text-[var(--color-muted)]" />
+        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
       </button>
       {expanded && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-5 py-4">
+        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
           <div className="pl-[52px]">
             {session.words.length > 0 ? (
               <div className="flex flex-col gap-2">
@@ -770,7 +457,7 @@ function Avatar({
 }) {
   const label = (profile.username || profile.accountId || '?').charAt(0).toUpperCase();
   const color = avatarColor(profile.accountId);
-  const dimension = size === 'sm' ? 'h-9 w-9 rounded-[9px] text-[14px]' : 'h-12 w-12 rounded-[12px] text-[18px]';
+  const dimension = size === 'sm' ? 'h-9 w-9 rounded-[9px] text-[14px]' : 'h-11 w-11 rounded-[11px] text-[16px]';
   return (
     <div
       className={`flex shrink-0 items-center justify-center border-2 border-[var(--solid-ink)] font-display font-extrabold text-white ${dimension}`}
@@ -824,8 +511,8 @@ function MetricChip({
     default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
   };
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-extrabold ${styles[variant]}`}>
-      <Icon name={icon} size={14} />
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
+      <Icon name={icon} size={13} />
       {label}
     </span>
   );
