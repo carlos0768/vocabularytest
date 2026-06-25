@@ -170,7 +170,7 @@ export default function StatsPage() {
             className="inline-flex h-9 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 text-[11px] font-bold text-[var(--solid-ink)]"
           >
             <Icon name="group" size={15} />
-            フレンド
+            フィード
           </Link>
         </div>
 

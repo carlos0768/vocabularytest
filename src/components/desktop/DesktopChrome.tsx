@@ -13,7 +13,7 @@ type NavKey = 'home' | 'books' | 'stats' | 'friends' | 'shared' | 'fav' | 'scan'
 const NAV_ITEMS: { key: NavKey; href: string; icon: string; label: string; count?: number }[] = [
   { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
   { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
-  { key: 'friends', href: '/friends', icon: 'groups', label: 'フレンド' },
+  { key: 'friends', href: '/friends', icon: 'groups', label: 'フィード' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'star', label: 'お気に入り', count: 21 },
   { key: 'scan', href: '/scan', icon: 'photo_camera', label: 'スキャン' },
