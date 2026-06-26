@@ -14,6 +14,13 @@ export type FollowSummary = {
   profile: FriendProfile;
 };
 
+export type FollowNotification = {
+  id: string;
+  followId: string;
+  createdAt: string;
+  profile: FriendProfile;
+};
+
 export type FollowSearchResult = FriendProfile & {
   isPublic: boolean;
   relationship: FollowRelationship;

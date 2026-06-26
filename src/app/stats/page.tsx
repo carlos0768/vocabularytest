@@ -17,17 +17,15 @@ const HEAT_COLORS = [
   'var(--color-success)',
 ];
 
-const AVATAR_PALETTE = [
-  '#f97316', '#06b6d4', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#f59e0b', '#6366f1', '#10b981',
-];
+// Site-wide avatar/thumbnail palette (matches home, collections, shared, feed).
+const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
 function avatarColor(identifier: string): string {
   let hash = 0;
   for (let i = 0; i < identifier.length; i++) {
     hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
   }
-  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+  return THUMBS[Math.abs(hash) % THUMBS.length];
 }
 
 type StatsLoadState = {
@@ -73,7 +71,6 @@ export default function StatsPage() {
   const [showStats, setShowStats] = useState(false);
   const [sessions, setSessions] = useState<FriendTimelineSession[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (authLoading || !authStatsKey) return;
@@ -121,15 +118,6 @@ export default function StatsPage() {
     void loadTimeline();
   }, [authLoading, loadTimeline]);
 
-  const toggleSession = (sessionId: string) => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  };
-
   const recentWeek = useMemo(() => stats?.weeklyStats.slice(-7) ?? [], [stats?.weeklyStats]);
   const weekTotal = recentWeek.reduce((sum, item) => sum + item.totalCount, 0);
   const maxWeekValue = Math.max(1, ...recentWeek.map((item) => item.totalCount));
@@ -170,7 +158,7 @@ export default function StatsPage() {
             className="inline-flex h-9 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 text-[11px] font-bold text-[var(--solid-ink)]"
           >
             <Icon name="group" size={15} />
-            フレンド
+            フィード
           </Link>
         </div>
 
@@ -309,12 +297,7 @@ export default function StatsPage() {
           </div>
         ) : (
           sessions.map((session) => (
-            <TimelineItem
-              key={session.id}
-              session={session}
-              expanded={expanded.has(session.id)}
-              onToggle={() => toggleSession(session.id)}
-            />
+            <TimelineItem key={session.id} session={session} />
           ))
         )}
       </div>
@@ -322,58 +305,23 @@ export default function StatsPage() {
   );
 }
 
-function TimelineItem({
-  session,
-  expanded,
-  onToggle,
-}: {
-  session: FriendTimelineSession;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+function TimelineItem({ session }: { session: FriendTimelineSession }) {
   return (
-    <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex w-full items-start gap-3.5 px-[18px] py-4 text-left"
-      >
+    <article className="border-b border-[var(--color-border)]">
+      <div className="flex items-start gap-3.5 px-[18px] py-4">
         <FeedAvatar profile={session.profile} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
-            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
+          <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
+            <span className="font-display font-extrabold">{displayName(session.profile)}</span>
+            さんが{session.answerCount}問クイズを解きました！
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
+            <span className="font-mono text-[11px]">@{session.profile.accountId}</span>
             <span className="text-[var(--color-border)]">·</span>
-            <span className="text-[12px] font-bold text-[var(--color-muted)]">{formatSessionTime(session.startedAt)}</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
-            <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
+            <span>{formatSessionTime(session.startedAt)}</span>
           </div>
         </div>
-        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
-      </button>
-      {expanded && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
-          <div className="pl-[52px]">
-            {session.words.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
-                    <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
-                    <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
-                習得済みに変わった単語はありません
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      </div>
     </article>
   );
 }
@@ -388,28 +336,6 @@ function FeedAvatar({ profile }: { profile: Pick<FriendProfile, 'username' | 'ac
     >
       {label}
     </div>
-  );
-}
-
-function MetricChip({
-  icon,
-  label,
-  variant = 'default',
-}: {
-  icon: string;
-  label: string;
-  variant?: 'quiz' | 'mastered' | 'default';
-}) {
-  const styles = {
-    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
-    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
-    default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
-  };
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
-      <Icon name={icon} size={13} />
-      {label}
-    </span>
   );
 }
 

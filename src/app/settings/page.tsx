@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
@@ -23,12 +22,7 @@ export default function SettingsPage() {
     username,
     accountId,
     loading: profileLoading,
-    saving: profileSaving,
-    error: profileError,
-    setUsername,
   } = useProfile();
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [usernameInput, setUsernameInput] = useState('');
 
   const billingEnabled = isBillingEnabled();
 
@@ -36,24 +30,6 @@ export default function SettingsPage() {
     if (!window.confirm('ログアウトしますか？')) return;
     await signOut();
     router.push('/');
-  };
-
-  const startEditingUsername = () => {
-    setUsernameInput(username ?? '');
-    setIsEditingUsername(true);
-  };
-
-  const cancelEditingUsername = () => {
-    setUsernameInput(username ?? '');
-    setIsEditingUsername(false);
-  };
-
-  const handleSaveUsername = async () => {
-    if (profileSaving || !usernameInput.trim()) return;
-    const success = await setUsername(usernameInput);
-    if (success) {
-      setIsEditingUsername(false);
-    }
   };
 
   return (
@@ -64,9 +40,6 @@ export default function SettingsPage() {
         accountId={accountId}
         isPro={isPro}
         onSignOut={() => void handleSignOut()}
-        onUsernameChange={setUsername}
-        usernameSaving={profileSaving}
-        usernameError={profileError}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
@@ -88,91 +61,25 @@ export default function SettingsPage() {
             className="!rounded-[14px] !"
             faceClassName="!p-[14px]"
           >
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
-                  {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-display text-base font-bold text-[var(--solid-ink)]">
-                    {profileLoading ? '読み込み中...' : (username ?? 'ユーザー名未設定')}
-                  </div>
-                  <div className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-muted)]">{user?.email}</div>
-                  {accountId && (
-                    <div className="mt-0.5 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{accountId}</div>
-                  )}
-                  <div className="mt-1.5 inline-flex items-center gap-1 rounded-[4px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-white">
-                    <Icon name="auto_awesome" size={10} />
-                    {isPro ? 'PRO PLAN' : 'FREE PLAN'}
-                  </div>
-                </div>
-                {!isEditingUsername && (
-                  <button
-                    type="button"
-                    onClick={startEditingUsername}
-                    disabled={profileLoading}
-                    className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-3 font-display text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
-                  >
-                    <Icon name="edit" size={14} />
-                    変更
-                  </button>
-                )}
+            <Link href="/profile" className="flex items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
+                {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
               </div>
-
-              {isEditingUsername && (
-                <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-                  <label htmlFor="settings-username" className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-                    USERNAME
-                  </label>
-                  <input
-                    id="settings-username"
-                    type="text"
-                    value={usernameInput}
-                    onChange={(event) => setUsernameInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        void handleSaveUsername();
-                      }
-                      if (event.key === 'Escape') {
-                        cancelEditingUsername();
-                      }
-                    }}
-                    maxLength={20}
-                    autoFocus
-                    placeholder="ユーザー名を入力"
-                    className="mt-1.5 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
-                  />
-                  <div className="mt-1.5 flex items-center justify-between gap-2">
-                    <p className="font-mono text-[9px] text-[var(--color-muted)]">1-20文字</p>
-                    <p className="font-mono text-[9px] text-[var(--color-muted)]">{usernameInput.length}/20</p>
-                  </div>
-                  {profileError && (
-                    <p className="mt-2 rounded-[8px] border border-[var(--color-error)] bg-[rgba(239,68,68,0.08)] px-2.5 py-2 text-[11px] font-bold text-[var(--color-error)]">
-                      {profileError}
-                    </p>
-                  )}
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveUsername}
-                      disabled={profileSaving || !usernameInput.trim()}
-                      className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
-                    >
-                      {profileSaving ? '保存中...' : '保存'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEditingUsername}
-                      disabled={profileSaving}
-                      className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-base font-bold text-[var(--solid-ink)]">
+                  {profileLoading ? '読み込み中...' : (username ?? 'ユーザー名未設定')}
                 </div>
-              )}
-            </div>
+                <div className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-muted)]">{user?.email}</div>
+                {accountId && (
+                  <div className="mt-0.5 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{accountId}</div>
+                )}
+                <div className="mt-1.5 inline-flex items-center gap-1 rounded-[4px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-white">
+                  <Icon name="auto_awesome" size={10} />
+                  {isPro ? 'PRO PLAN' : 'FREE PLAN'}
+                </div>
+              </div>
+              <Icon name="chevron_right" size={22} className="shrink-0 text-[var(--color-muted)]" />
+            </Link>
           </SolidPanel>
         ) : (
           <SolidPanel className="!rounded-[14px] !" faceClassName="!p-[14px]">

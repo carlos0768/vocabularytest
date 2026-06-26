@@ -15,7 +15,7 @@ import type {
   SharedDiscoverPayload,
   SharedProjectCard,
 } from '@/lib/shared-projects/types';
-import type { FollowSearchResult } from '@/lib/follows/types';
+import type { FollowSearchResult, FollowSummary } from '@/lib/follows/types';
 import type { PublicStudyGroupSummary } from '@/lib/shared-projects/types';
 import type { Project } from '@/types';
 import { formatSharedTag, normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
@@ -43,6 +43,14 @@ type FollowSearchApiResponse = {
 
 type FollowMutationResponse = {
   success?: boolean;
+  follow?: FollowSummary;
+  error?: string;
+};
+
+type FollowsHomeApiResponse = {
+  success?: boolean;
+  following?: FollowSummary[];
+  pendingOutgoing?: FollowSummary[];
   error?: string;
 };
 
@@ -93,7 +101,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
-  const { user, isPro, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   const [category, setCategory] = useState<SharedDiscoverCategory | 'groups'>('all');
@@ -505,6 +513,49 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
   const { showToast } = useToast();
   const [followLoading, setFollowLoading] = useState<string | null>(null);
   const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isAuthenticated || users.length === 0) {
+      setFollowedIds(new Set());
+      setPendingIds(new Set());
+      return;
+    }
+
+    const accountIds = new Set(users.map((user) => user.accountId).filter((value): value is string => Boolean(value)));
+    if (accountIds.size === 0) return;
+
+    let cancelled = false;
+
+    fetch('/api/follows', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as FollowsHomeApiResponse | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'follows_fetch_failed');
+
+        const nextFollowed = new Set<string>();
+        const nextPending = new Set<string>();
+        for (const item of payload.following ?? []) {
+          const accountId = item.profile.accountId;
+          if (accountId && accountIds.has(accountId)) nextFollowed.add(accountId);
+        }
+        for (const item of payload.pendingOutgoing ?? []) {
+          const accountId = item.profile.accountId;
+          if (accountId && accountIds.has(accountId)) nextPending.add(accountId);
+        }
+
+        if (!cancelled) {
+          setFollowedIds(nextFollowed);
+          setPendingIds(nextPending);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load follow state for shared users:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, users]);
 
   const handleFollow = async (accountId: string | null) => {
     if (!accountId || followLoading) return;
@@ -519,8 +570,23 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || 'follow_failed');
       }
-      setFollowedIds((prev) => new Set([...prev, accountId]));
-      showToast({ message: 'フォローしました', type: 'success' });
+      if (payload.follow?.status === 'pending') {
+        setPendingIds((prev) => new Set([...prev, accountId]));
+        setFollowedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(accountId);
+          return next;
+        });
+        showToast({ message: 'フォローリクエストを送信しました', type: 'success' });
+      } else {
+        setFollowedIds((prev) => new Set([...prev, accountId]));
+        setPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(accountId);
+          return next;
+        });
+        showToast({ message: 'フォローしました', type: 'success' });
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'フォローに失敗しました。';
       showToast({ message, type: 'error' });
@@ -538,6 +604,7 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
           const accountLabel = user.accountId ? `@${user.accountId}` : user.username ? `@${user.username}` : 'ユーザー';
           const avatarLabel = (user.accountId ?? user.username ?? 'U').charAt(0).toUpperCase();
           const isFollowed = followedIds.has(user.accountId ?? '');
+          const isPending = pendingIds.has(user.accountId ?? '');
           const isLoading = followLoading === user.accountId;
 
           return (
@@ -559,6 +626,8 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
               {isAuthenticated && user.accountId && (
                 isFollowed ? (
                   <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フォロー中</span>
+                ) : isPending ? (
+                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">申請中</span>
                 ) : (
                   <button
                     type="button"
