@@ -1245,13 +1245,17 @@ function LegendItem({ color, label, count }: { color: string; label: string; cou
 
 function ProjectRow({ project }: { project: HomeProjectStats }) {
   const bg = thumbColor(project.id);
+  const hasWords = project.totalWords > 0;
   return (
-    <Link href={`/project/${project.id}`}>
-      <SolidPanel
-        className="!rounded-[14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        faceClassName="!p-[13px]"
-      >
-        <div className="flex items-center gap-[13px]">
+    <SolidPanel
+      className="!rounded-[14px]"
+      faceClassName="!p-[13px]"
+    >
+      <div className="flex items-center gap-[13px]">
+        <Link
+          href={`/project/${project.id}`}
+          className="flex min-w-0 flex-1 items-center gap-[13px] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
           <div
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
             style={{ background: project.iconImage ? `center / cover url(${project.iconImage})` : bg }}
@@ -1270,9 +1274,18 @@ function ProjectRow({ project }: { project: HomeProjectStats }) {
               <DotLabel color="rgba(26,26,26,0.2)" label={`未 ${project.newWords}`} />
             </div>
           </div>
-        </div>
-      </SolidPanel>
-    </Link>
+        </Link>
+        {hasWords && (
+          <Link
+            href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
+            aria-label={`${project.title}のクイズを開始`}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+          >
+            <Icon name="play_arrow" size={24} filled />
+          </Link>
+        )}
+      </div>
+    </SolidPanel>
   );
 }
 
