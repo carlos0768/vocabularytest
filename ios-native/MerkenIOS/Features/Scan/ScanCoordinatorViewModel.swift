@@ -685,6 +685,7 @@ final class ScanCoordinatorViewModel: ObservableObject {
             .filter {
                 !$0.english.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !$0.japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !Self.isMultiWordEnglish($0.english)
                 && (
                     !Self.hasValidDistractors($0.distractors)
                     || ($0.exampleSentence?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false)
@@ -962,6 +963,12 @@ final class ScanCoordinatorViewModel: ObservableObject {
     private static func hasPartOfSpeechTags(_ tags: [String]?) -> Bool {
         guard let tags else { return false }
         return tags.contains { !normalizeText($0).isEmpty }
+    }
+
+    private static func isMultiWordEnglish(_ english: String) -> Bool {
+        english
+            .split(whereSeparator: { $0.isWhitespace })
+            .count >= 2
     }
 
     private static func hasValidDistractors(_ distractors: [String]) -> Bool {
