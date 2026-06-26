@@ -71,7 +71,6 @@ export default function StatsPage() {
   const [showStats, setShowStats] = useState(false);
   const [sessions, setSessions] = useState<FriendTimelineSession[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (authLoading || !authStatsKey) return;
@@ -118,15 +117,6 @@ export default function StatsPage() {
     if (authLoading) return;
     void loadTimeline();
   }, [authLoading, loadTimeline]);
-
-  const toggleSession = (sessionId: string) => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  };
 
   const recentWeek = useMemo(() => stats?.weeklyStats.slice(-7) ?? [], [stats?.weeklyStats]);
   const weekTotal = recentWeek.reduce((sum, item) => sum + item.totalCount, 0);
@@ -307,12 +297,7 @@ export default function StatsPage() {
           </div>
         ) : (
           sessions.map((session) => (
-            <TimelineItem
-              key={session.id}
-              session={session}
-              expanded={expanded.has(session.id)}
-              onToggle={() => toggleSession(session.id)}
-            />
+            <TimelineItem key={session.id} session={session} />
           ))
         )}
       </div>
@@ -320,56 +305,23 @@ export default function StatsPage() {
   );
 }
 
-function TimelineItem({
-  session,
-  expanded,
-  onToggle,
-}: {
-  session: FriendTimelineSession;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+function TimelineItem({ session }: { session: FriendTimelineSession }) {
   return (
-    <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex w-full items-start gap-3.5 px-[18px] py-4 text-left"
-      >
+    <article className="border-b border-[var(--color-border)]">
+      <div className="flex items-start gap-3.5 px-[18px] py-4">
         <FeedAvatar profile={session.profile} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
-            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
+          <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
+            <span className="font-display font-extrabold">{displayName(session.profile)}</span>
+            さんが{session.answerCount}問クイズを解きました！
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
+            <span className="font-mono text-[11px]">@{session.profile.accountId}</span>
             <span className="text-[var(--color-border)]">·</span>
-            <span className="text-[12px] font-bold text-[var(--color-muted)]">{formatSessionTime(session.startedAt)}</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
-            <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
+            <span>{formatSessionTime(session.startedAt)}</span>
           </div>
         </div>
-        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
-      </button>
-      {expanded && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-2">
-          {session.words.length > 0 ? (
-            <div className="divide-y divide-[var(--color-border)]">
-              {session.words.map((word) => (
-                <div key={word.id} className="px-1 py-2.5">
-                  <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
-                  <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-4 text-center text-sm text-[var(--color-muted)]">
-              習得済みに変わった単語はありません
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </article>
   );
 }
@@ -384,28 +336,6 @@ function FeedAvatar({ profile }: { profile: Pick<FriendProfile, 'username' | 'ac
     >
       {label}
     </div>
-  );
-}
-
-function MetricChip({
-  icon,
-  label,
-  variant = 'default',
-}: {
-  icon: string;
-  label: string;
-  variant?: 'quiz' | 'mastered' | 'default';
-}) {
-  const iconColor = {
-    quiz: 'text-[var(--color-muted)]',
-    mastered: 'text-[var(--color-success)]',
-    default: 'text-[var(--color-muted)]',
-  }[variant];
-  return (
-    <span className="inline-flex items-center gap-[5px] rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-ink-muted)]">
-      <Icon name={icon} size={12} className={iconColor} />
-      {label}
-    </span>
   );
 }
 
