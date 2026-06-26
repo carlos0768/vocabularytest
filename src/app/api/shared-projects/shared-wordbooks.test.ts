@@ -1,0 +1,312 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  getSharedWordbookPreview,
+  listMySharedWordbooks,
+  listPublicSharedWordbooks,
+  publishSharedWordbook,
+  renameSharedWordbook,
+  setSharedWordbookLike,
+  SharedWordbookError,
+  unpublishSharedWordbook,
+} from './shared-wordbooks';
+
+type Row = Record<string, unknown>;
+
+type Store = {
+  shared_wordbooks: Row[];
+  shared_wordbook_words: Row[];
+  shared_wordbook_likes: Row[];
+  projects: Row[];
+  words: Row[];
+  profiles: Row[];
+};
+
+let idCounter = 0;
+function nextId(prefix: string): string {
+  idCounter += 1;
+  return `${prefix}-${idCounter}`;
+}
+
+class FakeQuery {
+  private op: 'select' | 'insert' | 'update' | 'delete' = 'select';
+  private eqFilters: Array<[string, unknown]> = [];
+  private inFilters: Array<[string, unknown[]]> = [];
+  private payload: Row[] = [];
+  private wantSingle = false;
+  private wantMaybeSingle = false;
+  private wantCount = false;
+
+  constructor(private readonly table: keyof Store, private readonly store: Store) {}
+
+  select(_cols?: unknown, options?: { count?: string; head?: boolean }) {
+    if (this.op !== 'insert' && this.op !== 'update' && this.op !== 'delete') this.op = 'select';
+    if (options?.count) this.wantCount = true;
+    return this;
+  }
+
+  insert(rows: Row | Row[]) {
+    this.op = 'insert';
+    this.payload = Array.isArray(rows) ? rows : [rows];
+    return this;
+  }
+
+  upsert(rows: Row | Row[]) {
+    this.op = 'insert';
+    this.payload = Array.isArray(rows) ? rows : [rows];
+    return this;
+  }
+
+  update(values: Row) {
+    this.op = 'update';
+    this.payload = [values];
+    return this;
+  }
+
+  delete() {
+    this.op = 'delete';
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.eqFilters.push([column, value]);
+    return this;
+  }
+
+  in(column: string, values: unknown[]) {
+    this.inFilters.push([column, values]);
+    return this;
+  }
+
+  order() {
+    return this;
+  }
+
+  limit() {
+    return this.resolve();
+  }
+
+  maybeSingle() {
+    this.wantMaybeSingle = true;
+    return this.resolve();
+  }
+
+  single() {
+    this.wantSingle = true;
+    return this.resolve();
+  }
+
+  private matches(row: Row): boolean {
+    for (const [col, val] of this.eqFilters) {
+      if (row[col] !== val) return false;
+    }
+    for (const [col, vals] of this.inFilters) {
+      if (!vals.includes(row[col])) return false;
+    }
+    return true;
+  }
+
+  private resolve(): Promise<{ data: unknown; error: unknown; count?: number }> {
+    const table = this.store[this.table];
+
+    if (this.op === 'insert') {
+      const inserted = this.payload.map((row) => ({ id: nextId(this.table), ...row }));
+      table.push(...inserted);
+      const data = this.wantSingle ? inserted[0] : inserted;
+      return Promise.resolve({ data, error: null });
+    }
+
+    if (this.op === 'update') {
+      const updated: Row[] = [];
+      for (const row of table) {
+        if (this.matches(row)) {
+          Object.assign(row, this.payload[0]);
+          updated.push(row);
+        }
+      }
+      const data = this.wantSingle || this.wantMaybeSingle ? updated[0] ?? null : updated;
+      return Promise.resolve({ data, error: null });
+    }
+
+    if (this.op === 'delete') {
+      const remaining = table.filter((row) => !this.matches(row));
+      const removedCount = table.length - remaining.length;
+      this.store[this.table] = remaining as Store[keyof Store];
+      return Promise.resolve({ data: null, error: null, count: removedCount });
+    }
+
+    const filtered = table.filter((row) => this.matches(row));
+    if (this.wantSingle) return Promise.resolve({ data: filtered[0] ?? null, error: null });
+    if (this.wantMaybeSingle) return Promise.resolve({ data: filtered[0] ?? null, error: null });
+    return Promise.resolve({ data: filtered, error: null, count: this.wantCount ? filtered.length : undefined });
+  }
+
+  then(onFulfilled: (value: { data: unknown; error: unknown; count?: number }) => unknown) {
+    return this.resolve().then(onFulfilled);
+  }
+}
+
+class FakeAdmin {
+  constructor(readonly store: Store) {}
+  from(table: keyof Store) {
+    return new FakeQuery(table, this.store);
+  }
+}
+
+function makeStore(overrides: Partial<Store> = {}): Store {
+  return {
+    shared_wordbooks: [],
+    shared_wordbook_words: [],
+    shared_wordbook_likes: [],
+    projects: [],
+    words: [],
+    profiles: [],
+    ...overrides,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const asAdmin = (admin: FakeAdmin) => admin as any;
+
+test('publishSharedWordbook snapshots project words and is owner-gated', async () => {
+  const store = makeStore({
+    projects: [{ id: 'p1', user_id: 'u1', title: 'TOEIC 600', description: null, icon_image: null, source_labels: [] }],
+    words: [
+      { project_id: 'p1', english: 'apple', japanese: 'りんご', distractors: [], created_at: '2026-01-01T00:00:00Z' },
+      { project_id: 'p1', english: 'banana', japanese: 'バナナ', distractors: [], created_at: '2026-01-02T00:00:00Z' },
+    ],
+    profiles: [{ user_id: 'u1', username: 'taro', account_id: 'taro123' }],
+  });
+  const admin = new FakeAdmin(store);
+
+  const card = await publishSharedWordbook('u1', 'p1', ['/toeic'], asAdmin(admin));
+  assert.equal(card.accessRole, 'owner');
+  assert.equal(card.wordCount, 2);
+  assert.equal(card.project.title, 'TOEIC 600');
+  assert.ok(card.project.shareId, 'a share id is assigned');
+  assert.equal(store.shared_wordbooks.length, 1);
+  assert.equal(store.shared_wordbook_words.length, 2);
+});
+
+test('publishSharedWordbook rejects a project the user does not own', async () => {
+  const store = makeStore({
+    projects: [{ id: 'p1', user_id: 'someone-else', title: 'X', description: null, icon_image: null, source_labels: [] }],
+  });
+  const admin = new FakeAdmin(store);
+
+  await assert.rejects(
+    () => publishSharedWordbook('u1', 'p1', [], asAdmin(admin)),
+    (error: unknown) => error instanceof SharedWordbookError && error.code === 'forbidden',
+  );
+});
+
+test('re-publishing replaces the existing snapshot words and keeps the share id', async () => {
+  const store = makeStore({
+    projects: [{ id: 'p1', user_id: 'u1', title: 'List', description: null, icon_image: null, source_labels: [] }],
+    words: [{ project_id: 'p1', english: 'one', japanese: '一', distractors: [], created_at: '2026-01-01T00:00:00Z' }],
+  });
+  const admin = new FakeAdmin(store);
+
+  const first = await publishSharedWordbook('u1', 'p1', [], asAdmin(admin));
+  store.words.push({ project_id: 'p1', english: 'two', japanese: '二', distractors: [], created_at: '2026-01-03T00:00:00Z' });
+  const second = await publishSharedWordbook('u1', 'p1', [], asAdmin(admin));
+
+  assert.equal(store.shared_wordbooks.length, 1, 'no duplicate snapshot row');
+  assert.equal(store.shared_wordbook_words.length, 2, 'words re-copied');
+  assert.equal(second.project.shareId, first.project.shareId, 'share id is stable across re-publish');
+  assert.equal(second.wordCount, 2);
+});
+
+test('listPublicSharedWordbooks maps snapshot rows to cards', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'A', shared_tags: ['/toeic'], word_count: 3, like_count: 5, created_at: '2026-02-01T00:00:00Z' },
+    ],
+    profiles: [{ user_id: 'u1', username: 'taro', account_id: 'taro123' }],
+  });
+  const admin = new FakeAdmin(store);
+
+  const payload = await listPublicSharedWordbooks({ limit: 10 }, asAdmin(admin));
+  assert.equal(payload.items.length, 1);
+  assert.equal(payload.items[0].project.shareId, 'abc');
+  assert.equal(payload.items[0].wordCount, 3);
+  assert.equal(payload.items[0].likeCount, 5);
+  assert.equal(payload.items[0].ownerAccountId, 'taro123');
+});
+
+test('getSharedWordbookPreview returns mapped project and words', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'A', shared_tags: [], word_count: 1, like_count: 0, created_at: '2026-02-01T00:00:00Z' },
+    ],
+    shared_wordbook_words: [
+      { id: 'w1', shared_wordbook_id: 'sw1', position: 0, english: 'cat', japanese: '猫', distractors: [], created_at: '2026-02-01T00:00:00Z' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  const preview = await getSharedWordbookPreview('abc', 5, asAdmin(admin));
+  assert.ok(preview);
+  assert.equal(preview!.project.title, 'A');
+  assert.equal(preview!.words.length, 1);
+  assert.equal(preview!.words[0].english, 'cat');
+  assert.equal(preview!.totalWordCount, 1);
+});
+
+test('rename and unpublish enforce ownership', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'Old', shared_tags: [], word_count: 0, like_count: 0, created_at: '2026-02-01T00:00:00Z' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  await assert.rejects(
+    () => renameSharedWordbook('intruder', 'sw1', 'New', asAdmin(admin)),
+    (error: unknown) => error instanceof SharedWordbookError && error.code === 'forbidden',
+  );
+
+  const renamed = await renameSharedWordbook('u1', 'sw1', 'New', asAdmin(admin));
+  assert.equal(renamed.project.title, 'New');
+
+  await assert.rejects(
+    () => unpublishSharedWordbook('intruder', 'sw1', asAdmin(admin)),
+    (error: unknown) => error instanceof SharedWordbookError && error.code === 'forbidden',
+  );
+
+  await unpublishSharedWordbook('u1', 'sw1', asAdmin(admin));
+  assert.equal(store.shared_wordbooks.length, 0);
+});
+
+test('setSharedWordbookLike updates the denormalized like_count', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'A', shared_tags: [], word_count: 0, like_count: 0, created_at: '2026-02-01T00:00:00Z' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  const liked = await setSharedWordbookLike('abc', 'viewer', true, asAdmin(admin));
+  assert.equal(liked!.likeCount, 1);
+  assert.equal(store.shared_wordbooks[0].like_count, 1);
+
+  const unliked = await setSharedWordbookLike('abc', 'viewer', false, asAdmin(admin));
+  assert.equal(unliked!.likeCount, 0);
+  assert.equal(store.shared_wordbooks[0].like_count, 0);
+});
+
+test('listMySharedWordbooks returns owner cards', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'Mine', shared_tags: [], word_count: 2, like_count: 1, created_at: '2026-02-01T00:00:00Z' },
+      { id: 'sw2', share_id: 'def', source_project_id: 'p2', user_id: 'other', title: 'Theirs', shared_tags: [], word_count: 0, like_count: 0, created_at: '2026-02-01T00:00:00Z' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  const cards = await listMySharedWordbooks('u1', asAdmin(admin));
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].project.title, 'Mine');
+  assert.equal(cards[0].accessRole, 'owner');
+});

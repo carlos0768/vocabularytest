@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SharedDiscoverCategory, SharedDiscoverPayload } from '@/lib/shared-projects/types';
-import { listPublicSharedProjects, listPublicSharedUsers } from '../shared';
+import {
+  listPublicSharedWordbooks as listPublicSharedProjects,
+  listPublicSharedWordbookUsers as listPublicSharedUsers,
+} from '../shared-wordbooks';
 
 const DISCOVER_CATEGORIES = new Set<SharedDiscoverCategory>(['all', 'users', 'projects']);
 
