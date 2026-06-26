@@ -359,13 +359,18 @@ function FriendsSection({
 }
 
 function TimelineItem({ session }: { session: FriendTimelineSession }) {
+  const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
     <article className="border-b border-[var(--color-border)]">
       <div className="flex items-start gap-3.5 px-[18px] py-4">
-        <Avatar profile={session.profile} />
+        <Link href={profileHref} aria-label={`${displayName(session.profile)}のプロフィール`} className="shrink-0">
+          <Avatar profile={session.profile} />
+        </Link>
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
-            <span className="font-display font-extrabold">{displayName(session.profile)}</span>
+            <Link href={profileHref} className="font-display font-extrabold hover:underline">
+              {displayName(session.profile)}
+            </Link>
             さんが{session.answerCount}問クイズを解きました！
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
