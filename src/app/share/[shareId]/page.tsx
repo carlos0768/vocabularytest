@@ -12,7 +12,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
-import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import type { SharedProjectPreviewPayload } from '@/lib/shared-projects/types';
@@ -135,10 +134,14 @@ export default function SharedDetailPage() {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [totalWordCount, setTotalWordCount] = useState(0);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [ownerActionBusy, setOwnerActionBusy] = useState(false);
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
-  const isPreviewLocked = !isPro;
+  const isOwner = Boolean(user && project && project.userId === user.id);
+  const isPreviewLocked = !isPro && !isOwner;
 
   useEffect(() => {
     let cancelled = false;
@@ -176,27 +179,33 @@ export default function SharedDetailPage() {
     if (authLoading || !isPro || !project?.id) return;
 
     let cancelled = false;
-    remoteRepository.getWordsForShareView(project.id)
-      .then((wordsData) => {
-        if (cancelled) return;
-        setWords(wordsData);
-        setTotalWordCount(wordsData.length);
-      })
-      .catch((loadError) => {
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/shared-projects/share/${encodeURIComponent(shareId)}/words`,
+          { cache: 'no-store' },
+        );
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null) as { success?: boolean; words?: Word[] } | null;
+        if (cancelled || !payload?.success || !Array.isArray(payload.words)) return;
+        setWords(payload.words);
+        setTotalWordCount(payload.words.length);
+      } catch (loadError) {
         console.error('Failed to load full shared project words:', loadError);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isPro, project?.id]);
+  }, [authLoading, isPro, project?.id, shareId]);
 
   useEffect(() => {
     if (!project || !user) return;
     let cancelled = false;
     (async () => {
       try {
-        const response = await fetch(`/api/shared-projects/${project.id}/like`);
+        const response = await fetch(`/api/shared-projects/share/${encodeURIComponent(shareId)}/like`);
         if (response.ok && !cancelled) {
           const data = await response.json();
           setLiked(Boolean(data.liked));
@@ -209,7 +218,7 @@ export default function SharedDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [project, user]);
+  }, [project, user, shareId]);
 
   const selectedWords = useMemo(
     () => words.filter((word) => selectedWordIds.has(word.id)),
@@ -310,7 +319,7 @@ export default function SharedDetailPage() {
     setLikeCount((prev) => Math.max(0, prev + (nextLiked ? 1 : -1)));
 
     try {
-      const response = await fetch(`/api/shared-projects/${project.id}/like`, {
+      const response = await fetch(`/api/shared-projects/share/${encodeURIComponent(shareId)}/like`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ liked: nextLiked }),
@@ -333,6 +342,63 @@ export default function SharedDetailPage() {
       else next.add(wordId);
       return next;
     });
+  };
+
+  const handleOpenRename = () => {
+    setRenameDraft(project?.title ?? '');
+    setRenameOpen(true);
+  };
+
+  const handleRename = async () => {
+    if (!project || ownerActionBusy) return;
+    const nextTitle = renameDraft.trim();
+    if (!nextTitle || nextTitle === project.title) {
+      setRenameOpen(false);
+      return;
+    }
+    setOwnerActionBusy(true);
+    try {
+      const response = await fetch(`/api/shared-projects/share-wordbook/${encodeURIComponent(project.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'rename_failed');
+      }
+      setProject((current) => (current ? { ...current, title: nextTitle } : current));
+      setRenameOpen(false);
+      showToast({ message: '名前を変更しました', type: 'success' });
+    } catch (renameError) {
+      console.error('Failed to rename shared wordbook:', renameError);
+      showToast({ message: '名前の変更に失敗しました', type: 'error' });
+    } finally {
+      setOwnerActionBusy(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!project || ownerActionBusy) return;
+    if (typeof window !== 'undefined' && !window.confirm('この単語帳の公開を停止しますか？共有ページから削除されます。')) {
+      return;
+    }
+    setOwnerActionBusy(true);
+    try {
+      const response = await fetch(`/api/shared-projects/share-wordbook/${encodeURIComponent(project.id)}`, {
+        method: 'DELETE',
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'unpublish_failed');
+      }
+      showToast({ message: '公開を停止しました', type: 'success' });
+      router.push('/shared');
+    } catch (unpublishError) {
+      console.error('Failed to unpublish shared wordbook:', unpublishError);
+      showToast({ message: '公開の停止に失敗しました', type: 'error' });
+      setOwnerActionBusy(false);
+    }
   };
 
   if (loading || authLoading) {
@@ -494,7 +560,33 @@ export default function SharedDetailPage() {
         className="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3"
         style={{ background: 'linear-gradient(to top, var(--color-background) 70%, transparent)', paddingBottom: 'max(1.625rem, env(safe-area-inset-bottom))' }}
       >
-        {isPreviewLocked ? (
+        {isOwner ? (
+          <>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={handleOpenRename}
+                disabled={ownerActionBusy}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-[14px] font-extrabold text-[var(--solid-ink)] disabled:opacity-50"
+              >
+                <Icon name="edit" size={16} />
+                名前を変更
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleUnpublish()}
+                disabled={ownerActionBusy}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-error)] bg-white px-4 py-3 text-[14px] font-extrabold text-[var(--color-error)] disabled:opacity-50"
+              >
+                <Icon name={ownerActionBusy ? 'progress_activity' : 'public_off'} size={16} className={ownerActionBusy ? 'animate-spin' : undefined} />
+                公開を停止
+              </button>
+            </div>
+            <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
+              あなたが共有している単語帳です
+            </p>
+          </>
+        ) : isPreviewLocked ? (
           user ? (
             <SolidButton href="/subscription" variant="inverse" size="lg" iconLeft="auto_awesome" className="w-full" faceClassName="!w-full !justify-center">
               Proにアップグレードして全単語を見る
@@ -521,10 +613,62 @@ export default function SharedDetailPage() {
             {importBusy ? (preparingRewardedDownloadAd ? '広告を準備中...' : '追加中...') : `${importTargetWords.length}語をインポート`}
           </SolidButton>
         )}
-        <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-          {isPreviewLocked ? (user ? 'Proプランで全単語を閲覧・インポートできます' : '一部だけプレビューしています') : 'オリジナルは変更されません'}
-        </p>
+        {!isOwner && (
+          <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
+            {isPreviewLocked ? (user ? 'Proプランで全単語を閲覧・インポートできます' : '一部だけプレビューしています') : 'オリジナルは変更されません'}
+          </p>
+        )}
       </div>
+
+      {renameOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center px-6" style={{ fontFamily: 'var(--font-body)' }}>
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="閉じる"
+            onClick={() => setRenameOpen(false)}
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+          />
+          <div
+            className="relative w-full animate-fade-in-up"
+            style={{
+              maxWidth: 360,
+              background: '#faf7f1',
+              border: '2px solid var(--solid-ink)',
+              borderRadius: 18,
+              padding: '18px',
+              boxShadow: '0 12px 32px rgba(26,26,26,0.22)',
+            }}
+          >
+            <div className="mb-3 font-display text-[17px] font-extrabold text-[var(--solid-ink)]">名前を変更</div>
+            <input
+              value={renameDraft}
+              onChange={(event) => setRenameDraft(event.target.value)}
+              maxLength={80}
+              autoFocus
+              className="mb-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRenameOpen(false)}
+                className="inline-flex h-[44px] flex-1 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[13px] font-extrabold text-[var(--solid-ink)]"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRename()}
+                disabled={ownerActionBusy || !renameDraft.trim()}
+                className="inline-flex h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-extrabold text-white disabled:opacity-45"
+              >
+                <Icon name={ownerActionBusy ? 'progress_activity' : 'check'} size={15} className={ownerActionBusy ? 'animate-spin' : undefined} />
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </>
   );
