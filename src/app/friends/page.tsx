@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
@@ -8,12 +8,11 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import type {
   FriendProfile,
-  FriendshipSummary,
-  FriendsHomePayload,
   FriendTimelineSession,
 } from '@/lib/friends/types';
+import type { FollowSummary, FollowsHomePayload } from '@/lib/follows/types';
 
-type FriendsApiResponse = Partial<FriendsHomePayload> & {
+type FollowsApiResponse = Partial<FollowsHomePayload> & {
   success?: boolean;
   error?: string;
 };
@@ -29,11 +28,12 @@ type MutationResponse = {
   error?: string;
 };
 
-const EMPTY_FRIENDS: FriendsHomePayload = {
+const EMPTY_FOLLOWS: FollowsHomePayload = {
   profile: { userId: '', username: null, accountId: '' },
-  friends: [],
-  incoming: [],
-  outgoing: [],
+  following: [],
+  followers: [],
+  pendingIncoming: [],
+  pendingOutgoing: [],
 };
 
 const AVATAR_PALETTE = [
@@ -64,18 +64,9 @@ function formatSessionTime(value: string): string {
   });
 }
 
-function formatTimeOnly(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString('ja-JP', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export default function FriendsPage() {
   const { loading: authLoading, isAuthenticated } = useAuth();
-  const [home, setHome] = useState<FriendsHomePayload>(EMPTY_FRIENDS);
+  const [home, setHome] = useState<FollowsHomePayload>(EMPTY_FOLLOWS);
   const [sessions, setSessions] = useState<FriendTimelineSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [timelineLoading, setTimelineLoading] = useState(true);
@@ -83,27 +74,28 @@ export default function FriendsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const hasRequests = home.incoming.length > 0 || home.outgoing.length > 0;
+  const hasRequests = home.pendingIncoming.length > 0 || home.pendingOutgoing.length > 0;
 
-  const loadFriends = useCallback(async () => {
+  const loadFollows = useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/friends', { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as FriendsApiResponse | null;
+      const response = await fetch('/api/follows', { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as FollowsApiResponse | null;
       if (!response.ok || !payload?.success || !payload.profile) {
-        throw new Error(payload?.error || 'friends_fetch_failed');
+        throw new Error(payload?.error || 'follows_fetch_failed');
       }
       setHome({
         profile: payload.profile,
-        friends: payload.friends ?? [],
-        incoming: payload.incoming ?? [],
-        outgoing: payload.outgoing ?? [],
+        following: payload.following ?? [],
+        followers: payload.followers ?? [],
+        pendingIncoming: payload.pendingIncoming ?? [],
+        pendingOutgoing: payload.pendingOutgoing ?? [],
       });
     } catch (loadError) {
-      console.warn('Failed to load friends:', loadError);
-      setError('フレンド情報を読み込めませんでした。');
+      console.warn('Failed to load follows:', loadError);
+      setError('フォロー通知を読み込めませんでした。');
     } finally {
       setLoading(false);
     }
@@ -127,8 +119,8 @@ export default function FriendsPage() {
   }, [isAuthenticated]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadFriends(), loadTimeline()]);
-  }, [loadFriends, loadTimeline]);
+    await Promise.all([loadFollows(), loadTimeline()]);
+  }, [loadFollows, loadTimeline]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -151,7 +143,7 @@ export default function FriendsPage() {
       const response = await request();
       const payload = await response.json().catch(() => null) as MutationResponse | null;
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'friend_mutation_failed');
+        throw new Error(payload?.error || 'follow_mutation_failed');
       }
       await refreshAll();
     } catch (mutationError) {
@@ -162,14 +154,16 @@ export default function FriendsPage() {
     }
   }, [actionLoading, refreshAll]);
 
-  const respondRequest = (friendshipId: string, action: 'accept' | 'decline') => mutate(`${action}:${friendshipId}`, () => fetch('/api/friends/respond', {
+  const respondRequest = (followId: string, action: 'accept' | 'decline') => mutate(`${action}:${followId}`, () => fetch('/api/follows/respond', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ friendshipId, action }),
+    body: JSON.stringify({ followId, action }),
   }));
 
-  const removeFriend = (friendshipId: string) => mutate(`delete:${friendshipId}`, () => fetch(`/api/friends/${encodeURIComponent(friendshipId)}`, {
+  const removeFollow = (followId: string) => mutate(`delete:${followId}`, () => fetch('/api/follows', {
     method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ followId }),
   }));
 
   const toggleSession = (sessionId: string) => {
@@ -217,11 +211,11 @@ export default function FriendsPage() {
         {hasRequests && (
           <div className="mb-2 px-[18px]">
             <RequestsSection
-              incoming={home.incoming}
-              outgoing={home.outgoing}
+              incoming={home.pendingIncoming}
+              outgoing={home.pendingOutgoing}
               actionLoading={actionLoading}
               onRespondRequest={respondRequest}
-              onRemoveFriend={removeFriend}
+              onRemoveFollow={removeFollow}
             />
           </div>
         )}
@@ -247,12 +241,12 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {home.friends.length > 0 && (
+        {home.following.length > 0 && (
           <div className="mx-[18px] mt-6 border-t border-[var(--color-border)] pt-5 pb-4">
-            <FriendsSection
-              friends={home.friends}
+            <FollowingSection
+              follows={home.following}
               actionLoading={actionLoading}
-              onRemoveFriend={removeFriend}
+              onRemoveFollow={removeFollow}
             />
           </div>
         )}
@@ -263,7 +257,7 @@ export default function FriendsPage() {
   return (
     <>
       <div className="hidden h-full min-h-0 flex-col lg:flex">
-        <DesktopTopbar title="フレンド" crumb="学習タイムライン">
+        <DesktopTopbar title="フォロー" crumb="フォロー通知 / 学習タイムライン">
           <DesktopButton href="/shared" icon="hub" variant="ghost">共有ライブラリ</DesktopButton>
         </DesktopTopbar>
         <div className="ds-scroll">
@@ -283,20 +277,20 @@ function RequestsSection({
   outgoing,
   actionLoading,
   onRespondRequest,
-  onRemoveFriend,
+  onRemoveFollow,
 }: {
-  incoming: FriendshipSummary[];
-  outgoing: FriendshipSummary[];
+  incoming: FollowSummary[];
+  outgoing: FollowSummary[];
   actionLoading: string | null;
-  onRespondRequest: (friendshipId: string, action: 'accept' | 'decline') => void;
-  onRemoveFriend: (friendshipId: string) => void;
+  onRespondRequest: (followId: string, action: 'accept' | 'decline') => void;
+  onRemoveFollow: (followId: string) => void;
 }) {
   return (
     <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
-      <SectionTitle icon="mark_email_unread" label="申請" count={incoming.length + outgoing.length} />
+      <SectionTitle icon="mark_email_unread" label="フォロー通知" count={incoming.length + outgoing.length} />
       <div className="mt-2 flex flex-col gap-1.5">
         {incoming.map((item) => (
-          <FriendRow key={item.id} friendship={item}>
+          <FollowRow key={item.id} follow={item}>
             <button
               type="button"
               onClick={() => onRespondRequest(item.id, 'accept')}
@@ -315,52 +309,52 @@ function RequestsSection({
             >
               <Icon name="close" size={14} />
             </button>
-          </FriendRow>
+          </FollowRow>
         ))}
         {outgoing.map((item) => (
-          <FriendRow key={item.id} friendship={item}>
+          <FollowRow key={item.id} follow={item}>
             <StatusChip label="申請中" />
             <button
               type="button"
-              onClick={() => onRemoveFriend(item.id)}
+              onClick={() => onRemoveFollow(item.id)}
               disabled={Boolean(actionLoading)}
               className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
               aria-label="申請を取り消す"
             >
               <Icon name="close" size={14} />
             </button>
-          </FriendRow>
+          </FollowRow>
         ))}
       </div>
     </SolidPanel>
   );
 }
 
-function FriendsSection({
-  friends,
+function FollowingSection({
+  follows,
   actionLoading,
-  onRemoveFriend,
+  onRemoveFollow,
 }: {
-  friends: FriendshipSummary[];
+  follows: FollowSummary[];
   actionLoading: string | null;
-  onRemoveFriend: (friendshipId: string) => void;
+  onRemoveFollow: (followId: string) => void;
 }) {
   return (
     <>
-      <SectionTitle icon="groups" label="フレンド" count={friends.length} />
+      <SectionTitle icon="person_check" label="フォロー中" count={follows.length} />
       <div className="mt-2 flex flex-col gap-1.5">
-        {friends.map((friend) => (
-          <FriendRow key={friend.id} friendship={friend}>
+        {follows.map((follow) => (
+          <FollowRow key={follow.id} follow={follow}>
             <button
               type="button"
-              onClick={() => onRemoveFriend(friend.id)}
+              onClick={() => onRemoveFollow(follow.id)}
               disabled={Boolean(actionLoading)}
               className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
-              aria-label="フレンド解除"
+              aria-label="フォロー解除"
             >
-              <Icon name={actionLoading === `delete:${friend.id}` ? 'progress_activity' : 'person_remove'} className={actionLoading === `delete:${friend.id}` ? 'animate-spin' : ''} size={14} />
+              <Icon name={actionLoading === `delete:${follow.id}` ? 'progress_activity' : 'person_remove'} className={actionLoading === `delete:${follow.id}` ? 'animate-spin' : ''} size={14} />
             </button>
-          </FriendRow>
+          </FollowRow>
         ))}
       </div>
     </>
@@ -376,8 +370,6 @@ function TimelineItem({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const color = avatarColor(session.profile.accountId);
-
   return (
     <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
       <button
@@ -425,19 +417,19 @@ function TimelineItem({
   );
 }
 
-function FriendRow({
-  friendship,
+function FollowRow({
+  follow,
   children,
 }: {
-  friendship: FriendshipSummary;
-  children: React.ReactNode;
+  follow: FollowSummary;
+  children: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-2.5 py-2">
-      <Avatar profile={friendship.profile} size="sm" />
+      <Avatar profile={follow.profile} size="sm" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[12px] font-extrabold text-[var(--solid-ink)]">{displayName(friendship.profile)}</div>
-        <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{friendship.profile.accountId}</div>
+        <div className="truncate text-[12px] font-extrabold text-[var(--solid-ink)]">{displayName(follow.profile)}</div>
+        <div className="truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{follow.profile.accountId}</div>
       </div>
       {children}
     </div>
