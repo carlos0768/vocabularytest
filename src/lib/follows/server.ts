@@ -5,6 +5,7 @@ import {
   buildDefaultAccountId,
   getFriendSchemaIssue,
 } from '@/lib/friends/server';
+import { sendFollowPushNotification } from '@/lib/notifications/web-push';
 import type { FriendProfile, FriendTimelineSession, QuizSessionWordSummary } from '@/lib/friends/types';
 import type {
   FollowStatus,
@@ -221,12 +222,15 @@ export async function listFollowNotifications(
 ): Promise<FollowNotification[]> {
   const home = await listFollowsHome(userId, admin);
 
-  return home.pendingIncoming.map((item) => ({
-    id: item.id,
-    followId: item.id,
-    createdAt: item.createdAt,
-    profile: item.profile,
-  }));
+  return [...home.pendingIncoming, ...home.followers]
+    .sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt))
+    .map((item) => ({
+      id: item.id,
+      followId: item.id,
+      status: item.status,
+      createdAt: item.createdAt,
+      profile: item.profile,
+    }));
 }
 
 export class FollowError extends Error {
@@ -241,7 +245,7 @@ export async function followUser(
   targetAccountId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<FollowSummary> {
-  await ensureFriendProfile(userId, admin);
+  const viewerProfile = await ensureFriendProfile(userId, admin);
 
   const normalized = normalizeAccountIdInput(targetAccountId);
   if (!ACCOUNT_ID_PATTERN.test(normalized)) {
@@ -292,6 +296,18 @@ export async function followUser(
       if (retry) return toFollowSummary(retry, userId, new Map([[targetProfile.userId, targetProfile]]));
     }
     throw new Error(error?.message || 'follow_create_failed');
+  }
+
+  try {
+    await sendFollowPushNotification(admin, {
+      userId: targetProfile.userId,
+      followId: data.id,
+      followerAccountId: viewerProfile.accountId,
+      followerUsername: viewerProfile.username,
+      status,
+    });
+  } catch (pushError) {
+    console.error('[follows] failed to send follow push notification:', pushError);
   }
 
   return toFollowSummary(data, userId, new Map([[targetProfile.userId, targetProfile]]));

@@ -279,7 +279,7 @@ test('listFollowsHome returns an empty home payload when follows are unavailable
   assert.deepEqual(payload.pendingOutgoing, []);
 });
 
-test('listFollowNotifications returns incoming pending follow requests only', async () => {
+test('listFollowNotifications returns incoming active follows and pending requests', async () => {
   const thirdId = '33333333-3333-3333-3333-333333333333';
   const admin = new FakeUserAdmin({
     profiles: [
@@ -317,10 +317,12 @@ test('listFollowNotifications returns incoming pending follow requests only', as
 
   const notifications = await listFollowNotifications(viewerId, admin as never);
 
-  assert.equal(notifications.length, 1);
-  assert.equal(notifications[0]?.followId, 'follow-1');
-  assert.equal(notifications[0]?.profile.userId, targetId);
-  assert.equal(notifications[0]?.profile.accountId, 'abc');
+  assert.deepEqual(notifications.map((item) => item.followId), ['follow-2', 'follow-1']);
+  assert.deepEqual(notifications.map((item) => item.status), ['active', 'pending']);
+  assert.equal(notifications[0]?.profile.userId, thirdId);
+  assert.equal(notifications[0]?.profile.accountId, 'third');
+  assert.equal(notifications[1]?.profile.userId, targetId);
+  assert.equal(notifications[1]?.profile.accountId, 'abc');
 });
 
 test('searchFriendProfiles can find users by user_handle without account_id', async () => {
