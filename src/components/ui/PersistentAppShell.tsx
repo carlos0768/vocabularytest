@@ -16,7 +16,7 @@ const NO_SHELL_PATHS = [
 
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
-  '/quick-response/', '/scan/confirm',
+  '/quick-response/', '/scan/confirm', '/shared/share-wordbook',
   '/subscription', '/collections/new', '/word/', '/favorites', '/profile', '/follows',
 ];
 
