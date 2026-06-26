@@ -20,6 +20,7 @@ import {
 } from '@/lib/home/home-session-storage';
 import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
 import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
+import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
 import {
   prepareScanConfirmForNewProject,
   saveScanConfirmProjectDraft,
@@ -121,6 +122,12 @@ export function ScanCapturePanel({
     const supabase = createBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
+
+    setProcessingLabel('通知を準備中...');
+    await ensureBackgroundScanPushSubscription(
+      session.access_token,
+      '[ScanCapturePanel]',
+    );
 
     return createHomeBackgroundScanJob({
       files,
