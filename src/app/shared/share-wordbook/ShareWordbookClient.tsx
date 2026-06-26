@@ -7,8 +7,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { triggerHaptic } from '@/lib/haptics';
 import { parseSharedTagsInput } from '../../../../shared/shared-tags';
 import type { Project } from '@/types';
+import type { SharedProjectCard } from '@/lib/shared-projects/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
@@ -24,6 +26,12 @@ type PublishResponse = {
   wordbook?: { project?: { shareId?: string } };
 };
 
+type MySharedResponse = {
+  success?: boolean;
+  error?: string;
+  wordbooks?: SharedProjectCard[];
+};
+
 export default function ShareWordbookClient() {
   const router = useRouter();
   const { user, isPro, loading: authLoading } = useAuth();
@@ -36,6 +44,10 @@ export default function ShareWordbookClient() {
   const [tagDraft, setTagDraft] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const [sharedWordbooks, setSharedWordbooks] = useState<SharedProjectCard[]>([]);
+  const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null);
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
+
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedId) ?? null,
     [projects, selectedId],
@@ -46,8 +58,16 @@ export default function ShareWordbookClient() {
     setLoading(true);
     setLoadError(null);
     try {
-      const ownProjects = await remoteRepository.getProjects(user.id);
+      const [ownProjects, sharedResponse] = await Promise.all([
+        remoteRepository.getProjects(user.id),
+        fetch('/api/shared-projects/share-wordbook', { cache: 'no-store' })
+          .then((response) => response.json().catch(() => null) as Promise<MySharedResponse | null>)
+          .catch(() => null),
+      ]);
       setProjects(ownProjects);
+      if (sharedResponse?.success) {
+        setSharedWordbooks(sharedResponse.wordbooks ?? []);
+      }
     } catch (error) {
       console.error('Failed to load projects for sharing:', error);
       setLoadError('単語帳を読み込めませんでした。');
@@ -60,6 +80,37 @@ export default function ShareWordbookClient() {
     if (authLoading || !user || !isPro) return;
     void loadProjects();
   }, [authLoading, isPro, loadProjects, user]);
+
+  const handleStopShare = async (card: SharedProjectCard) => {
+    const sharedId = card.project.id;
+    if (stoppingId) return;
+    if (confirmingStopId !== sharedId) {
+      triggerHaptic();
+      setConfirmingStopId(sharedId);
+      return;
+    }
+    setStoppingId(sharedId);
+    try {
+      const response = await fetch(`/api/shared-projects/share-wordbook/${encodeURIComponent(sharedId)}`, {
+        method: 'DELETE',
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'unpublish_failed');
+      }
+      setSharedWordbooks((current) => current.filter((item) => item.project.id !== sharedId));
+      setConfirmingStopId(null);
+      invalidateHomeCache();
+      showToast({ message: '共有を停止しました', type: 'success' });
+    } catch (error) {
+      const message = error instanceof Error && error.message !== 'unpublish_failed'
+        ? error.message
+        : '共有の停止に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setStoppingId(null);
+    }
+  };
 
   const handlePublish = async () => {
     if (!selectedProject || saving) return;
@@ -107,6 +158,28 @@ export default function ShareWordbookClient() {
         </div>
       </div>
 
+      {user && isPro && sharedWordbooks.length > 0 && (
+        <div className="px-[14px] pt-2">
+          <div className="mb-2 flex items-center gap-1.5 px-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+            <Icon name="public" size={13} />
+            共有中の単語帳
+            <span className="tabular-nums">{sharedWordbooks.length}</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {sharedWordbooks.map((card) => (
+              <SharedWordbookRow
+                key={card.project.id}
+                card={card}
+                confirming={confirmingStopId === card.project.id}
+                stopping={stoppingId === card.project.id}
+                onStop={() => void handleStopShare(card)}
+                onCancel={() => setConfirmingStopId(null)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {authLoading ? (
         <CenterState icon="progress_activity" spin message="確認中..." />
       ) : !user ? (
@@ -138,6 +211,12 @@ export default function ShareWordbookClient() {
         </div>
       ) : (
         <div className="flex flex-col gap-2.5 px-[14px] pt-3">
+          {sharedWordbooks.length > 0 && (
+            <div className="flex items-center gap-1.5 px-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              <Icon name="add" size={13} />
+              新しく共有する
+            </div>
+          )}
           {projects.map((project) => {
             const selected = selectedId === project.id;
             return (
@@ -203,6 +282,77 @@ export default function ShareWordbookClient() {
             {saving ? '共有中...' : selectedProject ? `「${selectedProject.title}」を共有` : '単語帳を選択'}
           </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+function SharedWordbookRow({
+  card,
+  confirming,
+  stopping,
+  onStop,
+  onCancel,
+}: {
+  card: SharedProjectCard;
+  confirming: boolean;
+  stopping: boolean;
+  onStop: () => void;
+  onCancel: () => void;
+}) {
+  const { project } = card;
+  return (
+    <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[16px] font-extrabold text-white"
+        style={{
+          background: project.iconImage ? undefined : thumbColor(project.id),
+          backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
+        }}
+      >
+        {!project.iconImage && project.title.charAt(0)}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-display text-[14px] font-bold text-[var(--solid-ink)]">{project.title}</span>
+        <span className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
+          <span className="inline-flex items-center gap-0.5"><Icon name="menu_book" size={12} />{card.wordCount ?? 0}語</span>
+          {(card.likeCount ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-0.5"><Icon name="favorite" size={12} />{card.likeCount}</span>
+          )}
+        </span>
+      </span>
+
+      {stopping ? (
+        <span className="inline-flex h-8 items-center gap-1 rounded-[9px] border-2 border-[var(--color-border)] px-2.5 text-[12px] font-bold text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={14} className="animate-spin" />
+        </span>
+      ) : confirming ? (
+        <span className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-8 items-center rounded-[9px] border-2 border-[var(--color-border)] bg-white px-2.5 text-[12px] font-bold text-[var(--color-muted)]"
+          >
+            やめる
+          </button>
+          <button
+            type="button"
+            onClick={onStop}
+            className="inline-flex h-8 items-center gap-1 rounded-[9px] border-2 border-red-700 bg-red-700 px-2.5 text-[12px] font-extrabold text-white"
+          >
+            <Icon name="link_off" size={14} />
+            停止する
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onStop}
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[9px] border-2 border-red-700 bg-white px-2.5 text-[12px] font-bold text-red-700 transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          <Icon name="link_off" size={14} />
+          共有停止
+        </button>
       )}
     </div>
   );
