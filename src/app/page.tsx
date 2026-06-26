@@ -493,7 +493,6 @@ export default function HomePage() {
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
               <div className="mt-2 flex items-center gap-1.5">
                 <span className="inline-flex text-[var(--solid-ink)]">
                   <Icon name="photo_camera" size={26} />
@@ -501,9 +500,6 @@ export default function HomePage() {
                 <span className="font-display text-[18px] font-extrabold leading-tight text-[var(--solid-ink)]">
                   最初のスキャン
                 </span>
-              </div>
-              <div className="mt-1 text-[11px] leading-snug text-[var(--color-muted)]">
-                ノートを撮って単語を登録しよう
               </div>
               <div className="mt-3.5 flex items-center gap-[3px] text-[var(--solid-ink)]">
                 <span className="text-[13px] font-bold">スキャンを開始</span>
@@ -519,7 +515,6 @@ export default function HomePage() {
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
                   {unmasteredCount}
@@ -546,7 +541,6 @@ export default function HomePage() {
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
                   {dueCount}
