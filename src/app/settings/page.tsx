@@ -61,8 +61,8 @@ export default function SettingsPage() {
             className="!rounded-[14px] !"
             faceClassName="!p-[14px]"
           >
-            <div>
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              <Link href="/profile" className="flex min-w-0 flex-1 items-center gap-3">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
                   {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
                 </div>
@@ -79,15 +79,15 @@ export default function SettingsPage() {
                     {isPro ? 'PRO PLAN' : 'FREE PLAN'}
                   </div>
                 </div>
-                <Link
-                  href="/settings/account/profile"
-                  className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-3 font-display text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-                >
-                  <Icon name="edit" size={14} />
-                  変更
-                </Link>
-              </div>
-
+              </Link>
+              <button
+                type="button"
+                onClick={() => router.push('/settings/account/profile')}
+                className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-3 font-display text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="edit" size={14} />
+                変更
+              </button>
             </div>
           </SolidPanel>
         ) : (
