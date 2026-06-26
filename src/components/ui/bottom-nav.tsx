@@ -93,7 +93,7 @@ const TABS: TabItem[] = [
     k: 'shared',
     label: '共有',
     href: '/shared',
-    matchPaths: ['/shared'],
+    matchPaths: ['/shared', '/groups'],
     IconDefault: SharedIcon,
     IconActive: SharedIconFilled,
   },

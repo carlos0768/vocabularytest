@@ -12,6 +12,7 @@ import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
 
 /* ---------- Mastery level (mirrors iOS) ---------- */
@@ -109,7 +110,7 @@ function NavBtn({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => { triggerHaptic(); onClick?.(); }}
       aria-label={ariaLabel}
       className="flex h-[42px] w-[42px] scale-[1.3] items-center justify-center rounded-[21px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
@@ -601,13 +602,13 @@ export default function FlashcardPage() {
         </div>
 
         <div className="ds-fc-controls">
-          <button type="button" className="ds-fc-big dunno" onClick={() => handlePrev()}>
+          <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handlePrev(); }}>
             <Icon name="chevron_left" />前へ
           </button>
-          <button type="button" className="ds-fc-big know" onClick={handleFlip} aria-label="カードを回転">
+          <button type="button" className="ds-fc-big know" onClick={() => { triggerHaptic(); handleFlip(); }} aria-label="カードを回転">
             <Icon name="cached" />回転
           </button>
-          <button type="button" className="ds-fc-big dunno" onClick={() => handleNext()}>
+          <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handleNext(); }}>
             次へ<Icon name="chevron_right" />
           </button>
         </div>
