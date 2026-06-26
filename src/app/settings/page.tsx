@@ -61,34 +61,25 @@ export default function SettingsPage() {
             className="!rounded-[14px] !"
             faceClassName="!p-[14px]"
           >
-            <div className="flex items-center gap-3">
-              <Link href="/profile" className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
-                  {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
+            <Link href="/profile" className="flex items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
+                {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-base font-bold text-[var(--solid-ink)]">
+                  {profileLoading ? '読み込み中...' : (username ?? 'ユーザー名未設定')}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-display text-base font-bold text-[var(--solid-ink)]">
-                    {profileLoading ? '読み込み中...' : (username ?? 'ユーザー名未設定')}
-                  </div>
-                  <div className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-muted)]">{user?.email}</div>
-                  {accountId && (
-                    <div className="mt-0.5 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{accountId}</div>
-                  )}
-                  <div className="mt-1.5 inline-flex items-center gap-1 rounded-[4px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-white">
-                    <Icon name="auto_awesome" size={10} />
-                    {isPro ? 'PRO PLAN' : 'FREE PLAN'}
-                  </div>
+                <div className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-muted)]">{user?.email}</div>
+                {accountId && (
+                  <div className="mt-0.5 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{accountId}</div>
+                )}
+                <div className="mt-1.5 inline-flex items-center gap-1 rounded-[4px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-white">
+                  <Icon name="auto_awesome" size={10} />
+                  {isPro ? 'PRO PLAN' : 'FREE PLAN'}
                 </div>
-              </Link>
-              <button
-                type="button"
-                onClick={() => router.push('/settings/account/profile')}
-                className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-3 font-display text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-              >
-                <Icon name="edit" size={14} />
-                変更
-              </button>
-            </div>
+              </div>
+              <Icon name="chevron_right" size={22} className="shrink-0 text-[var(--color-muted)]" />
+            </Link>
           </SolidPanel>
         ) : (
           <SolidPanel className="!rounded-[14px] !" faceClassName="!p-[14px]">

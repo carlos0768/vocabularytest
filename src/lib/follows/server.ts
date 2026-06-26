@@ -87,7 +87,7 @@ function isUniqueViolation(error: { code?: string | null } | null | undefined): 
   return error?.code === '23505';
 }
 
-async function getProfilesByUserIds(
+export async function getProfilesByUserIds(
   userIds: string[],
   admin: SupabaseAdminClient,
 ): Promise<Map<string, FriendProfile>> {
@@ -338,6 +338,19 @@ async function findProfileByPublicId(
 
   if (byUsername.error) return { data: null, error: byUsername.error };
   return { data: byUsername.data ?? null, error: null };
+}
+
+/**
+ * Resolve a public identifier (accountId / handle / username) to a FriendProfile.
+ * Returns null when not found. Used by the public profile page.
+ */
+export async function resolvePublicProfile(
+  publicId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<FriendProfile | null> {
+  const { data, error } = await findProfileByPublicId(publicId, admin);
+  if (error || !data) return null;
+  return toProfile(data);
 }
 
 export async function unfollowUser(
