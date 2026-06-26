@@ -36,17 +36,15 @@ const EMPTY_FRIENDS: FriendsHomePayload = {
   outgoing: [],
 };
 
-const AVATAR_PALETTE = [
-  '#f97316', '#06b6d4', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#f59e0b', '#6366f1', '#10b981',
-];
+// Site-wide avatar/thumbnail palette (matches home, collections, shared).
+const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
 function avatarColor(identifier: string): string {
   let hash = 0;
   for (let i = 0; i < identifier.length; i++) {
     hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
   }
-  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+  return THUMBS[Math.abs(hash) % THUMBS.length];
 }
 
 function displayName(profile: FriendProfile): string {
@@ -208,7 +206,7 @@ export default function FriendsPage() {
     return (
       <>
         {error && (
-          <div className="mx-[18px] mb-3 flex items-center justify-between rounded-[12px] border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] font-bold text-[#dc2626]">
+          <div className="mx-[18px] mb-3 flex items-center justify-between rounded-[12px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-[13px] font-bold text-[var(--color-error)]">
             <span>{error}</span>
             <button type="button" onClick={() => void refreshAll()} className="ml-3 underline">再試行</button>
           </div>
@@ -301,7 +299,7 @@ function RequestsSection({
               type="button"
               onClick={() => onRespondRequest(item.id, 'accept')}
               disabled={Boolean(actionLoading)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border-2 border-[#059669] bg-[#059669] text-white disabled:opacity-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] text-white disabled:opacity-50"
               aria-label="承認"
             >
               <Icon name={actionLoading === `accept:${item.id}` ? 'progress_activity' : 'check'} className={actionLoading === `accept:${item.id}` ? 'animate-spin' : ''} size={14} />
@@ -407,7 +405,7 @@ function TimelineItem({
             {session.words.length > 0 ? (
               <div className="flex flex-col gap-2">
                 {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
+                  <div key={word.id} className="rounded-[12px] border border-[var(--color-accent-light)] bg-[var(--color-accent-subtle)] px-4 py-3">
                     <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
                     <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
                   </div>
@@ -502,8 +500,8 @@ function MetricChip({
   variant?: 'quiz' | 'mastered' | 'default';
 }) {
   const styles = {
-    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
-    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
+    quiz: 'border-[var(--color-accent-light)] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
+    mastered: 'border-[var(--color-warning-light)] bg-[var(--color-warning-light)] text-[var(--color-warning)]',
     default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
   };
   return (
