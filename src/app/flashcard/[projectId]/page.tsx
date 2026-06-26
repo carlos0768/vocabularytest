@@ -12,14 +12,8 @@ import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
-
-/* ---------- Haptic feedback (PWA Vibration API) ---------- */
-function triggerHaptic() {
-  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-    navigator.vibrate(12); // subtle tap on supported devices (mainly Android)
-  }
-}
 
 /* ---------- Mastery level (mirrors iOS) ---------- */
 function getMasteryLevel(repetition: number): number {
