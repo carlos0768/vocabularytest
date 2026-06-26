@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/app/api/shared-projects/shared';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { resolvePublicProfile } from '@/lib/follows/server';
+import { resolvePublicProfile, getProfilesByUserIds } from '@/lib/follows/server';
 import { getPublicUserStats } from '@/lib/profile/stats-server';
 
 type RouteContext = {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const userId = profile.userId;
     const isSelf = userId === auth.user.id;
 
-    const [stats, createdAtRow, followingCount, followersCount, friendsCount] = await Promise.all([
+    const [stats, createdAtRow, followingRows, followersRows, friendsCount] = await Promise.all([
       getPublicUserStats(userId, admin),
       admin
         .from('profiles')
@@ -37,12 +37,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .maybeSingle<{ created_at: string | null }>(),
       admin
         .from('user_follows')
-        .select('id', { count: 'exact', head: true })
+        .select('following_id')
         .eq('follower_id', userId)
         .eq('status', 'active'),
       admin
         .from('user_follows')
-        .select('id', { count: 'exact', head: true })
+        .select('follower_id')
         .eq('following_id', userId)
         .eq('status', 'active'),
       admin
@@ -52,16 +52,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
     ]);
 
+    const followingIds = (followingRows.data ?? []).map((r) => (r as { following_id: string }).following_id);
+    const followerIds = (followersRows.data ?? []).map((r) => (r as { follower_id: string }).follower_id);
+    const profilesById = await getProfilesByUserIds([...followingIds, ...followerIds], admin);
+    const following = followingIds.map((id) => profilesById.get(id)).filter(Boolean);
+    const followers = followerIds.map((id) => profilesById.get(id)).filter(Boolean);
+
     return NextResponse.json({
       success: true,
       isSelf,
       profile,
       joinedAt: createdAtRow.data?.created_at ?? null,
       counts: {
-        following: followingCount.count ?? 0,
-        followers: followersCount.count ?? 0,
+        following: followingIds.length,
+        followers: followerIds.length,
         friends: friendsCount.count ?? 0,
       },
+      following,
+      followers,
       stats,
     });
   } catch (error) {

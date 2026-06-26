@@ -39,13 +39,17 @@ export async function getPublicUserStats(
   admin: SupabaseAdminClient,
 ): Promise<CachedStats | null> {
   try {
+    // NOTE: get_daily_stats_range RPC blocks service-role callers
+    // (it requires auth.uid() === p_user_id), so query the table directly —
+    // the service-role client bypasses RLS and can read any user's rows.
     const [statsResult, dailyResult, streakResult] = await Promise.all([
       admin.rpc('get_user_stats', { p_user_id: userId }),
-      admin.rpc('get_daily_stats_range', {
-        p_user_id: userId,
-        p_start_date: makeDateKey(ACTIVITY_HISTORY_DAYS - 1),
-        p_end_date: makeDateKey(0),
-      }),
+      admin
+        .from('user_activity_logs')
+        .select('active_date, quiz_count, correct_count, mastered_count')
+        .eq('user_id', userId)
+        .gte('active_date', makeDateKey(ACTIVITY_HISTORY_DAYS - 1))
+        .lte('active_date', makeDateKey(0)),
       admin
         .from('user_streak')
         .select('streak_count, last_activity_date')

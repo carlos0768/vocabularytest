@@ -87,7 +87,7 @@ function isUniqueViolation(error: { code?: string | null } | null | undefined): 
   return error?.code === '23505';
 }
 
-async function getProfilesByUserIds(
+export async function getProfilesByUserIds(
   userIds: string[],
   admin: SupabaseAdminClient,
 ): Promise<Map<string, FriendProfile>> {

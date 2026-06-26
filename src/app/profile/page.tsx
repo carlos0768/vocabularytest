@@ -95,7 +95,9 @@ export default function ProfilePage() {
       joined={joined}
       planLabel={isPro ? 'PRO PLAN' : 'FREE PLAN'}
       counts={counts}
-      countsHref="/friends"
+      followingHref="/follows?tab=following"
+      followersHref="/follows?tab=followers"
+      friendsHref="/friends"
       actions={
         <>
           <Link

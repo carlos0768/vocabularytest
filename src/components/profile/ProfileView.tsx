@@ -44,7 +44,9 @@ export function ProfileView({
   joined,
   planLabel,
   counts,
-  countsHref = '/friends',
+  followingHref = '/friends',
+  followersHref = '/friends',
+  friendsHref = '/friends',
   actions,
   stats,
   statsLoading,
@@ -59,7 +61,9 @@ export function ProfileView({
   joined: string | null;
   planLabel?: string | null;
   counts: ProfileCounts | null;
-  countsHref?: string;
+  followingHref?: string;
+  followersHref?: string;
+  friendsHref?: string;
   actions?: ReactNode;
   stats: CachedStats | null;
   statsLoading: boolean;
@@ -141,9 +145,9 @@ export function ProfileView({
 
           {/* Counts */}
           <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
-            <CountCell href={countsHref} label="フォロー中" value={counts?.following} />
-            <CountCell href={countsHref} label="フォロワー" value={counts?.followers} border />
-            <CountCell href={countsHref} label="フレンド" value={counts?.friends} border />
+            <CountCell href={followingHref} label="フォロー中" value={counts?.following} />
+            <CountCell href={followersHref} label="フォロワー" value={counts?.followers} border />
+            <CountCell href={friendsHref} label="フレンド" value={counts?.friends} border />
           </div>
 
           {actions && <div className="mt-3 flex items-center gap-2">{actions}</div>}

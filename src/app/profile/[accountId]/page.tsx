@@ -105,7 +105,9 @@ export default function FriendProfilePage() {
       joined={joined}
       planLabel={null}
       counts={data.counts ?? null}
-      countsHref="/friends"
+      followingHref={`/profile/${encodeURIComponent(profile.accountId)}/follows?tab=following`}
+      followersHref={`/profile/${encodeURIComponent(profile.accountId)}/follows?tab=followers`}
+      friendsHref={`/profile/${encodeURIComponent(profile.accountId)}/follows?tab=following`}
       stats={data.stats ?? null}
       statsLoading={false}
     />
