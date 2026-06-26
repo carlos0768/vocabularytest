@@ -356,16 +356,16 @@ function TimelineItem({
         <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
           <div className="pl-[52px]">
             {session.words.length > 0 ? (
-              <div className="flex flex-col gap-2">
+              <div className="divide-y divide-[var(--color-border)]">
                 {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[var(--color-accent-light)] bg-[var(--color-accent-subtle)] px-4 py-3">
-                    <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
-                    <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
+                  <div key={word.id} className="py-3">
+                    <div className="font-semibold text-[var(--color-foreground)]">{word.english}</div>
+                    <p className="mt-0.5 text-sm text-[var(--color-muted)]">{word.japanese}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
+              <div className="py-4 text-center text-sm text-[var(--color-muted)]">
                 習得済みに変わった単語はありません
               </div>
             )}
@@ -398,14 +398,14 @@ function MetricChip({
   label: string;
   variant?: 'quiz' | 'mastered' | 'default';
 }) {
-  const styles = {
-    quiz: 'border-[var(--color-accent-light)] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
-    mastered: 'border-[var(--color-warning-light)] bg-[var(--color-warning-light)] text-[var(--color-warning)]',
-    default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
-  };
+  const iconColor = {
+    quiz: 'text-[var(--color-muted)]',
+    mastered: 'text-[var(--color-success)]',
+    default: 'text-[var(--color-muted)]',
+  }[variant];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
-      <Icon name={icon} size={13} />
+    <span className="inline-flex items-center gap-[5px] rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-ink-muted)]">
+      <Icon name={icon} size={12} className={iconColor} />
       {label}
     </span>
   );
