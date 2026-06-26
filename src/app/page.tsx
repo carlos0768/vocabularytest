@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopHomeView } from '@/components/desktop/DesktopHome';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
@@ -464,13 +465,7 @@ export default function HomePage() {
           <span className="ml-1 inline-block h-[5px] w-[5px] -translate-y-2 bg-[var(--color-accent)]" />
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/favorites"
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-accent)]"
-            aria-label="保存済み"
-          >
-            <Icon name="bookmark" size={16} filled />
-          </Link>
+          <FollowNotificationsButton variant="mobile" />
           <div className="flex items-center gap-[5px] rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
             <span className="inline-flex text-[var(--color-warning)]">
               <Icon name="local_fire_department" size={13} filled />
