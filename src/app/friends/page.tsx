@@ -254,7 +254,15 @@ export default function FriendsPage() {
         </div>
       </div>
 
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
+        <div className="px-[18px] pb-2 pt-1">
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+            FEED
+          </div>
+          <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">
+            フィード
+          </div>
+        </div>
         {renderContent()}
       </div>
     </>
