@@ -17,6 +17,7 @@ export type FollowSummary = {
 export type FollowNotification = {
   id: string;
   followId: string;
+  status: FollowStatus;
   createdAt: string;
   profile: FriendProfile;
 };

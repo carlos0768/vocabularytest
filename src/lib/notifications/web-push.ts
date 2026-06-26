@@ -38,6 +38,14 @@ type StudyReminderPushParams = {
   timeZone: string;
 };
 
+type FollowPushParams = {
+  userId: string;
+  followId: string;
+  followerAccountId: string;
+  followerUsername: string | null;
+  status: 'active' | 'pending';
+};
+
 let configuredSignature: string | null = null;
 
 function configureWebPush(): boolean {
@@ -103,6 +111,25 @@ function createStudyReminderPayload(
       reminderTime: params.reminderTime,
       localDateKey: params.localDateKey,
       timeZone: params.timeZone,
+    },
+  });
+}
+
+function createFollowPayload(params: FollowPushParams): string {
+  const actor = params.followerUsername?.trim() || `@${params.followerAccountId}`;
+  const isPending = params.status === 'pending';
+
+  return JSON.stringify({
+    title: isPending ? 'MERKEN: フォローリクエスト' : 'MERKEN: 新しいフォロワー',
+    body: isPending
+      ? `${actor}さんからフォローリクエストが届きました`
+      : `${actor}さんにフォローされました`,
+    tag: `follow-${params.followId}`,
+    data: {
+      url: '/',
+      kind: 'follow',
+      followId: params.followId,
+      status: params.status,
     },
   });
 }
@@ -212,6 +239,17 @@ export async function sendStudyReminderPushNotifications(
   const payload = createStudyReminderPayload(params, wordPicks);
   return sendPushPayloadToUser(supabaseAdmin, params.userId, payload, {
     ttl: 900,
+    urgency: 'normal',
+  });
+}
+
+export async function sendFollowPushNotification(
+  supabaseAdmin: SupabaseClient,
+  params: FollowPushParams,
+): Promise<PushDeliveryResult> {
+  const payload = createFollowPayload(params);
+  return sendPushPayloadToUser(supabaseAdmin, params.userId, payload, {
+    ttl: 3600,
     urgency: 'normal',
   });
 }
