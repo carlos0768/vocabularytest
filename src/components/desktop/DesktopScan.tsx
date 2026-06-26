@@ -19,6 +19,7 @@ import {
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
+import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
 import { createBrowserClient } from '@/lib/supabase';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
@@ -111,6 +112,12 @@ export function DesktopScanView({
     const supabase = createBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
+
+    setProcessingLabel('通知を準備中...');
+    await ensureBackgroundScanPushSubscription(
+      session.access_token,
+      '[DesktopScan]',
+    );
 
     const uploadedPaths: string[] = [];
     try {

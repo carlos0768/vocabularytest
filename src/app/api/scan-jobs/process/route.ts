@@ -49,6 +49,7 @@ import {
   buildScanJobFailedNotificationParams,
   buildScanJobWarningNotificationParams,
   flushScanJobTimingLogs,
+  type ScanJobNotificationParams,
 } from '@/lib/scan/job-side-effects';
 import {
   processScanImage,
@@ -146,6 +147,26 @@ export interface ProcessJobDeps {
   flushTiming?: typeof flushTimingLogs;
   afterTask?: typeof after;
   scanModesOverride?: ExtractMode[];
+}
+
+async function sendScanJobNotifications(params: {
+  supabaseAdmin: SupabaseClient;
+  notification: ScanJobNotificationParams;
+  sendPushNotifications: typeof sendScanJobPushNotifications;
+  sendApnsNotifications: typeof sendScanJobApnsNotifications;
+  logContext: string;
+}): Promise<void> {
+  const [webPushResult, apnsResult] = await Promise.allSettled([
+    params.sendPushNotifications(params.supabaseAdmin, params.notification),
+    params.sendApnsNotifications(params.supabaseAdmin, params.notification),
+  ]);
+
+  if (webPushResult.status === 'rejected') {
+    console.error(`[scan-jobs/process] ${params.logContext} web push failed:`, webPushResult.reason);
+  }
+  if (apnsResult.status === 'rejected') {
+    console.error(`[scan-jobs/process] ${params.logContext} APNs push failed:`, apnsResult.reason);
+  }
 }
 
 interface ProcessedExtractedWord {
@@ -982,8 +1003,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
               jobId,
               projectTitle: job.project_title,
             });
-            await sendPushNotifications(supabaseAdmin, warningParams);
-            void sendApnsNotifications(supabaseAdmin, warningParams).catch(e => console.error('[APNs] warning push failed:', e));
+            await sendScanJobNotifications({
+              supabaseAdmin,
+              notification: warningParams,
+              sendPushNotifications,
+              sendApnsNotifications,
+              logContext: 'warning',
+            });
           }
 
           allExtractedWords.push(...words);
@@ -1015,8 +1041,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           jobId,
           projectTitle: job.project_title,
         });
-        await sendPushNotifications(supabaseAdmin, failParams1);
-        void sendApnsNotifications(supabaseAdmin, failParams1).catch(e => console.error('[APNs] fail push failed:', e));
+        await sendScanJobNotifications({
+          supabaseAdmin,
+          notification: failParams1,
+          sendPushNotifications,
+          sendApnsNotifications,
+          logContext: 'no-words failure',
+        });
 
         await flushScanJobTimingLogs({
           flushTiming,
@@ -1139,8 +1170,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           projectTitle: job.project_title,
           wordCount: resolvedWords.length,
         });
-        void sendPushNotifications(supabaseAdmin, completedParams1).catch(e => console.error('Failed to send completed push notification:', e));
-        void sendApnsNotifications(supabaseAdmin, completedParams1).catch(e => console.error('[APNs] completed push failed:', e));
+        await sendScanJobNotifications({
+          supabaseAdmin,
+          notification: completedParams1,
+          sendPushNotifications,
+          sendApnsNotifications,
+          logContext: 'client-local completion',
+        });
 
         await flushScanJobTimingLogs({
           flushTiming,
@@ -1519,8 +1555,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         projectTitle: projectTitleForNotification,
         wordCount: resolvedWords.length,
       });
-      void sendPushNotifications(supabaseAdmin, completedParams2).catch(e => console.error('Failed to send completed push notification:', e));
-      void sendApnsNotifications(supabaseAdmin, completedParams2).catch(e => console.error('[APNs] completed push failed:', e));
+      await sendScanJobNotifications({
+        supabaseAdmin,
+        notification: completedParams2,
+        sendPushNotifications,
+        sendApnsNotifications,
+        logContext: 'server-cloud completion',
+      });
 
       await flushScanJobTimingLogs({
         flushTiming,
@@ -1657,8 +1698,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           jobId,
           projectTitle: job.project_title,
         });
-        await sendPushNotifications(supabaseAdmin, failParams2);
-        void sendApnsNotifications(supabaseAdmin, failParams2).catch(e => console.error('[APNs] fail push failed:', e));
+        await sendScanJobNotifications({
+          supabaseAdmin,
+          notification: failParams2,
+          sendPushNotifications,
+          sendApnsNotifications,
+          logContext: 'processing failure',
+        });
 
         await flushScanJobTimingLogs({
           flushTiming,
