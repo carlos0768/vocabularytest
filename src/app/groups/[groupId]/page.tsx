@@ -107,30 +107,10 @@ export default function GroupPage() {
   );
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] pb-[120px] font-[var(--font-body)]">
-      <header
-        className="sticky top-0 z-40 flex items-center gap-2 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-sm"
-        style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}
-      >
-        <Link
-          href="/shared"
-          aria-label="共有に戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="arrow_back" size={16} />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-            STUDY GROUP
-          </div>
-          {group?.name && (
-            <div className="truncate font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">
-              {group.name}
-            </div>
-          )}
-        </div>
-      </header>
-
+    <div
+      className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] pb-[120px] font-[var(--font-body)]"
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
       {authLoading || loading ? (
         <LoadingState />
       ) : !isAuthenticated ? (
@@ -182,6 +162,19 @@ function GroupHeader({
       className="relative overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4 text-white"
       style={{ background: `linear-gradient(135deg, ${thumbColor(group.id)} 0%, var(--solid-ink) 160%)` }}
     >
+      <div className="mb-3 flex items-center gap-2">
+        <Link
+          href="/shared"
+          aria-label="共有に戻る"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          <Icon name="arrow_back" size={16} />
+        </Link>
+        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-white/70">
+          STUDY GROUP
+        </div>
+      </div>
+
       <div className="flex items-start gap-3">
         <div
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-2 border-white/70 bg-white/15 font-display text-[26px] font-extrabold backdrop-blur-sm"
