@@ -10,8 +10,17 @@ const updateSchema = z.object({
     .string()
     .trim()
     .min(1, 'ユーザー名は1文字以上で入力してください')
-    .max(20, 'ユーザー名は20文字以内で入力してください'),
-}).strict();
+    .max(20, 'ユーザー名は20文字以内で入力してください')
+    .optional(),
+  accountId: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9_]{4,24}$/, 'IDは半角英小文字・数字・アンダースコアで4〜24文字にしてください')
+    .optional(),
+}).strict().refine(
+  data => data.username !== undefined || data.accountId !== undefined,
+  { message: 'username または accountId を指定してください' },
+);
 
 type ProfileRow = {
   username: string | null;
@@ -134,7 +143,7 @@ export async function handleProfilePut(
     }
 
     const parsed = await parseJsonWithSchema(request, updateSchema, {
-      invalidMessage: 'ユーザー名が不正です',
+      invalidMessage: '入力内容が不正です',
     });
     if (!parsed.ok) {
       return parsed.response;
@@ -143,30 +152,28 @@ export async function handleProfilePut(
     const admin = (deps.getAdmin ?? getSupabaseAdmin)();
     const ensureProfile = deps.ensureProfile ?? ensureFriendProfile;
     const ensuredProfile = await ensureProfile(userId, admin);
+
+    const upsertData: Record<string, string> = { user_id: userId };
+    if (parsed.data.username !== undefined) {
+      upsertData.username = parsed.data.username;
+      upsertData.display_name = parsed.data.username;
+    }
+    upsertData.account_id = parsed.data.accountId ?? ensuredProfile.accountId;
+
     let { data, error } = await admin
       .from('profiles')
-      .upsert(
-        {
-          user_id: userId,
-          username: parsed.data.username,
-          display_name: parsed.data.username,
-          account_id: ensuredProfile.accountId,
-        },
-        { onConflict: 'user_id' }
-      )
+      .upsert(upsertData, { onConflict: 'user_id' })
       .select('username,display_name,user_handle,account_id')
       .single<ProfileRow>();
 
     if (error && isMissingProfileColumn(error)) {
+      const fallbackData: Record<string, string> = { user_id: userId };
+      if (parsed.data.username !== undefined) {
+        fallbackData.username = parsed.data.username;
+      }
       const fallback = await admin
         .from('profiles')
-        .upsert(
-          {
-            user_id: userId,
-            username: parsed.data.username,
-          },
-          { onConflict: 'user_id' }
-        )
+        .upsert(fallbackData, { onConflict: 'user_id' })
         .select('username')
         .single<ProfileRow>();
 
@@ -175,6 +182,10 @@ export async function handleProfilePut(
     }
 
     if (error || !data) {
+      const pgError = error as { code?: string } | null;
+      if (pgError?.code === '23505') {
+        return NextResponse.json({ error: 'このIDは既に使用されています' }, { status: 409 });
+      }
       console.error('Failed to update profile:', error);
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
     }
