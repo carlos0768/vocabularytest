@@ -334,7 +334,7 @@ function DesktopProjectRow({ project }: { project: DesktopHomeProject }) {
           aria-label={`${project.title}のクイズを開始`}
           title="クイズを開始"
         >
-          <Icon name="play_arrow" filled />
+          <Icon name="play_arrow" size={20} filled />
         </Link>
       )}
       <Icon name="chevron_right" style={{ color: 'var(--color-muted)' }} />

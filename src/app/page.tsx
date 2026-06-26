@@ -1279,9 +1279,9 @@ function ProjectRow({ project }: { project: HomeProjectStats }) {
           <Link
             href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
             aria-label={`${project.title}のクイズを開始`}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+            className="flex h-[37px] w-[37px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
           >
-            <Icon name="play_arrow" size={24} filled />
+            <Icon name="play_arrow" size={20} filled />
           </Link>
         )}
       </div>
