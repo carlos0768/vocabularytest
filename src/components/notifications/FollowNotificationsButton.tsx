@@ -114,7 +114,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
 
   const buttonClassName = useMemo(() => {
     if (variant === 'mobile') {
-      return 'relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px';
+      return 'relative inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px';
     }
     return 'ds-btn ds-btn--icon relative';
   }, [variant]);
@@ -150,7 +150,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
         <div
           className={cn(
             'absolute right-0 z-[120] w-[min(340px,calc(100vw-28px))] border-2 border-[var(--solid-ink)] bg-white shadow-[6px_6px_0_var(--solid-ink)]',
-            variant === 'mobile' ? 'top-12 rounded-[14px]' : 'top-[calc(100%+10px)] rounded-[12px]',
+            variant === 'mobile' ? 'top-10 rounded-[14px]' : 'top-[calc(100%+10px)] rounded-[12px]',
           )}
         >
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2.5">
