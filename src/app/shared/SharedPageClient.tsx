@@ -4,6 +4,7 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DesktopSharedView } from '@/components/desktop/DesktopShared';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -93,7 +94,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
-  const { user, isPro, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   const [category, setCategory] = useState<SharedDiscoverCategory | 'groups'>('all');
@@ -353,14 +354,17 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
                 共有単語帳
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleOpenShareSheet}
-              aria-label="単語帳を共有"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-            >
-              <Icon name="add" size={20} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <FollowNotificationsButton variant="mobile" />
+              <button
+                type="button"
+                onClick={handleOpenShareSheet}
+                aria-label="単語帳を共有"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="add" size={20} />
+              </button>
+            </div>
           </div>
         </div>
 

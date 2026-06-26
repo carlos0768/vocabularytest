@@ -12,6 +12,7 @@ import type {
   FollowSummary,
   FollowSearchResult,
   FollowsHomePayload,
+  FollowNotification,
 } from './types';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
@@ -212,6 +213,20 @@ export async function listFollowsHome(
     pendingIncoming: summaries.filter((s) => s.followingId === userId && s.status === 'pending'),
     pendingOutgoing: summaries.filter((s) => s.followerId === userId && s.status === 'pending'),
   };
+}
+
+export async function listFollowNotifications(
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<FollowNotification[]> {
+  const home = await listFollowsHome(userId, admin);
+
+  return home.pendingIncoming.map((item) => ({
+    id: item.id,
+    followId: item.id,
+    createdAt: item.createdAt,
+    profile: item.profile,
+  }));
 }
 
 export class FollowError extends Error {

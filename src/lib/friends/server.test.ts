@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { listFollowsHome } from '@/lib/follows/server';
+import { listFollowNotifications, listFollowsHome } from '@/lib/follows/server';
 import {
   createFriendRequest,
   getFriendSchemaIssue,
@@ -277,6 +277,50 @@ test('listFollowsHome returns an empty home payload when follows are unavailable
   assert.deepEqual(payload.followers, []);
   assert.deepEqual(payload.pendingIncoming, []);
   assert.deepEqual(payload.pendingOutgoing, []);
+});
+
+test('listFollowNotifications returns incoming pending follow requests only', async () => {
+  const thirdId = '33333333-3333-3333-3333-333333333333';
+  const admin = new FakeUserAdmin({
+    profiles: [
+      { user_id: viewerId, username: 'Viewer', account_id: 'mkviewer' },
+      { user_id: targetId, username: 'Target', user_handle: 'abc', account_id: null },
+      { user_id: thirdId, username: 'Third', account_id: 'third' },
+    ],
+    follows: [
+      {
+        id: 'follow-1',
+        follower_id: targetId,
+        following_id: viewerId,
+        status: 'pending',
+        created_at: '2026-06-26T00:00:00.000Z',
+        responded_at: null,
+      },
+      {
+        id: 'follow-2',
+        follower_id: thirdId,
+        following_id: viewerId,
+        status: 'active',
+        created_at: '2026-06-26T01:00:00.000Z',
+        responded_at: '2026-06-26T01:00:00.000Z',
+      },
+      {
+        id: 'follow-3',
+        follower_id: viewerId,
+        following_id: thirdId,
+        status: 'pending',
+        created_at: '2026-06-26T02:00:00.000Z',
+        responded_at: null,
+      },
+    ],
+  });
+
+  const notifications = await listFollowNotifications(viewerId, admin as never);
+
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0]?.followId, 'follow-1');
+  assert.equal(notifications[0]?.profile.userId, targetId);
+  assert.equal(notifications[0]?.profile.accountId, 'abc');
 });
 
 test('searchFriendProfiles can find users by user_handle without account_id', async () => {

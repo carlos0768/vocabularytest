@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { DesktopButton, DesktopSearchBox } from '@/components/desktop/DesktopChrome';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { formatSharedTag } from '../../../shared/shared-tags';
@@ -67,7 +68,8 @@ export function DesktopSharedView({
           onChange={(event) => onQueryChange(event.target.value)}
           style={{ width: '100%', minWidth: 0 }}
         />
-        <div style={{ justifySelf: 'end' }}>
+        <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FollowNotificationsButton />
           <DesktopButton variant="dark" icon="add" onClick={onOpenShareSheet}>
             共有
           </DesktopButton>
