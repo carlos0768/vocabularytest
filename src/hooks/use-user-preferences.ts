@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import {
+  DEFAULT_STUDY_REMINDER_ENABLED,
   DEFAULT_STUDY_REMINDER_TIMES,
   DEFAULT_STUDY_REMINDER_TIMEZONE,
   isSupportedTimeZone,
@@ -44,7 +45,7 @@ function getDefaultSnapshot(): UserPreferencesSnapshot {
   return {
     aiEnabled: null,
     exampleGenres: [],
-    studyReminderEnabled: false,
+    studyReminderEnabled: DEFAULT_STUDY_REMINDER_ENABLED,
     studyReminderTimes: [...DEFAULT_STUDY_REMINDER_TIMES],
     studyReminderTimezone: DEFAULT_STUDY_REMINDER_TIMEZONE,
   };
@@ -55,7 +56,7 @@ function normalizeSnapshot(data: UserPreferencesResponse | null): UserPreference
   return {
     aiEnabled: typeof data.aiEnabled === 'boolean' ? data.aiEnabled : null,
     exampleGenres: normalizeExampleGenres(data.exampleGenres),
-    studyReminderEnabled: data.studyReminderEnabled === true,
+    studyReminderEnabled: data.studyReminderEnabled ?? DEFAULT_STUDY_REMINDER_ENABLED,
     studyReminderTimes: normalizeStudyReminderTimes(data.studyReminderTimes),
     studyReminderTimezone: isSupportedTimeZone(data.studyReminderTimezone)
       ? data.studyReminderTimezone
@@ -130,7 +131,7 @@ export function useUserPreferences(): UserPreferencesState {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [aiEnabled, setAiEnabledState] = useState<boolean | null>(null);
   const [exampleGenres, setExampleGenresState] = useState<string[]>([]);
-  const [studyReminderEnabled, setStudyReminderEnabledState] = useState(false);
+  const [studyReminderEnabled, setStudyReminderEnabledState] = useState(DEFAULT_STUDY_REMINDER_ENABLED);
   const [studyReminderTimes, setStudyReminderTimesState] = useState<StudyReminderTime[]>(() => [
     ...DEFAULT_STUDY_REMINDER_TIMES,
   ]);

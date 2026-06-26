@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import {
+  DEFAULT_STUDY_REMINDER_ENABLED,
   DEFAULT_STUDY_REMINDER_TIMES,
   DEFAULT_STUDY_REMINDER_TIMEZONE,
   MAX_STUDY_REMINDER_TIMES,
@@ -89,7 +90,7 @@ function normalizePreferenceResponse(data: PreferenceRow | null): {
   return {
     aiEnabled: data?.ai_enabled ?? null,
     exampleGenres: normalizeExampleGenres(data?.example_genres),
-    studyReminderEnabled: data?.study_reminder_enabled ?? false,
+    studyReminderEnabled: data?.study_reminder_enabled ?? DEFAULT_STUDY_REMINDER_ENABLED,
     studyReminderTimes: data
       ? normalizeStudyReminderTimes(data.study_reminder_times)
       : [...DEFAULT_STUDY_REMINDER_TIMES],
@@ -103,7 +104,7 @@ function normalizeLegacyPreferenceResponse(data: LegacyPreferenceRow | null) {
   return normalizePreferenceResponse({
     ai_enabled: data?.ai_enabled ?? null,
     example_genres: [],
-    study_reminder_enabled: false,
+    study_reminder_enabled: DEFAULT_STUDY_REMINDER_ENABLED,
     study_reminder_times: DEFAULT_STUDY_REMINDER_TIMES,
     study_reminder_timezone: DEFAULT_STUDY_REMINDER_TIMEZONE,
   });
