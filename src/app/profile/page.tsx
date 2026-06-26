@@ -128,7 +128,7 @@ export default function ProfilePage() {
   const joined = formatJoined(user?.created_at);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)]">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[max(24px,env(safe-area-inset-bottom))] pt-3 font-[var(--font-body)]">
       <div className="mx-auto w-full max-w-xl">
         {/* Top bar */}
         <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
