@@ -44,6 +44,12 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  // On mobile the button sits mid-header (left of the streak chip), so anchoring the
+  // panel to the button's right edge pushes it off the left of the screen. Pin the panel
+  // to the viewport's right edge instead, measuring the button only for vertical offset.
+  const [mobilePanelPos, setMobilePanelPos] = useState<{ top: number; right: number }>({ top: 58, right: 14 });
+
+  const isMobile = variant === 'mobile';
 
   const unreadCount = notifications.length;
 
@@ -87,6 +93,24 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
     document.addEventListener('pointerdown', handlePointerDown);
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !isMobile) return;
+
+    const updatePosition = () => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMobilePanelPos({ top: rect.bottom + 8, right: 14 });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, isMobile]);
 
   async function respond(followId: string, action: 'accept' | 'decline') {
     if (respondingId) return;
@@ -149,9 +173,10 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
       {open && (
         <div
           className={cn(
-            'absolute right-0 z-[120] w-[min(340px,calc(100vw-28px))] border-2 border-[var(--solid-ink)] bg-white shadow-[6px_6px_0_var(--solid-ink)]',
-            variant === 'mobile' ? 'top-10 rounded-[14px]' : 'top-[calc(100%+10px)] rounded-[12px]',
+            'z-[120] w-[min(340px,calc(100vw-28px))] border-2 border-[var(--solid-ink)] bg-white shadow-[6px_6px_0_var(--solid-ink)]',
+            isMobile ? 'fixed rounded-[14px]' : 'absolute right-0 top-[calc(100%+10px)] rounded-[12px]',
           )}
+          style={isMobile ? { top: mobilePanelPos.top, right: mobilePanelPos.right } : undefined}
         >
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2.5">
             <div className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">通知</div>
