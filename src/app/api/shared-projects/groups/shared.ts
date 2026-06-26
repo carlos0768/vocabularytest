@@ -330,13 +330,18 @@ export async function getStudyGroupOverview(
 
   const memberUserIds = await getStudyGroupMemberUserIds(groupId, admin);
 
-  const [projectPayload, leaderboard, missedWords] = await Promise.all([
+  const [projectPayload, leaderboard] = await Promise.all([
     listStudyGroupProjects(groupId, userId, admin),
     getStudyGroupLeaderboard(memberUserIds, userId, admin),
-    getStudyGroupTopMissedWords(memberUserIds, admin),
   ]);
 
   if (!projectPayload) return null;
+
+  // "Struggling words" are aggregated ONLY from words inside the group's
+  // wordbooks: the shared projects themselves plus the copies members imported
+  // from them (tracked via projects.imported_from_share_id).
+  const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
+  const missedWords = await getStudyGroupTopMissedWords(memberUserIds, groupProjectIds, admin);
 
   return {
     group: projectPayload.group,
@@ -345,6 +350,43 @@ export async function getStudyGroupOverview(
     missedWords,
     viewerUserId: userId,
   };
+}
+
+/**
+ * Resolves the set of project IDs that count as "this group's wordbooks":
+ * the shared projects and every member-owned copy imported from one of them.
+ */
+async function getGroupWordbookProjectIds(
+  sharedProjects: SharedProjectCard[],
+  memberUserIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<string[]> {
+  const projectIds = new Set<string>();
+  const shareIds = new Set<string>();
+  for (const card of sharedProjects) {
+    projectIds.add(card.project.id);
+    if (card.project.shareId) shareIds.add(card.project.shareId);
+  }
+
+  if (shareIds.size > 0 && memberUserIds.length > 0) {
+    const { data, error } = await admin
+      .from('projects')
+      .select('id')
+      .in('user_id', memberUserIds)
+      .in('imported_from_share_id', Array.from(shareIds));
+
+    if (error) {
+      if (!isMissingRelationError(error, 'imported_from_share_id')) {
+        throw new Error(error.message || 'group_imported_projects_lookup_failed');
+      }
+    } else {
+      for (const row of (data ?? []) as Array<{ id: string }>) {
+        projectIds.add(row.id);
+      }
+    }
+  }
+
+  return Array.from(projectIds);
 }
 
 async function getStudyGroupMemberUserIds(
@@ -418,15 +460,19 @@ async function getStudyGroupLeaderboard(
 
 async function getStudyGroupTopMissedWords(
   memberUserIds: string[],
+  groupProjectIds: string[],
   admin: SupabaseAdminClient,
   limit = 8,
 ): Promise<StudyGroupMissedWord[]> {
-  if (memberUserIds.length === 0) return [];
+  // No members or no group wordbooks → nothing to aggregate. Struggling words
+  // are intentionally scoped to words that live in the group's wordbooks.
+  if (memberUserIds.length === 0 || groupProjectIds.length === 0) return [];
 
   const { data, error } = await admin
     .from('quiz_word_misses')
     .select('english_key,english,japanese')
     .in('user_id', memberUserIds)
+    .in('project_id', groupProjectIds)
     .order('created_at', { ascending: false })
     .limit(2000);
 
