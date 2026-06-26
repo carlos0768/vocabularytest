@@ -384,7 +384,7 @@ function TimelineItem({
             <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
             <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
             <span className="text-[var(--color-border)]">·</span>
-            <span className="text-[12px] font-bold text-[var(--color-muted)]">{formatSessionTime(session.startedAt)}</span>
+            <span className="text-[12px] font-bold text-[var(--color-muted)]">{formatSessionTime(session.lastAnsweredAt)}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />

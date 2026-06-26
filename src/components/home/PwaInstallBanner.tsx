@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/Icon';
 import {
+  PWA_PROMPT_STATE_CHANGE_EVENT,
   pwaPromptUtils,
   triggerNativeInstall,
 } from '@/components/onboarding/PwaInstallPromptModal';
@@ -40,6 +41,12 @@ function getInitialBannerState(): {
 export function PwaInstallBanner() {
   const [{ visible, variant }, setBannerState] = useState(getInitialBannerState);
 
+  useEffect(() => {
+    const syncBannerState = () => setBannerState(getInitialBannerState());
+    window.addEventListener(PWA_PROMPT_STATE_CHANGE_EVENT, syncBannerState);
+    return () => window.removeEventListener(PWA_PROMPT_STATE_CHANGE_EVENT, syncBannerState);
+  }, []);
+
   const dismiss = useCallback(() => {
     setBannerState((state) => ({ ...state, visible: false }));
     try {
@@ -48,8 +55,9 @@ export function PwaInstallBanner() {
   }, []);
 
   const handleInstall = useCallback(async () => {
-    await triggerNativeInstall();
-    setBannerState((state) => ({ ...state, visible: false }));
+    const installed = await triggerNativeInstall();
+    setBannerState(getInitialBannerState());
+    if (!installed) return;
     try {
       localStorage.setItem(DISMISSED_KEY, '1');
     } catch { /* ignore */ }
