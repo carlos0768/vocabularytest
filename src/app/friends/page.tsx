@@ -398,23 +398,21 @@ function TimelineItem({
         <Icon name={expanded ? 'expand_less' : 'expand_more'} size={22} className="mt-1.5 shrink-0 text-[var(--color-muted)]" />
       </button>
       {expanded && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
-          <div className="pl-[52px]">
-            {session.words.length > 0 ? (
-              <div className="divide-y divide-[var(--color-border)]">
-                {session.words.map((word) => (
-                  <div key={word.id} className="py-3">
-                    <div className="font-semibold text-[var(--color-foreground)]">{word.english}</div>
-                    <p className="mt-0.5 text-sm text-[var(--color-muted)]">{word.japanese}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-4 text-center text-sm text-[var(--color-muted)]">
-                習得済みに変わった単語はありません
-              </div>
-            )}
-          </div>
+        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-2">
+          {session.words.length > 0 ? (
+            <div className="divide-y divide-[var(--color-border)]">
+              {session.words.map((word) => (
+                <div key={word.id} className="px-1 py-2.5">
+                  <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+                  <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 text-center text-sm text-[var(--color-muted)]">
+              習得済みに変わった単語はありません
+            </div>
+          )}
         </div>
       )}
     </article>
