@@ -108,8 +108,11 @@ export default function GroupPage() {
 
   return (
     <div
-      className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] pb-[120px] font-[var(--font-body)]"
-      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+      className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
+      }}
     >
       {authLoading || loading ? (
         <LoadingState />
