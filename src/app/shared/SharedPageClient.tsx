@@ -16,7 +16,7 @@ import type {
   SharedProjectCard,
 } from '@/lib/shared-projects/types';
 import type { FollowSearchResult, FollowSummary } from '@/lib/follows/types';
-import type { PublicStudyGroupSummary } from '@/lib/shared-projects/types';
+import type { PublicStudyGroupSummary, StudyGroupSummary } from '@/lib/shared-projects/types';
 import type { Project } from '@/types';
 import { formatSharedTag, normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
 
@@ -58,6 +58,12 @@ type GroupSearchApiResponse = {
   success?: boolean;
   groups?: PublicStudyGroupSummary[];
   nextCursor?: string | null;
+  error?: string;
+};
+
+type MyGroupsApiResponse = {
+  success?: boolean;
+  groups?: StudyGroupSummary[];
   error?: string;
 };
 
@@ -418,6 +424,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             </div>
           </div>
         )}
+
+        {category === 'all' && <JoinedGroupsSection />}
 
         {category === 'groups' ? (
           <GroupSearchSection
@@ -1092,6 +1100,63 @@ function UserSearchSection({
           ユーザー名またはIDで検索してください
         </div>
       )}
+    </div>
+  );
+}
+
+function JoinedGroupsSection() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [groups, setGroups] = useState<StudyGroupSummary[]>([]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+
+    let cancelled = false;
+    fetch('/api/shared-projects/groups', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as MyGroupsApiResponse | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'my_groups_failed');
+        if (!cancelled) setGroups(payload.groups ?? []);
+      })
+      .catch((error) => {
+        if (!cancelled) console.warn('Failed to load joined groups:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
+  if (!isAuthenticated || groups.length === 0) return null;
+
+  return (
+    <div className="px-[14px] pb-1 pt-3">
+      <SectionLabel icon="groups" label="参加中のグループ" count={groups.length} />
+      <div className="flex flex-col gap-2">
+        {groups.map((group) => (
+          <Link key={group.id} href={`/groups/${group.id}`} className="block">
+            <div className="flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+              <div
+                className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[20px] font-extrabold text-white"
+                style={{ backgroundColor: thumbColor(group.id) }}
+              >
+                {group.name.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">{group.name}</div>
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
+                  <span className="flex items-center gap-0.5"><Icon name="group" size={12} />{group.memberCount}人</span>
+                  <span className="flex items-center gap-0.5"><Icon name="menu_book" size={12} />{group.projectCount}冊</span>
+                  {group.role === 'owner' && (
+                    <span className="rounded-full border border-[var(--color-border)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--color-muted)]">owner</span>
+                  )}
+                </div>
+              </div>
+              <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

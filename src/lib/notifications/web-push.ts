@@ -215,6 +215,46 @@ async function sendPushPayloadToUser(
   return result;
 }
 
+type GroupProjectAddedPushParams = {
+  recipientUserIds: string[];
+  groupId: string;
+  groupName: string;
+  projectTitle: string;
+  actorName?: string | null;
+};
+
+function createGroupProjectAddedPayload(params: GroupProjectAddedPushParams): string {
+  const actor = params.actorName ? `${params.actorName}さんが` : '';
+  return JSON.stringify({
+    title: `MERKEN: ${params.groupName}`,
+    body: `${actor}「${params.projectTitle}」を追加しました！`,
+    tag: `group-project-${params.groupId}`,
+    data: {
+      url: `/groups/${params.groupId}`,
+      kind: 'group-project-added',
+      groupId: params.groupId,
+    },
+  });
+}
+
+export async function sendGroupProjectAddedPushNotifications(
+  supabaseAdmin: SupabaseClient,
+  params: GroupProjectAddedPushParams,
+): Promise<void> {
+  const recipients = Array.from(new Set(params.recipientUserIds.filter(Boolean)));
+  if (recipients.length === 0) return;
+
+  const payload = createGroupProjectAddedPayload(params);
+  await Promise.all(
+    recipients.map((userId) =>
+      sendPushPayloadToUser(supabaseAdmin, userId, payload, {
+        ttl: 86400,
+        urgency: 'low',
+      }),
+    ),
+  );
+}
+
 export async function sendScanJobPushNotifications(
   supabaseAdmin: SupabaseClient,
   params: ScanJobPushParams,

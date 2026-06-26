@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
@@ -12,6 +12,7 @@ import type {
   FriendsHomePayload,
   FriendTimelineSession,
 } from '@/lib/friends/types';
+import type { StudyGroupFeedEvent } from '@/lib/shared-projects/types';
 
 type FriendsApiResponse = Partial<FriendsHomePayload> & {
   success?: boolean;
@@ -21,8 +22,13 @@ type FriendsApiResponse = Partial<FriendsHomePayload> & {
 type TimelineApiResponse = {
   success?: boolean;
   sessions?: FriendTimelineSession[];
+  groupEvents?: StudyGroupFeedEvent[];
   error?: string;
 };
+
+type FeedEntry =
+  | { kind: 'quiz'; sortAt: string; session: FriendTimelineSession }
+  | { kind: 'group_event'; sortAt: string; event: StudyGroupFeedEvent };
 
 type MutationResponse = {
   success?: boolean;
@@ -75,12 +81,21 @@ export default function FriendsPage() {
   const { loading: authLoading, isAuthenticated } = useAuth();
   const [home, setHome] = useState<FriendsHomePayload>(EMPTY_FRIENDS);
   const [sessions, setSessions] = useState<FriendTimelineSession[]>([]);
+  const [groupEvents, setGroupEvents] = useState<StudyGroupFeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const hasRequests = home.incoming.length > 0 || home.outgoing.length > 0;
+
+  const feedEntries = useMemo<FeedEntry[]>(() => {
+    const entries: FeedEntry[] = [
+      ...sessions.map((session) => ({ kind: 'quiz' as const, sortAt: session.startedAt, session })),
+      ...groupEvents.map((event) => ({ kind: 'group_event' as const, sortAt: event.createdAt, event })),
+    ];
+    return entries.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
+  }, [sessions, groupEvents]);
 
   const loadFriends = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -116,6 +131,7 @@ export default function FriendsPage() {
         throw new Error(payload?.error || 'timeline_fetch_failed');
       }
       setSessions(payload.sessions ?? []);
+      setGroupEvents(payload.groupEvents ?? []);
     } catch (loadError) {
       console.warn('Failed to load timeline:', loadError);
     } finally {
@@ -214,8 +230,10 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {sessions.map((session) => (
-          <TimelineItem key={session.id} session={session} />
+        {feedEntries.map((entry) => (
+          entry.kind === 'quiz'
+            ? <TimelineItem key={`quiz-${entry.session.id}`} session={entry.session} />
+            : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
         ))}
 
         {timelineLoading && (
@@ -224,7 +242,7 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {!timelineLoading && sessions.length === 0 && (
+        {!timelineLoading && feedEntries.length === 0 && (
           <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
             まだ学習セッションがありません。クイズを始めると、ここにフィードが表示されます。
           </div>
@@ -380,6 +398,33 @@ function TimelineItem({ session }: { session: FriendTimelineSession }) {
           </div>
         </div>
       </div>
+    </article>
+  );
+}
+
+function GroupEventItem({ event }: { event: StudyGroupFeedEvent }) {
+  return (
+    <article className="border-b border-[var(--color-border)]">
+      <Link href={`/groups/${event.groupId}`} className="flex items-start gap-3.5 px-[18px] py-4 transition-colors active:bg-[var(--color-surface-secondary)]">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] text-white"
+          style={{ backgroundColor: avatarColor(event.groupId) }}
+        >
+          <Icon name="library_add" size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
+            <span className="font-display font-extrabold">{event.groupName}</span>
+            に「{event.projectTitle}」が追加されました！
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
+            {event.actorName && <span>{event.actorName}</span>}
+            {event.actorName && <span className="text-[var(--color-border)]">·</span>}
+            <span>{formatSessionTime(event.createdAt)}</span>
+          </div>
+        </div>
+        <Icon name="chevron_right" size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
+      </Link>
     </article>
   );
 }
