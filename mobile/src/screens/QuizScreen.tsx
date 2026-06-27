@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,7 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, Flag, RotateCcw, Trophy } from 'lucide-react-native';
+import { ArrowLeft, X, Flag, RotateCcw, Trophy } from 'lucide-react-native';
 import { Button } from '../components/ui';
 import { QuizOption } from '../components/quiz';
 import colors from '../constants/colors';
@@ -17,6 +16,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useTabBar } from '../hooks/use-tab-bar';
 import { getRepository } from '../lib/db';
 import { buildQuizQuestions, MINIMUM_QUIZ_WORDS } from '../lib/quiz-helpers';
+import { recordQuizSessionEvent } from '../lib/quiz-session-events';
 import { recordWrongAnswer, updateDailyStats } from '../lib/utils';
 import type { QuizQuestion, RootStackParamList, Word } from '../types';
 
@@ -26,7 +26,7 @@ type QuizRoute = RouteProp<RootStackParamList, 'Quiz'>;
 export function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<QuizRoute>();
-  const { subscription, loading: authLoading } = useAuth();
+  const { session, subscription, loading: authLoading } = useAuth();
   const { hide: hideTabBar, show: showTabBar } = useTabBar();
   const repository = useMemo(
     () => getRepository(subscription?.status ?? 'free'),
@@ -195,10 +195,22 @@ export function QuizScreen() {
 
       const { becameMastered } = await applyWordStatusUpdate(currentQuestion, isCorrect);
       await updateDailyStats(isCorrect, becameMastered);
+      if (session?.access_token) {
+        void recordQuizSessionEvent({
+          accessToken: session.access_token,
+          wordId: currentQuestion.word.id,
+          projectId: route.params.projectId,
+          english: currentQuestion.word.english,
+          japanese: currentQuestion.word.japanese,
+          becameMastered,
+        }).catch((error) => {
+          console.warn('Failed to record quiz session event:', error);
+        });
+      }
 
       // No auto-advance — user taps "次へ" button for both correct and wrong
     },
-    [applyWordStatusUpdate, currentQuestion, moveNext, revealed, route.params.projectId, selectedIndex]
+    [applyWordStatusUpdate, currentQuestion, moveNext, revealed, route.params.projectId, selectedIndex, session?.access_token]
   );
 
   if (loading) {
@@ -209,11 +221,9 @@ export function QuizScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
             <ArrowLeft size={20} color={colors.gray[700]} />
           </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>クイズの準備がまだできていません</Text>

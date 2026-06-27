@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
@@ -68,15 +68,6 @@ function formatSessionTime(value: string): string {
   });
 }
 
-function formatTimeOnly(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString('ja-JP', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export default function FriendsPage() {
   const { loading: authLoading, isAuthenticated } = useAuth();
   const [home, setHome] = useState<FriendsHomePayload>(EMPTY_FRIENDS);
@@ -86,12 +77,13 @@ export default function FriendsPage() {
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   const hasRequests = home.incoming.length > 0 || home.outgoing.length > 0;
 
   const feedEntries = useMemo<FeedEntry[]>(() => {
     const entries: FeedEntry[] = [
-      ...sessions.map((session) => ({ kind: 'quiz' as const, sortAt: session.startedAt, session })),
+      ...sessions.map((session) => ({ kind: 'quiz' as const, sortAt: session.lastAnsweredAt, session })),
       ...groupEvents.map((event) => ({ kind: 'group_event' as const, sortAt: event.createdAt, event })),
     ];
     return entries.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
@@ -185,6 +177,15 @@ export default function FriendsPage() {
     method: 'DELETE',
   }));
 
+  const toggleSession = (sessionId: string) => {
+    setExpandedSessions((current) => {
+      const next = new Set(current);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  };
+
   const renderContent = () => {
     if (authLoading || loading) {
       return (
@@ -232,7 +233,14 @@ export default function FriendsPage() {
 
         {feedEntries.map((entry) => (
           entry.kind === 'quiz'
-            ? <TimelineItem key={`quiz-${entry.session.id}`} session={entry.session} />
+            ? (
+              <TimelineItem
+                key={`quiz-${entry.session.id}`}
+                session={entry.session}
+                expanded={expandedSessions.has(entry.session.id)}
+                onToggle={() => toggleSession(entry.session.id)}
+              />
+            )
             : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
         ))}
 
@@ -376,10 +384,18 @@ function FriendsSection({
   );
 }
 
-function TimelineItem({ session }: { session: FriendTimelineSession }) {
+function TimelineItem({
+  session,
+  expanded,
+  onToggle,
+}: {
+  session: FriendTimelineSession;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
-    <article className="border-b border-[var(--color-border)]">
+    <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
       <div className="flex items-start gap-3.5 px-[18px] py-4">
         <Link href={profileHref} aria-label={`${displayName(session.profile)}のプロフィール`} className="shrink-0">
           <Avatar profile={session.profile} />
@@ -394,10 +410,43 @@ function TimelineItem({ session }: { session: FriendTimelineSession }) {
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
             <span className="font-mono text-[11px]">@{session.profile.accountId}</span>
             <span className="text-[var(--color-border)]">·</span>
-            <span>{formatSessionTime(session.startedAt)}</span>
+            <span>{formatSessionTime(session.lastAnsweredAt)}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
+            <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
+          className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-muted)]"
+        >
+          <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} />
+        </button>
       </div>
+      {expanded && (
+        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
+          <div className="pl-[52px]">
+            {session.words.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {session.words.map((word) => (
+                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
+                    <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
+                    <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
+                習得済みに変わった単語はありません
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </article>
   );
 }
@@ -496,3 +545,24 @@ function StatusChip({ label }: { label: string }) {
   );
 }
 
+function MetricChip({
+  icon,
+  label,
+  variant = 'default',
+}: {
+  icon: string;
+  label: string;
+  variant?: 'quiz' | 'mastered' | 'default';
+}) {
+  const styles = {
+    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
+    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
+    default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
+      <Icon name={icon} size={13} />
+      {label}
+    </span>
+  );
+}

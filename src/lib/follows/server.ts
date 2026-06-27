@@ -742,7 +742,7 @@ export async function listFollowTimeline(
     .from('quiz_sessions')
     .select(QUIZ_SESSION_SELECT)
     .in('user_id', visibleUserIds)
-    .order('started_at', { ascending: false })
+    .order('last_answered_at', { ascending: false })
     .limit(Math.max(1, Math.min(limit, 80)));
 
   if (sessionError) {
