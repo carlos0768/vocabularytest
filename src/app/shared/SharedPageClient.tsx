@@ -911,9 +911,35 @@ function GroupSearchSection({
   onQueryChange: (value: string) => void;
   onSearch: () => void;
 }) {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     onSearch();
   }, []);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+
+    let cancelled = false;
+    fetch('/api/shared-projects/groups', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as MyGroupsApiResponse | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'my_groups_failed');
+        if (!cancelled) setJoinedIds(new Set((payload.groups ?? []).map((group) => group.id)));
+      })
+      .catch((error) => {
+        if (!cancelled) console.warn('Failed to load joined groups for search filtering:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
+  // Hide groups the viewer already belongs to — those live in the
+  // "参加中のグループ" section and don't need a join entry point here.
+  const visibleGroups = groupResults.filter((group) => !joinedIds.has(group.id));
 
   return (
     <div className="flex flex-col gap-3 px-[14px]">
@@ -942,11 +968,11 @@ function GroupSearchSection({
 
       {groupError && <ErrorBox message={groupError} />}
 
-      {groupLoading && groupResults.length === 0 && <LoadingBox />}
+      {groupLoading && visibleGroups.length === 0 && <LoadingBox />}
 
-      {groupResults.length > 0 && (
+      {visibleGroups.length > 0 && (
         <div className="flex flex-col gap-2">
-          {groupResults.map((group) => (
+          {visibleGroups.map((group) => (
             <Link
               key={group.id}
               href={`/groups/${group.id}/join`}
@@ -984,8 +1010,8 @@ function GroupSearchSection({
         </div>
       )}
 
-      {!groupLoading && groupResults.length === 0 && !groupError && (
-        <EmptyBox message="公開グループがありません" />
+      {!groupLoading && visibleGroups.length === 0 && !groupError && (
+        <EmptyBox message="グループがありません" />
       )}
     </div>
   );

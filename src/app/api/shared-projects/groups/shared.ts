@@ -191,10 +191,12 @@ export async function listPublicStudyGroups(
   const query = normalizeSearchQuery(options.query);
   const fetchSize = query ? Math.max(limit + 1, 80) : limit + 1;
 
+  // Every group is discoverable so non-members can confirm it exists. Joining
+  // is still gated by the invite code, so listing private groups here only
+  // reveals their existence (name + counts), never their contents.
   let request = admin
     .from('study_groups')
     .select(STUDY_GROUP_SELECT_COLUMNS)
-    .eq('visibility', 'public')
     .order('created_at', { ascending: false })
     .order('id', { ascending: false });
 
@@ -225,7 +227,7 @@ export async function listPublicStudyGroups(
       return {
         id: row.id,
         name: row.name,
-        visibility: 'public' as const,
+        visibility: normalizeStudyGroupVisibility(row.visibility),
         memberCount: counts.memberCount,
         projectCount: counts.projectCount,
         createdAt: row.created_at,
@@ -251,10 +253,10 @@ export async function getPublicStudyGroupPreview(
   if (error) {
     throw new Error(error.message || 'public_study_group_preview_failed');
   }
-  // Only public groups are discoverable by non-members. Private groups can
-  // still be joined directly via their invite code, but their existence is not
-  // confirmable through this preview.
-  if (!group || normalizeStudyGroupVisibility(group.visibility) !== 'public') {
+  // Any existing group can be previewed so non-members can confirm it exists
+  // before joining. The preview never exposes the invite code or contents —
+  // joining still requires entering the invite code.
+  if (!group) {
     return null;
   }
 
@@ -267,7 +269,7 @@ export async function getPublicStudyGroupPreview(
   return {
     id: group.id,
     name: group.name,
-    visibility: 'public',
+    visibility: normalizeStudyGroupVisibility(group.visibility),
     memberCount: counts.memberCount,
     projectCount: counts.projectCount,
     createdAt: group.created_at,

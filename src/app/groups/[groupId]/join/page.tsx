@@ -155,7 +155,7 @@ export default function GroupJoinPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/70">
-                  公開グループ
+                  {preview?.visibility === 'private' ? 'プライベートグループ' : '公開グループ'}
                 </div>
                 <h1 className="mt-0.5 truncate font-display text-[22px] font-extrabold leading-tight">
                   {preview?.name ?? 'グループ'}

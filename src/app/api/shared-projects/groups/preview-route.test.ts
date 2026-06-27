@@ -40,7 +40,7 @@ test('group preview GET returns the public summary for non-members', async () =>
   assert.equal(payload.group.visibility, 'public');
 });
 
-test('group preview GET returns 404 for an unknown or private group', async () => {
+test('group preview GET returns 404 for an unknown group', async () => {
   const req = new NextRequest('http://localhost/api/shared-projects/groups/group-1/preview', { method: 'GET' });
 
   const res = await handleStudyGroupPreviewGet(
