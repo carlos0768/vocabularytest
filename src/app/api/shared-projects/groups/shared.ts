@@ -5,7 +5,11 @@ import type {
   SharedProjectAccessRole,
   SharedProjectCard,
   SharedProjectMetrics,
+  StudyGroupFeedEvent,
+  StudyGroupLeaderboardEntry,
   StudyGroupMembershipRole,
+  StudyGroupMissedWord,
+  StudyGroupOverviewPayload,
   StudyGroupProjectListPayload,
   StudyGroupsPayload,
   StudyGroupSummary,
@@ -314,6 +318,330 @@ export async function listStudyGroupProjects(
       usernameByUserId,
     )),
   };
+}
+
+export async function getStudyGroupOverview(
+  groupId: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupOverviewPayload | null> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return null;
+
+  const memberUserIds = await getStudyGroupMemberUserIds(groupId, admin);
+
+  const [projectPayload, leaderboard] = await Promise.all([
+    listStudyGroupProjects(groupId, userId, admin),
+    getStudyGroupLeaderboard(memberUserIds, userId, admin),
+  ]);
+
+  if (!projectPayload) return null;
+
+  // "Struggling words" are aggregated ONLY from words inside the group's
+  // wordbooks: the shared projects themselves plus the copies members imported
+  // from them (tracked via projects.imported_from_share_id).
+  const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
+  const missedWords = await getStudyGroupTopMissedWords(memberUserIds, groupProjectIds, admin);
+
+  return {
+    group: projectPayload.group,
+    projects: projectPayload.projects,
+    leaderboard,
+    missedWords,
+    viewerUserId: userId,
+  };
+}
+
+/**
+ * Resolves the set of project IDs that count as "this group's wordbooks":
+ * the shared projects and every member-owned copy imported from one of them.
+ */
+async function getGroupWordbookProjectIds(
+  sharedProjects: SharedProjectCard[],
+  memberUserIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<string[]> {
+  const projectIds = new Set<string>();
+  const shareIds = new Set<string>();
+  for (const card of sharedProjects) {
+    projectIds.add(card.project.id);
+    if (card.project.shareId) shareIds.add(card.project.shareId);
+  }
+
+  if (shareIds.size > 0 && memberUserIds.length > 0) {
+    const { data, error } = await admin
+      .from('projects')
+      .select('id')
+      .in('user_id', memberUserIds)
+      .in('imported_from_share_id', Array.from(shareIds));
+
+    if (error) {
+      if (!isMissingRelationError(error, 'imported_from_share_id')) {
+        throw new Error(error.message || 'group_imported_projects_lookup_failed');
+      }
+    } else {
+      for (const row of (data ?? []) as Array<{ id: string }>) {
+        projectIds.add(row.id);
+      }
+    }
+  }
+
+  return Array.from(projectIds);
+}
+
+async function getStudyGroupMemberUserIds(
+  groupId: string,
+  admin: SupabaseAdminClient,
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from('study_group_members')
+    .select('user_id')
+    .eq('group_id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_members_lookup_failed');
+  }
+
+  return Array.from(new Set(((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id)));
+}
+
+async function getStudyGroupLeaderboard(
+  memberUserIds: string[],
+  viewerUserId: string,
+  admin: SupabaseAdminClient,
+): Promise<StudyGroupLeaderboardEntry[]> {
+  if (memberUserIds.length === 0) return [];
+
+  const totals = new Map<string, { quizCount: number; masteredCount: number }>();
+  for (const id of memberUserIds) {
+    totals.set(id, { quizCount: 0, masteredCount: 0 });
+  }
+
+  const { data, error } = await admin
+    .from('quiz_sessions')
+    .select('user_id,answer_count,mastered_count')
+    .in('user_id', memberUserIds);
+
+  if (error) {
+    // Older environments may not have quiz_sessions yet — degrade gracefully.
+    if (!isMissingRelationError(error, 'quiz_sessions')) {
+      throw new Error(error.message || 'study_group_leaderboard_lookup_failed');
+    }
+  } else {
+    for (const row of (data ?? []) as Array<{ user_id: string; answer_count: number | string | null; mastered_count: number | string | null }>) {
+      const current = totals.get(row.user_id) ?? { quizCount: 0, masteredCount: 0 };
+      current.quizCount += Number(row.answer_count ?? 0) || 0;
+      current.masteredCount += Number(row.mastered_count ?? 0) || 0;
+      totals.set(row.user_id, current);
+    }
+  }
+
+  const profiles = await getMemberProfiles(memberUserIds, admin);
+
+  return memberUserIds
+    .map((id) => {
+      const totalsForUser = totals.get(id) ?? { quizCount: 0, masteredCount: 0 };
+      const profile = profiles.get(id);
+      return {
+        userId: id,
+        username: profile?.username ?? null,
+        accountId: profile?.accountId ?? null,
+        quizCount: totalsForUser.quizCount,
+        masteredCount: totalsForUser.masteredCount,
+        isViewer: id === viewerUserId,
+      };
+    })
+    .sort((a, b) => {
+      if (b.quizCount !== a.quizCount) return b.quizCount - a.quizCount;
+      if (b.masteredCount !== a.masteredCount) return b.masteredCount - a.masteredCount;
+      return (a.accountId ?? a.userId).localeCompare(b.accountId ?? b.userId);
+    });
+}
+
+async function getStudyGroupTopMissedWords(
+  memberUserIds: string[],
+  groupProjectIds: string[],
+  admin: SupabaseAdminClient,
+  limit = 8,
+): Promise<StudyGroupMissedWord[]> {
+  // No members or no group wordbooks → nothing to aggregate. Struggling words
+  // are intentionally scoped to words that live in the group's wordbooks.
+  if (memberUserIds.length === 0 || groupProjectIds.length === 0) return [];
+
+  const { data, error } = await admin
+    .from('quiz_word_misses')
+    .select('english_key,english,japanese')
+    .in('user_id', memberUserIds)
+    .in('project_id', groupProjectIds)
+    .order('created_at', { ascending: false })
+    .limit(2000);
+
+  if (error) {
+    if (isMissingRelationError(error, 'quiz_word_misses')) return [];
+    throw new Error(error.message || 'study_group_missed_words_lookup_failed');
+  }
+
+  const aggregate = new Map<string, StudyGroupMissedWord>();
+  for (const row of (data ?? []) as Array<{ english_key: string; english: string; japanese: string }>) {
+    const key = row.english_key;
+    const existing = aggregate.get(key);
+    if (existing) {
+      existing.missCount += 1;
+    } else {
+      aggregate.set(key, {
+        englishKey: key,
+        english: row.english,
+        japanese: row.japanese,
+        missCount: 1,
+      });
+    }
+  }
+
+  return Array.from(aggregate.values())
+    .sort((a, b) => (b.missCount - a.missCount) || a.english.localeCompare(b.english))
+    .slice(0, limit);
+}
+
+async function getMemberProfiles(
+  userIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<Map<string, { username: string | null; accountId: string | null }>> {
+  const result = new Map<string, { username: string | null; accountId: string | null }>();
+  const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return result;
+
+  const { data, error } = await admin
+    .from('profiles')
+    .select('user_id, username, account_id')
+    .in('user_id', uniqueIds);
+
+  if (error) {
+    // Fall back to username-only lookup when account_id is unavailable.
+    const usernames = await getUsernamesByUserIds(admin, uniqueIds);
+    for (const id of uniqueIds) {
+      result.set(id, { username: usernames.get(id) ?? null, accountId: null });
+    }
+    return result;
+  }
+
+  for (const row of (data ?? []) as Array<{ user_id: string; username: string | null; account_id: string | null }>) {
+    result.set(row.user_id, {
+      username: (row.username ?? null) || null,
+      accountId: (row.account_id ?? null) || null,
+    });
+  }
+  return result;
+}
+
+/**
+ * Records a `project_added` feed event for the group and returns the user IDs of
+ * the other members who should be notified. Safe to call from a background task.
+ */
+export async function recordStudyGroupProjectAddedEvent(
+  groupId: string,
+  projectId: string,
+  actorUserId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<{ recipientUserIds: string[]; groupName: string; projectTitle: string }> {
+  const [groupResult, projectResult, memberUserIds, actorProfiles] = await Promise.all([
+    admin.from('study_groups').select('name').eq('id', groupId).maybeSingle<{ name: string }>(),
+    admin.from('projects').select('title').eq('id', projectId).maybeSingle<{ title: string }>(),
+    getStudyGroupMemberUserIds(groupId, admin),
+    getMemberProfiles([actorUserId], admin),
+  ]);
+
+  const groupName = groupResult.data?.name ?? 'グループ';
+  const projectTitle = projectResult.data?.title ?? '単語帳';
+  const actorProfile = actorProfiles.get(actorUserId);
+  const actorName = actorProfile?.username
+    || (actorProfile?.accountId ? `@${actorProfile.accountId}` : null);
+
+  const { error: insertError } = await admin
+    .from('study_group_feed_events')
+    .insert({
+      group_id: groupId,
+      actor_user_id: actorUserId,
+      event_type: 'project_added',
+      project_id: projectId,
+      group_name: groupName,
+      project_title: projectTitle,
+      actor_name: actorName,
+    });
+
+  if (insertError && !isMissingRelationError(insertError, 'study_group_feed_events')) {
+    throw new Error(insertError.message || 'study_group_feed_event_insert_failed');
+  }
+
+  return {
+    recipientUserIds: memberUserIds.filter((id) => id !== actorUserId),
+    groupName,
+    projectTitle,
+  };
+}
+
+/**
+ * Returns recent feed events for all study groups the user belongs to.
+ */
+export async function listStudyGroupFeedEventsForUser(
+  userId: string,
+  limit = 40,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupFeedEvent[]> {
+  const { data: memberships, error: membershipError } = await admin
+    .from('study_group_members')
+    .select('group_id')
+    .eq('user_id', userId);
+
+  if (membershipError || !memberships?.length) return [];
+
+  const groupIds = Array.from(new Set((memberships as Array<{ group_id: string }>).map((row) => row.group_id)));
+  if (groupIds.length === 0) return [];
+
+  const { data, error } = await admin
+    .from('study_group_feed_events')
+    .select('id,group_id,actor_user_id,event_type,project_id,group_name,project_title,actor_name,created_at')
+    .in('group_id', groupIds)
+    .order('created_at', { ascending: false })
+    .limit(Math.max(1, Math.min(limit, 80)));
+
+  if (error) {
+    if (isMissingRelationError(error, 'study_group_feed_events')) return [];
+    throw new Error(error.message || 'study_group_feed_events_lookup_failed');
+  }
+
+  return ((data ?? []) as Array<{
+    id: string;
+    group_id: string;
+    actor_user_id: string | null;
+    event_type: string;
+    project_id: string | null;
+    group_name: string;
+    project_title: string;
+    actor_name: string | null;
+    created_at: string;
+  }>).map((row) => ({
+    id: row.id,
+    groupId: row.group_id,
+    groupName: row.group_name,
+    eventType: 'project_added',
+    projectId: row.project_id,
+    projectTitle: row.project_title,
+    actorUserId: row.actor_user_id,
+    actorName: row.actor_name,
+    createdAt: row.created_at,
+  }));
+}
+
+function isMissingRelationError(error: unknown, table: string): boolean {
+  const maybeError = error as { code?: string | null; message?: string | null };
+  const message = maybeError.message?.toLowerCase() ?? '';
+  return maybeError.code === '42P01'
+    || (message.includes(table) && (
+      message.includes('does not exist')
+      || message.includes('schema cache')
+      || message.includes('could not find')
+      || message.includes('relation')
+    ));
 }
 
 export async function addProjectToStudyGroup(

@@ -1053,6 +1053,7 @@ export default function QuizPage() {
             english: word.english,
             japanese: word.japanese,
             becameMastered,
+            isCorrect,
           }),
         }).catch((error) => {
           console.warn('Failed to record quiz session event:', error);

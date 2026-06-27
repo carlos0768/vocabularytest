@@ -1,5 +1,8 @@
 import SharedPageClient from './SharedPageClient';
-import { listPublicSharedProjects, listPublicSharedUsers } from '@/app/api/shared-projects/shared';
+import {
+  listPublicSharedWordbooks as listPublicSharedProjects,
+  listPublicSharedWordbookUsers as listPublicSharedUsers,
+} from '@/app/api/shared-projects/shared-wordbooks';
 import { readSingleLineEnv } from '@/lib/env';
 import type { SharedDiscoverPayload } from '@/lib/shared-projects/types';
 

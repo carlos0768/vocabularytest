@@ -1,10 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '../../../../shared';
 import {
   addProjectToStudyGroup,
+  recordStudyGroupProjectAddedEvent,
   removeProjectFromStudyGroup,
   StudyGroupProjectAccessError,
 } from '../../../shared';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { sendGroupProjectAddedPushNotifications } from '@/lib/notifications/web-push';
 
 type StudyGroupProjectMutationContext = {
   params: Promise<{ groupId: string; projectId: string }>;
@@ -33,6 +36,30 @@ export async function handleStudyGroupProjectPost(
     if (!project) {
       return NextResponse.json({ success: false, error: 'グループにアクセスできません。' }, { status: 403 });
     }
+
+    // Record a feed event and notify the other members in the background so the
+    // response is not blocked on push delivery.
+    const actorUserId = auth.user.id;
+    const sharedProjectId = project.project.id;
+    after(async () => {
+      try {
+        const admin = getSupabaseAdmin();
+        const { recipientUserIds, groupName, projectTitle } = await recordStudyGroupProjectAddedEvent(
+          groupId,
+          sharedProjectId,
+          actorUserId,
+          admin,
+        );
+        await sendGroupProjectAddedPushNotifications(admin, {
+          recipientUserIds,
+          groupId,
+          groupName,
+          projectTitle,
+        });
+      } catch (notifyError) {
+        console.error('Failed to publish study-group project-added event:', notifyError);
+      }
+    });
 
     return NextResponse.json({ success: true, project });
   } catch (error) {

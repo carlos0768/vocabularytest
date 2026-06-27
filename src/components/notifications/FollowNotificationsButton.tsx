@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
+import { createBrowserClient } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import type { FollowNotification } from '@/lib/follows/types';
 
@@ -39,6 +41,7 @@ function formatNotificationTime(value: string) {
 export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotificationsButtonProps) {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const pushSetupRequestedRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<FollowNotification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,6 +78,28 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
       setError('通知を読み込めませんでした');
     } finally {
       setLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  const ensureFollowPushSubscription = useCallback(async () => {
+    if (!isAuthenticated || pushSetupRequestedRef.current) return;
+    pushSetupRequestedRef.current = true;
+
+    try {
+      const supabase = createBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const result = await ensureWebPushSubscription({
+        accessToken: session.access_token,
+        requestPermission: true,
+      });
+
+      if (result !== 'enabled' && result !== 'permission-default') {
+        console.warn('[FollowNotificationsButton] web push subscription was not enabled:', result);
+      }
+    } catch (setupError) {
+      console.warn('[FollowNotificationsButton] web push subscription setup failed:', setupError);
     }
   }, [isAuthenticated]);
 
@@ -154,7 +179,10 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
         aria-expanded={open}
         onClick={() => {
           setOpen((current) => !current);
-          if (!open) void loadNotifications();
+          if (!open) {
+            void loadNotifications();
+            void ensureFollowPushSubscription();
+          }
         }}
       >
         <Icon name="notifications" filled={unreadCount > 0} size={variant === 'mobile' ? 20 : undefined} />
@@ -210,6 +238,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                 {notifications.map((item) => {
                   const accountLabel = item.profile.accountId ? `@${item.profile.accountId}` : item.profile.username ?? 'ユーザー';
                   const avatarLabel = (item.profile.accountId ?? item.profile.username ?? 'U').charAt(0).toUpperCase();
+                  const isPending = item.status === 'pending';
                   const isResponding = respondingId === item.followId;
 
                   return (
@@ -223,31 +252,33 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                             {accountLabel}
                           </div>
                           <div className="mt-0.5 text-[11px] font-semibold text-[var(--color-muted)]">
-                            フォローリクエスト
+                            {isPending ? 'フォローリクエスト' : 'フォローされました'}
                             {formatNotificationTime(item.createdAt) && ` · ${formatNotificationTime(item.createdAt)}`}
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-2 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          disabled={Boolean(respondingId)}
-                          onClick={() => void respond(item.followId, 'decline')}
-                          className="inline-flex h-8 items-center rounded-[8px] border border-[var(--color-border)] bg-white px-3 text-[11px] font-bold text-[var(--color-muted)] disabled:opacity-50"
-                        >
-                          削除
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(respondingId)}
-                          onClick={() => void respond(item.followId, 'accept')}
-                          className="inline-flex h-8 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[11px] font-bold text-white disabled:opacity-50"
-                        >
-                          {isResponding && <Icon name="progress_activity" className="animate-spin" size={13} />}
-                          承認
-                        </button>
-                      </div>
+                      {isPending && (
+                        <div className="mt-2 flex justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={Boolean(respondingId)}
+                            onClick={() => void respond(item.followId, 'decline')}
+                            className="inline-flex h-8 items-center rounded-[8px] border border-[var(--color-border)] bg-white px-3 text-[11px] font-bold text-[var(--color-muted)] disabled:opacity-50"
+                          >
+                            削除
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(respondingId)}
+                            onClick={() => void respond(item.followId, 'accept')}
+                            className="inline-flex h-8 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[11px] font-bold text-white disabled:opacity-50"
+                          >
+                            {isResponding && <Icon name="progress_activity" className="animate-spin" size={13} />}
+                            承認
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
