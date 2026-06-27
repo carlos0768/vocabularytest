@@ -12,6 +12,8 @@ import type {
   StudyGroupMissedWord,
   StudyGroupOverviewPayload,
   StudyGroupProjectListPayload,
+  StudyGroupStrugglingWord,
+  StudyGroupStrugglingWordsPayload,
   StudyGroupsPayload,
   StudyGroupSummary,
   StudyGroupVisibility,
@@ -41,6 +43,16 @@ type StudyGroupProjectRow = {
   project_id: string;
   added_by_user_id?: string | null;
   created_at?: string | null;
+};
+
+type StudyGroupMissedWordRow = {
+  user_id: string;
+  word_id: string | null;
+  project_id: string | null;
+  english_key: string | null;
+  english: string | null;
+  japanese: string | null;
+  created_at: string | null;
 };
 
 type StudyGroupCounts = {
@@ -74,6 +86,7 @@ const GROUP_INVITE_CODE_PATTERN = /^[A-Za-z0-9_]{4,64}$/;
 const CREATE_INVITE_CODE_RETRIES = 5;
 const DEFAULT_PUBLIC_GROUP_PAGE_SIZE = 12;
 const MAX_PUBLIC_GROUP_PAGE_SIZE = 36;
+export const STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT = 5;
 
 export function normalizeGroupInviteCode(input: string): string | null {
   const normalized = input.trim().replace(/[\s-]+/g, '');
@@ -394,14 +407,20 @@ export async function getStudyGroupOverview(
   // wordbooks: the shared projects themselves plus the copies members imported
   // from them (tracked via projects.imported_from_share_id).
   const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
-  const missedWords = await getStudyGroupTopMissedWords(memberUserIds, groupProjectIds, admin);
+  const missedWordSummary = await getStudyGroupMissedWordSummary(
+    memberUserIds,
+    groupProjectIds,
+    admin,
+    STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT,
+  );
 
   return {
     group: projectPayload.group,
     projects: projectPayload.projects,
     members,
     leaderboard,
-    missedWords,
+    missedWords: missedWordSummary.words.map(mapStrugglingWordToMissedWord),
+    missedWordsTotalCount: missedWordSummary.totalCount,
     viewerUserId: userId,
   };
 }
@@ -564,48 +583,131 @@ async function getStudyGroupLeaderboard(
     });
 }
 
-async function getStudyGroupTopMissedWords(
+export async function listStudyGroupStrugglingWords(
+  groupId: string,
+  userId: string,
+  options: { limit?: number | null } = {},
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupStrugglingWordsPayload | null> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return null;
+
+  const memberRoles = await getStudyGroupMemberRoles(groupId, admin);
+  const memberUserIds = Array.from(memberRoles.keys());
+  const projectPayload = await listStudyGroupProjects(groupId, userId, admin);
+  if (!projectPayload) return null;
+
+  const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
+  const missedWordSummary = await getStudyGroupMissedWordSummary(
+    memberUserIds,
+    groupProjectIds,
+    admin,
+    options.limit ?? null,
+  );
+
+  return {
+    group: projectPayload.group,
+    words: missedWordSummary.words,
+    totalCount: missedWordSummary.totalCount,
+  };
+}
+
+type StudyGroupMissedWordSummary = {
+  words: StudyGroupStrugglingWord[];
+  totalCount: number;
+};
+
+async function getStudyGroupMissedWordSummary(
   memberUserIds: string[],
   groupProjectIds: string[],
   admin: SupabaseAdminClient,
-  limit = 8,
-): Promise<StudyGroupMissedWord[]> {
+  limit: number | null,
+): Promise<StudyGroupMissedWordSummary> {
   // No members or no group wordbooks → nothing to aggregate. Struggling words
   // are intentionally scoped to words that live in the group's wordbooks.
-  if (memberUserIds.length === 0 || groupProjectIds.length === 0) return [];
+  if (memberUserIds.length === 0 || groupProjectIds.length === 0) {
+    return { words: [], totalCount: 0 };
+  }
 
   const { data, error } = await admin
     .from('quiz_word_misses')
-    .select('english_key,english,japanese')
+    .select('user_id,word_id,project_id,english_key,english,japanese,created_at')
     .in('user_id', memberUserIds)
     .in('project_id', groupProjectIds)
     .order('created_at', { ascending: false })
     .limit(2000);
 
   if (error) {
-    if (isMissingRelationError(error, 'quiz_word_misses')) return [];
+    if (isMissingRelationError(error, 'quiz_word_misses')) return { words: [], totalCount: 0 };
     throw new Error(error.message || 'study_group_missed_words_lookup_failed');
   }
 
-  const aggregate = new Map<string, StudyGroupMissedWord>();
-  for (const row of (data ?? []) as Array<{ english_key: string; english: string; japanese: string }>) {
-    const key = row.english_key;
-    const existing = aggregate.get(key);
-    if (existing) {
-      existing.missCount += 1;
-    } else {
-      aggregate.set(key, {
-        englishKey: key,
-        english: row.english,
-        japanese: row.japanese,
-        missCount: 1,
-      });
+  const allWords = aggregateStudyGroupStrugglingWords((data ?? []) as StudyGroupMissedWordRow[]);
+  const normalizedLimit = typeof limit === 'number' && Number.isFinite(limit)
+    ? Math.max(0, Math.floor(limit))
+    : null;
+
+  return {
+    words: normalizedLimit === null ? allWords : allWords.slice(0, normalizedLimit),
+    totalCount: allWords.length,
+  };
+}
+
+export function aggregateStudyGroupStrugglingWords(
+  rows: StudyGroupMissedWordRow[],
+): StudyGroupStrugglingWord[] {
+  const aggregated = new Map<string, StudyGroupStrugglingWord & { userIds: Set<string> }>();
+
+  for (const row of rows) {
+    const english = row.english?.trim();
+    const japanese = row.japanese?.trim();
+    if (!english || !japanese) continue;
+
+    const key = row.english_key?.trim() || `${english.toLowerCase()}::${japanese}`;
+    const lastWrongAt = row.created_at ?? new Date(0).toISOString();
+    const current = aggregated.get(key);
+    if (current) {
+      current.wrongCount += 1;
+      current.userIds.add(row.user_id);
+      current.learnerCount = current.userIds.size;
+      if (lastWrongAt > current.lastWrongAt) {
+        current.lastWrongAt = lastWrongAt;
+        current.wordId = row.word_id ?? '';
+        current.projectId = row.project_id ?? '';
+      }
+      continue;
     }
+
+    aggregated.set(key, {
+      key,
+      wordId: row.word_id ?? '',
+      projectId: row.project_id ?? '',
+      english,
+      japanese,
+      wrongCount: 1,
+      learnerCount: 1,
+      lastWrongAt,
+      userIds: new Set([row.user_id]),
+    });
   }
 
-  return Array.from(aggregate.values())
-    .sort((a, b) => (b.missCount - a.missCount) || a.english.localeCompare(b.english))
-    .slice(0, limit);
+  return Array.from(aggregated.values())
+    .map(({ userIds: _userIds, ...word }) => word)
+    .sort((a, b) => (
+      b.wrongCount - a.wrongCount
+      || b.learnerCount - a.learnerCount
+      || b.lastWrongAt.localeCompare(a.lastWrongAt)
+      || a.english.localeCompare(b.english)
+    ));
+}
+
+function mapStrugglingWordToMissedWord(word: StudyGroupStrugglingWord): StudyGroupMissedWord {
+  return {
+    englishKey: word.key,
+    english: word.english,
+    japanese: word.japanese,
+    missCount: word.wrongCount,
+  };
 }
 
 async function getMemberProfiles(

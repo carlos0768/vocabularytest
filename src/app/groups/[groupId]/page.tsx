@@ -29,6 +29,7 @@ type OverviewResponse = {
   projects?: SharedProjectCard[];
   leaderboard?: StudyGroupLeaderboardEntry[];
   missedWords?: StudyGroupMissedWord[];
+  missedWordsTotalCount?: number;
   viewerUserId?: string;
   error?: string;
 };
@@ -46,6 +47,7 @@ export default function GroupPage() {
   const [projects, setProjects] = useState<SharedProjectCard[]>([]);
   const [leaderboard, setLeaderboard] = useState<StudyGroupLeaderboardEntry[]>([]);
   const [missedWords, setMissedWords] = useState<StudyGroupMissedWord[]>([]);
+  const [missedWordsTotalCount, setMissedWordsTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
@@ -66,6 +68,7 @@ export default function GroupPage() {
       setProjects(payload.projects ?? []);
       setLeaderboard(payload.leaderboard ?? []);
       setMissedWords(payload.missedWords ?? []);
+      setMissedWordsTotalCount(payload.missedWordsTotalCount ?? payload.missedWords?.length ?? 0);
     } catch (loadError) {
       console.warn('Failed to load group overview:', loadError);
       setError('グループ情報を読み込めませんでした。');
@@ -161,7 +164,11 @@ export default function GroupPage() {
             settingsHref={`/groups/${encodeURIComponent(groupId)}/settings`}
           />
           <LeaderboardSection leaderboard={leaderboard} />
-          <MissedWordsSection missedWords={missedWords} />
+          <MissedWordsSection
+            groupId={groupId}
+            missedWords={missedWords}
+            totalCount={missedWordsTotalCount}
+          />
           <WordbooksSection
             projects={projects}
             removingProjectId={removingProjectId}
@@ -403,34 +410,54 @@ function LeaderboardRow({ entry, rank }: { entry: StudyGroupLeaderboardEntry; ra
   );
 }
 
-function MissedWordsSection({ missedWords }: { missedWords: StudyGroupMissedWord[] }) {
+function MissedWordsSection({
+  groupId,
+  missedWords,
+  totalCount,
+}: {
+  groupId: string;
+  missedWords: StudyGroupMissedWord[];
+  totalCount: number;
+}) {
   const max = missedWords[0]?.missCount ?? 1;
+  const hasMore = totalCount > missedWords.length;
   return (
-    <SectionCard icon="local_fire_department" title="みんなが苦戦中" subtitle="グループでよく間違える単語" accent="#CC4D59">
+    <SectionCard icon="local_fire_department" title="みんなが苦戦中" subtitle="グループでよく間違える単語・上位5件" accent="#CC4D59">
       {missedWords.length === 0 ? (
         <EmptyRow message="まだデータがありません。クイズを解くと集計されます" />
       ) : (
-        <div className="flex flex-col gap-1.5">
-          {missedWords.map((word, index) => (
-            <div key={word.englishKey} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2">
-              <span className="w-5 shrink-0 text-center font-mono text-[13px] font-extrabold tabular-nums text-[#CC4D59]">{index + 1}</span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
-                <div className="truncate text-[11px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
-                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-secondary)]">
-                  <div
-                    className="h-full rounded-full bg-[#CC4D59]"
-                    style={{ width: `${Math.max(12, Math.round((word.missCount / max) * 100))}%` }}
-                  />
+        <>
+          <div className="flex flex-col gap-1.5">
+            {missedWords.map((word, index) => (
+              <div key={word.englishKey} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2">
+                <span className="w-5 shrink-0 text-center font-mono text-[13px] font-extrabold tabular-nums text-[#CC4D59]">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
+                  <div className="truncate text-[11px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-secondary)]">
+                    <div
+                      className="h-full rounded-full bg-[#CC4D59]"
+                      style={{ width: `${Math.max(12, Math.round((word.missCount / max) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className="font-mono text-[14px] font-extrabold tabular-nums text-[#CC4D59]">{word.missCount}</span>
+                  <span className="ml-0.5 text-[10px] font-bold text-[var(--color-muted)]">回</span>
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <span className="font-mono text-[14px] font-extrabold tabular-nums text-[#CC4D59]">{word.missCount}</span>
-                <span className="ml-0.5 text-[10px] font-bold text-[var(--color-muted)]">回</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          {hasMore && (
+            <Link
+              href={`/groups/${encodeURIComponent(groupId)}/struggling`}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-4 py-2.5 font-display text-[13px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              もっと見る
+              <Icon name="chevron_right" size={16} />
+            </Link>
+          )}
+        </>
       )}
     </SectionCard>
   );
