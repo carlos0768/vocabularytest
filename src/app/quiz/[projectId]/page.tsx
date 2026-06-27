@@ -20,6 +20,7 @@ import {
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
+  applyWordOrderQuestionsToPendingQuiz,
   generateQuizQuestions,
   getFavoritesQuizStorageKey,
   getQuizStorageKey,
@@ -560,6 +561,8 @@ export default function QuizPage() {
 
   const restoredFromStorage = useRef(false);
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
+  const currentIndexRef = useRef(0);
+  const wordOrderGenerationRunRef = useRef(0);
   const storageKey = reminderMode
     ? 'quiz_state_reminder'
     : wrongMode
@@ -567,6 +570,10 @@ export default function QuizPage() {
       : favoritesMode
         ? getFavoritesQuizStorageKey(projectId)
         : getQuizStorageKey(projectId, reviewMode, learnMode);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   const saveQuizState = useCallback(() => {
     if (questions.length === 0 || !questionCount) return;
@@ -676,8 +683,14 @@ export default function QuizPage() {
     }
   }, [needsWordOrderQuiz, repository]);
 
-  const generateQuestions = useCallback((words: Word[], count: number, direction: QuizDirection = 'en-to-ja'): QuizQuestion[] => {
+  const generateQuestions = useCallback((
+    words: Word[],
+    count: number,
+    direction: QuizDirection = 'en-to-ja',
+    options: { allowPendingWordOrderFallback?: boolean } = {},
+  ): QuizQuestion[] => {
     return generateQuizQuestions(words, count, direction, undefined, {
+      allowPendingWordOrderFallback: options.allowPendingWordOrderFallback,
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
     });
@@ -686,16 +699,29 @@ export default function QuizPage() {
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
-    let wordsForQuestions = words;
+    const selectedNeedsWordOrderQuiz = selected.some(needsWordOrderQuiz);
+    const wordOrderGenerationRun = wordOrderGenerationRunRef.current + 1;
+    wordOrderGenerationRunRef.current = wordOrderGenerationRun;
 
-    if (selected.some(needsWordOrderQuiz)) {
-      const updatedSelected = await applyGeneratedWordOrderQuizzes(selected);
-      const updatedSelectedById = new Map(updatedSelected.map((word) => [word.id, word]));
-      wordsForQuestions = words.map((word) => updatedSelectedById.get(word.id) ?? word);
-    }
-
-    const nextQuestions = generateQuestions(wordsForQuestions, count, quizDirection);
+    const nextQuestions = generateQuestions(words, count, quizDirection, {
+      allowPendingWordOrderFallback: selectedNeedsWordOrderQuiz,
+    });
     setQuestions(nextQuestions);
+
+    if (selectedNeedsWordOrderQuiz) {
+      void (async () => {
+        const updatedSelected = await applyGeneratedWordOrderQuizzes(selected);
+        if (wordOrderGenerationRunRef.current !== wordOrderGenerationRun) return;
+
+        const updatedSelectedById = new Map(updatedSelected.map((word) => [word.id, word]));
+        const wordsForQuestions = words.map((word) => updatedSelectedById.get(word.id) ?? word);
+        setQuestions((prev) => applyWordOrderQuestionsToPendingQuiz(
+          prev,
+          wordsForQuestions,
+          currentIndexRef.current,
+        ));
+      })();
+    }
 
     const toImprove = selected.filter((w) => needsDistractors(w));
     if (toImprove.length === 0) return;

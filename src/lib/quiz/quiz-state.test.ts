@@ -213,7 +213,7 @@ test('generateQuizQuestions primaryOnly does not expand distinct translations', 
   assert.deepEqual(questions.map((question) => question.word.japanese), ['自由な']);
 });
 
-test('generateQuizQuestions allows distinct meanings of the same word as distractors', () => {
+test('generateQuizQuestions excludes distinct meanings of the same word as distractors', () => {
   const [question] = generateQuizQuestions([
     createWord({
       id: 'free-primary',
@@ -239,7 +239,31 @@ test('generateQuizQuestions allows distinct meanings of the same word as distrac
   ], 1, 'en-to-ja', identityShuffle, { preserveOrder: true });
 
   assert.equal(question.word.id, 'free-primary');
-  assert.ok(question.options.includes('無料の'));
+  assert.ok(!question.options.includes('無料の'));
+  assert.equal(question.correctIndex, 0);
+});
+
+test('generateQuizQuestions removes stored distractors from the same word meanings', () => {
+  const [question] = generateQuizQuestions([
+    createWord({
+      id: 'free-primary',
+      english: 'free',
+      japanese: '自由な',
+      distractors: ['無料の', '明白な', '平凡な'],
+      translations: [
+        {
+          distinctKey: 'cost',
+          translationJa: '無料の',
+          normalizedTranslationJa: '無料の',
+          meaningRank: 2,
+          position: 1,
+          isPrimary: false,
+        },
+      ],
+    }),
+  ], 1, 'en-to-ja', identityShuffle, { preserveOrder: true });
+
+  assert.deepEqual(question.options, ['自由な', '明白な', '平凡な', GENERIC_JA_DISTRACTOR_POOL[0]]);
   assert.equal(question.correctIndex, 0);
 });
 
