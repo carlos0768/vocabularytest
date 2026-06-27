@@ -7,6 +7,7 @@ import type {
   SharedProjectMetrics,
   StudyGroupFeedEvent,
   StudyGroupLeaderboardEntry,
+  StudyGroupMember,
   StudyGroupMembershipRole,
   StudyGroupMissedWord,
   StudyGroupOverviewPayload,
@@ -377,7 +378,8 @@ export async function getStudyGroupOverview(
   const membership = await getStudyGroupMembership(groupId, userId, admin);
   if (!membership) return null;
 
-  const memberUserIds = await getStudyGroupMemberUserIds(groupId, admin);
+  const memberRoles = await getStudyGroupMemberRoles(groupId, admin);
+  const memberUserIds = Array.from(memberRoles.keys());
 
   const [projectPayload, leaderboard] = await Promise.all([
     listStudyGroupProjects(groupId, userId, admin),
@@ -385,6 +387,8 @@ export async function getStudyGroupOverview(
   ]);
 
   if (!projectPayload) return null;
+
+  const members = buildStudyGroupMembers(memberRoles, leaderboard, userId);
 
   // "Struggling words" are aggregated ONLY from words inside the group's
   // wordbooks: the shared projects themselves plus the copies members imported
@@ -395,10 +399,63 @@ export async function getStudyGroupOverview(
   return {
     group: projectPayload.group,
     projects: projectPayload.projects,
+    members,
     leaderboard,
     missedWords,
     viewerUserId: userId,
   };
+}
+
+/**
+ * Joins the group's membership roster (with roles) against the leaderboard
+ * entries (which already carry resolved usernames + account IDs) to produce a
+ * directory of members. Owners sort first, then by display name.
+ */
+function buildStudyGroupMembers(
+  memberRoles: Map<string, StudyGroupMembershipRole>,
+  leaderboard: StudyGroupLeaderboardEntry[],
+  viewerUserId: string,
+): StudyGroupMember[] {
+  const profileByUserId = new Map(leaderboard.map((entry) => [entry.userId, entry]));
+
+  return Array.from(memberRoles.entries())
+    .map(([memberUserId, role]) => {
+      const profile = profileByUserId.get(memberUserId);
+      return {
+        userId: memberUserId,
+        username: profile?.username ?? null,
+        accountId: profile?.accountId ?? null,
+        role,
+        isViewer: memberUserId === viewerUserId,
+      };
+    })
+    .sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'owner' ? -1 : 1;
+      const aLabel = a.username ?? a.accountId ?? a.userId;
+      const bLabel = b.username ?? b.accountId ?? b.userId;
+      return aLabel.localeCompare(bLabel);
+    });
+}
+
+async function getStudyGroupMemberRoles(
+  groupId: string,
+  admin: SupabaseAdminClient,
+): Promise<Map<string, StudyGroupMembershipRole>> {
+  const { data, error } = await admin
+    .from('study_group_members')
+    .select('user_id,role')
+    .eq('group_id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_members_lookup_failed');
+  }
+
+  const roles = new Map<string, StudyGroupMembershipRole>();
+  for (const row of (data ?? []) as Array<{ user_id: string; role: string | null }>) {
+    if (!row.user_id || roles.has(row.user_id)) continue;
+    roles.set(row.user_id, normalizeStudyGroupRole(row.role));
+  }
+  return roles;
 }
 
 /**
@@ -591,7 +648,7 @@ export async function recordStudyGroupProjectAddedEvent(
   projectId: string,
   actorUserId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
-): Promise<{ recipientUserIds: string[]; groupName: string; projectTitle: string }> {
+): Promise<{ recipientUserIds: string[]; groupName: string; projectTitle: string; actorName: string | null }> {
   const [groupResult, projectResult, memberUserIds, actorProfiles] = await Promise.all([
     admin.from('study_groups').select('name').eq('id', groupId).maybeSingle<{ name: string }>(),
     admin.from('projects').select('title').eq('id', projectId).maybeSingle<{ title: string }>(),
@@ -605,26 +662,34 @@ export async function recordStudyGroupProjectAddedEvent(
   const actorName = actorProfile?.username
     || (actorProfile?.accountId ? `@${actorProfile.accountId}` : null);
 
-  const { error: insertError } = await admin
-    .from('study_group_feed_events')
-    .insert({
-      group_id: groupId,
-      actor_user_id: actorUserId,
-      event_type: 'project_added',
-      project_id: projectId,
-      group_name: groupName,
-      project_title: projectTitle,
-      actor_name: actorName,
-    });
+  // The feed event is a best-effort analytics record. It must never block the
+  // push notification below — swallow any insert failure (missing table,
+  // missing column, RLS, etc.) so recipients are always returned.
+  try {
+    const { error: insertError } = await admin
+      .from('study_group_feed_events')
+      .insert({
+        group_id: groupId,
+        actor_user_id: actorUserId,
+        event_type: 'project_added',
+        project_id: projectId,
+        group_name: groupName,
+        project_title: projectTitle,
+        actor_name: actorName,
+      });
 
-  if (insertError && !isMissingRelationError(insertError, 'study_group_feed_events')) {
-    throw new Error(insertError.message || 'study_group_feed_event_insert_failed');
+    if (insertError) {
+      console.warn('study_group_feed_event insert skipped:', insertError.message);
+    }
+  } catch (feedError) {
+    console.warn('study_group_feed_event insert threw:', feedError);
   }
 
   return {
     recipientUserIds: memberUserIds.filter((id) => id !== actorUserId),
     groupName,
     projectTitle,
+    actorName,
   };
 }
 
@@ -806,6 +871,78 @@ export class StudyGroupProjectAccessError extends Error {
     super(code);
     this.name = 'StudyGroupProjectAccessError';
   }
+}
+
+export class StudyGroupAccessError extends Error {
+  constructor(readonly code: 'owner_required' | 'cannot_remove_owner' | 'invalid_name') {
+    super(code);
+    this.name = 'StudyGroupAccessError';
+  }
+}
+
+/**
+ * Renames a study group. Owner-only. Returns the refreshed summary, or `null`
+ * when the requester is not a member of the group.
+ */
+export async function renameStudyGroup(
+  groupId: string,
+  userId: string,
+  name: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupSummary | null> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return null;
+  if (membership.role !== 'owner') {
+    throw new StudyGroupAccessError('owner_required');
+  }
+
+  const normalizedName = name.trim();
+  if (!normalizedName) {
+    throw new StudyGroupAccessError('invalid_name');
+  }
+
+  const { error } = await admin
+    .from('study_groups')
+    .update({ name: normalizedName })
+    .eq('id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_rename_failed');
+  }
+
+  return getStudyGroupSummaryForUser(groupId, userId, admin);
+}
+
+/**
+ * Removes a member from a study group. Owner-only; the owner cannot be removed.
+ * Returns `false` when the requester is not a member of the group.
+ */
+export async function removeStudyGroupMember(
+  groupId: string,
+  userId: string,
+  targetUserId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<boolean> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return false;
+  if (membership.role !== 'owner') {
+    throw new StudyGroupAccessError('owner_required');
+  }
+  if (targetUserId === membership.group.owner_user_id) {
+    throw new StudyGroupAccessError('cannot_remove_owner');
+  }
+
+  const { error } = await admin
+    .from('study_group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', targetUserId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_member_remove_failed');
+  }
+
+  return true;
 }
 
 async function getStudyGroupSummaryForUser(

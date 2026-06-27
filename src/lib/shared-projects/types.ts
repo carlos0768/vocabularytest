@@ -88,9 +88,18 @@ export type StudyGroupMissedWord = {
   missCount: number;
 };
 
+export type StudyGroupMember = {
+  userId: string;
+  username: string | null;
+  accountId: string | null;
+  role: StudyGroupMembershipRole;
+  isViewer: boolean;
+};
+
 export type StudyGroupOverviewPayload = {
   group: StudyGroupSummary;
   projects: SharedProjectCard[];
+  members: StudyGroupMember[];
   leaderboard: StudyGroupLeaderboardEntry[];
   missedWords: StudyGroupMissedWord[];
   viewerUserId: string;
