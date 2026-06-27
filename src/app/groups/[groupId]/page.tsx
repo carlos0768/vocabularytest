@@ -18,6 +18,7 @@ import type { Project } from '@/types';
 import type {
   SharedProjectCard,
   StudyGroupLeaderboardEntry,
+  StudyGroupMember,
   StudyGroupMissedWord,
   StudyGroupSummary,
 } from '@/lib/shared-projects/types';
@@ -26,6 +27,7 @@ type OverviewResponse = {
   success?: boolean;
   group?: StudyGroupSummary;
   projects?: SharedProjectCard[];
+  members?: StudyGroupMember[];
   leaderboard?: StudyGroupLeaderboardEntry[];
   missedWords?: StudyGroupMissedWord[];
   viewerUserId?: string;
@@ -44,12 +46,51 @@ function thumbColor(id: string) {
 // Duolingo-style podium medal colors for the top three.
 const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
 
-function memberLabel(entry: StudyGroupLeaderboardEntry): string {
+type MemberLike = { username: string | null; accountId: string | null; isViewer?: boolean };
+
+function memberLabel(entry: MemberLike): string {
   return entry.username?.trim() || (entry.accountId ? `@${entry.accountId}` : 'ユーザー');
 }
 
-function memberInitial(entry: StudyGroupLeaderboardEntry): string {
+function memberInitial(entry: MemberLike): string {
   return (entry.username?.trim() || entry.accountId || 'U').charAt(0).toUpperCase();
+}
+
+// Resolves the profile route for a group member. The viewer lands on their own
+// profile; others route by account ID. Members without an account ID (older
+// accounts that never picked a handle) are not linkable.
+function profileHref(entry: MemberLike): string | null {
+  if (entry.isViewer) return '/profile';
+  if (entry.accountId) return `/profile/${encodeURIComponent(entry.accountId)}`;
+  return null;
+}
+
+// Wraps member-facing content so a tap opens the profile when one is available,
+// gracefully degrading to a plain container otherwise.
+function ProfileTapTarget({
+  href,
+  label,
+  className,
+  children,
+}: {
+  href: string | null;
+  label: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (!href) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <Link
+      href={href}
+      aria-label={`${label}のプロフィールを見る`}
+      onClick={() => triggerHaptic()}
+      className={className}
+    >
+      {children}
+    </Link>
+  );
 }
 
 export default function GroupPage() {
@@ -60,12 +101,14 @@ export default function GroupPage() {
 
   const [group, setGroup] = useState<StudyGroupSummary | null>(null);
   const [projects, setProjects] = useState<SharedProjectCard[]>([]);
+  const [members, setMembers] = useState<StudyGroupMember[]>([]);
   const [leaderboard, setLeaderboard] = useState<StudyGroupLeaderboardEntry[]>([]);
   const [missedWords, setMissedWords] = useState<StudyGroupMissedWord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [inviteShareOpen, setInviteShareOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -79,6 +122,7 @@ export default function GroupPage() {
       }
       setGroup(payload.group);
       setProjects(payload.projects ?? []);
+      setMembers(payload.members ?? []);
       setLeaderboard(payload.leaderboard ?? []);
       setMissedWords(payload.missedWords ?? []);
     } catch (loadError) {
@@ -142,8 +186,10 @@ export default function GroupPage() {
             totalQuiz={totalQuiz}
             onCopyInvite={() => void copyInvite()}
             onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
+            onOpenSettings={group.role === 'owner' ? () => { triggerHaptic(); setSettingsOpen(true); } : undefined}
           />
           <LeaderboardSection leaderboard={leaderboard} />
+          <MembersSection members={members} />
           <MissedWordsSection missedWords={missedWords} />
           <WordbooksSection projects={projects} onShare={() => { triggerHaptic(); setShareSheetOpen(true); }} />
         </div>
@@ -167,6 +213,18 @@ export default function GroupPage() {
           onClose={() => setInviteShareOpen(false)}
         />
       )}
+
+      {group && group.role === 'owner' && (
+        <GroupSettingsSheet
+          open={settingsOpen}
+          group={group}
+          members={members}
+          projects={projects}
+          onClose={() => setSettingsOpen(false)}
+          onChanged={() => void load()}
+          onGroupRenamed={(name) => setGroup((prev) => (prev ? { ...prev, name } : prev))}
+        />
+      )}
     </div>
   );
 }
@@ -176,11 +234,13 @@ function GroupHeader({
   totalQuiz,
   onCopyInvite,
   onShare,
+  onOpenSettings,
 }: {
   group: StudyGroupSummary;
   totalQuiz: number;
   onCopyInvite: () => void;
   onShare: () => void;
+  onOpenSettings?: () => void;
 }) {
   return (
     <section
@@ -198,6 +258,16 @@ function GroupHeader({
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-white/70">
           STUDY GROUP
         </div>
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="グループ設定"
+            className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="settings" size={16} />
+          </button>
+        )}
       </div>
 
       <div className="flex items-start gap-3">
@@ -315,7 +385,11 @@ function PodiumColumn({ entry, place }: { entry: StudyGroupLeaderboardEntry; pla
   const size = place === 1 ? 'text-[26px]' : 'text-[20px]';
   const dimension = place === 1 ? { width: 64, height: 64 } : { width: 52, height: 52 };
   return (
-    <div className={`flex flex-1 flex-col items-center ${place === 1 ? '-mt-2' : 'mt-2'}`}>
+    <ProfileTapTarget
+      href={profileHref(entry)}
+      label={memberLabel(entry)}
+      className={`flex flex-1 flex-col items-center transition-transform duration-100 active:scale-95 ${place === 1 ? '-mt-2' : 'mt-2'}`}
+    >
       <div className="relative">
         <div
           className={`flex items-center justify-center rounded-full border-2 border-[var(--solid-ink)] font-display font-extrabold text-white ${size}`}
@@ -335,13 +409,17 @@ function PodiumColumn({ entry, place }: { entry: StudyGroupLeaderboardEntry; pla
       </div>
       <div className="font-mono text-[12px] font-extrabold tabular-nums text-[var(--solid-ink)]">{entry.quizCount}</div>
       <div className="font-mono text-[9px] font-bold uppercase tracking-wide text-[var(--color-muted)]">問</div>
-    </div>
+    </ProfileTapTarget>
   );
 }
 
 function LeaderboardRow({ entry, rank }: { entry: StudyGroupLeaderboardEntry; rank: number }) {
   return (
-    <div className={`flex items-center gap-3 rounded-[12px] border-2 px-3 py-2 ${entry.isViewer ? 'border-[var(--color-accent)] bg-[var(--color-accent-subtle)]' : 'border-[var(--color-border)] bg-white'}`}>
+    <ProfileTapTarget
+      href={profileHref(entry)}
+      label={memberLabel(entry)}
+      className={`flex items-center gap-3 rounded-[12px] border-2 px-3 py-2 transition-all duration-100 active:translate-x-px active:translate-y-px ${entry.isViewer ? 'border-[var(--color-accent)] bg-[var(--color-accent-subtle)]' : 'border-[var(--color-border)] bg-white'}`}
+    >
       <span className="w-5 shrink-0 text-center font-mono text-[13px] font-extrabold tabular-nums text-[var(--color-muted)]">{rank}</span>
       <div
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
@@ -359,7 +437,55 @@ function LeaderboardRow({ entry, rank }: { entry: StudyGroupLeaderboardEntry; ra
         <span className="font-mono text-[14px] font-extrabold tabular-nums text-[var(--solid-ink)]">{entry.quizCount}</span>
         <span className="ml-0.5 text-[10px] font-bold text-[var(--color-muted)]">問</span>
       </div>
-    </div>
+    </ProfileTapTarget>
+  );
+}
+
+function MembersSection({ members }: { members: StudyGroupMember[] }) {
+  return (
+    <SectionCard icon="group" title="メンバー" subtitle={`${members.length}人が参加中`} accent="#3DA1B8">
+      {members.length === 0 ? (
+        <EmptyRow message="まだメンバーがいません" />
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {members.map((member) => {
+            const href = profileHref(member);
+            return (
+              <ProfileTapTarget
+                key={member.userId}
+                href={href}
+                label={memberLabel(member)}
+                className={`flex items-center gap-3 rounded-[12px] border-2 px-3 py-2 transition-all duration-100 active:translate-x-px active:translate-y-px ${member.isViewer ? 'border-[var(--color-accent)] bg-[var(--color-accent-subtle)]' : 'border-[var(--color-border)] bg-white'}`}
+              >
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
+                  style={{ backgroundColor: thumbColor(member.userId) }}
+                >
+                  {memberInitial(member)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{memberLabel(member)}</span>
+                    {member.role === 'owner' && (
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[#E29C57] bg-[#FFF6E8] px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-wide text-[#B26A1F]">
+                        <Icon name="workspace_premium" size={11} />オーナー
+                      </span>
+                    )}
+                    {member.isViewer && (
+                      <span className="shrink-0 rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-wide text-white">あなた</span>
+                    )}
+                  </div>
+                  {member.accountId && (
+                    <div className="truncate font-mono text-[11px] font-bold text-[var(--color-muted)]">@{member.accountId}</div>
+                  )}
+                </div>
+                {href && <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />}
+              </ProfileTapTarget>
+            );
+          })}
+        </div>
+      )}
+    </SectionCard>
   );
 }
 
@@ -735,6 +861,251 @@ function GroupInviteShareSheet({
               <Icon name="content_copy" size={13} />リンク
             </span>
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupSettingsSheet({
+  open,
+  group,
+  members,
+  projects,
+  onClose,
+  onChanged,
+  onGroupRenamed,
+}: {
+  open: boolean;
+  group: StudyGroupSummary;
+  members: StudyGroupMember[];
+  projects: SharedProjectCard[];
+  onClose: () => void;
+  onChanged: () => void;
+  onGroupRenamed: (name: string) => void;
+}) {
+  const { showToast } = useToast();
+  const [name, setName] = useState(group.name);
+  const [savingName, setSavingName] = useState(false);
+  const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+
+  // Keep the input in sync when the group is reloaded after a change.
+  useEffect(() => {
+    setName(group.name);
+  }, [group.name]);
+
+  if (!open) return null;
+
+  const trimmedName = name.trim();
+  const nameChanged = trimmedName.length > 0 && trimmedName !== group.name;
+
+  const handleRename = async () => {
+    if (!nameChanged || savingName) return;
+    triggerHaptic();
+    setSavingName(true);
+    try {
+      const response = await fetch(`/api/shared-projects/groups/${encodeURIComponent(group.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedName }),
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'group_rename_failed');
+      }
+      onGroupRenamed(trimmedName);
+      showToast({ message: 'グループ名を変更しました', type: 'success' });
+      onChanged();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '変更に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleRemoveMember = async (member: StudyGroupMember) => {
+    if (pendingMemberId) return;
+    const label = memberLabel(member);
+    if (typeof window !== 'undefined' && !window.confirm(`${label}さんをグループから削除しますか？`)) return;
+    triggerHaptic();
+    setPendingMemberId(member.userId);
+    try {
+      const response = await fetch(
+        `/api/shared-projects/groups/${encodeURIComponent(group.id)}/members/${encodeURIComponent(member.userId)}`,
+        { method: 'DELETE' },
+      );
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'member_remove_failed');
+      }
+      showToast({ message: `${label}さんを削除しました`, type: 'success' });
+      onChanged();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '削除に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setPendingMemberId(null);
+    }
+  };
+
+  const handleRemoveProject = async (card: SharedProjectCard) => {
+    if (pendingProjectId) return;
+    if (typeof window !== 'undefined' && !window.confirm(`「${card.project.title}」をグループから削除しますか？`)) return;
+    triggerHaptic();
+    setPendingProjectId(card.project.id);
+    try {
+      const response = await fetch(
+        `/api/shared-projects/groups/${encodeURIComponent(group.id)}/projects/${encodeURIComponent(card.project.id)}`,
+        { method: 'DELETE' },
+      );
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'project_remove_failed');
+      }
+      showToast({ message: `「${card.project.title}」を削除しました`, type: 'success' });
+      onChanged();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '削除に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setPendingProjectId(null);
+    }
+  };
+
+  const removableMembers = members.filter((member) => member.role !== 'owner');
+
+  return (
+    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      <button type="button" aria-label="閉じる" onClick={onClose} className="absolute inset-0 cursor-default" style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }} />
+      <div className="absolute inset-x-0 bottom-0 flex justify-center">
+        <div
+          className="w-full animate-fade-in-up"
+          style={{
+            maxWidth: 520,
+            background: '#faf7f1',
+            border: '2px solid var(--solid-ink)',
+            borderBottomWidth: 0,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
+            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+            maxHeight: 'min(86vh, 720px)',
+            overflowY: 'auto',
+          }}
+        >
+          <div className="mb-2.5 flex justify-center">
+            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+          </div>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">GROUP SETTINGS</div>
+              <div className="mt-0.5 truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">グループ設定</div>
+            </div>
+            <button type="button" onClick={onClose} aria-label="閉じる" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+
+          {/* Rename group */}
+          <div className="mb-5">
+            <div className="mb-1.5 font-display text-[13px] font-extrabold text-[var(--solid-ink)]">グループ名</div>
+            <div className="flex items-stretch gap-2">
+              <input
+                type="text"
+                value={name}
+                maxLength={40}
+                onChange={(event) => setName(event.target.value)}
+                className="min-w-0 flex-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)] outline-none"
+                placeholder="グループ名"
+              />
+              <button
+                type="button"
+                disabled={!nameChanged || savingName}
+                onClick={() => void handleRename()}
+                className="inline-flex shrink-0 items-center gap-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2.5 font-display text-[13px] font-extrabold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+              >
+                <Icon name={savingName ? 'progress_activity' : 'check'} size={15} className={savingName ? 'animate-spin' : ''} />
+                保存
+              </button>
+            </div>
+          </div>
+
+          {/* Manage members */}
+          <div className="mb-5">
+            <div className="mb-1.5 font-display text-[13px] font-extrabold text-[var(--solid-ink)]">メンバーの削除</div>
+            {removableMembers.length === 0 ? (
+              <SheetNote icon="group" message="削除できるメンバーがいません。" />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {removableMembers.map((member) => (
+                  <div key={member.userId} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2">
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
+                      style={{ backgroundColor: thumbColor(member.userId) }}
+                    >
+                      {memberInitial(member)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{memberLabel(member)}</div>
+                      {member.accountId && (
+                        <div className="truncate font-mono text-[11px] font-bold text-[var(--color-muted)]">@{member.accountId}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={Boolean(pendingMemberId)}
+                      onClick={() => void handleRemoveMember(member)}
+                      aria-label={`${memberLabel(member)}を削除`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[#CC4D59] bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+                    >
+                      <Icon name={pendingMemberId === member.userId ? 'progress_activity' : 'person_remove'} size={14} className={pendingMemberId === member.userId ? 'animate-spin' : ''} />
+                      削除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Manage wordbooks */}
+          <div>
+            <div className="mb-1.5 font-display text-[13px] font-extrabold text-[var(--solid-ink)]">単語帳の削除</div>
+            {projects.length === 0 ? (
+              <SheetNote icon="menu_book" message="共有中の単語帳はありません。" />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {projects.map((card) => (
+                  <div key={card.project.id} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2">
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[15px] font-extrabold text-white"
+                      style={{
+                        backgroundColor: thumbColor(card.project.id),
+                        backgroundImage: card.project.iconImage ? `url(${card.project.iconImage})` : undefined,
+                      }}
+                    >
+                      {!card.project.iconImage && card.project.title.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{card.project.title}</div>
+                      <div className="truncate font-mono text-[11px] font-bold text-[var(--color-muted)]">{card.wordCount ?? 0} 語</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={Boolean(pendingProjectId)}
+                      onClick={() => void handleRemoveProject(card)}
+                      aria-label={`${card.project.title}を削除`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[#CC4D59] bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+                    >
+                      <Icon name={pendingProjectId === card.project.id ? 'progress_activity' : 'delete'} size={14} className={pendingProjectId === card.project.id ? 'animate-spin' : ''} />
+                      削除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

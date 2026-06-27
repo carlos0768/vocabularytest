@@ -19,6 +19,10 @@ function overviewPayload(): StudyGroupOverviewPayload {
       ownerUsername: 'owner',
     },
     projects: [],
+    members: [
+      { userId: 'u1', username: 'Alice', accountId: 'alice', role: 'owner', isViewer: false },
+      { userId: 'u2', username: 'Bob', accountId: 'bob', role: 'member', isViewer: true },
+    ],
     leaderboard: [
       { userId: 'u1', username: 'Alice', accountId: 'alice', quizCount: 40, masteredCount: 10, isViewer: false },
       { userId: 'u2', username: 'Bob', accountId: 'bob', quizCount: 12, masteredCount: 3, isViewer: true },
@@ -51,6 +55,8 @@ test('group overview GET returns leaderboard and missed words for a member', asy
   const payload = await res.json();
   assert.equal(payload.success, true);
   assert.equal(payload.leaderboard[0].quizCount, 40);
+  assert.equal(payload.members[0].role, 'owner');
+  assert.equal(payload.members[0].accountId, 'alice');
   assert.equal(payload.missedWords[0].english, 'ubiquitous');
   assert.equal(payload.viewerUserId, 'u2');
 });

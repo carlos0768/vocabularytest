@@ -42,22 +42,38 @@ export async function handleStudyGroupProjectPost(
     const actorUserId = auth.user.id;
     const sharedProjectId = project.project.id;
     after(async () => {
+      const admin = getSupabaseAdmin();
+      // Recording the feed event is best-effort and must not stop the push from
+      // going out, so it runs in its own guarded block.
+      let groupName = project.project.title;
+      let projectTitle = project.project.title;
+      let actorName: string | null = null;
+      let recipientUserIds: string[] = [];
       try {
-        const admin = getSupabaseAdmin();
-        const { recipientUserIds, groupName, projectTitle } = await recordStudyGroupProjectAddedEvent(
+        const recorded = await recordStudyGroupProjectAddedEvent(
           groupId,
           sharedProjectId,
           actorUserId,
           admin,
         );
+        recipientUserIds = recorded.recipientUserIds;
+        groupName = recorded.groupName;
+        projectTitle = recorded.projectTitle;
+        actorName = recorded.actorName;
+      } catch (recordError) {
+        console.error('Failed to record study-group project-added event:', recordError);
+      }
+
+      try {
         await sendGroupProjectAddedPushNotifications(admin, {
           recipientUserIds,
           groupId,
           groupName,
           projectTitle,
+          actorName,
         });
       } catch (notifyError) {
-        console.error('Failed to publish study-group project-added event:', notifyError);
+        console.error('Failed to send study-group project-added push:', notifyError);
       }
     });
 
