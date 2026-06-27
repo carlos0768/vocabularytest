@@ -7,6 +7,7 @@ import {
   type QuizContentWordInput,
 } from '@/lib/ai/generate-quiz-content';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import { isWordOrderEligible } from '@/lib/quiz/word-order';
 
 interface WordInput {
   id: string;
@@ -43,9 +44,27 @@ const requestSchema = z.object({
   ).min(1).max(30),
 }).strict();
 
-export async function POST(request: NextRequest) {
+interface GenerateQuizDistractorsDeps {
+  createClient?: typeof createRouteHandlerClient;
+  generate?: typeof generateQuizContentForWords;
+  fetchExampleGenres?: typeof fetchExampleGenresForProUser;
+}
+
+function getDeps(deps?: GenerateQuizDistractorsDeps) {
+  return {
+    createClient: deps?.createClient ?? createRouteHandlerClient,
+    generate: deps?.generate ?? generateQuizContentForWords,
+    fetchExampleGenres: deps?.fetchExampleGenres ?? fetchExampleGenresForProUser,
+  };
+}
+
+export async function handleGenerateQuizDistractorsPost(
+  request: NextRequest,
+  deps?: GenerateQuizDistractorsDeps,
+) {
   try {
-    const supabase = await createRouteHandlerClient(request);
+    const { createClient, generate, fetchExampleGenres } = getDeps(deps);
+    const supabase = await createClient(request);
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const { data: { user }, error: authError } = bearerToken
@@ -67,7 +86,16 @@ export async function POST(request: NextRequest) {
     }
 
     const { words } = bodyResult.data as { words: WordInput[] };
-    const wordIds = words.map((word) => word.id);
+    const multipleChoiceWords = words.filter((word) => !isWordOrderEligible(word));
+
+    if (multipleChoiceWords.length === 0) {
+      return NextResponse.json({
+        success: true,
+        results: [],
+      });
+    }
+
+    const wordIds = multipleChoiceWords.map((word) => word.id);
     const { data: existingWordRows } = await supabase
       .from('words')
       .select('id, distractors, example_sentence, pronunciation, part_of_speech_tags')
@@ -85,7 +113,7 @@ export async function POST(request: NextRequest) {
       }) => [row.id, row])
     );
 
-    const wordsToGenerate = words.filter((word) => {
+    const wordsToGenerate = multipleChoiceWords.filter((word) => {
       const existing = existingWordMap.get(word.id);
       if (!existing) return true;
       return (
@@ -104,8 +132,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ジャンル反映はPro限定。非Pro/取得失敗時は空配列で通常生成。
-    const exampleGenres = await fetchExampleGenresForProUser(supabase, user.id);
-    const results = await generateQuizContentForWords(
+    const exampleGenres = await fetchExampleGenres(supabase, user.id);
+    const results = await generate(
       wordsToGenerate as QuizContentWordInput[],
       { genres: exampleGenres }
     );
@@ -148,4 +176,8 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleGenerateQuizDistractorsPost(request);
 }
