@@ -2,6 +2,7 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { buildExampleGenreGuidance } from '@/lib/preferences/example-genres';
+import { isWordOrderEligible } from '@/lib/quiz/word-order';
 
 export interface QuizContentWordInput {
   id: string;
@@ -112,7 +113,8 @@ export async function generateQuizContentForWords(
   words: QuizContentWordInput[],
   options: { genres?: readonly string[] } = {},
 ): Promise<QuizContentResult[]> {
-  if (words.length === 0) {
+  const multipleChoiceWords = words.filter((word) => !isWordOrderEligible(word));
+  if (multipleChoiceWords.length === 0) {
     return [];
   }
 
@@ -120,7 +122,7 @@ export async function generateQuizContentForWords(
   const config = AI_CONFIG.defaults.openai;
   const provider = getProviderFromConfig(config, { openai: openaiApiKey });
 
-  const wordListText = words
+  const wordListText = multipleChoiceWords
     .map((w, i) => `${i + 1}. ID: ${w.id} / 英語: ${w.english} / 日本語（正解）: ${w.japanese}`)
     .join('\n');
 
@@ -128,7 +130,7 @@ export async function generateQuizContentForWords(
   const systemPrompt = genreGuidance
     ? `${BATCH_DISTRACTOR_PROMPT}\n\n${genreGuidance}`
     : BATCH_DISTRACTOR_PROMPT;
-  const promptText = `${systemPrompt}\n\n以下の${words.length}個の単語に対して、それぞれ誤答選択肢3つ、品詞、発音記号、例文を生成してください:\n\n${wordListText}`;
+  const promptText = `${systemPrompt}\n\n以下の${multipleChoiceWords.length}個の単語に対して、それぞれ誤答選択肢3つ、品詞、発音記号、例文を生成してください:\n\n${wordListText}`;
 
   const result = await provider.generateText(promptText, {
     ...config,
@@ -166,10 +168,10 @@ export async function generateQuizContentForWords(
     throw new Error('AIレスポンスの形式が不正です');
   }
 
-  const inputMap = new Map(words.map((w) => [w.id, w]));
+  const inputMap = new Map(multipleChoiceWords.map((w) => [w.id, w]));
 
   return aiParsed.results
-    .filter((r) => r.id && Array.isArray(r.distractors) && r.distractors.length === 3)
+    .filter((r) => r.id && inputMap.has(r.id) && Array.isArray(r.distractors) && r.distractors.length === 3)
     .map((r) => {
       const input = inputMap.get(r.id);
       let distractors = r.distractors;

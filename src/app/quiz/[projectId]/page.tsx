@@ -20,7 +20,6 @@ import {
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
-  applyWordOrderQuestionsToPendingQuiz,
   generateQuizQuestions,
   getFavoritesQuizStorageKey,
   getQuizStorageKey,
@@ -542,7 +541,6 @@ export default function QuizPage() {
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
-  const currentIndexRef = useRef(0);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -569,10 +567,6 @@ export default function QuizPage() {
       : favoritesMode
         ? getFavoritesQuizStorageKey(projectId)
         : getQuizStorageKey(projectId, reviewMode, learnMode);
-
-  useEffect(() => {
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
 
   const saveQuizState = useCallback(() => {
     if (questions.length === 0 || !questionCount) return;
@@ -684,7 +678,6 @@ export default function QuizPage() {
 
   const generateQuestions = useCallback((words: Word[], count: number, direction: QuizDirection = 'en-to-ja'): QuizQuestion[] => {
     return generateQuizQuestions(words, count, direction, undefined, {
-      allowPendingWordOrderFallback: true,
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
     });
@@ -693,16 +686,16 @@ export default function QuizPage() {
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
-    const nextQuestions = generateQuestions(words, count, quizDirection);
-    setQuestions(nextQuestions);
+    let wordsForQuestions = words;
 
     if (selected.some(needsWordOrderQuiz)) {
-      void applyGeneratedWordOrderQuizzes(selected).then((updatedWords) => {
-        setQuestions((prev) =>
-          applyWordOrderQuestionsToPendingQuiz(prev, updatedWords, currentIndexRef.current)
-        );
-      });
+      const updatedSelected = await applyGeneratedWordOrderQuizzes(selected);
+      const updatedSelectedById = new Map(updatedSelected.map((word) => [word.id, word]));
+      wordsForQuestions = words.map((word) => updatedSelectedById.get(word.id) ?? word);
     }
+
+    const nextQuestions = generateQuestions(wordsForQuestions, count, quizDirection);
+    setQuestions(nextQuestions);
 
     const toImprove = selected.filter((w) => needsDistractors(w));
     if (toImprove.length === 0) return;
