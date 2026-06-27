@@ -142,6 +142,7 @@ export interface ProcessJobDeps {
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
+  prefillWordOrderQuizzes?: typeof prefillWordOrderQuizzesForWords;
   sendPushNotifications?: typeof sendScanJobPushNotifications;
   sendApnsNotifications?: typeof sendScanJobApnsNotifications;
   flushTiming?: typeof flushTimingLogs;
@@ -829,6 +830,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const resolveImmediateWords = processDeps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst;
     const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
     const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
+    const prefillWordOrderQuizzes = processDeps?.prefillWordOrderQuizzes ?? prefillWordOrderQuizzesForWords;
     const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
     const sendApnsNotifications = processDeps?.sendApnsNotifications ?? sendScanJobApnsNotifications;
     const flushTiming = processDeps?.flushTiming ?? flushTimingLogs;
@@ -1532,6 +1534,28 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         } finally {
           timing.exampleGenerationMs += Date.now() - quizPrefillStart;
         }
+
+        const wordOrderPrefillStart = Date.now();
+        try {
+          const summary = await withCloudRunTimingPhase('exampleGeneration', () =>
+            prefillWordOrderQuizzes(insertedWordsArray, {
+              getUpdateClient: () => supabaseAdmin,
+            })
+          );
+          if (summary.requested > 0) {
+            console.log('[scan-jobs/process] Word-order quiz prefill finished:', {
+              jobId,
+              ...summary,
+            });
+          }
+        } catch (error) {
+          console.error('[scan-jobs/process] Word-order quiz prefill failed (non-critical):', {
+            jobId,
+            error,
+          });
+        } finally {
+          timing.exampleGenerationMs += Date.now() - wordOrderPrefillStart;
+        }
       }
 
       timing.totalMs = Date.now() - processingStartedAt;
@@ -1606,25 +1630,6 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
 
         if (insertedWordsArray.length === 0) return;
-
-        if (aiEnabled) {
-          try {
-            const summary = await prefillWordOrderQuizzesForWords(insertedWordsArray, {
-              getUpdateClient: () => supabaseAdmin,
-            });
-            if (summary.requested > 0) {
-              console.log('[scan-jobs/process] Word-order quiz prefill finished:', {
-                jobId,
-                ...summary,
-              });
-            }
-          } catch (error) {
-            console.error('[scan-jobs/process] Word-order quiz prefill failed (non-critical):', {
-              jobId,
-              error,
-            });
-          }
-        }
 
         if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
           const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray);
