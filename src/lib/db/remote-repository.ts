@@ -87,6 +87,217 @@ export type SharedWordsPreview = {
   totalCount: number;
 };
 
+type WordsCreateRequestTranslation = {
+  translationJa: string;
+  source?: 'scan' | 'ai' | 'user';
+  meaningRank?: number;
+  lexiconSenseId?: string;
+};
+
+type WordsCreateRequestWord = {
+  id: string;
+  projectId: string;
+  english: string;
+  japanese: string;
+  vocabularyType?: Word['vocabularyType'];
+  japaneseSource?: Word['japaneseSource'];
+  lexiconEntryId?: string;
+  lexiconSenseId?: string;
+  translations?: WordsCreateRequestTranslation[];
+  distractors: string[];
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
+  pronunciation?: string;
+  partOfSpeechTags?: string[];
+  relatedWords?: Word['relatedWords'];
+  usagePatterns?: Word['usagePatterns'];
+  insightsGeneratedAt?: string;
+  insightsVersion?: number;
+  wordOrderQuiz?: Word['wordOrderQuiz'];
+  customSections?: Word['customSections'];
+  status: Word['status'];
+  createdAt: string;
+  lastReviewedAt?: string;
+  nextReviewAt?: string;
+  easeFactor: number;
+  intervalDays: number;
+  repetition: number;
+  isFavorite: boolean;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function validUuid(value: unknown): string | undefined {
+  return typeof value === 'string' && UUID_PATTERN.test(value) ? value : undefined;
+}
+
+function normalizeRequestText(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
+}
+
+function normalizeRequestStringArray(value: unknown, maxCount: number, maxLength: number): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: string[] = [];
+  for (const item of value) {
+    const normalized = normalizeRequestText(item, maxLength);
+    if (!normalized) continue;
+    result.push(normalized);
+    if (result.length >= maxCount) break;
+  }
+  return result.length > 0 ? result : undefined;
+}
+
+function normalizeRequestDateTime(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return undefined;
+  return new Date(parsed).toISOString();
+}
+
+function normalizeWordsCreateTranslations(word: Word): WordsCreateRequestTranslation[] | undefined {
+  const translations = word.translations
+    ?.map((translation) => {
+      const translationJa = normalizeRequestText(translation.translationJa, 300);
+      if (!translationJa) return null;
+      const meaningRank = Number.isInteger(translation.meaningRank)
+        ? Math.min(20, Math.max(1, translation.meaningRank))
+        : undefined;
+
+      return {
+        translationJa,
+        ...(translation.source === 'scan' || translation.source === 'ai' || translation.source === 'user'
+          ? { source: translation.source }
+          : {}),
+        ...(meaningRank ? { meaningRank } : {}),
+        ...(validUuid(translation.lexiconSenseId) ? { lexiconSenseId: translation.lexiconSenseId } : {}),
+      };
+    })
+    .filter((translation): translation is WordsCreateRequestTranslation => Boolean(translation));
+
+  return translations && translations.length > 0 ? translations : undefined;
+}
+
+function normalizeWordsCreateWordOrderQuiz(wordOrderQuiz: Word['wordOrderQuiz']): Word['wordOrderQuiz'] | undefined {
+  if (!wordOrderQuiz || wordOrderQuiz.version !== 1) return undefined;
+  const sourceEnglish = normalizeRequestText(wordOrderQuiz.sourceEnglish, 200);
+  const sourceJapanese = normalizeRequestText(wordOrderQuiz.sourceJapanese, 300);
+  const sentenceTokens = normalizeRequestStringArray(wordOrderQuiz.sentenceTokens, 30, 80);
+  const answerTokens = normalizeRequestStringArray(wordOrderQuiz.answerTokens, 3, 80);
+  const decoyTokens = normalizeRequestStringArray(wordOrderQuiz.decoyTokens, 3, 80);
+  const generatedAt = normalizeRequestDateTime(wordOrderQuiz.generatedAt);
+
+  if (!sourceEnglish || !sourceJapanese || !sentenceTokens || !answerTokens || !decoyTokens || !generatedAt) {
+    return undefined;
+  }
+  if (answerTokens.length < 1 || decoyTokens.length !== 3) return undefined;
+
+  return {
+    version: 1,
+    sourceEnglish,
+    sourceJapanese,
+    sentenceTokens,
+    answerTokens,
+    decoyTokens,
+    generatedAt,
+  };
+}
+
+function normalizeWordsCreateRelatedWords(value: Word['relatedWords']): Word['relatedWords'] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result = value
+    .map((item) => {
+      const term = normalizeRequestText(item.term, 80);
+      const relation = normalizeRequestText(item.relation, 40);
+      if (!term || !relation) return null;
+      return {
+        term,
+        relation,
+        ...(normalizeRequestText(item.noteJa, 200) ? { noteJa: normalizeRequestText(item.noteJa, 200) } : {}),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .slice(0, 10);
+  return result.length > 0 ? result : undefined;
+}
+
+function normalizeWordsCreateUsagePatterns(value: Word['usagePatterns']): Word['usagePatterns'] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result = value
+    .map((item) => {
+      const pattern = normalizeRequestText(item.pattern, 120);
+      const meaningJa = normalizeRequestText(item.meaningJa, 200);
+      if (!pattern || !meaningJa) return null;
+      return {
+        pattern,
+        meaningJa,
+        ...(normalizeRequestText(item.example, 240) ? { example: normalizeRequestText(item.example, 240) } : {}),
+        ...(normalizeRequestText(item.exampleJa, 240) ? { exampleJa: normalizeRequestText(item.exampleJa, 240) } : {}),
+        ...(normalizeRequestText(item.register, 40) ? { register: normalizeRequestText(item.register, 40) } : {}),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .slice(0, 8);
+  return result.length > 0 ? result : undefined;
+}
+
+function normalizeWordsCreateCustomSections(value: Word['customSections']): Word['customSections'] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result = value
+    .map((item) => {
+      const id = normalizeRequestText(item.id, 120);
+      if (!id) return null;
+      return {
+        id,
+        title: normalizeRequestText(item.title, 120) ?? '',
+        content: normalizeRequestText(item.content, 2000) ?? '',
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .slice(0, 20);
+  return result.length > 0 ? result : undefined;
+}
+
+function normalizeWordsCreateInsightsVersion(value: unknown): number | undefined {
+  if (!Number.isInteger(value)) return undefined;
+  return Math.min(100, Math.max(1, value as number));
+}
+
+export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord {
+  return {
+    id: word.id,
+    projectId: word.projectId,
+    english: normalizeRequestText(word.english, 200) ?? word.english,
+    japanese: normalizeRequestText(word.japanese, 300) ?? '',
+    vocabularyType: word.vocabularyType ?? null,
+    japaneseSource: word.japaneseSource,
+    lexiconEntryId: validUuid(word.lexiconEntryId),
+    lexiconSenseId: validUuid(word.lexiconSenseId),
+    translations: normalizeWordsCreateTranslations(word),
+    distractors: normalizeRequestStringArray(word.distractors, 10, 300) ?? [],
+    exampleSentence: normalizeRequestText(word.exampleSentence, 500),
+    exampleSentenceJa: normalizeRequestText(word.exampleSentenceJa, 500),
+    pronunciation: normalizeRequestText(word.pronunciation, 120),
+    partOfSpeechTags: normalizeRequestStringArray(word.partOfSpeechTags, 10, 32),
+    relatedWords: normalizeWordsCreateRelatedWords(word.relatedWords),
+    usagePatterns: normalizeWordsCreateUsagePatterns(word.usagePatterns),
+    insightsGeneratedAt: normalizeRequestDateTime(word.insightsGeneratedAt),
+    insightsVersion: normalizeWordsCreateInsightsVersion(word.insightsVersion),
+    wordOrderQuiz: normalizeWordsCreateWordOrderQuiz(word.wordOrderQuiz),
+    customSections: normalizeWordsCreateCustomSections(word.customSections),
+    status: word.status,
+    createdAt: word.createdAt,
+    lastReviewedAt: word.lastReviewedAt,
+    nextReviewAt: word.nextReviewAt,
+    easeFactor: word.easeFactor,
+    intervalDays: word.intervalDays,
+    repetition: word.repetition,
+    isFavorite: word.isFavorite,
+  };
+}
+
 export class RemoteWordRepository implements WordRepository {
   private _supabase: SupabaseClient | null = null;
 
@@ -350,36 +561,7 @@ export class RemoteWordRepository implements WordRepository {
       method: 'POST',
       headers: await this.getAuthHeaders(),
       body: JSON.stringify({
-        words: words.map((word) => ({
-          id: word.id,
-          projectId: word.projectId,
-          english: word.english,
-          japanese: word.japanese,
-          vocabularyType: word.vocabularyType ?? null,
-          japaneseSource: word.japaneseSource,
-          lexiconEntryId: word.lexiconEntryId,
-          lexiconSenseId: word.lexiconSenseId,
-          translations: word.translations,
-          distractors: word.distractors,
-          exampleSentence: word.exampleSentence,
-          exampleSentenceJa: word.exampleSentenceJa,
-          pronunciation: word.pronunciation,
-          partOfSpeechTags: word.partOfSpeechTags,
-          relatedWords: word.relatedWords,
-          usagePatterns: word.usagePatterns,
-          insightsGeneratedAt: word.insightsGeneratedAt,
-          insightsVersion: word.insightsVersion,
-          wordOrderQuiz: word.wordOrderQuiz,
-          customSections: word.customSections,
-          status: word.status,
-          createdAt: word.createdAt,
-          lastReviewedAt: word.lastReviewedAt,
-          nextReviewAt: word.nextReviewAt,
-          easeFactor: word.easeFactor,
-          intervalDays: word.intervalDays,
-          repetition: word.repetition,
-          isFavorite: word.isFavorite,
-        })),
+        words: words.map(buildWordsCreateRequestWord),
       }),
     });
 

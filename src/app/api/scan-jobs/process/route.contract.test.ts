@@ -804,7 +804,9 @@ test('server_cloud keeps split translations on one inserted word', async () => {
     (operation) => operation.table === 'word_translations' && operation.action === 'upsert',
     'missing word_translations upsert',
   );
-  assert.deepEqual(translationsUpsert.payload.map((row) => ({
+  assert.ok(Array.isArray(translationsUpsert.payload));
+  const translationRows = translationsUpsert.payload as Array<Record<string, unknown>>;
+  assert.deepEqual(translationRows.map((row) => ({
     word_id: row.word_id,
     translation_ja: row.translation_ja,
     is_primary: row.is_primary,

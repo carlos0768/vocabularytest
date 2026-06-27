@@ -3,6 +3,7 @@ import test from 'node:test';
 import { NextRequest } from 'next/server';
 
 import { handleStudyGroupsGet, handleStudyGroupsPost } from './route';
+import { aggregateStudyGroupStrugglingWords } from './shared';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 
 function makeGroup(overrides: Partial<StudyGroupSummary> = {}): StudyGroupSummary {
@@ -78,4 +79,59 @@ test('study groups POST creates a group for the authenticated user', async () =>
   const payload = await res.json();
   assert.equal(payload.success, true);
   assert.equal(payload.group.name, 'English Club');
+});
+
+test('aggregateStudyGroupStrugglingWords sorts from most missed to least missed', () => {
+  const rows = [
+    {
+      user_id: 'user-1',
+      word_id: 'word-a1',
+      project_id: 'project-a',
+      english_key: 'run',
+      english: 'run',
+      japanese: '走る',
+      created_at: '2026-06-20T00:00:00.000Z',
+    },
+    {
+      user_id: 'user-1',
+      word_id: 'word-a1',
+      project_id: 'project-a',
+      english_key: 'run',
+      english: 'run',
+      japanese: '走る',
+      created_at: '2026-06-20T00:10:00.000Z',
+    },
+    {
+      user_id: 'user-2',
+      word_id: 'word-a2',
+      project_id: 'project-b',
+      english_key: 'run',
+      english: 'Run',
+      japanese: '走る',
+      created_at: '2026-06-21T00:00:00.000Z',
+    },
+    {
+      user_id: 'user-3',
+      word_id: 'word-b',
+      project_id: 'project-b',
+      english_key: 'book',
+      english: 'book',
+      japanese: '本',
+      created_at: '2026-06-19T00:00:00.000Z',
+    },
+  ];
+
+  const words = aggregateStudyGroupStrugglingWords(rows);
+
+  assert.deepEqual(
+    words.map((word) => ({
+      english: word.english,
+      wrongCount: word.wrongCount,
+      learnerCount: word.learnerCount,
+    })),
+    [
+      { english: 'run', wrongCount: 3, learnerCount: 2 },
+      { english: 'book', wrongCount: 1, learnerCount: 1 },
+    ],
+  );
 });

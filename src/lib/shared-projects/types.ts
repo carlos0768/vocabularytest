@@ -88,6 +88,23 @@ export type StudyGroupMissedWord = {
   missCount: number;
 };
 
+export type StudyGroupStrugglingWord = {
+  key: string;
+  wordId: string;
+  projectId: string;
+  english: string;
+  japanese: string;
+  wrongCount: number;
+  learnerCount: number;
+  lastWrongAt: string;
+};
+
+export type StudyGroupStrugglingWordsPayload = {
+  group: StudyGroupSummary;
+  words: StudyGroupStrugglingWord[];
+  totalCount: number;
+};
+
 export type StudyGroupMember = {
   userId: string;
   username: string | null;
@@ -102,6 +119,7 @@ export type StudyGroupOverviewPayload = {
   members: StudyGroupMember[];
   leaderboard: StudyGroupLeaderboardEntry[];
   missedWords: StudyGroupMissedWord[];
+  missedWordsTotalCount?: number;
   viewerUserId: string;
 };
 
