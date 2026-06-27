@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractShareCode, requireAuthenticatedUser } from '../../../shared';
+import {
+  extractShareCode,
+  getSharedProjectWordsByShareCode,
+  requireAuthenticatedUser,
+} from '../../../shared';
 import { isUserActivePro } from '../../../pro';
-import { getSharedWordbookWords } from '../../../shared-wordbooks';
+import {
+  getSharedWordbookByShareId,
+  getSharedWordbookWords,
+} from '../../../shared-wordbooks';
 
 type Params = { params: Promise<{ shareId: string }> };
 
@@ -25,7 +32,10 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ success: false, error: 'Proプラン限定です。' }, { status: 403 });
     }
 
-    const words = await getSharedWordbookWords(shareCode);
+    const sharedWordbook = await getSharedWordbookByShareId(shareCode);
+    const words = sharedWordbook
+      ? await getSharedWordbookWords(shareCode)
+      : await getSharedProjectWordsByShareCode(shareCode);
     return NextResponse.json({ success: true, words }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('shared-wordbook words error:', error);
