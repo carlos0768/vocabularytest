@@ -120,7 +120,7 @@ export type SharedUserSummary = {
 export type PublicStudyGroupSummary = {
   id: string;
   name: string;
-  visibility: 'public';
+  visibility: StudyGroupVisibility;
   memberCount: number;
   projectCount: number;
   createdAt: string;
