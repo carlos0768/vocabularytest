@@ -945,6 +945,34 @@ export async function removeStudyGroupMember(
   return true;
 }
 
+/**
+ * Deletes a study group entirely. Owner-only. Membership, project links and
+ * feed events cascade away via the `ON DELETE CASCADE` foreign keys. Returns
+ * `false` when the requester is not a member of the group.
+ */
+export async function deleteStudyGroup(
+  groupId: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<boolean> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return false;
+  if (membership.role !== 'owner') {
+    throw new StudyGroupAccessError('owner_required');
+  }
+
+  const { error } = await admin
+    .from('study_groups')
+    .delete()
+    .eq('id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_delete_failed');
+  }
+
+  return true;
+}
+
 async function getStudyGroupSummaryForUser(
   groupId: string,
   userId: string,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { requireAuthenticatedUser } from '../../shared';
-import { getStudyGroupOverview, renameStudyGroup, StudyGroupAccessError } from '../shared';
+import { deleteStudyGroup, getStudyGroupOverview, renameStudyGroup, StudyGroupAccessError } from '../shared';
 
 const updateStudyGroupSchema = z.object({
   name: z.string().trim().min(1).max(40),
@@ -16,6 +16,11 @@ type StudyGroupOverviewGetDeps = {
 type StudyGroupUpdateDeps = {
   requireAuthenticatedUser?: typeof requireAuthenticatedUser;
   renameStudyGroup?: typeof renameStudyGroup;
+};
+
+type StudyGroupDeleteDeps = {
+  requireAuthenticatedUser?: typeof requireAuthenticatedUser;
+  deleteStudyGroup?: typeof deleteStudyGroup;
 };
 
 export async function handleStudyGroupOverviewGet(
@@ -94,4 +99,40 @@ export async function PATCH(
   context: { params: Promise<{ groupId: string }> },
 ) {
   return handleStudyGroupUpdatePatch(request, context);
+}
+
+export async function handleStudyGroupDelete(
+  request: NextRequest,
+  context: { params: Promise<{ groupId: string }> },
+  deps: StudyGroupDeleteDeps = {},
+) {
+  const requireAuthenticated = deps.requireAuthenticatedUser ?? requireAuthenticatedUser;
+  const remove = deps.deleteStudyGroup ?? deleteStudyGroup;
+
+  try {
+    const auth = await requireAuthenticated(request);
+    if (!auth.ok) return auth.response;
+
+    const { groupId } = await context.params;
+    const deleted = await remove(groupId, auth.user.id);
+    if (!deleted) {
+      return NextResponse.json({ success: false, error: 'グループにアクセスできません。' }, { status: 403 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof StudyGroupAccessError && error.code === 'owner_required') {
+      return NextResponse.json({ success: false, error: 'オーナーのみ削除できます。' }, { status: 403 });
+    }
+
+    console.error('study-group delete error:', error);
+    return NextResponse.json({ success: false, error: 'グループの削除に失敗しました。' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ groupId: string }> },
+) {
+  return handleStudyGroupDelete(request, context);
 }

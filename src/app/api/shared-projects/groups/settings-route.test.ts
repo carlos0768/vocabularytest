@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
 
-import { handleStudyGroupUpdatePatch } from './[groupId]/route';
+import { handleStudyGroupDelete, handleStudyGroupUpdatePatch } from './[groupId]/route';
 import { handleStudyGroupMemberDelete } from './[groupId]/members/[userId]/route';
 import { StudyGroupAccessError } from './shared';
 
@@ -88,6 +88,43 @@ test('member DELETE removes a member for the owner', async () => {
   assert.equal(removedTarget, 'member-9');
   const payload = await res.json();
   assert.equal(payload.success, true);
+});
+
+test('group DELETE removes the group for the owner', async () => {
+  let removedGroup = '';
+  const req = new NextRequest('http://localhost/api/shared-projects/groups/group-1', {
+    method: 'DELETE',
+  });
+
+  const res = await handleStudyGroupDelete(req, groupContext, {
+    requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'owner-1' } as never }),
+    deleteStudyGroup: async (groupId) => {
+      removedGroup = groupId;
+      return true;
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(removedGroup, 'group-1');
+  const payload = await res.json();
+  assert.equal(payload.success, true);
+});
+
+test('group DELETE returns 403 when a non-owner attempts deletion', async () => {
+  const req = new NextRequest('http://localhost/api/shared-projects/groups/group-1', {
+    method: 'DELETE',
+  });
+
+  const res = await handleStudyGroupDelete(req, groupContext, {
+    requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'member-1' } as never }),
+    deleteStudyGroup: async () => {
+      throw new StudyGroupAccessError('owner_required');
+    },
+  });
+
+  assert.equal(res.status, 403);
+  const payload = await res.json();
+  assert.equal(payload.success, false);
 });
 
 test('member DELETE refuses to remove the owner', async () => {

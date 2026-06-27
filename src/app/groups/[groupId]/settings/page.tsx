@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -24,6 +24,7 @@ type OverviewResponse = {
 
 export default function GroupSettingsPage() {
   const params = useParams<{ groupId: string }>();
+  const router = useRouter();
   const groupId = params?.groupId ?? '';
   const { loading: authLoading, isAuthenticated } = useAuth();
   const { showToast } = useToast();
@@ -38,6 +39,7 @@ export default function GroupSettingsPage() {
   const [savingName, setSavingName] = useState(false);
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -149,13 +151,35 @@ export default function GroupSettingsPage() {
     }
   }, [group, pendingProjectId, showToast]);
 
+  const handleDeleteGroup = useCallback(async () => {
+    if (!group || deleting) return;
+    if (typeof window !== 'undefined' && !window.confirm(`「${group.name}」を削除しますか？メンバー・共有単語帳の紐付けもすべて解除され、元に戻せません。`)) return;
+    triggerHaptic();
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/shared-projects/groups/${encodeURIComponent(group.id)}`, {
+        method: 'DELETE',
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'group_delete_failed');
+      }
+      showToast({ message: 'グループを削除しました', type: 'success' });
+      router.replace('/shared');
+    } catch (deleteError) {
+      const message = deleteError instanceof Error ? deleteError.message : '削除に失敗しました。';
+      showToast({ message, type: 'error' });
+      setDeleting(false);
+    }
+  }, [group, deleting, router, showToast]);
+
   const backHref = `/groups/${encodeURIComponent(groupId)}`;
 
   return (
     <div
       className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
       style={{
-        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingTop: '0.75rem',
         paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
       }}
     >
@@ -318,6 +342,23 @@ export default function GroupSettingsPage() {
               </div>
             )}
           </SectionCard>
+
+          {isOwner && (
+            <SectionCard icon="warning" title="グループを削除" subtitle="この操作は元に戻せません" accent="#CC4D59">
+              <p className="mb-3 text-[12px] font-bold leading-relaxed text-[var(--color-muted)]">
+                グループを削除すると、メンバーや共有単語帳の紐付けがすべて解除されます。単語帳自体は各オーナーの手元に残ります。
+              </p>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void handleDeleteGroup()}
+                className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[#CC4D59] bg-[#CC4D59] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_#7d2730] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-55"
+              >
+                <Icon name={deleting ? 'progress_activity' : 'delete_forever'} size={18} className={deleting ? 'animate-spin' : undefined} />
+                {deleting ? '削除中...' : 'グループを削除'}
+              </button>
+            </SectionCard>
+          )}
 
           {!isOwner && (
             <p className="px-1 pb-2 text-[11px] font-bold leading-relaxed text-[var(--color-muted)]">
