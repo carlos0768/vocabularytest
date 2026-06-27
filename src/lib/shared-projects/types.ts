@@ -13,6 +13,9 @@ export type SharedProjectCard = {
   likeCount?: number;
   ownerUsername?: string | null;
   ownerAccountId?: string | null;
+  sharedGroupId?: string;
+  sharedByCurrentUser?: boolean;
+  canRemoveFromGroup?: boolean;
 };
 
 export type SharedProjectSummary = SharedProjectCard & {

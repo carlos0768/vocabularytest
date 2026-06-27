@@ -38,6 +38,7 @@ type MetricsRow = {
 type StudyGroupProjectRow = {
   group_id: string;
   project_id: string;
+  added_by_user_id?: string | null;
 };
 
 type StudyGroupMemberRow = {
@@ -586,6 +587,25 @@ test('getAccessibleSharedProject allows study group members to open group-shared
   assert.equal(access.wordCount, 7);
   assert.equal(access.likeCount, 2);
   assert.equal(access.ownerAccountId, 'owner01');
+});
+
+test('getAccessibleSharedProject resolves share codes before checking study group membership', async () => {
+  const project = makeProjectRow('project-1', 'owner-1', {
+    share_id: 'share-code-1',
+    share_scope: 'private',
+  });
+  const admin = new FakeSharedProjectsAdmin({
+    shareCodeProject: project,
+    projectRows: [project],
+    studyGroupProjectRows: [{ group_id: 'group-1', project_id: project.id }],
+    studyGroupMemberRows: [{ group_id: 'group-1', user_id: 'member-1' }],
+  });
+
+  const access = await getAccessibleSharedProject('share-code-1', 'member-1', admin as never);
+
+  assert.ok(access);
+  assert.equal(access.project.id, project.id);
+  assert.equal(access.accessRole, 'viewer');
 });
 
 test('getAccessibleSharedProject does not grant access to non-members of the sharing group', async () => {

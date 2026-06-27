@@ -56,6 +56,12 @@ type StudyGroupProjectMutationResponse = {
   code?: string;
 };
 
+type SharedProjectLookupResponse = {
+  success?: boolean;
+  project?: Project;
+  error?: string;
+};
+
 function thumbColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
@@ -175,6 +181,20 @@ export default function ProjectPage() {
         setWords(loadedWords);
         setWordsLoaded(true);
       } else {
+        if (user && navigator.onLine) {
+          try {
+            const response = await fetch(`/api/shared-projects/${encodeURIComponent(projectId)}`, {
+              cache: 'no-store',
+            });
+            const payload = await response.json().catch(() => null) as SharedProjectLookupResponse | null;
+            if (response.ok && payload?.success && payload.project?.shareId) {
+              router.replace(`/share/${encodeURIComponent(payload.project.shareId)}`);
+              return;
+            }
+          } catch (sharedLookupError) {
+            console.warn('Failed to resolve project route as shared project:', sharedLookupError);
+          }
+        }
         setError('単語帳が見つかりません');
       }
     } catch (loadError) {
@@ -184,7 +204,7 @@ export default function ProjectPage() {
       setLoading(false);
       setWordsLoaded(true);
     }
-  }, [authLoading, projectId, repository, user]);
+  }, [authLoading, projectId, repository, router, user]);
 
   useEffect(() => {
     void loadProject();

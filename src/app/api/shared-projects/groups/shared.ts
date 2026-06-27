@@ -34,6 +34,7 @@ type StudyGroupMembershipRow = {
 type StudyGroupProjectRow = {
   group_id?: string;
   project_id: string;
+  added_by_user_id?: string | null;
   created_at?: string | null;
 };
 
@@ -280,7 +281,7 @@ export async function listStudyGroupProjects(
 
   const { data: projectLinks, error: projectLinksError } = await admin
     .from('study_group_projects')
-    .select('project_id,created_at')
+    .select('project_id,created_at,added_by_user_id')
     .eq('group_id', groupId)
     .order('created_at', { ascending: false });
 
@@ -295,6 +296,7 @@ export async function listStudyGroupProjects(
     ? await fetchGroupProjectsByIds(admin, projectIds)
     : [];
   const projectById = new Map(projects.map((row) => [row.id, row]));
+  const linkByProjectId = new Map(projectRows.map((row) => [row.project_id, row]));
   const orderedProjects = projectRows
     .map((row) => projectById.get(row.project_id))
     .filter((row): row is ProjectRow => Boolean(row));
@@ -307,12 +309,20 @@ export async function listStudyGroupProjects(
 
   return {
     group: summary,
-    projects: orderedProjects.map((row) => mapSharedProjectCardForGroup(
-      row,
-      row.user_id === userId ? 'owner' : 'viewer',
-      metricsByProjectId,
-      usernameByUserId,
-    )),
+    projects: orderedProjects.map((row) => {
+      const link = linkByProjectId.get(row.id);
+      return mapSharedProjectCardForGroup(
+        row,
+        row.user_id === userId ? 'owner' : 'viewer',
+        metricsByProjectId,
+        usernameByUserId,
+        {
+          groupId,
+          canRemove: membership.role === 'owner' || row.user_id === userId || link?.added_by_user_id === userId,
+          sharedByCurrentUser: link?.added_by_user_id === userId,
+        },
+      );
+    }),
   };
 }
 
@@ -366,6 +376,11 @@ export async function addProjectToStudyGroup(
     'owner',
     metricsByProjectId,
     usernameByUserId,
+    {
+      groupId,
+      canRemove: true,
+      sharedByCurrentUser: true,
+    },
   );
 }
 
@@ -378,17 +393,30 @@ export async function removeProjectFromStudyGroup(
   const membership = await getStudyGroupMembership(groupId, userId, admin);
   if (!membership) return false;
 
-  const { data: project, error: projectError } = await admin
-    .from('projects')
-    .select('id,user_id')
-    .eq('id', projectId)
-    .maybeSingle<Pick<ProjectRow, 'id' | 'user_id'>>();
+  const [projectResult, linkResult] = await Promise.all([
+    admin
+      .from('projects')
+      .select('id,user_id')
+      .eq('id', projectId)
+      .maybeSingle<Pick<ProjectRow, 'id' | 'user_id'>>(),
+    admin
+      .from('study_group_projects')
+      .select('added_by_user_id')
+      .eq('group_id', groupId)
+      .eq('project_id', projectId)
+      .maybeSingle<Pick<StudyGroupProjectRow, 'added_by_user_id'>>(),
+  ]);
 
-  if (projectError) {
-    throw new Error(projectError.message || 'study_group_project_owner_lookup_failed');
+  if (projectResult.error) {
+    throw new Error(projectResult.error.message || 'study_group_project_owner_lookup_failed');
+  }
+  if (linkResult.error) {
+    throw new Error(linkResult.error.message || 'study_group_project_link_lookup_failed');
   }
 
-  const canRemove = membership.role === 'owner' || project?.user_id === userId;
+  const canRemove = membership.role === 'owner'
+    || projectResult.data?.user_id === userId
+    || linkResult.data?.added_by_user_id === userId;
   if (!canRemove) {
     throw new StudyGroupProjectAccessError('remove_forbidden');
   }
@@ -688,6 +716,11 @@ function mapSharedProjectCardForGroup(
   accessRole: SharedProjectAccessRole,
   metricsByProjectId: Map<string, SharedProjectMetrics>,
   usernameByUserId: Map<string, string | null>,
+  groupAccess?: {
+    groupId: string;
+    canRemove: boolean;
+    sharedByCurrentUser: boolean;
+  },
 ): SharedProjectCard {
   const metrics = metricsByProjectId.get(row.id);
   return {
@@ -697,6 +730,9 @@ function mapSharedProjectCardForGroup(
     wordCount: metrics?.wordCount ?? 0,
     collaboratorCount: metrics?.collaboratorCount ?? 1,
     likeCount: metrics?.likeCount ?? 0,
+    sharedGroupId: groupAccess?.groupId,
+    sharedByCurrentUser: groupAccess?.sharedByCurrentUser,
+    canRemoveFromGroup: groupAccess?.canRemove,
   };
 }
 

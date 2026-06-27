@@ -21,6 +21,7 @@ export async function PATCH(
     if (!access.ok) {
       return access.response;
     }
+    const resolvedProjectId = access.access.project.id;
 
     const parsed = await parseJsonWithSchema(request, updateSchema, {
       invalidMessage: '更新データが不正です。',
@@ -34,7 +35,7 @@ export async function PATCH(
       .from('words')
       .select('id, english')
       .eq('id', wordId)
-      .eq('project_id', projectId)
+      .eq('project_id', resolvedProjectId)
       .maybeSingle<{ id: string; english: string }>();
 
     if (existingError) {
@@ -62,7 +63,7 @@ export async function PATCH(
       .from('words')
       .update(updateRow)
       .eq('id', wordId)
-      .eq('project_id', projectId)
+      .eq('project_id', resolvedProjectId)
       .select(RESOLVED_WORD_SELECT_COLUMNS)
       .single<WordRow>();
 
@@ -90,13 +91,14 @@ export async function DELETE(
     if (!access.ok) {
       return access.response;
     }
+    const resolvedProjectId = access.access.project.id;
 
     const admin = getSupabaseAdmin();
     const { error } = await admin
       .from('words')
       .delete()
       .eq('id', wordId)
-      .eq('project_id', projectId);
+      .eq('project_id', resolvedProjectId);
 
     if (error) {
       throw new Error(error.message || 'shared_word_delete_failed');

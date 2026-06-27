@@ -240,14 +240,32 @@ export async function getSharedProjectPreviewByShareCode(
 }
 
 export async function getAccessibleSharedProject(
-  projectId: string,
+  projectIdOrShareCode: string,
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<SharedProjectSummary | null> {
+  const projectId = await resolveSharedProjectId(projectIdOrShareCode, admin);
+  if (!projectId) return null;
+
   const directAccess = await getOwnedOrMemberSharedProject(projectId, userId, admin);
   if (directAccess) return directAccess;
 
   return getStudyGroupSharedProject(projectId, userId, admin);
+}
+
+async function resolveSharedProjectId(
+  projectIdOrShareCode: string,
+  admin: SupabaseAdminClient,
+): Promise<string | null> {
+  const projectById = await fetchSharedProjectRowById(
+    projectIdOrShareCode,
+    admin,
+    'shared_project_identifier_lookup_failed',
+  );
+  if (projectById) return projectById.id;
+
+  const projectByShareCode = await getProjectByShareCode(projectIdOrShareCode, admin);
+  return projectByShareCode?.id ?? null;
 }
 
 async function getOwnedOrMemberSharedProject(

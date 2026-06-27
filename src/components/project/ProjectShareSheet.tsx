@@ -204,6 +204,7 @@ export function ProjectShareSheet({
                     <button
                       key={group.id}
                       type="button"
+                      aria-label={`${group.name}のグループ共有を${shared ? '解除' : '掲載'}`}
                       disabled={preparing || updating || !onToggleGroupShare}
                       onClick={() => onToggleGroupShare?.(group)}
                       className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-left disabled:opacity-50"
@@ -221,7 +222,7 @@ export function ProjectShareSheet({
                         </div>
                       </div>
                       <span className="shrink-0 rounded-full border border-[var(--solid-ink)] px-2 py-0.5 text-[10px] font-bold text-[var(--solid-ink)]">
-                        {shared ? '掲載中' : '掲載'}
+                        {shared ? '共有解除' : '掲載'}
                       </span>
                     </button>
                   );
