@@ -66,6 +66,7 @@ export default function GroupPage() {
   const [error, setError] = useState<string | null>(null);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [inviteShareOpen, setInviteShareOpen] = useState(false);
+  const [removingProjectId, setRemovingProjectId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -113,6 +114,34 @@ export default function GroupPage() {
     [leaderboard],
   );
 
+  const handleRemoveProject = useCallback(async (project: SharedProjectCard) => {
+    if (!groupId || removingProjectId) return;
+    triggerHaptic();
+    setRemovingProjectId(project.project.id);
+    try {
+      const response = await fetch(
+        `/api/shared-projects/groups/${encodeURIComponent(groupId)}/projects/${encodeURIComponent(project.project.id)}`,
+        { method: 'DELETE' },
+      );
+      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'remove_group_project_failed');
+      }
+
+      setProjects((current) => current.filter((card) => card.project.id !== project.project.id));
+      setGroup((current) => current ? {
+        ...current,
+        projectCount: Math.max(0, current.projectCount - 1),
+      } : current);
+      showToast({ message: 'グループ共有を解除しました', type: 'success' });
+    } catch (removeError) {
+      const message = removeError instanceof Error ? removeError.message : 'グループ共有の解除に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setRemovingProjectId(null);
+    }
+  }, [groupId, removingProjectId, showToast]);
+
   return (
     <div
       className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
@@ -145,7 +174,12 @@ export default function GroupPage() {
           />
           <LeaderboardSection leaderboard={leaderboard} />
           <MissedWordsSection missedWords={missedWords} />
-          <WordbooksSection projects={projects} onShare={() => { triggerHaptic(); setShareSheetOpen(true); }} />
+          <WordbooksSection
+            projects={projects}
+            removingProjectId={removingProjectId}
+            onShare={() => { triggerHaptic(); setShareSheetOpen(true); }}
+            onRemove={(project) => void handleRemoveProject(project)}
+          />
         </div>
       )}
 
@@ -396,7 +430,17 @@ function MissedWordsSection({ missedWords }: { missedWords: StudyGroupMissedWord
   );
 }
 
-function WordbooksSection({ projects, onShare }: { projects: SharedProjectCard[]; onShare: () => void }) {
+function WordbooksSection({
+  projects,
+  removingProjectId,
+  onShare,
+  onRemove,
+}: {
+  projects: SharedProjectCard[];
+  removingProjectId: string | null;
+  onShare: () => void;
+  onRemove: (project: SharedProjectCard) => void;
+}) {
   return (
     <SectionCard icon="menu_book" title="共有単語帳" subtitle={`${projects.length}冊の単語帳`} accent="#137FEC">
       {projects.length === 0 ? (
@@ -405,9 +449,11 @@ function WordbooksSection({ projects, onShare }: { projects: SharedProjectCard[]
         <div className="flex flex-col gap-2">
           {projects.map((card) => {
             const href = card.project.shareId ? `/share/${card.project.shareId}` : '#';
+            const canRemove = Boolean(card.canRemoveFromGroup);
+            const removing = removingProjectId === card.project.id;
             return (
-              <Link key={card.project.id} href={href} className="block">
-                <div className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-white p-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
+              <div key={card.project.id} className="flex items-center gap-2 rounded-[12px] border-2 border-[var(--color-border)] bg-white p-2.5">
+                <Link href={href} className="flex min-w-0 flex-1 items-center gap-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
                   <div
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[18px] font-extrabold text-white"
                     style={{
@@ -425,9 +471,22 @@ function WordbooksSection({ projects, onShare }: { projects: SharedProjectCard[]
                       <span className="font-mono tabular-nums">{card.wordCount ?? 0} 語</span>
                     </div>
                   </div>
+                </Link>
+                {canRemove ? (
+                  <button
+                    type="button"
+                    aria-label={`「${card.project.title}」のグループ共有を解除`}
+                    disabled={removingProjectId !== null}
+                    onClick={() => onRemove(card)}
+                    className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-white px-2 text-[11px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                  >
+                    <Icon name={removing ? 'progress_activity' : 'remove_circle'} size={15} className={removing ? 'animate-spin' : undefined} />
+                    共有解除
+                  </button>
+                ) : (
                   <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
-                </div>
-              </Link>
+                )}
+              </div>
             );
           })}
         </div>
