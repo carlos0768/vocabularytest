@@ -179,11 +179,14 @@ export default function GroupSettingsPage() {
     <div
       className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
       style={{
-        paddingTop: '0.75rem',
+        // The <body> already pads by env(safe-area-inset-top) (globals.css), so
+        // the header sits just below the notch with no extra gap. Adding more
+        // padding here would double-count the inset and leave a dead band.
+        paddingTop: 0,
         paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
       }}
     >
-      <header className="flex items-center gap-2.5 px-[14px] pb-1">
+      <header className="flex items-center gap-2.5 px-[14px] pb-1 pt-2">
         <Link
           href={backHref}
           aria-label="グループに戻る"
