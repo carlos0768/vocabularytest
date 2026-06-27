@@ -394,6 +394,53 @@ export async function resolvePublicProfile(
   return toProfile(data);
 }
 
+/**
+ * Compute the viewer's follow relationship toward a target user.
+ * Used by the public profile page to render the follow/unfollow button.
+ */
+export async function getFollowRelationship(
+  viewerUserId: string,
+  targetUserId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<{ relationship: FollowRelationship; followId: string | null }> {
+  if (viewerUserId === targetUserId) {
+    return { relationship: 'none', followId: null };
+  }
+
+  const { data, error } = await admin
+    .from('user_follows')
+    .select(FOLLOW_SELECT)
+    .or(
+      `and(follower_id.eq.${viewerUserId},following_id.eq.${targetUserId}),`
+        + `and(follower_id.eq.${targetUserId},following_id.eq.${viewerUserId})`,
+    );
+
+  if (error) {
+    if (getFriendSchemaIssue(error) === 'user_follows') {
+      return { relationship: 'none', followId: null };
+    }
+    throw new Error(error.message || 'follow_relationship_lookup_failed');
+  }
+
+  let outRow: FollowRow | undefined;
+  let inRow: FollowRow | undefined;
+  for (const row of (data ?? []) as FollowRow[]) {
+    if (row.follower_id === viewerUserId && row.following_id === targetUserId) outRow = row;
+    if (row.follower_id === targetUserId && row.following_id === viewerUserId) inRow = row;
+  }
+
+  if (outRow && outRow.status === 'active' && inRow && inRow.status === 'active') {
+    return { relationship: 'mutual', followId: outRow.id };
+  }
+  if (outRow?.status === 'active') {
+    return { relationship: 'following', followId: outRow.id };
+  }
+  if (outRow?.status === 'pending') {
+    return { relationship: 'pending', followId: outRow.id };
+  }
+  return { relationship: 'none', followId: null };
+}
+
 export async function unfollowUser(
   userId: string,
   followId: string,

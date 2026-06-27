@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { ProfileView, profileAvatarColor, type ProfileCounts } from '@/components/profile/ProfileView';
+import { FollowButton } from '@/components/profile/FollowButton';
 import { useAuth } from '@/hooks/use-auth';
 import type { CachedStats } from '@/lib/stats-cache';
 import type { FriendProfile } from '@/lib/friends/types';
+import type { FollowRelationship } from '@/lib/follows/types';
 
 function formatJoined(value: string | null): string | null {
   if (!value) return null;
@@ -19,6 +21,8 @@ type UserProfileResponse = {
   success?: boolean;
   isSelf?: boolean;
   profile?: FriendProfile;
+  relationship?: FollowRelationship;
+  followId?: string | null;
   joinedAt?: string | null;
   counts?: ProfileCounts;
   stats?: CachedStats | null;
@@ -31,6 +35,7 @@ export default function FriendProfilePage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [data, setData] = useState<UserProfileResponse | null>(null);
+  const [counts, setCounts] = useState<ProfileCounts | null>(null);
   const [error, setError] = useState(false);
   const [fetched, setFetched] = useState(false);
 
@@ -45,8 +50,10 @@ export default function FriendProfilePage() {
         if (!payload?.success || !payload.profile) {
           setError(true);
           setData(null);
+          setCounts(null);
         } else {
           setData(payload);
+          setCounts(payload.counts ?? null);
         }
       })
       .catch(() => {
@@ -104,10 +111,24 @@ export default function FriendProfilePage() {
       color={color}
       joined={joined}
       planLabel={null}
-      counts={data.counts ?? null}
+      counts={counts}
       followingHref={`/profile/${encodeURIComponent(profile.accountId)}/follows?tab=following`}
       followersHref={`/profile/${encodeURIComponent(profile.accountId)}/follows?tab=followers`}
       friendsHref={`/profile/${encodeURIComponent(profile.accountId)}/follows?tab=following`}
+      actions={
+        data.isSelf ? undefined : (
+          <FollowButton
+            accountId={profile.accountId}
+            initialRelationship={data.relationship ?? 'none'}
+            initialFollowId={data.followId ?? null}
+            onRelationshipChange={(delta) =>
+              setCounts((prev) =>
+                prev ? { ...prev, followers: Math.max(0, prev.followers + delta) } : prev,
+              )
+            }
+          />
+        )
+      }
       stats={data.stats ?? null}
       statsLoading={false}
     />

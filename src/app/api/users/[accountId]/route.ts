@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/app/api/shared-projects/shared';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { resolvePublicProfile, getProfilesByUserIds } from '@/lib/follows/server';
+import { resolvePublicProfile, getProfilesByUserIds, getFollowRelationship } from '@/lib/follows/server';
 import { getPublicUserStats } from '@/lib/profile/stats-server';
 
 type RouteContext = {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const userId = profile.userId;
     const isSelf = userId === auth.user.id;
 
-    const [stats, createdAtRow, followingRows, followersRows, friendsCount] = await Promise.all([
+    const [stats, createdAtRow, followingRows, followersRows, friendsCount, relationship] = await Promise.all([
       getPublicUserStats(userId, admin),
       admin
         .from('profiles')
@@ -50,6 +50,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'accepted')
         .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+      isSelf
+        ? Promise.resolve({ relationship: 'none' as const, followId: null })
+        : getFollowRelationship(auth.user.id, userId, admin),
     ]);
 
     const followingIds = (followingRows.data ?? []).map((r) => (r as { following_id: string }).following_id);
@@ -62,6 +65,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       success: true,
       isSelf,
       profile,
+      relationship: relationship.relationship,
+      followId: relationship.followId,
       joinedAt: createdAtRow.data?.created_at ?? null,
       counts: {
         following: followingIds.length,
