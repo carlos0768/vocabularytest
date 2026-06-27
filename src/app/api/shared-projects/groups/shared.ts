@@ -7,6 +7,8 @@ import type {
   SharedProjectMetrics,
   StudyGroupMembershipRole,
   StudyGroupProjectListPayload,
+  StudyGroupStrugglingWord,
+  StudyGroupStrugglingWordsPayload,
   StudyGroupsPayload,
   StudyGroupSummary,
   StudyGroupVisibility,
@@ -31,10 +33,24 @@ type StudyGroupMembershipRow = {
   created_at?: string | null;
 };
 
+type StudyGroupMemberUserRow = {
+  user_id: string;
+};
+
 type StudyGroupProjectRow = {
   group_id?: string;
   project_id: string;
   created_at?: string | null;
+};
+
+type StudyGroupWrongAnswerRow = {
+  user_id: string;
+  word_id: string;
+  project_id: string | null;
+  english: string | null;
+  japanese: string | null;
+  wrong_count: number | null;
+  last_wrong_at: string | null;
 };
 
 type StudyGroupCounts = {
@@ -68,6 +84,8 @@ const GROUP_INVITE_CODE_PATTERN = /^[A-Za-z0-9_]{4,64}$/;
 const CREATE_INVITE_CODE_RETRIES = 5;
 const DEFAULT_PUBLIC_GROUP_PAGE_SIZE = 12;
 const MAX_PUBLIC_GROUP_PAGE_SIZE = 36;
+export const STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT = 5;
+const STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE = 1000;
 
 export function normalizeGroupInviteCode(input: string): string | null {
   const normalized = input.trim().replace(/[\s-]+/g, '');
@@ -313,6 +331,121 @@ export async function listStudyGroupProjects(
       metricsByProjectId,
       usernameByUserId,
     )),
+  };
+}
+
+export function aggregateStudyGroupStrugglingWords(
+  rows: StudyGroupWrongAnswerRow[],
+): StudyGroupStrugglingWord[] {
+  const aggregated = new Map<string, StudyGroupStrugglingWord & { userIds: Set<string> }>();
+
+  for (const row of rows) {
+    const english = row.english?.trim();
+    const japanese = row.japanese?.trim();
+    if (!english || !japanese) continue;
+
+    const key = `${english.toLowerCase()}::${japanese}`;
+    const wrongCount = Math.max(0, row.wrong_count ?? 0);
+    if (wrongCount === 0) continue;
+
+    const current = aggregated.get(key);
+    const lastWrongAt = row.last_wrong_at ?? new Date(0).toISOString();
+    if (current) {
+      current.wrongCount += wrongCount;
+      current.userIds.add(row.user_id);
+      current.learnerCount = current.userIds.size;
+      if (lastWrongAt > current.lastWrongAt) {
+        current.lastWrongAt = lastWrongAt;
+        current.wordId = row.word_id;
+        current.projectId = row.project_id ?? '';
+      }
+      continue;
+    }
+
+    aggregated.set(key, {
+      key,
+      wordId: row.word_id,
+      projectId: row.project_id ?? '',
+      english,
+      japanese,
+      wrongCount,
+      learnerCount: 1,
+      lastWrongAt,
+      userIds: new Set([row.user_id]),
+    });
+  }
+
+  return Array.from(aggregated.values())
+    .map(({ userIds: _userIds, ...word }) => word)
+    .sort((a, b) => (
+      b.wrongCount - a.wrongCount
+      || b.learnerCount - a.learnerCount
+      || b.lastWrongAt.localeCompare(a.lastWrongAt)
+      || a.english.localeCompare(b.english)
+    ));
+}
+
+export async function listStudyGroupStrugglingWords(
+  groupId: string,
+  userId: string,
+  options: { limit?: number | null } = {},
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupStrugglingWordsPayload | null> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return null;
+
+  const { data: memberRows, error: memberError } = await admin
+    .from('study_group_members')
+    .select('user_id')
+    .eq('group_id', groupId);
+
+  if (memberError) {
+    throw new Error(memberError.message || 'study_group_members_lookup_failed');
+  }
+
+  const memberUserIds = Array.from(new Set(
+    ((memberRows ?? []) as StudyGroupMemberUserRow[])
+      .map((row) => row.user_id)
+      .filter(Boolean),
+  ));
+
+  const summaryPromise = getStudyGroupSummaryForUser(groupId, userId, admin);
+  if (memberUserIds.length === 0) {
+    return {
+      group: await summaryPromise,
+      words: [],
+      totalCount: 0,
+    };
+  }
+
+  const rows: StudyGroupWrongAnswerRow[] = [];
+  for (let offset = 0; ; offset += STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from('user_wrong_answers')
+      .select('user_id,word_id,project_id,english,japanese,wrong_count,last_wrong_at')
+      .in('user_id', memberUserIds)
+      .order('wrong_count', { ascending: false })
+      .order('last_wrong_at', { ascending: false })
+      .range(offset, offset + STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message || 'study_group_wrong_answers_lookup_failed');
+    }
+
+    const page = (data ?? []) as StudyGroupWrongAnswerRow[];
+    rows.push(...page);
+    if (page.length < STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE) break;
+  }
+
+  const allWords = aggregateStudyGroupStrugglingWords(rows);
+  const limit = typeof options.limit === 'number' && Number.isFinite(options.limit)
+    ? Math.max(0, Math.floor(options.limit))
+    : null;
+
+  return {
+    group: await summaryPromise,
+    words: limit === null ? allWords : allWords.slice(0, limit),
+    totalCount: allWords.length,
   };
 }
 

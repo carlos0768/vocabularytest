@@ -217,6 +217,81 @@ function buildHomeStats(allWords: Word[]): HomeStats {
   };
 }
 
+function getQueuedWordCreateProjectId(data: unknown): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const projectId = (data as Partial<Word>).projectId;
+  return typeof projectId === 'string' && projectId.length > 0 ? projectId : null;
+}
+
+async function getPendingLocalWordCreateProjectIds(): Promise<Set<string>> {
+  try {
+    const db = getDb();
+    const pending = await db.syncQueue.toArray();
+    return new Set(
+      pending
+        .filter((item) => item.table === 'words' && item.operation === 'create')
+        .map((item) => getQueuedWordCreateProjectId(item.data))
+        .filter((projectId): projectId is string => Boolean(projectId)),
+    );
+  } catch (error) {
+    console.warn('Failed to inspect pending word sync queue:', error);
+    return new Set();
+  }
+}
+
+async function mergePendingLocalWordsIntoRemoteResult(
+  remoteProjectsWithStats: HomeProjectStats[],
+  remoteWords: Word[],
+): Promise<{ projectsWithStats: HomeProjectStats[]; allWords: Word[] }> {
+  const pendingProjectIds = await getPendingLocalWordCreateProjectIds();
+  if (pendingProjectIds.size === 0 || remoteProjectsWithStats.length === 0) {
+    return { projectsWithStats: remoteProjectsWithStats, allWords: remoteWords };
+  }
+
+  const affectedProjectIds = remoteProjectsWithStats
+    .map((project) => project.id)
+    .filter((projectId) => pendingProjectIds.has(projectId));
+  if (affectedProjectIds.length === 0) {
+    return { projectsWithStats: remoteProjectsWithStats, allWords: remoteWords };
+  }
+
+  const localWordsByProject = await localRepository.getAllWordsByProjectIds(affectedProjectIds);
+  const mergedWordsByProject = new Map<string, Word[]>();
+  for (const word of remoteWords) {
+    const words = mergedWordsByProject.get(word.projectId) ?? [];
+    words.push(word);
+    mergedWordsByProject.set(word.projectId, words);
+  }
+
+  let changed = false;
+  for (const projectId of affectedProjectIds) {
+    const localWords = localWordsByProject[projectId] ?? [];
+    if (localWords.length === 0) continue;
+    const remoteProjectWords = mergedWordsByProject.get(projectId) ?? [];
+    if (localWords.length <= remoteProjectWords.length) continue;
+    mergedWordsByProject.set(projectId, localWords);
+    changed = true;
+  }
+
+  if (!changed) {
+    return { projectsWithStats: remoteProjectsWithStats, allWords: remoteWords };
+  }
+
+  const allWords = Array.from(mergedWordsByProject.values()).flat();
+  return {
+    projectsWithStats: buildProjectStats(remoteProjectsWithStats, Object.fromEntries(mergedWordsByProject)).map((project) => {
+      const words = mergedWordsByProject.get(project.id) ?? [];
+      const memorySummary = summarizeWordMemory(words);
+      return {
+        ...project,
+        reviewWords: memorySummary.learning,
+        newWords: memorySummary.unlearned,
+      };
+    }),
+    allWords,
+  };
+}
+
 const EMPTY_STATS: HomeStats = {
   dueCount: 0,
   completedToday: 0,
@@ -300,7 +375,10 @@ export default function HomePage() {
         readRepo = repository;
       }
 
-      const result = await getProjectsWithWords(rawProjects, readRepo);
+      let result = await getProjectsWithWords(rawProjects, readRepo);
+      if (readRepo === remoteRepository) {
+        result = await mergePendingLocalWordsIntoRemoteResult(result.projectsWithStats, result.allWords);
+      }
       setProjects(result.projectsWithStats);
       setStats(buildHomeStats(result.allWords));
 

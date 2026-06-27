@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { WORDS_SELECT_COLUMNS } from './remote-repository';
+import { buildWordsCreateRequestWord, WORDS_SELECT_COLUMNS } from './remote-repository';
 import {
   RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS,
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
@@ -14,6 +14,7 @@ import {
   SHARE_VIEW_WORD_SELECT_COLUMNS_EXAMPLE,
   SHARE_VIEW_WORD_SELECT_COLUMNS_MINIMAL,
 } from '@/lib/words/resolved';
+import type { Word } from '@/types';
 
 test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', () => {
   assert.equal(WORDS_SELECT_COLUMNS.includes('embedding'), false);
@@ -63,6 +64,67 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
       `WORDS_SELECT_COLUMNS should include ${fragment}`,
     );
   }
+});
+
+test('buildWordsCreateRequestWord sends API-compatible translation payloads', () => {
+  const word: Word = {
+    id: '11111111-1111-4111-8111-111111111111',
+    projectId: '22222222-2222-4222-8222-222222222222',
+    english: 'sense',
+    japanese: '感覚',
+    translations: [
+      {
+        id: 'local-extra-id',
+        wordId: '11111111-1111-4111-8111-111111111111',
+        translationJa: '感覚',
+        normalizedTranslationJa: '感覚',
+        source: 'scan',
+        meaningRank: 1,
+        position: 0,
+        isPrimary: true,
+        status: 'new',
+        lexiconSenseId: '33333333-3333-4333-8333-333333333333',
+      },
+      {
+        translationJa: '  ',
+        normalizedTranslationJa: '',
+        meaningRank: 2,
+        position: 1,
+        isPrimary: false,
+      },
+    ],
+    lexiconEntryId: 'not-a-uuid',
+    lexiconSenseId: 'also-not-a-uuid',
+    distractors: ['wrong'],
+    partOfSpeechTags: ['noun'],
+    status: 'new',
+    createdAt: '2026-06-28T00:00:00.000Z',
+    easeFactor: 2.5,
+    intervalDays: 0,
+    repetition: 0,
+    isFavorite: false,
+  };
+
+  const payload = buildWordsCreateRequestWord(word);
+
+  assert.equal(payload.lexiconEntryId, undefined);
+  assert.equal(payload.lexiconSenseId, undefined);
+  assert.deepEqual(payload.translations, [
+    {
+      translationJa: '感覚',
+      source: 'scan',
+      meaningRank: 1,
+      lexiconSenseId: '33333333-3333-4333-8333-333333333333',
+    },
+  ]);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(payload.translations?.[0] ?? {}, 'normalizedTranslationJa'),
+    false,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(payload.translations?.[0] ?? {}, 'isPrimary'),
+    false,
+  );
 });
 
 test('word read methods query through compatibility fallback helpers', () => {

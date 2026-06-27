@@ -69,6 +69,23 @@ export type StudyGroupProjectListPayload = {
   projects: SharedProjectCard[];
 };
 
+export type StudyGroupStrugglingWord = {
+  key: string;
+  wordId: string;
+  projectId: string;
+  english: string;
+  japanese: string;
+  wrongCount: number;
+  learnerCount: number;
+  lastWrongAt: string;
+};
+
+export type StudyGroupStrugglingWordsPayload = {
+  group: StudyGroupSummary;
+  words: StudyGroupStrugglingWord[];
+  totalCount: number;
+};
+
 export type SharedUserSummary = {
   userId: string;
   username: string | null;
