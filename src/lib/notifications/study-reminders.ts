@@ -17,6 +17,7 @@ export type DueStudyReminderCandidate = {
 };
 
 export const DEFAULT_STUDY_REMINDER_TIMEZONE = 'Asia/Tokyo';
+export const DEFAULT_STUDY_REMINDER_ENABLED = true;
 export const MAX_STUDY_REMINDER_TIMES = 6;
 export const STUDY_REMINDER_DISPATCH_GRACE_MINUTES = 3;
 export const DEFAULT_STUDY_REMINDER_TIMES: StudyReminderTime[] = [

@@ -6,6 +6,7 @@ import {
   extractShareCode,
   getAccessibleSharedProject,
   getSharedProjectPreviewByShareCode,
+  getSharedProjectWordsByShareCode,
   getSharedProjectMetrics,
   listAccessibleSharedProjects,
   listPublicSharedProjects,
@@ -694,6 +695,22 @@ test('getSharedProjectPreviewByShareCode falls back when relation embeds are una
   assert.equal(preview.words[0]?.pronunciation, '/wɜːd/');
   assert.deepEqual(preview.words[0]?.partOfSpeechTags, ['noun']);
   assert.equal(preview.totalWordCount, 1);
+});
+
+test('getSharedProjectWordsByShareCode returns all words for legacy share ids', async () => {
+  const project = makeProjectRow('project-1', 'owner-1', { share_id: 'share-1' });
+  const admin = new FakeSharedProjectsAdmin({
+    shareCodeProject: project,
+    previewWordRows: [
+      makeWordRow('word-1', project.id, { english: 'first', created_at: '2026-01-01T00:00:00.000Z' }),
+      makeWordRow('word-2', project.id, { english: 'second', created_at: '2026-01-02T00:00:00.000Z' }),
+    ],
+    previewWordSelectErrorIncludes: 'word_translations(',
+  });
+
+  const words = await getSharedProjectWordsByShareCode('share-1', admin as never);
+
+  assert.deepEqual(words.map((word) => word.english), ['second', 'first']);
 });
 
 test('getSharedProjectMetrics uses RPC results when available', async () => {

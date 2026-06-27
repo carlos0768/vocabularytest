@@ -306,25 +306,38 @@ function DesktopGeneratingProjectRow({ scan }: { scan: DesktopPendingScan }) {
 }
 
 function DesktopProjectRow({ project }: { project: DesktopHomeProject }) {
+  const hasWords = project.totalWords > 0;
   return (
-    <Link href={`/project/${project.id}`} className="ds-prow">
-      <div
-        className="tn"
-        style={{
-          background: desktopThumbColor(project.id),
-          backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {!project.iconImage && project.title.charAt(0)}
-      </div>
-      <div className="body">
-        <div className="ttl">{project.title}</div>
-        <div className="sub">{desktopSourceLabel(project)} · 更新 {desktopUpdatedLabel(project.lastUsedAt ?? project.createdAt)}</div>
-      </div>
-      <div className="count">{project.totalWords}<span className="u">語</span></div>
+    <div className="ds-prow">
+      <Link href={`/project/${project.id}`} className="ds-prow-main">
+        <div
+          className="tn"
+          style={{
+            background: desktopThumbColor(project.id),
+            backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          {!project.iconImage && project.title.charAt(0)}
+        </div>
+        <div className="body">
+          <div className="ttl">{project.title}</div>
+          <div className="sub">{desktopSourceLabel(project)} · 更新 {desktopUpdatedLabel(project.lastUsedAt ?? project.createdAt)}</div>
+        </div>
+        <div className="count">{project.totalWords}<span className="u">語</span></div>
+      </Link>
+      {hasWords && (
+        <Link
+          href={`/quiz/${project.id}?from=/`}
+          className="ds-prow-play"
+          aria-label={`${project.title}のクイズを開始`}
+          title="クイズを開始"
+        >
+          <Icon name="play_arrow" size={20} filled />
+        </Link>
+      )}
       <Icon name="chevron_right" style={{ color: 'var(--color-muted)' }} />
-    </Link>
+    </div>
   );
 }

@@ -1,10 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '../../../../shared';
 import {
   addProjectToStudyGroup,
+  recordStudyGroupProjectAddedEvent,
   removeProjectFromStudyGroup,
   StudyGroupProjectAccessError,
 } from '../../../shared';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { sendGroupProjectAddedPushNotifications } from '@/lib/notifications/web-push';
 
 type StudyGroupProjectMutationContext = {
   params: Promise<{ groupId: string; projectId: string }>;
@@ -33,6 +36,46 @@ export async function handleStudyGroupProjectPost(
     if (!project) {
       return NextResponse.json({ success: false, error: 'グループにアクセスできません。' }, { status: 403 });
     }
+
+    // Record a feed event and notify the other members in the background so the
+    // response is not blocked on push delivery.
+    const actorUserId = auth.user.id;
+    const sharedProjectId = project.project.id;
+    after(async () => {
+      const admin = getSupabaseAdmin();
+      // Recording the feed event is best-effort and must not stop the push from
+      // going out, so it runs in its own guarded block.
+      let groupName = project.project.title;
+      let projectTitle = project.project.title;
+      let actorName: string | null = null;
+      let recipientUserIds: string[] = [];
+      try {
+        const recorded = await recordStudyGroupProjectAddedEvent(
+          groupId,
+          sharedProjectId,
+          actorUserId,
+          admin,
+        );
+        recipientUserIds = recorded.recipientUserIds;
+        groupName = recorded.groupName;
+        projectTitle = recorded.projectTitle;
+        actorName = recorded.actorName;
+      } catch (recordError) {
+        console.error('Failed to record study-group project-added event:', recordError);
+      }
+
+      try {
+        await sendGroupProjectAddedPushNotifications(admin, {
+          recipientUserIds,
+          groupId,
+          groupName,
+          projectTitle,
+          actorName,
+        });
+      } catch (notifyError) {
+        console.error('Failed to send study-group project-added push:', notifyError);
+      }
+    });
 
     return NextResponse.json({ success: true, project });
   } catch (error) {

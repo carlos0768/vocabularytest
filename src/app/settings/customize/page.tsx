@@ -14,10 +14,10 @@ export default function CustomizePage() {
         <button
           type="button"
           onClick={() => router.push('/settings')}
-          className="mb-2 inline-flex items-center gap-0.5 font-display text-[12px] font-bold text-[var(--color-muted)]"
+          aria-label="設定へ戻る"
+          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
-          <Icon name="chevron_left" size={16} />
-          設定
+          <Icon name="chevron_left" size={20} />
         </button>
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">CUSTOMIZE</div>
         <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">カスタマイズ</div>

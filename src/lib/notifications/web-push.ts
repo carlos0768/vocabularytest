@@ -38,6 +38,14 @@ type StudyReminderPushParams = {
   timeZone: string;
 };
 
+type FollowPushParams = {
+  userId: string;
+  followId: string;
+  followerAccountId: string;
+  followerUsername: string | null;
+  status: 'active' | 'pending';
+};
+
 let configuredSignature: string | null = null;
 
 function configureWebPush(): boolean {
@@ -103,6 +111,25 @@ function createStudyReminderPayload(
       reminderTime: params.reminderTime,
       localDateKey: params.localDateKey,
       timeZone: params.timeZone,
+    },
+  });
+}
+
+function createFollowPayload(params: FollowPushParams): string {
+  const actor = params.followerUsername?.trim() || `@${params.followerAccountId}`;
+  const isPending = params.status === 'pending';
+
+  return JSON.stringify({
+    title: isPending ? 'MERKEN: フォローリクエスト' : 'MERKEN: 新しいフォロワー',
+    body: isPending
+      ? `${actor}さんからフォローリクエストが届きました`
+      : `${actor}さんにフォローされました`,
+    tag: `follow-${params.followId}`,
+    data: {
+      url: '/',
+      kind: 'follow',
+      followId: params.followId,
+      status: params.status,
     },
   });
 }
@@ -188,6 +215,46 @@ async function sendPushPayloadToUser(
   return result;
 }
 
+type GroupProjectAddedPushParams = {
+  recipientUserIds: string[];
+  groupId: string;
+  groupName: string;
+  projectTitle: string;
+  actorName?: string | null;
+};
+
+function createGroupProjectAddedPayload(params: GroupProjectAddedPushParams): string {
+  const actor = params.actorName ? `${params.actorName}さんが` : '';
+  return JSON.stringify({
+    title: `MERKEN: ${params.groupName}`,
+    body: `${actor}「${params.projectTitle}」を追加しました！`,
+    tag: `group-project-${params.groupId}`,
+    data: {
+      url: `/groups/${params.groupId}`,
+      kind: 'group-project-added',
+      groupId: params.groupId,
+    },
+  });
+}
+
+export async function sendGroupProjectAddedPushNotifications(
+  supabaseAdmin: SupabaseClient,
+  params: GroupProjectAddedPushParams,
+): Promise<void> {
+  const recipients = Array.from(new Set(params.recipientUserIds.filter(Boolean)));
+  if (recipients.length === 0) return;
+
+  const payload = createGroupProjectAddedPayload(params);
+  await Promise.all(
+    recipients.map((userId) =>
+      sendPushPayloadToUser(supabaseAdmin, userId, payload, {
+        ttl: 86400,
+        urgency: 'low',
+      }),
+    ),
+  );
+}
+
 export async function sendScanJobPushNotifications(
   supabaseAdmin: SupabaseClient,
   params: ScanJobPushParams,
@@ -212,6 +279,17 @@ export async function sendStudyReminderPushNotifications(
   const payload = createStudyReminderPayload(params, wordPicks);
   return sendPushPayloadToUser(supabaseAdmin, params.userId, payload, {
     ttl: 900,
+    urgency: 'normal',
+  });
+}
+
+export async function sendFollowPushNotification(
+  supabaseAdmin: SupabaseClient,
+  params: FollowPushParams,
+): Promise<PushDeliveryResult> {
+  const payload = createFollowPayload(params);
+  return sendPushPayloadToUser(supabaseAdmin, params.userId, payload, {
+    ttl: 3600,
     urgency: 'normal',
   });
 }

@@ -13,6 +13,10 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const NEW_PROJECT_ID = '22222222-2222-4222-8222-222222222222';
 const EXISTING_PROJECT_ID = '33333333-3333-4333-8333-333333333333';
 
+function nextTimerTick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 type QueryAction = 'update' | 'select' | 'insert' | 'upsert' | 'delete' | 'storage.download';
 
 interface QueryFilter {
@@ -565,9 +569,11 @@ test('client_local completion keeps result payload successful when example gener
         throw new Error('JSON parse failed');
       },
       sendPushNotifications: async (_client, params) => {
+        await nextTimerTick();
         pushNotifications.push(params);
       },
       sendApnsNotifications: async (_client, params) => {
+        await nextTimerTick();
         apnsNotifications.push(params);
       },
     }),

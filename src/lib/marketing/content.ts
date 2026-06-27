@@ -31,8 +31,8 @@ export const marketingHighlights: MarketingItem[] = [
 
 export const scanModes: MarketingItem[] = [
   {
-    title: 'すべての単語',
-    description: '写真内の英単語をまとめて抽出。',
+    title: '単語帳取込',
+    description: '単語帳形式の英単語と訳を抽出。',
     icon: 'center_focus_weak',
   },
   {
@@ -127,10 +127,10 @@ export interface LPScanMode extends MarketingItem {
 
 export const lpScanModes: LPScanMode[] = [
   {
-    title: 'すべての単語',
-    description: '写真内の英単語をまとめて抽出。ノートを丸ごとデジタル化。',
+    title: '単語帳取込',
+    description: '単語帳形式の英単語と訳のペアを抽出。手書きノートや市販単語帳に対応。',
     icon: 'center_focus_weak',
-    useCase: '授業ノートやプリントを一括取り込みしたいとき',
+    useCase: '単語帳やノートの英単語＋訳リストを取り込みたいとき',
     color: '#137fec',
   },
   {

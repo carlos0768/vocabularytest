@@ -145,8 +145,8 @@ export function ScanModeModal({
               <Camera size={20} color={'#0d0d0d'} />
             </View>
             <View style={styles.modeCopy}>
-              <Text style={styles.modeTitle}>all</Text>
-              <Text style={styles.modeDescription}>写真内の英単語をまとめて抽出します。</Text>
+              <Text style={styles.modeTitle}>単語帳取込</Text>
+              <Text style={styles.modeDescription}>単語帳形式の英単語と訳を抽出します。</Text>
             </View>
           </TouchableOpacity>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import type { ProjectShareScope } from '@/types';
@@ -39,12 +39,9 @@ export function ProjectShareSheet({
   onClose,
   projectTitle,
   shareId,
-  shareScope,
   preparing,
-  updatingScope,
   sharedTags = [],
   updatingTags = false,
-  onSelectScope,
   onSaveSharedTags,
   onCopyShareLink,
   onShareLink,
@@ -57,6 +54,7 @@ export function ProjectShareSheet({
 }: ProjectShareSheetProps) {
   const sharedTagsValue = sharedTags.map(formatSharedTag).join(', ');
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
 
   if (!open) return null;
 
@@ -112,72 +110,50 @@ export function ProjectShareSheet({
           </div>
 
           <div className="mb-3">
-            <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-              <Icon name="chevron_right" size={11} />
-              公開設定
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
+            {!tagsOpen ? (
               <button
                 type="button"
-                disabled={updatingScope || preparing}
-                onClick={() => void onSelectScope('public')}
-                className="rounded-[10px] border-2 border-[var(--solid-ink)] p-3 text-left transition-all disabled:opacity-50"
-                style={{
-                  background: shareScope === 'public' ? 'var(--solid-ink)' : '#fff',
-                  color: shareScope === 'public' ? '#fff' : 'var(--solid-ink)',
-                  boxShadow: shareScope === 'public' ? '2px 2px 0 var(--solid-ink)' : 'none',
-                }}
+                disabled={preparing || !onSaveSharedTags}
+                onClick={() => setTagsOpen(true)}
+                className="flex w-full items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-left disabled:opacity-40"
               >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[13px] font-bold">公開</span>
-                  <div
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-                    style={{ border: shareScope === 'public' ? '1.5px solid #fff' : '1.5px solid var(--solid-ink)' }}
-                  >
-                    {shareScope === 'public' && <div className="h-[7px] w-[7px] rounded-full bg-white" />}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+                  <Icon name="sell" size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-bold text-[var(--solid-ink)]">タグ</div>
+                  <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--color-muted)]">
+                    {sharedTagsValue || 'タグを追加'}
                   </div>
                 </div>
-                <p
-                  className="mt-1 text-[10.5px] leading-[1.4]"
-                  style={{ color: shareScope === 'public' ? 'rgba(255,255,255,0.65)' : 'var(--color-muted)' }}
-                >
-                  共有ページに一覧表示
-                </p>
+                <Icon name="chevron_right" size={16} className="shrink-0 text-[var(--color-muted)]" />
               </button>
-              <button
-                type="button"
-                disabled={updatingScope || preparing}
-                onClick={() => void onSelectScope('private')}
-                className="rounded-[10px] border-2 border-[var(--solid-ink)] p-3 text-left transition-all disabled:opacity-50"
-                style={{
-                  background: shareScope === 'private' ? 'var(--solid-ink)' : '#fff',
-                  color: shareScope === 'private' ? '#fff' : 'var(--solid-ink)',
-                  boxShadow: shareScope === 'private' ? '2px 2px 0 var(--solid-ink)' : 'none',
-                }}
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[13px] font-bold">リンク限定</span>
-                  <div
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-                    style={{ border: shareScope === 'private' ? '1.5px solid #fff' : '1.5px solid var(--solid-ink)' }}
-                  >
-                    {shareScope === 'private' && <div className="h-[7px] w-[7px] rounded-full bg-white" />}
-                  </div>
+            ) : (
+              <>
+                <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                  <Icon name="sell" size={11} />
+                  タグ
                 </div>
-                <p
-                  className="mt-1 text-[10.5px] leading-[1.4]"
-                  style={{ color: shareScope === 'private' ? 'rgba(255,255,255,0.65)' : 'var(--color-muted)' }}
-                >
-                  個別に送信
-                </p>
-              </button>
-            </div>
-
-            {updatingScope && (
-              <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
-                <Icon name="progress_activity" size={14} className="animate-spin" />
-                公開設定を更新中...
-              </div>
+                <div className="flex gap-2">
+                  <input
+                    key={sharedTagsValue}
+                    ref={tagInputRef}
+                    defaultValue={sharedTagsValue}
+                    autoFocus
+                    placeholder="例: #TOEIC, #熟語, #高校英語"
+                    className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] outline-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={preparing || updatingTags || !onSaveSharedTags}
+                    onClick={() => void onSaveSharedTags?.(parseSharedTagsInput(tagInputRef.current?.value ?? sharedTagsValue))}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                  >
+                    <Icon name={updatingTags ? 'progress_activity' : 'check'} size={14} className={updatingTags ? 'animate-spin' : undefined} />
+                    保存
+                  </button>
+                </div>
+              </>
             )}
           </div>
 
@@ -235,32 +211,6 @@ export function ProjectShareSheet({
               </div>
             )}
           </div>
-
-          <div className="mb-3">
-            <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-              <Icon name="sell" size={11} />
-              タグ
-            </div>
-            <div className="flex gap-2">
-              <input
-                key={sharedTagsValue}
-                ref={tagInputRef}
-                defaultValue={sharedTagsValue}
-                placeholder="例: #TOEIC, #熟語, #高校英語"
-                className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] outline-none"
-              />
-              <button
-                type="button"
-                disabled={preparing || updatingTags || !onSaveSharedTags}
-                onClick={() => void onSaveSharedTags?.(parseSharedTagsInput(tagInputRef.current?.value ?? sharedTagsValue))}
-                className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
-              >
-                <Icon name={updatingTags ? 'progress_activity' : 'check'} size={14} className={updatingTags ? 'animate-spin' : undefined} />
-                保存
-              </button>
-            </div>
-          </div>
-
           <div className="mb-3 grid grid-cols-2 gap-2">
             <button
               type="button"

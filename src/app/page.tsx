@@ -43,9 +43,9 @@ const HOME_MY_BOOKS_VISIBLE_LIMIT = 5;
 
 const ROOT_LANDING_SCAN_MODES = [
   {
-    label: 'すべての単語',
-    title: 'ページ全体から抽出',
-    body: '教材やプリントに写っている英単語をまとめて取り込み、単語帳の候補にします。',
+    label: '単語帳取込',
+    title: '単語帳の単語を抽出',
+    body: '単語帳やノートに「英単語＋日本語訳」のペアで載っている単語だけを取り込みます。',
     icon: 'document_scanner',
   },
   {
@@ -129,7 +129,7 @@ const ROOT_LANDING_FAQS = [
   },
   {
     q: 'どんな抽出モードがありますか？',
-    a: 'すべての単語、丸囲み、英検レベル、熟語・イディオムの4種類です。このLPでは、公開時に案内する学習導線だけを掲載しています。',
+    a: '単語帳取込、丸囲み、英検レベル、熟語・イディオムの4種類です。このLPでは、公開時に案内する学習導線だけを掲載しています。',
   },
   {
     q: '登録方法は？',
@@ -464,13 +464,6 @@ export default function HomePage() {
           <span className="ml-1 inline-block h-[5px] w-[5px] -translate-y-2 bg-[var(--color-accent)]" />
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/favorites"
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-accent)]"
-            aria-label="保存済み"
-          >
-            <Icon name="bookmark" size={16} filled />
-          </Link>
           <div className="flex items-center gap-[5px] rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
             <span className="inline-flex text-[var(--color-warning)]">
               <Icon name="local_fire_department" size={13} filled />
@@ -498,7 +491,6 @@ export default function HomePage() {
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
               <div className="mt-2 flex items-center gap-1.5">
                 <span className="inline-flex text-[var(--solid-ink)]">
                   <Icon name="photo_camera" size={26} />
@@ -506,9 +498,6 @@ export default function HomePage() {
                 <span className="font-display text-[18px] font-extrabold leading-tight text-[var(--solid-ink)]">
                   最初のスキャン
                 </span>
-              </div>
-              <div className="mt-1 text-[11px] leading-snug text-[var(--color-muted)]">
-                ノートを撮って単語を登録しよう
               </div>
               <div className="mt-3.5 flex items-center gap-[3px] text-[var(--solid-ink)]">
                 <span className="text-[13px] font-bold">スキャンを開始</span>
@@ -524,7 +513,6 @@ export default function HomePage() {
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
                   {unmasteredCount}
@@ -551,7 +539,6 @@ export default function HomePage() {
               <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
                 TODAY&apos;S GOAL
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">今日の目標</div>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
                   {dueCount}
@@ -1256,13 +1243,17 @@ function LegendItem({ color, label, count }: { color: string; label: string; cou
 
 function ProjectRow({ project }: { project: HomeProjectStats }) {
   const bg = thumbColor(project.id);
+  const hasWords = project.totalWords > 0;
   return (
-    <Link href={`/project/${project.id}`}>
-      <SolidPanel
-        className="!rounded-[14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        faceClassName="!p-[13px]"
-      >
-        <div className="flex items-center gap-[13px]">
+    <SolidPanel
+      className="!rounded-[14px]"
+      faceClassName="!p-[13px]"
+    >
+      <div className="flex items-center gap-[13px]">
+        <Link
+          href={`/project/${project.id}`}
+          className="flex min-w-0 flex-1 items-center gap-[13px] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
           <div
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
             style={{ background: project.iconImage ? `center / cover url(${project.iconImage})` : bg }}
@@ -1281,9 +1272,18 @@ function ProjectRow({ project }: { project: HomeProjectStats }) {
               <DotLabel color="rgba(26,26,26,0.2)" label={`未 ${project.newWords}`} />
             </div>
           </div>
-        </div>
-      </SolidPanel>
-    </Link>
+        </Link>
+        {hasWords && (
+          <Link
+            href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
+            aria-label={`${project.title}のクイズを開始`}
+            className="flex h-[37px] w-[37px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+          >
+            <Icon name="play_arrow" size={20} filled />
+          </Link>
+        )}
+      </div>
+    </SolidPanel>
   );
 }
 
