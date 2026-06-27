@@ -1,7 +1,8 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { DesktopButton, DesktopSearchBox } from '@/components/desktop/DesktopChrome';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
@@ -31,6 +32,7 @@ export function DesktopSharedView({
   onBackToAll,
   onLoadMore,
   onOpenShareSheet,
+  onProjectMissing,
 }: {
   category: SharedDiscoverCategory;
   query: string;
@@ -43,6 +45,7 @@ export function DesktopSharedView({
   onBackToAll: () => void;
   onLoadMore: () => void;
   onOpenShareSheet: () => void;
+  onProjectMissing: (projectId: string) => void;
 }) {
   const isCategory = category !== 'all';
   const activeMeta = isCategory ? CATEGORY_META[category] : null;
@@ -144,11 +147,12 @@ export function DesktopSharedView({
                 payload={payload}
                 onLoadMore={onLoadMore}
                 loadingMore={loadingMore}
+                onProjectMissing={onProjectMissing}
               />
             ) : hasQuery ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
                 <UserGrid users={payload.users} />
-                <ProjectGrid projects={payload.projects} />
+                <ProjectGrid projects={payload.projects} onProjectMissing={onProjectMissing} />
               </div>
             ) : null}
           </>
@@ -163,16 +167,18 @@ function CategoryResults({
   payload,
   loadingMore,
   onLoadMore,
+  onProjectMissing,
 }: {
   category: Exclude<SharedDiscoverCategory, 'all'>;
   payload: SharedDiscoverPayload;
   loadingMore: boolean;
   onLoadMore: () => void;
+  onProjectMissing: (projectId: string) => void;
 }) {
   return (
     <>
       {category === 'users' && <UserGrid users={payload.users} />}
-      {category === 'projects' && <ProjectGrid projects={payload.projects} />}
+      {category === 'projects' && <ProjectGrid projects={payload.projects} onProjectMissing={onProjectMissing} />}
       {payload.nextCursor && (
         <button type="button" onClick={onLoadMore} disabled={loadingMore} className="ds-btn" style={{ marginTop: 18 }}>
           <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} className={loadingMore ? 'animate-spin' : undefined} />
@@ -248,20 +254,51 @@ function UserGrid({ users }: { users: SharedUserSummary[] }) {
   );
 }
 
-function ProjectGrid({ projects }: { projects: SharedProjectCard[] }) {
+async function sharedProjectStillExists(shareId: string): Promise<boolean | null> {
+  try {
+    const response = await fetch(`/api/shared-projects/share/${encodeURIComponent(shareId)}?limit=0`, {
+      cache: 'no-store',
+    });
+    if (response.status === 404) return false;
+    return response.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
+function ProjectGrid({
+  projects,
+  onProjectMissing,
+}: {
+  projects: SharedProjectCard[];
+  onProjectMissing: (projectId: string) => void;
+}) {
   return (
     <section>
       <SectionTitle count={projects.length}>単語帳</SectionTitle>
       {projects.length === 0 ? <EmptyCard label="該当する単語帳はありません" /> : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-          {projects.map((project) => <DesktopSharedCard key={project.project.id} project={project} />)}
+          {projects.map((project) => (
+            <DesktopSharedCard
+              key={project.project.id}
+              project={project}
+              onProjectMissing={onProjectMissing}
+            />
+          ))}
         </div>
       )}
     </section>
   );
 }
 
-function DesktopSharedCard({ project }: { project: SharedProjectCard }) {
+function DesktopSharedCard({
+  project,
+  onProjectMissing,
+}: {
+  project: SharedProjectCard;
+  onProjectMissing: (projectId: string) => void;
+}) {
+  const router = useRouter();
   const href = project.project.shareId ? `/share/${project.project.shareId}` : '/shared';
   const ownerLabel = project.accessRole === 'owner'
     ? '自分'
@@ -271,8 +308,21 @@ function DesktopSharedCard({ project }: { project: SharedProjectCard }) {
       ? `@${project.ownerUsername}`
       : '共有ユーザー';
 
+  const handleClick = async (event: MouseEvent<HTMLAnchorElement>) => {
+    const shareId = project.project.shareId;
+    if (!shareId) return;
+
+    event.preventDefault();
+    const exists = await sharedProjectStillExists(shareId);
+    if (exists === false) {
+      onProjectMissing(project.project.id);
+      return;
+    }
+    router.push(href);
+  };
+
   return (
-    <Link href={href} className="ds-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'inherit', textDecoration: 'none' }}>
+    <Link href={href} onClick={(event) => void handleClick(event)} className="ds-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'inherit', textDecoration: 'none' }}>
       <div style={{ display: 'flex', gap: 14 }}>
         <div
           className="ds-project-icon ds-project-icon--lg"
