@@ -12,6 +12,7 @@ import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
 
 /* ---------- Mastery level (mirrors iOS) ---------- */
@@ -109,9 +110,9 @@ function NavBtn({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => { triggerHaptic(); onClick?.(); }}
       aria-label={ariaLabel}
-      className="flex h-[42px] w-[42px] items-center justify-center rounded-[21px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex h-[42px] w-[42px] scale-[1.3] items-center justify-center rounded-[21px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>
@@ -201,12 +202,6 @@ export default function FlashcardPage() {
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<FlashcardSortOrder>('mastery');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-
-  /* Edit modal */
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editEnglish, setEditEnglish] = useState('');
-  const [editJapanese, setEditJapanese] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
 
   /* Swipe state */
   const [swipeX, setSwipeX] = useState(0);
@@ -453,7 +448,6 @@ export default function FlashcardPage() {
   /* Keyboard nav */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isEditModalOpen) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (isAnimating) return;
@@ -466,7 +460,7 @@ export default function FlashcardPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAnimating, isEditModalOpen, currentIndex, words.length, isFlipped, handlePrev, handleNext, handleFlip, backToProject]);
+  }, [isAnimating, currentIndex, words.length, isFlipped, handlePrev, handleNext, handleFlip, backToProject]);
 
   const handleToggleFavorite = async () => {
     if (!currentWord) return;
@@ -502,21 +496,12 @@ export default function FlashcardPage() {
     }
   }
 
-  const handleOpenEditModal = () => {
-    if (currentWord) {
-      setEditEnglish(currentWord.english); setEditJapanese(currentWord.japanese); setIsEditModalOpen(true);
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (!currentWord || !editEnglish.trim() || !editJapanese.trim()) return;
-    setIsSaving(true);
-    try {
-      await repository.updateWord(currentWord.id, { english: editEnglish.trim(), japanese: editJapanese.trim() });
-      setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, english: editEnglish.trim(), japanese: editJapanese.trim() } : w));
-      setIsEditModalOpen(false);
-    } catch (error) { console.error('Failed to update word:', error); }
-    finally { setIsSaving(false); }
+  const handleSearchEijiro = () => {
+    const term = currentWord?.english?.trim();
+    if (!term || typeof window === 'undefined') return;
+    triggerHaptic();
+    const url = `https://eow.alc.co.jp/search?q=${encodeURIComponent(term)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   /* Card transform */
@@ -601,13 +586,13 @@ export default function FlashcardPage() {
         </div>
 
         <div className="ds-fc-controls">
-          <button type="button" className="ds-fc-big dunno" onClick={() => handlePrev()}>
+          <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handlePrev(); }}>
             <Icon name="chevron_left" />前へ
           </button>
-          <button type="button" className="ds-fc-big know" onClick={handleFlip} aria-label="カードを回転">
+          <button type="button" className="ds-fc-big know" onClick={() => { triggerHaptic(); handleFlip(); }} aria-label="カードを回転">
             <Icon name="cached" />回転
           </button>
-          <button type="button" className="ds-fc-big dunno" onClick={() => handleNext()}>
+          <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handleNext(); }}>
             次へ<Icon name="chevron_right" />
           </button>
         </div>
@@ -823,7 +808,7 @@ export default function FlashcardPage() {
 
       {/* 5 Action chips */}
       <div className="flex shrink-0 justify-center gap-3 px-5 pt-3.5">
-        <ActionChip icon="edit" label="編集" onClick={handleOpenEditModal} />
+        <ActionChip icon="search" label="英辞郎" onClick={handleSearchEijiro} />
         <ActionChip icon="volume_up" label="発音" onClick={speakWord} />
         <ActionChip
           icon="task_alt"
@@ -856,47 +841,6 @@ export default function FlashcardPage() {
         </NavBtn>
       </div>
 
-      {/* Edit modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] p-6">
-            <h2 className="mb-4 font-display text-lg font-black text-[var(--solid-ink)]">単語を編集</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">英単語</label>
-                <input
-                  type="text" value={editEnglish} onChange={(e) => setEditEnglish(e.target.value)}
-                  className="w-full rounded-lg border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-sm font-bold text-[var(--solid-ink)] focus:outline-none"
-                  placeholder="英単語"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">日本語訳</label>
-                <input
-                  type="text" value={editJapanese} onChange={(e) => setEditJapanese(e.target.value)}
-                  className="w-full rounded-lg border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-sm text-[var(--solid-ink)] focus:outline-none"
-                  placeholder="日本語訳"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button" onClick={() => setIsEditModalOpen(false)} disabled={isSaving}
-                className="flex-1 rounded-lg border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--color-muted)]"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button" onClick={handleSaveEdit}
-                disabled={isSaving || !editEnglish.trim() || !editJapanese.trim()}
-                className="flex-1 rounded-lg border border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-              >
-                {isSaving ? '保存中...' : '保存'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
     </>
   );

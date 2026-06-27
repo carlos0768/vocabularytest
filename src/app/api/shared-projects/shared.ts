@@ -21,6 +21,7 @@ import {
   SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
 } from '@/lib/words/resolved';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
+import type { Word } from '@/types';
 import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
 import { formatSharedTag } from '../../../../shared/shared-tags';
 
@@ -34,7 +35,9 @@ type SharedSchemaDependency =
   | 'share_scope'
   | 'shared_metrics_rpc'
   | 'shared_tags'
-  | 'shared_tag_embeddings';
+  | 'shared_tag_embeddings'
+  | 'study_group_members'
+  | 'study_group_projects';
 
 type SupabaseLikeError = {
   code?: string | null;
@@ -58,6 +61,10 @@ type SharedProjectCursor = {
 type SharedProfileSummary = {
   username: string | null;
   accountId: string | null;
+};
+
+type StudyGroupProjectAccessRow = {
+  group_id: string;
 };
 
 type PublicSharedProjectListOptions = {
@@ -186,6 +193,33 @@ async function selectSharePreviewWordsWithFallback(
   return lastResult ?? { data: null, error: { message: 'shared_project_preview_words_failed' } };
 }
 
+async function selectShareWordsWithFallback(
+  admin: SupabaseAdminClient,
+  projectId: string,
+): Promise<{ data: WordRow[] | null; error: SupabaseLikeError | null }> {
+  let lastResult: { data: WordRow[] | null; error: SupabaseLikeError | null } | null = null;
+
+  for (const fallback of SHARE_PREVIEW_WORD_SELECT_FALLBACKS) {
+    const result = await admin
+      .from('words')
+      .select(fallback.columns)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false }) as { data: WordRow[] | null; error: SupabaseLikeError | null };
+
+    if (!shouldRetrySharedPreviewWordSelect(result.error)) {
+      return result;
+    }
+
+    lastResult = result;
+    console.warn(`[shared-projects] share words select fallback: ${fallback.label}`, {
+      code: result.error?.code,
+      message: result.error?.message,
+    });
+  }
+
+  return lastResult ?? { data: null, error: { message: 'shared_project_words_failed' } };
+}
+
 export async function getProjectByShareCode(
   shareCode: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
@@ -233,8 +267,48 @@ export async function getSharedProjectPreviewByShareCode(
   };
 }
 
-export async function getAccessibleSharedProject(projectId: string, userId: string): Promise<SharedProjectSummary | null> {
-  return getOwnedOrMemberSharedProject(projectId, userId);
+export async function getSharedProjectWordsByShareCode(
+  shareCode: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<Word[]> {
+  const projectRow = await getProjectByShareCode(shareCode, admin);
+  if (!projectRow) return [];
+
+  const wordsResult = await selectShareWordsWithFallback(admin, projectRow.id);
+  if (wordsResult.error) {
+    throw new Error(wordsResult.error.message || 'shared_project_words_failed');
+  }
+
+  return ((wordsResult.data ?? []) as WordRow[]).map(mapWordFromRow);
+}
+
+export async function getAccessibleSharedProject(
+  projectIdOrShareCode: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<SharedProjectSummary | null> {
+  const projectId = await resolveSharedProjectId(projectIdOrShareCode, admin);
+  if (!projectId) return null;
+
+  const directAccess = await getOwnedOrMemberSharedProject(projectId, userId, admin);
+  if (directAccess) return directAccess;
+
+  return getStudyGroupSharedProject(projectId, userId, admin);
+}
+
+async function resolveSharedProjectId(
+  projectIdOrShareCode: string,
+  admin: SupabaseAdminClient,
+): Promise<string | null> {
+  const projectById = await fetchSharedProjectRowById(
+    projectIdOrShareCode,
+    admin,
+    'shared_project_identifier_lookup_failed',
+  );
+  if (projectById) return projectById.id;
+
+  const projectByShareCode = await getProjectByShareCode(projectIdOrShareCode, admin);
+  return projectByShareCode?.id ?? null;
 }
 
 async function getOwnedOrMemberSharedProject(
@@ -242,13 +316,8 @@ async function getOwnedOrMemberSharedProject(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<SharedProjectSummary | null> {
-  const [projectResult, memberResult] = await Promise.all([
-    admin
-      .from('projects')
-      .select(PROJECT_SHARED_SELECT_COLUMNS)
-      .eq('id', projectId)
-      .not('share_id', 'is', null)
-      .maybeSingle<ProjectRow>(),
+  const [projectRow, memberResult] = await Promise.all([
+    fetchSharedProjectRowById(projectId, admin, 'shared_project_lookup_failed'),
     admin
       .from('project_members')
       .select('role')
@@ -258,25 +327,6 @@ async function getOwnedOrMemberSharedProject(
   ]);
 
   let projectMembersAvailable = true;
-  let projectRow: ProjectRow | null = null;
-
-  if (projectResult.error) {
-    if (getSharedProjectsSchemaIssue(projectResult.error) === 'share_scope') {
-      logSharedProjectsFallback('share_scope', projectResult.error);
-      const { data, error } = await admin
-        .from('projects')
-        .select(PROJECT_BASE_SELECT_COLUMNS)
-        .eq('id', projectId)
-        .not('share_id', 'is', null)
-        .maybeSingle<ProjectRow>();
-      if (error || !data) return null;
-      projectRow = data;
-    } else {
-      throw new Error((projectResult.error as { message?: string }).message || 'shared_project_lookup_failed');
-    }
-  } else {
-    projectRow = projectResult.data;
-  }
 
   if (!projectRow) return null;
 
@@ -306,6 +356,66 @@ async function getOwnedOrMemberSharedProject(
   return mapSharedProjectSummary(
     projectRow,
     accessRole,
+    metricsByProjectId,
+    profileByUserId,
+  );
+}
+
+async function getStudyGroupSharedProject(
+  projectId: string,
+  userId: string,
+  admin: SupabaseAdminClient,
+): Promise<SharedProjectSummary | null> {
+  const { data: groupProjectRows, error: groupProjectsError } = await admin
+    .from('study_group_projects')
+    .select('group_id')
+    .eq('project_id', projectId);
+
+  if (groupProjectsError) {
+    if (getSharedProjectsSchemaIssue(groupProjectsError) === 'study_group_projects') {
+      logSharedProjectsFallback('study_group_projects', groupProjectsError);
+      return null;
+    }
+
+    throw new Error(groupProjectsError.message || 'study_group_shared_project_lookup_failed');
+  }
+
+  const groupIds = Array.from(
+    new Set(((groupProjectRows ?? []) as StudyGroupProjectAccessRow[])
+      .map((row) => row.group_id)
+      .filter(Boolean)),
+  );
+  if (groupIds.length === 0) return null;
+
+  const { data: memberships, error: membershipsError } = await admin
+    .from('study_group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+    .in('group_id', groupIds)
+    .limit(1);
+
+  if (membershipsError) {
+    if (getSharedProjectsSchemaIssue(membershipsError) === 'study_group_members') {
+      logSharedProjectsFallback('study_group_members', membershipsError);
+      return null;
+    }
+
+    throw new Error(membershipsError.message || 'study_group_shared_project_membership_failed');
+  }
+
+  if (!((memberships ?? []) as StudyGroupProjectAccessRow[]).length) return null;
+
+  const projectRow = await fetchSharedProjectRowById(projectId, admin, 'study_group_shared_project_refresh_failed');
+  if (!projectRow) return null;
+
+  const [metricsByProjectId, profileByUserId] = await Promise.all([
+    getSharedProjectMetrics([projectId], admin),
+    getProfilesByUserIds(admin, [projectRow.user_id]),
+  ]);
+
+  return mapSharedProjectSummary(
+    projectRow,
+    'viewer',
     metricsByProjectId,
     profileByUserId,
   );
@@ -687,6 +797,30 @@ export function getSharedProjectsSchemaIssue(error: unknown): SharedSchemaDepend
   }
 
   if (
+    normalized.includes('study_group_projects')
+    && (
+      normalized.includes('does not exist')
+      || normalized.includes('relation')
+      || normalized.includes('schema cache')
+      || normalized.includes('could not find')
+    )
+  ) {
+    return 'study_group_projects';
+  }
+
+  if (
+    normalized.includes('study_group_members')
+    && (
+      normalized.includes('does not exist')
+      || normalized.includes('relation')
+      || normalized.includes('schema cache')
+      || normalized.includes('could not find')
+    )
+  ) {
+    return 'study_group_members';
+  }
+
+  if (
     normalized.includes('share_scope')
     && (
       normalized.includes('does not exist')
@@ -815,6 +949,39 @@ async function fetchProjectsByIds(
   }
 
   return (data ?? []) as unknown as ProjectRow[];
+}
+
+async function fetchSharedProjectRowById(
+  projectId: string,
+  admin: SupabaseAdminClient,
+  fallbackMessage: string,
+  includeShareScope = true,
+  includeSharedTags = true,
+): Promise<ProjectRow | null> {
+  const baseColumns = includeSharedTags ? PROJECT_BASE_SELECT_COLUMNS : PROJECT_BASE_SELECT_COLUMNS_WITHOUT_SHARED_TAGS;
+  const sharedColumns = includeSharedTags ? PROJECT_SHARED_SELECT_COLUMNS : PROJECT_SHARED_SELECT_COLUMNS_WITHOUT_SHARED_TAGS;
+  const { data, error } = await admin
+    .from('projects')
+    .select(includeShareScope ? sharedColumns : baseColumns)
+    .eq('id', projectId)
+    .not('share_id', 'is', null)
+    .maybeSingle<ProjectRow>();
+
+  if (error) {
+    const schemaIssue = getSharedProjectsSchemaIssue(error);
+    if (includeShareScope && schemaIssue === 'share_scope') {
+      logSharedProjectsFallback('share_scope', error);
+      return fetchSharedProjectRowById(projectId, admin, fallbackMessage, false, includeSharedTags);
+    }
+    if (includeSharedTags && schemaIssue === 'shared_tags') {
+      logSharedProjectsFallback('shared_tags', error);
+      return fetchSharedProjectRowById(projectId, admin, fallbackMessage, includeShareScope, false);
+    }
+
+    throw new Error(error.message || fallbackMessage);
+  }
+
+  return data ?? null;
 }
 
 async function fetchPublicProjectsPage(

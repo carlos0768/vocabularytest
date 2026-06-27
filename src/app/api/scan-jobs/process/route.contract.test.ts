@@ -13,6 +13,10 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const NEW_PROJECT_ID = '22222222-2222-4222-8222-222222222222';
 const EXISTING_PROJECT_ID = '33333333-3333-4333-8333-333333333333';
 
+function nextTimerTick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 type QueryAction = 'update' | 'select' | 'insert' | 'upsert' | 'delete' | 'storage.download';
 
 interface QueryFilter {
@@ -437,6 +441,12 @@ function createContractDeps(
         },
       },
     }),
+    prefillWordOrderQuizzes: async () => ({
+      requested: 0,
+      generated: 0,
+      persisted: 0,
+      failed: 0,
+    }),
     sendPushNotifications: async () => undefined,
     sendApnsNotifications: async () => undefined,
     flushTiming: async () => undefined,
@@ -559,9 +569,11 @@ test('client_local completion keeps result payload successful when example gener
         throw new Error('JSON parse failed');
       },
       sendPushNotifications: async (_client, params) => {
+        await nextTimerTick();
         pushNotifications.push(params);
       },
       sendApnsNotifications: async (_client, params) => {
+        await nextTimerTick();
         apnsNotifications.push(params);
       },
     }),
@@ -948,6 +960,94 @@ test('server_cloud new project completion keeps project insert, words insert, an
       status: 'completed',
     },
   ]);
+});
+
+test('server_cloud pre-generates word-order quiz before marking the scan job completed', async () => {
+  const trace: string[] = [];
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob(),
+    userPreference: { ai_enabled: true },
+    trace,
+  });
+
+  const response = await processJobById(
+    JOB_ID,
+    createServerCloudContractDeps(client, {
+      extractImage: async () => ({
+        result: {
+          success: true,
+          data: {
+            words: [
+              {
+                english: 'take care',
+                japanese: '世話をする',
+                japaneseSource: 'scan',
+                distractors: [],
+                partOfSpeechTags: [],
+              },
+            ],
+            sourceLabels: ['鉄壁'],
+          },
+        },
+      }),
+      prefillWordOrderQuizzes: async (words, options) => {
+        assert.equal(words.length, 1);
+        assert.equal(words[0]?.english, 'take care');
+        trace.push('word-order-prefill:start');
+        await options.getUpdateClient()
+          .from('words')
+          .update({
+            word_order_quiz: {
+              version: 1,
+              sourceEnglish: 'take care',
+              sourceJapanese: '世話をする',
+              sentenceTokens: ['___', 'care'],
+              answerTokens: ['take'],
+              decoyTokens: ['make', 'keep', 'hold'],
+              generatedAt: '2026-06-27T00:00:00.000Z',
+            },
+          })
+          .eq('id', 'word-1');
+        trace.push('word-order-prefill:end');
+        return {
+          requested: 1,
+          generated: 1,
+          persisted: 1,
+          failed: 0,
+        };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(trace.filter((event) => [
+    'db:projects.insert',
+    'db:words.insert',
+    'db:word_translations.upsert',
+    'word-order-prefill:start',
+    'db:words.update',
+    'word-order-prefill:end',
+    'db:scan_jobs.completed',
+  ].includes(event)), [
+    'db:projects.insert',
+    'db:words.insert',
+    'db:word_translations.upsert',
+    'word-order-prefill:start',
+    'db:words.update',
+    'word-order-prefill:end',
+    'db:scan_jobs.completed',
+  ]);
+
+  const wordOrderUpdate = findOperation(
+    client,
+    (operation) =>
+      operation.table === 'words' &&
+      operation.action === 'update' &&
+      isRecord(operation.payload) &&
+      isRecord(operation.payload.word_order_quiz),
+    'missing word_order_quiz update',
+  );
+  assert.deepEqual(wordOrderUpdate.filters, [{ field: 'id', value: 'word-1' }]);
 });
 
 test('server_cloud retries words insert without source_modes when the database schema is older', async () => {

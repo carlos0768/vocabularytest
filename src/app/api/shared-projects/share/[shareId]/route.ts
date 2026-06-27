@@ -3,11 +3,13 @@ import {
   extractShareCode,
   getSharedProjectPreviewByShareCode,
 } from '../../shared';
+import { getSharedWordbookPreview } from '../../shared-wordbooks';
 
 type Params = { params: Promise<{ shareId: string }> };
 
 type SharedProjectPreviewGetDeps = {
   extractShareCode?: typeof extractShareCode;
+  getSharedWordbookPreview?: typeof getSharedWordbookPreview;
   getSharedProjectPreviewByShareCode?: typeof getSharedProjectPreviewByShareCode;
 };
 
@@ -17,7 +19,8 @@ export async function handleSharedProjectPreviewGet(
   deps: SharedProjectPreviewGetDeps = {},
 ) {
   const parseShareCode = deps.extractShareCode ?? extractShareCode;
-  const fetchPreview = deps.getSharedProjectPreviewByShareCode ?? getSharedProjectPreviewByShareCode;
+  const fetchSharedWordbookPreview = deps.getSharedWordbookPreview ?? getSharedWordbookPreview;
+  const fetchSharedProjectPreview = deps.getSharedProjectPreviewByShareCode ?? getSharedProjectPreviewByShareCode;
 
   try {
     const { shareId } = await params;
@@ -27,7 +30,9 @@ export async function handleSharedProjectPreviewGet(
     }
 
     const limit = Number(request.nextUrl.searchParams.get('limit') ?? '');
-    const preview = await fetchPreview(shareCode, Number.isFinite(limit) ? limit : undefined);
+    const wordLimit = Number.isFinite(limit) ? limit : undefined;
+    const preview = await fetchSharedWordbookPreview(shareCode, wordLimit)
+      ?? await fetchSharedProjectPreview(shareCode, wordLimit);
     if (!preview) {
       return NextResponse.json({ success: false, error: '共有単語帳が見つかりません。' }, { status: 404 });
     }

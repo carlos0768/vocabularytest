@@ -20,6 +20,7 @@ import {
 } from '@/lib/home/home-session-storage';
 import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
 import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
+import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
 import {
   prepareScanConfirmForNewProject,
   saveScanConfirmProjectDraft,
@@ -46,7 +47,7 @@ const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[
   { k: 'circled', label: '丸囲み',           hint: '手動マークを優先' },
   { k: 'eiken',  label: '英検',             hint: '級別頻出語を優先', pro: true },
   { k: 'idiom',  label: '熟語・イディオム', hint: '複合語・熟語を抽出' },
-  { k: 'all',    label: 'すべての単語',     hint: '全単語を網羅' },
+  { k: 'all',    label: '単語帳取込',       hint: '単語帳形式の単語を抽出' },
 ];
 
 interface HeldShot {
@@ -121,6 +122,12 @@ export function ScanCapturePanel({
     const supabase = createBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
+
+    setProcessingLabel('通知を準備中...');
+    await ensureBackgroundScanPushSubscription(
+      session.access_token,
+      '[ScanCapturePanel]',
+    );
 
     return createHomeBackgroundScanJob({
       files,

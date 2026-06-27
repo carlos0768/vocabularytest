@@ -15,7 +15,11 @@ import { getDb } from '@/lib/db/dexie';
 import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
-import type { AIWordExtraction, LexiconEntry, Word } from '@/types';
+import {
+  isWordOrderEligible,
+  normalizeWordOrderQuizCache,
+} from '@/lib/quiz/word-order';
+import type { AIWordExtraction, LexiconEntry, Word, WordOrderQuizCache } from '@/types';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 
 interface EditableWord extends AIWordExtraction {
@@ -167,32 +171,72 @@ export default function ConfirmPage() {
     const headers = await getAuthHeaders();
     const seedWords = createdWords
       .filter((w) => w.english.trim().length > 0 && w.japanese.trim().length > 0 &&
+        !isWordOrderEligible(w) &&
         (!hasValidDistractors(w.distractors) || !hasExampleSentence(w.exampleSentence) || !hasPronunciation(w.pronunciation) || !hasPartOfSpeechTags(w.partOfSpeechTags)))
       .map((w) => ({ id: w.id, english: w.english, japanese: w.japanese }));
-    if (seedWords.length === 0) return createdWords;
+    const wordOrderSeedWords = createdWords
+      .filter((w) => w.english.trim().length > 0 && w.japanese.trim().length > 0 &&
+        isWordOrderEligible(w) &&
+        !normalizeWordOrderQuizCache(w, w.wordOrderQuiz))
+      .map((w) => ({ id: w.id, english: w.english, japanese: w.japanese }));
+    if (seedWords.length === 0 && wordOrderSeedWords.length === 0) return createdWords;
 
     const resultMap = new Map<string, { distractors: string[]; partOfSpeechTags: string[]; pronunciation: string; exampleSentence: string; exampleSentenceJa: string }>();
-    const batches = chunkArray(seedWords, QUIZ_PREFILL_BATCH_SIZE);
+    if (seedWords.length > 0) {
+      const batches = chunkArray(seedWords, QUIZ_PREFILL_BATCH_SIZE);
 
-    for (const batch of batches) {
-      let pending = batch;
-      for (let attempt = 1; attempt <= QUIZ_PREFILL_MAX_ATTEMPTS && pending.length > 0; attempt += 1) {
-        try {
-          const response = await fetch('/api/generate-quiz-distractors', { method: 'POST', headers, body: JSON.stringify({ words: pending }) });
-          if (!response.ok) throw new Error(`prefill request failed: ${response.status}`);
-          const data = await response.json();
-          if (!data.success || !Array.isArray(data.results)) throw new Error('prefill response format is invalid');
-          const succeeded = new Set<string>();
-          for (const result of data.results) {
-            if (!result?.wordId || !Array.isArray(result.distractors)) continue;
-            succeeded.add(result.wordId);
-            resultMap.set(result.wordId, { distractors: result.distractors, partOfSpeechTags: Array.isArray(result.partOfSpeechTags) ? result.partOfSpeechTags : [], pronunciation: result.pronunciation || '', exampleSentence: result.exampleSentence || '', exampleSentenceJa: result.exampleSentenceJa || '' });
+      for (const batch of batches) {
+        let pending = batch;
+        for (let attempt = 1; attempt <= QUIZ_PREFILL_MAX_ATTEMPTS && pending.length > 0; attempt += 1) {
+          try {
+            const response = await fetch('/api/generate-quiz-distractors', { method: 'POST', headers, body: JSON.stringify({ words: pending }) });
+            if (!response.ok) throw new Error(`prefill request failed: ${response.status}`);
+            const data = await response.json();
+            if (!data.success || !Array.isArray(data.results)) throw new Error('prefill response format is invalid');
+            const succeeded = new Set<string>();
+            for (const result of data.results) {
+              if (!result?.wordId || !Array.isArray(result.distractors)) continue;
+              succeeded.add(result.wordId);
+              resultMap.set(result.wordId, { distractors: result.distractors, partOfSpeechTags: Array.isArray(result.partOfSpeechTags) ? result.partOfSpeechTags : [], pronunciation: result.pronunciation || '', exampleSentence: result.exampleSentence || '', exampleSentenceJa: result.exampleSentenceJa || '' });
+            }
+            pending = pending.filter((w) => !succeeded.has(w.id));
+            if (pending.length > 0 && attempt < QUIZ_PREFILL_MAX_ATTEMPTS) await sleep(250 * attempt);
+          } catch (error) {
+            if (attempt >= QUIZ_PREFILL_MAX_ATTEMPTS) { console.error('Quiz prefill failed:', error); break; }
+            await sleep(250 * attempt);
           }
-          pending = pending.filter((w) => !succeeded.has(w.id));
-          if (pending.length > 0 && attempt < QUIZ_PREFILL_MAX_ATTEMPTS) await sleep(250 * attempt);
-        } catch (error) {
-          if (attempt >= QUIZ_PREFILL_MAX_ATTEMPTS) { console.error('Quiz prefill failed:', error); break; }
-          await sleep(250 * attempt);
+        }
+      }
+    }
+
+    const wordById = new Map(createdWords.map((word) => [word.id, word]));
+    const wordOrderResultMap = new Map<string, WordOrderQuizCache>();
+    if (wordOrderSeedWords.length > 0) {
+      const batches = chunkArray(wordOrderSeedWords, QUIZ_PREFILL_BATCH_SIZE);
+      for (const batch of batches) {
+        let pending = batch;
+        for (let attempt = 1; attempt <= QUIZ_PREFILL_MAX_ATTEMPTS && pending.length > 0; attempt += 1) {
+          try {
+            const response = await fetch('/api/generate-word-order-quiz', { method: 'POST', headers, body: JSON.stringify({ words: pending }) });
+            if (!response.ok) throw new Error(`word-order prefill request failed: ${response.status}`);
+            const data = await response.json();
+            if (!data.success || !Array.isArray(data.results)) throw new Error('word-order prefill response format is invalid');
+            const succeeded = new Set<string>();
+            for (const result of data.results as Array<{ wordId?: unknown; quiz?: unknown }>) {
+              if (typeof result?.wordId !== 'string') continue;
+              const sourceWord = wordById.get(result.wordId);
+              if (!sourceWord) continue;
+              const quiz = normalizeWordOrderQuizCache(sourceWord, result.quiz);
+              if (!quiz) continue;
+              succeeded.add(result.wordId);
+              wordOrderResultMap.set(result.wordId, quiz);
+            }
+            pending = pending.filter((w) => !succeeded.has(w.id));
+            if (pending.length > 0 && attempt < QUIZ_PREFILL_MAX_ATTEMPTS) await sleep(250 * attempt);
+          } catch (error) {
+            if (attempt >= QUIZ_PREFILL_MAX_ATTEMPTS) { console.error('Word-order quiz prefill failed:', error); break; }
+            await sleep(250 * attempt);
+          }
         }
       }
     }
@@ -200,23 +244,33 @@ export default function ConfirmPage() {
     const updates: Array<Promise<void>> = [];
     for (const word of createdWords) {
       const generated = resultMap.get(word.id);
-      if (!generated) continue;
-      const patch: Partial<Word> = { distractors: generated.distractors, partOfSpeechTags: generated.partOfSpeechTags };
-      if (generated.pronunciation.trim().length > 0) patch.pronunciation = generated.pronunciation;
-      if (generated.exampleSentence.trim().length > 0) { patch.exampleSentence = generated.exampleSentence; patch.exampleSentenceJa = generated.exampleSentenceJa; }
+      const wordOrderQuiz = wordOrderResultMap.get(word.id);
+      if (!generated && !wordOrderQuiz) continue;
+      const patch: Partial<Word> = {};
+      if (generated) {
+        patch.distractors = generated.distractors;
+        patch.partOfSpeechTags = generated.partOfSpeechTags;
+        if (generated.pronunciation.trim().length > 0) patch.pronunciation = generated.pronunciation;
+        if (generated.exampleSentence.trim().length > 0) { patch.exampleSentence = generated.exampleSentence; patch.exampleSentenceJa = generated.exampleSentenceJa; }
+      }
+      if (wordOrderQuiz) patch.wordOrderQuiz = wordOrderQuiz;
       updates.push(updateWord(word.id, patch));
     }
     await Promise.all(updates);
 
     return createdWords.map((word) => {
       const generated = resultMap.get(word.id);
-      if (!generated) return word;
+      const wordOrderQuiz = wordOrderResultMap.get(word.id);
+      if (!generated && !wordOrderQuiz) return word;
       return {
         ...word,
-        distractors: generated.distractors,
-        partOfSpeechTags: generated.partOfSpeechTags,
-        ...(generated.pronunciation.trim().length > 0 ? { pronunciation: generated.pronunciation } : {}),
-        ...(generated.exampleSentence.trim().length > 0 ? { exampleSentence: generated.exampleSentence, exampleSentenceJa: generated.exampleSentenceJa } : {}),
+        ...(generated ? {
+          distractors: generated.distractors,
+          partOfSpeechTags: generated.partOfSpeechTags,
+          ...(generated.pronunciation.trim().length > 0 ? { pronunciation: generated.pronunciation } : {}),
+          ...(generated.exampleSentence.trim().length > 0 ? { exampleSentence: generated.exampleSentence, exampleSentenceJa: generated.exampleSentenceJa } : {}),
+        } : {}),
+        ...(wordOrderQuiz ? { wordOrderQuiz } : {}),
       };
     });
   };

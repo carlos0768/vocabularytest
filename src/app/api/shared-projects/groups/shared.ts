@@ -5,7 +5,12 @@ import type {
   SharedProjectAccessRole,
   SharedProjectCard,
   SharedProjectMetrics,
+  StudyGroupFeedEvent,
+  StudyGroupLeaderboardEntry,
+  StudyGroupMember,
   StudyGroupMembershipRole,
+  StudyGroupMissedWord,
+  StudyGroupOverviewPayload,
   StudyGroupProjectListPayload,
   StudyGroupStrugglingWord,
   StudyGroupStrugglingWordsPayload,
@@ -33,24 +38,21 @@ type StudyGroupMembershipRow = {
   created_at?: string | null;
 };
 
-type StudyGroupMemberUserRow = {
-  user_id: string;
-};
-
 type StudyGroupProjectRow = {
   group_id?: string;
   project_id: string;
+  added_by_user_id?: string | null;
   created_at?: string | null;
 };
 
-type StudyGroupWrongAnswerRow = {
+type StudyGroupMissedWordRow = {
   user_id: string;
-  word_id: string;
+  word_id: string | null;
   project_id: string | null;
+  english_key: string | null;
   english: string | null;
   japanese: string | null;
-  wrong_count: number | null;
-  last_wrong_at: string | null;
+  created_at: string | null;
 };
 
 type StudyGroupCounts = {
@@ -85,7 +87,6 @@ const CREATE_INVITE_CODE_RETRIES = 5;
 const DEFAULT_PUBLIC_GROUP_PAGE_SIZE = 12;
 const MAX_PUBLIC_GROUP_PAGE_SIZE = 36;
 export const STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT = 5;
-const STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE = 1000;
 
 export function normalizeGroupInviteCode(input: string): string | null {
   const normalized = input.trim().replace(/[\s-]+/g, '');
@@ -204,10 +205,12 @@ export async function listPublicStudyGroups(
   const query = normalizeSearchQuery(options.query);
   const fetchSize = query ? Math.max(limit + 1, 80) : limit + 1;
 
+  // Every group is discoverable so non-members can confirm it exists. Joining
+  // is still gated by the invite code, so listing private groups here only
+  // reveals their existence (name + counts), never their contents.
   let request = admin
     .from('study_groups')
     .select(STUDY_GROUP_SELECT_COLUMNS)
-    .eq('visibility', 'public')
     .order('created_at', { ascending: false })
     .order('id', { ascending: false });
 
@@ -238,7 +241,7 @@ export async function listPublicStudyGroups(
       return {
         id: row.id,
         name: row.name,
-        visibility: 'public' as const,
+        visibility: normalizeStudyGroupVisibility(row.visibility),
         memberCount: counts.memberCount,
         projectCount: counts.projectCount,
         createdAt: row.created_at,
@@ -248,6 +251,43 @@ export async function listPublicStudyGroups(
     nextCursor: matchingRows.length > limit
       ? encodePublicGroupCursor(matchingRows[limit - 1]!)
       : null,
+  };
+}
+
+export async function getPublicStudyGroupPreview(
+  groupId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<PublicStudyGroupSummary | null> {
+  const { data: group, error } = await admin
+    .from('study_groups')
+    .select(STUDY_GROUP_SELECT_COLUMNS)
+    .eq('id', groupId)
+    .maybeSingle<StudyGroupRow>();
+
+  if (error) {
+    throw new Error(error.message || 'public_study_group_preview_failed');
+  }
+  // Any existing group can be previewed so non-members can confirm it exists
+  // before joining. The preview never exposes the invite code or contents —
+  // joining still requires entering the invite code.
+  if (!group) {
+    return null;
+  }
+
+  const [countsByGroupId, ownerUsernameByUserId] = await Promise.all([
+    getStudyGroupCounts([group.id], admin),
+    getUsernamesByUserIds(admin, [group.owner_user_id]),
+  ]);
+  const counts = countsByGroupId.get(group.id) ?? { memberCount: 0, projectCount: 0 };
+
+  return {
+    id: group.id,
+    name: group.name,
+    visibility: normalizeStudyGroupVisibility(group.visibility),
+    memberCount: counts.memberCount,
+    projectCount: counts.projectCount,
+    createdAt: group.created_at,
+    ownerUsername: ownerUsernameByUserId.get(group.owner_user_id) ?? null,
   };
 }
 
@@ -298,7 +338,7 @@ export async function listStudyGroupProjects(
 
   const { data: projectLinks, error: projectLinksError } = await admin
     .from('study_group_projects')
-    .select('project_id,created_at')
+    .select('project_id,created_at,added_by_user_id')
     .eq('group_id', groupId)
     .order('created_at', { ascending: false });
 
@@ -313,6 +353,7 @@ export async function listStudyGroupProjects(
     ? await fetchGroupProjectsByIds(admin, projectIds)
     : [];
   const projectById = new Map(projects.map((row) => [row.id, row]));
+  const linkByProjectId = new Map(projectRows.map((row) => [row.project_id, row]));
   const orderedProjects = projectRows
     .map((row) => projectById.get(row.project_id))
     .filter((row): row is ProjectRow => Boolean(row));
@@ -325,17 +366,295 @@ export async function listStudyGroupProjects(
 
   return {
     group: summary,
-    projects: orderedProjects.map((row) => mapSharedProjectCardForGroup(
-      row,
-      row.user_id === userId ? 'owner' : 'viewer',
-      metricsByProjectId,
-      usernameByUserId,
-    )),
+    projects: orderedProjects.map((row) => {
+      const link = linkByProjectId.get(row.id);
+      return mapSharedProjectCardForGroup(
+        row,
+        row.user_id === userId ? 'owner' : 'viewer',
+        metricsByProjectId,
+        usernameByUserId,
+        {
+          groupId,
+          canRemove: membership.role === 'owner' || row.user_id === userId || link?.added_by_user_id === userId,
+          sharedByCurrentUser: link?.added_by_user_id === userId,
+        },
+      );
+    }),
+  };
+}
+
+export async function getStudyGroupOverview(
+  groupId: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupOverviewPayload | null> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return null;
+
+  const memberRoles = await getStudyGroupMemberRoles(groupId, admin);
+  const memberUserIds = Array.from(memberRoles.keys());
+
+  const [projectPayload, leaderboard] = await Promise.all([
+    listStudyGroupProjects(groupId, userId, admin),
+    getStudyGroupLeaderboard(memberUserIds, userId, admin),
+  ]);
+
+  if (!projectPayload) return null;
+
+  const members = buildStudyGroupMembers(memberRoles, leaderboard, userId);
+
+  // "Struggling words" are aggregated ONLY from words inside the group's
+  // wordbooks: the shared projects themselves plus the copies members imported
+  // from them (tracked via projects.imported_from_share_id).
+  const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
+  const missedWordSummary = await getStudyGroupMissedWordSummary(
+    memberUserIds,
+    groupProjectIds,
+    admin,
+    STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT,
+  );
+
+  return {
+    group: projectPayload.group,
+    projects: projectPayload.projects,
+    members,
+    leaderboard,
+    missedWords: missedWordSummary.words.map(mapStrugglingWordToMissedWord),
+    missedWordsTotalCount: missedWordSummary.totalCount,
+    viewerUserId: userId,
+  };
+}
+
+/**
+ * Joins the group's membership roster (with roles) against the leaderboard
+ * entries (which already carry resolved usernames + account IDs) to produce a
+ * directory of members. Owners sort first, then by display name.
+ */
+function buildStudyGroupMembers(
+  memberRoles: Map<string, StudyGroupMembershipRole>,
+  leaderboard: StudyGroupLeaderboardEntry[],
+  viewerUserId: string,
+): StudyGroupMember[] {
+  const profileByUserId = new Map(leaderboard.map((entry) => [entry.userId, entry]));
+
+  return Array.from(memberRoles.entries())
+    .map(([memberUserId, role]) => {
+      const profile = profileByUserId.get(memberUserId);
+      return {
+        userId: memberUserId,
+        username: profile?.username ?? null,
+        accountId: profile?.accountId ?? null,
+        role,
+        isViewer: memberUserId === viewerUserId,
+      };
+    })
+    .sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'owner' ? -1 : 1;
+      const aLabel = a.username ?? a.accountId ?? a.userId;
+      const bLabel = b.username ?? b.accountId ?? b.userId;
+      return aLabel.localeCompare(bLabel);
+    });
+}
+
+async function getStudyGroupMemberRoles(
+  groupId: string,
+  admin: SupabaseAdminClient,
+): Promise<Map<string, StudyGroupMembershipRole>> {
+  const { data, error } = await admin
+    .from('study_group_members')
+    .select('user_id,role')
+    .eq('group_id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_members_lookup_failed');
+  }
+
+  const roles = new Map<string, StudyGroupMembershipRole>();
+  for (const row of (data ?? []) as Array<{ user_id: string; role: string | null }>) {
+    if (!row.user_id || roles.has(row.user_id)) continue;
+    roles.set(row.user_id, normalizeStudyGroupRole(row.role));
+  }
+  return roles;
+}
+
+/**
+ * Resolves the set of project IDs that count as "this group's wordbooks":
+ * the shared projects and every member-owned copy imported from one of them.
+ */
+async function getGroupWordbookProjectIds(
+  sharedProjects: SharedProjectCard[],
+  memberUserIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<string[]> {
+  const projectIds = new Set<string>();
+  const shareIds = new Set<string>();
+  for (const card of sharedProjects) {
+    projectIds.add(card.project.id);
+    if (card.project.shareId) shareIds.add(card.project.shareId);
+  }
+
+  if (shareIds.size > 0 && memberUserIds.length > 0) {
+    const { data, error } = await admin
+      .from('projects')
+      .select('id')
+      .in('user_id', memberUserIds)
+      .in('imported_from_share_id', Array.from(shareIds));
+
+    if (error) {
+      if (!isMissingRelationError(error, 'imported_from_share_id')) {
+        throw new Error(error.message || 'group_imported_projects_lookup_failed');
+      }
+    } else {
+      for (const row of (data ?? []) as Array<{ id: string }>) {
+        projectIds.add(row.id);
+      }
+    }
+  }
+
+  return Array.from(projectIds);
+}
+
+async function getStudyGroupMemberUserIds(
+  groupId: string,
+  admin: SupabaseAdminClient,
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from('study_group_members')
+    .select('user_id')
+    .eq('group_id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_members_lookup_failed');
+  }
+
+  return Array.from(new Set(((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id)));
+}
+
+async function getStudyGroupLeaderboard(
+  memberUserIds: string[],
+  viewerUserId: string,
+  admin: SupabaseAdminClient,
+): Promise<StudyGroupLeaderboardEntry[]> {
+  if (memberUserIds.length === 0) return [];
+
+  const totals = new Map<string, { quizCount: number; masteredCount: number }>();
+  for (const id of memberUserIds) {
+    totals.set(id, { quizCount: 0, masteredCount: 0 });
+  }
+
+  const { data, error } = await admin
+    .from('quiz_sessions')
+    .select('user_id,answer_count,mastered_count')
+    .in('user_id', memberUserIds);
+
+  if (error) {
+    // Older environments may not have quiz_sessions yet — degrade gracefully.
+    if (!isMissingRelationError(error, 'quiz_sessions')) {
+      throw new Error(error.message || 'study_group_leaderboard_lookup_failed');
+    }
+  } else {
+    for (const row of (data ?? []) as Array<{ user_id: string; answer_count: number | string | null; mastered_count: number | string | null }>) {
+      const current = totals.get(row.user_id) ?? { quizCount: 0, masteredCount: 0 };
+      current.quizCount += Number(row.answer_count ?? 0) || 0;
+      current.masteredCount += Number(row.mastered_count ?? 0) || 0;
+      totals.set(row.user_id, current);
+    }
+  }
+
+  const profiles = await getMemberProfiles(memberUserIds, admin);
+
+  return memberUserIds
+    .map((id) => {
+      const totalsForUser = totals.get(id) ?? { quizCount: 0, masteredCount: 0 };
+      const profile = profiles.get(id);
+      return {
+        userId: id,
+        username: profile?.username ?? null,
+        accountId: profile?.accountId ?? null,
+        quizCount: totalsForUser.quizCount,
+        masteredCount: totalsForUser.masteredCount,
+        isViewer: id === viewerUserId,
+      };
+    })
+    .sort((a, b) => {
+      if (b.quizCount !== a.quizCount) return b.quizCount - a.quizCount;
+      if (b.masteredCount !== a.masteredCount) return b.masteredCount - a.masteredCount;
+      return (a.accountId ?? a.userId).localeCompare(b.accountId ?? b.userId);
+    });
+}
+
+export async function listStudyGroupStrugglingWords(
+  groupId: string,
+  userId: string,
+  options: { limit?: number | null } = {},
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupStrugglingWordsPayload | null> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return null;
+
+  const memberRoles = await getStudyGroupMemberRoles(groupId, admin);
+  const memberUserIds = Array.from(memberRoles.keys());
+  const projectPayload = await listStudyGroupProjects(groupId, userId, admin);
+  if (!projectPayload) return null;
+
+  const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
+  const missedWordSummary = await getStudyGroupMissedWordSummary(
+    memberUserIds,
+    groupProjectIds,
+    admin,
+    options.limit ?? null,
+  );
+
+  return {
+    group: projectPayload.group,
+    words: missedWordSummary.words,
+    totalCount: missedWordSummary.totalCount,
+  };
+}
+
+type StudyGroupMissedWordSummary = {
+  words: StudyGroupStrugglingWord[];
+  totalCount: number;
+};
+
+async function getStudyGroupMissedWordSummary(
+  memberUserIds: string[],
+  groupProjectIds: string[],
+  admin: SupabaseAdminClient,
+  limit: number | null,
+): Promise<StudyGroupMissedWordSummary> {
+  // No members or no group wordbooks → nothing to aggregate. Struggling words
+  // are intentionally scoped to words that live in the group's wordbooks.
+  if (memberUserIds.length === 0 || groupProjectIds.length === 0) {
+    return { words: [], totalCount: 0 };
+  }
+
+  const { data, error } = await admin
+    .from('quiz_word_misses')
+    .select('user_id,word_id,project_id,english_key,english,japanese,created_at')
+    .in('user_id', memberUserIds)
+    .in('project_id', groupProjectIds)
+    .order('created_at', { ascending: false })
+    .limit(2000);
+
+  if (error) {
+    if (isMissingRelationError(error, 'quiz_word_misses')) return { words: [], totalCount: 0 };
+    throw new Error(error.message || 'study_group_missed_words_lookup_failed');
+  }
+
+  const allWords = aggregateStudyGroupStrugglingWords((data ?? []) as StudyGroupMissedWordRow[]);
+  const normalizedLimit = typeof limit === 'number' && Number.isFinite(limit)
+    ? Math.max(0, Math.floor(limit))
+    : null;
+
+  return {
+    words: normalizedLimit === null ? allWords : allWords.slice(0, normalizedLimit),
+    totalCount: allWords.length,
   };
 }
 
 export function aggregateStudyGroupStrugglingWords(
-  rows: StudyGroupWrongAnswerRow[],
+  rows: StudyGroupMissedWordRow[],
 ): StudyGroupStrugglingWord[] {
   const aggregated = new Map<string, StudyGroupStrugglingWord & { userIds: Set<string> }>();
 
@@ -344,19 +663,16 @@ export function aggregateStudyGroupStrugglingWords(
     const japanese = row.japanese?.trim();
     if (!english || !japanese) continue;
 
-    const key = `${english.toLowerCase()}::${japanese}`;
-    const wrongCount = Math.max(0, row.wrong_count ?? 0);
-    if (wrongCount === 0) continue;
-
+    const key = row.english_key?.trim() || `${english.toLowerCase()}::${japanese}`;
+    const lastWrongAt = row.created_at ?? new Date(0).toISOString();
     const current = aggregated.get(key);
-    const lastWrongAt = row.last_wrong_at ?? new Date(0).toISOString();
     if (current) {
-      current.wrongCount += wrongCount;
+      current.wrongCount += 1;
       current.userIds.add(row.user_id);
       current.learnerCount = current.userIds.size;
       if (lastWrongAt > current.lastWrongAt) {
         current.lastWrongAt = lastWrongAt;
-        current.wordId = row.word_id;
+        current.wordId = row.word_id ?? '';
         current.projectId = row.project_id ?? '';
       }
       continue;
@@ -364,11 +680,11 @@ export function aggregateStudyGroupStrugglingWords(
 
     aggregated.set(key, {
       key,
-      wordId: row.word_id,
+      wordId: row.word_id ?? '',
       projectId: row.project_id ?? '',
       english,
       japanese,
-      wrongCount,
+      wrongCount: 1,
       learnerCount: 1,
       lastWrongAt,
       userIds: new Set([row.user_id]),
@@ -385,68 +701,163 @@ export function aggregateStudyGroupStrugglingWords(
     ));
 }
 
-export async function listStudyGroupStrugglingWords(
-  groupId: string,
-  userId: string,
-  options: { limit?: number | null } = {},
-  admin: SupabaseAdminClient = getSupabaseAdmin(),
-): Promise<StudyGroupStrugglingWordsPayload | null> {
-  const membership = await getStudyGroupMembership(groupId, userId, admin);
-  if (!membership) return null;
+function mapStrugglingWordToMissedWord(word: StudyGroupStrugglingWord): StudyGroupMissedWord {
+  return {
+    englishKey: word.key,
+    english: word.english,
+    japanese: word.japanese,
+    missCount: word.wrongCount,
+  };
+}
 
-  const { data: memberRows, error: memberError } = await admin
-    .from('study_group_members')
-    .select('user_id')
-    .eq('group_id', groupId);
+async function getMemberProfiles(
+  userIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<Map<string, { username: string | null; accountId: string | null }>> {
+  const result = new Map<string, { username: string | null; accountId: string | null }>();
+  const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return result;
 
-  if (memberError) {
-    throw new Error(memberError.message || 'study_group_members_lookup_failed');
-  }
+  const { data, error } = await admin
+    .from('profiles')
+    .select('user_id, username, account_id')
+    .in('user_id', uniqueIds);
 
-  const memberUserIds = Array.from(new Set(
-    ((memberRows ?? []) as StudyGroupMemberUserRow[])
-      .map((row) => row.user_id)
-      .filter(Boolean),
-  ));
-
-  const summaryPromise = getStudyGroupSummaryForUser(groupId, userId, admin);
-  if (memberUserIds.length === 0) {
-    return {
-      group: await summaryPromise,
-      words: [],
-      totalCount: 0,
-    };
-  }
-
-  const rows: StudyGroupWrongAnswerRow[] = [];
-  for (let offset = 0; ; offset += STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE) {
-    const { data, error } = await admin
-      .from('user_wrong_answers')
-      .select('user_id,word_id,project_id,english,japanese,wrong_count,last_wrong_at')
-      .in('user_id', memberUserIds)
-      .order('wrong_count', { ascending: false })
-      .order('last_wrong_at', { ascending: false })
-      .range(offset, offset + STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE - 1);
-
-    if (error) {
-      throw new Error(error.message || 'study_group_wrong_answers_lookup_failed');
+  if (error) {
+    // Fall back to username-only lookup when account_id is unavailable.
+    const usernames = await getUsernamesByUserIds(admin, uniqueIds);
+    for (const id of uniqueIds) {
+      result.set(id, { username: usernames.get(id) ?? null, accountId: null });
     }
-
-    const page = (data ?? []) as StudyGroupWrongAnswerRow[];
-    rows.push(...page);
-    if (page.length < STUDY_GROUP_WRONG_ANSWER_PAGE_SIZE) break;
+    return result;
   }
 
-  const allWords = aggregateStudyGroupStrugglingWords(rows);
-  const limit = typeof options.limit === 'number' && Number.isFinite(options.limit)
-    ? Math.max(0, Math.floor(options.limit))
-    : null;
+  for (const row of (data ?? []) as Array<{ user_id: string; username: string | null; account_id: string | null }>) {
+    result.set(row.user_id, {
+      username: (row.username ?? null) || null,
+      accountId: (row.account_id ?? null) || null,
+    });
+  }
+  return result;
+}
+
+/**
+ * Records a `project_added` feed event for the group and returns the user IDs of
+ * the other members who should be notified. Safe to call from a background task.
+ */
+export async function recordStudyGroupProjectAddedEvent(
+  groupId: string,
+  projectId: string,
+  actorUserId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<{ recipientUserIds: string[]; groupName: string; projectTitle: string; actorName: string | null }> {
+  const [groupResult, projectResult, memberUserIds, actorProfiles] = await Promise.all([
+    admin.from('study_groups').select('name').eq('id', groupId).maybeSingle<{ name: string }>(),
+    admin.from('projects').select('title').eq('id', projectId).maybeSingle<{ title: string }>(),
+    getStudyGroupMemberUserIds(groupId, admin),
+    getMemberProfiles([actorUserId], admin),
+  ]);
+
+  const groupName = groupResult.data?.name ?? 'グループ';
+  const projectTitle = projectResult.data?.title ?? '単語帳';
+  const actorProfile = actorProfiles.get(actorUserId);
+  const actorName = actorProfile?.username
+    || (actorProfile?.accountId ? `@${actorProfile.accountId}` : null);
+
+  // The feed event is a best-effort analytics record. It must never block the
+  // push notification below — swallow any insert failure (missing table,
+  // missing column, RLS, etc.) so recipients are always returned.
+  try {
+    const { error: insertError } = await admin
+      .from('study_group_feed_events')
+      .insert({
+        group_id: groupId,
+        actor_user_id: actorUserId,
+        event_type: 'project_added',
+        project_id: projectId,
+        group_name: groupName,
+        project_title: projectTitle,
+        actor_name: actorName,
+      });
+
+    if (insertError) {
+      console.warn('study_group_feed_event insert skipped:', insertError.message);
+    }
+  } catch (feedError) {
+    console.warn('study_group_feed_event insert threw:', feedError);
+  }
 
   return {
-    group: await summaryPromise,
-    words: limit === null ? allWords : allWords.slice(0, limit),
-    totalCount: allWords.length,
+    recipientUserIds: memberUserIds.filter((id) => id !== actorUserId),
+    groupName,
+    projectTitle,
+    actorName,
   };
+}
+
+/**
+ * Returns recent feed events for all study groups the user belongs to.
+ */
+export async function listStudyGroupFeedEventsForUser(
+  userId: string,
+  limit = 40,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupFeedEvent[]> {
+  const { data: memberships, error: membershipError } = await admin
+    .from('study_group_members')
+    .select('group_id')
+    .eq('user_id', userId);
+
+  if (membershipError || !memberships?.length) return [];
+
+  const groupIds = Array.from(new Set((memberships as Array<{ group_id: string }>).map((row) => row.group_id)));
+  if (groupIds.length === 0) return [];
+
+  const { data, error } = await admin
+    .from('study_group_feed_events')
+    .select('id,group_id,actor_user_id,event_type,project_id,group_name,project_title,actor_name,created_at')
+    .in('group_id', groupIds)
+    .order('created_at', { ascending: false })
+    .limit(Math.max(1, Math.min(limit, 80)));
+
+  if (error) {
+    if (isMissingRelationError(error, 'study_group_feed_events')) return [];
+    throw new Error(error.message || 'study_group_feed_events_lookup_failed');
+  }
+
+  return ((data ?? []) as Array<{
+    id: string;
+    group_id: string;
+    actor_user_id: string | null;
+    event_type: string;
+    project_id: string | null;
+    group_name: string;
+    project_title: string;
+    actor_name: string | null;
+    created_at: string;
+  }>).map((row) => ({
+    id: row.id,
+    groupId: row.group_id,
+    groupName: row.group_name,
+    eventType: 'project_added',
+    projectId: row.project_id,
+    projectTitle: row.project_title,
+    actorUserId: row.actor_user_id,
+    actorName: row.actor_name,
+    createdAt: row.created_at,
+  }));
+}
+
+function isMissingRelationError(error: unknown, table: string): boolean {
+  const maybeError = error as { code?: string | null; message?: string | null };
+  const message = maybeError.message?.toLowerCase() ?? '';
+  return maybeError.code === '42P01'
+    || (message.includes(table) && (
+      message.includes('does not exist')
+      || message.includes('schema cache')
+      || message.includes('could not find')
+      || message.includes('relation')
+    ));
 }
 
 export async function addProjectToStudyGroup(
@@ -499,6 +910,11 @@ export async function addProjectToStudyGroup(
     'owner',
     metricsByProjectId,
     usernameByUserId,
+    {
+      groupId,
+      canRemove: true,
+      sharedByCurrentUser: true,
+    },
   );
 }
 
@@ -511,17 +927,30 @@ export async function removeProjectFromStudyGroup(
   const membership = await getStudyGroupMembership(groupId, userId, admin);
   if (!membership) return false;
 
-  const { data: project, error: projectError } = await admin
-    .from('projects')
-    .select('id,user_id')
-    .eq('id', projectId)
-    .maybeSingle<Pick<ProjectRow, 'id' | 'user_id'>>();
+  const [projectResult, linkResult] = await Promise.all([
+    admin
+      .from('projects')
+      .select('id,user_id')
+      .eq('id', projectId)
+      .maybeSingle<Pick<ProjectRow, 'id' | 'user_id'>>(),
+    admin
+      .from('study_group_projects')
+      .select('added_by_user_id')
+      .eq('group_id', groupId)
+      .eq('project_id', projectId)
+      .maybeSingle<Pick<StudyGroupProjectRow, 'added_by_user_id'>>(),
+  ]);
 
-  if (projectError) {
-    throw new Error(projectError.message || 'study_group_project_owner_lookup_failed');
+  if (projectResult.error) {
+    throw new Error(projectResult.error.message || 'study_group_project_owner_lookup_failed');
+  }
+  if (linkResult.error) {
+    throw new Error(linkResult.error.message || 'study_group_project_link_lookup_failed');
   }
 
-  const canRemove = membership.role === 'owner' || project?.user_id === userId;
+  const canRemove = membership.role === 'owner'
+    || projectResult.data?.user_id === userId
+    || linkResult.data?.added_by_user_id === userId;
   if (!canRemove) {
     throw new StudyGroupProjectAccessError('remove_forbidden');
   }
@@ -544,6 +973,106 @@ export class StudyGroupProjectAccessError extends Error {
     super(code);
     this.name = 'StudyGroupProjectAccessError';
   }
+}
+
+export class StudyGroupAccessError extends Error {
+  constructor(readonly code: 'owner_required' | 'cannot_remove_owner' | 'invalid_name') {
+    super(code);
+    this.name = 'StudyGroupAccessError';
+  }
+}
+
+/**
+ * Renames a study group. Owner-only. Returns the refreshed summary, or `null`
+ * when the requester is not a member of the group.
+ */
+export async function renameStudyGroup(
+  groupId: string,
+  userId: string,
+  name: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupSummary | null> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return null;
+  if (membership.role !== 'owner') {
+    throw new StudyGroupAccessError('owner_required');
+  }
+
+  const normalizedName = name.trim();
+  if (!normalizedName) {
+    throw new StudyGroupAccessError('invalid_name');
+  }
+
+  const { error } = await admin
+    .from('study_groups')
+    .update({ name: normalizedName })
+    .eq('id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_rename_failed');
+  }
+
+  return getStudyGroupSummaryForUser(groupId, userId, admin);
+}
+
+/**
+ * Removes a member from a study group. Owner-only; the owner cannot be removed.
+ * Returns `false` when the requester is not a member of the group.
+ */
+export async function removeStudyGroupMember(
+  groupId: string,
+  userId: string,
+  targetUserId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<boolean> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return false;
+  if (membership.role !== 'owner') {
+    throw new StudyGroupAccessError('owner_required');
+  }
+  if (targetUserId === membership.group.owner_user_id) {
+    throw new StudyGroupAccessError('cannot_remove_owner');
+  }
+
+  const { error } = await admin
+    .from('study_group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', targetUserId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_member_remove_failed');
+  }
+
+  return true;
+}
+
+/**
+ * Deletes a study group entirely. Owner-only. Membership, project links and
+ * feed events cascade away via the `ON DELETE CASCADE` foreign keys. Returns
+ * `false` when the requester is not a member of the group.
+ */
+export async function deleteStudyGroup(
+  groupId: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<boolean> {
+  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  if (!membership) return false;
+  if (membership.role !== 'owner') {
+    throw new StudyGroupAccessError('owner_required');
+  }
+
+  const { error } = await admin
+    .from('study_groups')
+    .delete()
+    .eq('id', groupId);
+
+  if (error) {
+    throw new Error(error.message || 'study_group_delete_failed');
+  }
+
+  return true;
 }
 
 async function getStudyGroupSummaryForUser(
@@ -821,6 +1350,11 @@ function mapSharedProjectCardForGroup(
   accessRole: SharedProjectAccessRole,
   metricsByProjectId: Map<string, SharedProjectMetrics>,
   usernameByUserId: Map<string, string | null>,
+  groupAccess?: {
+    groupId: string;
+    canRemove: boolean;
+    sharedByCurrentUser: boolean;
+  },
 ): SharedProjectCard {
   const metrics = metricsByProjectId.get(row.id);
   return {
@@ -830,6 +1364,9 @@ function mapSharedProjectCardForGroup(
     wordCount: metrics?.wordCount ?? 0,
     collaboratorCount: metrics?.collaboratorCount ?? 1,
     likeCount: metrics?.likeCount ?? 0,
+    sharedGroupId: groupAccess?.groupId,
+    sharedByCurrentUser: groupAccess?.sharedByCurrentUser,
+    canRemoveFromGroup: groupAccess?.canRemove,
   };
 }
 

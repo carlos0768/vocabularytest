@@ -19,6 +19,7 @@ import {
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
+import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
 import { createBrowserClient } from '@/lib/supabase';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
@@ -40,7 +41,7 @@ const SCAN_OPTIONS: {
   icon: string;
   pro?: boolean;
 }[] = [
-  { key: 'all', label: 'すべての単語', description: '紙面内の英単語を広く抽出', icon: 'document_scanner' },
+  { key: 'all', label: '単語帳取込', description: '単語帳形式の単語を抽出', icon: 'document_scanner' },
   { key: 'circled', label: '丸囲み', description: 'マークした単語を優先', icon: 'gesture' },
   { key: 'idiom', label: '熟語・イディオム', description: '複数語の表現も候補化', icon: 'link' },
   { key: 'eiken', label: '英検', description: '級別の頻出語を優先', icon: 'filter_alt', pro: true },
@@ -111,6 +112,12 @@ export function DesktopScanView({
     const supabase = createBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('ログインが必要です');
+
+    setProcessingLabel('通知を準備中...');
+    await ensureBackgroundScanPushSubscription(
+      session.access_token,
+      '[DesktopScan]',
+    );
 
     const uploadedPaths: string[] = [];
     try {

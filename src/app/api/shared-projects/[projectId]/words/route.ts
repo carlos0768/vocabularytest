@@ -22,6 +22,7 @@ export async function POST(
     if (!access.ok) {
       return access.response;
     }
+    const resolvedProjectId = access.access.project.id;
 
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: '単語データが不正です。',
@@ -40,7 +41,7 @@ export async function POST(
     const { data, error } = await admin
       .from('words')
       .insert({
-        project_id: projectId,
+        project_id: resolvedProjectId,
         english: parsed.data.english,
         japanese: parsed.data.japanese,
         lexicon_entry_id: lexiconEntry?.id ?? null,

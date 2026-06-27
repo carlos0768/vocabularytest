@@ -1,9 +1,13 @@
 import SharedPageClient from './SharedPageClient';
-import { listPublicSharedProjects, listPublicSharedUsers } from '@/app/api/shared-projects/shared';
+import {
+  listPublicSharedWordbooks as listPublicSharedProjects,
+  listPublicSharedWordbookUsers as listPublicSharedUsers,
+} from '@/app/api/shared-projects/shared-wordbooks';
 import { readSingleLineEnv } from '@/lib/env';
 import type { SharedDiscoverPayload } from '@/lib/shared-projects/types';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function SharedPage() {
   let initialDiscover: SharedDiscoverPayload = {

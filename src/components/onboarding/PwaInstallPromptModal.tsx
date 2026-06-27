@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 const LAST_PROMPT_KEY = 'merken_pwa_prompt_last_at';
 const INSTALLED_KEY = 'merken_pwa_installed';
 const MIN_GAP_MS = 24 * 60 * 60 * 1000; // 24h
+export const PWA_PROMPT_STATE_CHANGE_EVENT = 'merken:pwa-prompt-state-change';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -16,10 +17,16 @@ interface BeforeInstallPromptEvent extends Event {
 
 let cachedDeferredPrompt: BeforeInstallPromptEvent | null = null;
 
+function dispatchPwaPromptStateChange() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(PWA_PROMPT_STATE_CHANGE_EVENT));
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
     cachedDeferredPrompt = event as BeforeInstallPromptEvent;
+    dispatchPwaPromptStateChange();
   });
   window.addEventListener('appinstalled', () => {
     try {
@@ -28,6 +35,7 @@ if (typeof window !== 'undefined') {
       /* ignore */
     }
     cachedDeferredPrompt = null;
+    dispatchPwaPromptStateChange();
   });
 }
 
@@ -117,11 +125,13 @@ export function PwaInstallPromptModal({ open, onClose }: PwaInstallPromptModalPr
         } catch {
           /* ignore */
         }
+        dispatchPwaPromptStateChange();
       }
     } catch {
       /* ignore */
     } finally {
       cachedDeferredPrompt = null;
+      dispatchPwaPromptStateChange();
       onClose();
     }
   };
@@ -240,10 +250,12 @@ export async function triggerNativeInstall(): Promise<boolean> {
     if (choice.outcome === 'accepted') {
       try { localStorage.setItem(INSTALLED_KEY, '1'); } catch { /* ignore */ }
       cachedDeferredPrompt = null;
+      dispatchPwaPromptStateChange();
       return true;
     }
   } catch { /* ignore */ }
   cachedDeferredPrompt = null;
+  dispatchPwaPromptStateChange();
   return false;
 }
 

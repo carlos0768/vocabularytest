@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SharedDiscoverCategory, SharedDiscoverPayload } from '@/lib/shared-projects/types';
-import { listPublicSharedProjects, listPublicSharedUsers } from '../shared';
+import {
+  listPublicSharedWordbooks as listPublicSharedProjects,
+  listPublicSharedWordbookUsers as listPublicSharedUsers,
+} from '../shared-wordbooks';
 
 const DISCOVER_CATEGORIES = new Set<SharedDiscoverCategory>(['all', 'users', 'projects']);
+
+export const dynamic = 'force-dynamic';
 
 type DiscoverGetDeps = {
   listPublicSharedProjects?: typeof listPublicSharedProjects;
@@ -50,7 +55,7 @@ export async function handleSharedProjectsDiscoverGet(
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

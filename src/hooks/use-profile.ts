@@ -60,12 +60,13 @@ interface ProfileState {
   error: string | null;
   refresh: () => Promise<void>;
   setUsername: (username: string) => Promise<boolean>;
+  setAccountId: (accountId: string) => Promise<boolean>;
 }
 
 export function useProfile(): ProfileState {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [username, setUsernameState] = useState<string | null>(null);
-  const [accountId, setAccountId] = useState<string | null>(null);
+  const [accountId, setAccountIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export function useProfile(): ProfileState {
     if (authLoading) return;
     if (!isAuthenticated || !user?.id) {
       setUsernameState(null);
-      setAccountId(null);
+      setAccountIdState(null);
       setLoading(false);
       setError(null);
       clearCache();
@@ -85,7 +86,7 @@ export function useProfile(): ProfileState {
     const hasCachedValue = cachedValue !== undefined;
     if (hasCachedValue) {
       setUsernameState(cachedValue.username);
-      setAccountId(cachedValue.accountId);
+      setAccountIdState(cachedValue.accountId);
       setLoading(false);
     } else {
       setLoading(true);
@@ -106,7 +107,7 @@ export function useProfile(): ProfileState {
       const normalized = typeof data.username === 'string' ? data.username : null;
       const normalizedAccountId = typeof data.accountId === 'string' ? data.accountId : null;
       setUsernameState(normalized);
-      setAccountId(normalizedAccountId);
+      setAccountIdState(normalizedAccountId);
       writeCache(user.id, normalized, normalizedAccountId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'プロフィールの取得に失敗しました');
@@ -146,14 +147,53 @@ export function useProfile(): ProfileState {
       const normalized = typeof data.username === 'string' ? data.username : null;
       const normalizedAccountId = typeof data.accountId === 'string' ? data.accountId : accountId;
       setUsernameState(normalized);
-      setAccountId(normalizedAccountId);
+      setAccountIdState(normalizedAccountId);
       writeCache(user.id, normalized, normalizedAccountId);
       return true;
     } catch (err) {
       setUsernameState(previousValue);
-      setAccountId(previousAccountId);
+      setAccountIdState(previousAccountId);
       writeCache(user.id, previousValue, previousAccountId);
       setError(err instanceof Error ? err.message : 'ユーザー名の保存に失敗しました');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [accountId, username, isAuthenticated, user?.id]);
+
+  const setAccountId = useCallback(async (newAccountId: string): Promise<boolean> => {
+    if (!isAuthenticated || !user?.id) return false;
+
+    const previousAccountId = accountId;
+    const trimmed = newAccountId.trim();
+    setAccountIdState(trimmed);
+    writeCache(user.id, username, trimmed);
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: trimmed }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error ?? 'IDの保存に失敗しました');
+      }
+
+      const data = await response.json() as { username: string | null; accountId?: string | null };
+      const normalizedUsername = typeof data.username === 'string' ? data.username : username;
+      const normalizedAccountId = typeof data.accountId === 'string' ? data.accountId : trimmed;
+      setUsernameState(normalizedUsername);
+      setAccountIdState(normalizedAccountId);
+      writeCache(user.id, normalizedUsername, normalizedAccountId);
+      return true;
+    } catch (err) {
+      setAccountIdState(previousAccountId);
+      writeCache(user.id, username, previousAccountId);
+      setError(err instanceof Error ? err.message : 'IDの保存に失敗しました');
       return false;
     } finally {
       setSaving(false);
@@ -168,5 +208,6 @@ export function useProfile(): ProfileState {
     error,
     refresh,
     setUsername,
+    setAccountId,
   };
 }
