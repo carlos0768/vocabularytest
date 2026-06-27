@@ -49,10 +49,13 @@ test('shared project preview route returns preview payload without auth', async 
     { params: Promise.resolve({ shareId: 'share-1' }) },
     {
       extractShareCode: (input) => input,
-      getSharedProjectPreviewByShareCode: async (shareCode, limit) => {
+      getSharedWordbookPreview: async (shareCode, limit) => {
         assert.equal(shareCode, 'share-1');
         assert.equal(limit, 5);
         return makePreviewPayload();
+      },
+      getSharedProjectPreviewByShareCode: async () => {
+        throw new Error('project fallback should not be called');
       },
     },
   );
@@ -65,12 +68,38 @@ test('shared project preview route returns preview payload without auth', async 
   assert.equal(payload.totalWordCount, 12);
 });
 
+test('shared project preview route falls back to legacy project share ids', async () => {
+  const res = await handleSharedProjectPreviewGet(
+    request(),
+    { params: Promise.resolve({ shareId: 'share-1' }) },
+    {
+      extractShareCode: (input) => input,
+      getSharedWordbookPreview: async (shareCode, limit) => {
+        assert.equal(shareCode, 'share-1');
+        assert.equal(limit, 5);
+        return null;
+      },
+      getSharedProjectPreviewByShareCode: async (shareCode, limit) => {
+        assert.equal(shareCode, 'share-1');
+        assert.equal(limit, 5);
+        return makePreviewPayload();
+      },
+    },
+  );
+
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.success, true);
+  assert.equal(payload.project.id, 'project-1');
+});
+
 test('shared project preview route returns 404 for an unknown share code', async () => {
   const res = await handleSharedProjectPreviewGet(
     request(),
     { params: Promise.resolve({ shareId: 'missing' }) },
     {
       extractShareCode: (input) => input,
+      getSharedWordbookPreview: async () => null,
       getSharedProjectPreviewByShareCode: async () => null,
     },
   );

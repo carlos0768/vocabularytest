@@ -21,6 +21,7 @@ import {
   SHARE_VIEW_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
 } from '@/lib/words/resolved';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
+import type { Word } from '@/types';
 import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
 import { formatSharedTag } from '../../../../shared/shared-tags';
 
@@ -192,6 +193,33 @@ async function selectSharePreviewWordsWithFallback(
   return lastResult ?? { data: null, error: { message: 'shared_project_preview_words_failed' } };
 }
 
+async function selectShareWordsWithFallback(
+  admin: SupabaseAdminClient,
+  projectId: string,
+): Promise<{ data: WordRow[] | null; error: SupabaseLikeError | null }> {
+  let lastResult: { data: WordRow[] | null; error: SupabaseLikeError | null } | null = null;
+
+  for (const fallback of SHARE_PREVIEW_WORD_SELECT_FALLBACKS) {
+    const result = await admin
+      .from('words')
+      .select(fallback.columns)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false }) as { data: WordRow[] | null; error: SupabaseLikeError | null };
+
+    if (!shouldRetrySharedPreviewWordSelect(result.error)) {
+      return result;
+    }
+
+    lastResult = result;
+    console.warn(`[shared-projects] share words select fallback: ${fallback.label}`, {
+      code: result.error?.code,
+      message: result.error?.message,
+    });
+  }
+
+  return lastResult ?? { data: null, error: { message: 'shared_project_words_failed' } };
+}
+
 export async function getProjectByShareCode(
   shareCode: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
@@ -237,6 +265,21 @@ export async function getSharedProjectPreviewByShareCode(
     ownerUsername: ownerProfile?.username ?? null,
     ownerAccountId: ownerProfile?.accountId ?? null,
   };
+}
+
+export async function getSharedProjectWordsByShareCode(
+  shareCode: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<Word[]> {
+  const projectRow = await getProjectByShareCode(shareCode, admin);
+  if (!projectRow) return [];
+
+  const wordsResult = await selectShareWordsWithFallback(admin, projectRow.id);
+  if (wordsResult.error) {
+    throw new Error(wordsResult.error.message || 'shared_project_words_failed');
+  }
+
+  return ((wordsResult.data ?? []) as WordRow[]).map(mapWordFromRow);
 }
 
 export async function getAccessibleSharedProject(
