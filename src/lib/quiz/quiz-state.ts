@@ -7,6 +7,7 @@ import {
 } from '@/lib/quiz/word-order';
 import { isActiveQuizWord } from '@/lib/quiz/active-answer';
 import {
+  getWordMemoryBaseKey,
   isSameWordMeaning,
   selectPrimaryMeaningWords,
 } from '@/lib/words/memory';
@@ -27,6 +28,34 @@ export const GENERIC_JA_DISTRACTOR_POOL = [
 export const GENERIC_EN_DISTRACTOR_POOL = [
   'consider', 'provide', 'develop', 'maintain', 'achieve', 'support', 'prepare', 'review',
 ] as const;
+
+function normalizeDistractorText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function getSameWordJapaneseDistractors(sourceWords: readonly Word[], quizWords: readonly Word[], word: Word): Set<string> {
+  const baseKey = getWordMemoryBaseKey(word);
+  const correctJa = normalizeDistractorText(word.japanese);
+  const distractors = new Set<string>();
+
+  const addCandidate = (candidate: string | undefined) => {
+    const normalized = normalizeDistractorText(candidate ?? '');
+    if (normalized && normalized !== correctJa) {
+      distractors.add(normalized);
+    }
+  };
+
+  for (const item of [...sourceWords, ...quizWords]) {
+    if (getWordMemoryBaseKey(item) !== baseKey) continue;
+    addCandidate(item.japanese);
+    for (const translation of item.translations ?? []) {
+      addCandidate(translation.translationJa);
+      addCandidate(translation.normalizedTranslationJa);
+    }
+  }
+
+  return distractors;
+}
 
 export function getQuizStorageKey(projectId: string, reviewMode: boolean, learnMode = false): string {
   return `quiz_state_${reviewMode ? 'review' : learnMode ? 'learn' : projectId}`;
@@ -67,7 +96,8 @@ export function generateQuizQuestions(
     if (direction === 'ja-to-en') {
       const correctEn = word.english.trim().toLowerCase();
       const wordTargetKey = getQuizTargetKey(word);
-      const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && !isSameWordMeaning(item, word));
+      const wordBaseKey = getWordMemoryBaseKey(word);
+      const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && getWordMemoryBaseKey(item) !== wordBaseKey);
       let englishDistractors = shuffle(otherWords)
         .map((item) => item.english)
         .filter((english) => english.trim().toLowerCase() !== correctEn);
@@ -102,6 +132,8 @@ export function generateQuizQuestions(
 
     const correctJa = word.japanese.trim().toLowerCase();
     const wordTargetKey = getQuizTargetKey(word);
+    const wordBaseKey = getWordMemoryBaseKey(word);
+    const sameWordJapaneseDistractors = getSameWordJapaneseDistractors(sourceWords, quizWords, word);
     const sameMeaningTranslations = new Set(
       quizWords
         .filter((item) => getQuizTargetKey(item) !== wordTargetKey && isSameWordMeaning(item, word))
@@ -111,7 +143,7 @@ export function generateQuizQuestions(
     let distractors: string[] = [...(word.distractors || [])];
 
     if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
-      const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && !isSameWordMeaning(item, word));
+      const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && getWordMemoryBaseKey(item) !== wordBaseKey);
       distractors = shuffle(otherWords)
         .map((item) => item.japanese)
         .filter((japanese) => japanese.trim().toLowerCase() !== correctJa);
@@ -120,7 +152,10 @@ export function generateQuizQuestions(
     distractors = [...new Set(distractors.map((distractor) => distractor.trim()))].filter(
       (distractor) => {
         const normalized = distractor.toLowerCase();
-        return distractor.length > 0 && normalized !== correctJa && !sameMeaningTranslations.has(normalized);
+        return distractor.length > 0
+          && normalized !== correctJa
+          && !sameMeaningTranslations.has(normalized)
+          && !sameWordJapaneseDistractors.has(normalized);
       },
     );
 
