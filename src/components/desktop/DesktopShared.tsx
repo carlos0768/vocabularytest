@@ -1,7 +1,9 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { DesktopButton, DesktopSearchBox } from '@/components/desktop/DesktopChrome';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { formatSharedTag } from '../../../shared/shared-tags';
@@ -67,7 +69,8 @@ export function DesktopSharedView({
           onChange={(event) => onQueryChange(event.target.value)}
           style={{ width: '100%', minWidth: 0 }}
         />
-        <div style={{ justifySelf: 'end' }}>
+        <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FollowNotificationsButton variant="desktop" />
           <DesktopButton variant="dark" icon="add" onClick={onOpenShareSheet}>
             共有
           </DesktopButton>
@@ -198,19 +201,19 @@ function UserGrid({ users }: { users: SharedUserSummary[] }) {
           {users.map((user) => {
             const accountLabel = user.accountId ? `@${user.accountId}` : user.username ? `@${user.username}` : 'ユーザー';
             const avatarLabel = (user.accountId ?? user.username ?? 'U').charAt(0).toUpperCase();
-
-            return (
-              <div
-                key={user.userId}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '42px minmax(0, 1fr)',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '13px 0',
-                  borderBottom: '1px solid var(--color-border)',
-                }}
-              >
+            const profileHref = user.accountId ? `/profile/${encodeURIComponent(user.accountId)}` : null;
+            const rowStyle = {
+              display: 'grid',
+              gridTemplateColumns: '42px minmax(0, 1fr)',
+              alignItems: 'center',
+              gap: 12,
+              padding: '13px 0',
+              borderBottom: '1px solid var(--color-border)',
+              color: 'inherit',
+              textDecoration: 'none',
+            } satisfies CSSProperties;
+            const rowContent = (
+              <>
                 <div className="ds-avatar" style={{ width: 42, height: 42, borderRadius: 12 }}>
                   {avatarLabel}
                 </div>
@@ -222,6 +225,20 @@ function UserGrid({ users }: { users: SharedUserSummary[] }) {
                     {user.username ?? 'アカウント'}
                   </div>
                 </div>
+              </>
+            );
+
+            if (profileHref) {
+              return (
+                <Link key={user.userId} href={profileHref} style={rowStyle}>
+                  {rowContent}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={user.userId} style={rowStyle}>
+                {rowContent}
               </div>
             );
           })}

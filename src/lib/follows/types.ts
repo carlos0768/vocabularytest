@@ -11,6 +11,7 @@ export type FollowSummary = {
   status: FollowStatus;
   createdAt: string;
   respondedAt: string | null;
+  readAt: string | null;
   profile: FriendProfile;
 };
 
@@ -19,6 +20,7 @@ export type FollowNotification = {
   followId: string;
   status: FollowStatus;
   createdAt: string;
+  readAt: string | null;
   profile: FriendProfile;
 };
 

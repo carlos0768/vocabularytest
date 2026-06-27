@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { ensureWebPushSubscription } from '@/lib/notifications/push-client';
@@ -19,6 +20,11 @@ type FollowNotificationsResponse = {
 };
 
 type FollowRespondResponse = {
+  success?: boolean;
+  error?: string;
+};
+
+type FollowNotificationsReadResponse = {
   success?: boolean;
   error?: string;
 };
@@ -44,6 +50,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
   const pushSetupRequestedRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<FollowNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -54,13 +61,12 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
 
   const isMobile = variant === 'mobile';
 
-  const unreadCount = notifications.length;
-
-  const loadNotifications = useCallback(async () => {
+  const loadNotifications = useCallback(async (): Promise<FollowNotification[]> => {
     if (!isAuthenticated) {
       setNotifications([]);
+      setUnreadCount(0);
       setError(null);
-      return;
+      return [];
     }
 
     setLoading(true);
@@ -71,13 +77,33 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || 'follow_notifications_failed');
       }
-      setNotifications(payload.notifications ?? []);
+      const nextNotifications = payload.notifications ?? [];
+      setNotifications(nextNotifications);
+      setUnreadCount(nextNotifications.length);
+      return nextNotifications;
     } catch (loadError) {
       console.error('Failed to load follow notifications:', loadError);
       setNotifications([]);
+      setUnreadCount(0);
       setError('通知を読み込めませんでした');
+      return [];
     } finally {
       setLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  const markNotificationsRead = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setUnreadCount(0);
+
+    try {
+      const response = await fetch('/api/notifications/follows', { method: 'POST' });
+      const payload = await response.json().catch(() => null) as FollowNotificationsReadResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'follow_notifications_read_failed');
+      }
+    } catch (readError) {
+      console.warn('[FollowNotificationsButton] failed to mark notifications read:', readError);
     }
   }, [isAuthenticated]);
 
@@ -180,7 +206,10 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
         onClick={() => {
           setOpen((current) => !current);
           if (!open) {
-            void loadNotifications();
+            void (async () => {
+              const latestNotifications = await loadNotifications();
+              if (latestNotifications.length > 0 || unreadCount > 0) await markNotificationsRead();
+            })();
             void ensureFollowPushSubscription();
           }
         }}
@@ -240,23 +269,41 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                   const avatarLabel = (item.profile.accountId ?? item.profile.username ?? 'U').charAt(0).toUpperCase();
                   const isPending = item.status === 'pending';
                   const isResponding = respondingId === item.followId;
+                  const profileHref = item.profile.accountId
+                    ? `/profile/${encodeURIComponent(item.profile.accountId)}`
+                    : null;
+                  const profileContent = (
+                    <>
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[13px] font-extrabold text-white">
+                        {avatarLabel}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[12px] font-extrabold text-[var(--solid-ink)]">
+                          {accountLabel}
+                        </div>
+                        <div className="mt-0.5 text-[11px] font-semibold text-[var(--color-muted)]">
+                          {isPending ? 'フォローリクエスト' : 'フォローされました'}
+                          {formatNotificationTime(item.createdAt) && ` · ${formatNotificationTime(item.createdAt)}`}
+                        </div>
+                      </div>
+                    </>
+                  );
 
                   return (
                     <div key={item.id} className="px-3 py-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[13px] font-extrabold text-white">
-                          {avatarLabel}
+                      {profileHref ? (
+                        <Link
+                          href={profileHref}
+                          onClick={() => setOpen(false)}
+                          className="flex min-w-0 items-start gap-3 rounded-[10px] text-inherit no-underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--solid-ink)]"
+                        >
+                          {profileContent}
+                        </Link>
+                      ) : (
+                        <div className="flex min-w-0 items-start gap-3">
+                          {profileContent}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[12px] font-extrabold text-[var(--solid-ink)]">
-                            {accountLabel}
-                          </div>
-                          <div className="mt-0.5 text-[11px] font-semibold text-[var(--color-muted)]">
-                            {isPending ? 'フォローリクエスト' : 'フォローされました'}
-                            {formatNotificationTime(item.createdAt) && ` · ${formatNotificationTime(item.createdAt)}`}
-                          </div>
-                        </div>
-                      </div>
+                      )}
 
                       {isPending && (
                         <div className="mt-2 flex justify-end gap-2">
