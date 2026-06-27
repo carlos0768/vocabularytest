@@ -46,6 +46,11 @@ export function ProjectShareSheet({
   onCopyShareLink,
   onShareLink,
   shareLinkCopied,
+  groups = [],
+  groupsLoading = false,
+  groupsError = null,
+  groupSharingUpdatingId = null,
+  onToggleGroupShare,
 }: ProjectShareSheetProps) {
   const sharedTagsValue = sharedTags.map(formatSharedTag).join(', ');
   const tagInputRef = useRef<HTMLInputElement>(null);

@@ -238,6 +238,43 @@ export async function listPublicStudyGroups(
   };
 }
 
+export async function getPublicStudyGroupPreview(
+  groupId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<PublicStudyGroupSummary | null> {
+  const { data: group, error } = await admin
+    .from('study_groups')
+    .select(STUDY_GROUP_SELECT_COLUMNS)
+    .eq('id', groupId)
+    .maybeSingle<StudyGroupRow>();
+
+  if (error) {
+    throw new Error(error.message || 'public_study_group_preview_failed');
+  }
+  // Only public groups are discoverable by non-members. Private groups can
+  // still be joined directly via their invite code, but their existence is not
+  // confirmable through this preview.
+  if (!group || normalizeStudyGroupVisibility(group.visibility) !== 'public') {
+    return null;
+  }
+
+  const [countsByGroupId, ownerUsernameByUserId] = await Promise.all([
+    getStudyGroupCounts([group.id], admin),
+    getUsernamesByUserIds(admin, [group.owner_user_id]),
+  ]);
+  const counts = countsByGroupId.get(group.id) ?? { memberCount: 0, projectCount: 0 };
+
+  return {
+    id: group.id,
+    name: group.name,
+    visibility: 'public',
+    memberCount: counts.memberCount,
+    projectCount: counts.projectCount,
+    createdAt: group.created_at,
+    ownerUsername: ownerUsernameByUserId.get(group.owner_user_id) ?? null,
+  };
+}
+
 export async function joinStudyGroupByInviteCode(
   userId: string,
   inviteCodeInput: string,
