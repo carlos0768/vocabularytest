@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { listFollowNotifications, listFollowsHome } from '@/lib/follows/server';
+import { listFollowNotifications, listFollowsHome, markFollowNotificationsRead } from '@/lib/follows/server';
 import {
   createFriendRequest,
   getFriendSchemaIssue,
@@ -34,6 +34,7 @@ type FollowRow = {
   status: 'active' | 'pending';
   created_at: string;
   responded_at: string | null;
+  following_read_at: string | null;
 };
 
 type QueryError = {
@@ -73,11 +74,12 @@ class FakeUserAdmin {
 
 class FakeUserQuery implements PromiseLike<{ data: unknown; error: QueryError | null }> {
   private selectColumns = '';
-  private filters: Array<{ kind: 'eq' | 'neq' | 'ilike' | 'in'; field: string; value: unknown }> = [];
+  private filters: Array<{ kind: 'eq' | 'neq' | 'ilike' | 'in' | 'is'; field: string; value: unknown }> = [];
   private orFilter: string | null = null;
   private limitValue: number | null = null;
   private insertRow: Record<string, unknown> | null = null;
   private upsertRow: Record<string, unknown> | null = null;
+  private updateRow: Record<string, unknown> | null = null;
 
   constructor(
     private readonly table: string,
@@ -109,6 +111,11 @@ class FakeUserQuery implements PromiseLike<{ data: unknown; error: QueryError | 
     return this;
   }
 
+  is(field: string, value: unknown) {
+    this.filters.push({ kind: 'is', field, value });
+    return this;
+  }
+
   or(value: string) {
     this.orFilter = value;
     return this;
@@ -130,6 +137,11 @@ class FakeUserQuery implements PromiseLike<{ data: unknown; error: QueryError | 
 
   upsert(row: Record<string, unknown>) {
     this.upsertRow = row;
+    return this;
+  }
+
+  update(row: Record<string, unknown>) {
+    this.updateRow = row;
     return this;
   }
 
@@ -192,7 +204,13 @@ class FakeUserQuery implements PromiseLike<{ data: unknown; error: QueryError | 
     }
 
     if (this.table === 'user_follows') {
-      const rows = applyRelationshipFilter(this.admin.follows, this.orFilter);
+      if (this.updateRow) {
+        const rows = applyFilters(this.admin.follows, this.filters);
+        for (const row of rows) Object.assign(row, this.updateRow);
+        return { data: rows as T[], error: null };
+      }
+
+      const rows = applyFilters(applyRelationshipFilter(this.admin.follows, this.orFilter), this.filters);
       return { data: (single ? rows[0] ?? null : rows) as T | T[] | null, error: null };
     }
 
@@ -202,13 +220,14 @@ class FakeUserQuery implements PromiseLike<{ data: unknown; error: QueryError | 
 
 function applyFilters<T extends Record<string, unknown>>(
   rows: T[],
-  filters: Array<{ kind: 'eq' | 'neq' | 'ilike' | 'in'; field: string; value: unknown }>,
+  filters: Array<{ kind: 'eq' | 'neq' | 'ilike' | 'in' | 'is'; field: string; value: unknown }>,
 ): T[] {
   return rows.filter((row) => filters.every((filter) => {
     const value = row[filter.field];
     if (filter.kind === 'eq') return value === filter.value;
     if (filter.kind === 'neq') return value !== filter.value;
     if (filter.kind === 'in') return Array.isArray(filter.value) && filter.value.includes(value);
+    if (filter.kind === 'is') return value === filter.value;
     if (filter.kind === 'ilike') {
       const needle = String(filter.value).replaceAll('%', '').toLowerCase();
       return String(value ?? '').toLowerCase().includes(needle);
@@ -295,6 +314,7 @@ test('listFollowNotifications returns incoming active follows and pending reques
         status: 'pending',
         created_at: '2026-06-26T00:00:00.000Z',
         responded_at: null,
+        following_read_at: null,
       },
       {
         id: 'follow-2',
@@ -303,6 +323,7 @@ test('listFollowNotifications returns incoming active follows and pending reques
         status: 'active',
         created_at: '2026-06-26T01:00:00.000Z',
         responded_at: '2026-06-26T01:00:00.000Z',
+        following_read_at: null,
       },
       {
         id: 'follow-3',
@@ -311,6 +332,16 @@ test('listFollowNotifications returns incoming active follows and pending reques
         status: 'pending',
         created_at: '2026-06-26T02:00:00.000Z',
         responded_at: null,
+        following_read_at: null,
+      },
+      {
+        id: 'follow-4',
+        follower_id: targetId,
+        following_id: viewerId,
+        status: 'active',
+        created_at: '2026-06-26T03:00:00.000Z',
+        responded_at: '2026-06-26T03:00:00.000Z',
+        following_read_at: '2026-06-26T03:30:00.000Z',
       },
     ],
   });
@@ -323,6 +354,58 @@ test('listFollowNotifications returns incoming active follows and pending reques
   assert.equal(notifications[0]?.profile.accountId, 'third');
   assert.equal(notifications[1]?.profile.userId, targetId);
   assert.equal(notifications[1]?.profile.accountId, 'abc');
+  assert.deepEqual(notifications.map((item) => item.readAt), [null, null]);
+});
+
+test('markFollowNotificationsRead marks unread incoming follow notifications only', async () => {
+  const thirdId = '33333333-3333-3333-3333-333333333333';
+  const admin = new FakeUserAdmin({
+    follows: [
+      {
+        id: 'follow-1',
+        follower_id: targetId,
+        following_id: viewerId,
+        status: 'pending',
+        created_at: '2026-06-26T00:00:00.000Z',
+        responded_at: null,
+        following_read_at: null,
+      },
+      {
+        id: 'follow-2',
+        follower_id: thirdId,
+        following_id: viewerId,
+        status: 'active',
+        created_at: '2026-06-26T01:00:00.000Z',
+        responded_at: '2026-06-26T01:00:00.000Z',
+        following_read_at: null,
+      },
+      {
+        id: 'follow-3',
+        follower_id: viewerId,
+        following_id: thirdId,
+        status: 'pending',
+        created_at: '2026-06-26T02:00:00.000Z',
+        responded_at: null,
+        following_read_at: null,
+      },
+      {
+        id: 'follow-4',
+        follower_id: targetId,
+        following_id: viewerId,
+        status: 'active',
+        created_at: '2026-06-26T03:00:00.000Z',
+        responded_at: '2026-06-26T03:00:00.000Z',
+        following_read_at: '2026-06-26T03:30:00.000Z',
+      },
+    ],
+  });
+
+  await markFollowNotificationsRead(viewerId, admin as never);
+
+  assert.ok(admin.follows.find((row) => row.id === 'follow-1')?.following_read_at);
+  assert.ok(admin.follows.find((row) => row.id === 'follow-2')?.following_read_at);
+  assert.equal(admin.follows.find((row) => row.id === 'follow-3')?.following_read_at, null);
+  assert.equal(admin.follows.find((row) => row.id === 'follow-4')?.following_read_at, '2026-06-26T03:30:00.000Z');
 });
 
 test('searchFriendProfiles can find users by user_handle without account_id', async () => {

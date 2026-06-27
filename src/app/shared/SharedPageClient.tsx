@@ -4,6 +4,7 @@ import { startTransition, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DesktopSharedView } from '@/components/desktop/DesktopShared';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -274,14 +275,17 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
                 共有単語帳
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleOpenShareSheet}
-              aria-label="単語帳を共有"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-            >
-              <Icon name="add" size={20} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <FollowNotificationsButton variant="mobile" />
+              <button
+                type="button"
+                onClick={handleOpenShareSheet}
+                aria-label="単語帳を共有"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="add" size={20} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -509,9 +513,9 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
           const isFollowed = followedIds.has(user.accountId ?? '');
           const isPending = pendingIds.has(user.accountId ?? '');
           const isLoading = followLoading === user.accountId;
-
-          return (
-            <div key={user.userId} className="flex items-center gap-3 px-1 py-3">
+          const profileHref = user.accountId ? `/profile/${encodeURIComponent(user.accountId)}` : null;
+          const profileContent = (
+            <>
               <div
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
                 style={{ backgroundColor: thumbColor(user.userId) }}
@@ -526,6 +530,20 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
                   {user.username ?? 'アカウント'}
                 </div>
               </div>
+            </>
+          );
+
+          return (
+            <div key={user.userId} className="flex items-center gap-3 px-1 py-3">
+              {profileHref ? (
+                <Link href={profileHref} className="flex min-w-0 flex-1 items-center gap-3 text-inherit no-underline">
+                  {profileContent}
+                </Link>
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {profileContent}
+                </div>
+              )}
               {isAuthenticated && user.accountId && (
                 isFollowed ? (
                   <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フォロー中</span>
@@ -724,23 +742,26 @@ function UserSearchSection({
             const isFollowed = followedIds.has(result.accountId) || result.relationship === 'following' || result.relationship === 'mutual';
             const isPending = result.relationship === 'pending';
             const isLoading = followLoading === result.accountId;
+            const profileHref = `/profile/${encodeURIComponent(result.accountId)}`;
 
             return (
               <div key={result.userId} className="flex items-center gap-3 px-1 py-3">
-                <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
-                  style={{ backgroundColor: thumbColor(result.userId) }}
-                >
-                  {(result.accountId ?? 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-mono text-[12px] font-extrabold text-[var(--solid-ink)]">
-                    @{result.accountId}
+                <Link href={profileHref} className="flex min-w-0 flex-1 items-center gap-3 text-inherit no-underline">
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
+                    style={{ backgroundColor: thumbColor(result.userId) }}
+                  >
+                    {result.accountId.charAt(0).toUpperCase()}
                   </div>
-                  <div className="mt-0.5 truncate text-[11px] text-[var(--color-muted)]">
-                    {result.username ?? 'アカウント'}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-mono text-[12px] font-extrabold text-[var(--solid-ink)]">
+                      @{result.accountId}
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-[var(--color-muted)]">
+                      {result.username ?? 'アカウント'}
+                    </div>
                   </div>
-                </div>
+                </Link>
                 {isAuthenticated && (
                   isFollowed ? (
                     <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フォロー中</span>

@@ -34,6 +34,7 @@ type FollowRow = {
   status: FollowStatus;
   created_at: string;
   responded_at: string | null;
+  following_read_at: string | null;
 };
 
 type QuizSessionRow = {
@@ -57,7 +58,7 @@ type QuizSessionWordRow = {
   mastered_at: string;
 };
 
-const FOLLOW_SELECT = 'id,follower_id,following_id,status,created_at,responded_at';
+const FOLLOW_SELECT = 'id,follower_id,following_id,status,created_at,responded_at,following_read_at';
 const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id,is_public';
 const PROFILE_ACCOUNT_SELECT = 'user_id,username,account_id';
 const PROFILE_BASIC_SELECT = 'user_id,username';
@@ -170,8 +171,15 @@ function toFollowSummary(
     status: row.status,
     createdAt: row.created_at,
     respondedAt: row.responded_at,
+    readAt: row.following_read_at,
     profile: profilesByUserId.get(otherUserId) ?? fallbackProfile(otherUserId),
   };
+}
+
+function isUnreadFollowNotification(summary: FollowSummary, viewerUserId: string): boolean {
+  return summary.followingId === viewerUserId
+    && summary.readAt === null
+    && (summary.status === 'pending' || summary.status === 'active');
 }
 
 export async function listFollowsHome(
@@ -223,14 +231,31 @@ export async function listFollowNotifications(
   const home = await listFollowsHome(userId, admin);
 
   return [...home.pendingIncoming, ...home.followers]
+    .filter((item) => isUnreadFollowNotification(item, userId))
     .sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt))
     .map((item) => ({
       id: item.id,
       followId: item.id,
       status: item.status,
       createdAt: item.createdAt,
+      readAt: item.readAt,
       profile: item.profile,
     }));
+}
+
+export async function markFollowNotificationsRead(
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from('user_follows')
+    .update({ following_read_at: now })
+    .eq('following_id', userId)
+    .in('status', ['pending', 'active'])
+    .is('following_read_at', null);
+
+  if (error) throw new Error(error.message || 'follow_notifications_read_failed');
 }
 
 export class FollowError extends Error {
