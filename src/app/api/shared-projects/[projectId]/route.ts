@@ -14,12 +14,13 @@ export async function GET(
     if (!access.ok) {
       return access.response;
     }
+    const resolvedProjectId = access.access.project.id;
 
     const admin = getSupabaseAdmin();
     const { data, error } = await admin
       .from('words')
       .select(RESOLVED_WORD_SELECT_COLUMNS)
-      .eq('project_id', projectId)
+      .eq('project_id', resolvedProjectId)
       .order('created_at', { ascending: true });
 
     if (error) {

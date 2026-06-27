@@ -152,6 +152,60 @@ export function ProjectShareSheet({
             )}
           </div>
 
+          <div className="mb-3">
+            <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              <Icon name="group" size={11} />
+              グループ
+            </div>
+            <div className="flex max-h-[150px] flex-col gap-2 overflow-y-auto pr-1">
+              {groupsLoading ? (
+                <div className="flex h-10 items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-3 text-[12px] text-[var(--color-muted)]">
+                  <Icon name="progress_activity" size={14} className="animate-spin" />
+                  読み込み中...
+                </div>
+              ) : groups.length === 0 ? (
+                <div className="rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-3 text-[12px] text-[var(--color-muted)]">
+                  所属グループはまだありません
+                </div>
+              ) : (
+                groups.map((group) => {
+                  const updating = groupSharingUpdatingId === group.id;
+                  const shared = Boolean(group.projectShared);
+                  return (
+                    <button
+                      key={group.id}
+                      type="button"
+                      aria-label={`${group.name}のグループ共有を${shared ? '解除' : '掲載'}`}
+                      disabled={preparing || updating || !onToggleGroupShare}
+                      onClick={() => onToggleGroupShare?.(group)}
+                      className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-left disabled:opacity-50"
+                    >
+                      <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)]"
+                        style={{ background: shared ? 'var(--solid-ink)' : '#fff', color: shared ? '#fff' : 'var(--solid-ink)' }}
+                      >
+                        <Icon name={updating ? 'progress_activity' : shared ? 'check' : 'group'} size={15} className={updating ? 'animate-spin' : undefined} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-bold text-[var(--solid-ink)]">{group.name}</div>
+                        <div className="mt-0.5 font-mono text-[9px] text-[var(--color-muted)]">
+                          {group.memberCount}人 · {group.projectCount}冊
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[var(--solid-ink)] px-2 py-0.5 text-[10px] font-bold text-[var(--solid-ink)]">
+                        {shared ? '共有解除' : '掲載'}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {groupsError && (
+              <div className="mt-2 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
+                {groupsError}
+              </div>
+            )}
+          </div>
           <div className="mb-3 grid grid-cols-2 gap-2">
             <button
               type="button"
