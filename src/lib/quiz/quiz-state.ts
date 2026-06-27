@@ -74,7 +74,7 @@ export function generateQuizQuestions(
   count: number,
   direction: QuizDirection = 'en-to-ja',
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
-  settings: { allowPendingWordOrderFallback?: boolean; preserveOrder?: boolean; primaryOnly?: boolean } = {},
+  settings: { preserveOrder?: boolean; primaryOnly?: boolean } = {},
 ): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
   const sourceWords = settings.primaryOnly ? selectPrimaryMeaningWords(words) : words;
@@ -88,9 +88,7 @@ export function generateQuizQuestions(
       if (wordOrderQuestion) {
         questions.push(wordOrderQuestion);
       }
-      if (wordOrderQuestion || !settings.allowPendingWordOrderFallback) {
-        continue;
-      }
+      continue;
     }
 
     if (direction === 'ja-to-en') {
@@ -198,6 +196,9 @@ export function applyWordOrderQuestionsToPendingQuiz(
       .filter((question) => question.type === 'word-order')
       .map((question) => getQuizTargetKey(question.word)),
   );
+  const questionTargetKeys = new Set(
+    questions.map((question) => getQuizTargetKey(question.word)),
+  );
   const insertAfterCurrent: QuizQuestion[] = [];
   let changed = false;
 
@@ -232,6 +233,7 @@ export function applyWordOrderQuestionsToPendingQuiz(
       if (!wordOrderQuestionWordIds.has(questionTargetKey)) {
         insertAfterCurrent.push(wordOrderQuestion);
         wordOrderQuestionWordIds.add(questionTargetKey);
+        questionTargetKeys.add(questionTargetKey);
         changed = true;
       }
       return question;
@@ -239,8 +241,24 @@ export function applyWordOrderQuestionsToPendingQuiz(
 
     changed = true;
     wordOrderQuestionWordIds.add(questionTargetKey);
+    questionTargetKeys.add(questionTargetKey);
     return wordOrderQuestion;
   });
+
+  for (const updatedWord of wordByTargetKey.values()) {
+    const targetKey = getQuizTargetKey(updatedWord);
+    if (questionTargetKeys.has(targetKey)) continue;
+    if (isActiveQuizWord(updatedWord)) continue;
+    if (isTranslationQuizTarget(updatedWord)) continue;
+
+    const wordOrderQuestion = buildWordOrderQuestion(updatedWord, shuffle);
+    if (!wordOrderQuestion) continue;
+
+    insertAfterCurrent.push(wordOrderQuestion);
+    wordOrderQuestionWordIds.add(targetKey);
+    questionTargetKeys.add(targetKey);
+    changed = true;
+  }
 
   if (insertAfterCurrent.length === 0) {
     return changed ? nextQuestions : questions;

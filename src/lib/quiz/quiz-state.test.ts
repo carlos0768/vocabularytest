@@ -378,39 +378,28 @@ test('generateQuizQuestions does not fall back to multiple-choice for uncached m
   assert.notEqual(questions[0]?.type, 'word-order');
 });
 
-test('generateQuizQuestions can use multiple-choice fallback while word-order cache is pending', () => {
-  const [question] = generateQuizQuestions([
-    createWord({
-      id: 'word-1',
-      english: 'take care',
-      japanese: '世話をする',
-      distractors: ['守る', '持つ', '作る'],
-    }),
-  ], 1, 'en-to-ja', identityShuffle, { allowPendingWordOrderFallback: true });
-
-  assert.equal(question.type, undefined);
-  assert.deepEqual(question.options, ['世話をする', '守る', '持つ', '作る']);
-  assert.equal(question.correctIndex, 0);
-});
-
 test('applyWordOrderQuestionsToPendingQuiz replaces only unanswered matching questions', () => {
-  const pendingQuestion = generateQuizQuestions([
-    createWord({
+  const pendingQuestion = {
+    word: createWord({
       id: 'word-1',
       english: 'take care',
       japanese: '世話をする',
       distractors: ['守る', '持つ', '作る'],
     }),
-  ], 1, 'en-to-ja', identityShuffle, { allowPendingWordOrderFallback: true })[0];
+    options: ['世話をする', '守る', '持つ', '作る'],
+    correctIndex: 0,
+  };
 
-  const answeredQuestion = generateQuizQuestions([
-    createWord({
+  const answeredQuestion = {
+    word: createWord({
       id: 'word-2',
       english: 'look up',
       japanese: '調べる',
       distractors: ['見る', '上げる', '探す'],
     }),
-  ], 1, 'en-to-ja', identityShuffle, { allowPendingWordOrderFallback: true })[0];
+    options: ['調べる', '見る', '上げる', '探す'],
+    correctIndex: 0,
+  };
 
   const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
     [answeredQuestion, pendingQuestion],
@@ -439,15 +428,17 @@ test('applyWordOrderQuestionsToPendingQuiz replaces only unanswered matching que
   assert.deepEqual(nextQuestions[1]?.options, ['take', 'care', 'hold', 'keep', 'watch']);
 });
 
-test('applyWordOrderQuestionsToPendingQuiz inserts delivered current question after the active slot', () => {
-  const currentQuestion = generateQuizQuestions([
-    createWord({
+test('applyWordOrderQuestionsToPendingQuiz inserts delivered current legacy fallback after the active slot', () => {
+  const currentQuestion = {
+    word: createWord({
       id: 'word-1',
       english: 'take care',
       japanese: '世話をする',
       distractors: ['守る', '持つ', '作る'],
     }),
-  ], 1, 'en-to-ja', identityShuffle, { allowPendingWordOrderFallback: true })[0];
+    options: ['世話をする', '守る', '持つ', '作る'],
+    correctIndex: 0,
+  };
 
   const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
     [currentQuestion],
@@ -476,16 +467,46 @@ test('applyWordOrderQuestionsToPendingQuiz inserts delivered current question af
   assert.equal(nextQuestions[1]?.type, 'word-order');
 });
 
+test('applyWordOrderQuestionsToPendingQuiz inserts newly generated word-order question without multiple-choice fallback', () => {
+  const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
+    [],
+    [
+      createWord({
+        id: 'word-1',
+        english: 'take care',
+        japanese: '世話をする',
+        wordOrderQuiz: {
+          version: WORD_ORDER_CACHE_VERSION,
+          sourceEnglish: 'take care',
+          sourceJapanese: '世話をする',
+          sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+          answerTokens: ['take', 'care'],
+          decoyTokens: ['hold', 'keep', 'watch'],
+          generatedAt: '2026-05-09T00:00:00.000Z',
+        },
+      }),
+    ],
+    0,
+    identityShuffle,
+  );
+
+  assert.equal(nextQuestions.length, 1);
+  assert.equal(nextQuestions[0]?.type, 'word-order');
+  assert.deepEqual(nextQuestions[0]?.options, ['take', 'care', 'hold', 'keep', 'watch']);
+});
+
 test('applyWordOrderQuestionsToPendingQuiz does not replace active multi-word questions', () => {
-  const currentQuestion = generateQuizQuestions([
-    createWord({
+  const currentQuestion = {
+    word: createWord({
       id: 'word-1',
       english: 'take care',
       japanese: '世話をする',
       vocabularyType: 'active',
       distractors: ['守る', '持つ', '作る'],
     }),
-  ], 1, 'en-to-ja', identityShuffle, { allowPendingWordOrderFallback: true })[0];
+    options: ['世話をする', '守る', '持つ', '作る'],
+    correctIndex: 0,
+  };
 
   const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
     [currentQuestion],
