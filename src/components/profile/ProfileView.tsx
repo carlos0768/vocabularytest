@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import type { MouseEvent, ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import type { CachedStats } from '@/lib/stats-cache';
@@ -68,6 +69,21 @@ export function ProfileView({
   stats: CachedStats | null;
   statsLoading: boolean;
 }) {
+  const router = useRouter();
+
+  // Prefer returning to the actual previous page (e.g. the group the user came
+  // from) when we arrived here via in-app navigation. Fall back to backHref on
+  // direct loads / fresh PWA launches where there is no in-app history to pop.
+  const handleBack = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+      return;
+    }
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      event.preventDefault();
+      router.back();
+    }
+  };
+
   const recentWeek = stats?.weeklyStats.slice(-7) ?? [];
   const weekTotal = recentWeek.reduce((sum, item) => sum + item.totalCount, 0);
   const maxWeekValue = Math.max(1, ...recentWeek.map((item) => item.totalCount));
@@ -88,6 +104,7 @@ export function ProfileView({
         <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
           <Link
             href={backHref}
+            onClick={handleBack}
             aria-label="戻る"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
           >
