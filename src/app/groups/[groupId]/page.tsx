@@ -130,7 +130,7 @@ export default function GroupPage() {
     <div
       className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
       style={{
-        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingTop: '0.75rem',
         paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
       }}
     >
