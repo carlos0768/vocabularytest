@@ -947,7 +947,13 @@ function GroupSearchSection({
       {groupResults.length > 0 && (
         <div className="flex flex-col gap-2">
           {groupResults.map((group) => (
-            <div key={group.id} className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3">
+            <Link
+              key={group.id}
+              href={`/groups/${group.id}/join`}
+              onPointerDown={() => triggerHaptic()}
+              aria-label={`${group.name}に参加`}
+              className="block rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3 transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
               <div className="flex items-center gap-3">
                 <div
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[16px] font-extrabold text-white"
@@ -971,8 +977,9 @@ function GroupSearchSection({
                     )}
                   </div>
                 </div>
+                <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
