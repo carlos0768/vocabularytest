@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DesktopSharedView } from '@/components/desktop/DesktopShared';
@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { ShareTypeChooser } from './ShareTypeChooser';
 import { triggerHaptic } from '@/lib/haptics';
+import { removeProjectFromDiscover } from './shared-page-utils';
 import type {
   SharedDiscoverCategory,
   SharedDiscoverPayload,
@@ -107,6 +108,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [category, setCategory] = useState<SharedDiscoverCategory | 'groups'>('all');
   const [query, setQuery] = useState('');
@@ -192,6 +194,11 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     setChooserOpen(true);
   }
 
+  function handleProjectMissing(projectId: string) {
+    startTransition(() => setDiscover((current) => removeProjectFromDiscover(current, projectId)));
+    showToast({ message: 'この単語帳は共有が停止されています', type: 'warning' });
+  }
+
   function handleSelectCategory(nextCategory: PageCategory) {
     setCategory(nextCategory);
     setError(null);
@@ -262,6 +269,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         onBackToAll={handleBackToAll}
         onLoadMore={() => void handleLoadMore()}
         onOpenShareSheet={handleOpenShareSheet}
+        onProjectMissing={handleProjectMissing}
       />
 
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
@@ -366,11 +374,11 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             ) : category === 'all' ? (
               <>
                 <UserSection users={discover.users} />
-                <ProjectSection projects={discover.projects} />
+                <ProjectSection projects={discover.projects} onProjectMissing={handleProjectMissing} />
               </>
             ) : (
               <>
-                {category === 'projects' && <ProjectSection projects={discover.projects} />}
+                {category === 'projects' && <ProjectSection projects={discover.projects} onProjectMissing={handleProjectMissing} />}
                 {discover.nextCursor && (
                   <button
                     type="button"
@@ -569,19 +577,50 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
   );
 }
 
-function ProjectSection({ projects }: { projects: SharedProjectCard[] }) {
+async function sharedProjectStillExists(shareId: string): Promise<boolean | null> {
+  try {
+    const response = await fetch(`/api/shared-projects/share/${encodeURIComponent(shareId)}?limit=0`, {
+      cache: 'no-store',
+    });
+    if (response.status === 404) return false;
+    return response.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
+function ProjectSection({
+  projects,
+  onProjectMissing,
+}: {
+  projects: SharedProjectCard[];
+  onProjectMissing: (projectId: string) => void;
+}) {
   if (projects.length === 0) return null;
   return (
     <section>
       <SectionLabel icon="menu_book" label="単語帳" count={projects.length} />
       <div className="flex flex-col gap-2">
-        {projects.map((project) => <ProjectCard key={project.project.id} project={project} />)}
+        {projects.map((project) => (
+          <ProjectCard
+            key={project.project.id}
+            project={project}
+            onProjectMissing={onProjectMissing}
+          />
+        ))}
       </div>
     </section>
   );
 }
 
-function ProjectCard({ project }: { project: SharedProjectCard }) {
+function ProjectCard({
+  project,
+  onProjectMissing,
+}: {
+  project: SharedProjectCard;
+  onProjectMissing: (projectId: string) => void;
+}) {
+  const router = useRouter();
   const href = project.project.shareId ? `/share/${project.project.shareId}` : '/shared';
   const bg = thumbColor(project.project.id);
   const ownerLabel = project.accessRole === 'owner'
@@ -590,10 +629,23 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
       ? `@${project.ownerAccountId}`
     : project.ownerUsername
       ? `@${project.ownerUsername}`
-      : '共有ユーザー';
+    : '共有ユーザー';
+
+  const handleClick = async (event: MouseEvent<HTMLAnchorElement>) => {
+    const shareId = project.project.shareId;
+    if (!shareId) return;
+
+    event.preventDefault();
+    const exists = await sharedProjectStillExists(shareId);
+    if (exists === false) {
+      onProjectMissing(project.project.id);
+      return;
+    }
+    router.push(href);
+  };
 
   return (
-    <Link href={href} className="block">
+    <Link href={href} onClick={(event) => void handleClick(event)} className="block">
       <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div className="flex items-center gap-[11px]">
           <div
@@ -913,10 +965,13 @@ function GroupSearchSection({
 }) {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+  const searchedInitiallyRef = useRef(false);
 
   useEffect(() => {
+    if (searchedInitiallyRef.current) return;
+    searchedInitiallyRef.current = true;
     onSearch();
-  }, []);
+  }, [onSearch]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;

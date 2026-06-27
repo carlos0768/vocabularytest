@@ -6,6 +6,7 @@ import {
   collectMetricProjectIds,
   mergeMetricsIntoCards,
   mergeUniqueProjectCards,
+  removeProjectFromDiscover,
 } from './shared-page-utils';
 import {
   formatSharedTag,
@@ -47,6 +48,20 @@ test('mergeMetricsIntoCards replaces placeholder counts', () => {
 
   assert.equal(merged[0]?.wordCount, 12);
   assert.equal(merged[0]?.collaboratorCount, 3);
+});
+
+test('removeProjectFromDiscover removes stale shared cards', () => {
+  const payload = {
+    category: 'projects' as const,
+    users: [],
+    projects: [makeCard('project-1'), makeCard('project-2')],
+    groups: [],
+    nextCursor: null,
+  };
+
+  const next = removeProjectFromDiscover(payload, 'project-1');
+
+  assert.deepEqual(next.projects.map((card) => card.project.id), ['project-2']);
 });
 
 test('collectMetricProjectIds skips cards that already have counts', () => {

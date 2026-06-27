@@ -24,6 +24,7 @@ test('shared-projects/discover GET searches across all categories by default', a
   });
 
   assert.equal(res.status, 200);
+  assert.equal(res.headers.get('Cache-Control'), 'no-store');
   assert.deepEqual(calls.sort(), ['projects:toeic:6', 'users:toeic:6']);
   const payload = await res.json();
   assert.equal(payload.category, 'all');

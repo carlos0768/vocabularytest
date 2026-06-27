@@ -1,4 +1,4 @@
-import type { SharedProjectCard, SharedProjectMetricsMap } from '@/lib/shared-projects/types';
+import type { SharedDiscoverPayload, SharedProjectCard, SharedProjectMetricsMap } from '@/lib/shared-projects/types';
 
 export function mergeUniqueProjectCards(
   existing: SharedProjectCard[],
@@ -48,6 +48,14 @@ export function mergeMetricsIntoCards(
   });
 
   return changed ? nextCards : cards;
+}
+
+export function removeProjectFromDiscover(
+  payload: SharedDiscoverPayload,
+  projectId: string,
+): SharedDiscoverPayload {
+  const projects = payload.projects.filter((card) => card.project.id !== projectId);
+  return projects.length === payload.projects.length ? payload : { ...payload, projects };
 }
 
 export function collectMetricProjectIds(
