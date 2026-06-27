@@ -17,17 +17,15 @@ const HEAT_COLORS = [
   'var(--color-success)',
 ];
 
-const AVATAR_PALETTE = [
-  '#f97316', '#06b6d4', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#f59e0b', '#6366f1', '#10b981',
-];
+// Site-wide avatar/thumbnail palette (matches home, collections, shared, feed).
+const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
 function avatarColor(identifier: string): string {
   let hash = 0;
   for (let i = 0; i < identifier.length; i++) {
     hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
   }
-  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+  return THUMBS[Math.abs(hash) % THUMBS.length];
 }
 
 type StatsLoadState = {
@@ -73,7 +71,7 @@ export default function StatsPage() {
   const [showStats, setShowStats] = useState(false);
   const [sessions, setSessions] = useState<FriendTimelineSession[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (authLoading || !authStatsKey) return;
@@ -122,7 +120,7 @@ export default function StatsPage() {
   }, [authLoading, loadTimeline]);
 
   const toggleSession = (sessionId: string) => {
-    setExpanded((current) => {
+    setExpandedSessions((current) => {
       const next = new Set(current);
       if (next.has(sessionId)) next.delete(sessionId);
       else next.add(sessionId);
@@ -170,7 +168,7 @@ export default function StatsPage() {
             className="inline-flex h-9 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 text-[11px] font-bold text-[var(--solid-ink)]"
           >
             <Icon name="group" size={15} />
-            フレンド
+            フィード
           </Link>
         </div>
 
@@ -312,7 +310,7 @@ export default function StatsPage() {
             <TimelineItem
               key={session.id}
               session={session}
-              expanded={expanded.has(session.id)}
+              expanded={expandedSessions.has(session.id)}
               onToggle={() => toggleSession(session.id)}
             />
           ))
@@ -333,27 +331,33 @@ function TimelineItem({
 }) {
   return (
     <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex w-full items-start gap-3.5 px-[18px] py-4 text-left"
-      >
+      <div className="flex items-start gap-3.5 px-[18px] py-4">
         <FeedAvatar profile={session.profile} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
-            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
+          <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
+            <span className="font-display font-extrabold">{displayName(session.profile)}</span>
+            さんが{session.answerCount}問クイズを解きました！
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
+            <span className="font-mono text-[11px]">@{session.profile.accountId}</span>
             <span className="text-[var(--color-border)]">·</span>
-            <span className="text-[12px] font-bold text-[var(--color-muted)]">{formatSessionTime(session.lastAnsweredAt)}</span>
+            <span>{formatSessionTime(session.lastAnsweredAt)}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
             <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
           </div>
         </div>
-        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
-      </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
+          className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-muted)]"
+        >
+          <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} />
+        </button>
+      </div>
       {expanded && (
         <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
           <div className="pl-[52px]">

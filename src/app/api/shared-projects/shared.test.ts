@@ -4,6 +4,7 @@ import test from 'node:test';
 import type { ProjectRow, WordRow } from '../../../../shared/db';
 import {
   extractShareCode,
+  getAccessibleSharedProject,
   getSharedProjectPreviewByShareCode,
   getSharedProjectMetrics,
   listAccessibleSharedProjects,
@@ -34,21 +35,35 @@ type MetricsRow = {
   like_count?: number | null;
 };
 
+type StudyGroupProjectRow = {
+  group_id: string;
+  project_id: string;
+  added_by_user_id?: string | null;
+};
+
+type StudyGroupMemberRow = {
+  group_id: string;
+  user_id: string;
+};
+
 type FakeAdminOptions = {
   ownedRows?: ProjectRow[];
   membershipRows?: MembershipRow[];
   joinedRows?: ProjectRow[];
+  projectRows?: ProjectRow[];
   publicRows?: ProjectRow[];
   profileRows?: ProfileRow[];
   previewWordRows?: WordRow[];
   rpcMetricsRows?: MetricsRow[];
   wordRows?: CountRow[];
   collaboratorRows?: CountRow[];
+  studyGroupProjectRows?: StudyGroupProjectRow[];
+  studyGroupMemberRows?: StudyGroupMemberRow[];
   shareCodeProject?: ProjectRow | null;
   previewWordSelectErrorIncludes?: string;
-  missing?: Array<'project_members' | 'share_scope' | 'shared_metrics_rpc'>;
+  missing?: Array<'project_members' | 'share_scope' | 'shared_metrics_rpc' | 'study_group_members' | 'study_group_projects'>;
   otherErrors?: Partial<Record<
-    'owned' | 'memberships' | 'joined' | 'public' | 'profiles' | 'shareLookup' | 'rpcMetrics' | 'wordCounts' | 'collaborators',
+    'owned' | 'memberships' | 'joined' | 'projectById' | 'public' | 'profiles' | 'shareLookup' | 'rpcMetrics' | 'wordCounts' | 'collaborators' | 'studyGroupProjects' | 'studyGroupMembers',
     string
   >>;
 };
@@ -61,7 +76,7 @@ type QueryError = {
 };
 
 class FakeSharedProjectsAdmin {
-  private readonly missing: Set<'project_members' | 'share_scope' | 'shared_metrics_rpc'>;
+  private readonly missing: Set<'project_members' | 'share_scope' | 'shared_metrics_rpc' | 'study_group_members' | 'study_group_projects'>;
 
   constructor(private readonly options: FakeAdminOptions = {}) {
     this.missing = new Set(options.missing ?? []);
@@ -101,7 +116,7 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
   constructor(
     private readonly table: string,
     private readonly options: FakeAdminOptions,
-    private readonly missing: Set<'project_members' | 'share_scope' | 'shared_metrics_rpc'>,
+    private readonly missing: Set<'project_members' | 'share_scope' | 'shared_metrics_rpc' | 'study_group_members' | 'study_group_projects'>,
   ) {}
 
   select(columns: string, options?: { count?: 'exact'; head?: boolean }) {
@@ -168,6 +183,14 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
       return { data: null, error: makeMissingProjectMembersError() };
     }
 
+    if (this.table === 'study_group_projects' && this.missing.has('study_group_projects')) {
+      return { data: null, error: makeMissingStudyGroupProjectsError() };
+    }
+
+    if (this.table === 'study_group_members' && this.missing.has('study_group_members')) {
+      return { data: null, error: makeMissingStudyGroupMembersError() };
+    }
+
     if (
       this.table === 'projects'
       && (
@@ -198,6 +221,24 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
       return { data: rows as T[], error: null };
     }
 
+    if (this.table === 'projects' && this.hasFilter('id', 'eq')) {
+      const message = this.options.otherErrors?.projectById;
+      if (message) {
+        return { data: null, error: { message } };
+      }
+
+      const projectId = this.getFilterValue('id', 'eq');
+      const rows = [
+        ...(this.options.projectRows ?? []),
+        ...(this.options.ownedRows ?? []),
+        ...(this.options.joinedRows ?? []),
+        ...(this.options.publicRows ?? []),
+        ...(this.options.shareCodeProject ? [this.options.shareCodeProject] : []),
+      ];
+      const row = rows.find((candidate) => candidate.id === projectId && candidate.share_id);
+      return { data: (row ? this.projectRowsForSelect([row])[0] : null) as T | null, error: null };
+    }
+
     if (this.table === 'project_members' && this.hasFilter('user_id', 'eq') && this.hasFilter('project_id', 'in')) {
       const message = this.options.otherErrors?.memberships;
       if (message) {
@@ -211,6 +252,19 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
       return { data: rows as T[], error: null };
     }
 
+    if (this.table === 'project_members' && this.hasFilter('user_id', 'eq') && this.hasFilter('project_id', 'eq')) {
+      const message = this.options.otherErrors?.memberships;
+      if (message) {
+        return { data: null, error: { message } };
+      }
+
+      const projectId = this.getFilterValue('project_id', 'eq');
+      const userId = this.getFilterValue('user_id', 'eq');
+      const row = (this.options.membershipRows ?? [])
+        .find((candidate) => candidate.project_id === projectId && (!candidate.user_id || candidate.user_id === userId));
+      return { data: (row ?? null) as T | null, error: null };
+    }
+
     if (this.table === 'project_members' && this.hasFilter('user_id', 'eq')) {
       const message = this.options.otherErrors?.memberships;
       if (message) {
@@ -218,6 +272,36 @@ class FakeSharedProjectsQuery implements PromiseLike<{ data: unknown; error: Que
       }
 
       return { data: (this.options.membershipRows ?? []) as T[], error: null };
+    }
+
+    if (this.table === 'study_group_projects' && this.hasFilter('project_id', 'eq')) {
+      const message = this.options.otherErrors?.studyGroupProjects;
+      if (message) {
+        return { data: null, error: { message } };
+      }
+
+      const projectId = this.getFilterValue('project_id', 'eq');
+      const rows = (this.options.studyGroupProjectRows ?? [])
+        .filter((row) => row.project_id === projectId)
+        .map((row) => ({ group_id: row.group_id }));
+      return { data: rows as T[], error: null };
+    }
+
+    if (this.table === 'study_group_members' && this.hasFilter('user_id', 'eq') && this.hasFilter('group_id', 'in')) {
+      const message = this.options.otherErrors?.studyGroupMembers;
+      if (message) {
+        return { data: null, error: { message } };
+      }
+
+      const userId = this.getFilterValue('user_id', 'eq');
+      const groupIds = this.getInValues('group_id');
+      let rows = (this.options.studyGroupMemberRows ?? [])
+        .filter((row) => row.user_id === userId && groupIds.includes(row.group_id))
+        .map((row) => ({ group_id: row.group_id }));
+      if (this.limitValue !== null) {
+        rows = rows.slice(0, this.limitValue);
+      }
+      return { data: rows as T[], error: null };
     }
 
     if (this.table === 'projects' && this.hasFilter('id', 'in') && !this.hasFilter('share_scope', 'eq')) {
@@ -414,6 +498,20 @@ function makeMissingMetricsRpcError(): QueryError {
   };
 }
 
+function makeMissingStudyGroupProjectsError(): QueryError {
+  return {
+    code: '42P01',
+    message: 'relation "study_group_projects" does not exist',
+  };
+}
+
+function makeMissingStudyGroupMembersError(): QueryError {
+  return {
+    code: '42P01',
+    message: 'relation "study_group_members" does not exist',
+  };
+}
+
 test('extractShareCode accepts grouped invite codes', () => {
   assert.equal(extractShareCode('abcd-1234-ef56'), 'abcd1234ef56');
   assert.equal(extractShareCode(' abcd 1234 ef56 '), 'abcd1234ef56');
@@ -466,6 +564,73 @@ test('listAccessibleSharedProjects falls back when project_members is missing', 
 
   assert.equal(payload.owned.length, 1);
   assert.deepEqual(payload.joined, []);
+});
+
+test('getAccessibleSharedProject allows study group members to open group-shared private projects', async () => {
+  const project = makeProjectRow('project-1', 'owner-1', { share_scope: 'private' });
+  const admin = new FakeSharedProjectsAdmin({
+    projectRows: [project],
+    studyGroupProjectRows: [{ group_id: 'group-1', project_id: project.id }],
+    studyGroupMemberRows: [{ group_id: 'group-1', user_id: 'member-1' }],
+    profileRows: [{ user_id: 'owner-1', username: 'owner', account_id: 'owner01' }],
+    rpcMetricsRows: [
+      { project_id: project.id, word_count: 7, collaborator_count: 1, like_count: 2 },
+    ],
+  });
+
+  const access = await getAccessibleSharedProject(project.id, 'member-1', admin as never);
+
+  assert.ok(access);
+  assert.equal(access.project.id, project.id);
+  assert.equal(access.project.shareScope, 'private');
+  assert.equal(access.accessRole, 'viewer');
+  assert.equal(access.wordCount, 7);
+  assert.equal(access.likeCount, 2);
+  assert.equal(access.ownerAccountId, 'owner01');
+});
+
+test('getAccessibleSharedProject resolves share codes before checking study group membership', async () => {
+  const project = makeProjectRow('project-1', 'owner-1', {
+    share_id: 'share-code-1',
+    share_scope: 'private',
+  });
+  const admin = new FakeSharedProjectsAdmin({
+    shareCodeProject: project,
+    projectRows: [project],
+    studyGroupProjectRows: [{ group_id: 'group-1', project_id: project.id }],
+    studyGroupMemberRows: [{ group_id: 'group-1', user_id: 'member-1' }],
+  });
+
+  const access = await getAccessibleSharedProject('share-code-1', 'member-1', admin as never);
+
+  assert.ok(access);
+  assert.equal(access.project.id, project.id);
+  assert.equal(access.accessRole, 'viewer');
+});
+
+test('getAccessibleSharedProject does not grant access to non-members of the sharing group', async () => {
+  const project = makeProjectRow('project-1', 'owner-1', { share_scope: 'private' });
+  const admin = new FakeSharedProjectsAdmin({
+    projectRows: [project],
+    studyGroupProjectRows: [{ group_id: 'group-1', project_id: project.id }],
+    studyGroupMemberRows: [{ group_id: 'group-1', user_id: 'member-1' }],
+  });
+
+  const access = await getAccessibleSharedProject(project.id, 'other-user', admin as never);
+
+  assert.equal(access, null);
+});
+
+test('getAccessibleSharedProject falls back when study group tables are unavailable', async () => {
+  const project = makeProjectRow('project-1', 'owner-1', { share_scope: 'private' });
+  const admin = new FakeSharedProjectsAdmin({
+    projectRows: [project],
+    missing: ['study_group_projects'],
+  });
+
+  const access = await getAccessibleSharedProject(project.id, 'member-1', admin as never);
+
+  assert.equal(access, null);
 });
 
 test('listPublicSharedProjects paginates with a cursor and avoids duplicates', async () => {
