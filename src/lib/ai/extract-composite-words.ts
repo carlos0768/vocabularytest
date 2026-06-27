@@ -23,7 +23,7 @@ export interface CompositeExtractionOptions {
 }
 
 const MODE_LABELS: Record<ExtractMode, string> = {
-  all: 'すべての単語',
+  all: '単語帳取込',
   circled: '丸囲み',
   eiken: '英検',
   idiom: '熟語・イディオム',
@@ -33,7 +33,7 @@ function buildModeInstructions(modes: ExtractMode[], eikenLevel: string | null):
   const instructions: string[] = [];
 
   if (modes.includes('all')) {
-    instructions.push(`- all: 画像内の英単語から、学習価値の高い語を難しい順に抽出してください。冠詞・代名詞・be/have/do/get などの基礎語は除外してください。`);
+    instructions.push(`- all: 画像内で単語帳・語彙リスト形式（英単語＋日本語訳のペア）で掲載されている単語のみを抽出してください。例文・長文・パッセージ中の単語は除外してください。`);
   }
 
   if (modes.includes('circled')) {

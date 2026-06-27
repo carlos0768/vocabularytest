@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
@@ -12,6 +12,7 @@ import type {
   FriendsHomePayload,
   FriendTimelineSession,
 } from '@/lib/friends/types';
+import type { StudyGroupFeedEvent } from '@/lib/shared-projects/types';
 
 type FriendsApiResponse = Partial<FriendsHomePayload> & {
   success?: boolean;
@@ -21,8 +22,13 @@ type FriendsApiResponse = Partial<FriendsHomePayload> & {
 type TimelineApiResponse = {
   success?: boolean;
   sessions?: FriendTimelineSession[];
+  groupEvents?: StudyGroupFeedEvent[];
   error?: string;
 };
+
+type FeedEntry =
+  | { kind: 'quiz'; sortAt: string; session: FriendTimelineSession }
+  | { kind: 'group_event'; sortAt: string; event: StudyGroupFeedEvent };
 
 type MutationResponse = {
   success?: boolean;
@@ -36,17 +42,15 @@ const EMPTY_FRIENDS: FriendsHomePayload = {
   outgoing: [],
 };
 
-const AVATAR_PALETTE = [
-  '#f97316', '#06b6d4', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#f59e0b', '#6366f1', '#10b981',
-];
+// Site-wide avatar/thumbnail palette (matches home, collections, shared).
+const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
 function avatarColor(identifier: string): string {
   let hash = 0;
   for (let i = 0; i < identifier.length; i++) {
     hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
   }
-  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+  return THUMBS[Math.abs(hash) % THUMBS.length];
 }
 
 function displayName(profile: FriendProfile): string {
@@ -77,13 +81,21 @@ export default function FriendsPage() {
   const { loading: authLoading, isAuthenticated } = useAuth();
   const [home, setHome] = useState<FriendsHomePayload>(EMPTY_FRIENDS);
   const [sessions, setSessions] = useState<FriendTimelineSession[]>([]);
+  const [groupEvents, setGroupEvents] = useState<StudyGroupFeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const hasRequests = home.incoming.length > 0 || home.outgoing.length > 0;
+
+  const feedEntries = useMemo<FeedEntry[]>(() => {
+    const entries: FeedEntry[] = [
+      ...sessions.map((session) => ({ kind: 'quiz' as const, sortAt: session.startedAt, session })),
+      ...groupEvents.map((event) => ({ kind: 'group_event' as const, sortAt: event.createdAt, event })),
+    ];
+    return entries.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
+  }, [sessions, groupEvents]);
 
   const loadFriends = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -119,6 +131,7 @@ export default function FriendsPage() {
         throw new Error(payload?.error || 'timeline_fetch_failed');
       }
       setSessions(payload.sessions ?? []);
+      setGroupEvents(payload.groupEvents ?? []);
     } catch (loadError) {
       console.warn('Failed to load timeline:', loadError);
     } finally {
@@ -172,15 +185,6 @@ export default function FriendsPage() {
     method: 'DELETE',
   }));
 
-  const toggleSession = (sessionId: string) => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  };
-
   const renderContent = () => {
     if (authLoading || loading) {
       return (
@@ -208,7 +212,7 @@ export default function FriendsPage() {
     return (
       <>
         {error && (
-          <div className="mx-[18px] mb-3 flex items-center justify-between rounded-[12px] border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] font-bold text-[#dc2626]">
+          <div className="mx-[18px] mb-3 flex items-center justify-between rounded-[12px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-[13px] font-bold text-[var(--color-error)]">
             <span>{error}</span>
             <button type="button" onClick={() => void refreshAll()} className="ml-3 underline">再試行</button>
           </div>
@@ -226,13 +230,10 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {sessions.map((session) => (
-          <TimelineItem
-            key={session.id}
-            session={session}
-            expanded={expanded.has(session.id)}
-            onToggle={() => toggleSession(session.id)}
-          />
+        {feedEntries.map((entry) => (
+          entry.kind === 'quiz'
+            ? <TimelineItem key={`quiz-${entry.session.id}`} session={entry.session} />
+            : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
         ))}
 
         {timelineLoading && (
@@ -241,9 +242,9 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {!timelineLoading && sessions.length === 0 && (
+        {!timelineLoading && feedEntries.length === 0 && (
           <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
-            まだ活動がありません
+            まだ学習セッションがありません。クイズを始めると、ここにフィードが表示されます。
           </div>
         )}
 
@@ -263,7 +264,7 @@ export default function FriendsPage() {
   return (
     <>
       <div className="hidden h-full min-h-0 flex-col lg:flex">
-        <DesktopTopbar title="フレンド" crumb="学習タイムライン">
+        <DesktopTopbar title="フィード" crumb="学習タイムライン">
           <DesktopButton href="/shared" icon="hub" variant="ghost">共有ライブラリ</DesktopButton>
         </DesktopTopbar>
         <div className="ds-scroll">
@@ -271,7 +272,15 @@ export default function FriendsPage() {
         </div>
       </div>
 
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
+        <div className="px-[18px] pb-2 pt-1">
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+            FEED
+          </div>
+          <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">
+            フィード
+          </div>
+        </div>
         {renderContent()}
       </div>
     </>
@@ -301,7 +310,7 @@ function RequestsSection({
               type="button"
               onClick={() => onRespondRequest(item.id, 'accept')}
               disabled={Boolean(actionLoading)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border-2 border-[#059669] bg-[#059669] text-white disabled:opacity-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] text-white disabled:opacity-50"
               aria-label="承認"
             >
               <Icon name={actionLoading === `accept:${item.id}` ? 'progress_activity' : 'check'} className={actionLoading === `accept:${item.id}` ? 'animate-spin' : ''} size={14} />
@@ -367,60 +376,55 @@ function FriendsSection({
   );
 }
 
-function TimelineItem({
-  session,
-  expanded,
-  onToggle,
-}: {
-  session: FriendTimelineSession;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const color = avatarColor(session.profile.accountId);
-
+function TimelineItem({ session }: { session: FriendTimelineSession }) {
+  const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
-    <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex w-full items-start gap-3.5 px-[18px] py-4 text-left"
-      >
-        <Avatar profile={session.profile} />
+    <article className="border-b border-[var(--color-border)]">
+      <div className="flex items-start gap-3.5 px-[18px] py-4">
+        <Link href={profileHref} aria-label={`${displayName(session.profile)}のプロフィール`} className="shrink-0">
+          <Avatar profile={session.profile} />
+        </Link>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{displayName(session.profile)}</span>
-            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">@{session.profile.accountId}</span>
+          <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
+            <Link href={profileHref} className="font-display font-extrabold hover:underline">
+              {displayName(session.profile)}
+            </Link>
+            さんが{session.answerCount}問クイズを解きました！
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
+            <span className="font-mono text-[11px]">@{session.profile.accountId}</span>
             <span className="text-[var(--color-border)]">·</span>
-            <span className="text-[12px] font-bold text-[var(--color-muted)]">{formatSessionTime(session.startedAt)}</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
-            <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
+            <span>{formatSessionTime(session.startedAt)}</span>
           </div>
         </div>
-        <Icon name={expanded ? 'expand_less' : 'expand_more'} size={22} className="mt-1.5 shrink-0 text-[var(--color-muted)]" />
-      </button>
-      {expanded && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
-          <div className="pl-[52px]">
-            {session.words.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
-                    <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
-                    <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
-                習得済みに変わった単語はありません
-              </div>
-            )}
+      </div>
+    </article>
+  );
+}
+
+function GroupEventItem({ event }: { event: StudyGroupFeedEvent }) {
+  return (
+    <article className="border-b border-[var(--color-border)]">
+      <Link href={`/groups/${event.groupId}`} className="flex items-start gap-3.5 px-[18px] py-4 transition-colors active:bg-[var(--color-surface-secondary)]">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] text-white"
+          style={{ backgroundColor: avatarColor(event.groupId) }}
+        >
+          <Icon name="library_add" size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
+            <span className="font-display font-extrabold">{event.groupName}</span>
+            に「{event.projectTitle}」が追加されました！
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
+            {event.actorName && <span>{event.actorName}</span>}
+            {event.actorName && <span className="text-[var(--color-border)]">·</span>}
+            <span>{formatSessionTime(event.createdAt)}</span>
           </div>
         </div>
-      )}
+        <Icon name="chevron_right" size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
+      </Link>
     </article>
   );
 }
@@ -492,24 +496,3 @@ function StatusChip({ label }: { label: string }) {
   );
 }
 
-function MetricChip({
-  icon,
-  label,
-  variant = 'default',
-}: {
-  icon: string;
-  label: string;
-  variant?: 'quiz' | 'mastered' | 'default';
-}) {
-  const styles = {
-    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
-    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
-    default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
-  };
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
-      <Icon name={icon} size={13} />
-      {label}
-    </span>
-  );
-}

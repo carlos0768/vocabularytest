@@ -72,6 +72,42 @@ export type StudyGroupProjectListPayload = {
   projects: SharedProjectCard[];
 };
 
+export type StudyGroupLeaderboardEntry = {
+  userId: string;
+  username: string | null;
+  accountId: string | null;
+  quizCount: number;
+  masteredCount: number;
+  isViewer: boolean;
+};
+
+export type StudyGroupMissedWord = {
+  englishKey: string;
+  english: string;
+  japanese: string;
+  missCount: number;
+};
+
+export type StudyGroupOverviewPayload = {
+  group: StudyGroupSummary;
+  projects: SharedProjectCard[];
+  leaderboard: StudyGroupLeaderboardEntry[];
+  missedWords: StudyGroupMissedWord[];
+  viewerUserId: string;
+};
+
+export type StudyGroupFeedEvent = {
+  id: string;
+  groupId: string;
+  groupName: string;
+  eventType: 'project_added';
+  projectId: string | null;
+  projectTitle: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  createdAt: string;
+};
+
 export type SharedUserSummary = {
   userId: string;
   username: string | null;

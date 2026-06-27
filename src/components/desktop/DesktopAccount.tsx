@@ -61,14 +61,19 @@ export function DesktopSettingsView({
           <div className="ds-set-group">
             <div className="gh">アカウント</div>
             <div className="ds-set-row">
-              <div className="ds-avatar" style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18 }}>
-                {(username ?? email ?? 'G').charAt(0).toUpperCase()}
-              </div>
-              <div className="lab">
-                <div className="t">{username ?? 'ユーザー名未設定'}</div>
-                <div className="d">{email ?? 'ゲスト'}</div>
-                {accountId && <div className="d mono">@{accountId}</div>}
-              </div>
+              <Link
+                href="/profile"
+                style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
+              >
+                <div className="ds-avatar" style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18 }}>
+                  {(username ?? email ?? 'G').charAt(0).toUpperCase()}
+                </div>
+                <div className="lab">
+                  <div className="t">{username ?? 'ユーザー名未設定'}</div>
+                  <div className="d">{email ?? 'ゲスト'}</div>
+                  {accountId && <div className="d mono">@{accountId}</div>}
+                </div>
+              </Link>
               <span className="ds-pro-badge">
                 <Icon name={isPro ? 'bolt' : 'person'} filled style={{ fontSize: 13 }} />
                 {isPro ? 'PRO' : 'FREE'}

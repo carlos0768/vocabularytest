@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -58,7 +58,7 @@ function getSetupErrorMessage(result: PushSubscriptionSetupResult): string {
 }
 
 export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSettingsProps) {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const {
     studyReminderEnabled,
@@ -69,6 +69,7 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
     setStudyReminders,
   } = useUserPreferences();
   const [setupLoading, setSetupLoading] = useState(false);
+  const syncedReminderPushUserIdRef = useRef<string | null>(null);
 
   const sortedTimes = useMemo(() => sortReminderTimes(studyReminderTimes), [studyReminderTimes]);
   const activeCount = studyReminderTimes.filter((time) => time.enabled).length;
@@ -81,6 +82,36 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
       ? `1日 ${activeCount} 回、設定した時刻に通知します`
       : '有効な通知時間がありません'
     : '通知はオフです';
+
+  useEffect(() => {
+    if (!studyReminderEnabled) {
+      syncedReminderPushUserIdRef.current = null;
+      return;
+    }
+    if (!isAuthenticated || !user?.id) return;
+    if (syncedReminderPushUserIdRef.current === user.id) return;
+
+    syncedReminderPushUserIdRef.current = user.id;
+
+    const syncExistingSubscription = async () => {
+      const supabase = createBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const result = await ensureWebPushSubscription({
+        accessToken: session.access_token,
+        requestPermission: false,
+      });
+
+      if (result !== 'enabled' && result !== 'permission-default') {
+        console.warn('[StudyReminderSettings] web push subscription sync skipped:', result);
+      }
+    };
+
+    syncExistingSubscription().catch((error) => {
+      console.warn('[StudyReminderSettings] web push subscription sync failed:', error);
+    });
+  }, [isAuthenticated, studyReminderEnabled, user?.id]);
 
   const saveReminders = async (preferences: {
     enabled?: boolean;

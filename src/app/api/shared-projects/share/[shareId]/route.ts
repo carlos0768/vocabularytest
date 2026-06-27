@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  extractShareCode,
-  getSharedProjectPreviewByShareCode,
-} from '../../shared';
+import { extractShareCode } from '../../shared';
+import { getSharedWordbookPreview as getSharedProjectPreviewByShareCode } from '../../shared-wordbooks';
 
 type Params = { params: Promise<{ shareId: string }> };
 

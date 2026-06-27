@@ -1,24 +1,23 @@
 'use client';
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DesktopSharedView } from '@/components/desktop/DesktopShared';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
-import { remoteRepository } from '@/lib/db/remote-repository';
-import { invalidateHomeCache } from '@/lib/home-cache';
-import { saveProjectSharedTags } from '@/lib/shared-projects/client';
+import { ShareTypeChooser } from './ShareTypeChooser';
+import { triggerHaptic } from '@/lib/haptics';
 import type {
   SharedDiscoverCategory,
   SharedDiscoverPayload,
   SharedProjectCard,
 } from '@/lib/shared-projects/types';
-import type { FollowSearchResult } from '@/lib/follows/types';
-import type { PublicStudyGroupSummary } from '@/lib/shared-projects/types';
-import type { Project } from '@/types';
-import { formatSharedTag, normalizeSharedTags, parseSharedTagsInput } from '../../../shared/shared-tags';
+import type { FollowSearchResult, FollowSummary } from '@/lib/follows/types';
+import type { PublicStudyGroupSummary, StudyGroupSummary } from '@/lib/shared-projects/types';
+import { formatSharedTag } from '../../../shared/shared-tags';
 
 type SharedPageClientProps = {
   initialDiscover: SharedDiscoverPayload;
@@ -43,6 +42,14 @@ type FollowSearchApiResponse = {
 
 type FollowMutationResponse = {
   success?: boolean;
+  follow?: FollowSummary;
+  error?: string;
+};
+
+type FollowsHomeApiResponse = {
+  success?: boolean;
+  following?: FollowSummary[];
+  pendingOutgoing?: FollowSummary[];
   error?: string;
 };
 
@@ -50,6 +57,12 @@ type GroupSearchApiResponse = {
   success?: boolean;
   groups?: PublicStudyGroupSummary[];
   nextCursor?: string | null;
+  error?: string;
+};
+
+type MyGroupsApiResponse = {
+  success?: boolean;
+  groups?: StudyGroupSummary[];
   error?: string;
 };
 
@@ -93,8 +106,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
-  const { user, isPro, isAuthenticated, loading: authLoading } = useAuth();
-  const { showToast } = useToast();
+  const { user } = useAuth();
 
   const [category, setCategory] = useState<SharedDiscoverCategory | 'groups'>('all');
   const [query, setQuery] = useState('');
@@ -112,22 +124,10 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [userError, setUserError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [refreshNonce] = useState(0);
   const hasUsedInitialRef = useRef(false);
 
-  const [shareSheetOpen, setShareSheetOpen] = useState(false);
-  const [ownProjects, setOwnProjects] = useState<Project[]>([]);
-  const [ownProjectsLoading, setOwnProjectsLoading] = useState(false);
-  const [ownProjectsError, setOwnProjectsError] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [shareTagDraft, setShareTagDraft] = useState('');
-  const [shareSaving, setShareSaving] = useState(false);
-  const [shareError, setShareError] = useState<string | null>(null);
-
-  const selectedProject = useMemo(
-    () => ownProjects.find((project) => project.id === selectedProjectId) ?? null,
-    [ownProjects, selectedProjectId],
-  );
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   useEffect(() => {
     if (category === 'groups') return;
@@ -167,41 +167,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     return () => controller.abort();
   }, [category, initialDiscover, query, refreshNonce]);
 
-  const loadOwnProjects = useCallback(async () => {
-    if (!user || !isPro) return;
-
-    setOwnProjectsLoading(true);
-    setOwnProjectsError(null);
-
-    try {
-      const projects = await remoteRepository.getProjects(user.id);
-      const normalizedProjects = projects.map((project) => ({
-        ...project,
-        sharedTags: normalizeSharedTags(project.sharedTags),
-      }));
-      setOwnProjects(normalizedProjects);
-      setSelectedProjectId((current) => {
-        if (current && normalizedProjects.some((project) => project.id === current)) return current;
-        return normalizedProjects[0]?.id ?? null;
-      });
-    } catch (loadError) {
-      console.error('Failed to load own projects for sharing:', loadError);
-      setOwnProjectsError('自分の単語帳を読み込めませんでした。');
-    } finally {
-      setOwnProjectsLoading(false);
-    }
-  }, [isPro, user]);
-
-  useEffect(() => {
-    if (!shareSheetOpen || !user || !isPro) return;
-    void loadOwnProjects();
-  }, [isPro, loadOwnProjects, shareSheetOpen, user]);
-
-  useEffect(() => {
-    if (!shareSheetOpen || !selectedProject || !user || !isPro) return;
-    setShareTagDraft((selectedProject.sharedTags ?? []).map(formatSharedTag).join(', '));
-  }, [isPro, selectedProject, shareSheetOpen, user]);
-
   async function handleLoadMore() {
     if (category === 'all' || category === 'groups' || !discover.nextCursor || loadingMore) return;
 
@@ -224,9 +189,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   }
 
   function handleOpenShareSheet() {
-    setShareError(null);
-    setOwnProjectsError(null);
-    setShareSheetOpen(true);
+    setChooserOpen(true);
   }
 
   function handleSelectCategory(nextCategory: PageCategory) {
@@ -281,47 +244,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     }
   }
 
-  async function handleSaveShare() {
-    if (!selectedProject || shareSaving) return;
-
-    setShareSaving(true);
-    setShareError(null);
-
-    try {
-      let shareId = selectedProject.shareId;
-      if (!shareId) {
-        shareId = await remoteRepository.generateShareId(selectedProject.id);
-      }
-
-      const sharedTags = parseSharedTagsInput(shareTagDraft);
-      await remoteRepository.updateProject(selectedProject.id, {
-        shareScope: 'public',
-      });
-      const savedSharedTags = await saveProjectSharedTags(selectedProject.id, sharedTags);
-
-      const updatedProject: Project = {
-        ...selectedProject,
-        shareId,
-        shareScope: 'public',
-        sharedTags: savedSharedTags,
-      };
-      setOwnProjects((current) => current.map((project) => (
-        project.id === updatedProject.id ? updatedProject : project
-      )));
-      invalidateHomeCache();
-      setRefreshNonce((value) => value + 1);
-      setShareSheetOpen(false);
-      showToast({ message: '単語帳を共有しました', type: 'success' });
-    } catch (saveError) {
-      console.error('Failed to save shared project:', saveError);
-      const message = saveError instanceof Error ? saveError.message : '共有設定を保存できませんでした。';
-      setShareError(message);
-      showToast({ message, type: 'error' });
-    } finally {
-      setShareSaving(false);
-    }
-  }
-
   const hasQuery = query.trim().length > 0;
   const allEmpty = discover.users.length === 0 && discover.projects.length === 0;
   const shouldShowResults = category !== 'all' || hasQuery || loading || Boolean(error);
@@ -353,14 +275,17 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
                 共有単語帳
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleOpenShareSheet}
-              aria-label="単語帳を共有"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-            >
-              <Icon name="add" size={20} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <FollowNotificationsButton variant="mobile" />
+              <button
+                type="button"
+                onClick={handleOpenShareSheet}
+                aria-label="単語帳を共有"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="add" size={20} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -410,6 +335,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             </div>
           </div>
         )}
+
+        {category === 'all' && <JoinedGroupsSection />}
 
         {category === 'groups' ? (
           <GroupSearchSection
@@ -463,26 +390,14 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         )}
       </div>
 
-      <ShareWordbookSheet
-        open={shareSheetOpen}
-        authLoading={authLoading}
+      <ShareTypeChooser
+        open={chooserOpen}
         isLoggedIn={Boolean(user)}
-        isPro={isPro}
-        ownProjects={ownProjects}
-        ownProjectsLoading={ownProjectsLoading}
-        ownProjectsError={ownProjectsError}
-        selectedProjectId={selectedProjectId}
-        selectedProject={selectedProject}
-        shareTagDraft={shareTagDraft}
-        saving={shareSaving}
-        error={shareError}
-        onClose={() => setShareSheetOpen(false)}
-        onLogin={() => router.push('/login?redirect=/shared')}
-        onUpgrade={() => router.push('/subscription')}
-        onRetryProjects={() => void loadOwnProjects()}
-        onProjectSelect={setSelectedProjectId}
-        onTagDraftChange={setShareTagDraft}
-        onSave={() => void handleSaveShare()}
+        onClose={() => setChooserOpen(false)}
+        onLogin={() => {
+          setChooserOpen(false);
+          router.push('/login?redirect=/shared');
+        }}
       />
     </>
   );
@@ -505,6 +420,49 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
   const { showToast } = useToast();
   const [followLoading, setFollowLoading] = useState<string | null>(null);
   const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isAuthenticated || users.length === 0) {
+      setFollowedIds(new Set());
+      setPendingIds(new Set());
+      return;
+    }
+
+    const accountIds = new Set(users.map((user) => user.accountId).filter((value): value is string => Boolean(value)));
+    if (accountIds.size === 0) return;
+
+    let cancelled = false;
+
+    fetch('/api/follows', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as FollowsHomeApiResponse | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'follows_fetch_failed');
+
+        const nextFollowed = new Set<string>();
+        const nextPending = new Set<string>();
+        for (const item of payload.following ?? []) {
+          const accountId = item.profile.accountId;
+          if (accountId && accountIds.has(accountId)) nextFollowed.add(accountId);
+        }
+        for (const item of payload.pendingOutgoing ?? []) {
+          const accountId = item.profile.accountId;
+          if (accountId && accountIds.has(accountId)) nextPending.add(accountId);
+        }
+
+        if (!cancelled) {
+          setFollowedIds(nextFollowed);
+          setPendingIds(nextPending);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load follow state for shared users:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, users]);
 
   const handleFollow = async (accountId: string | null) => {
     if (!accountId || followLoading) return;
@@ -519,8 +477,23 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || 'follow_failed');
       }
-      setFollowedIds((prev) => new Set([...prev, accountId]));
-      showToast({ message: 'フォローしました', type: 'success' });
+      if (payload.follow?.status === 'pending') {
+        setPendingIds((prev) => new Set([...prev, accountId]));
+        setFollowedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(accountId);
+          return next;
+        });
+        showToast({ message: 'フォローリクエストを送信しました', type: 'success' });
+      } else {
+        setFollowedIds((prev) => new Set([...prev, accountId]));
+        setPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(accountId);
+          return next;
+        });
+        showToast({ message: 'フォローしました', type: 'success' });
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'フォローに失敗しました。';
       showToast({ message, type: 'error' });
@@ -538,10 +511,11 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
           const accountLabel = user.accountId ? `@${user.accountId}` : user.username ? `@${user.username}` : 'ユーザー';
           const avatarLabel = (user.accountId ?? user.username ?? 'U').charAt(0).toUpperCase();
           const isFollowed = followedIds.has(user.accountId ?? '');
+          const isPending = pendingIds.has(user.accountId ?? '');
           const isLoading = followLoading === user.accountId;
-
-          return (
-            <div key={user.userId} className="flex items-center gap-3 px-1 py-3">
+          const profileHref = user.accountId ? `/profile/${encodeURIComponent(user.accountId)}` : null;
+          const profileContent = (
+            <>
               <div
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
                 style={{ backgroundColor: thumbColor(user.userId) }}
@@ -556,9 +530,25 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
                   {user.username ?? 'アカウント'}
                 </div>
               </div>
+            </>
+          );
+
+          return (
+            <div key={user.userId} className="flex items-center gap-3 px-1 py-3">
+              {profileHref ? (
+                <Link href={profileHref} className="flex min-w-0 flex-1 items-center gap-3 text-inherit no-underline">
+                  {profileContent}
+                </Link>
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {profileContent}
+                </div>
+              )}
               {isAuthenticated && user.accountId && (
                 isFollowed ? (
                   <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フォロー中</span>
+                ) : isPending ? (
+                  <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">申請中</span>
                 ) : (
                   <button
                     type="button"
@@ -674,228 +664,6 @@ function EmptyBox({ message }: { message: string }) {
   );
 }
 
-function ShareWordbookSheet({
-  open,
-  authLoading,
-  isLoggedIn,
-  isPro,
-  ownProjects,
-  ownProjectsLoading,
-  ownProjectsError,
-  selectedProjectId,
-  selectedProject,
-  shareTagDraft,
-  saving,
-  error,
-  onClose,
-  onLogin,
-  onUpgrade,
-  onRetryProjects,
-  onProjectSelect,
-  onTagDraftChange,
-  onSave,
-}: {
-  open: boolean;
-  authLoading: boolean;
-  isLoggedIn: boolean;
-  isPro: boolean;
-  ownProjects: Project[];
-  ownProjectsLoading: boolean;
-  ownProjectsError: string | null;
-  selectedProjectId: string | null;
-  selectedProject: Project | null;
-  shareTagDraft: string;
-  saving: boolean;
-  error: string | null;
-  onClose: () => void;
-  onLogin: () => void;
-  onUpgrade: () => void;
-  onRetryProjects: () => void;
-  onProjectSelect: (projectId: string) => void;
-  onTagDraftChange: (value: string) => void;
-  onSave: () => void;
-}) {
-  if (!open) return null;
-
-  const canSave = Boolean(selectedProject) && !saving && !ownProjectsLoading;
-
-  return (
-    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="閉じる"
-        onClick={onClose}
-        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-      />
-
-      <div className="absolute inset-x-0 bottom-0 flex justify-center">
-        <div
-          className="w-full animate-fade-in-up"
-          style={{
-            maxWidth: 520,
-            background: '#faf7f1',
-            border: '2px solid var(--solid-ink)',
-            borderBottomWidth: 0,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
-            maxHeight: 'min(88vh, 720px)',
-            overflowY: 'auto',
-          }}
-        >
-          <div className="mb-2.5 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
-          </div>
-
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-                SHARE
-              </div>
-              <div className="mt-0.5 truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
-                単語帳を共有
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="閉じる"
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
-            >
-              <Icon name="close" size={14} />
-            </button>
-          </div>
-
-          {authLoading ? (
-            <SheetState icon="progress_activity" spin message="確認中..." />
-          ) : !isLoggedIn ? (
-            <SheetActionState icon="login" message="ログインすると単語帳を共有できます。" actionLabel="ログイン" onAction={onLogin} />
-          ) : !isPro ? (
-            <SheetActionState icon="auto_awesome" message="単語帳の共有はPro限定です。" actionLabel="Proを見る" onAction={onUpgrade} />
-          ) : (
-            <>
-              <SheetSection icon="menu_book" label="単語帳">
-                {ownProjectsLoading ? (
-                  <SheetState icon="progress_activity" spin message="読み込み中..." />
-                ) : ownProjectsError ? (
-                  <div className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
-                    {ownProjectsError}
-                    <button type="button" className="ml-2 underline" onClick={onRetryProjects}>再読み込み</button>
-                  </div>
-                ) : ownProjects.length === 0 ? (
-                  <div className="rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-3 text-[12px] text-[var(--color-muted)]">
-                    共有できる単語帳がありません
-                  </div>
-                ) : (
-                  <div className="flex max-h-[190px] flex-col gap-2 overflow-y-auto pr-1">
-                    {ownProjects.map((project) => {
-                      const selected = selectedProjectId === project.id;
-                      return (
-                        <button
-                          key={project.id}
-                          type="button"
-                          onClick={() => onProjectSelect(project.id)}
-                          className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-left"
-                        >
-                          <span
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)] font-display text-[13px] font-extrabold text-white"
-                            style={{ background: thumbColor(project.id) }}
-                          >
-                            {project.title.charAt(0)}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--solid-ink)]">{project.title}</span>
-                          <Icon name={selected ? 'check' : 'chevron_right'} size={15} className={selected ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </SheetSection>
-
-              <SheetSection icon="sell" label="タグ">
-                <input
-                  value={shareTagDraft}
-                  onChange={(event) => onTagDraftChange(event.target.value)}
-                  placeholder="例: #TOEIC, #熟語, #高校英語"
-                  className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
-                />
-                <div className="mt-1.5 text-[10px] font-semibold text-[var(--color-muted)]">
-                  先頭に / を付けて最大8個
-                </div>
-              </SheetSection>
-
-              {error && (
-                <div className="mb-3 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={!canSave}
-                className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 text-[14px] font-extrabold text-white disabled:opacity-45"
-              >
-                <Icon name={saving ? 'progress_activity' : 'check'} size={17} className={saving ? 'animate-spin' : undefined} />
-                {saving ? '保存中...' : '共有する'}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SheetSection({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
-  return (
-    <div className="mb-3">
-      <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-        <Icon name={icon} size={11} />
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function SheetState({ icon, message, spin = false }: { icon: string; message: string; spin?: boolean }) {
-  return (
-    <div className="flex h-12 items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-3 text-[12px] font-bold text-[var(--color-muted)]">
-      <Icon name={icon} size={15} className={spin ? 'animate-spin' : undefined} />
-      {message}
-    </div>
-  );
-}
-
-function SheetActionState({
-  icon,
-  message,
-  actionLabel,
-  onAction,
-}: {
-  icon: string;
-  message: string;
-  actionLabel: string;
-  onAction: () => void;
-}) {
-  return (
-    <div className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white p-4 text-center">
-      <Icon name={icon} size={28} className="text-[var(--solid-ink)]" />
-      <div className="mt-2 text-[13px] font-bold text-[var(--solid-ink)]">{message}</div>
-      <button
-        type="button"
-        onClick={onAction}
-        className="mt-3 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-[12px] font-extrabold text-white"
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-
 function UserSearchSection({
   userQuery,
   userResults,
@@ -974,23 +742,26 @@ function UserSearchSection({
             const isFollowed = followedIds.has(result.accountId) || result.relationship === 'following' || result.relationship === 'mutual';
             const isPending = result.relationship === 'pending';
             const isLoading = followLoading === result.accountId;
+            const profileHref = `/profile/${encodeURIComponent(result.accountId)}`;
 
             return (
               <div key={result.userId} className="flex items-center gap-3 px-1 py-3">
-                <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
-                  style={{ backgroundColor: thumbColor(result.userId) }}
-                >
-                  {(result.accountId ?? 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-mono text-[12px] font-extrabold text-[var(--solid-ink)]">
-                    @{result.accountId}
+                <Link href={profileHref} className="flex min-w-0 flex-1 items-center gap-3 text-inherit no-underline">
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
+                    style={{ backgroundColor: thumbColor(result.userId) }}
+                  >
+                    {result.accountId.charAt(0).toUpperCase()}
                   </div>
-                  <div className="mt-0.5 truncate text-[11px] text-[var(--color-muted)]">
-                    {result.username ?? 'アカウント'}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-mono text-[12px] font-extrabold text-[var(--solid-ink)]">
+                      @{result.accountId}
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-[var(--color-muted)]">
+                      {result.username ?? 'アカウント'}
+                    </div>
                   </div>
-                </div>
+                </Link>
                 {isAuthenticated && (
                   isFollowed ? (
                     <span className="inline-flex h-7 items-center rounded-[7px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 text-[10px] font-bold text-[var(--color-muted)]">フォロー中</span>
@@ -1024,6 +795,104 @@ function UserSearchSection({
         </div>
       )}
     </div>
+  );
+}
+
+function JoinedGroupsSection() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [groups, setGroups] = useState<StudyGroupSummary[]>([]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+
+    let cancelled = false;
+    fetch('/api/shared-projects/groups', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as MyGroupsApiResponse | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'my_groups_failed');
+        if (!cancelled) setGroups(payload.groups ?? []);
+      })
+      .catch((error) => {
+        if (!cancelled) console.warn('Failed to load joined groups:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
+  if (!isAuthenticated || groups.length === 0) return null;
+
+  return (
+    <div className="px-[14px] pb-1 pt-3">
+      <div className="mb-2.5 flex items-center gap-2">
+        <Icon name="groups" size={20} className="text-[var(--solid-ink)]" />
+        <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">参加中のグループ</h2>
+        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-white">
+          {groups.length}
+        </span>
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {groups.map((group) => (
+          <JoinedGroupCard key={group.id} group={group} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function JoinedGroupCard({ group }: { group: StudyGroupSummary }) {
+  const color = thumbColor(group.id);
+  return (
+    <Link
+      href={`/groups/${group.id}`}
+      onPointerDown={() => triggerHaptic()}
+      aria-label={`${group.name}のグループを開く`}
+      className="block focus:outline-none"
+    >
+      <div
+        className="relative overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] p-3.5 text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+        style={{ background: `linear-gradient(135deg, ${color} 0%, var(--solid-ink) 165%)` }}
+      >
+        {/* Decorative oversized glyph + glossy sheen to invite the tap. */}
+        <Icon name="groups" size={104} className="pointer-events-none absolute -right-4 -top-5 opacity-15" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent" />
+
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[14px] border-2 border-white/70 bg-white/15 font-display text-[24px] font-extrabold backdrop-blur-sm">
+            {group.name.charAt(0)}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate font-display text-[16px] font-extrabold leading-tight">{group.name}</span>
+              {group.role === 'owner' && (
+                <span className="shrink-0 rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide">owner</span>
+              )}
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold backdrop-blur-sm">
+                <Icon name="group" size={12} />{group.memberCount}人
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold backdrop-blur-sm">
+                <Icon name="menu_book" size={12} />{group.projectCount}冊
+              </span>
+            </div>
+          </div>
+
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+            <Icon name="arrow_forward" size={18} />
+          </span>
+        </div>
+
+        <div className="relative mt-3 flex items-center justify-between rounded-[10px] bg-white/15 px-2.5 py-1.5 backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold">
+            <Icon name="emoji_events" size={13} />ランキングをチェック
+          </span>
+          <span className="text-[11px] font-extrabold opacity-90">開く →</span>
+        </div>
+      </div>
+    </Link>
   );
 }
 

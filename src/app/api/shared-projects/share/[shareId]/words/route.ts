@@ -1,0 +1,34 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { extractShareCode, requireAuthenticatedUser } from '../../../shared';
+import { isUserActivePro } from '../../../pro';
+import { getSharedWordbookWords } from '../../../shared-wordbooks';
+
+type Params = { params: Promise<{ shareId: string }> };
+
+/**
+ * Full word list for a published shared wordbook. Pro-only: free users see the
+ * limited preview returned by the share preview route instead.
+ */
+export async function GET(request: NextRequest, { params }: Params) {
+  try {
+    const { shareId } = await params;
+    const shareCode = extractShareCode(shareId);
+    if (!shareCode) {
+      return NextResponse.json({ success: false, error: '共有リンクが不正です。' }, { status: 400 });
+    }
+
+    const auth = await requireAuthenticatedUser(request);
+    if (!auth.ok) return auth.response;
+
+    const isPro = await isUserActivePro(auth.user.id);
+    if (!isPro) {
+      return NextResponse.json({ success: false, error: 'Proプラン限定です。' }, { status: 403 });
+    }
+
+    const words = await getSharedWordbookWords(shareCode);
+    return NextResponse.json({ success: true, words }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('shared-wordbook words error:', error);
+    return NextResponse.json({ success: false, error: '単語の取得に失敗しました。' }, { status: 500 });
+  }
+}

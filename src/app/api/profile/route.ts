@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { ensureFriendProfile } from '@/lib/friends/server';
+import { ensureFriendProfile, getFriendSchemaIssue } from '@/lib/friends/server';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 
 const updateSchema = z.object({
@@ -10,13 +10,81 @@ const updateSchema = z.object({
     .string()
     .trim()
     .min(1, 'ユーザー名は1文字以上で入力してください')
-    .max(20, 'ユーザー名は20文字以内で入力してください'),
-}).strict();
+    .max(20, 'ユーザー名は20文字以内で入力してください')
+    .optional(),
+  accountId: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9_]{4,24}$/, 'IDは半角英小文字・数字・アンダースコアで4〜24文字にしてください')
+    .optional(),
+}).strict().refine(
+  data => data.username !== undefined || data.accountId !== undefined,
+  { message: 'username または accountId を指定してください' },
+);
 
 type ProfileRow = {
   username: string | null;
-  account_id: string | null;
+  display_name?: string | null;
+  user_handle?: string | null;
+  account_id?: string | null;
 };
+
+type ProfileRouteDeps = {
+  resolveUserId?: typeof resolveUserId;
+  getAdmin?: typeof getSupabaseAdmin;
+  ensureProfile?: typeof ensureFriendProfile;
+};
+
+function profileDisplayName(row: ProfileRow | null | undefined): string | null {
+  return row?.display_name?.trim() || row?.username?.trim() || row?.user_handle?.trim() || null;
+}
+
+function isMissingProfileColumn(error: unknown): boolean {
+  const issue = getFriendSchemaIssue(error);
+  return issue === 'profiles_account_id'
+    || issue === 'profiles_display_name'
+    || issue === 'profiles_user_handle'
+    || issue === 'profiles_is_public';
+}
+
+async function fetchProfileRow(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  userId: string,
+): Promise<ProfileRow | null> {
+  const full = await admin
+    .from('profiles')
+    .select('username,display_name,user_handle,account_id')
+    .eq('user_id', userId)
+    .maybeSingle<ProfileRow>();
+
+  if (!full.error) return full.data ?? null;
+  if (!isMissingProfileColumn(full.error)) {
+    throw new Error(full.error.message || 'profile_lookup_failed');
+  }
+
+  const legacyWithAccount = await admin
+    .from('profiles')
+    .select('username,account_id')
+    .eq('user_id', userId)
+    .maybeSingle<ProfileRow>();
+
+  if (!legacyWithAccount.error) return legacyWithAccount.data ?? null;
+  if (!isMissingProfileColumn(legacyWithAccount.error)) {
+    throw new Error(legacyWithAccount.error.message || 'profile_lookup_failed');
+  }
+
+  const legacy = await admin
+    .from('profiles')
+    .select('username')
+    .eq('user_id', userId)
+    .maybeSingle<ProfileRow>();
+
+  if (legacy.error) {
+    throw new Error(legacy.error.message || 'profile_lookup_failed');
+  }
+
+  return legacy.data ?? null;
+}
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('authorization');
@@ -35,31 +103,27 @@ async function resolveUserId(request: NextRequest): Promise<string | null> {
   return user.id;
 }
 
-export async function GET(request: NextRequest) {
+export async function handleProfileGet(
+  request: NextRequest,
+  deps: ProfileRouteDeps = {},
+) {
   try {
-    const userId = await resolveUserId(request);
+    const resolveUser = deps.resolveUserId ?? resolveUserId;
+    const userId = await resolveUser(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Use service role after session verification so cookie/JWT → PostgREST auth
     // cannot block reads (avoids 500 when RLS or JWT claims do not attach in this route).
-    const admin = getSupabaseAdmin();
-    const ensuredProfile = await ensureFriendProfile(userId, admin);
-    const { data, error } = await admin
-      .from('profiles')
-      .select('username,account_id')
-      .eq('user_id', userId)
-      .maybeSingle<ProfileRow>();
-
-    if (error) {
-      console.error('Failed to fetch profile:', error);
-      return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
-    }
+    const admin = (deps.getAdmin ?? getSupabaseAdmin)();
+    const ensureProfile = deps.ensureProfile ?? ensureFriendProfile;
+    const ensuredProfile = await ensureProfile(userId, admin);
+    const data = await fetchProfileRow(admin, userId);
 
     return NextResponse.json({
-      username: data?.username ?? null,
-      accountId: data?.account_id ?? ensuredProfile.accountId,
+      username: profileDisplayName(data),
+      accountId: data?.account_id ?? data?.user_handle ?? ensuredProfile.accountId,
     });
   } catch (error) {
     console.error('Profile GET error:', error);
@@ -67,46 +131,79 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function handleProfilePut(
+  request: NextRequest,
+  deps: ProfileRouteDeps = {},
+) {
   try {
-    const userId = await resolveUserId(request);
+    const resolveUser = deps.resolveUserId ?? resolveUserId;
+    const userId = await resolveUser(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const parsed = await parseJsonWithSchema(request, updateSchema, {
-      invalidMessage: 'ユーザー名が不正です',
+      invalidMessage: '入力内容が不正です',
     });
     if (!parsed.ok) {
       return parsed.response;
     }
 
-    const admin = getSupabaseAdmin();
-    const ensuredProfile = await ensureFriendProfile(userId, admin);
-    const { data, error } = await admin
+    const admin = (deps.getAdmin ?? getSupabaseAdmin)();
+    const ensureProfile = deps.ensureProfile ?? ensureFriendProfile;
+    const ensuredProfile = await ensureProfile(userId, admin);
+
+    const upsertData: Record<string, string> = { user_id: userId };
+    if (parsed.data.username !== undefined) {
+      upsertData.username = parsed.data.username;
+      upsertData.display_name = parsed.data.username;
+    }
+    upsertData.account_id = parsed.data.accountId ?? ensuredProfile.accountId;
+
+    let { data, error } = await admin
       .from('profiles')
-      .upsert(
-        {
-          user_id: userId,
-          username: parsed.data.username,
-          account_id: ensuredProfile.accountId,
-        },
-        { onConflict: 'user_id' }
-      )
-      .select('username,account_id')
+      .upsert(upsertData, { onConflict: 'user_id' })
+      .select('username,display_name,user_handle,account_id')
       .single<ProfileRow>();
 
-    if (error) {
+    if (error && isMissingProfileColumn(error)) {
+      const fallbackData: Record<string, string> = { user_id: userId };
+      if (parsed.data.username !== undefined) {
+        fallbackData.username = parsed.data.username;
+      }
+      const fallback = await admin
+        .from('profiles')
+        .upsert(fallbackData, { onConflict: 'user_id' })
+        .select('username')
+        .single<ProfileRow>();
+
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error || !data) {
+      const pgError = error as { code?: string } | null;
+      if (pgError?.code === '23505') {
+        return NextResponse.json({ error: 'このIDは既に使用されています' }, { status: 409 });
+      }
       console.error('Failed to update profile:', error);
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
     }
 
     return NextResponse.json({
-      username: data.username,
-      accountId: data.account_id,
+      username: profileDisplayName(data),
+      accountId: data.account_id ?? data.user_handle ?? ensuredProfile.accountId,
     });
   } catch (error) {
     console.error('Profile PUT error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleProfileGet(request);
+}
+
+export async function PUT(request: NextRequest) {
+  return handleProfilePut(request);
 }
