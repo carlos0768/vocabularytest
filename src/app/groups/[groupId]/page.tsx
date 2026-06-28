@@ -319,6 +319,8 @@ function SectionCard({
 }
 
 function LeaderboardSection({ leaderboard }: { leaderboard: StudyGroupLeaderboardEntry[] }) {
+  const [showAll, setShowAll] = useState(false);
+
   if (leaderboard.length === 0) {
     return (
       <SectionCard icon="emoji_events" title="ランキング" subtitle="解いたクイズ数で競おう" accent="#FFC800">
@@ -328,7 +330,11 @@ function LeaderboardSection({ leaderboard }: { leaderboard: StudyGroupLeaderboar
   }
 
   const podium = leaderboard.slice(0, 3);
-  const rest = leaderboard.slice(3);
+  const restAll = leaderboard.slice(3);
+  const maxVisible = 2; // ranks 4–5
+  const visibleRest = showAll ? restAll : restAll.slice(0, maxVisible);
+  const hiddenCount = restAll.length - maxVisible;
+  const hiddenTotal = restAll.slice(maxVisible).reduce((s, e) => s + e.quizCount, 0);
 
   return (
     <SectionCard icon="emoji_events" title="ランキング" subtitle="解いたクイズ数で競おう" accent="#FFC800">
@@ -338,11 +344,27 @@ function LeaderboardSection({ leaderboard }: { leaderboard: StudyGroupLeaderboar
         {podium[2] && <PodiumColumn entry={podium[2]} place={3} />}
       </div>
 
-      {rest.length > 0 && (
+      {visibleRest.length > 0 && (
         <div className="mt-3 flex flex-col gap-1.5">
-          {rest.map((entry, index) => (
+          {visibleRest.map((entry, index) => (
             <LeaderboardRow key={entry.userId} entry={entry} rank={index + 4} />
           ))}
+          {!showAll && hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2 text-left"
+            >
+              <span className="w-5 shrink-0 text-center font-mono text-[13px] font-extrabold tabular-nums text-[var(--color-muted)]">…</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-extrabold text-[var(--color-muted)]">その他 {hiddenCount}人</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className="font-mono text-[14px] font-extrabold tabular-nums text-[var(--color-muted)]">{hiddenTotal}</span>
+                <span className="ml-0.5 text-[10px] font-bold text-[var(--color-muted)]">問</span>
+              </div>
+            </button>
+          )}
         </div>
       )}
     </SectionCard>

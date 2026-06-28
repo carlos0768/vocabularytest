@@ -83,6 +83,7 @@ export class LocalWordRepository implements WordRepository {
       createdAt: now,
       isFavorite: false,
       status: 'new' as const,
+      vocabularyType: word.vocabularyType ?? ('passive' as const),
     }));
 
     await db.words.bulkAdd(newWords);

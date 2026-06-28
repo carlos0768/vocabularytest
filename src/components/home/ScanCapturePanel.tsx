@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { MultiShotCaptureView } from '@/components/home/MultiShotCaptureView';
 import { useAuth } from '@/hooks/use-auth';
 import { processImageToBase64 } from '@/lib/image-utils';
+import { triggerHaptic } from '@/lib/haptics';
 import { createBrowserClient } from '@/lib/supabase';
 import {
   addHomeImmediateScanResult,
@@ -270,9 +271,13 @@ export function ScanCapturePanel({
   // Open the multi-shot tray in its 0-shot state; the pulsing shutter in
   // the tray invites the first shot (the camera is NOT launched here).
   const handleCamera = () => {
+    triggerHaptic();
     setCaptureView(true);
   };
-  const handleLibrary = () => libraryInputRef.current?.click();
+  const handleLibrary = () => {
+    triggerHaptic();
+    libraryInputRef.current?.click();
+  };
   const handleCameraInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = '';

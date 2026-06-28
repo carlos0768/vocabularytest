@@ -198,7 +198,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         english: word.english,
         japanese: word.japanese,
         japanese_source: word.japaneseSource ?? null,
-        vocabulary_type: word.vocabularyType ?? null,
+        vocabulary_type: word.vocabularyType ?? 'passive',
         lexicon_entry_id: word.lexiconEntryId ?? null,
         lexicon_sense_id: word.lexiconSenseId ?? null,
         distractors: word.distractors,
