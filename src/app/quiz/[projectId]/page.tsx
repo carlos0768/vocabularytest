@@ -1513,7 +1513,7 @@ export default function QuizPage() {
             onSelectToken={handleWordOrderTokenSelect}
             onRemoveToken={handleWordOrderTokenRemove}
           />
-        ) : !isTypeInMode && isMultipleChoiceQuestion(currentQuestion) ? (
+        ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
           <div className="ds-qopts">
             {currentQuestion.options.map((option, i) => {
               let cls = 'ds-qopt';
@@ -1762,7 +1762,7 @@ export default function QuizPage() {
             onRemoveToken={handleWordOrderTokenRemove}
             onSubmit={handleWordOrderSubmit}
           />
-        ) : !isTypeInMode && isMultipleChoiceQuestion(currentQuestion) ? (
+        ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
           <div className="mt-[18px] flex flex-col gap-2">
             {currentQuestion?.options.map((option, i) => (
               <DSQuizOption
