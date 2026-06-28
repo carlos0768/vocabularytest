@@ -687,10 +687,8 @@ export default function QuizPage() {
     words: Word[],
     count: number,
     direction: QuizDirection = 'en-to-ja',
-    options: { allowPendingWordOrderFallback?: boolean } = {},
   ): QuizQuestion[] => {
     return generateQuizQuestions(words, count, direction, undefined, {
-      allowPendingWordOrderFallback: options.allowPendingWordOrderFallback,
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
     });
@@ -703,9 +701,7 @@ export default function QuizPage() {
     const wordOrderGenerationRun = wordOrderGenerationRunRef.current + 1;
     wordOrderGenerationRunRef.current = wordOrderGenerationRun;
 
-    const nextQuestions = generateQuestions(words, count, quizDirection, {
-      allowPendingWordOrderFallback: selectedNeedsWordOrderQuiz,
-    });
+    const nextQuestions = generateQuestions(words, count, quizDirection);
     setQuestions(nextQuestions);
 
     if (selectedNeedsWordOrderQuiz) {
@@ -713,11 +709,9 @@ export default function QuizPage() {
         const updatedSelected = await applyGeneratedWordOrderQuizzes(selected);
         if (wordOrderGenerationRunRef.current !== wordOrderGenerationRun) return;
 
-        const updatedSelectedById = new Map(updatedSelected.map((word) => [word.id, word]));
-        const wordsForQuestions = words.map((word) => updatedSelectedById.get(word.id) ?? word);
         setQuestions((prev) => applyWordOrderQuestionsToPendingQuiz(
           prev,
-          wordsForQuestions,
+          updatedSelected,
           currentIndexRef.current,
         ));
       })();
