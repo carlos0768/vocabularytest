@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { DesktopHomeView } from '@/components/desktop/DesktopHome';
+import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
@@ -34,6 +34,7 @@ import {
   consumeHomeGeneratingWordbook,
   type HomeGeneratingWordbookPayload,
 } from '@/lib/home/home-session-storage';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { getDailyStats, getStreakDays } from '@/lib/utils';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import type { Project, SubscriptionStatus, Word } from '@/types';
@@ -309,11 +310,13 @@ export default function HomePage() {
   const router = useRouter();
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   useOnboarding();
+  const isDesktop = useIsDesktop();
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingScans, setPendingScans] = useState<HomePendingScan[]>([]);
+  const [homeQuery, setHomeQuery] = useState('');
   const [recentScanJobs, setRecentScanJobs] = useState<RecentScanJob[]>([]);
   const [pendingGeneratingWordbook, setPendingGeneratingWordbook] = useState<HomeGeneratingWordbookPayload | null>(null);
 
@@ -528,189 +531,235 @@ export default function HomePage() {
     return <GuestHomePage />;
   }
 
+  const homeQ = homeQuery.trim().toLowerCase();
+  const filteredProjects = homeQ
+    ? projects.filter((p) => p.title.toLowerCase().includes(homeQ))
+    : projects;
+  const shownProjects = isDesktop ? filteredProjects : filteredProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
+
   return (
     <>
-      <DesktopHomeView
-        projects={projects}
-        stats={stats}
-        loading={loading}
-        error={error}
-        pendingScans={displayedPendingScans}
-        onStartScan={() => router.push('/scan')}
-      />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-      <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
-        <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
-          MERKEN
-          <span className="ml-1 inline-block h-[5px] w-[5px] -translate-y-2 bg-[var(--color-accent)]" />
+      {/* Desktop topbar */}
+      <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">HOME / ライブラリ</div>
+          <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">マイ単語帳</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-[5px] rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
-            <span className="inline-flex text-[var(--color-warning)]">
-              <Icon name="local_fire_department" size={13} filled />
-            </span>
-            <span className="font-mono text-xs font-bold text-[var(--solid-ink)]">{streakDays}</span>
-            <span className="text-[10px] font-semibold text-[var(--color-muted)]">日連続</span>
-          </div>
-        </div>
+        <label className="flex min-w-[230px] items-center gap-2 rounded-[10px] border-[1.5px] border-[var(--solid-ink)] bg-white px-3.5 py-2 text-[var(--color-muted)]">
+          <Icon name="search" size={18} />
+          <input
+            type="search"
+            value={homeQuery}
+            onChange={(e) => setHomeQuery(e.target.value)}
+            placeholder="単語帳を検索"
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted)]"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => setVocabScanOpen(true)}
+          className="inline-flex items-center gap-2 rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-[18px] py-2.5 font-display text-sm font-bold text-white shadow-[2px_3px_0_var(--color-accent-ink)] transition-all hover:translate-x-px hover:translate-y-px hover:shadow-[1px_2px_0_var(--color-accent-ink)]"
+        >
+          <Icon name="add" size={18} />
+          新規作成
+        </button>
       </div>
 
-      {error && (
-        <div className="px-[18px] pb-3">
-          <SolidPanel className="!rounded-[12px] border-[var(--color-error)]" faceClassName="!p-3 text-xs font-bold text-[var(--color-error)]">
-            {error}
-          </SolidPanel>
-        </div>
-      )}
+      {/* Main content area */}
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+        <div className="lg:grid lg:grid-cols-[1fr_300px] lg:items-start lg:gap-6 lg:px-8 lg:pt-7">
+          <div>
+            {/* Mobile header */}
+            <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
+              <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
+                MERKEN
+                <span className="ml-1 inline-block h-[5px] w-[5px] -translate-y-2 bg-[var(--color-accent)]" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-[5px] rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
+                  <span className="inline-flex text-[var(--color-warning)]">
+                    <Icon name="local_fire_department" size={13} filled />
+                  </span>
+                  <span className="font-mono text-xs font-bold text-[var(--solid-ink)]">{streakDays}</span>
+                  <span className="text-[10px] font-semibold text-[var(--color-muted)]">日連続</span>
+                </div>
+              </div>
+            </div>
 
-      <PwaInstallBanner />
+            {error && (
+              <div className="px-[18px] pb-3 lg:px-0">
+                <SolidPanel className="!rounded-[12px] border-[var(--color-error)]" faceClassName="!p-3 text-xs font-bold text-[var(--color-error)]">
+                  {error}
+                </SolidPanel>
+              </div>
+            )}
 
-      <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5">
-        {goalState === 'empty' ? (
-          <button type="button" onClick={() => setVocabScanOpen(true)} className="block text-left">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-2 flex items-center gap-1.5">
-                <span className="inline-flex text-[var(--solid-ink)]">
-                  <Icon name="photo_camera" size={26} />
-                </span>
-                <span className="font-display text-[18px] font-extrabold leading-tight text-[var(--solid-ink)]">
-                  最初のスキャン
-                </span>
-              </div>
-              <div className="mt-3.5 flex items-center gap-[3px] text-[var(--solid-ink)]">
-                <span className="text-[13px] font-bold">スキャンを開始</span>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={12} />
-                </span>
-              </div>
-            </SolidPanel>
-          </button>
-        ) : goalState === 'learn' ? (
-          <Link href="/quiz/all?learn=1&from=/" className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-                  {unmasteredCount}
-                </span>
-                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
-              </div>
-              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
-                未習得 ・ 本日 {completedToday} 語学習
-              </div>
-              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${learnProgress}%` }} />
-              </div>
-              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
-                <span className="text-[13px] font-bold">学習を始める</span>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={12} />
-                </span>
-              </div>
-            </SolidPanel>
-          </Link>
-        ) : (
-          <Link href="/quiz/all?review=1&from=/" className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-                  {dueCount}
-                </span>
-                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
-              </div>
-              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
-                {completedToday} / {goalTotal} 完了
-              </div>
-              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${goalProgress}%` }} />
-              </div>
-              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
-                <span className="text-[13px] font-bold">復習を始める</span>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={12} />
-                </span>
-              </div>
-            </SolidPanel>
-          </Link>
-        )}
+            <PwaInstallBanner />
 
-        <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-            MASTERY
-          </div>
-          <div className="mt-1.5 flex items-center gap-2.5">
-            <MiniDonut mastered={mastered} review={review} total={totalWords} />
-            <div className="flex flex-1 flex-col gap-[5px]">
-              <LegendItem color="var(--color-success)" label="習得" count={mastered} />
-              <LegendItem color="var(--color-warning)" label="学習中" count={review} />
-              <LegendItem color="rgba(26,26,26,0.15)" label="未学習" count={newW} />
+            {/* Goal + Mastery cards */}
+            <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5 lg:gap-4 lg:px-0">
+              {goalState === 'empty' ? (
+                <button type="button" onClick={() => setVocabScanOpen(true)} className="block text-left">
+                  <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px] lg:!p-5">
+                    <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                      TODAY&apos;S GOAL
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="inline-flex text-[var(--solid-ink)]">
+                        <Icon name="photo_camera" size={26} />
+                      </span>
+                      <span className="font-display text-[18px] font-extrabold leading-tight text-[var(--solid-ink)]">
+                        最初のスキャン
+                      </span>
+                    </div>
+                    <div className="mt-3.5 flex items-center gap-[3px] text-[var(--solid-ink)]">
+                      <span className="text-[13px] font-bold">スキャンを開始</span>
+                      <span className="inline-flex text-[var(--color-accent)]">
+                        <Icon name="chevron_right" size={12} />
+                      </span>
+                    </div>
+                  </SolidPanel>
+                </button>
+              ) : goalState === 'learn' ? (
+                <Link href="/quiz/all?learn=1&from=/" className="block">
+                  <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px] lg:!p-5">
+                    <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                      TODAY&apos;S GOAL
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-1">
+                      <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)] lg:text-[36px]">
+                        {unmasteredCount}
+                      </span>
+                      <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
+                      未習得 ・ 本日 {completedToday} 語学習
+                    </div>
+                    <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)] lg:h-[7px]">
+                      <div className="h-full bg-[var(--color-accent)]" style={{ width: `${learnProgress}%` }} />
+                    </div>
+                    <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
+                      <span className="text-[13px] font-bold">学習を始める</span>
+                      <span className="inline-flex text-[var(--color-accent)]">
+                        <Icon name="chevron_right" size={12} />
+                      </span>
+                    </div>
+                  </SolidPanel>
+                </Link>
+              ) : (
+                <Link href="/quiz/all?review=1&from=/" className="block">
+                  <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px] lg:!p-5">
+                    <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                      TODAY&apos;S GOAL
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-1">
+                      <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)] lg:text-[36px]">
+                        {dueCount}
+                      </span>
+                      <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
+                      {completedToday} / {goalTotal} 完了
+                    </div>
+                    <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)] lg:h-[7px]">
+                      <div className="h-full bg-[var(--color-accent)]" style={{ width: `${goalProgress}%` }} />
+                    </div>
+                    <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
+                      <span className="text-[13px] font-bold">復習を始める</span>
+                      <span className="inline-flex text-[var(--color-accent)]">
+                        <Icon name="chevron_right" size={12} />
+                      </span>
+                    </div>
+                  </SolidPanel>
+                </Link>
+              )}
+
+              <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px] lg:!p-5">
+                <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                  MASTERY
+                </div>
+                <div className="mt-1.5 flex items-center gap-2.5">
+                  <MiniDonut mastered={mastered} review={review} total={totalWords} />
+                  <div className="flex flex-1 flex-col gap-[5px]">
+                    <LegendItem color="var(--color-success)" label="習得" count={mastered} />
+                    <LegendItem color="var(--color-warning)" label="学習中" count={review} />
+                    <LegendItem color="rgba(26,26,26,0.15)" label="未学習" count={newW} />
+                  </div>
+                </div>
+              </SolidPanel>
+            </div>
+
+            {/* My Books section */}
+            <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3 lg:px-0 lg:pt-5">
+              <div>
+                <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
+                  MY BOOKS
+                </div>
+                <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)] lg:text-xl">
+                  マイ単語帳
+                </h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="hidden font-mono text-xs text-[var(--color-muted)] lg:inline">
+                  {projects.length} 冊 · {totalWords} 語
+                </span>
+                <Link href="/projects" className="flex items-center gap-[3px] text-[13px] font-semibold text-[var(--color-accent)]">
+                  すべて見る
+                  <Icon name="chevron_right" size={11} />
+                </Link>
+              </div>
+            </div>
+
+            {/* Project list */}
+            <div className="flex flex-col gap-2.5 px-[18px] pb-4 lg:grid lg:grid-cols-2 lg:gap-3 lg:px-0 lg:pb-8 xl:grid-cols-3">
+              {displayedPendingScans.map((job) => (
+                <GeneratingProjectCard
+                  key={job.id}
+                  title={job.project_title}
+                  iconDataUrl={job.iconDataUrl}
+                />
+              ))}
+              {loading && shownProjects.length === 0 ? (
+                <div className="flex items-center justify-center py-10 text-[var(--color-muted)] lg:col-span-full">
+                  <Icon name="progress_activity" size={20} className="animate-spin" />
+                  <span className="ml-2 text-sm">読み込み中...</span>
+                </div>
+              ) : shownProjects.length === 0 ? (
+                <div className="lg:col-span-full">
+                  <SolidEmpty
+                    icon="menu_book"
+                    title={homeQ ? '一致する単語帳がありません' : '単語帳はまだありません'}
+                    description={homeQ ? '検索語を変えてもう一度探してください。' : 'スキャンまたは手入力で最初の単語帳を作成しましょう。'}
+                    action={
+                      <Link href="/scan" className="solid-link-primary">
+                        <Icon name="add_a_photo" size={16} />
+                        新規スキャン
+                      </Link>
+                    }
+                  />
+                </div>
+              ) : (
+                shownProjects.map((project) => <ProjectRow key={project.id} project={project} />)
+              )}
             </div>
           </div>
-        </SolidPanel>
-      </div>
 
-      <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
-        <div>
-          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
-            MY BOOKS
+          {/* Desktop study sidebar */}
+          <div className="hidden lg:block">
+            <DesktopStudySidebar
+              stats={stats}
+              reviewHref={totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'}
+            />
           </div>
-          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
-            マイ単語帳
-          </h2>
         </div>
-        <Link href="/projects" className="flex items-center gap-[3px] text-[13px] font-semibold text-[var(--color-accent)]">
-          すべて見る
-          <Icon name="chevron_right" size={11} />
-        </Link>
       </div>
 
-      <div className="flex flex-col gap-2.5 px-[18px] pb-4">
-        {displayedPendingScans.map((job) => (
-          <GeneratingProjectCard
-            key={job.id}
-            title={job.project_title}
-            iconDataUrl={job.iconDataUrl}
-          />
-        ))}
-        {loading && visibleProjects.length === 0 ? (
-          <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
-            <Icon name="progress_activity" size={20} className="animate-spin" />
-            <span className="ml-2 text-sm">読み込み中...</span>
-          </div>
-        ) : visibleProjects.length === 0 ? (
-          <SolidEmpty
-            icon="menu_book"
-            title="単語帳はまだありません"
-            description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
-            action={
-              <Link href="/scan" className="solid-link-primary">
-                <Icon name="add_a_photo" size={16} />
-                新規スキャン
-              </Link>
-            }
-          />
-        ) : (
-          visibleProjects.map((project) => <ProjectRow key={project.id} project={project} />)
-        )}
-      </div>
-
-      </div>
       <ScanCaptureModal
         isOpen={vocabScanOpen}
         onClose={() => setVocabScanOpen(false)}
         defaultMode="vocab"
         onBackgroundScanStarted={showHomeGeneratingWordbook}
       />
-
-
     </>
   );
 }

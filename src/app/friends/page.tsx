@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -271,25 +270,25 @@ export default function FriendsPage() {
 
   return (
     <>
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
-        <DesktopTopbar title="フィード" crumb="学習タイムライン">
-          <DesktopButton href="/shared" icon="hub" variant="ghost">共有ライブラリ</DesktopButton>
-        </DesktopTopbar>
-        <div className="ds-scroll">
-          {renderContent()}
+      <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">SOCIAL</div>
+          <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">フィード</h1>
         </div>
       </div>
 
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-        <div className="px-[18px] pb-2 pt-1">
-          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+        <div className="px-[18px] pb-2 pt-1 lg:px-0">
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)] lg:hidden">
             FEED
           </div>
-          <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">
+          <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)] lg:hidden">
             フィード
           </div>
         </div>
-        {renderContent()}
+        <div className="lg:mx-auto lg:max-w-3xl lg:px-8 lg:pt-7">
+          {renderContent()}
+        </div>
       </div>
     </>
   );

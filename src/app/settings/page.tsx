@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -33,23 +32,24 @@ export default function SettingsPage() {
   };
 
   return (
-    <>
-      <DesktopSettingsView
-        email={user?.email}
-        username={username}
-        accountId={accountId}
-        isPro={isPro}
-        onSignOut={() => void handleSignOut()}
-      />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-      {/* Header */}
-      <div className="px-[18px] pb-[14px] pt-1">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+      {/* Desktop topbar */}
+      <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">ACCOUNT</div>
+          <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">設定</h1>
+        </div>
+      </div>
+
+      <div className="lg:mx-auto lg:max-w-2xl lg:px-8 lg:pt-7">
+      {/* Header (mobile only - desktop has topbar) */}
+      <div className="px-[18px] pb-[14px] pt-1 lg:hidden">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT</div>
         <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">設定</div>
       </div>
 
       {/* Profile card */}
-      <div className="px-[18px] pb-[14px]">
+      <div className="px-[18px] pb-[14px] lg:px-0">
         {authLoading ? (
           <SolidPanel className="!rounded-[14px] !" faceClassName="!p-[14px]">
             <div className="flex h-14 items-center justify-center">
@@ -101,7 +101,7 @@ export default function SettingsPage() {
 
       {/* Upgrade banner (Free only) */}
       {billingEnabled && !isPro && isAuthenticated && (
-        <div className="px-[18px] pb-4">
+        <div className="px-[18px] pb-4 lg:px-0">
           <div>
             <Link href="/subscription" className="flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.94_0.06_130)] to-white p-[12px_14px]">
               <div className="flex-1">
@@ -140,7 +140,7 @@ export default function SettingsPage() {
 
       {/* Logout */}
       {isAuthenticated && (
-        <div className="px-[18px] pb-6">
+        <div className="px-[18px] pb-6 lg:px-0">
           <button
             type="button"
             onClick={handleSignOut}
@@ -154,13 +154,13 @@ export default function SettingsPage() {
         </div>
       )}
       </div>
-    </>
+      </div>
   );
 }
 
 function SettingsGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="px-[18px] pb-3">
+    <div className="px-[18px] pb-3 lg:px-0">
       <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</div>
       <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
         {children}

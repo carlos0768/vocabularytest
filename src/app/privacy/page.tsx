@@ -1,38 +1,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { DesktopLegalDocView } from '@/components/desktop/DesktopSupport';
 import { Icon } from '@/components/ui/Icon';
 
-const PRIVACY_ARTICLES = [
-  { h: '収集する情報', p: ['本サービスの提供にあたり、以下の情報を取得します。'], list: ['アカウント情報（メールアドレス、パスワード〈暗号化済み〉）', '学習データ（作成した単語帳、クイズの回答履歴、学習進捗）', 'アップロード画像（単語抽出のために送信された画像。処理後、サーバーには保存しません）', '決済情報（有料プラン利用時。Stripeが処理し、本サービスではカード情報等を保持しません）'] },
-  { h: '利用目的', p: ['取得した情報は、以下の目的のために利用します。'], list: ['サービスの提供・運営・改善', 'ユーザーの学習データの保存・同期', 'お問い合わせへの対応', '利用規約違反への対応', '統計データの作成（個人を特定できない形に加工）'] },
-  { h: '第三者サービス', p: ['本サービスでは、認証・データベース・AI抽出・決済・ホスティングのため第三者サービスを利用します。各サービスのプライバシーポリシーについては、各社のサイトをご確認ください。'], list: ['Supabase — 認証・データベース', 'Google (Gemini 2.5 Flash) — 画像OCR・単語抽出', 'OpenAI — クイズ生成・例文生成', 'Stripe — 決済処理', 'Vercel — ホスティング'] },
-  { h: '画像データの取り扱い', p: ['ユーザーがアップロードした画像は、単語抽出処理のためにGoogle Gemini APIに送信されます。処理完了後、画像データは本サービスのサーバーには保存されません。'] },
-  { h: 'データの保存', list: ['無料プラン: データはユーザーのブラウザ（IndexedDB）にローカル保存されます。サーバーには送信されません。', 'Proプラン: データはSupabase（クラウド）に保存され、デバイス間で同期されます。'] },
-  { h: 'Cookie・類似技術', p: ['本サービスでは、ログイン状態の維持や利用状況の分析のためCookieおよびローカルストレージを使用します。ブラウザの設定によりこれらを無効化できますが、一部機能が利用できなくなる場合があります。'] },
-  { h: 'データの削除', p: ['ユーザーはいつでも自身のデータを削除できます。アカウント削除をご希望の場合は、お問い合わせください。アカウント削除時にはすべての関連データを削除します。'] },
-  { h: 'セキュリティ', p: ['本サービスは、個人情報の漏洩・紛失を防ぐために適切なセキュリティ対策を講じています。通信はすべてSSL/TLSにより暗号化されています。'] },
-  { h: 'ポリシーの変更', p: ['本ポリシーは必要に応じて改定することがあります。重要な変更がある場合は、サービス内で通知します。'] },
-  { h: 'お問い合わせ', p: ['本ポリシーに関するお問い合わせは support@merken.jp までご連絡ください。'] },
-];
 
 export default function PrivacyPage() {
   const router = useRouter();
 
   return (
-    <>
-      <DesktopLegalDocView
-        title="プライバシーポリシー"
-        updated="2026年2月24日"
-        intro="MERKEN（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、本サービスにおける個人情報の取り扱いについて定めます。"
-        toc={PRIVACY_ARTICLES.map((article) => article.h)}
-        articles={PRIVACY_ARTICLES}
-        onBack={() => router.back()}
-      />
-      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10">
+      <div className="lg:mx-auto lg:max-w-3xl lg:px-8 lg:pt-7">
       {/* Header */}
-      <div className="px-[18px] pb-3.5 pt-1">
+      <div className="px-[18px] pb-3.5 pt-1 lg:px-0">
         <div className="mb-0.5 flex items-center gap-2">
           <button
             type="button"
@@ -48,7 +27,7 @@ export default function PrivacyPage() {
       </div>
 
       {/* Intro */}
-      <div className="px-[18px] pb-3.5">
+      <div className="px-[18px] pb-3.5 lg:px-0">
         <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
           <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
             MERKEN（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、本サービスにおける個人情報の取り扱いについて定めます。
@@ -123,13 +102,13 @@ export default function PrivacyPage() {
 
       <Footer updated="2026年2月24日" />
       </div>
-    </>
+      </div>
   );
 }
 
 function Section({ num, label, children }: { num: string; label: string; children: React.ReactNode }) {
   return (
-    <div className="px-[18px] pb-3">
+    <div className="px-[18px] pb-3 lg:px-0">
       <div className="flex items-baseline gap-1.5 pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
         <span className="text-[var(--solid-ink)]">§{num}</span>
         <span>{label}</span>
@@ -157,7 +136,7 @@ function OL({ items }: { items: string[] }) {
 
 function Footer({ updated }: { updated: string }) {
   return (
-    <div className="px-[18px] pb-[110px] pt-1">
+    <div className="px-[18px] pb-[110px] pt-1 lg:px-0">
       <div className="text-center font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
         最終更新 {updated} · MERKEN
       </div>

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DesktopSubscriptionView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
@@ -58,16 +57,14 @@ export default function SubscriptionPage() {
 
   return (
     <>
-      <DesktopSubscriptionView
-        price={plan.price}
-        processing={processing}
-        error={error}
-        isPro={isPro}
-        userSignedIn={Boolean(user)}
-        onSubscribe={() => void handleSubscribe()}
-      />
-      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
-      <div className="flex items-center gap-2 px-[14px] pb-2 pt-1">
+      <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">SUBSCRIPTION</div>
+          <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">サブスクリプション</h1>
+        </div>
+      </div>
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+      <div className="flex items-center gap-2 px-[14px] pb-2 pt-1 lg:hidden">
         <button
           type="button"
           onClick={() => router.back()}
@@ -82,7 +79,8 @@ export default function SubscriptionPage() {
         </span>
       </div>
 
-      <div className="px-[18px] pb-[18px]">
+      <div className="lg:mx-auto lg:max-w-2xl lg:px-8 lg:pt-7">
+      <div className="px-[18px] pb-[18px] lg:px-0">
         <div className="relative">
           <div className="absolute inset-0 rounded-[18px] bg-[var(--solid-ink)]" style={{ transform: 'translate(3px, 3px)' }} />
           <div
@@ -104,7 +102,7 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      <div className="px-[18px] pb-4">
+      <div className="px-[18px] pb-4 lg:px-0">
         <div className="mb-2 pl-1 font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
           PLAN
         </div>
@@ -126,7 +124,7 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      <div className="px-[18px] pb-4">
+      <div className="px-[18px] pb-4 lg:px-0">
         <div className="mb-2 pl-1 font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
           COMPARE
         </div>
@@ -156,7 +154,7 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      <div className="px-[18px] pb-4">
+      <div className="px-[18px] pb-4 lg:px-0">
         {error && (
           <div className="mb-3 rounded-[10px] border border-[var(--color-error)] bg-white px-3 py-2 text-xs font-bold text-[var(--color-error)]">
             {error}
@@ -184,6 +182,7 @@ export default function SubscriptionPage() {
       </div>
 
       <div className="h-[100px]" />
+      </div>
       </div>
     </>
   );

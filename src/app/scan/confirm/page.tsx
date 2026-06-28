@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DesktopScanConfirmView } from '@/components/desktop/DesktopScan';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useToast } from '@/components/ui/toast';
@@ -347,30 +346,9 @@ export default function ConfirmPage() {
 
   return (
     <>
-      <DesktopScanConfirmView
-        words={words}
-        projectTitle={projectTitle}
-        isAddingToExisting={isAddingToExisting}
-        selectedCount={selectedCount}
-        availableSlots={availableSlots}
-        showLimitWarning={showLimitWarning}
-        excessCount={excessCount}
-        currentWordCount={currentWordCount}
-        saving={saving}
-        isPro={isPro}
-        onProjectTitleChange={setProjectTitle}
-        onToggleWord={handleToggleWord}
-        onEditWord={handleEditWord}
-        onSaveWord={handleSaveWord}
-        onCancelEdit={handleCancelEdit}
-        onDeleteWord={handleDeleteWord}
-        onAddManualWord={handleAddManualWord}
-        onBack={() => router.back()}
-        onSaveProject={() => void handleSaveProject()}
-      />
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
+      <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 lg:px-8 lg:pt-6">
         <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
           <Icon name="chevron_left" size={18} />
         </button>
@@ -386,7 +364,7 @@ export default function ConfirmPage() {
       </div>
 
       {/* Scan preview + project name */}
-      <div className="flex items-center gap-2.5 px-[18px] pb-3 pt-0.5">
+      <div className="flex items-center gap-2.5 px-[18px] pb-3 pt-0.5 lg:px-8">
         <div
           className="relative h-[68px] w-[54px] shrink-0 overflow-hidden rounded border-2 border-[var(--solid-ink)]"
           style={{ background: 'linear-gradient(135deg, #d4c9a8, #e8dfc2)' }}
@@ -417,7 +395,7 @@ export default function ConfirmPage() {
       </div>
 
       {/* Stats row */}
-      <div className="flex gap-1.5 px-[18px] pb-3">
+      <div className="flex gap-1.5 px-[18px] pb-3 lg:px-8">
         <StatChip label="抽出" value={words.length} />
         <StatChip label="選択中" value={selectedCount} accent="var(--color-success)" />
         {!isPro && <StatChip label={`残り${availableSlots}語`} value={availableSlots} accent={showLimitWarning ? 'var(--color-warning)' : 'var(--solid-ink)'} />}
@@ -425,7 +403,7 @@ export default function ConfirmPage() {
 
       {/* Limit warning */}
       {showLimitWarning && (
-        <div className="mx-[18px] mb-3 rounded-lg border border-[var(--color-warning)] bg-[rgba(255,165,0,0.06)] px-3 py-2.5">
+        <div className="mx-[18px] mb-3 rounded-lg border border-[var(--color-warning)] bg-[rgba(255,165,0,0.06)] px-3 py-2.5 lg:mx-8">
           <div className="flex items-start gap-2">
             <Icon name="warning" size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" />
             <div>
@@ -441,7 +419,7 @@ export default function ConfirmPage() {
 
 
       {/* Word count + add button */}
-      <div className="flex items-center justify-between px-[18px] pb-2.5">
+      <div className="flex items-center justify-between px-[18px] pb-2.5 lg:px-8">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
           抽出された単語 ({words.length})
         </div>
@@ -451,7 +429,7 @@ export default function ConfirmPage() {
       </div>
 
       {/* Word list */}
-      <div className="flex flex-col gap-[5px] px-[14px] pb-[110px]">
+      <div className="flex flex-col gap-[5px] px-[14px] pb-[110px] lg:grid lg:grid-cols-2 lg:gap-3 lg:px-8 lg:pb-8 xl:grid-cols-3">
         {words.map((w, i) =>
           w.isEditing ? (
             <EditingWordRow key={w.tempId} w={w} onSave={handleSaveWord} onCancel={handleCancelEdit} />
@@ -465,7 +443,7 @@ export default function ConfirmPage() {
       </div>
 
       {/* Bottom action */}
-      <div className="fixed inset-x-0 bottom-0 flex gap-2 bg-gradient-to-t from-[#fafaf7] via-[#fafaf7] to-transparent px-[18px] pb-[30px] pt-3.5">
+      <div className="fixed inset-x-0 bottom-0 flex gap-2 bg-gradient-to-t from-[#fafaf7] via-[#fafaf7] to-transparent px-[18px] pb-[30px] pt-3.5 lg:static lg:px-8 lg:pb-8 lg:pt-4">
         <button
           type="button"
           onClick={() => router.back()}

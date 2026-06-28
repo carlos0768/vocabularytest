@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { DesktopProjectsView } from '@/components/desktop/DesktopProjects';
+import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -156,21 +156,56 @@ export default function ProjectListPage() {
     });
   }, [projects, query, sort]);
 
+  const reviewHref = summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/projects' : '/projects';
+
   return (
-    <>
-      <DesktopProjectsView
-        projects={filtered}
-        loading={loading}
-        error={error}
-        query={query}
-        sort={sort}
-        summaryStats={summaryStats}
-        reviewHref={summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/projects' : '/projects'}
-        onQueryChange={setQuery}
-        onSortChange={setSort}
-      />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:hidden">
-      <div className="px-5 pb-3.5 pt-2.5">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+      {/* Desktop topbar */}
+      <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+        <div className="flex-1">
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+            ライブラリ / 管理
+          </div>
+          <h1 className="mt-0.5 font-display text-[20px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">
+            単語帳
+          </h1>
+        </div>
+        <label className="flex items-center gap-2 rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-[var(--color-muted)]">
+          <Icon name="search" size={15} />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="単語帳を検索"
+            className="min-w-0 bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+          />
+        </label>
+        {SORTS.map((s) => (
+          <button
+            key={s.k}
+            type="button"
+            onClick={() => setSort(s.k)}
+            className={`inline-flex shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+              sort === s.k
+                ? 'border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
+            }`}
+          >
+            <Icon name={s.icon} size={12} />
+            {s.label}
+          </button>
+        ))}
+        <Link
+          href="/scan"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--solid-ink)] px-4 py-2 text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+        >
+          <Icon name="add" size={16} />
+          新規作成
+        </Link>
+      </div>
+
+      {/* Mobile header */}
+      <div className="px-5 pb-3.5 pt-2.5 lg:hidden">
         <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-muted)]">
           MY BOOKS
         </div>
@@ -179,7 +214,8 @@ export default function ProjectListPage() {
         </h1>
       </div>
 
-      <div className="px-[18px] pb-2.5 pt-1">
+      {/* Mobile search */}
+      <div className="px-[18px] pb-2.5 pt-1 lg:hidden">
         <label className="flex items-center gap-2 rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-[var(--color-muted)]">
           <Icon name="search" size={15} />
           <input
@@ -192,7 +228,8 @@ export default function ProjectListPage() {
         </label>
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto px-[18px] pb-3.5 pt-1">
+      {/* Mobile sort chips */}
+      <div className="flex gap-1.5 overflow-x-auto px-[18px] pb-3.5 pt-1 lg:hidden">
         {SORTS.map((s) => (
           <button
             key={s.k}
@@ -210,42 +247,52 @@ export default function ProjectListPage() {
         ))}
       </div>
 
-      <div className="flex items-baseline justify-between px-5 pb-2 pt-1">
-        <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-[var(--color-muted)]">すべて</span>
-        <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{filtered.length} 件</span>
-      </div>
-
-      {error && (
-        <div className="px-[18px] pb-3 text-xs font-bold text-[var(--color-error)]">
-          {error}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2.5 px-[18px] pb-[150px]">
-        {loading && projects.length === 0 ? (
-          <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
-            <Icon name="progress_activity" size={20} className="animate-spin" />
-            <span className="ml-2 text-sm">読み込み中...</span>
+      {/* Responsive grid: main content + desktop sidebar */}
+      <div className="lg:grid lg:grid-cols-[1fr_300px] lg:items-start lg:gap-6 lg:px-8 lg:pt-7">
+        <div>
+          <div className="flex items-baseline justify-between px-5 pb-2 pt-1 lg:px-0">
+            <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-[var(--color-muted)]">すべて</span>
+            <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{filtered.length} 件</span>
           </div>
-        ) : filtered.length === 0 ? (
-          <SolidEmpty
-            icon="menu_book"
-            title={query ? '一致する単語帳がありません' : '単語帳はまだありません'}
-            description={query ? '検索語を変えてもう一度探してください。' : 'スキャンして最初の単語帳を作成しましょう。'}
-            action={
-              <Link href="/scan" className="solid-link-primary">
-                <Icon name="add_a_photo" size={16} />
-                新規スキャン
-              </Link>
-            }
-          />
-        ) : (
-          filtered.map((project) => <BookRow key={project.id} project={project} />)
-        )}
-      </div>
 
+          {error && (
+            <div className="px-[18px] pb-3 text-xs font-bold text-[var(--color-error)] lg:px-0">
+              {error}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2.5 px-[18px] pb-[150px] lg:grid lg:grid-cols-2 lg:gap-3 lg:px-0 lg:pb-0 xl:grid-cols-3">
+            {loading && projects.length === 0 ? (
+              <div className="flex items-center justify-center py-16 text-[var(--color-muted)] lg:col-span-full">
+                <Icon name="progress_activity" size={20} className="animate-spin" />
+                <span className="ml-2 text-sm">読み込み中...</span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="lg:col-span-full">
+                <SolidEmpty
+                  icon="menu_book"
+                  title={query ? '一致する単語帳がありません' : '単語帳はまだありません'}
+                  description={query ? '検索語を変えてもう一度探してください。' : 'スキャンして最初の単語帳を作成しましょう。'}
+                  action={
+                    <Link href="/scan" className="solid-link-primary">
+                      <Icon name="add_a_photo" size={16} />
+                      新規スキャン
+                    </Link>
+                  }
+                />
+              </div>
+            ) : (
+              filtered.map((project) => <BookRow key={project.id} project={project} />)
+            )}
+          </div>
+        </div>
+
+        {/* Desktop study sidebar */}
+        <div className="hidden lg:block">
+          <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} />
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 

@@ -3,7 +3,6 @@
 import { startTransition, useEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { DesktopSharedView } from '@/components/desktop/DesktopShared';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -257,29 +256,20 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   return (
     <>
-      <DesktopSharedView
-        category={category === 'groups' ? 'all' : category}
-        query={query}
-        payload={discover}
-        loading={loading}
-        loadingMore={loadingMore}
-        error={error}
-        onQueryChange={setQuery}
-        onCategorySelect={handleSelectCategory}
-        onBackToAll={handleBackToAll}
-        onLoadMore={() => void handleLoadMore()}
-        onOpenShareSheet={handleOpenShareSheet}
-        onProjectMissing={handleProjectMissing}
-      />
-
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-        <div className="px-[18px] pb-2 pt-1">
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+        <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">SHARED</div>
+            <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">共有ライブラリ</h1>
+          </div>
+        </div>
+        <div className="px-[18px] pb-2 pt-1 lg:px-8 lg:pt-7">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+              <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)] lg:hidden">
                 COMMUNITY
               </div>
-              <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">
+              <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)] lg:hidden">
                 共有単語帳
               </div>
             </div>
@@ -298,7 +288,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         </div>
 
         {category !== 'groups' && category !== 'users' && (
-          <div className="px-[14px] pt-2">
+          <div className="px-[14px] pt-2 lg:px-0">
             <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
               <Icon name="search" size={16} />
               <span className="sr-only">共有ライブラリを検索</span>
@@ -314,7 +304,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         )}
 
         {category === 'all' ? (
-          <div className="grid grid-cols-3 gap-2 px-[14px] py-3">
+          <div className="grid grid-cols-3 gap-2 px-[14px] py-3 lg:px-0">
             {(Object.keys(CATEGORY_META) as PageCategory[]).map((key) => (
               <button
                 key={key}
@@ -328,7 +318,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-[14px] py-3">
+          <div className="flex items-center gap-2 px-[14px] py-3 lg:px-0">
             <button
               type="button"
               onClick={handleBackToAll}
@@ -365,7 +355,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             onSearch={() => void handleUserSearch()}
           />
         ) : shouldShowResults && (
-          <div className="flex flex-col gap-4 px-[14px]">
+          <div className="flex flex-col gap-4 px-[14px] lg:px-0">
             {error && <ErrorBox message={error} />}
             {loading ? (
               <LoadingBox />
@@ -600,7 +590,7 @@ function ProjectSection({
   return (
     <section>
       <SectionLabel icon="menu_book" label="単語帳" count={projects.length} />
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
         {projects.map((project) => (
           <ProjectCard
             key={project.project.id}

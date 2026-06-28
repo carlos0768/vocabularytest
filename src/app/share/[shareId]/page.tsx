@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DesktopSharedDetailView } from '@/components/desktop/DesktopSharedDetail';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
@@ -424,32 +423,14 @@ export default function SharedDetailPage() {
 
   return (
     <>
-      <DesktopSharedDetailView
-        project={project}
-        words={displayWords}
-        ownerLabel={ownerLabel}
-        selectMode={selectMode}
-        selectedWordIds={selectedWordIds}
-        likeCount={likeCount}
-        liked={liked}
-        importing={importBusy}
-        importedProjectId={importedProjectId}
-        isPreviewLocked={isPreviewLocked}
-        isLoggedIn={!!user}
-        totalWordCount={totalWordCount}
-        previewClearWordCount={SHARE_PREVIEW_CLEAR_WORD_COUNT}
-        lockedCtaHref={loginRedirectHref}
-        onToggleLike={() => void handleToggleLike()}
-        onToggleSelectMode={() => {
-          setSelectMode((current) => !current);
-          setSelectedWordIds(new Set());
-        }}
-        onToggleWord={handleToggleSelect}
-        onImport={() => void handleImport()}
-        onClearSelection={() => setSelectedWordIds(new Set())}
-      />
-      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
-      <div className="flex items-center justify-between px-3.5 pb-2 pt-2">
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+      <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">SHARED</div>
+          <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">共有ライブラリ</h1>
+        </div>
+      </div>
+      <div className="flex items-center justify-between px-3.5 pb-2 pt-2 lg:hidden">
         <SharedHeaderBtn onClick={() => router.back()} aria-label="戻る">
           <Icon name="chevron_left" size={16} />
         </SharedHeaderBtn>
@@ -466,7 +447,7 @@ export default function SharedDetailPage() {
         </div>
       </div>
 
-      <div className="px-[18px] pb-3.5 pt-1">
+      <div className="px-[18px] pb-3.5 pt-1 lg:px-8 lg:pt-7">
         <SolidPanel
           className="!rounded-[16px] overflow-hidden"
           faceClassName="!p-4 relative [background:linear-gradient(135deg,oklch(0.94_0.04_14),#fff)]"
@@ -506,13 +487,13 @@ export default function SharedDetailPage() {
         </SolidPanel>
       </div>
 
-      <div className="flex items-center justify-between px-[18px] pb-2.5">
+      <div className="flex items-center justify-between px-[18px] pb-2.5 lg:px-8">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {isPreviewLocked ? `単語プレビュー · ${SHARE_PREVIEW_CLEAR_WORD_COUNT}語まで表示` : `単語プレビュー · 全 ${totalWordCount} 語`}
         </div>
       </div>
 
-      <div className="flex flex-col gap-1 px-3.5 pb-[130px]">
+      <div className="flex flex-col gap-1 px-3.5 pb-[130px] lg:grid lg:grid-cols-2 lg:gap-4 lg:px-8 xl:grid-cols-3">
         {displayWords.map((word, i) => {
           const selected = selectedWordIds.has(word.id);
           const locked = isPreviewLocked && i >= SHARE_PREVIEW_CLEAR_WORD_COUNT;

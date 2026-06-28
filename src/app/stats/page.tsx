@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { DesktopStatsView } from '@/components/desktop/DesktopStats';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -146,9 +145,14 @@ export default function StatsPage() {
 
   return (
     <>
-      <DesktopStatsView stats={stats} loading={statsLoading} />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
-        <div className="flex items-center gap-3 px-[18px] pb-2 pt-4">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+        <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">STATS</div>
+            <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">統計</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-[18px] pb-2 pt-4 lg:px-8 lg:pt-7">
           <button
             type="button"
             onClick={() => setShowStats((v) => !v)}
@@ -187,21 +191,21 @@ export default function StatsPage() {
                   <span className="ml-2 text-sm">読み込み中...</span>
                 </div>
               ) : !stats ? (
-                <div className="px-[18px] pb-3">
+                <div className="px-[18px] pb-3 lg:px-0">
                   <SolidPanel className="!rounded-[14px]" faceClassName="!p-6 text-center text-sm text-[var(--color-muted)]">
                     統計を読み込めませんでした
                   </SolidPanel>
                 </div>
               ) : (
-                <div className="pb-2">
-                  <div className="grid grid-cols-2 gap-2 px-[18px] pb-3">
+                <div className="pb-2 lg:px-8 lg:pt-7">
+                  <div className="grid grid-cols-2 gap-2 px-[18px] pb-3 lg:grid-cols-4 lg:px-0">
                     <KPI label="連続日数" value={stats.quizStats.streakDays} suffix="日" accent icon="local_fire_department" />
                     <KPI label="累計学習日" value={totalDays} suffix="日" />
                     <KPI label="今週の復習" value={weekTotal} suffix="語" />
                     <KPI label="1日平均" value={avgPerDay} suffix="語" />
                   </div>
 
-                  <div className="px-[18px] pb-3">
+                  <div className="px-[18px] pb-3 lg:px-0">
                     <SolidPanel className="!rounded-[14px]" faceClassName="!p-3.5">
                       <div className="mb-3 flex items-baseline justify-between">
                         <div>
@@ -240,7 +244,7 @@ export default function StatsPage() {
                     </SolidPanel>
                   </div>
 
-                  <div className="px-[18px] pb-3">
+                  <div className="px-[18px] pb-3 lg:px-0">
                     <SolidPanel className="!rounded-[14px]" faceClassName="!p-3.5">
                       <div className="mb-2.5 flex items-baseline justify-between">
                         <div>
@@ -271,7 +275,7 @@ export default function StatsPage() {
                     </SolidPanel>
                   </div>
 
-                  <div className="px-[18px] pb-3">
+                  <div className="px-[18px] pb-3 lg:px-0">
                     <SolidPanel className="!rounded-[14px]" faceClassName="!p-3.5">
                       <div className="mb-2 font-mono text-[10px] font-bold tracking-[0.06em] text-[var(--color-muted)]">BREAKDOWN</div>
                       <div className="flex items-baseline gap-1">
@@ -302,7 +306,7 @@ export default function StatsPage() {
             <Icon name="progress_activity" size={20} className="animate-spin" />
           </div>
         ) : sessions.length === 0 ? (
-          <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
+          <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)] lg:px-8">
             まだ活動がありません
           </div>
         ) : (
@@ -331,7 +335,7 @@ function TimelineItem({
 }) {
   return (
     <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
-      <div className="flex items-start gap-3.5 px-[18px] py-4">
+      <div className="flex items-start gap-3.5 px-[18px] py-4 lg:px-8">
         <FeedAvatar profile={session.profile} />
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
@@ -359,7 +363,7 @@ function TimelineItem({
         </button>
       </div>
       {expanded && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
+        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4 lg:px-8">
           <div className="pl-[52px]">
             {session.words.length > 0 ? (
               <div className="flex flex-col gap-2">
