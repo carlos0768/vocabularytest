@@ -6,7 +6,7 @@ import { handleSendOtpPost } from './send-otp/route';
 import { handleSignupVerifyPost } from './signup-verify/route';
 import { handleVerifyOtpPost } from './verify-otp/route';
 
-type QueryAction = 'select' | 'insert' | 'update' | 'delete';
+type QueryAction = 'select' | 'insert' | 'update' | 'upsert' | 'delete';
 
 interface QueryFilter {
   field: string;
@@ -22,6 +22,7 @@ interface QueryOperation {
   table: string;
   action: QueryAction;
   payload?: unknown;
+  options?: unknown;
   columns?: string;
   filters: QueryFilter[];
   orders: QueryOrder[];
@@ -86,6 +87,11 @@ class FakeOtpQuery {
 
   limit(count: number) {
     this.operation.limitCount = count;
+    return this;
+  }
+
+  select(columns = '*') {
+    this.operation.columns = columns;
     return this;
   }
 
@@ -165,6 +171,7 @@ class FakeOtpAdminClient {
       select: (columns = '*') => this.createOperation(table, 'select', undefined, columns),
       insert: (payload: unknown) => this.createOperation(table, 'insert', payload),
       update: (payload: unknown) => this.createOperation(table, 'update', payload),
+      upsert: (payload: unknown, options?: unknown) => this.createOperation(table, 'upsert', payload, undefined, options),
       delete: () => this.createOperation(table, 'delete'),
     };
   }
@@ -174,11 +181,13 @@ class FakeOtpAdminClient {
     action: QueryAction,
     payload?: unknown,
     columns?: string,
+    options?: unknown,
   ) {
     const operation: QueryOperation = {
       table,
       action,
       payload,
+      options,
       columns,
       filters: [],
       orders: [],
@@ -204,6 +213,14 @@ class FakeOtpAdminClient {
 
       return {
         data: this.options.otpRecord as T,
+        error: null,
+      };
+    }
+
+    if (operation.table === 'profiles' && operation.action === 'upsert') {
+      const payload = isRecord(operation.payload) ? operation.payload : {};
+      return {
+        data: { user_id: payload.user_id } as T,
         error: null,
       };
     }
@@ -536,6 +553,59 @@ test('signup-verify valid OTP still returns 409 for an existing email after veri
   assert.deepEqual(cleanup.filters, [{ field: 'email', value: 'user@example.com' }]);
   assert.deepEqual(adminClient.createUserCalls, []);
   assert.deepEqual(adminClient.generateLinkCalls, []);
+});
+
+test('signup-verify valid OTP saves onboarding profile fields by upsert', async () => {
+  const adminClient = new FakeOtpAdminClient({
+    users: [],
+    otpRecord: otpRecord({ id: 'otp-signup-profile' }),
+    createdUser: { id: 'created-user-1', email: 'new@example.com' },
+  });
+  const serverClient = new FakeServerClient({
+    sessionUser: { id: 'created-user-1', email: 'new@example.com' },
+  });
+
+  const response = await handleSignupVerifyPost(
+    jsonRequest('/api/auth/signup-verify', {
+      email: 'New@Example.COM',
+      code: '123456',
+      password: 'password123',
+      display_name: '山田太郎',
+      user_handle: 'kenta_123',
+      eiken_level: 'pre2',
+    }),
+    {
+      getAdminClient: () => adminClient as never,
+      getServerClient: async () => serverClient as never,
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await jsonPayload(response), {
+    success: true,
+    user: {
+      id: 'created-user-1',
+      email: 'new@example.com',
+    },
+  });
+
+  const profileUpsert = findOperation(adminClient, (operation) =>
+    operation.table === 'profiles' &&
+    operation.action === 'upsert'
+  );
+  assert.deepEqual(profileUpsert.options, { onConflict: 'user_id' });
+  assert.equal(profileUpsert.columns, 'user_id');
+  assert.deepEqual(profileUpsert.payload, {
+    user_id: 'created-user-1',
+    onboarding_step: 'signed_up',
+    username: '山田太郎',
+    display_name: '山田太郎',
+    user_handle: 'kenta_123',
+    eiken_level: 'pre2',
+  });
+
+  const cleanup = findOtpDelete(adminClient, 'email', 'new@example.com');
+  assert.deepEqual(cleanup.filters, [{ field: 'email', value: 'new@example.com' }]);
 });
 
 test('reset-password set-password uses verified OTP grace, updates password, cleans OTPs, and signs in best-effort', async () => {
