@@ -542,6 +542,10 @@ export default function QuizPage() {
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
+  // Locks whether the current question is shown as a type-in quiz, captured at
+  // presentation time. Answering promotes the word's status (e.g. active →
+  // mastered), and we must not let that flip the UI to multiple-choice mid-question.
+  const typeInModeRef = useRef<{ key: string; value: boolean }>({ key: '', value: false });
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -1007,8 +1011,15 @@ export default function QuizPage() {
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
-  const isActiveStatus = !currentIsWordOrder && !isActiveVocab && currentQuestion?.word.status === 'active';
-  const isTypeInMode = isActiveVocab || isActiveStatus;
+  // Freeze type-in mode per question (keyed by index + word id, which are stable
+  // across the status mutation that answering applies). Recomputing it from the
+  // live status would flip active → mastered to multiple-choice mid-question.
+  const typeInModeKey = `${currentIndex}:${currentQuestion?.word.id ?? ''}`;
+  if (typeInModeRef.current.key !== typeInModeKey) {
+    const activeStatus = !currentIsWordOrder && !isActiveVocab && currentQuestion?.word.status === 'active';
+    typeInModeRef.current = { key: typeInModeKey, value: Boolean(isActiveVocab || activeStatus) };
+  }
+  const isTypeInMode = typeInModeRef.current.value;
   // Type-in quizzes always ask for the English word (日英). We never make the
   // user type Japanese, regardless of quiz direction or active source.
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
