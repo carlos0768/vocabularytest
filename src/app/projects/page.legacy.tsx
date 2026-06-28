@@ -37,6 +37,7 @@ function withEmptyStats(projects: Project[]): ProjectWithStats[] {
     ...project,
     totalWords: 0,
     masteredWords: 0,
+    activeWords: 0,
     progress: 0,
     lastUsedAt: null,
   }));

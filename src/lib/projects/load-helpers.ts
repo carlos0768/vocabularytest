@@ -4,6 +4,7 @@ import { summarizeWordMemory } from '@/lib/words/memory';
 export interface ProjectWithStats extends Project {
   totalWords: number;
   masteredWords: number;
+  activeWords: number;
   progress: number;
   lastUsedAt: string | null; // Most recent lastReviewedAt among words, or null
 }
@@ -103,6 +104,7 @@ export function buildProjectStats(
     const words = wordsByProject[project.id] ?? [];
     const memorySummary = summarizeWordMemory(words);
     const masteredWords = memorySummary.mastered;
+    const activeWords = memorySummary.active;
     const totalWords = memorySummary.total;
     const progress = totalWords > 0 ? Math.round((masteredWords / totalWords) * 100) : 0;
 
@@ -117,6 +119,7 @@ export function buildProjectStats(
       ...project,
       totalWords,
       masteredWords,
+      activeWords,
       progress,
       lastUsedAt,
     };

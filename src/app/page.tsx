@@ -1347,11 +1347,14 @@ function ProjectRow({ project }: { project: HomeProjectStats }) {
               <span className="font-display text-lg font-extrabold tabular-nums text-[var(--solid-ink)]">{project.totalWords}</span>
               <span className="ml-px text-[11px] font-bold text-[var(--color-muted)]">語</span>
             </div>
-            <div className="mt-[3px] flex gap-2.5">
-              <DotLabel color="var(--color-success)" label={`習得 ${project.masteredWords}`} />
-              <DotLabel color="var(--color-warning)" label={`学習 ${project.reviewWords}`} />
-              <DotLabel color="rgba(26,26,26,0.2)" label={`未 ${project.newWords}`} />
-            </div>
+            {project.totalWords > 0 && (
+              <div className="mt-[5px] flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
+                {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
+                {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
+                {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
+              </div>
+            )}
           </div>
         </Link>
         {hasWords && (
