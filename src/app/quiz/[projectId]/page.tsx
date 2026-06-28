@@ -1009,11 +1009,9 @@ export default function QuizPage() {
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
   const isActiveStatus = !currentIsWordOrder && !isActiveVocab && currentQuestion?.word.status === 'active';
   const isTypeInMode = isActiveVocab || isActiveStatus;
-  const typeInExpectedAnswer = isActiveVocab
-    ? (currentQuestion?.word.english ?? '')
-    : quizDirection === 'en-to-ja'
-      ? (currentQuestion?.word.japanese ?? '')
-      : (currentQuestion?.word.english ?? '');
+  // Type-in quizzes always ask for the English word (日英). We never make the
+  // user type Japanese, regardless of quiz direction or active source.
+  const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean, marker?: QuizAnswerResult) => {
     playAnswerFeedbackSound(isCorrect);
@@ -1437,11 +1435,7 @@ export default function QuizPage() {
   const desktopPrompt = currentIsWordOrder
     ? displayJapanese
     : isTypeInMode
-      ? (isActiveVocab
-          ? displayJapanese
-          : quizDirection === 'en-to-ja'
-            ? currentQuestion?.word.english
-            : displayJapanese)
+      ? displayJapanese
       : quizDirection === 'en-to-ja'
         ? currentQuestion?.word.english
         : displayJapanese;
@@ -1721,11 +1715,7 @@ export default function QuizPage() {
               {currentIsWordOrder
                 ? displayJapanese
                 : isTypeInMode
-                  ? (isActiveVocab
-                      ? displayJapanese
-                      : quizDirection === 'en-to-ja'
-                        ? currentQuestion?.word.english
-                        : displayJapanese)
+                  ? displayJapanese
                   : quizDirection === 'en-to-ja'
                     ? currentQuestion?.word.english
                     : displayJapanese}
