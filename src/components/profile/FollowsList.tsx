@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import type { MouseEvent } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { FriendProfile } from '@/lib/friends/types';
@@ -27,8 +29,19 @@ export function FollowsList({
   followers: FriendProfile[];
   loading: boolean;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<FollowsTab>(initialTab);
   const list = tab === 'following' ? following : followers;
+
+  const handleBack = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+      return;
+    }
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      event.preventDefault();
+      router.back();
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-[var(--color-background)] pb-[max(24px,env(safe-area-inset-bottom))] pt-3 font-[var(--font-body)]">
@@ -37,6 +50,7 @@ export function FollowsList({
         <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
           <Link
             href={backHref}
+            onClick={handleBack}
             aria-label="戻る"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
           >
