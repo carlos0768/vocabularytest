@@ -46,6 +46,7 @@ test('countHomeWordStatuses counts mastered, review, and unlearned words', () =>
 
   assert.deepEqual(counts, {
     masteredTotal: 2,
+    activeTotal: 0,
     learningTotal: 1,
     unlearnedTotal: 2,
   });

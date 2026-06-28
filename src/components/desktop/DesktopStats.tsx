@@ -22,6 +22,7 @@ export function DesktopStatsView({
   const weekTotal = chartData.reduce((sum, item) => sum + item.count, 0);
   const totalWords = stats?.totalWords ?? 0;
   const mastered = stats?.masteredWords ?? 0;
+  const activeW = stats?.activeWords ?? 0;
   const review = stats?.reviewWords ?? 0;
   const newWords = stats?.newWords ?? 0;
   const accuracy = stats?.quizStats.todayCount
@@ -35,6 +36,7 @@ export function DesktopStatsView({
         streakDays: stats.quizStats.streakDays,
         totalWords,
         mastered,
+        activeW,
         review,
         newW: newWords,
       }
@@ -96,6 +98,7 @@ export function DesktopStatsView({
                 <div className="v" style={{ color: 'var(--color-accent-ink)' }}>{mastered}</div>
                 <div className="ds-prog" style={{ marginTop: 4 }}><div className="fi" style={{ width: `${masteryPercent}%` }} /></div>
               </div>
+              <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>定着中</div><div className="v" style={{ color: '#1d4ed8' }}>{activeW}</div><div className="mono muted" style={{ fontSize: 11 }}>もう少し</div></div>
               <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>復習中</div><div className="v" style={{ color: '#92400e' }}>{review}</div><div className="mono muted" style={{ fontSize: 11 }}>要レビュー</div></div>
               <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>未学習</div><div className="v muted">{newWords}</div><div className="mono muted" style={{ fontSize: 11 }}>これから</div></div>
               <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>間違えた問題</div><div className="v" style={{ color: 'var(--color-error)' }}>{stats.wrongAnswersCount}</div><div className="mono muted" style={{ fontSize: 11 }}>復習推奨</div></div>
@@ -106,11 +109,13 @@ export function DesktopStatsView({
               <div style={{ flex: 1 }}>
                 <div className="ds-dist" style={{ marginBottom: 18 }}>
                   <span className="c-mastered" style={{ flex: mastered || 0.0001 }} />
+                  <span className="c-active" style={{ flex: activeW || 0.0001 }} />
                   <span className="c-review" style={{ flex: review || 0.0001 }} />
                   <span className="c-new" style={{ flex: newWords || 0.0001 }} />
                 </div>
                 <div className="ds-legend">
                   <div className="row"><span className="ds-sdot c-mastered" /><span className="lb">習得</span><span className="ct tnum">{mastered}</span></div>
+                  <div className="row"><span className="ds-sdot c-active" /><span className="lb">定着中</span><span className="ct tnum">{activeW}</span></div>
                   <div className="row"><span className="ds-sdot c-review" /><span className="lb">学習中</span><span className="ct tnum">{review}</span></div>
                   <div className="row"><span className="ds-sdot c-new" /><span className="lb">未学習</span><span className="ct tnum">{newWords}</span></div>
                 </div>

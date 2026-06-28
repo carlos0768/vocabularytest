@@ -41,6 +41,7 @@ export function DesktopStudySidebar({
         <DesktopDonut mastered={stats.mastered} review={stats.review} total={stats.totalWords} size={130} stroke={17} percent={masteryPercent} />
         <div className="ds-legend" style={{ alignSelf: 'stretch' }}>
           <div className="row"><span className="ds-sdot c-mastered" /><span className="lb">習得</span><span className="ct tnum">{stats.mastered}</span></div>
+          <div className="row"><span className="ds-sdot c-active" /><span className="lb">定着中</span><span className="ct tnum">{stats.activeW}</span></div>
           <div className="row"><span className="ds-sdot c-review" /><span className="lb">学習中</span><span className="ct tnum">{stats.review}</span></div>
           <div className="row"><span className="ds-sdot c-new" /><span className="lb">未学習</span><span className="ct tnum">{stats.newW}</span></div>
         </div>

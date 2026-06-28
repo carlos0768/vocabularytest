@@ -10,17 +10,15 @@ import type { Word, WordStatus } from '@/types';
 
 export function nextStatus(current: WordStatus): WordStatus {
   if (current === 'new') return 'review';
-  if (current === 'review') return 'mastered';
+  if (current === 'review') return 'active';
+  if (current === 'active') return 'mastered';
   return 'new';
 }
 
-const STORAGE_PREFIX = 'notion_cb_mid_';
+const STATUS_TO_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
+const FILLED_TO_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
+const STATUS_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済' };
 
-/**
- * iOS と同じ 6 段階サイクルの NotionCheckbox。
- * new(0) → review(1) → review(2) → mastered(3) → review(2) → review(1) → new(0) → …
- * review 内の中間状態は localStorage で管理。
- */
 export function NotionCheckbox({
   wordId,
   status,
@@ -30,92 +28,40 @@ export function NotionCheckbox({
   status: WordStatus;
   onStatusChange: (newStatus: WordStatus) => void;
 }) {
-  // filledCount: 0-3, direction: 'up' (ascending) or 'down' (descending)
-  const [filledCount, setFilledCount] = useState(0);
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
+  const [filledCount, setFilledCount] = useState(() => STATUS_TO_FILLED[status] ?? 0);
+  const [direction, setDirection] = useState<'up' | 'down'>(() => status === 'mastered' ? 'down' : 'up');
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (status === 'new') {
-        setFilledCount(0);
-        setDirection('up');
-      } else if (status === 'mastered') {
-        setFilledCount(3);
-        setDirection('down');
-      } else {
-        // review: read mid state from localStorage
-        try {
-          const val = localStorage.getItem(STORAGE_PREFIX + wordId);
-          if (val === 'down2') {
-            setFilledCount(2);
-            setDirection('down');
-          } else if (val === 'down1') {
-            setFilledCount(1);
-            setDirection('down');
-          } else if (val === '1') {
-            setFilledCount(2);
-            setDirection('up');
-          } else {
-            setFilledCount(1);
-            setDirection('up');
-          }
-        } catch {
-          setFilledCount(1);
-          setDirection('up');
-        }
-      }
+      setFilledCount(STATUS_TO_FILLED[status] ?? 0);
+      setDirection(status === 'mastered' ? 'down' : 'up');
     }, 0);
     return () => window.clearTimeout(timer);
   }, [status, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      if (direction === 'up') {
-        if (filledCount === 0) {
-          // 0 → 1 (new → review)
-          localStorage.setItem(STORAGE_PREFIX + wordId, '0');
-          setFilledCount(1);
-          onStatusChange('review');
-        } else if (filledCount === 1) {
-          // 1 → 2
-          localStorage.setItem(STORAGE_PREFIX + wordId, '1');
-          setFilledCount(2);
-        } else if (filledCount === 2) {
-          // 2 → 3 (review → mastered)
-          localStorage.removeItem(STORAGE_PREFIX + wordId);
-          setFilledCount(3);
-          setDirection('down');
-          onStatusChange('mastered');
-        }
-      } else {
-        // direction === 'down'
-        if (filledCount === 3) {
-          // 3 → 2 (mastered → review)
-          localStorage.setItem(STORAGE_PREFIX + wordId, 'down2');
-          setFilledCount(2);
-          onStatusChange('review');
-        } else if (filledCount === 2) {
-          // 2 → 1
-          localStorage.setItem(STORAGE_PREFIX + wordId, 'down1');
-          setFilledCount(1);
-        } else if (filledCount === 1) {
-          // 1 → 0 (review → new)
-          localStorage.removeItem(STORAGE_PREFIX + wordId);
-          setFilledCount(0);
-          setDirection('up');
-          onStatusChange('new');
-        }
+    if (direction === 'up') {
+      if (filledCount < 3) {
+        const next = filledCount + 1;
+        setFilledCount(next);
+        if (next === 3) setDirection('down');
+        onStatusChange(FILLED_TO_STATUS[next]);
       }
-    } catch {
-      // localStorage unavailable
+    } else {
+      if (filledCount > 0) {
+        const next = filledCount - 1;
+        setFilledCount(next);
+        if (next === 0) setDirection('up');
+        onStatusChange(FILLED_TO_STATUS[next]);
+      }
     }
-  }, [filledCount, direction, onStatusChange, wordId]);
+  }, [filledCount, direction, onStatusChange]);
 
   return (
     <button
       onClick={handleClick}
-      aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済'}`}
+      aria-label={`ステータス: ${STATUS_ARIA[status] ?? status}`}
       className="flex-shrink-0 rounded hover:bg-[var(--color-surface)] transition-colors"
       style={{ lineHeight: 0, padding: 2 }}
     >

@@ -10,6 +10,7 @@ export type DesktopStudySummaryStats = {
   streakDays: number;
   totalWords: number;
   mastered: number;
+  activeW: number;
   review: number;
   newW: number;
 };
@@ -20,6 +21,7 @@ export const EMPTY_DESKTOP_STUDY_SUMMARY: DesktopStudySummaryStats = {
   streakDays: 0,
   totalWords: 0,
   mastered: 0,
+  activeW: 0,
   review: 0,
   newW: 0,
 };
@@ -35,6 +37,7 @@ export function buildDesktopStudySummaryStats(words: Word[]): DesktopStudySummar
     streakDays: getStreakDays(),
     totalWords: memorySummary.total,
     mastered: statusCounts.masteredTotal,
+    activeW: statusCounts.activeTotal,
     review: statusCounts.learningTotal,
     newW: statusCounts.unlearnedTotal,
   };

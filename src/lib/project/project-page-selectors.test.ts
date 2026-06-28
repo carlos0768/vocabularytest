@@ -94,6 +94,7 @@ test('countProjectWordStats counts mastered, review, new, and missing status wor
   assert.deepEqual(stats, {
     total: 4,
     mastered: 1,
+    active: 0,
     learning: 1,
     unlearned: 2,
   });
@@ -124,6 +125,7 @@ test('countProjectWordStats treats distinct sense progress as one memory-rate wo
   assert.deepEqual(stats, {
     total: 1,
     mastered: 0,
+    active: 0,
     learning: 1,
     unlearned: 0,
   });

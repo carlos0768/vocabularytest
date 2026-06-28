@@ -183,6 +183,7 @@
 /* status dot */
 .ds-sdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .c-mastered { background: var(--color-success); }
+.c-active { background: #3b82f6; }
 .c-review { background: var(--color-warning); }
 .c-new { background: var(--color-border); }
 .c-wrong { background: var(--color-error); }
@@ -190,6 +191,7 @@
 /* status pill (text + dot) */
 .ds-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }
 .ds-status.mastered { color: var(--color-accent-ink); }
+.ds-status.active { color: #1d4ed8; }
 .ds-status.review { color: #92400e; }
 .ds-status.new { color: var(--color-muted); }
 

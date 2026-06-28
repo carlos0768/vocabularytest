@@ -52,7 +52,7 @@ test('buildQuizAnswerOutcomePlan builds update payload for correct answers', () 
     recordProjectId: 'project-record',
   });
 
-  assert.equal(plan.wordUpdates.status, 'mastered');
+  assert.equal(plan.wordUpdates.status, 'active');
   assert.equal(plan.wordUpdates.repetition, 2);
   assert.equal(plan.wrongAnswer, undefined);
 });

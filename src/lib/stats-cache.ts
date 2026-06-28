@@ -26,6 +26,7 @@ export interface CachedStats {
   totalProjects: number;
   totalWords: number;
   masteredWords: number;
+  activeWords: number;
   reviewWords: number;
   newWords: number;
   favoriteWords: number;
@@ -305,6 +306,7 @@ async function fetchStatsViaRpc(userId: string): Promise<{
   totalProjects: number;
   totalWords: number;
   masteredWords: number;
+  activeWords: number;
   reviewWords: number;
   newWords: number;
   favoriteWords: number;
@@ -318,6 +320,7 @@ async function fetchStatsViaRpc(userId: string): Promise<{
     totalProjects: data.total_projects ?? 0,
     totalWords: data.total_words ?? 0,
     masteredWords: data.mastered_words ?? 0,
+    activeWords: data.active_words ?? 0,
     reviewWords: data.review_words ?? 0,
     newWords: data.new_words ?? 0,
     favoriteWords: data.favorite_words ?? 0,
@@ -357,6 +360,7 @@ function buildStatsFromHomeCache(): {
   totalProjects: number;
   totalWords: number;
   masteredWords: number;
+  activeWords: number;
   reviewWords: number;
   newWords: number;
   favoriteWords: number;
@@ -383,6 +387,7 @@ function buildStatsFromHomeCache(): {
     totalProjects: projects.length,
     totalWords: memorySummary.total,
     masteredWords: memorySummary.mastered,
+    activeWords: memorySummary.active,
     reviewWords: memorySummary.learning,
     newWords: memorySummary.unlearned,
     favoriteWords,
@@ -409,6 +414,7 @@ async function fetchStatsData(
       totalProjects: number;
       totalWords: number;
       masteredWords: number;
+      activeWords: number;
       reviewWords: number;
       newWords: number;
       favoriteWords: number;
@@ -428,6 +434,7 @@ async function fetchStatsData(
           totalProjects: projects.length,
           totalWords: memorySummary.total,
           masteredWords: memorySummary.mastered,
+          activeWords: memorySummary.active,
           reviewWords: memorySummary.learning,
           newWords: memorySummary.unlearned,
           favoriteWords: allWords.filter((word) => word.isFavorite).length,
@@ -480,6 +487,7 @@ async function fetchStatsData(
           totalProjects: projects.length,
           totalWords: memorySummary.total,
           masteredWords: memorySummary.mastered,
+          activeWords: memorySummary.active,
           reviewWords: memorySummary.learning,
           newWords: memorySummary.unlearned,
           favoriteWords,

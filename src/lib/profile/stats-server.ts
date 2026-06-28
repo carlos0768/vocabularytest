@@ -105,6 +105,7 @@ export async function getPublicUserStats(
       totalProjects: s.total_projects ?? 0,
       totalWords: s.total_words ?? 0,
       masteredWords: s.mastered_words ?? 0,
+      activeWords: s.active_words ?? 0,
       reviewWords: s.review_words ?? 0,
       newWords: s.new_words ?? 0,
       favoriteWords: s.favorite_words ?? 0,

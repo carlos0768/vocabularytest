@@ -87,7 +87,7 @@ const wordInputSchema = z.object({
   insightsVersion: z.number().int().min(1).max(100).optional(),
   wordOrderQuiz: wordOrderQuizSchema.optional(),
   customSections: z.array(customSectionSchema).max(20).optional(),
-  status: z.enum(['new', 'review', 'mastered']).optional(),
+  status: z.enum(['new', 'review', 'active', 'mastered']).optional(),
   createdAt: z.string().datetime().optional(),
   lastReviewedAt: z.string().datetime().optional(),
   nextReviewAt: z.string().datetime().optional(),

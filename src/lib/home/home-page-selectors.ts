@@ -3,6 +3,7 @@ import { summarizeWordMemory } from '@/lib/words/memory';
 
 export interface HomeWordStatusCounts {
   masteredTotal: number;
+  activeTotal: number;
   learningTotal: number;
   unlearnedTotal: number;
 }
@@ -29,6 +30,7 @@ export function countHomeWordStatuses(words: readonly Partial<Word>[]): HomeWord
 
   return {
     masteredTotal: summary.mastered,
+    activeTotal: summary.active,
     learningTotal: summary.learning,
     unlearnedTotal: summary.unlearned,
   };

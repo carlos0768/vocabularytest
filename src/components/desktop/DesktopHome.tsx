@@ -30,6 +30,7 @@ type DesktopHomeStats = {
   streakDays: number;
   totalWords: number;
   mastered: number;
+  activeW: number;
   review: number;
   newW: number;
 };

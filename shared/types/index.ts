@@ -3,7 +3,7 @@
 
 // ============ Core Domain Types ============
 
-export type WordStatus = 'new' | 'review' | 'mastered';
+export type WordStatus = 'new' | 'review' | 'active' | 'mastered';
 export type VocabularyType = 'active' | 'passive';
 export type ProjectShareScope = 'private' | 'public';
 

@@ -47,6 +47,7 @@ test('groupWordsByMemory collapses explicit distinct senses into one memory grou
   assert.deepEqual(summarizeWordMemory(words), {
     total: 1,
     mastered: 0,
+    active: 0,
     learning: 1,
     unlearned: 0,
   });
