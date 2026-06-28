@@ -47,6 +47,7 @@ export function DesktopFavoritesView({
   );
   const counts = useMemo(() => ({
     mastered: favorites.filter((word) => word.status === 'mastered').length,
+    active: favorites.filter((word) => word.status === 'active').length,
     review: favorites.filter((word) => word.status === 'review').length,
     newCount: favorites.filter((word) => word.status === 'new').length,
   }), [favorites]);
@@ -69,6 +70,7 @@ export function DesktopFavoritesView({
           <span className="muted" style={{ fontSize: 13 }}>をお気に入り登録中</span>
           <div style={{ display: 'flex', gap: 12, marginLeft: 8 }}>
             <span className="ds-status mastered"><span className="ds-sdot c-mastered" />習得 {counts.mastered}</span>
+            <span className="ds-status active"><span className="ds-sdot c-active" />定着中 {counts.active}</span>
             <span className="ds-status review"><span className="ds-sdot c-review" />学習中 {counts.review}</span>
             <span className="ds-status new"><span className="ds-sdot c-new" />未学習 {counts.newCount}</span>
           </div>

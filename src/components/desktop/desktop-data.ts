@@ -13,6 +13,7 @@ export const DESKTOP_THUMBS = [
 
 export const DESKTOP_STATUS_LABEL: Record<WordStatus, string> = {
   mastered: '習得',
+  active: '定着中',
   review: '学習中',
   new: '未学習',
 };
@@ -129,11 +130,12 @@ export function desktopCountWords(words: Word[]) {
     (acc, word) => {
       acc.total += 1;
       if (word.status === 'mastered') acc.mastered += 1;
+      else if (word.status === 'active') acc.active += 1;
       else if (word.status === 'review') acc.review += 1;
       else acc.neww += 1;
       if (word.isFavorite) acc.favorite += 1;
       return acc;
     },
-    { total: 0, mastered: 0, review: 0, neww: 0, favorite: 0 },
+    { total: 0, mastered: 0, active: 0, review: 0, neww: 0, favorite: 0 },
   );
 }

@@ -43,20 +43,23 @@ export interface WordMemoryGroup<T extends WordMemoryInput = WordMemoryInput> {
 export interface WordMemorySummary {
   total: number;
   mastered: number;
+  active: number;
   learning: number;
   unlearned: number;
 }
 
 const STATUS_MEMORY_RATE: Record<WordStatus, number> = {
   new: 0,
-  review: 50,
+  review: 33,
+  active: 66,
   mastered: 100,
 };
 
 const STATUS_RANK: Record<WordStatus, number> = {
   new: 0,
   review: 1,
-  mastered: 2,
+  active: 2,
+  mastered: 3,
 };
 
 function normalizeKeyPart(value: string | undefined): string {
@@ -69,6 +72,7 @@ export function getWordMemoryRate(word: Pick<WordMemoryInput, 'status'>): number
 
 export function getMemoryStatusFromRate(rate: number): WordStatus {
   if (rate >= 100) return 'mastered';
+  if (rate >= 66) return 'active';
   if (rate <= 0) return 'new';
   return 'review';
 }
@@ -244,6 +248,7 @@ export function summarizeWordMemory(words: readonly WordMemoryInput[]): WordMemo
   const summary: WordMemorySummary = {
     total: 0,
     mastered: 0,
+    active: 0,
     learning: 0,
     unlearned: 0,
   };
@@ -251,6 +256,7 @@ export function summarizeWordMemory(words: readonly WordMemoryInput[]): WordMemo
   for (const group of groupWordsByMemory(words)) {
     summary.total += 1;
     if (group.status === 'mastered') summary.mastered += 1;
+    else if (group.status === 'active') summary.active += 1;
     else if (group.status === 'review') summary.learning += 1;
     else summary.unlearned += 1;
   }

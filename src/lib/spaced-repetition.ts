@@ -59,19 +59,24 @@ export function getStatusAfterQuality(currentStatus: WordStatus, qualityInput: n
   const quality = clampQuality(qualityInput);
 
   if (quality <= 2) {
-    if (currentStatus === 'mastered') return 'review';
+    if (currentStatus === 'mastered') return 'active';
+    if (currentStatus === 'active') return 'review';
     return 'new';
   }
 
   if (quality === 3) {
-    return 'review';
+    if (currentStatus === 'new') return 'review';
+    return currentStatus;
   }
 
   if (quality === 4) {
     if (currentStatus === 'new') return 'review';
+    if (currentStatus === 'review') return 'active';
     return 'mastered';
   }
 
+  if (currentStatus === 'new') return 'review';
+  if (currentStatus === 'review') return 'active';
   return 'mastered';
 }
 
@@ -144,16 +149,18 @@ export function calculateNextReviewByQuality(
 /**
  * Determine the next word status based on whether the answer was correct.
  *
- * Correct: new -> review -> mastered (stays mastered)
- * Wrong:   mastered -> review -> new (stays new)
+ * Correct: new -> review -> active -> mastered (stays mastered)
+ * Wrong:   mastered -> active -> review -> new (stays new)
  */
 export function getStatusAfterAnswer(currentStatus: WordStatus, isCorrect: boolean): WordStatus {
   if (isCorrect) {
     if (currentStatus === 'new') return 'review';
-    if (currentStatus === 'review') return 'mastered';
+    if (currentStatus === 'review') return 'active';
+    if (currentStatus === 'active') return 'mastered';
     return 'mastered';
   }
-  if (currentStatus === 'mastered') return 'review';
+  if (currentStatus === 'mastered') return 'active';
+  if (currentStatus === 'active') return 'review';
   if (currentStatus === 'review') return 'new';
   return 'new';
 }
@@ -194,7 +201,8 @@ export function getReviewCount(words: Word[]): number {
 const STATUS_PRIORITY: Record<Word['status'], number> = {
   new: 0,
   review: 1,
-  mastered: 2,
+  active: 2,
+  mastered: 3,
 };
 
 function getReviewBucket(word: Word, nowMs: number): number {

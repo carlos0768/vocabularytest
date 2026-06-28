@@ -136,7 +136,7 @@ export function DesktopProjectDetailView({
     if (sortKey === 'order') {
       return sortDir === 1 ? filteredWords : [...filteredWords].reverse();
     }
-    const order: Record<WordStatus, number> = { new: 0, review: 1, mastered: 2 };
+    const order: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
     return [...filteredWords].sort((a, b) => {
       let result = 0;
       if (sortKey === 'en') result = a.english.localeCompare(b.english);

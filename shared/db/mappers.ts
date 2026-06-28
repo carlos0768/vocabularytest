@@ -247,7 +247,7 @@ function normalizeDistractors(value: unknown): string[] {
 }
 
 function normalizeWordStatus(value: unknown): Word['status'] | undefined {
-  return value === 'new' || value === 'review' || value === 'mastered'
+  return value === 'new' || value === 'review' || value === 'active' || value === 'mastered'
     ? value
     : undefined;
 }

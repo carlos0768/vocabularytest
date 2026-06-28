@@ -7,6 +7,7 @@ export type ProjectWordActivenessFilter = 'all' | 'active' | 'passive';
 export interface ProjectWordStats {
   total: number;
   mastered: number;
+  active: number;
   learning: number;
   unlearned: number;
 }
@@ -40,7 +41,8 @@ export interface ProjectPageWord {
 const STATUS_SORT_ORDER: Record<WordStatus, number> = {
   new: 0,
   review: 1,
-  mastered: 2,
+  active: 2,
+  mastered: 3,
 };
 
 const POS_LABELS: Record<string, string> = {
@@ -68,6 +70,7 @@ export function countProjectWordStats(words: readonly Partial<ProjectPageWord>[]
   return {
     total: summary.total,
     mastered: summary.mastered,
+    active: summary.active,
     learning: summary.learning,
     unlearned: summary.unlearned,
   };

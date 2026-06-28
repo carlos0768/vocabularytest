@@ -48,6 +48,7 @@ test('calculateNextReview remains compatible with boolean API', () => {
 test('getStatusAfterQuality treats low quality as failed recall', () => {
   assert.equal(getStatusAfterQuality('new', 2), 'new');
   assert.equal(getStatusAfterQuality('review', 2), 'new');
-  assert.equal(getStatusAfterQuality('mastered', 2), 'review');
+  assert.equal(getStatusAfterQuality('active', 2), 'review');
+  assert.equal(getStatusAfterQuality('mastered', 2), 'active');
   assert.equal(getStatusAfterQuality('review', 3), 'review');
 });

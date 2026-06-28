@@ -30,6 +30,7 @@ function StatusPill({ kind }: { kind: Word['status'] }) {
   const config = {
     new: { t: '未学習', bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--color-border)' },
     review: { t: '学習中', bg: 'rgba(19,127,236,0.1)', fg: '#137fec', bd: '#137fec' },
+    active: { t: '定着中', bg: 'rgba(59,130,246,0.1)', fg: '#3b82f6', bd: '#3b82f6' },
     mastered: { t: '習得', bg: 'rgba(61,122,78,0.12)', fg: 'var(--color-success)', bd: 'var(--color-success)' },
   }[kind];
 
@@ -119,7 +120,7 @@ function FavoritesPageContent() {
   }, [mode]);
 
   const sortedFavorites = useMemo(() => {
-    const statusOrder: Record<Word['status'], number> = { review: 0, new: 1, mastered: 2 };
+    const statusOrder: Record<Word['status'], number> = { review: 0, new: 1, active: 2, mastered: 3 };
     return [...favorites].sort((a, b) => {
       if (activeSort === 'status') return statusOrder[a.status] - statusOrder[b.status];
       if (activeSort === 'project') return a.projectTitle.localeCompare(b.projectTitle, 'ja') || a.english.localeCompare(b.english);
@@ -129,9 +130,10 @@ function FavoritesPageContent() {
 
   const counts = useMemo(() => {
     const mastered = favorites.filter((word) => word.status === 'mastered').length;
+    const active = favorites.filter((word) => word.status === 'active').length;
     const review = favorites.filter((word) => word.status === 'review').length;
     const newCount = favorites.filter((word) => word.status === 'new').length;
-    return { mastered, review, newCount };
+    return { mastered, active, review, newCount };
   }, [favorites]);
 
   const handleToggleFavorite = async (word: FavoriteWord) => {
@@ -257,12 +259,14 @@ function FavoritesPageContent() {
 
                 <div className="mt-3 flex h-1.5 overflow-hidden rounded-sm border border-[var(--color-border)]">
                   <div style={{ flex: counts.mastered, background: 'var(--color-success)' }} />
+                  <div style={{ flex: counts.active, background: '#3b82f6' }} />
                   <div style={{ flex: counts.review, background: '#137fec' }} />
                   <div style={{ flex: counts.newCount, background: 'rgba(26,26,26,0.15)' }} />
                 </div>
 
-                <div className="mt-2 flex gap-3 font-mono text-[10px]">
+                <div className="mt-2 flex flex-wrap gap-3 font-mono text-[10px]">
                   <span className="font-bold text-[var(--color-success)]">● 習得 {counts.mastered}</span>
+                  <span className="font-bold text-[#3b82f6]">● 定着中 {counts.active}</span>
                   <span className="font-bold text-[#137fec]">● 学習中 {counts.review}</span>
                   <span className="font-bold text-[var(--color-muted)]">● 未学習 {counts.newCount}</span>
                 </div>

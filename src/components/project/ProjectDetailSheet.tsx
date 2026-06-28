@@ -43,19 +43,21 @@ function posShort(tag: string): string {
   return `(${jp[0]})`;
 }
 
-function StackedBar({ total, m, l, n }: { total: number; m: number; l: number; n: number }) {
+function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number; l: number; n: number }) {
   const pctM = total ? (m / total) * 100 : 0;
+  const pctA = total ? (a / total) * 100 : 0;
   const pctL = total ? (l / total) * 100 : 0;
   const pctN = total ? (n / total) * 100 : 0;
   return (
     <div>
       <div className="flex h-2.5 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-white">
         <div style={{ width: `${pctM}%`, background: 'var(--color-success)' }} />
+        <div style={{ width: `${pctA}%`, background: '#3b82f6' }} />
         <div style={{ width: `${pctL}%`, background: 'var(--color-warning)' }} />
         <div style={{ width: `${pctN}%`, background: 'rgba(26,26,26,0.12)' }} />
       </div>
-      <div className="mt-[7px] flex gap-3.5">
-        {[['var(--color-success)', '習得', m], ['var(--color-warning)', '学習中', l], ['rgba(26,26,26,0.35)', '未学習', n]].map(([color, label, count]) => (
+      <div className="mt-[7px] flex flex-wrap gap-3.5">
+        {[['var(--color-success)', '習得', m], ['#3b82f6', '定着中', a], ['var(--color-warning)', '学習中', l], ['rgba(26,26,26,0.35)', '未学習', n]].map(([color, label, count]) => (
           <span key={label as string} className="inline-flex items-center gap-[5px]">
             <span className="h-[7px] w-[7px] rounded-[3.5px]" style={{ background: color as string }} />
             <span className="text-[11px] font-semibold text-[#4a4a4a]">{label as string}</span>
@@ -67,58 +69,48 @@ function StackedBar({ total, m, l, n }: { total: number; m: number; l: number; n
   );
 }
 
-const STATUS_MID_PREFIX = 'notion_cb_mid_';
+const SS_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
+const SS_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
+const SS_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
 
 function StatusSquares({ wordId, status, onStatusChange }: {
   wordId: string; status: WordStatus; onStatusChange: (s: WordStatus) => void;
 }) {
-  const [filledCount, setFilledCount] = useState(() => {
-    if (status === 'mastered') return 3;
-    if (status === 'new') return 0;
-    try {
-      const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
-      if (val === 'down2' || val === '1') return 2;
-      if (val === 'down1') return 1;
-    } catch { /* ignore */ }
-    return 1;
-  });
+  const [filledCount, setFilledCount] = useState(() => SS_FILLED[status] ?? 0);
   const [direction, setDirection] = useState<'up' | 'down'>(() => status === 'mastered' ? 'down' : 'up');
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      if (status === 'new') { setFilledCount(0); setDirection('up'); return; }
-      if (status === 'mastered') { setFilledCount(3); setDirection('down'); return; }
-      try {
-        const val = localStorage.getItem(STATUS_MID_PREFIX + wordId);
-        if (val === 'down2') { setFilledCount(2); setDirection('down'); }
-        else if (val === 'down1') { setFilledCount(1); setDirection('down'); }
-        else if (val === '1') { setFilledCount(2); setDirection('up'); }
-        else { setFilledCount(1); setDirection('up'); }
-      } catch { setFilledCount(1); setDirection('up'); }
+      setFilledCount(SS_FILLED[status] ?? 0);
+      setDirection(status === 'mastered' ? 'down' : 'up');
     });
     return () => { cancelled = true; };
   }, [status, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      if (direction === 'up') {
-        if (filledCount === 0) { localStorage.setItem(STATUS_MID_PREFIX + wordId, '0'); setFilledCount(1); onStatusChange('review'); }
-        else if (filledCount === 1) { localStorage.setItem(STATUS_MID_PREFIX + wordId, '1'); setFilledCount(2); }
-        else if (filledCount === 2) { localStorage.removeItem(STATUS_MID_PREFIX + wordId); setFilledCount(3); setDirection('down'); onStatusChange('mastered'); }
-      } else {
-        if (filledCount === 3) { localStorage.setItem(STATUS_MID_PREFIX + wordId, 'down2'); setFilledCount(2); onStatusChange('review'); }
-        else if (filledCount === 2) { localStorage.setItem(STATUS_MID_PREFIX + wordId, 'down1'); setFilledCount(1); }
-        else if (filledCount === 1) { localStorage.removeItem(STATUS_MID_PREFIX + wordId); setFilledCount(0); setDirection('up'); onStatusChange('new'); }
+    if (direction === 'up') {
+      if (filledCount < 3) {
+        const next = filledCount + 1;
+        setFilledCount(next);
+        if (next === 3) setDirection('down');
+        onStatusChange(SS_STATUS[next]);
       }
-    } catch { /* localStorage unavailable */ }
-  }, [filledCount, direction, onStatusChange, wordId]);
+    } else {
+      if (filledCount > 0) {
+        const next = filledCount - 1;
+        setFilledCount(next);
+        if (next === 0) setDirection('up');
+        onStatusChange(SS_STATUS[next]);
+      }
+    }
+  }, [filledCount, direction, onStatusChange]);
 
   return (
     <button type="button" onClick={handleClick}
-      aria-label={`ステータス: ${status === 'new' ? '未学習' : status === 'review' ? '学習中' : '習得済み'}`}
+      aria-label={`ステータス: ${SS_ARIA[status] ?? status}`}
       className="shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]"
     >
       <div className="flex flex-col gap-[1.5px]">
@@ -260,6 +252,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
     return {
       total: summary.total,
       mastered: summary.mastered,
+      active: summary.active,
       learning: summary.learning,
       newCount: summary.unlearned,
     };
@@ -395,7 +388,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
           {/* Stats bar */}
           {project && (
             <div className="px-5 pb-3">
-              <StackedBar total={counts.total} m={counts.mastered} l={counts.learning} n={counts.newCount} />
+              <StackedBar total={counts.total} m={counts.mastered} a={counts.active} l={counts.learning} n={counts.newCount} />
             </div>
           )}
 
