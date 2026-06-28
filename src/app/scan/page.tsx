@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DesktopScanView } from '@/components/desktop/DesktopScan';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
@@ -62,22 +61,13 @@ export default function ScanPage() {
 
   return (
     <>
-      <DesktopScanView
-        projects={projects}
-        loadingProjects={projectsLoading}
-        targetProjectId={targetProjectId}
+      <ScanCaptureModal
+        isOpen
+        onClose={() => router.push('/')}
+        defaultMode="vocab"
+        targetProjectId={targetProjectId ?? undefined}
         targetProjectTitle={targetProject?.title}
-        isPro={isPro}
       />
-      <div className="lg:hidden">
-        <ScanCaptureModal
-          isOpen
-          onClose={() => router.push('/')}
-          defaultMode="vocab"
-          targetProjectId={targetProjectId ?? undefined}
-          targetProjectTitle={targetProject?.title}
-        />
-      </div>
     </>
   );
 }

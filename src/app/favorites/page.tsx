@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { DesktopFavoritesView, DesktopWrongAnswersView } from '@/components/desktop/DesktopFavorites';
 import { Icon } from '@/components/ui/Icon';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
@@ -204,26 +203,19 @@ function FavoritesPageContent() {
   return (
     <>
       {isWrongMode ? (
-        <DesktopWrongAnswersView wrongAnswers={wrongAnswersWithProjectTitles} returnPath={returnPath} />
-      ) : (
-        <DesktopFavoritesView
-          favorites={sortedFavorites}
-          loading={loading}
-          error={error}
-          isPro={isPro}
-          returnPath={returnPath}
-          onToggleFavorite={(word) => void handleToggleFavorite(word)}
-          onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
-        />
-      )}
-      {isWrongMode ? (
         <MobileWrongAnswersView
           wrongAnswers={wrongAnswersWithProjectTitles}
           returnPath={returnPath}
           onBack={() => router.back()}
         />
       ) : (
-        <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+        <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+          <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+            <div className="min-w-0 flex-1">
+              <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">FAVORITES</div>
+              <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">お気に入り</h1>
+            </div>
+          </div>
           <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 lg:hidden">
             <button
               type="button"
@@ -238,7 +230,7 @@ function FavoritesPageContent() {
             </div>
           </div>
 
-          <div className="px-[18px] pb-3.5 pt-1 lg:pt-4">
+          <div className="px-[18px] pb-3.5 pt-1 lg:px-8 lg:pt-7">
             <div>
               <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
                 <div className="pointer-events-none absolute -right-3.5 -top-4 opacity-10 text-[var(--color-accent)]">
@@ -279,7 +271,7 @@ function FavoritesPageContent() {
             </div>
           </div>
 
-          <div className="flex gap-1.5 overflow-x-auto px-[14px] pb-2.5">
+          <div className="flex gap-1.5 overflow-x-auto px-[14px] pb-2.5 lg:px-8">
             {([
               { k: 'alpha', label: 'ABC順' },
               { k: 'status', label: 'ステータス順' },
@@ -301,9 +293,9 @@ function FavoritesPageContent() {
             ))}
           </div>
 
-          {error && <p className="px-[14px] pb-2 text-xs font-bold text-[var(--color-error)]">{error}</p>}
+          {error && <p className="px-[14px] pb-2 text-xs font-bold text-[var(--color-error)] lg:px-8">{error}</p>}
 
-          <div className="flex flex-col gap-1.5 px-[14px] pb-[110px]">
+          <div className="flex flex-col gap-1.5 px-[14px] pb-[110px] lg:px-8 lg:grid lg:grid-cols-2 lg:gap-3 xl:grid-cols-3">
             {loading ? (
               <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
                 <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -463,8 +455,14 @@ function MobileWrongAnswersView({
   const rows = [...wrongAnswers].sort((a, b) => b.wrongCount - a.wrongCount || b.lastWrongAt - a.lastWrongAt);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
-      <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+      <div className="hidden items-center gap-4 border-b border-[var(--color-border)] bg-[rgba(246,245,241,0.86)] px-8 py-[18px] backdrop-blur-sm lg:flex">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[11px] tracking-[0.06em] text-[var(--color-muted)]">FAVORITES</div>
+          <h1 className="font-display text-2xl font-extrabold text-[var(--solid-ink)]">お気に入り</h1>
+        </div>
+      </div>
+      <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 lg:hidden">
         <button
           type="button"
           onClick={onBack}
@@ -478,7 +476,7 @@ function MobileWrongAnswersView({
         </div>
       </div>
 
-      <div className="px-[18px] pb-3.5 pt-1">
+      <div className="px-[18px] pb-3.5 pt-1 lg:px-8 lg:pt-7">
         <div>
           <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
             <div className="flex items-center gap-1.5 text-[var(--color-error)]">
@@ -508,7 +506,7 @@ function MobileWrongAnswersView({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5 px-[14px] pb-[110px]">
+      <div className="flex flex-col gap-1.5 px-[14px] pb-[110px] lg:px-8 lg:grid lg:grid-cols-2 lg:gap-3 xl:grid-cols-3">
         {rows.length === 0 ? (
           <div className="rounded-[10px] border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
             間違えた問題はまだありません

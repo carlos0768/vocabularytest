@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DesktopProjectDetailView } from '@/components/desktop/DesktopProjectDetail';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { WordLimitModal } from '@/components/limits';
@@ -935,35 +934,40 @@ export default function ProjectPage() {
 
   return (
     <>
-      <DesktopProjectDetailView
-        project={project}
-        projectId={projectId}
-        words={words}
-        filteredWords={filteredWords}
-        wordsLoaded={wordsLoaded}
-        counts={counts}
-        query={query}
-        onQueryChange={setQuery}
-        filterActive={wordFilterActive}
-        sortActive={wordSortOrder !== 'createdAsc'}
-        selectMode={selectMode}
-        selectedWordIds={selectedWordIds}
-        onOpenFilterSheet={() => setWordShowFilterSheet(true)}
-        onOpenSortSheet={() => setWordShowSortSheet(true)}
-        onToggleSelectMode={() => {
-          if (selectMode) handleExitSelectMode();
-          else { setSelectMode(true); setSelectedWordIds(new Set()); }
-        }}
-        onToggleSelectWordGroup={handleToggleSelectWordGroup}
-        onRename={handleOpenRename}
-        onToggleFavorite={(word) => void handleToggleFavorite(word)}
-        onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
-        onDeleteWord={handleOpenDeleteWord}
-        onBulkDelete={() => setBulkDeleteModalOpen(true)}
-        onScan={() => setShowScanCaptureModal(true)}
-        onManualAdd={() => setShowManualWordModal(true)}
-      />
-      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10 lg:pt-0">
+
+      {/* Desktop topbar */}
+      <div className="hidden lg:flex items-center gap-4 border-b border-[var(--color-border)] bg-[var(--color-background)] px-8 py-4">
+        <button type="button" onClick={() => router.replace('/')} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
+          <Icon name="chevron_left" size={18} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">BOOK</div>
+          <h1 className="truncate font-display text-lg font-extrabold text-[var(--solid-ink)]">{project.title}</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <HeaderBtn aria-label="共有" onClick={handleOpenShareSheet}>
+            <Icon name="ios_share" size={16} />
+          </HeaderBtn>
+          <div className="relative">
+            <HeaderBtn aria-label="メニュー" onClick={() => setMenuOpen((open) => !open)}>
+              <Icon name="more_horiz" size={16} />
+            </HeaderBtn>
+            {menuOpen && (
+              <>
+                <button type="button" className="fixed inset-0 z-20 cursor-default bg-transparent" aria-label="メニューを閉じる" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
+                  <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
+                  <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
+                  <MenuButton icon="delete" label="削除" destructive onClick={() => { setMenuOpen(false); setDeleteModalOpen(true); }} />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile header */}
       <div className="sticky top-0 z-10 flex items-center justify-between bg-[var(--color-background)] px-4 pb-2 pt-3 lg:hidden">
         <HeaderBtn onClick={() => router.replace('/')} aria-label="ホームへ戻る">
           <Icon name="chevron_left" size={16} />
@@ -998,7 +1002,7 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      <div className="flex items-start gap-3.5 px-5 pb-2.5 pt-[18px] lg:pt-8">
+      <div className="flex items-start gap-3.5 px-5 pb-2.5 pt-[18px] lg:px-8 lg:pt-8">
         <div
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[13px] border-2 bg-center bg-cover font-display text-[28px] font-extrabold text-white"
           style={{
@@ -1022,11 +1026,11 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      <div className="px-5 pb-3.5">
+      <div className="px-5 pb-3.5 lg:px-8">
         <StackedBar total={counts.total} m={counts.mastered} a={counts.active} l={counts.learning} n={counts.newCount} />
       </div>
 
-      <div className="flex items-center gap-2 px-[18px] pb-4">
+      <div className="flex items-center gap-2 px-[18px] pb-4 lg:px-8">
         <div className="relative flex-1">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
@@ -1093,7 +1097,7 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 px-5 pb-2">
+      <div className="flex items-center gap-2 px-5 pb-2 lg:px-8">
         <label
           htmlFor="project-word-search"
           className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 py-[7px] text-[var(--color-muted)]"
@@ -1152,7 +1156,7 @@ export default function ProjectPage() {
         </button>
       </div>
 
-      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
+      <div className={`flex flex-col px-4 lg:px-8 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
         {!wordsLoaded ? (
           <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />

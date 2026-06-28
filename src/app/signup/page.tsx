@@ -4,13 +4,6 @@ import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent, typ
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { OAuthProviderButtons } from '@/components/auth/OAuthProviderButtons';
-import {
-  DesktopAuthError,
-  DesktopAuthField,
-  DesktopAuthOAuth,
-  DesktopAuthPrimaryButton,
-  DesktopAuthShell,
-} from '@/components/desktop/DesktopAuth';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { OtpInput } from '@/components/ui/OtpInput';
@@ -226,61 +219,6 @@ function SignupForm() {
   // ── OTP Step ─────────────────────────────────────────────
   if (step === 'otp') {
     return (
-      <>
-        <DesktopAuthShell
-          title="メールを確認"
-          description="届いた6桁の認証コードを入力してください。"
-        >
-          <div className="ds-card" style={{ padding: 20, marginBottom: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-              <div className="ds-avatar" style={{ width: 42, height: 42, borderRadius: 11 }}>
-                <Icon name="mail" />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 800, color: 'var(--solid-ink)' }}>認証コードを送信しました</div>
-                <div className="muted" style={{ marginTop: 2, fontSize: 13, overflowWrap: 'anywhere' }}>{email}</div>
-              </div>
-            </div>
-            {error && <DesktopAuthError>{error}</DesktopAuthError>}
-            <OtpInput
-              length={SIGNUP_OTP_LENGTH}
-              value={otpCode}
-              onChange={setOtpCode}
-              disabled={loading}
-            />
-            <DesktopAuthPrimaryButton
-              type="button"
-              variant="accent"
-              disabled={loading || !isSignupOtpComplete(otpCode)}
-              onClick={handleVerifyOtp}
-            >
-              {loading ? '確認中...' : '登録を完了する'}
-            </DesktopAuthPrimaryButton>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: 12.5 }}>
-            <button
-              type="button"
-              onClick={() => {
-                setStep('form');
-                setOtpCode('');
-                setError(null);
-              }}
-              style={{ color: 'var(--color-muted)', fontWeight: 700 }}
-            >
-              メールアドレスを変更
-            </button>
-            <button
-              type="button"
-              onClick={handleResendOtp}
-              disabled={loading || resendCooldown > 0}
-              style={{ color: resendCooldown > 0 ? 'var(--color-muted)' : 'var(--color-accent)', fontWeight: 700 }}
-            >
-              {resendCooldown > 0 ? `再送信 ${resendCooldown}秒` : 'コードを再送信'}
-            </button>
-          </div>
-        </DesktopAuthShell>
-
-        <div className="lg:hidden">
           <SignupShell
             stepIndex={stepIndex}
             totalSteps={totalSteps}
@@ -347,96 +285,12 @@ function SignupForm() {
               </div>
             </SolidPanel>
           </SignupShell>
-        </div>
-      </>
     );
   }
 
   // ── Form Step (email + password) ─────────────────────────
   if (step === 'form') {
     return (
-      <>
-        <DesktopAuthShell
-          title="アカウントを作成"
-          description="無料で始められます。クレジットカード不要。"
-        >
-          <form onSubmit={handleFormSubmit}>
-            {error && <DesktopAuthError>{error}</DesktopAuthError>}
-            <DesktopAuthField
-              label="メールアドレス"
-              placeholder="you@example.com"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              autoComplete="email"
-              disabled={loading}
-            />
-            <DesktopAuthField
-              label="パスワード"
-              placeholder="8文字以上"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={setPassword}
-              autoComplete="new-password"
-              disabled={loading}
-              trailing={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 800, color: 'var(--color-muted)' }}
-                  aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
-                >
-                  {showPassword ? '非表示' : '表示'}
-                </button>
-              }
-            />
-            <DesktopAuthField
-              label="パスワード（確認）"
-              placeholder="もう一度入力"
-              type={showPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              autoComplete="new-password"
-              disabled={loading}
-            />
-            <DesktopAuthPrimaryButton
-              variant="accent"
-              disabled={
-                loading ||
-                email.trim().length === 0 ||
-                password.length === 0 ||
-                confirmPassword.length === 0
-              }
-            >
-              {loading ? '送信中...' : '認証コードを送信'}
-            </DesktopAuthPrimaryButton>
-          </form>
-
-          <DesktopAuthOAuth
-            redirectPath={redirect}
-            disabled={loading}
-            onError={(message) => setError(message || null)}
-          />
-
-          <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
-            登録すると
-            <Link href="/terms" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>利用規約</Link>
-            と
-            <Link href="/privacy" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>プライバシーポリシー</Link>
-            に同意したものとみなされます。
-          </div>
-          <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 16 }}>
-            すでにアカウントをお持ちの方は{' '}
-            <Link
-              href={`/login?redirect=${encodeURIComponent(redirect)}`}
-              style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}
-            >
-              ログイン
-            </Link>
-          </div>
-        </DesktopAuthShell>
-
-        <div className="lg:hidden">
           <SignupShell
             stepIndex={stepIndex}
             totalSteps={totalSteps}
@@ -529,65 +383,12 @@ function SignupForm() {
               </Link>
             </div>
           </SignupShell>
-        </div>
-      </>
     );
   }
 
   // ── Level Step ───────────────────────────────────────────
   if (step === 'level') {
     return (
-      <>
-        <DesktopAuthShell
-          title="受検何級に合格したいですか？"
-          description="目標の級を選択してください。"
-        >
-          {error && <DesktopAuthError>{error}</DesktopAuthError>}
-          <div className="ds-field">
-            <label>合格したい級</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-              <button
-                type="button"
-                onClick={() => setEikenLevel(null)}
-                className={`ds-chip ${eikenLevel === null ? 'active' : ''}`}
-              >
-                未定
-              </button>
-              {EIKEN_LEVELS.map((level) => (
-                <button
-                  key={level.value}
-                  type="button"
-                  onClick={() => setEikenLevel(level.value)}
-                  className={`ds-chip ${eikenLevel === level.value ? 'active' : ''}`}
-                >
-                  {level.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 8 }}>
-              あとから設定画面で変更できます。
-            </div>
-          </div>
-          <DesktopAuthPrimaryButton
-            type="button"
-            variant="accent"
-            onClick={handleLevelSubmit}
-          >
-            アカウント情報へ
-          </DesktopAuthPrimaryButton>
-          <button
-            type="button"
-            onClick={() => {
-              setStep('profile');
-              setError(null);
-            }}
-            style={{ display: 'block', margin: '14px auto 0', color: 'var(--color-muted)', fontSize: 12.5, fontWeight: 700 }}
-          >
-            ユーザー名とIDを修正
-          </button>
-        </DesktopAuthShell>
-
-        <div className="lg:hidden">
           <SignupShell
             stepIndex={stepIndex}
             totalSteps={totalSteps}
@@ -637,8 +438,6 @@ function SignupForm() {
               </PrimaryAction>
             </div>
           </SignupShell>
-        </div>
-      </>
     );
   }
 
@@ -649,68 +448,6 @@ function SignupForm() {
     handleAvailable !== false;
 
   return (
-    <>
-      {/* Desktop */}
-      <DesktopAuthShell
-        title="プロフィール設定"
-        description="ユーザー名とユーザーIDを設定してください。"
-      >
-        {error && <DesktopAuthError>{error}</DesktopAuthError>}
-        <DesktopAuthField
-          label="ユーザー名"
-          placeholder="山田太郎"
-          type="text"
-          value={displayName}
-          onChange={setDisplayName}
-          autoComplete="name"
-          disabled={loading}
-        />
-        <div className="ds-field">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 7 }}>
-            <label style={{ marginBottom: 0 }}>ユーザーID</label>
-            {userHandle.length >= 3 && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: handleChecking ? 'var(--color-muted)' : handleAvailable ? 'var(--color-accent)' : handleAvailable === false ? 'var(--color-error)' : 'var(--color-muted)' }}>
-                {handleChecking ? '確認中...' : handleAvailable ? '利用可能' : handleAvailable === false ? '使用済み' : ''}
-              </span>
-            )}
-          </div>
-          <div style={{ position: 'relative' }}>
-            <input
-              className="ds-input"
-              type="text"
-              value={userHandle}
-              onChange={(e) => handleUserHandleChange(e.target.value)}
-              placeholder="kenta_123"
-              autoComplete="username"
-              style={{ paddingLeft: 30 }}
-            />
-            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, fontWeight: 700, color: 'var(--color-muted)' }}>@</span>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 5 }}>
-            半角英小文字・数字・アンダースコア（3〜20文字）
-          </div>
-        </div>
-        <DesktopAuthPrimaryButton
-          type="button"
-          variant="accent"
-          disabled={!onboardingValid}
-          onClick={handleProfileSubmit}
-        >
-          次へ進む
-        </DesktopAuthPrimaryButton>
-        <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 16 }}>
-          すでにアカウントをお持ちの方は{' '}
-          <Link
-            href={`/login?redirect=${encodeURIComponent(redirect)}`}
-            style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}
-          >
-            ログイン
-          </Link>
-        </div>
-      </DesktopAuthShell>
-
-      {/* Mobile */}
-      <div className="lg:hidden">
         <SignupShell
           stepIndex={stepIndex}
           totalSteps={totalSteps}
@@ -784,8 +521,6 @@ function SignupForm() {
             </Link>
           </div>
         </SignupShell>
-      </div>
-    </>
   );
 }
 
@@ -809,8 +544,9 @@ function SignupShell({
   const backClassName = 'flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px';
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[#f3f0e9] pt-3 font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
-      <div className="flex items-center gap-2 px-[14px] pt-1">
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[#f3f0e9] pt-3 font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px] lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+      <div className="lg:mx-auto lg:w-full lg:max-w-md lg:pt-16">
+      <div className="flex items-center gap-2 px-[14px] pt-1 lg:hidden">
         {backHref ? (
           <Link href={backHref} className={backClassName} aria-label="戻る">
             <Icon name="chevron_left" size={16} />
@@ -864,6 +600,7 @@ function SignupShell({
       {children}
 
       <div className="flex-1" />
+      </div>
     </div>
   );
 }

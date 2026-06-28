@@ -1,18 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { DesktopContactView } from '@/components/desktop/DesktopSupport';
 import { Icon } from '@/components/ui/Icon';
 
 export default function ContactPage() {
   const router = useRouter();
 
   return (
-    <>
-      <DesktopContactView onBack={() => router.back()} />
-      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-10">
+      <div className="lg:mx-auto lg:max-w-3xl lg:px-8 lg:pt-7">
       {/* Header */}
-      <div className="px-[18px] pb-3.5 pt-1">
+      <div className="px-[18px] pb-3.5 pt-1 lg:px-0">
         <div className="mb-0.5 flex items-center gap-2">
           <button
             type="button"
@@ -28,7 +26,7 @@ export default function ContactPage() {
       </div>
 
       {/* Hero card */}
-      <div className="px-[18px] pb-3.5">
+      <div className="px-[18px] pb-3.5 lg:px-0">
         <div>
           <div
             className="rounded-xl border-2 border-[var(--solid-ink)] p-3.5"
@@ -48,7 +46,7 @@ export default function ContactPage() {
       </div>
 
       {/* Contact */}
-      <div className="px-[18px] pb-3">
+      <div className="px-[18px] pb-3 lg:px-0">
         <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">連絡先</div>
         <a
           href="mailto:support@merken.jp"
@@ -69,19 +67,19 @@ export default function ContactPage() {
         <FaqRow q="アカウントを削除したい" a="お問い合わせメールにてご連絡ください。アカウント削除時にすべての関連データを削除します。" last />
       </Section>
 
-      <div className="px-[18px] pb-[110px] pt-1">
+      <div className="px-[18px] pb-[110px] pt-1 lg:px-0">
         <div className="text-center font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
           MERKEN
         </div>
       </div>
       </div>
-    </>
+      </div>
   );
 }
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="px-[18px] pb-3">
+    <div className="px-[18px] pb-3 lg:px-0">
       <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
         {label}
       </div>
