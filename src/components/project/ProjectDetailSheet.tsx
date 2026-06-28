@@ -52,12 +52,12 @@ function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number
     <div>
       <div className="flex h-2.5 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-white">
         <div style={{ width: `${pctM}%`, background: 'var(--color-success)' }} />
-        <div style={{ width: `${pctA}%`, background: '#3b82f6' }} />
+        <div style={{ width: `${pctA}%`, background: '#2563eb' }} />
         <div style={{ width: `${pctL}%`, background: 'var(--color-warning)' }} />
         <div style={{ width: `${pctN}%`, background: 'rgba(26,26,26,0.12)' }} />
       </div>
       <div className="mt-[7px] flex flex-wrap gap-3.5">
-        {[['var(--color-success)', '習得', m], ['#3b82f6', '定着中', a], ['var(--color-warning)', '学習中', l], ['rgba(26,26,26,0.35)', '未学習', n]].map(([color, label, count]) => (
+        {[['var(--color-success)', '習得', m], ['#2563eb', '定着中', a], ['var(--color-warning)', '学習中', l], ['rgba(26,26,26,0.35)', '未学習', n]].map(([color, label, count]) => (
           <span key={label as string} className="inline-flex items-center gap-[5px]">
             <span className="h-[7px] w-[7px] rounded-[3.5px]" style={{ background: color as string }} />
             <span className="text-[11px] font-semibold text-[#4a4a4a]">{label as string}</span>
@@ -72,6 +72,12 @@ function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number
 const SS_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
 const SS_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const SS_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
+const SS_LINE_COLOR: Record<WordStatus, string> = {
+  new: 'rgba(26,26,26,0.12)',
+  review: 'var(--color-warning)',
+  active: '#2563eb',
+  mastered: 'var(--color-success)',
+};
 
 function StatusSquares({ wordId, status, onStatusChange }: {
   wordId: string; status: WordStatus; onStatusChange: (s: WordStatus) => void;
@@ -135,7 +141,7 @@ function WordRow({ word, memoryGroup, onCycleStatus, onCycleVocabularyType, onTo
   return (
     <div className="relative">
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
-      <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white px-[13px] py-2">
+      <div className="relative overflow-hidden rounded-xl border-2 border-[var(--solid-ink)] bg-white px-[13px] py-2">
         <div className="flex items-center gap-2.5">
           <StatusSquares wordId={word.id} status={displayStatus} onStatusChange={onCycleStatus} />
           <Link href={`/word/${word.id}?from=${encodeURIComponent('/projects')}`} className="min-w-0 flex-1">
@@ -157,6 +163,7 @@ function WordRow({ word, memoryGroup, onCycleStatus, onCycleVocabularyType, onTo
             <Icon name="bookmark" size={18} filled={word.isFavorite} />
           </button>
         </div>
+        <div className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: SS_LINE_COLOR[displayStatus] }} />
       </div>
     </div>
   );

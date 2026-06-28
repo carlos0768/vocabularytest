@@ -1665,13 +1665,13 @@ function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number
     <div>
       <div className="flex h-2.5 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-white">
         <div style={{ width: `${pctM}%`, background: 'var(--color-success)' }} />
-        <div style={{ width: `${pctA}%`, background: '#3b82f6' }} />
+        <div style={{ width: `${pctA}%`, background: '#2563eb' }} />
         <div style={{ width: `${pctL}%`, background: 'var(--color-warning)' }} />
         <div style={{ width: `${pctN}%`, background: 'rgba(26,26,26,0.12)' }} />
       </div>
       <div className="mt-[7px] flex flex-wrap gap-3.5 font-[var(--font-body)]">
         <BarDot color="var(--color-success)" label="習得" count={m} />
-        <BarDot color="#3b82f6" label="定着中" count={a} />
+        <BarDot color="#2563eb" label="定着中" count={a} />
         <BarDot color="var(--color-warning)" label="学習中" count={l} />
         <BarDot color="rgba(26,26,26,0.35)" label="未学習" count={n} />
       </div>
@@ -1714,6 +1714,12 @@ function posShort(tag: string): string {
 const PP_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
 const PP_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const PP_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
+const STATUS_LINE_COLOR: Record<WordStatus, string> = {
+  new: 'rgba(26,26,26,0.12)',
+  review: 'var(--color-warning)',
+  active: '#2563eb',
+  mastered: 'var(--color-success)',
+};
 
 function StatusSquares({
   wordId,
@@ -1782,7 +1788,7 @@ function StatusPill({ kind }: { kind: WordStatus }) {
   const config = {
     new: { t: '未学習', bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--color-border)' },
     review: { t: '学習中', bg: 'rgba(19,127,236,0.1)', fg: '#137fec', bd: '#137fec' },
-    active: { t: '定着中', bg: 'rgba(59,130,246,0.1)', fg: '#3b82f6', bd: '#3b82f6' },
+    active: { t: '定着中', bg: 'rgba(37,99,235,0.1)', fg: '#2563eb', bd: '#2563eb' },
     mastered: { t: '習得', bg: 'rgba(61,122,78,0.12)', fg: 'var(--color-success)', bd: 'var(--color-success)' },
   }[kind];
 
@@ -1850,6 +1856,7 @@ function WordRow({
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
           <BookmarkBadge active={word.isFavorite} />
         </div>
+        <div className="mt-1.5 h-[3px] rounded-full" style={{ background: STATUS_LINE_COLOR[displayStatus] }} />
       </button>
     );
   }
@@ -1884,6 +1891,7 @@ function WordRow({
           <Icon name="bookmark" size={22} filled={word.isFavorite} />
         </button>
       </div>
+      <div className="mt-1.5 h-[3px] rounded-full" style={{ background: STATUS_LINE_COLOR[displayStatus] }} />
     </div>
   );
 }

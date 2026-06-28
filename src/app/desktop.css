@@ -183,7 +183,7 @@
 /* status dot */
 .ds-sdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .c-mastered { background: var(--color-success); }
-.c-active { background: #3b82f6; }
+.c-active { background: #2563eb; }
 .c-review { background: var(--color-warning); }
 .c-new { background: var(--color-border); }
 .c-wrong { background: var(--color-error); }

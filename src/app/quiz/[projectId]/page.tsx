@@ -1007,7 +1007,13 @@ export default function QuizPage() {
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
-  const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
+  const isActiveStatus = !currentIsWordOrder && !isActiveVocab && currentQuestion?.word.status === 'active';
+  const isTypeInMode = isActiveVocab || isActiveStatus;
+  const typeInExpectedAnswer = isActiveVocab
+    ? (currentQuestion?.word.english ?? '')
+    : quizDirection === 'en-to-ja'
+      ? (currentQuestion?.word.japanese ?? '')
+      : (currentQuestion?.word.english ?? '');
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean, marker?: QuizAnswerResult) => {
     playAnswerFeedbackSound(isCorrect);
@@ -1091,7 +1097,7 @@ export default function QuizPage() {
   };
 
   const handleSkip = async () => {
-    if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion) || isActiveVocab) return;
+    if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion) || isTypeInMode) return;
     setIsRevealed(true);
     await applyAnswerOutcome(currentQuestion.word, false, 'skip');
   };
@@ -1424,18 +1430,22 @@ export default function QuizPage() {
           ? currentIsWordOrder ? '保存済み単語 · 語順クイズ' : '保存済み単語 · 4択クイズ'
       : currentIsWordOrder
         ? '語順クイズ'
-        : isActiveVocab
+        : isTypeInMode
           ? 'タイプ入力'
           : '4択クイズ';
   const displayJapanese = currentQuestion ? formatJapaneseForDisplay(currentQuestion.word) : undefined;
   const desktopPrompt = currentIsWordOrder
     ? displayJapanese
-    : isActiveVocab
-      ? displayJapanese
+    : isTypeInMode
+      ? (isActiveVocab
+          ? displayJapanese
+          : quizDirection === 'en-to-ja'
+            ? currentQuestion?.word.english
+            : displayJapanese)
       : quizDirection === 'en-to-ja'
         ? currentQuestion?.word.english
         : displayJapanese;
-  const desktopPhonetic = !currentIsWordOrder && !isActiveVocab
+  const desktopPhonetic = !currentIsWordOrder && !isTypeInMode
     ? currentQuestion?.word.pronunciation
     : '';
   const desktopPartOfSpeechLabel = isActiveVocab
@@ -1449,7 +1459,7 @@ export default function QuizPage() {
   const desktopAnswerWrong = typeInResult === 'wrong' || desktopMultipleChoiceWrong || wordOrderResult === 'wrong';
   const desktopCorrectAnswer = currentIsWordOrder
     ? null
-    : isActiveVocab
+    : isTypeInMode
       ? typeInExpectedAnswer
       : isMultipleChoiceQuestion(currentQuestion)
         ? currentQuestion.options[currentQuestion.correctIndex] ?? currentQuestion.word.english
@@ -1503,7 +1513,7 @@ export default function QuizPage() {
             onSelectToken={handleWordOrderTokenSelect}
             onRemoveToken={handleWordOrderTokenRemove}
           />
-        ) : !isActiveVocab && isMultipleChoiceQuestion(currentQuestion) ? (
+        ) : !isTypeInMode && isMultipleChoiceQuestion(currentQuestion) ? (
           <div className="ds-qopts">
             {currentQuestion.options.map((option, i) => {
               let cls = 'ds-qopt';
@@ -1632,9 +1642,9 @@ export default function QuizPage() {
           ) : (
             <>
               <span className="muted mono" style={{ fontSize: 12 }}>
-                {isActiveVocab ? '英単語を入力してください' : '意味として正しいものを選んでください'}
+                {isTypeInMode ? '答えを入力してください' : '意味として正しいものを選んでください'}
               </span>
-              {!isActiveVocab && !currentIsWordOrder && (
+              {!isTypeInMode && !currentIsWordOrder && (
                 <button type="button" className="ds-btn ghost" onClick={handleSkip} style={{ marginLeft: 'auto' }}>
                   わからない
                 </button>
@@ -1701,7 +1711,7 @@ export default function QuizPage() {
       {/* Main content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
         <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          {currentIsWordOrder ? '語順を完成' : isActiveVocab ? 'タイプ入力' : '意味を選ぼう'}
+          {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'タイプ入力' : '意味を選ぼう'}
         </div>
 
         {/* Word display — big solid plate */}
@@ -1710,13 +1720,17 @@ export default function QuizPage() {
             <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
               {currentIsWordOrder
                 ? displayJapanese
-                : isActiveVocab
-                  ? displayJapanese
+                : isTypeInMode
+                  ? (isActiveVocab
+                      ? displayJapanese
+                      : quizDirection === 'en-to-ja'
+                        ? currentQuestion?.word.english
+                        : displayJapanese)
                   : quizDirection === 'en-to-ja'
                     ? currentQuestion?.word.english
                     : displayJapanese}
             </div>
-            {!isActiveVocab && !currentIsWordOrder && (
+            {!isTypeInMode && !currentIsWordOrder && (
               <div className="mt-2.5 flex justify-center">
                 <button
                   type="button"
@@ -1748,7 +1762,7 @@ export default function QuizPage() {
             onRemoveToken={handleWordOrderTokenRemove}
             onSubmit={handleWordOrderSubmit}
           />
-        ) : !isActiveVocab && isMultipleChoiceQuestion(currentQuestion) ? (
+        ) : !isTypeInMode && isMultipleChoiceQuestion(currentQuestion) ? (
           <div className="mt-[18px] flex flex-col gap-2">
             {currentQuestion?.options.map((option, i) => (
               <DSQuizOption
