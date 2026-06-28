@@ -90,6 +90,11 @@ class FakeOtpQuery {
     return this;
   }
 
+  select(columns = '*') {
+    this.operation.columns = columns;
+    return this;
+  }
+
   async single<T = unknown>(): Promise<{ data: T | null; error: { message: string } | null }> {
     return this.client.resolveSingle<T>(this.operation);
   }
@@ -208,6 +213,14 @@ class FakeOtpAdminClient {
 
       return {
         data: this.options.otpRecord as T,
+        error: null,
+      };
+    }
+
+    if (operation.table === 'profiles' && operation.action === 'upsert') {
+      const payload = isRecord(operation.payload) ? operation.payload : {};
+      return {
+        data: { user_id: payload.user_id } as T,
         error: null,
       };
     }
@@ -594,8 +607,10 @@ test('signup-verify valid OTP saves onboarding profile and imports default offic
     operation.action === 'upsert'
   );
   assert.deepEqual(profileUpsert.options, { onConflict: 'user_id' });
+  assert.equal(profileUpsert.columns, 'user_id');
   assert.deepEqual(profileUpsert.payload, {
     user_id: 'created-user-1',
+    onboarding_step: 'signed_up',
     username: '山田太郎',
     display_name: '山田太郎',
     user_handle: 'kenta_123',
