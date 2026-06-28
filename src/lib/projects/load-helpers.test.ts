@@ -186,8 +186,8 @@ test('buildProjectStats uses grouped distinct memory totals', () => {
   const [stats] = buildProjectStats(projects, wordsByProject);
 
   assert.equal(stats.totalWords, 1);
-  assert.equal(stats.masteredWords, 0);
-  assert.equal(stats.progress, 0);
+  assert.equal(stats.masteredWords, 1);
+  assert.equal(stats.progress, 100);
 });
 
 test('mergeProjectsById removes duplicates and keeps first entry order', () => {

@@ -61,6 +61,7 @@ const STATUS_RANK: Record<WordStatus, number> = {
   active: 2,
   mastered: 3,
 };
+const STATUS_BY_RANK: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 
 function normalizeKeyPart(value: string | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -228,6 +229,7 @@ export function groupWordsByMemory<T extends WordMemoryInput>(words: readonly T[
     const memoryRate = Math.round(
       senses.reduce((sum, sense) => sum + sense.memoryRate, 0) / Math.max(1, senses.length),
     );
+    const maxSenseRank = Math.max(...senses.map((s) => STATUS_RANK[s.status]));
     const representative = senses.find((sense) => sense.isPrimary)?.word ?? senses[0]?.word ?? bucketWords[0];
 
     passthrough.push({
@@ -236,7 +238,7 @@ export function groupWordsByMemory<T extends WordMemoryInput>(words: readonly T[
       senses,
       representative,
       memoryRate,
-      status: getMemoryStatusFromRate(memoryRate),
+      status: STATUS_BY_RANK[maxSenseRank] ?? getMemoryStatusFromRate(memoryRate),
       isDistinctGroup,
     });
   }
