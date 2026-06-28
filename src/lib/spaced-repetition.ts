@@ -60,7 +60,10 @@ export function getStatusAfterQuality(currentStatus: WordStatus, qualityInput: n
 
   if (quality <= 2) {
     if (currentStatus === 'mastered') return 'active';
-    if (currentStatus === 'active') return 'review';
+    // Once a word reaches 'active' (定着中) it stays active on a miss — it does
+    // not regress to 'review'. This prevents the "becomes active then instantly
+    // drops to review" behavior.
+    if (currentStatus === 'active') return 'active';
     return 'new';
   }
 
@@ -150,7 +153,8 @@ export function calculateNextReviewByQuality(
  * Determine the next word status based on whether the answer was correct.
  *
  * Correct: new -> review -> active -> mastered (stays mastered)
- * Wrong:   mastered -> active -> review -> new (stays new)
+ * Wrong:   mastered -> active (stays active; reaching 定着中 is sticky),
+ *          review -> new (stays new)
  */
 export function getStatusAfterAnswer(currentStatus: WordStatus, isCorrect: boolean): WordStatus {
   if (isCorrect) {
@@ -160,7 +164,9 @@ export function getStatusAfterAnswer(currentStatus: WordStatus, isCorrect: boole
     return 'mastered';
   }
   if (currentStatus === 'mastered') return 'active';
-  if (currentStatus === 'active') return 'review';
+  // 'active' (定着中) is a sticky floor — a miss keeps it active instead of
+  // demoting to 'review', so a word never drops the instant after it lands here.
+  if (currentStatus === 'active') return 'active';
   if (currentStatus === 'review') return 'new';
   return 'new';
 }
