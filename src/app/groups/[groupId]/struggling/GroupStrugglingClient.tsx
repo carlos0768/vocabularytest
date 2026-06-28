@@ -95,7 +95,7 @@ export default function GroupStrugglingClient() {
           ) : error ? (
             <div className="py-8 text-center text-sm font-bold text-[var(--color-error)]">{error}</div>
           ) : words.length === 0 ? (
-            <div className="py-8 text-center text-sm font-bold text-[var(--color-muted)]">まだ苦戦中の単語はありません</div>
+            <div className="py-8 text-center text-sm font-bold text-[var(--color-muted)]">2人以上が間違えた単語がまだありません</div>
           ) : (
             <div className="divide-y divide-[var(--color-border)]">
               {words.map((word, index) => (

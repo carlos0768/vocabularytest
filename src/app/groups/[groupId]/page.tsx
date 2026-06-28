@@ -422,9 +422,9 @@ function MissedWordsSection({
   const max = missedWords[0]?.missCount ?? 1;
   const hasMore = totalCount > missedWords.length;
   return (
-    <SectionCard icon="local_fire_department" title="みんなが苦戦中" subtitle="グループでよく間違える単語・上位5件" accent="#CC4D59">
+    <SectionCard icon="local_fire_department" title="みんなが苦戦中" subtitle="2人以上が間違えた単語・上位5件" accent="#CC4D59">
       {missedWords.length === 0 ? (
-        <EmptyRow message="まだデータがありません。クイズを解くと集計されます" />
+        <EmptyRow message="2人以上が間違えた単語がまだありません" />
       ) : (
         <>
           <div className="flex flex-col gap-1.5">
