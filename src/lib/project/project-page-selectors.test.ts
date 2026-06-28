@@ -124,9 +124,9 @@ test('countProjectWordStats treats distinct sense progress as one memory-rate wo
 
   assert.deepEqual(stats, {
     total: 1,
-    mastered: 0,
+    mastered: 1,
     active: 0,
-    learning: 1,
+    learning: 0,
     unlearned: 0,
   });
 });

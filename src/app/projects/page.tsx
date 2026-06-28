@@ -267,11 +267,17 @@ function BookRow({ project }: { project: ProjectRowStats }) {
 
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
-            <div className="mt-1 flex gap-2.5">
-              <DotChip color="var(--color-success)" label={`習得 ${project.masteredWords}`} />
-              <DotChip color="var(--color-warning)" label={`学習 ${project.reviewWords}`} />
-              <DotChip color="rgba(26,26,26,0.2)" label={`未 ${project.newWords}`} />
+            <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">
+              {project.totalWords}語
             </div>
+            {project.totalWords > 0 && (
+              <div className="mt-1.5 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
+                {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
+                {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
+                {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
+              </div>
+            )}
           </div>
 
           <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
@@ -280,14 +286,5 @@ function BookRow({ project }: { project: ProjectRowStats }) {
         </div>
       </SolidPanel>
     </Link>
-  );
-}
-
-function DotChip({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-      <span className="text-[10px] text-[var(--color-muted)]">{label}</span>
-    </span>
   );
 }

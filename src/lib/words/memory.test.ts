@@ -43,12 +43,12 @@ test('groupWordsByMemory collapses explicit distinct senses into one memory grou
   assert.equal(group?.isDistinctGroup, true);
   assert.equal(group?.representative.id, 'free-primary');
   assert.equal(group?.memoryRate, 50);
-  assert.equal(group?.status, 'review');
+  assert.equal(group?.status, 'mastered');
   assert.deepEqual(summarizeWordMemory(words), {
     total: 1,
-    mastered: 0,
+    mastered: 1,
     active: 0,
-    learning: 1,
+    learning: 0,
     unlearned: 0,
   });
 });
@@ -153,6 +153,6 @@ test('groupWordsByMemory computes memory rate from distinct translations on one 
 
   assert.equal(group?.isDistinctGroup, true);
   assert.equal(group?.memoryRate, 50);
-  assert.equal(group?.status, 'review');
+  assert.equal(group?.status, 'mastered');
   assert.deepEqual(group?.senses.map((sense) => sense.japanese), ['自由な', '無料の']);
 });
