@@ -5,6 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
+import { importDefaultOfficialWordbook } from '@/lib/official-wordbooks/import-default';
 import {
   evaluateAuthOtpCode,
   findAuthUserByNormalizedEmail,
@@ -56,6 +57,7 @@ type SignupProfileFields = Pick<SignupVerifyBody, 'display_name' | 'user_handle'
 export type SignupVerifyRouteDeps = {
   getAdminClient?: typeof getAdminClient;
   getServerClient?: typeof getServerClient;
+  importDefaultOfficialWordbook?: typeof importDefaultOfficialWordbook;
 };
 
 function buildDefaultAccountId(userId: string): string {
@@ -307,6 +309,17 @@ export async function handleSignupVerifyPost(
       );
     }
 
+    if (userId && eiken_level !== undefined) {
+      try {
+        await (deps.importDefaultOfficialWordbook ?? importDefaultOfficialWordbook)(
+          adminClient,
+          userId,
+          eiken_level,
+        );
+      } catch (defaultImportError) {
+        console.error('Failed to import default official wordbook:', defaultImportError);
+      }
+    }
     // 使用済みOTPを削除
     await adminClient
       .from('otp_requests')

@@ -539,12 +539,12 @@ function SignupForm() {
     return (
       <>
         <DesktopAuthShell
-          title="受検レベル"
-          description="目標の級を選ぶと、学習レベルの初期設定に使われます。"
+          title="受検何級に合格したいですか？"
+          description="目標の級を選択してください。"
         >
           {error && <DesktopAuthError>{error}</DesktopAuthError>}
           <div className="ds-field">
-            <label>英検レベル</label>
+            <label>合格したい級</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
               <button
                 type="button"
@@ -591,7 +591,7 @@ function SignupForm() {
           <SignupShell
             stepIndex={stepIndex}
             totalSteps={totalSteps}
-            title="受検レベル"
+            title="受検何級に合格したいですか？"
             description="目標の級を選択してください。"
             onBack={() => {
               setStep('profile');
@@ -603,7 +603,7 @@ function SignupForm() {
 
               <div>
                 <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
-                  英検レベル
+                  合格したい級
                 </div>
                 <div className="flex flex-wrap gap-[7px]">
                   <LevelChip

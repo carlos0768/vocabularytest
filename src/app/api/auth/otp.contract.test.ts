@@ -555,7 +555,7 @@ test('signup-verify valid OTP still returns 409 for an existing email after veri
   assert.deepEqual(adminClient.generateLinkCalls, []);
 });
 
-test('signup-verify valid OTP saves onboarding profile fields by upsert', async () => {
+test('signup-verify valid OTP saves onboarding profile and imports default official wordbook', async () => {
   const adminClient = new FakeOtpAdminClient({
     users: [],
     otpRecord: otpRecord({ id: 'otp-signup-profile' }),
@@ -564,6 +564,7 @@ test('signup-verify valid OTP saves onboarding profile fields by upsert', async 
   const serverClient = new FakeServerClient({
     sessionUser: { id: 'created-user-1', email: 'new@example.com' },
   });
+  let defaultWordbookImportCalled = false;
 
   const response = await handleSignupVerifyPost(
     jsonRequest('/api/auth/signup-verify', {
@@ -577,10 +578,22 @@ test('signup-verify valid OTP saves onboarding profile fields by upsert', async 
     {
       getAdminClient: () => adminClient as never,
       getServerClient: async () => serverClient as never,
+      importDefaultOfficialWordbook: async (client, userId, eikenLevel) => {
+        defaultWordbookImportCalled = true;
+        assert.equal(client, adminClient);
+        assert.equal(userId, 'created-user-1');
+        assert.equal(eikenLevel, 'pre2');
+        return {
+          officialWordbookId: 'official-pre2',
+          projectId: 'project-pre2',
+          wordCount: 20,
+        };
+      },
     },
   );
 
   assert.equal(response.status, 200);
+  assert.equal(defaultWordbookImportCalled, true);
   assert.deepEqual(await jsonPayload(response), {
     success: true,
     user: {
