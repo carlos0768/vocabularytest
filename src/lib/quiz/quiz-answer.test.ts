@@ -22,7 +22,7 @@ const word: Word = {
   isFavorite: false,
 };
 
-test('getTypeInCorrectAnswer preserves active and direction rules', () => {
+test('getTypeInCorrectAnswer always expects the English word (日英 only)', () => {
   assert.equal(getTypeInCorrectAnswer({
     word,
     isActiveVocabulary: true,
@@ -32,7 +32,7 @@ test('getTypeInCorrectAnswer preserves active and direction rules', () => {
     word,
     isActiveVocabulary: false,
     quizDirection: 'en-to-ja',
-  }), '調べる');
+  }), 'Inspect');
   assert.equal(getTypeInCorrectAnswer({
     word,
     isActiveVocabulary: false,

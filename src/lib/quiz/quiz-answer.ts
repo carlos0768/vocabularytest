@@ -20,8 +20,11 @@ export function getTypeInCorrectAnswer(params: {
   isActiveVocabulary: boolean;
   quizDirection: QuizDirection;
 }): string {
-  if (params.isActiveVocabulary) return params.word.english;
-  return params.quizDirection === 'en-to-ja' ? params.word.japanese : params.word.english;
+  // Type-in quizzes are always 日英: the prompt shows the Japanese meaning and
+  // the user types the English word. We never ask the user to type Japanese,
+  // regardless of quiz direction or whether the word is active by vocabulary or
+  // by status.
+  return params.word.english;
 }
 
 export function isTypeInAnswerCorrect(answer: string, correctAnswer: string): boolean {
