@@ -6,7 +6,7 @@ import { handleSendOtpPost } from './send-otp/route';
 import { handleSignupVerifyPost } from './signup-verify/route';
 import { handleVerifyOtpPost } from './verify-otp/route';
 
-type QueryAction = 'select' | 'insert' | 'update' | 'delete';
+type QueryAction = 'select' | 'insert' | 'update' | 'upsert' | 'delete';
 
 interface QueryFilter {
   field: string;
@@ -22,6 +22,7 @@ interface QueryOperation {
   table: string;
   action: QueryAction;
   payload?: unknown;
+  options?: unknown;
   columns?: string;
   filters: QueryFilter[];
   orders: QueryOrder[];
@@ -165,6 +166,7 @@ class FakeOtpAdminClient {
       select: (columns = '*') => this.createOperation(table, 'select', undefined, columns),
       insert: (payload: unknown) => this.createOperation(table, 'insert', payload),
       update: (payload: unknown) => this.createOperation(table, 'update', payload),
+      upsert: (payload: unknown, options?: unknown) => this.createOperation(table, 'upsert', payload, undefined, options),
       delete: () => this.createOperation(table, 'delete'),
     };
   }
@@ -174,11 +176,13 @@ class FakeOtpAdminClient {
     action: QueryAction,
     payload?: unknown,
     columns?: string,
+    options?: unknown,
   ) {
     const operation: QueryOperation = {
       table,
       action,
       payload,
+      options,
       columns,
       filters: [],
       orders: [],
@@ -536,6 +540,70 @@ test('signup-verify valid OTP still returns 409 for an existing email after veri
   assert.deepEqual(cleanup.filters, [{ field: 'email', value: 'user@example.com' }]);
   assert.deepEqual(adminClient.createUserCalls, []);
   assert.deepEqual(adminClient.generateLinkCalls, []);
+});
+
+test('signup-verify valid OTP saves onboarding profile and imports default official wordbook', async () => {
+  const adminClient = new FakeOtpAdminClient({
+    users: [],
+    otpRecord: otpRecord({ id: 'otp-signup-profile' }),
+    createdUser: { id: 'created-user-1', email: 'new@example.com' },
+  });
+  const serverClient = new FakeServerClient({
+    sessionUser: { id: 'created-user-1', email: 'new@example.com' },
+  });
+  let defaultWordbookImportCalled = false;
+
+  const response = await handleSignupVerifyPost(
+    jsonRequest('/api/auth/signup-verify', {
+      email: 'New@Example.COM',
+      code: '123456',
+      password: 'password123',
+      display_name: '山田太郎',
+      user_handle: 'kenta_123',
+      eiken_level: 'pre2',
+    }),
+    {
+      getAdminClient: () => adminClient as never,
+      getServerClient: async () => serverClient as never,
+      importDefaultOfficialWordbook: async (client, userId, eikenLevel) => {
+        defaultWordbookImportCalled = true;
+        assert.equal(client, adminClient);
+        assert.equal(userId, 'created-user-1');
+        assert.equal(eikenLevel, 'pre2');
+        return {
+          officialWordbookId: 'official-pre2',
+          projectId: 'project-pre2',
+          wordCount: 20,
+        };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(defaultWordbookImportCalled, true);
+  assert.deepEqual(await jsonPayload(response), {
+    success: true,
+    user: {
+      id: 'created-user-1',
+      email: 'new@example.com',
+    },
+  });
+
+  const profileUpsert = findOperation(adminClient, (operation) =>
+    operation.table === 'profiles' &&
+    operation.action === 'upsert'
+  );
+  assert.deepEqual(profileUpsert.options, { onConflict: 'user_id' });
+  assert.deepEqual(profileUpsert.payload, {
+    user_id: 'created-user-1',
+    username: '山田太郎',
+    display_name: '山田太郎',
+    user_handle: 'kenta_123',
+    eiken_level: 'pre2',
+  });
+
+  const cleanup = findOtpDelete(adminClient, 'email', 'new@example.com');
+  assert.deepEqual(cleanup.filters, [{ field: 'email', value: 'new@example.com' }]);
 });
 
 test('reset-password set-password uses verified OTP grace, updates password, cleans OTPs, and signs in best-effort', async () => {

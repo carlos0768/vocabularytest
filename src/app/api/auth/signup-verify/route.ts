@@ -5,6 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
+import { importDefaultOfficialWordbook } from '@/lib/official-wordbooks/import-default';
 import {
   evaluateAuthOtpCode,
   findAuthUserByNormalizedEmail,
@@ -53,6 +54,7 @@ const requestSchema = z.object({
 export type SignupVerifyRouteDeps = {
   getAdminClient?: typeof getAdminClient;
   getServerClient?: typeof getServerClient;
+  importDefaultOfficialWordbook?: typeof importDefaultOfficialWordbook;
 };
 
 export async function POST(request: Request) {
@@ -221,6 +223,18 @@ export async function handleSignupVerifyPost(
         await adminClient
           .from('profiles')
           .upsert({ user_id: userId, username: display_name }, { onConflict: 'user_id' });
+      }
+    }
+
+    if (userId && eiken_level !== undefined) {
+      try {
+        await (deps.importDefaultOfficialWordbook ?? importDefaultOfficialWordbook)(
+          adminClient,
+          userId,
+          eiken_level,
+        );
+      } catch (defaultImportError) {
+        console.error('Failed to import default official wordbook:', defaultImportError);
       }
     }
 
