@@ -1714,12 +1714,6 @@ function posShort(tag: string): string {
 const PP_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
 const PP_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const PP_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
-const STATUS_LINE_COLOR: Record<WordStatus, string> = {
-  new: 'rgba(26,26,26,0.12)',
-  review: 'var(--color-warning)',
-  active: '#2563eb',
-  mastered: 'var(--color-success)',
-};
 
 function StatusSquares({
   wordId,
@@ -1856,7 +1850,6 @@ function WordRow({
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
           <BookmarkBadge active={word.isFavorite} />
         </div>
-        <div className="mt-1.5 h-[3px] rounded-full" style={{ background: STATUS_LINE_COLOR[displayStatus] }} />
       </button>
     );
   }
@@ -1891,7 +1884,6 @@ function WordRow({
           <Icon name="bookmark" size={22} filled={word.isFavorite} />
         </button>
       </div>
-      <div className="mt-1.5 h-[3px] rounded-full" style={{ background: STATUS_LINE_COLOR[displayStatus] }} />
     </div>
   );
 }
