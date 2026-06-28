@@ -18,6 +18,7 @@ import {
   type WrongAnswer,
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
+import { triggerHaptic } from '@/lib/haptics';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
   applyWordOrderQuestionsToPendingQuiz,
@@ -1099,6 +1100,7 @@ export default function QuizPage() {
 
   const handleSelect = async (index: number) => {
     if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion)) return;
+    triggerHaptic();
     setSelectedIndex(index);
     setIsRevealed(true);
     const isCorrect = index === currentQuestion.correctIndex;
