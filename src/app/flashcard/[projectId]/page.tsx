@@ -521,7 +521,7 @@ export default function FlashcardPage() {
   /* Status label */
   const statusLabel = (s: string) => ({ new: '未学習', review: '学習中', active: '定着中', mastered: '習得' }[s] ?? s);
   const statusColor = (s: string) =>
-    s === 'mastered' ? 'var(--color-success)' : s === 'active' ? '#3b82f6' : s === 'review' ? '#137fec' : 'var(--color-muted)';
+    s === 'mastered' ? 'var(--color-success)' : s === 'active' ? '#2563eb' : s === 'review' ? '#137fec' : 'var(--color-muted)';
 
   /* ---------- Loading ---------- */
   if (loading) {
