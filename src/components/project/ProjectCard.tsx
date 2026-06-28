@@ -51,6 +51,7 @@ export function ProjectCard(props: ProjectCardProps) {
 
   let total: number;
   let mastered: number;
+  let active: number;
   let learning: number;
   let unlearned: number;
 
@@ -58,11 +59,13 @@ export function ProjectCard(props: ProjectCardProps) {
     const summary = summarizeWordMemory(props.words);
     total = summary.total;
     mastered = summary.mastered;
+    active = summary.active;
     learning = summary.learning;
     unlearned = summary.unlearned;
   } else {
     total = props.totalWords;
     mastered = props.masteredWords;
+    active = 0;
     unlearned = Math.max(0, total - mastered);
     learning = 0;
   }
@@ -87,20 +90,14 @@ export function ProjectCard(props: ProjectCardProps) {
           <p className="text-xl font-black text-[var(--color-foreground)]">
             {total} <span className="text-sm font-bold">語</span>
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="flex items-center gap-1 text-xs text-[var(--color-success)]">
-              <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
-              習得 {mastered}
-            </span>
-            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-              <span className="w-2 h-2 rounded-full bg-[var(--color-muted)]" />
-              学習 {learning}
-            </span>
-            <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-              <span className="w-2 h-2 rounded-full bg-[var(--color-border)]" />
-              未学習 {unlearned}
-            </span>
-          </div>
+          {total > 0 && (
+            <div className="mt-2 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+              {mastered > 0 && <div style={{ flex: mastered, background: 'var(--color-success)' }} />}
+              {active > 0 && <div style={{ flex: active, background: '#2563eb' }} />}
+              {learning > 0 && <div style={{ flex: learning, background: 'var(--color-warning)' }} />}
+              {unlearned > 0 && <div style={{ flex: unlearned, background: 'rgba(26,26,26,0.12)' }} />}
+            </div>
+          )}
         </div>
         {menuItems && menuItems.length > 0 && (
           <button
