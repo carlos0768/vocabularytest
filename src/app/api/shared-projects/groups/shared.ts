@@ -87,6 +87,7 @@ const CREATE_INVITE_CODE_RETRIES = 5;
 const DEFAULT_PUBLIC_GROUP_PAGE_SIZE = 12;
 const MAX_PUBLIC_GROUP_PAGE_SIZE = 36;
 export const STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT = 5;
+export const STUDY_GROUP_STRUGGLING_MIN_LEARNERS = 2;
 
 export function normalizeGroupInviteCode(input: string): string | null {
   const normalized = input.trim().replace(/[\s-]+/g, '');
@@ -642,7 +643,8 @@ async function getStudyGroupMissedWordSummary(
     throw new Error(error.message || 'study_group_missed_words_lookup_failed');
   }
 
-  const allWords = aggregateStudyGroupStrugglingWords((data ?? []) as StudyGroupMissedWordRow[]);
+  const allWords = aggregateStudyGroupStrugglingWords((data ?? []) as StudyGroupMissedWordRow[])
+    .filter((w) => w.learnerCount >= STUDY_GROUP_STRUGGLING_MIN_LEARNERS);
   const normalizedLimit = typeof limit === 'number' && Number.isFinite(limit)
     ? Math.max(0, Math.floor(limit))
     : null;
