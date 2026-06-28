@@ -107,7 +107,7 @@ export function PwaInstallBanner() {
                   ホーム画面に追加
                 </h3>
                 <p className="mt-1 text-[12px] leading-[1.5] text-[var(--solid-ink)]/70">
-                  ブラウザを開かずに1タップで起動できます。
+                  ホーム画面に追加しないと、プッシュ通知やオフライン利用など一部の機能が制限されます。
                 </p>
               </div>
             </div>

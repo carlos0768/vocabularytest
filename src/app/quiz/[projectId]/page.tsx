@@ -1356,66 +1356,70 @@ export default function QuizPage() {
         </div>
       </div>
       {/* Mobile completion */}
-      <div className="fixed inset-0 z-30 flex flex-col overflow-y-auto bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
-        <div className="mx-auto w-full max-w-sm px-5" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 24px))' }}>
-          {/* Score card */}
-          <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4">
-            <div className="flex items-center gap-3">
-              <div className="font-display text-[32px] font-black tabular-nums text-[var(--solid-ink)]">
-                {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
-              </div>
-              <div className="flex flex-1 flex-col gap-1">
-                <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                  <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
+      <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))' }}>
+          <div className="mx-auto w-full max-w-sm px-5 pb-4">
+            {/* Score card */}
+            <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className="font-display text-[32px] font-black tabular-nums text-[var(--solid-ink)]">
+                  {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
                 </div>
-              </div>
-              <span className="font-display text-[20px] font-black tabular-nums text-[var(--solid-ink)]">{percentage}%</span>
-            </div>
-            <p className="mt-2.5 text-[13px] font-bold text-[var(--color-secondary-text)]">{getQuizCompletionMessage(percentage)}</p>
-            <div className="mt-3 flex gap-3">
-              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
-                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-success)]" />正解 {answerResults.filter(r => r === true).length}
-              </span>
-              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
-                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-error)]" />不正解 {answerResults.filter(r => r === false).length}
-              </span>
-              <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
-                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-warning)]" />スキップ {answerResults.filter(r => r === 'skip').length}
-              </span>
-            </div>
-          </div>
-          {/* Word results list */}
-          <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
-            <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3">
-              <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)]" />
-              <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">解答一覧</h3>
-            </div>
-            <div className="divide-y divide-[rgba(26,26,26,0.08)]">
-              {wordResultRows.map((row, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-5 text-center text-[16px] font-black" style={{ color: row.markerColor }}>
-                    {row.marker}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <span
-                      className="text-[14px] font-bold"
-                      style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--solid-ink)' }}
-                    >
-                      {row.word.english}
-                    </span>
-                    <span
-                      className="ml-2 text-[12px]"
-                      style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--color-muted)', opacity: row.isIncorrect ? 0.8 : 1 }}
-                    >
-                      {formatJapaneseForDisplay(row.word)}
-                    </span>
+                <div className="flex flex-1 flex-col gap-1">
+                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                    <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
                   </div>
                 </div>
-              ))}
+                <span className="font-display text-[20px] font-black tabular-nums text-[var(--solid-ink)]">{percentage}%</span>
+              </div>
+              <p className="mt-2.5 text-[13px] font-bold text-[var(--color-secondary-text)]">{getQuizCompletionMessage(percentage)}</p>
+              <div className="mt-3 flex gap-3">
+                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-success)]" />正解 {answerResults.filter(r => r === true).length}
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-error)]" />不正解 {answerResults.filter(r => r === false).length}
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-warning)]" />スキップ {answerResults.filter(r => r === 'skip').length}
+                </span>
+              </div>
+            </div>
+            {/* Word results list */}
+            <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
+              <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3">
+                <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)]" />
+                <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">解答一覧</h3>
+              </div>
+              <div className="divide-y divide-[rgba(26,26,26,0.08)]">
+                {wordResultRows.map((row, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="w-5 text-center text-[16px] font-black" style={{ color: row.markerColor }}>
+                      {row.marker}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className="text-[14px] font-bold"
+                        style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--solid-ink)' }}
+                      >
+                        {row.word.english}
+                      </span>
+                      <span
+                        className="ml-2 text-[12px]"
+                        style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--color-muted)', opacity: row.isIncorrect ? 0.8 : 1 }}
+                      >
+                        {formatJapaneseForDisplay(row.word)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          {/* Action buttons */}
-          <div className="mt-3 space-y-3">
+        </div>
+        {/* Fixed bottom buttons */}
+        <div className="shrink-0 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-background)]" style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))' }}>
+          <div className="mx-auto w-full max-w-sm space-y-2 px-5 pt-3">
             <SolidButton variant="accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart} iconRight="arrow_forward" className="w-full justify-center">次へ</SolidButton>
             <SolidButton onClick={backToProject} className="w-full justify-center">終了する</SolidButton>
           </div>
