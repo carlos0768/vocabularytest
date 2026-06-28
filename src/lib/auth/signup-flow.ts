@@ -1,4 +1,4 @@
-export const SIGNUP_STEPS = ['onboarding', 'form', 'otp'] as const;
+export const SIGNUP_STEPS = ['profile', 'level', 'form', 'otp'] as const;
 export type SignupStep = typeof SIGNUP_STEPS[number];
 
 export const SIGNUP_OTP_LENGTH = 6;

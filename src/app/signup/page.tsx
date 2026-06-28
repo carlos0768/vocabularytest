@@ -50,7 +50,7 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
 
-  const [step, setStep] = useState<SignupStep>('onboarding');
+  const [step, setStep] = useState<SignupStep>('profile');
 
   // Onboarding state
   const [displayName, setDisplayName] = useState('');
@@ -106,7 +106,7 @@ function SignupForm() {
     checkHandleAvailability(normalized);
   };
 
-  const handleOnboardingSubmit = () => {
+  const handleProfileSubmit = () => {
     setError(null);
     const onboarding: OnboardingData = { displayName, userHandle, eikenLevel };
     const validation = validateOnboardingData(onboarding);
@@ -118,6 +118,11 @@ function SignupForm() {
       setError('このIDは既に使われています');
       return;
     }
+    setStep('level');
+  };
+
+  const handleLevelSubmit = () => {
+    setError(null);
     setStep('form');
   };
 
@@ -215,8 +220,8 @@ function SignupForm() {
     }
   };
 
-  const stepIndex = step === 'onboarding' ? 1 : step === 'form' ? 2 : 3;
-  const totalSteps = 3;
+  const stepIndex = step === 'profile' ? 1 : step === 'level' ? 2 : step === 'form' ? 3 : 4;
+  const totalSteps = 4;
 
   // ── OTP Step ─────────────────────────────────────────────
   if (step === 'otp') {
@@ -438,7 +443,7 @@ function SignupForm() {
             title="アカウント情報"
             description="メールアドレスとパスワードを入力してください。"
             onBack={() => {
-              setStep('onboarding');
+              setStep('level');
               setError(null);
             }}
           >
@@ -529,7 +534,115 @@ function SignupForm() {
     );
   }
 
-  // ── Onboarding Step ──────────────────────────────────────
+  // ── Level Step ───────────────────────────────────────────
+  if (step === 'level') {
+    return (
+      <>
+        <DesktopAuthShell
+          title="受検レベル"
+          description="目標の級を選ぶと、学習レベルの初期設定に使われます。"
+        >
+          {error && <DesktopAuthError>{error}</DesktopAuthError>}
+          <div className="ds-field">
+            <label>英検レベル</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setEikenLevel(null)}
+                className={`ds-chip ${eikenLevel === null ? 'active' : ''}`}
+              >
+                未定
+              </button>
+              {EIKEN_LEVELS.map((level) => (
+                <button
+                  key={level.value}
+                  type="button"
+                  onClick={() => setEikenLevel(level.value)}
+                  className={`ds-chip ${eikenLevel === level.value ? 'active' : ''}`}
+                >
+                  {level.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 8 }}>
+              あとから設定画面で変更できます。
+            </div>
+          </div>
+          <DesktopAuthPrimaryButton
+            type="button"
+            variant="accent"
+            onClick={handleLevelSubmit}
+          >
+            アカウント情報へ
+          </DesktopAuthPrimaryButton>
+          <button
+            type="button"
+            onClick={() => {
+              setStep('profile');
+              setError(null);
+            }}
+            style={{ display: 'block', margin: '14px auto 0', color: 'var(--color-muted)', fontSize: 12.5, fontWeight: 700 }}
+          >
+            ユーザー名とIDを修正
+          </button>
+        </DesktopAuthShell>
+
+        <div className="lg:hidden">
+          <SignupShell
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
+            title="受検レベル"
+            description="目標の級を選択してください。"
+            onBack={() => {
+              setStep('profile');
+              setError(null);
+            }}
+          >
+            <div className="flex flex-col gap-3 px-6 pb-3">
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+
+              <div>
+                <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+                  英検レベル
+                </div>
+                <div className="flex flex-wrap gap-[7px]">
+                  <LevelChip
+                    active={eikenLevel === null}
+                    onClick={() => setEikenLevel(null)}
+                  >
+                    未定
+                  </LevelChip>
+                  {EIKEN_LEVELS.map((level) => (
+                    <LevelChip
+                      key={level.value}
+                      active={eikenLevel === level.value}
+                      onClick={() => setEikenLevel(level.value)}
+                    >
+                      {level.label}
+                    </LevelChip>
+                  ))}
+                </div>
+                <div className="mt-2 pl-0.5 text-[10px] leading-relaxed text-[var(--color-muted)]">
+                  あとから設定画面で変更できます。
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 pb-4 pt-2">
+              <PrimaryAction
+                type="button"
+                onClick={handleLevelSubmit}
+              >
+                アカウント情報へ
+              </PrimaryAction>
+            </div>
+          </SignupShell>
+        </div>
+      </>
+    );
+  }
+
+  // ── Profile Step ────────────────────────────────────────
   const onboardingValid =
     displayName.trim().length >= 1 &&
     /^[a-z0-9_]{3,20}$/.test(userHandle) &&
@@ -540,7 +653,7 @@ function SignupForm() {
       {/* Desktop */}
       <DesktopAuthShell
         title="プロフィール設定"
-        description=""
+        description="ユーザー名とユーザーIDを設定してください。"
       >
         {error && <DesktopAuthError>{error}</DesktopAuthError>}
         <DesktopAuthField
@@ -577,29 +690,11 @@ function SignupForm() {
             半角英小文字・数字・アンダースコア（3〜20文字）
           </div>
         </div>
-        <div className="ds-field">
-          <label>英検レベル（任意）</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-            {EIKEN_LEVELS.map((level) => (
-              <button
-                key={level.value}
-                type="button"
-                onClick={() => setEikenLevel(eikenLevel === level.value ? null : level.value)}
-                className={`ds-chip ${eikenLevel === level.value ? 'active' : ''}`}
-              >
-                {level.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 8 }}>
-            英検の級に合わせて学習レベルを調整します。あとから変更できます。
-          </div>
-        </div>
         <DesktopAuthPrimaryButton
           type="button"
           variant="accent"
           disabled={!onboardingValid}
-          onClick={handleOnboardingSubmit}
+          onClick={handleProfileSubmit}
         >
           次へ進む
         </DesktopAuthPrimaryButton>
@@ -620,7 +715,7 @@ function SignupForm() {
           stepIndex={stepIndex}
           totalSteps={totalSteps}
           title="プロフィール設定"
-          description=""
+          description="ユーザー名とユーザーIDを設定してください。"
           backHref="/"
         >
           <div className="flex flex-col gap-3 px-6 pb-3">
@@ -661,38 +756,13 @@ function SignupForm() {
                 半角英小文字・数字・_（3〜20文字）
               </div>
             </div>
-
-            <div>
-              <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
-                英検レベル（任意）
-              </div>
-              <div className="flex flex-wrap gap-[7px]">
-                {EIKEN_LEVELS.map((level) => (
-                  <button
-                    key={level.value}
-                    type="button"
-                    onClick={() => setEikenLevel(eikenLevel === level.value ? null : level.value)}
-                    className={`rounded-[10px] border-2 px-3.5 py-2 text-[12px] font-bold transition-all ${
-                      eikenLevel === level.value
-                        ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white shadow-[2px_3px_0_var(--solid-ink)]'
-                        : 'border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]'
-                    }`}
-                  >
-                    {level.label}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-2 pl-0.5 text-[10px] leading-relaxed text-[var(--color-muted)]">
-                英検の級に合わせて学習レベルを調整します。あとから変更できます。
-              </div>
-            </div>
           </div>
 
           <div className="px-6 pb-4 pt-2">
             <PrimaryAction
               type="button"
               disabled={!onboardingValid}
-              onClick={handleOnboardingSubmit}
+              onClick={handleProfileSubmit}
             >
               次へ進む
             </PrimaryAction>
@@ -830,6 +900,30 @@ function PrimaryAction({
       <div className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]">
         {children}
       </div>
+    </button>
+  );
+}
+
+function LevelChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[10px] border-2 px-3.5 py-2 text-[12px] font-bold transition-all ${
+        active
+          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white shadow-[2px_3px_0_var(--solid-ink)]'
+          : 'border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]'
+      }`}
+    >
+      {children}
     </button>
   );
 }

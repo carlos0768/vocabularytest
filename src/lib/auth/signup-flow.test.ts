@@ -13,8 +13,8 @@ import {
   validateOnboardingData,
 } from './signup-flow';
 
-test('signup flow includes onboarding, form, then otp steps', () => {
-  assert.deepEqual(SIGNUP_STEPS, ['onboarding', 'form', 'otp']);
+test('signup flow splits profile and level before form and otp steps', () => {
+  assert.deepEqual(SIGNUP_STEPS, ['profile', 'level', 'form', 'otp']);
   assert.equal(SIGNUP_OTP_LENGTH, 6);
   assert.equal(SIGNUP_RESEND_COOLDOWN_SECONDS, 60);
 });
