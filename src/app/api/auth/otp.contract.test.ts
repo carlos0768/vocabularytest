@@ -583,11 +583,11 @@ test('signup-verify valid OTP saves onboarding profile and imports default offic
         assert.equal(client, adminClient);
         assert.equal(userId, 'created-user-1');
         assert.equal(eikenLevel, 'pre2');
-        return {
+        return [{
           officialWordbookId: 'official-pre2',
           projectId: 'project-pre2',
           wordCount: 20,
-        };
+        }];
       },
     },
   );

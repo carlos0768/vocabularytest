@@ -23,7 +23,6 @@ interface QueryOperation {
   columns?: string;
   filters: QueryFilter[];
   orders: QueryOrder[];
-  limitCount?: number;
 }
 
 class FakeOfficialWordbookQuery {
@@ -37,23 +36,19 @@ class FakeOfficialWordbookQuery {
     return this;
   }
 
-  order(column: string, options: unknown) {
-    this.operation.orders.push({ column, options });
+  in(field: string, values: unknown[]) {
+    this.operation.filters.push({ field, value: values });
     return this;
   }
 
-  limit(count: number) {
-    this.operation.limitCount = count;
+  order(column: string, options: unknown) {
+    this.operation.orders.push({ column, options });
     return this;
   }
 
   select(columns = '*') {
     this.operation.columns = columns;
     return this;
-  }
-
-  async maybeSingle<T = unknown>(): Promise<{ data: T | null; error: null }> {
-    return this.client.resolveMaybeSingle<T>(this.operation);
   }
 
   async single<T = unknown>(): Promise<{ data: T | null; error: null }> {
@@ -73,8 +68,9 @@ class FakeOfficialWordbookClient {
 
   constructor(
     private readonly fixtures: {
-      officialWordbook?: Record<string, unknown> | null;
-      officialWords?: Array<Record<string, unknown>>;
+      officialProjects?: Array<Record<string, unknown>>;
+      wordsByProjectId?: Record<string, Array<Record<string, unknown>>>;
+      translationsByWordId?: Record<string, Array<Record<string, unknown>>>;
     } = {},
   ) {}
 
@@ -107,20 +103,13 @@ class FakeOfficialWordbookClient {
     return new FakeOfficialWordbookQuery(this, operation);
   }
 
-  async resolveMaybeSingle<T>(operation: QueryOperation): Promise<{ data: T | null; error: null }> {
-    if (operation.table === 'official_wordbooks' && operation.action === 'select') {
-      return {
-        data: (this.fixtures.officialWordbook ?? null) as T | null,
-        error: null,
-      };
-    }
-    throw new Error(`Unexpected maybeSingle operation: ${operation.table}.${operation.action}`);
-  }
-
   async resolveSingle<T>(operation: QueryOperation): Promise<{ data: T | null; error: null }> {
     if (operation.table === 'projects' && operation.action === 'insert') {
+      const projectIndex = this.operations
+        .filter((item) => item.table === 'projects' && item.action === 'insert')
+        .indexOf(operation) + 1;
       return {
-        data: { id: 'project-1' } as T,
+        data: { id: `project-${projectIndex}` } as T,
         error: null,
       };
     }
@@ -128,11 +117,27 @@ class FakeOfficialWordbookClient {
   }
 
   async resolveQuery(operation: QueryOperation): Promise<{ data: unknown; error: null }> {
-    if (operation.table === 'official_wordbook_words' && operation.action === 'select') {
+    if (operation.table === 'projects' && operation.action === 'select') {
       return {
-        data: this.fixtures.officialWords ?? [],
+        data: this.fixtures.officialProjects ?? [],
         error: null,
       };
+    }
+
+    if (operation.table === 'words' && operation.action === 'select') {
+      const projectId = operation.filters.find((filter) => filter.field === 'project_id')?.value;
+      return {
+        data: typeof projectId === 'string' ? this.fixtures.wordsByProjectId?.[projectId] ?? [] : [],
+        error: null,
+      };
+    }
+
+    if (operation.table === 'word_translations' && operation.action === 'select') {
+      const wordIds = operation.filters.find((filter) => filter.field === 'word_id')?.value;
+      const rows = Array.isArray(wordIds)
+        ? wordIds.flatMap((wordId) => this.fixtures.translationsByWordId?.[String(wordId)] ?? [])
+        : [];
+      return { data: rows, error: null };
     }
 
     if (operation.table === 'words' && operation.action === 'insert') {
@@ -161,6 +166,10 @@ function findOperation(client: FakeOfficialWordbookClient, table: string, action
   return operation;
 }
 
+function findOperations(client: FakeOfficialWordbookClient, table: string, action: QueryAction): QueryOperation[] {
+  return client.operations.filter((item) => item.table === table && item.action === action);
+}
+
 test('default official wordbook import skips null eiken levels', async () => {
   const client = new FakeOfficialWordbookClient();
 
@@ -170,50 +179,66 @@ test('default official wordbook import skips null eiken levels', async () => {
   assert.equal(client.operations.length, 0);
 });
 
-test('default official wordbook import returns null when the level has no official data', async () => {
-  const client = new FakeOfficialWordbookClient({ officialWordbook: null });
+test('default official wordbook import returns null when the level has no official projects', async () => {
+  const client = new FakeOfficialWordbookClient({ officialProjects: [] });
 
   const result = await importDefaultOfficialWordbook(client as never, 'user-1', '3');
 
   assert.equal(result, null);
 
-  const wordbookSelect = findOperation(client, 'official_wordbooks', 'select');
-  assert.deepEqual(wordbookSelect.filters, [
-    { field: 'eiken_level', value: '3' },
-    { field: 'is_active', value: true },
+  const projectSelect = findOperation(client, 'projects', 'select');
+  assert.deepEqual(projectSelect.filters, [
+    { field: 'official_eiken_level', value: '3' },
+    { field: 'official_is_active', value: true },
   ]);
 });
 
-test('default official wordbook import copies official words into a user project', async () => {
+test('default official wordbook import copies a normal project into a user project', async () => {
   const client = new FakeOfficialWordbookClient({
-    officialWordbook: {
-      id: 'official-pre2',
-      title: '英検準2級 公式単語帳',
-      source_labels: ['official', 'eiken:pre2'],
-      icon_image: 'icon.png',
-    },
-    officialWords: [
+    officialProjects: [
       {
-        id: 'official-word-1',
-        english: 'improve',
-        japanese: '改善する',
-        translations: [{ translationJa: '改善する', normalizedTranslationJa: '改善する', source: 'user' }],
-        distractors: ['悪化する', '維持する'],
-        vocabulary_type: 'active',
-        japanese_source: 'scan',
-        part_of_speech_tags: ['verb'],
-        custom_sections: [{ id: 'memo', title: 'Memo', content: 'Core verb' }],
+        id: 'official-project-pre2',
+        title: 'Source Project Title',
+        official_title: '英検準2級 公式単語帳',
+        icon_image: 'icon.png',
+        official_is_default: true,
       },
     ],
+    wordsByProjectId: {
+      'official-project-pre2': [
+        {
+          id: 'source-word-1',
+          english: 'improve',
+          japanese: '改善する',
+          distractors: ['悪化する', '維持する'],
+          vocabulary_type: 'active',
+          japanese_source: 'scan',
+          part_of_speech_tags: ['verb'],
+          custom_sections: [{ id: 'memo', title: 'Memo', content: 'Core verb' }],
+        },
+      ],
+    },
+    translationsByWordId: {
+      'source-word-1': [
+        {
+          word_id: 'source-word-1',
+          translation_ja: '改善する',
+          normalized_translation_ja: '改善する',
+          source: 'user',
+          meaning_rank: 1,
+          position: 0,
+        },
+      ],
+    },
   });
 
   const result = await importDefaultOfficialWordbook(client as never, 'user-1', 'pre2');
 
-  assert.deepEqual(result, {
-    officialWordbookId: 'official-pre2',
+  assert.deepEqual(result, [{
+    officialWordbookId: 'official-project-pre2',
     projectId: 'project-1',
     wordCount: 1,
-  });
+  }]);
 
   const projectInsert = findOperation(client, 'projects', 'insert');
   assert.deepEqual(projectInsert.payload, {
@@ -223,7 +248,12 @@ test('default official wordbook import copies official words into a user project
     icon_image: 'icon.png',
   });
 
-  const wordsInsert = findOperation(client, 'words', 'insert');
+  const sourceWordsSelect = findOperation(client, 'words', 'select');
+  assert.deepEqual(sourceWordsSelect.filters, [
+    { field: 'project_id', value: 'official-project-pre2' },
+  ]);
+
+  const wordsInsert = findOperations(client, 'words', 'insert')[0];
   assert.deepEqual(wordsInsert.payload, [{
     project_id: 'project-1',
     english: 'improve',
@@ -260,4 +290,75 @@ test('default official wordbook import copies official words into a user project
     position: 0,
     is_primary: true,
   }]);
+});
+
+test('default official wordbook import copies every active default project for a level', async () => {
+  const client = new FakeOfficialWordbookClient({
+    officialProjects: [
+      {
+        id: 'official-pre1-1',
+        title: 'ターゲット section16',
+        official_title: '英検準一級単語集1',
+        official_is_default: true,
+      },
+      {
+        id: 'official-pre1-2',
+        title: 'ターゲット section17',
+        official_title: '英検準一級単語集2',
+        official_is_default: true,
+      },
+      {
+        id: 'official-pre1-extra',
+        title: '英検準一級 補助単語集',
+        official_is_default: false,
+      },
+    ],
+    wordsByProjectId: {
+      'official-pre1-1': [
+        {
+          id: 'source-word-1',
+          english: 'notion',
+          japanese: '概念',
+        },
+      ],
+      'official-pre1-2': [
+        {
+          id: 'source-word-2',
+          english: 'obscure',
+          japanese: '曖昧な',
+        },
+      ],
+    },
+  });
+
+  const result = await importDefaultOfficialWordbook(client as never, 'user-1', 'pre1');
+
+  assert.deepEqual(result, [
+    {
+      officialWordbookId: 'official-pre1-1',
+      projectId: 'project-1',
+      wordCount: 1,
+    },
+    {
+      officialWordbookId: 'official-pre1-2',
+      projectId: 'project-2',
+      wordCount: 1,
+    },
+  ]);
+
+  const projectInserts = findOperations(client, 'projects', 'insert');
+  assert.deepEqual(projectInserts.map((operation) =>
+    (operation.payload as { title: string }).title
+  ), [
+    '英検準一級単語集1',
+    '英検準一級単語集2',
+  ]);
+
+  const sourceWordSelects = findOperations(client, 'words', 'select');
+  assert.deepEqual(sourceWordSelects.map((operation) =>
+    operation.filters.find((filter) => filter.field === 'project_id')?.value
+  ), [
+    'official-pre1-1',
+    'official-pre1-2',
+  ]);
 });

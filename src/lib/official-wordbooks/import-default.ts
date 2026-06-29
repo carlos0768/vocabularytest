@@ -7,18 +7,18 @@ import {
 
 export type OfficialWordbookEikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1';
 
-type OfficialWordbookRow = {
+type OfficialProjectRow = {
   id: string;
   title: string;
-  source_labels?: unknown;
+  official_title?: string | null;
   icon_image?: string | null;
+  official_is_default?: boolean | null;
 };
 
-type OfficialWordbookWordRow = {
+type SourceWordRow = {
   id: string;
   english: string;
   japanese?: string | null;
-  translations?: unknown;
   distractors?: unknown;
   vocabulary_type?: string | null;
   japanese_source?: string | null;
@@ -34,6 +34,16 @@ type OfficialWordbookWordRow = {
   custom_sections?: unknown;
 };
 
+type SourceWordTranslationRow = {
+  word_id: string;
+  translation_ja: string;
+  normalized_translation_ja?: string | null;
+  source?: 'scan' | 'ai' | 'user' | null;
+  lexicon_sense_id?: string | null;
+  meaning_rank?: number | null;
+  position?: number | null;
+};
+
 type CreatedProjectRow = {
   id: string;
 };
@@ -42,13 +52,15 @@ type CreatedWordRow = {
   id: string;
 };
 
-export type DefaultOfficialWordbookImportResult = {
+export type DefaultOfficialWordbookImportItem = {
   officialWordbookId: string;
   projectId: string;
   wordCount: number;
-} | null;
+};
 
-function isOfficialWordbookSchemaError(error: PostgrestError | null): boolean {
+export type DefaultOfficialWordbookImportResult = DefaultOfficialWordbookImportItem[] | null;
+
+function isOfficialProjectSchemaError(error: PostgrestError | null): boolean {
   if (!error) return false;
   const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
   return (
@@ -57,8 +69,26 @@ function isOfficialWordbookSchemaError(error: PostgrestError | null): boolean {
     || error.code === 'PGRST200'
     || error.code === 'PGRST204'
   ) && (
-    text.includes('official_wordbooks')
-    || text.includes('official_wordbook_words')
+    text.includes('projects')
+    || text.includes('words')
+    || text.includes('word_translations')
+    || text.includes('official_')
+    || text.includes('schema cache')
+    || text.includes('could not find')
+    || text.includes('does not exist')
+  );
+}
+
+function isWordTranslationsSchemaError(error: PostgrestError | null): boolean {
+  if (!error) return false;
+  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return (
+    error.code === '42P01'
+    || error.code === '42703'
+    || error.code === 'PGRST200'
+    || error.code === 'PGRST204'
+  ) && (
+    text.includes('word_translations')
     || text.includes('schema cache')
     || text.includes('could not find')
     || text.includes('does not exist')
@@ -98,37 +128,70 @@ function normalizeJapaneseSource(value: string | null | undefined): 'scan' | 'ai
   return value === 'scan' || value === 'ai' ? value : undefined;
 }
 
-export async function importDefaultOfficialWordbook(
+function getOfficialProjectTitle(project: OfficialProjectRow): string {
+  const officialTitle = project.official_title?.trim();
+  return officialTitle || project.title;
+}
+
+function buildSourceTranslationPayload(translations: readonly SourceWordTranslationRow[]): unknown[] {
+  return translations.map((translation) => ({
+    translationJa: translation.translation_ja,
+    normalizedTranslationJa: translation.normalized_translation_ja ?? translation.translation_ja,
+    source: translation.source ?? undefined,
+    lexiconSenseId: translation.lexicon_sense_id ?? undefined,
+    meaningRank: translation.meaning_rank ?? undefined,
+  }));
+}
+
+async function fetchSourceTranslations(
   supabase: SupabaseClient,
-  userId: string,
-  eikenLevel: OfficialWordbookEikenLevel | null | undefined,
-): Promise<DefaultOfficialWordbookImportResult> {
-  if (!eikenLevel) return null;
+  wordIds: readonly string[],
+): Promise<Map<string, SourceWordTranslationRow[]>> {
+  const translationsByWordId = new Map<string, SourceWordTranslationRow[]>();
+  if (wordIds.length === 0) return translationsByWordId;
 
-  const { data: officialWordbook, error: wordbookError } = await supabase
-    .from('official_wordbooks')
-    .select('id,title,source_labels,icon_image')
-    .eq('eiken_level', eikenLevel)
-    .eq('is_active', true)
-    .order('is_default', { ascending: false })
-    .order('sort_order', { ascending: true })
-    .limit(1)
-    .maybeSingle<OfficialWordbookRow>();
+  const { data, error } = await supabase
+    .from('word_translations')
+    .select([
+      'word_id',
+      'translation_ja',
+      'normalized_translation_ja',
+      'source',
+      'lexicon_sense_id',
+      'meaning_rank',
+      'position',
+    ].join(','))
+    .in('word_id', wordIds)
+    .order('position', { ascending: true })
+    .order('meaning_rank', { ascending: true })
+    .order('created_at', { ascending: true });
 
-  if (wordbookError) {
-    if (isOfficialWordbookSchemaError(wordbookError)) return null;
-    throw new Error(`Failed to fetch official wordbook: ${wordbookError.message}`);
+  if (error) {
+    if (isWordTranslationsSchemaError(error)) return translationsByWordId;
+    throw new Error(`Failed to fetch official project translations: ${error.message}`);
   }
 
-  if (!officialWordbook) return null;
+  for (const translation of (data ?? []) as unknown as SourceWordTranslationRow[]) {
+    const list = translationsByWordId.get(translation.word_id) ?? [];
+    list.push(translation);
+    translationsByWordId.set(translation.word_id, list);
+  }
 
-  const { data: officialWords, error: wordsError } = await supabase
-    .from('official_wordbook_words')
+  return translationsByWordId;
+}
+
+async function importOfficialProject(
+  supabase: SupabaseClient,
+  userId: string,
+  eikenLevel: OfficialWordbookEikenLevel,
+  officialProject: OfficialProjectRow,
+): Promise<DefaultOfficialWordbookImportItem | null> {
+  const { data: sourceRows, error: wordsError } = await supabase
+    .from('words')
     .select([
       'id',
       'english',
       'japanese',
-      'translations',
       'distractors',
       'vocabulary_type',
       'japanese_source',
@@ -142,44 +205,47 @@ export async function importDefaultOfficialWordbook(
       'usage_patterns',
       'word_order_quiz',
       'custom_sections',
+      'created_at',
     ].join(','))
-    .eq('official_wordbook_id', officialWordbook.id)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+    .eq('project_id', officialProject.id)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
 
   if (wordsError) {
-    if (isOfficialWordbookSchemaError(wordsError)) return null;
-    throw new Error(`Failed to fetch official wordbook words: ${wordsError.message}`);
+    if (isOfficialProjectSchemaError(wordsError)) return null;
+    throw new Error(`Failed to fetch official project words: ${wordsError.message}`);
   }
 
-  const sourceWords = (officialWords ?? []) as unknown as OfficialWordbookWordRow[];
+  const sourceWords = (sourceRows ?? []) as unknown as SourceWordRow[];
   if (sourceWords.length === 0) return null;
 
-  let projectId: string | null = null;
+  const translationsByWordId = await fetchSourceTranslations(
+    supabase,
+    sourceWords.map((word) => word.id),
+  );
+
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .insert({
+      user_id: userId,
+      title: getOfficialProjectTitle(officialProject),
+      source_labels: ['official', `eiken:${eikenLevel}`],
+      ...(officialProject.icon_image ? { icon_image: officialProject.icon_image } : {}),
+    })
+    .select('id')
+    .single<CreatedProjectRow>();
+
+  if (projectError || !project) {
+    throw new Error(`Failed to create imported official wordbook: ${projectError?.message ?? 'missing project row'}`);
+  }
+
   try {
-    const sourceLabels = normalizeStringArray(officialWordbook.source_labels);
-    const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .insert({
-        user_id: userId,
-        title: officialWordbook.title,
-        source_labels: sourceLabels.length > 0 ? sourceLabels : ['official', `eiken:${eikenLevel}`],
-        ...(officialWordbook.icon_image ? { icon_image: officialWordbook.icon_image } : {}),
-      })
-      .select('id')
-      .single<CreatedProjectRow>();
-
-    if (projectError || !project) {
-      throw new Error(`Failed to create imported official wordbook: ${projectError?.message ?? 'missing project row'}`);
-    }
-    projectId = project.id;
-
     const defaultSR = getDefaultSpacedRepetitionFields();
     const normalizedWords = sourceWords.map((word) => normalizeWordForTranslationPersistence({
       projectId: project.id,
       english: word.english,
       japanese: word.japanese ?? '',
-      translations: word.translations ?? undefined,
+      translations: buildSourceTranslationPayload(translationsByWordId.get(word.id) ?? []),
       distractors: normalizeStringArray(word.distractors, 10),
       vocabularyType: normalizeVocabularyType(word.vocabulary_type),
       japaneseSource: normalizeJapaneseSource(word.japanese_source),
@@ -245,14 +311,48 @@ export async function importDefaultOfficialWordbook(
     }
 
     return {
-      officialWordbookId: officialWordbook.id,
+      officialWordbookId: officialProject.id,
       projectId: project.id,
       wordCount: createdWordRows.length,
     };
   } catch (error) {
-    if (projectId) {
-      await supabase.from('projects').delete().eq('id', projectId);
-    }
+    await supabase.from('projects').delete().eq('id', project.id);
     throw error;
   }
+}
+
+export async function importDefaultOfficialWordbook(
+  supabase: SupabaseClient,
+  userId: string,
+  eikenLevel: OfficialWordbookEikenLevel | null | undefined,
+): Promise<DefaultOfficialWordbookImportResult> {
+  if (!eikenLevel) return null;
+
+  const { data: officialProjects, error: projectError } = await supabase
+    .from('projects')
+    .select('id,title,official_title,icon_image,official_is_default')
+    .eq('official_eiken_level', eikenLevel)
+    .eq('official_is_active', true)
+    .order('official_is_default', { ascending: false })
+    .order('official_sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (projectError) {
+    if (isOfficialProjectSchemaError(projectError)) return null;
+    throw new Error(`Failed to fetch official projects: ${projectError.message}`);
+  }
+
+  const activeProjects = (officialProjects ?? []) as unknown as OfficialProjectRow[];
+  if (activeProjects.length === 0) return null;
+
+  const defaultProjects = activeProjects.filter((project) => project.official_is_default);
+  const projectsToImport = defaultProjects.length > 0 ? defaultProjects : activeProjects.slice(0, 1);
+  const imported: DefaultOfficialWordbookImportItem[] = [];
+
+  for (const officialProject of projectsToImport) {
+    const result = await importOfficialProject(supabase, userId, eikenLevel, officialProject);
+    if (result) imported.push(result);
+  }
+
+  return imported.length > 0 ? imported : null;
 }
