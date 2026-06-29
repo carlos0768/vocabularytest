@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { importDefaultOfficialWordbook } from './import-default';
+import { fetchDefaultOfficialWordbooksForLocalImport } from './import-default';
 
 type QueryAction = 'select' | 'insert' | 'upsert' | 'delete';
 
@@ -170,19 +170,19 @@ function findOperations(client: FakeOfficialWordbookClient, table: string, actio
   return client.operations.filter((item) => item.table === table && item.action === action);
 }
 
-test('default official wordbook import skips null eiken levels', async () => {
+test('default official wordbook local payload skips null eiken levels', async () => {
   const client = new FakeOfficialWordbookClient();
 
-  const result = await importDefaultOfficialWordbook(client as never, 'user-1', null);
+  const result = await fetchDefaultOfficialWordbooksForLocalImport(client as never, null);
 
   assert.equal(result, null);
   assert.equal(client.operations.length, 0);
 });
 
-test('default official wordbook import returns null when the level has no official projects', async () => {
+test('default official wordbook local payload returns null when the level has no official projects', async () => {
   const client = new FakeOfficialWordbookClient({ officialProjects: [] });
 
-  const result = await importDefaultOfficialWordbook(client as never, 'user-1', '3');
+  const result = await fetchDefaultOfficialWordbooksForLocalImport(client as never, '3');
 
   assert.equal(result, null);
 
@@ -193,7 +193,7 @@ test('default official wordbook import returns null when the level has no offici
   ]);
 });
 
-test('default official wordbook import copies a normal project into a user project', async () => {
+test('default official wordbook local payload reads a normal project without creating remote user rows', async () => {
   const client = new FakeOfficialWordbookClient({
     officialProjects: [
       {
@@ -232,67 +232,44 @@ test('default official wordbook import copies a normal project into a user proje
     },
   });
 
-  const result = await importDefaultOfficialWordbook(client as never, 'user-1', 'pre2');
+  const result = await fetchDefaultOfficialWordbooksForLocalImport(client as never, 'pre2');
 
   assert.deepEqual(result, [{
     officialWordbookId: 'official-project-pre2',
-    projectId: 'project-1',
-    wordCount: 1,
-  }]);
-
-  const projectInsert = findOperation(client, 'projects', 'insert');
-  assert.deepEqual(projectInsert.payload, {
-    user_id: 'user-1',
     title: '英検準2級 公式単語帳',
-    source_labels: ['official', 'eiken:pre2'],
-    icon_image: 'icon.png',
-  });
+    sourceLabels: ['official', 'eiken:pre2'],
+    iconImage: 'icon.png',
+    words: [{
+      english: 'improve',
+      japanese: '改善する',
+      translations: [{
+        lexiconSenseId: undefined,
+        translationJa: '改善する',
+        normalizedTranslationJa: '改善する',
+        source: 'user',
+        meaningRank: 1,
+        position: 0,
+        isPrimary: true,
+      }],
+      distractors: ['悪化する', '維持する'],
+      vocabularyType: 'active',
+      japaneseSource: 'scan',
+      partOfSpeechTags: ['verb'],
+      customSections: [{ id: 'memo', title: 'Memo', content: 'Core verb' }],
+    }],
+  }]);
 
   const sourceWordsSelect = findOperation(client, 'words', 'select');
   assert.deepEqual(sourceWordsSelect.filters, [
     { field: 'project_id', value: 'official-project-pre2' },
   ]);
 
-  const wordsInsert = findOperations(client, 'words', 'insert')[0];
-  assert.deepEqual(wordsInsert.payload, [{
-    project_id: 'project-1',
-    english: 'improve',
-    japanese: '改善する',
-    japanese_source: 'scan',
-    vocabulary_type: 'active',
-    lexicon_entry_id: null,
-    lexicon_sense_id: null,
-    distractors: ['悪化する', '維持する'],
-    example_sentence: null,
-    example_sentence_ja: null,
-    pronunciation: null,
-    part_of_speech_tags: ['verb'],
-    related_words: null,
-    usage_patterns: null,
-    word_order_quiz: null,
-    custom_sections: [{ id: 'memo', title: 'Memo', content: 'Core verb' }],
-    status: 'new',
-    ease_factor: 2.5,
-    interval_days: 0,
-    repetition: 0,
-    is_favorite: false,
-  }]);
-
-  const translationsUpsert = findOperation(client, 'word_translations', 'upsert');
-  assert.deepEqual(translationsUpsert.options, { onConflict: 'word_id,normalized_translation_ja' });
-  assert.deepEqual(translationsUpsert.payload, [{
-    word_id: 'word-1',
-    lexicon_sense_id: null,
-    translation_ja: '改善する',
-    normalized_translation_ja: '改善する',
-    source: 'user',
-    meaning_rank: 1,
-    position: 0,
-    is_primary: true,
-  }]);
+  assert.equal(findOperations(client, 'projects', 'insert').length, 0);
+  assert.equal(findOperations(client, 'words', 'insert').length, 0);
+  assert.equal(findOperations(client, 'word_translations', 'upsert').length, 0);
 });
 
-test('default official wordbook import copies every active default project for a level', async () => {
+test('default official wordbook local payload includes every active default project for a level', async () => {
   const client = new FakeOfficialWordbookClient({
     officialProjects: [
       {
@@ -331,27 +308,47 @@ test('default official wordbook import copies every active default project for a
     },
   });
 
-  const result = await importDefaultOfficialWordbook(client as never, 'user-1', 'pre1');
+  const result = await fetchDefaultOfficialWordbooksForLocalImport(client as never, 'pre1');
 
   assert.deepEqual(result, [
     {
       officialWordbookId: 'official-pre1-1',
-      projectId: 'project-1',
-      wordCount: 1,
+      title: '英検準一級単語集1',
+      sourceLabels: ['official', 'eiken:pre1'],
+      words: [{
+        english: 'notion',
+        japanese: '概念',
+        translations: [{
+          lexiconSenseId: undefined,
+          translationJa: '概念',
+          normalizedTranslationJa: '概念',
+          source: undefined,
+          meaningRank: 1,
+          position: 0,
+          isPrimary: true,
+        }],
+        distractors: [],
+      }],
     },
     {
       officialWordbookId: 'official-pre1-2',
-      projectId: 'project-2',
-      wordCount: 1,
+      title: '英検準一級単語集2',
+      sourceLabels: ['official', 'eiken:pre1'],
+      words: [{
+        english: 'obscure',
+        japanese: '曖昧な',
+        translations: [{
+          lexiconSenseId: undefined,
+          translationJa: '曖昧な',
+          normalizedTranslationJa: '曖昧な',
+          source: undefined,
+          meaningRank: 1,
+          position: 0,
+          isPrimary: true,
+        }],
+        distractors: [],
+      }],
     },
-  ]);
-
-  const projectInserts = findOperations(client, 'projects', 'insert');
-  assert.deepEqual(projectInserts.map((operation) =>
-    (operation.payload as { title: string }).title
-  ), [
-    '英検準一級単語集1',
-    '英検準一級単語集2',
   ]);
 
   const sourceWordSelects = findOperations(client, 'words', 'select');
@@ -361,4 +358,5 @@ test('default official wordbook import copies every active default project for a
     'official-pre1-1',
     'official-pre1-2',
   ]);
+  assert.equal(findOperations(client, 'projects', 'insert').length, 0);
 });

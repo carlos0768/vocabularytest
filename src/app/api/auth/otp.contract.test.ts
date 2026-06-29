@@ -555,7 +555,7 @@ test('signup-verify valid OTP still returns 409 for an existing email after veri
   assert.deepEqual(adminClient.generateLinkCalls, []);
 });
 
-test('signup-verify valid OTP saves onboarding profile and imports default official wordbook', async () => {
+test('signup-verify valid OTP saves onboarding profile and returns default official wordbooks for local import', async () => {
   const adminClient = new FakeOtpAdminClient({
     users: [],
     otpRecord: otpRecord({ id: 'otp-signup-profile' }),
@@ -564,7 +564,7 @@ test('signup-verify valid OTP saves onboarding profile and imports default offic
   const serverClient = new FakeServerClient({
     sessionUser: { id: 'created-user-1', email: 'new@example.com' },
   });
-  let defaultWordbookImportCalled = false;
+  let defaultWordbookFetchCalled = false;
 
   const response = await handleSignupVerifyPost(
     jsonRequest('/api/auth/signup-verify', {
@@ -578,28 +578,42 @@ test('signup-verify valid OTP saves onboarding profile and imports default offic
     {
       getAdminClient: () => adminClient as never,
       getServerClient: async () => serverClient as never,
-      importDefaultOfficialWordbook: async (client, userId, eikenLevel) => {
-        defaultWordbookImportCalled = true;
+      fetchDefaultOfficialWordbooksForLocalImport: async (client, eikenLevel) => {
+        defaultWordbookFetchCalled = true;
         assert.equal(client, adminClient);
-        assert.equal(userId, 'created-user-1');
         assert.equal(eikenLevel, 'pre2');
         return [{
           officialWordbookId: 'official-pre2',
-          projectId: 'project-pre2',
-          wordCount: 20,
+          title: '英検準2級 公式単語帳',
+          sourceLabels: ['official', 'eiken:pre2'],
+          words: [{
+            english: 'improve',
+            japanese: '改善する',
+            distractors: [],
+          }],
         }];
       },
     },
   );
 
   assert.equal(response.status, 200);
-  assert.equal(defaultWordbookImportCalled, true);
+  assert.equal(defaultWordbookFetchCalled, true);
   assert.deepEqual(await jsonPayload(response), {
     success: true,
     user: {
       id: 'created-user-1',
       email: 'new@example.com',
     },
+    defaultOfficialWordbooks: [{
+      officialWordbookId: 'official-pre2',
+      title: '英検準2級 公式単語帳',
+      sourceLabels: ['official', 'eiken:pre2'],
+      words: [{
+        english: 'improve',
+        japanese: '改善する',
+        distractors: [],
+      }],
+    }],
   });
 
   const profileUpsert = findOperation(adminClient, (operation) =>

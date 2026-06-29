@@ -27,6 +27,8 @@ import {
   type OnboardingData,
   type SignupStep,
 } from '@/lib/auth/signup-flow';
+import { localRepository } from '@/lib/db/local-repository';
+import type { DefaultOfficialWordbookImportItem } from '@/lib/official-wordbooks/import-default';
 
 const EIKEN_LEVELS: { value: EikenLevelOption; label: string }[] = [
   { value: '5', label: '5級' },
@@ -43,6 +45,58 @@ async function readJson(response: Response): Promise<unknown> {
     return await response.json();
   } catch {
     return {};
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getSignupUserId(value: unknown): string | null {
+  if (!isRecord(value) || !isRecord(value.user)) return null;
+  return typeof value.user.id === 'string' ? value.user.id : null;
+}
+
+function getDefaultOfficialWordbooks(value: unknown): DefaultOfficialWordbookImportItem[] {
+  if (!isRecord(value) || !Array.isArray(value.defaultOfficialWordbooks)) return [];
+  return value.defaultOfficialWordbooks.filter((wordbook): wordbook is DefaultOfficialWordbookImportItem => (
+    isRecord(wordbook)
+    && typeof wordbook.title === 'string'
+    && Array.isArray(wordbook.words)
+  ));
+}
+
+async function saveDefaultOfficialWordbooksLocally(
+  userId: string,
+  wordbooks: DefaultOfficialWordbookImportItem[],
+): Promise<void> {
+  for (const wordbook of wordbooks) {
+    const project = await localRepository.createProject({
+      userId,
+      title: wordbook.title,
+      sourceLabels: wordbook.sourceLabels,
+      ...(wordbook.iconImage ? { iconImage: wordbook.iconImage } : {}),
+    });
+
+    await localRepository.createWords(wordbook.words.map((word) => ({
+      projectId: project.id,
+      english: word.english,
+      japanese: word.japanese,
+      translations: word.translations,
+      distractors: word.distractors,
+      vocabularyType: word.vocabularyType ?? undefined,
+      japaneseSource: word.japaneseSource,
+      lexiconEntryId: word.lexiconEntryId,
+      lexiconSenseId: word.lexiconSenseId,
+      exampleSentence: word.exampleSentence,
+      exampleSentenceJa: word.exampleSentenceJa,
+      pronunciation: word.pronunciation,
+      partOfSpeechTags: word.partOfSpeechTags,
+      relatedWords: word.relatedWords,
+      usagePatterns: word.usagePatterns,
+      wordOrderQuiz: word.wordOrderQuiz,
+      customSections: word.customSections,
+    })));
   }
 }
 
@@ -183,6 +237,16 @@ function SignupForm() {
       if (!response.ok) {
         setError(resolveSignupRouteError(data, 'アカウントの作成に失敗しました'));
         return;
+      }
+
+      const userId = getSignupUserId(data);
+      const defaultOfficialWordbooks = getDefaultOfficialWordbooks(data);
+      if (userId && defaultOfficialWordbooks.length > 0) {
+        try {
+          await saveDefaultOfficialWordbooksLocally(userId, defaultOfficialWordbooks);
+        } catch (localImportError) {
+          console.error('Failed to save default official wordbooks locally:', localImportError);
+        }
       }
 
       window.location.href = redirect;
