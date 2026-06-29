@@ -230,6 +230,7 @@ async function importOfficialProject(
       user_id: userId,
       title: getOfficialProjectTitle(officialProject),
       source_labels: ['official', `eiken:${eikenLevel}`],
+      official_source_project_id: officialProject.id,
       ...(officialProject.icon_image ? { icon_image: officialProject.icon_image } : {}),
     })
     .select('id')

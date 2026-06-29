@@ -245,6 +245,7 @@ test('default official wordbook import copies a normal project into a user proje
     user_id: 'user-1',
     title: '英検準2級 公式単語帳',
     source_labels: ['official', 'eiken:pre2'],
+    official_source_project_id: 'official-project-pre2',
     icon_image: 'icon.png',
   });
 

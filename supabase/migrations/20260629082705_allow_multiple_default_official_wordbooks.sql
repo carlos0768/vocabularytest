@@ -12,7 +12,8 @@ ALTER TABLE public.projects
   ADD COLUMN IF NOT EXISTS official_eiken_level text NULL,
   ADD COLUMN IF NOT EXISTS official_is_default boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS official_is_active boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS official_sort_order integer NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS official_sort_order integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS official_source_project_id uuid NULL;
 
 DO $$
 BEGIN
@@ -79,5 +80,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_official_slug
 CREATE INDEX IF NOT EXISTS idx_projects_official_level_default
   ON public.projects (official_eiken_level, official_is_default DESC, official_sort_order, created_at)
   WHERE official_is_active AND official_eiken_level IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_projects_official_source_project_id
+  ON public.projects (official_source_project_id)
+  WHERE official_source_project_id IS NOT NULL;
 
 NOTIFY pgrst, 'reload schema';
