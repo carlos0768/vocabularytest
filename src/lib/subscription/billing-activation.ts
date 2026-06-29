@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getCheckoutSession, STRIPE_CONFIG } from '@/lib/stripe';
+import { sendProUpgradeEmail } from '@/lib/resend/client';
 import type Stripe from 'stripe';
 
 type ActivationContext = 'webhook' | 'reconcile';
@@ -363,6 +364,19 @@ export async function activateBillingFromSession(
     sessionId: params.sessionId,
     reusedSession: Boolean(session.used_at),
   });
+
+  if (!session.used_at) {
+    supabaseAdmin.auth.admin.getUserById(params.userId).then(({ data }: { data: { user: { email?: string } | null } }) => {
+      const email = data?.user?.email;
+      if (email) {
+        sendProUpgradeEmail({ to: email }).catch((err) => {
+          console.error('[BillingActivation] failed to send Pro upgrade email', err);
+        });
+      }
+    }).catch((err) => {
+      console.error('[BillingActivation] failed to look up user email', err);
+    });
+  }
 
   return {
     activated: true,
