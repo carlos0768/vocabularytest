@@ -902,46 +902,31 @@ function JoinedGroupCard({ group }: { group: StudyGroupSummary }) {
       aria-label={`${group.name}のグループを開く`}
       className="block focus:outline-none"
     >
-      <div
-        className="relative overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] p-3.5 text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-        style={{ background: `linear-gradient(135deg, ${color} 0%, var(--solid-ink) 165%)` }}
-      >
-        {/* Decorative oversized glyph + glossy sheen to invite the tap. */}
-        <Icon name="groups" size={104} className="pointer-events-none absolute -right-4 -top-5 opacity-15" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent" />
-
-        <div className="relative flex items-center gap-3">
-          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[14px] border-2 border-white/70 bg-white/15 font-display text-[24px] font-extrabold backdrop-blur-sm">
+      <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[13px] transition-all duration-100 active:translate-x-px active:translate-y-px">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
+            style={{ backgroundColor: color }}
+          >
             {group.name.charAt(0)}
           </div>
-
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="truncate font-display text-[16px] font-extrabold leading-tight">{group.name}</span>
+              <span className="truncate text-sm font-bold text-[var(--solid-ink)]">{group.name}</span>
               {group.role === 'owner' && (
-                <span className="shrink-0 rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide">owner</span>
+                <span className="shrink-0 rounded-full bg-[var(--solid-ink)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">owner</span>
               )}
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold backdrop-blur-sm">
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
+              <span className="flex items-center gap-0.5">
                 <Icon name="group" size={12} />{group.memberCount}人
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold backdrop-blur-sm">
+              <span className="flex items-center gap-0.5">
                 <Icon name="menu_book" size={12} />{group.projectCount}冊
               </span>
             </div>
           </div>
-
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
-            <Icon name="arrow_forward" size={18} />
-          </span>
-        </div>
-
-        <div className="relative mt-3 flex items-center justify-between rounded-[10px] bg-white/15 px-2.5 py-1.5 backdrop-blur-sm">
-          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold">
-            <Icon name="emoji_events" size={13} />ランキングをチェック
-          </span>
-          <span className="text-[11px] font-extrabold opacity-90">開く →</span>
+          <Icon name="chevron_right" size={16} className="shrink-0 text-[var(--color-muted)]" />
         </div>
       </div>
     </Link>
