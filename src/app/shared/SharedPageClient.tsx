@@ -8,6 +8,7 @@ import { FollowNotificationsButton } from '@/components/notifications/FollowNoti
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
+import { GroupCard } from '@/components/group/GroupCard';
 import { ShareTypeChooser } from './ShareTypeChooser';
 import { triggerHaptic } from '@/lib/haptics';
 import { removeProjectFromDiscover } from './shared-page-utils';
@@ -886,50 +887,10 @@ function JoinedGroupsSection() {
       </div>
       <div className="flex flex-col gap-2.5">
         {groups.map((group) => (
-          <JoinedGroupCard key={group.id} group={group} />
+          <GroupCard key={group.id} group={group} />
         ))}
       </div>
     </div>
-  );
-}
-
-function JoinedGroupCard({ group }: { group: StudyGroupSummary }) {
-  const color = thumbColor(group.id);
-  return (
-    <Link
-      href={`/groups/${group.id}`}
-      onPointerDown={() => triggerHaptic()}
-      aria-label={`${group.name}のグループを開く`}
-      className="block focus:outline-none"
-    >
-      <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[13px] transition-all duration-100 active:translate-x-px active:translate-y-px">
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
-            style={{ backgroundColor: color }}
-          >
-            {group.name.charAt(0)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="truncate text-sm font-bold text-[var(--solid-ink)]">{group.name}</span>
-              {group.role === 'owner' && (
-                <span className="shrink-0 rounded-full bg-[var(--solid-ink)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">owner</span>
-              )}
-            </div>
-            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
-              <span className="flex items-center gap-0.5">
-                <Icon name="group" size={12} />{group.memberCount}人
-              </span>
-              <span className="flex items-center gap-0.5">
-                <Icon name="menu_book" size={12} />{group.projectCount}冊
-              </span>
-            </div>
-          </div>
-          <Icon name="chevron_right" size={16} className="shrink-0 text-[var(--color-muted)]" />
-        </div>
-      </div>
-    </Link>
   );
 }
 
