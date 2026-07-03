@@ -8,6 +8,7 @@ import {
   translateWithAI,
   translateWordsWithAI,
 } from './ai';
+import { normalizeReusableDistractors } from './quiz-content-lexicon';
 import {
   normalizeHeadword,
   normalizeLexiconTranslation,
@@ -32,6 +33,8 @@ interface LexiconEntryRow {
   translation_source: string | null;
   example_sentence: string | null;
   example_sentence_ja: string | null;
+  pronunciation?: string | null;
+  distractors?: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -50,7 +53,7 @@ interface ImmediateWordInput extends Omit<
 
 export type ResolvedImmediateWord<T extends ImmediateWordInput = ImmediateWordInput> = Omit<
   T,
-  'english' | 'japanese' | 'japaneseSource' | 'lexiconEntryId' | 'lexiconSenseId' | 'cefrLevel' | 'partOfSpeechTags'
+  'english' | 'japanese' | 'japaneseSource' | 'lexiconEntryId' | 'lexiconSenseId' | 'cefrLevel' | 'partOfSpeechTags' | 'pronunciation'
 > & {
   english: string;
   japanese: string;
@@ -61,12 +64,15 @@ export type ResolvedImmediateWord<T extends ImmediateWordInput = ImmediateWordIn
   lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
   partOfSpeechTags?: string[];
+  pronunciation?: string;
 };
 
 export interface MasterFirstScanMetrics {
   lookupKeyCount: number;
   masterHitCount: number;
   masterTranslationHitCount: number;
+  masterPronunciationHitCount: number;
+  masterDistractorHitCount: number;
   aiMissCount: number;
   lookupElapsedMs: number;
   translationElapsedMs: number;
@@ -127,6 +133,7 @@ function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
           exampleSentence: row.example_sentence ?? undefined,
           exampleSentenceJa: row.example_sentence_ja ?? undefined,
           translationSource: row.translation_source ?? undefined,
+          distractors: normalizeReusableDistractors(row.distractors) ?? undefined,
           isPrimary: true,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
@@ -136,6 +143,9 @@ function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
     translationSource: row.translation_source ?? undefined,
     exampleSentence: row.example_sentence ?? undefined,
     exampleSentenceJa: row.example_sentence_ja ?? undefined,
+    pronunciation: typeof row.pronunciation === 'string' && row.pronunciation.trim()
+      ? row.pronunciation.trim()
+      : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -185,7 +195,7 @@ async function lookupLexiconEntriesByKeysDirect(
 
   const { data, error } = await supabaseAdmin
     .from('lexicon_entry_resolved_rows')
-    .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, primary_sense_id, translation_ja, normalized_translation_ja, distinct_key, meaning_summary, usage_notes, translation_source, example_sentence, example_sentence_ja, created_at, updated_at')
+    .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, primary_sense_id, translation_ja, normalized_translation_ja, distinct_key, meaning_summary, usage_notes, translation_source, example_sentence, example_sentence_ja, pronunciation, distractors, created_at, updated_at')
     .in('normalized_headword', normalizedHeadwords)
     .in('pos', positions);
 
@@ -350,6 +360,8 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
 
   let masterHitCount = 0;
   let masterTranslationHitCount = 0;
+  let masterPronunciationHitCount = 0;
+  let masterDistractorHitCount = 0;
   let aiMissCount = 0;
 
   const resolvedWords = preparedWords.map((word) => {
@@ -391,6 +403,25 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       normalizeUsableJapanese(primarySense.translationJa) === normalizeUsableJapanese(japanese),
     );
 
+    // 発音記号・誤答選択肢はマスターから使い回す（既に値がある場合は優先）。
+    // 誤答選択肢は正解訳に依存するため、マスターの primary sense を
+    // そのまま使う場合のみ再利用する。
+    const originalPronunciation = typeof word.original.pronunciation === 'string' && word.original.pronunciation.trim()
+      ? word.original.pronunciation
+      : undefined;
+    let pronunciation = originalPronunciation;
+    if (!pronunciation && entry?.pronunciation) {
+      pronunciation = entry.pronunciation;
+      masterPronunciationHitCount += 1;
+    }
+
+    const originalDistractors = normalizeReusableDistractors(word.original.distractors);
+    let distractors = word.original.distractors;
+    if (!originalDistractors && usesPrimarySense && primarySense?.distractors) {
+      distractors = primarySense.distractors;
+      masterDistractorHitCount += 1;
+    }
+
     return {
       ...word.original,
       english: word.english,
@@ -402,6 +433,8 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       lexiconSenseIsPrimary: usesPrimarySense ? true : word.original.lexiconSenseIsPrimary,
       cefrLevel: entry?.cefrLevel ?? word.original.cefrLevel,
       partOfSpeechTags: word.partOfSpeechTags,
+      pronunciation,
+      distractors,
       exampleSentence: word.original.exampleSentence ?? (masterExampleSentence || undefined),
       exampleSentenceJa: word.original.exampleSentenceJa ?? (masterExampleSentenceJa || undefined),
     };
@@ -414,6 +447,8 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       lookupKeyCount: lookupKeys.length,
       masterHitCount,
       masterTranslationHitCount,
+      masterPronunciationHitCount,
+      masterDistractorHitCount,
       aiMissCount,
       lookupElapsedMs,
       translationElapsedMs,

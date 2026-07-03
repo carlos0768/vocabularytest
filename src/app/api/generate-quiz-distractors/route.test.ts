@@ -15,7 +15,10 @@ function jsonRequest(body: unknown, headers: Record<string, string> = {}) {
   });
 }
 
-function createClient(user: { id: string } | null = { id: 'user-1' }) {
+function createClient(
+  user: { id: string } | null = { id: 'user-1' },
+  wordRows: Array<Record<string, unknown>> = [],
+) {
   const selectedIds: string[][] = [];
   const updates: Array<{ id: string; payload: Record<string, unknown> }> = [];
 
@@ -34,7 +37,7 @@ function createClient(user: { id: string } | null = { id: 'user-1' }) {
         select: () => ({
           in: async (_column: string, ids: string[]) => {
             selectedIds.push(ids);
-            return { data: [], error: null };
+            return { data: wordRows, error: null };
           },
         }),
         update: (payload: Record<string, unknown>) => ({
@@ -131,4 +134,108 @@ test('generate-quiz-distractors sends only single-word entries to AI generation'
     exampleSentenceJa: '',
   }]);
   assert.deepEqual(fake.updates, []);
+});
+
+test('generate-quiz-distractors reuses lexicon quiz content without calling AI', async () => {
+  const fake = createClient({ id: 'user-1' }, [
+    {
+      id: 'word-1',
+      japanese: '適応する',
+      distractors: [],
+      example_sentence: 'We adapt to new rules.',
+      pronunciation: null,
+      part_of_speech_tags: ['verb'],
+      lexicon_entry_id: 'entry-1',
+      lexicon_sense_id: 'sense-1',
+    },
+  ]);
+  let generateCallCount = 0;
+  let saveToLexiconCallCount = 0;
+
+  const response = await handleGenerateQuizDistractorsPost(
+    jsonRequest({ words: [{ id: 'word-1', english: 'adapt', japanese: '適応する' }] }),
+    {
+      createClient: async () => fake.client as never,
+      generate: async () => {
+        generateCallCount += 1;
+        return [];
+      },
+      fetchExampleGenres: async () => [],
+      fetchLexiconContent: async () => ({
+        pronunciationByEntryId: new Map([['entry-1', '/əˈdæpt/']]),
+        distractorsBySenseId: new Map([['sense-1', ['拒む', '避ける', '忘れる']]]),
+      }),
+      saveToLexicon: async () => {
+        saveToLexiconCallCount += 1;
+        return { pronunciationUpdated: 0, distractorsUpdated: 0, errors: 0 };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json() as {
+    success: boolean;
+    results: Array<{ wordId: string; distractors: string[]; pronunciation: string }>;
+  };
+  assert.equal(payload.success, true);
+  assert.equal(generateCallCount, 0);
+  assert.equal(saveToLexiconCallCount, 0);
+  assert.deepEqual(payload.results, [{
+    wordId: 'word-1',
+    distractors: ['拒む', '避ける', '忘れる'],
+    partOfSpeechTags: [],
+    pronunciation: '/əˈdæpt/',
+    exampleSentence: '',
+    exampleSentenceJa: '',
+  }]);
+  // 使い回した発音記号は words 側にも保存される。
+  assert.deepEqual(fake.updates, [{ id: 'word-1', payload: { pronunciation: '/əˈdæpt/' } }]);
+});
+
+test('generate-quiz-distractors writes generated quiz content back to the lexicon', async () => {
+  const fake = createClient({ id: 'user-1' }, [
+    {
+      id: 'word-1',
+      japanese: '適応する',
+      distractors: [],
+      example_sentence: null,
+      pronunciation: null,
+      part_of_speech_tags: [],
+      lexicon_entry_id: 'entry-1',
+      lexicon_sense_id: 'sense-1',
+    },
+  ]);
+  const savedUpdates: unknown[] = [];
+
+  const response = await handleGenerateQuizDistractorsPost(
+    jsonRequest({ words: [{ id: 'word-1', english: 'adapt', japanese: '適応する' }] }),
+    {
+      createClient: async () => fake.client as never,
+      generate: async () => [{
+        wordId: 'word-1',
+        distractors: ['拒む', '避ける', '忘れる'],
+        partOfSpeechTags: ['verb'],
+        pronunciation: '/əˈdæpt/',
+        exampleSentence: 'We adapt to new rules.',
+        exampleSentenceJa: '私たちは新しい規則に適応します。',
+      }],
+      fetchExampleGenres: async () => [],
+      fetchLexiconContent: async () => ({
+        pronunciationByEntryId: new Map(),
+        distractorsBySenseId: new Map(),
+      }),
+      saveToLexicon: async (updates) => {
+        savedUpdates.push(...updates);
+        return { pronunciationUpdated: 1, distractorsUpdated: 1, errors: 0 };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(savedUpdates, [{
+    lexiconEntryId: 'entry-1',
+    lexiconSenseId: 'sense-1',
+    pronunciation: '/əˈdæpt/',
+    distractors: ['拒む', '避ける', '忘れる'],
+  }]);
 });

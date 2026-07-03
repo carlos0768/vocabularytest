@@ -60,6 +60,7 @@ import {
   buildPostScanQuizPrefillSeedWords,
 } from '@/lib/scan/post-processing';
 import {
+  buildQuizPrefillLexiconUpdates,
   buildQuizPrefillSeedWords,
   buildQuizPrefillWordUpdatePayload,
   type QuizPrefillCandidateWord,
@@ -83,6 +84,7 @@ import {
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
+import { saveQuizContentToLexicon } from '@/lib/lexicon/quiz-content-lexicon';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import {
   buildWordTranslationInsertRows,
@@ -195,6 +197,7 @@ type InsertedServerCloudWord =
   QuizPrefillCandidateWord &
   WordOrderQuizPrefillCandidateWord & {
     lexicon_entry_id?: string | null;
+    lexicon_sense_id?: string | null;
     japaneseSource?: 'scan' | 'ai';
   };
 
@@ -1495,6 +1498,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
           let quizPrefillSucceeded = 0;
           const quizPrefillFailedWordIds = new Set<string>();
+          const quizPrefillPersistedResults: QuizContentResult[] = [];
 
           for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
             const { results, failedWordIds } = await withCloudRunTimingPhase('exampleGeneration', () =>
@@ -1513,6 +1517,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
                   })
                 );
                 quizPrefillSucceeded += results.length;
+                quizPrefillPersistedResults.push(...results);
               } catch (persistError) {
                 console.error('Failed to persist quiz prefill batch:', persistError);
                 for (const item of results) {
@@ -1523,6 +1528,27 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
             for (const failedWordId of failedWordIds) {
               quizPrefillFailedWordIds.add(failedWordId);
+            }
+          }
+
+          // 生成した誤答選択肢・発音記号を lexicon マスターへ書き戻し、
+          // 次回以降のスキャンで使い回せるようにする（ベストエフォート）。
+          if (quizPrefillPersistedResults.length > 0) {
+            const lexiconQuizUpdates = buildQuizPrefillLexiconUpdates(
+              quizPrefillPersistedResults,
+              insertedWordsArray,
+            );
+            if (lexiconQuizUpdates.length > 0) {
+              scheduleAfter(async () => {
+                try {
+                  const lexResult = await saveQuizContentToLexicon(lexiconQuizUpdates, { supabaseAdmin });
+                  if (lexResult.pronunciationUpdated > 0 || lexResult.distractorsUpdated > 0) {
+                    console.log('[scan-jobs/process] Lexicon quiz content update:', lexResult);
+                  }
+                } catch (lexSaveError) {
+                  console.error('[scan-jobs/process] Lexicon quiz content save failed (non-critical):', lexSaveError);
+                }
+              });
             }
           }
 
@@ -1637,6 +1663,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           if (quizSeedWords.length > 0) {
             let quizPrefillSucceeded = 0;
             const quizPrefillFailedWordIds = new Set<string>();
+            const quizPrefillPersistedResults: QuizContentResult[] = [];
 
             for (const batch of chunkArray(quizSeedWords, QUIZ_PREFILL_BATCH_SIZE)) {
               const { results, failedWordIds } = await generateQuizContentWithRetry(batch);
@@ -1653,6 +1680,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
                     })
                   );
                   quizPrefillSucceeded += results.length;
+                  quizPrefillPersistedResults.push(...results);
                 } catch (persistError) {
                   console.error('Failed to persist quiz prefill batch:', persistError);
                   for (const item of results) {
@@ -1663,6 +1691,21 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
               for (const failedWordId of failedWordIds) {
                 quizPrefillFailedWordIds.add(failedWordId);
+              }
+            }
+
+            // lexicon マスターへの書き戻し（ベストエフォート）。
+            if (quizPrefillPersistedResults.length > 0) {
+              try {
+                const lexiconQuizUpdates = buildQuizPrefillLexiconUpdates(
+                  quizPrefillPersistedResults,
+                  insertedWordsArray,
+                );
+                if (lexiconQuizUpdates.length > 0) {
+                  await saveQuizContentToLexicon(lexiconQuizUpdates, { supabaseAdmin });
+                }
+              } catch (lexSaveError) {
+                console.error('[scan-jobs/process] Lexicon quiz content save failed (non-critical):', lexSaveError);
               }
             }
 

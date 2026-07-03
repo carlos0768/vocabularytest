@@ -42,6 +42,7 @@ export interface LexiconSense {
   exampleSentence?: string;
   exampleSentenceJa?: string;
   translationSource?: string;
+  distractors?: string[]; // Reusable quiz wrong answers for this sense
   isPrimary: boolean;
   createdAt: string;
   updatedAt: string;
@@ -92,6 +93,7 @@ export interface LexiconEntry {
   translationSource?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
+  pronunciation?: string; // Reusable IPA pronunciation e.g. "/əˈdæpt/"
   createdAt: string;
   updatedAt: string;
 }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildQuizPrefillLexiconUpdates,
   buildQuizPrefillSeedWords,
   buildQuizPrefillWordUpdatePayload,
 } from '@/lib/scan/quiz-prefill';
@@ -177,6 +178,50 @@ test('buildQuizPrefillWordUpdatePayload does not overwrite existing examples wit
   assert.equal(Object.hasOwn(payload, 'example_sentence'), false);
   assert.equal(Object.hasOwn(payload, 'example_sentence_ja'), false);
   assert.equal(Object.hasOwn(payload, 'pronunciation'), false);
+});
+
+test('buildQuizPrefillLexiconUpdates links generated content to lexicon ids and skips unlinked words', () => {
+  const updates = buildQuizPrefillLexiconUpdates(
+    [
+      {
+        wordId: 'word-linked',
+        distractors: ['短くする', '無視する', '隠す'],
+        partOfSpeechTags: ['verb'],
+        pronunciation: '/ɪˈlæbəreɪt/',
+        exampleSentence: '',
+        exampleSentenceJa: '',
+      },
+      {
+        wordId: 'word-unlinked',
+        distractors: ['A', 'B', 'C'],
+        partOfSpeechTags: ['noun'],
+        pronunciation: '/x/',
+        exampleSentence: '',
+        exampleSentenceJa: '',
+      },
+      {
+        wordId: 'word-unknown',
+        distractors: ['A', 'B', 'C'],
+        partOfSpeechTags: ['noun'],
+        pronunciation: '/x/',
+        exampleSentence: '',
+        exampleSentenceJa: '',
+      },
+    ],
+    [
+      { id: 'word-linked', lexicon_entry_id: 'entry-1', lexicon_sense_id: 'sense-1' },
+      { id: 'word-unlinked', lexicon_entry_id: null, lexicon_sense_id: null },
+    ],
+  );
+
+  assert.deepEqual(updates, [
+    {
+      lexiconEntryId: 'entry-1',
+      lexiconSenseId: 'sense-1',
+      pronunciation: '/ɪˈlæbəreɪt/',
+      distractors: ['短くする', '無視する', '隠す'],
+    },
+  ]);
 });
 
 test('buildQuizPrefillWordUpdatePayload does not overwrite existing POS with an empty generated result', () => {

@@ -1,5 +1,6 @@
 import type { QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import type { LexiconQuizContentUpdate } from '@/lib/lexicon/quiz-content-lexicon';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
 
 export interface QuizPrefillCandidateWord {
@@ -71,6 +72,38 @@ export function buildQuizPrefillSeedWords(
       english: word.english,
       japanese: word.japanese,
     }));
+}
+
+export interface QuizPrefillLexiconLinkWord {
+  id: string;
+  lexicon_entry_id?: string | null;
+  lexicon_sense_id?: string | null;
+}
+
+/**
+ * 生成したクイズ内容（誤答選択肢・発音記号）を lexicon マスターへ
+ * 書き戻すための更新リストを組み立てる。lexicon に紐付かない単語は除外。
+ */
+export function buildQuizPrefillLexiconUpdates(
+  results: QuizContentResult[],
+  words: QuizPrefillLexiconLinkWord[],
+): LexiconQuizContentUpdate[] {
+  const wordById = new Map(words.map((word) => [word.id, word]));
+  const updates: LexiconQuizContentUpdate[] = [];
+
+  for (const item of results) {
+    const word = wordById.get(item.wordId);
+    if (!word) continue;
+    if (!word.lexicon_entry_id && !word.lexicon_sense_id) continue;
+    updates.push({
+      lexiconEntryId: word.lexicon_entry_id,
+      lexiconSenseId: word.lexicon_sense_id,
+      pronunciation: item.pronunciation,
+      distractors: item.distractors,
+    });
+  }
+
+  return updates;
 }
 
 export function buildQuizPrefillWordUpdatePayload(
