@@ -181,7 +181,8 @@ export function DesktopSubscriptionView({
   onSubscribe: () => void;
 }) {
   const features: Array<[string, string | boolean, string | boolean]> = [
-    ['スキャン回数', '1日 5回まで', '無制限'],
+    ['AIスキャン', false, '無制限'],
+    ['共有単語帳のインポート', true, true],
     ['単語帳の数', '3冊まで', '無制限'],
     ['全単語帳の横断学習', false, true],
     ['AI例文・語源の生成', false, true],

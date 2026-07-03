@@ -6,7 +6,7 @@ import { pricingComparisonRows, pricingFaqs } from '@/lib/marketing/content';
 
 export const metadata: Metadata = {
   title: '料金プラン | MERKEN',
-  description: 'MERKENの料金プラン。無料で始めて、必要に応じてProで無制限スキャンとクラウド同期にアップグレード。',
+  description: 'MERKENの料金プラン。無料で始めて、必要に応じてProでAIスキャンとクラウド同期にアップグレード。',
   alternates: {
     canonical: '/pricing',
   },
@@ -63,7 +63,7 @@ export default function PricingPage() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2 text-[var(--color-muted)]">
                 <Icon name="check" size={16} className="text-[var(--color-success)]" />
-                1日{STRIPE_CONFIG.freePlan.dailyScanLimit}回までスキャン
+                共有単語帳の閲覧・インポート
               </li>
               <li className="flex items-center gap-2 text-[var(--color-muted)]">
                 <Icon name="check" size={16} className="text-[var(--color-success)]" />

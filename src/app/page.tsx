@@ -121,15 +121,15 @@ const ROOT_LANDING_STUDY_FEATURES = [
 const ROOT_LANDING_FAQS = [
   {
     q: '無料プランでも学習はできますか？',
-    a: 'はい。無料プランでも単語帳、4択クイズ、フラッシュカードを使えます。無料プランは1日3回までのスキャンと100単語までの保存が上限です。',
+    a: 'はい。無料プランでも共有ライブラリからの単語帳インポート、手動での単語追加、4択クイズ、フラッシュカードを使えます。保存は100単語までが上限で、写真からのAIスキャンはProプラン限定です。',
   },
   {
     q: 'Proにすると何が変わりますか？',
-    a: 'Proではスキャン回数の制限が外れ、クラウド同期とマルチデバイス対応が使えます。複数端末で同じ単語帳を扱いたい人向けです。',
+    a: 'Proでは写真からのAIスキャンが無制限で使えるほか、クラウド同期とマルチデバイス対応が有効になります。撮るだけで単語帳を作りたい人、複数端末で同じ単語帳を扱いたい人向けです。',
   },
   {
     q: 'どんな抽出モードがありますか？',
-    a: '単語帳取込、丸囲み、英検レベル、熟語・イディオムの4種類です。このLPでは、公開時に案内する学習導線だけを掲載しています。',
+    a: '単語帳取込、丸囲み、英検レベル、熟語・イディオムの4種類です（スキャンはProプランの機能です）。このLPでは、公開時に案内する学習導線だけを掲載しています。',
   },
   {
     q: '登録方法は？',
@@ -759,7 +759,7 @@ function GuestHomePage() {
               <span className="text-[var(--color-accent)]">単語帳。</span>
             </h1>
             <p className="mt-6 max-w-[520px] text-base leading-8 text-[#555]">
-              教科書・ノート・プリントを撮影するだけ。AIが英単語、和訳、例文、発音記号、クイズ素材を作り、あなた専用の単語帳として保存できます。
+              教科書・ノート・プリントを撮影するだけ。AIが英単語、和訳、例文、発音記号、クイズ素材を作り、あなた専用の単語帳として保存できます（AIスキャンはProプラン）。無料でも共有ライブラリから単語帳を取り込んで、すぐに学習を始められます。
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-4">
               <Link
@@ -779,8 +779,8 @@ function GuestHomePage() {
             </div>
             <div className="mt-9 flex flex-wrap gap-7 border-t border-dashed border-[#1a1a1a]/20 pt-6">
               {[
-                ['4', '抽出モード'],
-                ['3回/日', '無料スキャン'],
+                ['4', '抽出モード（Pro）'],
+                ['無料', '共有単語帳の取込'],
                 ['100語', '無料保存枠'],
               ].map(([num, label]) => (
                 <div key={label}>
@@ -810,7 +810,7 @@ function GuestHomePage() {
           number="01"
           label="How it works"
           title={<>撮る、確認する、<br />覚える。</>}
-          body="手入力やコピペを前提にせず、教材の写真から単語帳を作ります。登録後すぐにホーム、スキャン、単語帳、クイズへ進める構成です。"
+          body="手入力やコピペを前提にせず、教材の写真から単語帳を作ります（AIスキャンはProプラン）。登録後すぐにホーム、単語帳、クイズへ進める構成です。"
         />
         <div className="grid border-l-[1.5px] border-t-2 border-[#1a1a1a] md:grid-cols-2 lg:grid-cols-4">
           {ROOT_LANDING_WORKFLOW.map((item, index) => (
@@ -844,7 +844,7 @@ function GuestHomePage() {
             </p>
             <h3 className="font-display text-[clamp(28px,3vw,40px)] font-black leading-[1.1]">目的に合わせて、抽出方法を選ぶ。</h3>
             <p className="mt-5 max-w-[500px] text-[15px] leading-8 text-[#555]">
-              まずは「すべての単語」で広く取り込み、必要に応じて丸囲み、英検、熟語・イディオムへ切り替えます。抽出後は確認画面で編集してから保存できます。
+              まずは「すべての単語」で広く取り込み、必要に応じて丸囲み、英検、熟語・イディオムへ切り替えます。抽出後は確認画面で編集してから保存できます（スキャンはProプランの機能です）。
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {ROOT_LANDING_SCAN_MODES.map((mode) => (
@@ -959,20 +959,20 @@ function GuestHomePage() {
             number="05"
             label="Pricing"
             title={<>無料で始めて、<br />必要ならProへ。</>}
-            body="料金と制限は実装中の設定に合わせています。まずは無料で試し、スキャン回数や同期が必要になったらProへ切り替えられます。"
+            body="料金と制限は実装中の設定に合わせています。まずは無料で試し、AIスキャンや同期が必要になったらProへ切り替えられます。"
           />
           <div className="grid gap-7 lg:grid-cols-2">
             <RootLandingPricingCard
               plan="Free"
               price="0"
-              description="最初の単語帳を作り、基本の復習を試すためのプランです。"
-              features={['1日3回までスキャン', '100単語まで保存', 'ローカル保存', '基本の単語帳・クイズ・カード']}
+              description="共有ライブラリの単語帳で、基本の復習を試すためのプランです。"
+              features={['共有単語帳のインポート', '100単語まで保存', 'ローカル保存', '基本の単語帳・クイズ・カード']}
             />
             <RootLandingPricingCard
               plan="Pro"
               price="300"
-              description="継続利用、複数端末、クラウド同期が必要な人向けのプランです。"
-              features={['スキャン無制限', 'クラウド同期', 'マルチデバイス対応', 'データ永続化']}
+              description="撮るだけ単語帳、複数端末、クラウド同期が必要な人向けのプランです。"
+              features={['AIスキャン無制限', 'クラウド同期', 'マルチデバイス対応', 'データ永続化']}
               pro
             />
           </div>
