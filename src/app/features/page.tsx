@@ -15,14 +15,14 @@ import {
 export const metadata: Metadata = {
   title: '機能紹介 | MERKEN',
   description:
-    'MERKENの機能紹介。6つのスキャンモードと学習モードで、手入力ゼロの単語学習を実現します。',
+    'MERKENの機能紹介。AIスキャン（Pro）と共有ライブラリ、複数の学習モードで、手入力ゼロの単語学習を実現します。',
   alternates: {
     canonical: '/features',
   },
   openGraph: {
     title: '機能紹介 | MERKEN',
     description:
-      '6つのスキャンモードと複数の学習モードで、撮るだけの英単語学習。',
+      'AIスキャン（Pro）と共有ライブラリ、複数の学習モードで、撮るだけの英単語学習。',
     url: 'https://www.merken.jp/features',
     siteName: 'MERKEN',
     type: 'website',
@@ -93,8 +93,8 @@ export default function FeaturesPage() {
               自分だけの単語帳
             </h1>
             <p className="text-[var(--color-muted)] mt-4 leading-relaxed max-w-lg text-base md:text-lg">
-              ノートやプリントを撮影するだけで、英単語を抽出して単語帳化。
-              6つのスキャンモードと複数の学習モードで、作成から定着までを一気通貫で進められます。
+              ノートやプリントを撮影するだけで、英単語を抽出して単語帳化（Proプラン）。
+              無料でも共有ライブラリから単語帳をインポートして、すぐに学習を始められます。
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <StatusAwareCta
@@ -150,14 +150,20 @@ export default function FeaturesPage() {
           </div>
         </section>
 
-        {/* ─── 3. 6つのスキャンモード ─── */}
+        {/* ─── 3. 4つのスキャンモード（Pro） ─── */}
         <section>
           <ScrollFadeIn>
-            <h2 className="font-display text-2xl md:text-3xl font-bold text-[var(--color-foreground)] text-center mb-2">
-              6つのスキャンモード
-            </h2>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <h2 className="font-display text-2xl md:text-3xl font-bold text-[var(--color-foreground)] text-center">
+                4つのスキャンモード
+              </h2>
+              <span className="chip chip-pro text-[11px] px-3 py-1">
+                <Icon name="auto_awesome" size={12} />
+                Pro
+              </span>
+            </div>
             <p className="text-[var(--color-muted)] text-center mb-8 max-w-lg mx-auto">
-              目的に合わせて抽出方法を選べる。MERKENならではの機能です。
+              目的に合わせて抽出方法を選べる、Proプランの機能です。
             </p>
           </ScrollFadeIn>
 
@@ -194,7 +200,7 @@ export default function FeaturesPage() {
               </article>
             </ScrollFadeIn>
 
-            {/* Remaining 5 modes — zigzag full-width strips */}
+            {/* Remaining modes — zigzag full-width strips */}
             {lpScanModes.slice(1).map((mode, i) => {
               const isReversed = i % 2 === 1;
               return (
@@ -351,7 +357,7 @@ export default function FeaturesPage() {
                 <ul className="mt-4 space-y-2 text-sm text-[var(--color-muted)]">
                   <li className="flex items-center gap-2">
                     <Icon name="check" size={16} className="text-[var(--color-success)]" />
-                    1日3回までスキャン
+                    共有単語帳のインポート
                   </li>
                   <li className="flex items-center gap-2">
                     <Icon name="check" size={16} className="text-[var(--color-success)]" />
@@ -380,7 +386,7 @@ export default function FeaturesPage() {
                 <ul className="mt-4 space-y-2 text-sm text-[var(--color-muted)]">
                   <li className="flex items-center gap-2">
                     <Icon name="check" size={16} className="text-[var(--color-success)]" />
-                    スキャン無制限
+                    AIスキャン無制限
                   </li>
                   <li className="flex items-center gap-2">
                     <Icon name="check" size={16} className="text-[var(--color-success)]" />
@@ -416,8 +422,8 @@ export default function FeaturesPage() {
                 合格に近づこう
               </h2>
               <p className="mt-3 text-white/80 max-w-md mx-auto leading-relaxed">
-                ノートを撮るだけで、自分だけの単語帳が完成。
-                無料で今すぐ始められます。
+                共有ライブラリの単語帳で、無料で今すぐ始められます。
+                Proならノートを撮るだけで単語帳が完成。
               </p>
               <div className="mt-6">
                 <StatusAwareCta

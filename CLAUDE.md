@@ -104,9 +104,11 @@ getRepository(subscriptionStatus, wasPro)
 
 | Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
-| Scans per day | 3 (server-enforced) | Unlimited |
+| Scanning | Not available (Pro-only, server-enforced) | Unlimited |
 | Words total | 100 (client-enforced) | Unlimited |
-| Scan modes | `all` only | all, circled, highlighted, eiken, idiom, wrong |
+| Scan modes | — | all, circled, eiken, idiom |
+| Shared wordbook view/import | Yes (login required) | Yes |
+| Shared wordbook publishing | No (Pro-only) | Yes |
 | Data storage | IndexedDB (browser-local) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | No | Yes |
 
@@ -142,7 +144,7 @@ These rules must never be violated. See `docs/invariants.md` for full list.
 5. **Never break the `fullSync()` safety guard** in `src/lib/db/hybrid-repository.ts` (skip sync when remote is empty but local has data)
 6. **`pro_source='none'` must resolve to `'cancelled'`** in subscription status logic
 7. **Stripe webhook signature must be verified before any processing**
-8. **Pro-only modes must be gated by `requiresPro` flag** in `/api/extract`
+8. **Scanning is Pro-only for every mode**: all scan entry points (`/api/extract`, `/api/scan-jobs`) must gate through `requiresProForModes` (always true)
 
 ## Danger Zones
 
@@ -164,7 +166,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - Correct -> green highlight, Wrong -> red highlight with correct answer shown
    - SM-2 spaced repetition: tracks easeFactor, intervalDays, repetition, nextReviewAt
    - Daily stats recorded: todayCount, correctCount, streakDays
-4. **Free Plan**: 3 scans/day tracked server-side via `check_and_increment_scan` RPC; also tracked client-side in localStorage
+4. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually
 5. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
 6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
 7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit

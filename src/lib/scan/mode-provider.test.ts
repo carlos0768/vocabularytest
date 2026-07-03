@@ -71,7 +71,8 @@ test('applySourceModesFromScanModes overwrites AI-provided source modes', () => 
 
 test('multiple scan modes use the composite extraction provider and Pro gate', () => {
   assert.deepEqual(getProvidersForModes(['all', 'idiom']), [AI_CONFIG.extraction.words.provider]);
-  assert.equal(requiresProForModes(['all']), false);
+  // Scanning is Pro-only: every mode requires Pro, including plain 'all'.
+  assert.equal(requiresProForModes(['all']), true);
   assert.equal(requiresProForModes(['all', 'idiom']), true);
 });
 

@@ -11,7 +11,8 @@ import { STRIPE_CONFIG } from '@/lib/stripe/config';
 const FEATURES = [
   { label: '単語帳の作成数', free: '制限あり', pro: '無制限' },
   { label: '4択クイズ', free: 'OK', pro: 'OK' },
-  { label: 'カメラスキャン', free: `1日${STRIPE_CONFIG.freePlan.dailyScanLimit}回`, pro: '無制限' },
+  { label: '共有単語帳のインポート', free: 'OK', pro: 'OK' },
+  { label: 'カメラスキャン', free: 'なし', pro: '無制限' },
   { label: 'クラウド同期', free: 'なし', pro: 'OK' },
   { label: '複数デバイス', free: 'なし', pro: 'OK' },
   { label: 'データ永続化', free: 'ローカル', pro: 'Cloud' },

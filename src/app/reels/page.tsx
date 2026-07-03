@@ -36,7 +36,7 @@ function normalizeVocabularyType(value: string | undefined): VocabularyType | un
 
 export default function ReelsPage() {
   const router = useRouter();
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const {
     items,
@@ -65,8 +65,10 @@ export default function ReelsPage() {
         router.push('/login?redirect=/reels');
         return;
       }
-      if (!isPro) {
-        showToast({ message: '単語帳のインポートはProプラン限定です。', type: 'warning' });
+      // Downgraded (ex-Pro) accounts get the read-only remote repository, so
+      // writes would fail — guide them back to Pro instead.
+      if (wasPro) {
+        showToast({ message: '解約後は読み取り専用のため、インポートにはProプランへの再登録が必要です。', type: 'warning' });
         router.push('/subscription');
         return;
       }
@@ -134,7 +136,7 @@ export default function ReelsPage() {
         setImportingBookId(null);
       }
     },
-    [user, isPro, importingBookId, repository, router, showToast, markBookImported],
+    [user, wasPro, importingBookId, repository, router, showToast, markBookImported],
   );
 
   const handleShare = useCallback(

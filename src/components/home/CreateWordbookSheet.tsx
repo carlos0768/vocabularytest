@@ -42,7 +42,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
   const router = useRouter();
   const { user, subscription, isPro } = useAuth();
   const [step, setStep] = useState<'method' | 'scan'>('method');
-  const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'blank');
+  const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'shared');
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -56,7 +56,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     if (!isOpen) return;
     const timer = window.setTimeout(() => {
       setStep('method');
-      setMethod(isPro ? 'scan' : 'blank');
+      setMethod(isPro ? 'scan' : 'shared');
       setName('');
       setSubmitting(false);
       setErrorMsg(null);
@@ -215,6 +215,10 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
               <div className="flex flex-col gap-2.5">
                 {METHODS.map((m) => {
                   const active = method === m.k;
+                  // Scanning is Pro-only: free users see a PRO badge on scan
+                  // and get the shared library recommended instead.
+                  const showRecommended = m.recommended ? isPro : (m.k === 'shared' && !isPro);
+                  const showProBadge = m.k === 'scan' && !isPro;
                   return (
                     <button
                       key={m.k}
@@ -241,9 +245,14 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{m.title}</span>
-                          {m.recommended && (
+                          {showRecommended && (
                             <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-white">
                               おすすめ
+                            </span>
+                          )}
+                          {showProBadge && (
+                            <span className="rounded-[3px] border border-[var(--solid-ink)] bg-white px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                              PRO
                             </span>
                           )}
                         </div>

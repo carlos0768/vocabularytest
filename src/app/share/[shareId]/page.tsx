@@ -112,7 +112,7 @@ export default function SharedDetailPage() {
   const router = useRouter();
   const params = useParams();
   const shareId = params.shareId as string;
-  const { user, subscription, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const billingEnabled = isBillingEnabled();
   const {
@@ -141,7 +141,9 @@ export default function SharedDetailPage() {
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const isOwner = Boolean(user && project && project.userId === user.id);
-  const isPreviewLocked = !isPro && !isOwner;
+  // Shared wordbooks are open to all logged-in users (free included); only
+  // logged-out visitors get the limited blurred preview.
+  const isPreviewLocked = !user;
 
   useEffect(() => {
     let cancelled = false;
@@ -176,7 +178,7 @@ export default function SharedDetailPage() {
   }, [shareId]);
 
   useEffect(() => {
-    if (authLoading || !isPro || !project?.id) return;
+    if (authLoading || !user || !project?.id) return;
 
     let cancelled = false;
     (async () => {
@@ -198,7 +200,7 @@ export default function SharedDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isPro, project?.id, shareId]);
+  }, [authLoading, user, project?.id, shareId]);
 
   useEffect(() => {
     if (!project || !user) return;
@@ -224,7 +226,7 @@ export default function SharedDetailPage() {
     () => words.filter((word) => selectedWordIds.has(word.id)),
     [selectedWordIds, words],
   );
-  const importTargetWords = isPro ? (selectMode ? selectedWords : words) : [];
+  const importTargetWords = user ? (selectMode ? selectedWords : words) : [];
   const importBusy = importing || preparingRewardedDownloadAd;
   const ownerLabel = ownerAccountId ? `@${ownerAccountId}` : ownerUsername ? `@${ownerUsername}` : '共有ユーザー';
   const loginRedirectHref = `/login?redirect=${encodeURIComponent(`/share/${shareId}`)}`;
@@ -289,16 +291,17 @@ export default function SharedDetailPage() {
   };
 
   const handleImport = async () => {
-    if (!isPro) {
-      if (billingEnabled) {
-        router.push('/subscription');
-      } else {
-        showToast({ message: '共有単語帳のインポートは現在準備中です', type: 'warning' });
-      }
-      return;
-    }
     if (!user) {
       router.push(`/login?redirect=/share/${shareId}`);
+      return;
+    }
+    // Downgraded (ex-Pro) accounts get the read-only remote repository, so
+    // writes would fail — guide them back to Pro instead.
+    if (wasPro) {
+      showToast({ message: '解約後は読み取り専用のため、インポートにはProプランへの再登録が必要です。', type: 'warning' });
+      if (billingEnabled) {
+        router.push('/subscription');
+      }
       return;
     }
     if (!project || importTargetWords.length === 0 || importBusy) return;
@@ -440,7 +443,6 @@ export default function SharedDetailPage() {
         importing={importBusy}
         importedProjectId={importedProjectId}
         isPreviewLocked={isPreviewLocked}
-        isLoggedIn={!!user}
         totalWordCount={totalWordCount}
         previewClearWordCount={SHARE_PREVIEW_CLEAR_WORD_COUNT}
         lockedCtaHref={loginRedirectHref}
@@ -554,9 +556,7 @@ export default function SharedDetailPage() {
         })}
         {isPreviewLocked && lockedPreviewWordCount > 0 && (
           <div className="px-2 py-3 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-            {user
-              ? `残り ${lockedPreviewWordCount.toLocaleString()} 語はProプランで表示できます`
-              : `残り ${lockedPreviewWordCount.toLocaleString()} 語はログインすると表示できます`}
+            {`残り ${lockedPreviewWordCount.toLocaleString()} 語はログインすると表示できます`}
           </div>
         )}
       </div>
@@ -592,15 +592,9 @@ export default function SharedDetailPage() {
             </p>
           </>
         ) : isPreviewLocked ? (
-          user ? (
-            <SolidButton href="/subscription" variant="inverse" size="lg" iconLeft="auto_awesome" className="w-full" faceClassName="!w-full !justify-center">
-              Proにアップグレードして全単語を見る
-            </SolidButton>
-          ) : (
-            <SolidButton href={loginRedirectHref} variant="inverse" size="lg" iconLeft="login" className="w-full" faceClassName="!w-full !justify-center">
-              ログインして単語を見る
-            </SolidButton>
-          )
+          <SolidButton href={loginRedirectHref} variant="inverse" size="lg" iconLeft="login" className="w-full" faceClassName="!w-full !justify-center">
+            ログインして単語を見る
+          </SolidButton>
         ) : importedProjectId ? (
           <SolidButton href={`/project/${importedProjectId}`} variant="inverse" size="lg" iconLeft="check_circle" className="w-full" faceClassName="!w-full !justify-center">
             追加済み — 単語帳を開く
@@ -620,7 +614,7 @@ export default function SharedDetailPage() {
         )}
         {!isOwner && (
           <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
-            {isPreviewLocked ? (user ? 'Proプランで全単語を閲覧・インポートできます' : '一部だけプレビューしています') : 'オリジナルは変更されません'}
+            {isPreviewLocked ? '一部だけプレビューしています' : 'オリジナルは変更されません'}
           </p>
         )}
       </div>

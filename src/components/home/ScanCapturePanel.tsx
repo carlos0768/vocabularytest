@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { MultiShotCaptureView } from '@/components/home/MultiShotCaptureView';
 import { useAuth } from '@/hooks/use-auth';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import { processImageToBase64 } from '@/lib/image-utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { createBrowserClient } from '@/lib/supabase';
@@ -306,6 +307,55 @@ export function ScanCapturePanel({
   };
 
   const scanDisabled = activeSubs.includes('eiken') && !eikenLevel;
+
+  // Scanning is Pro-only: free users see an upgrade prompt instead of the
+  // capture UI (the server rejects free scans too — this is UX, not the gate).
+  if (!isPro) {
+    const billingEnabled = isBillingEnabled();
+    return (
+      <div
+        className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-5 py-6 text-center"
+        style={{ boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}
+      >
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light)]">
+          <Icon name="lock" size={20} className="text-[var(--color-accent-ink)]" />
+        </div>
+        <div className="mt-3 font-display text-[16px] font-extrabold text-[var(--solid-ink)]">
+          スキャンはProプラン限定です
+        </div>
+        <p className="mt-1.5 text-[12px] leading-[1.6] text-[var(--color-muted)]">
+          写真から単語帳を自動作成できるのはProプランです。
+          共有ライブラリの単語帳は無料でインポートできます。
+        </p>
+        {billingEnabled && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              router.push('/subscription');
+            }}
+            className="relative mt-4 w-full"
+          >
+            <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
+            <div className="relative flex items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-3.5 text-[13px] font-bold text-white">
+              <Icon name="auto_awesome" size={16} />
+              Proプランを見る
+            </div>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            router.push('/shared');
+          }}
+          className="mt-3 w-full rounded-[12px] border-2 border-[var(--solid-ink)] bg-white py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+        >
+          共有ライブラリを見る
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>

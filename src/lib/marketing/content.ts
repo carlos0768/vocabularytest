@@ -29,6 +29,7 @@ export const marketingHighlights: MarketingItem[] = [
   },
 ];
 
+// スキャンは Pro プラン限定の機能。モードは実装と揃える（all / circled / eiken / idiom）。
 export const scanModes: MarketingItem[] = [
   {
     title: '単語帳取込',
@@ -41,11 +42,6 @@ export const scanModes: MarketingItem[] = [
     icon: 'radio_button_checked',
   },
   {
-    title: 'ハイライト単語',
-    description: '蛍光ペンで塗った単語を抽出。',
-    icon: 'highlight',
-  },
-  {
     title: '英検レベル',
     description: '指定した級の単語だけを抽出。',
     icon: 'menu_book',
@@ -54,11 +50,6 @@ export const scanModes: MarketingItem[] = [
     title: '熟語・イディオム',
     description: '句動詞や熟語を重点抽出。',
     icon: 'translate',
-  },
-  {
-    title: '間違えた単語',
-    description: 'テストの誤答語を再学習用に抽出。',
-    icon: 'warning',
   },
 ];
 
@@ -125,6 +116,7 @@ export interface LPScanMode extends MarketingItem {
   color: string;
 }
 
+// スキャンは Pro プラン限定の機能。モードは実装と揃える（all / circled / eiken / idiom）。
 export const lpScanModes: LPScanMode[] = [
   {
     title: '単語帳取込',
@@ -141,13 +133,6 @@ export const lpScanModes: LPScanMode[] = [
     color: '#8b5cf6',
   },
   {
-    title: 'ハイライト単語',
-    description: '蛍光ペンで塗った単語だけを自動で抽出。',
-    icon: 'highlight',
-    useCase: '教科書の重要箇所をマーカーで印をつけているとき',
-    color: '#f59e0b',
-  },
-  {
     title: '英検レベル',
     description: '英検5級〜1級の範囲を指定して、該当する単語だけを抽出。',
     icon: 'menu_book',
@@ -160,13 +145,6 @@ export const lpScanModes: LPScanMode[] = [
     icon: 'translate',
     useCase: '長文読解に必要なフレーズをまとめて覚えたいとき',
     color: '#ec4899',
-  },
-  {
-    title: '間違えた単語',
-    description: 'テストで間違えた問題の英単語を再学習用に抽出。',
-    icon: 'warning',
-    useCase: 'テスト返却後、間違いだけを効率よく復習したいとき',
-    color: '#ef4444',
   },
 ];
 
@@ -188,9 +166,14 @@ export const progressFeatures: ProgressFeature[] = [
 
 export const pricingComparisonRows: PricingComparisonRow[] = [
   {
-    feature: 'スキャン回数',
-    free: '1日3回まで',
+    feature: 'AIスキャン',
+    free: '非対応',
     pro: '無制限',
+  },
+  {
+    feature: '共有単語帳のインポート',
+    free: '対応',
+    pro: '対応',
   },
   {
     feature: '保存方式',
@@ -212,7 +195,7 @@ export const pricingComparisonRows: PricingComparisonRow[] = [
 export const pricingFaqs = [
   {
     question: '無料プランでも使えますか？',
-    answer: '使えます。まず無料で始めて、必要になったらProに切り替えできます。',
+    answer: '使えます。共有ライブラリからの単語帳インポートや手動作成、クイズ学習は無料です。写真からのAIスキャンはProプラン限定です。',
   },
   {
     question: 'Proの解約はいつでもできますか？',
@@ -220,6 +203,6 @@ export const pricingFaqs = [
   },
   {
     question: 'どんな人にProが向いていますか？',
-    answer: '複数端末で学習したい方、毎日たくさんスキャンする方に向いています。',
+    answer: '写真から単語帳を自動作成したい方、複数端末で学習したい方に向いています。',
   },
 ];

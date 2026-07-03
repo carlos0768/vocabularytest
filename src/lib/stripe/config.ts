@@ -12,7 +12,7 @@ export const STRIPE_CONFIG = {
       // Set in Stripe Dashboard — override via env var for flexibility
       priceId: process.env.STRIPE_PRICE_ID || '',
       features: [
-        'スキャン無制限',
+        'AIスキャン無制限',
         'クラウド同期',
         'マルチデバイス対応',
         'データ永続化',

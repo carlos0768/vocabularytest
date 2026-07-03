@@ -470,7 +470,29 @@ export function DesktopProjectDetailView({
               </div>
             )}
             {wordsLoaded && rowGroups.length === 0 && (
-              <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
+              counts.total === 0 ? (
+                <div style={{ textAlign: 'center', padding: '54px 24px' }}>
+                  <div style={{ width: 58, height: 58, borderRadius: 16, background: 'var(--color-accent-light)', border: '2px solid var(--solid-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="menu_book" style={{ fontSize: 28, color: 'var(--color-accent-ink)' }} />
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 17, marginTop: 14 }}>
+                    まだ単語がありません
+                  </div>
+                  <p className="muted" style={{ fontSize: 13, lineHeight: 1.7, margin: '8px 0 0' }}>
+                    単語を追加すると、クイズやカードで学習を始められます。
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+                    <DesktopButton variant="accent" icon="edit" onClick={onManualAdd}>
+                      手で入力
+                    </DesktopButton>
+                    <DesktopButton icon="photo_camera" onClick={onScan}>
+                      スキャンで追加
+                    </DesktopButton>
+                  </div>
+                </div>
+              ) : (
+                <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
+              )
             )}
           </div>
           <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>
