@@ -77,6 +77,24 @@ const EMPTY_DISCOVER: SharedDiscoverPayload = {
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
+type WordbookGenre = {
+  key: string;
+  label: string;
+  description: string;
+  query: string;
+  color: string;
+  icon: string;
+};
+
+const WORDBOOK_GENRES: WordbookGenre[] = [
+  { key: 'eiken-pre1', label: '英検準1級', description: '英検準1級レベルの単語帳', query: '英検準1級', color: '#664DB3', icon: 'school' },
+  { key: 'eiken-2', label: '英検2級', description: '英検2級レベルの単語帳', query: '英検2級', color: '#137FEC', icon: 'school' },
+  { key: 'toeic', label: 'TOEIC', description: 'TOEIC対策の単語帳', query: 'TOEIC', color: '#228B22', icon: 'work' },
+  { key: 'idiom', label: 'イディオム', description: '熟語・イディオムの単語帳', query: 'イディオム', color: '#CC4D59', icon: 'style' },
+  { key: 'exam', label: '大学受験', description: '大学受験対策の単語帳', query: '受験', color: '#D97340', icon: 'history_edu' },
+  { key: 'daily', label: '日常会話', description: '日常会話フレーズの単語帳', query: '日常会話', color: '#3DA1B8', icon: 'forum' },
+];
+
 function thumbColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
@@ -130,6 +148,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const hasUsedInitialRef = useRef(false);
 
   const [chooserOpen, setChooserOpen] = useState(false);
+  const [selectedGenre, setSelectedGenre] = useState<WordbookGenre | null>(null);
 
   useEffect(() => {
     if (category === 'groups') return;
@@ -201,11 +220,13 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   function handleSelectCategory(nextCategory: PageCategory) {
     setCategory(nextCategory);
+    setSelectedGenre(null);
     setError(null);
   }
 
   function handleBackToAll() {
     setCategory('all');
+    setSelectedGenre(null);
     setError(null);
   }
 
@@ -297,6 +318,10 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         </div>
 
+        {selectedGenre ? (
+          <GenreResultsView genre={selectedGenre} onBack={() => setSelectedGenre(null)} />
+        ) : (
+        <>
         {category !== 'groups' && category !== 'users' && (
           <div className="px-[14px] pt-2">
             <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
@@ -342,6 +367,10 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
               <div className="text-[10px] font-semibold text-[var(--color-muted)]">{CATEGORY_META[category].description}</div>
             </div>
           </div>
+        )}
+
+        {category === 'all' && !hasQuery && (
+          <GenreBrowseSection onSelect={setSelectedGenre} />
         )}
 
         {category === 'all' && <JoinedGroupsSection />}
@@ -396,6 +425,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             )}
           </div>
         )}
+        </>
+        )}
       </div>
 
       <ShareTypeChooser
@@ -407,6 +438,155 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           router.push('/login?redirect=/shared');
         }}
       />
+    </>
+  );
+}
+
+function GenreBrowseSection({ onSelect }: { onSelect: (genre: WordbookGenre) => void }) {
+  return (
+    <div className="px-[14px] pb-1">
+      <div className="mb-2.5 flex items-center gap-2">
+        <Icon name="category" size={20} className="text-[var(--solid-ink)]" />
+        <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">ジャンルから探す</h2>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {WORDBOOK_GENRES.map((genre) => (
+          <button
+            key={genre.key}
+            type="button"
+            onClick={() => {
+              triggerHaptic();
+              onSelect(genre);
+            }}
+            aria-label={`${genre.label}の単語帳を探す`}
+            className="relative h-[72px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] p-3 text-left text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+            style={{ backgroundColor: genre.color }}
+          >
+            <span className="relative z-10 font-display text-[15px] font-extrabold leading-tight">
+              {genre.label}
+            </span>
+            <Icon
+              name={genre.icon}
+              size={60}
+              className="pointer-events-none absolute -bottom-3 -right-2 rotate-[18deg] opacity-25"
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () => void }) {
+  const { showToast } = useToast();
+  const [projects, setProjects] = useState<SharedProjectCard[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetch(buildDiscoverUrl('projects', genre.query), { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as DiscoverResponse | null;
+        if (!response.ok || !isDiscoverPayload(payload)) {
+          throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_failed');
+        }
+        setProjects(payload.projects);
+        setNextCursor(payload.nextCursor);
+      })
+      .catch((loadError) => {
+        if (controller.signal.aborted) return;
+        console.error('Failed to load genre wordbooks:', loadError);
+        setError('単語帳を読み込めませんでした。');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [genre]);
+
+  async function handleLoadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const response = await fetch(buildDiscoverUrl('projects', genre.query, nextCursor), { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as DiscoverResponse | null;
+      if (!response.ok || !isDiscoverPayload(payload)) {
+        throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_more_failed');
+      }
+      setProjects((current) => {
+        const known = new Set(current.map((item) => item.project.id));
+        return [...current, ...payload.projects.filter((item) => !known.has(item.project.id))];
+      });
+      setNextCursor(payload.nextCursor);
+    } catch (loadError) {
+      console.error('Failed to load more genre wordbooks:', loadError);
+      setError('追加の検索結果を読み込めませんでした。');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  function handleProjectMissing(projectId: string) {
+    setProjects((current) => current.filter((item) => item.project.id !== projectId));
+    showToast({ message: 'この単語帳は共有が停止されています', type: 'warning' });
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-2 px-[14px] py-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+          aria-label="ジャンル一覧に戻る"
+        >
+          <Icon name="arrow_back" size={15} />
+        </button>
+        <span
+          className="flex h-8 w-8 items-center justify-center rounded-[8px] border-2 border-[var(--solid-ink)] text-white"
+          style={{ backgroundColor: genre.color }}
+        >
+          <Icon name={genre.icon} size={16} />
+        </span>
+        <div>
+          <div className="text-[15px] font-extrabold text-[var(--solid-ink)]">{genre.label}</div>
+          <div className="text-[10px] font-semibold text-[var(--color-muted)]">{genre.description}</div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 px-[14px]">
+        {error && <ErrorBox message={error} />}
+        {loading ? (
+          <LoadingBox />
+        ) : projects.length === 0 ? (
+          <EmptyBox message="このジャンルの単語帳はまだありません" />
+        ) : (
+          <>
+            <ProjectSection projects={projects} onProjectMissing={handleProjectMissing} />
+            {nextCursor && (
+              <button
+                type="button"
+                onClick={() => void handleLoadMore()}
+                disabled={loadingMore}
+                className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)] disabled:opacity-60"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} size={18} className={loadingMore ? 'animate-spin' : undefined} />
+                  {loadingMore ? '読み込み中...' : 'もっと見る'}
+                </span>
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </>
   );
 }
@@ -902,46 +1082,35 @@ function JoinedGroupCard({ group }: { group: StudyGroupSummary }) {
       aria-label={`${group.name}のグループを開く`}
       className="block focus:outline-none"
     >
-      <div
-        className="relative overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] p-3.5 text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-        style={{ background: `linear-gradient(135deg, ${color} 0%, var(--solid-ink) 165%)` }}
-      >
-        {/* Decorative oversized glyph + glossy sheen to invite the tap. */}
-        <Icon name="groups" size={104} className="pointer-events-none absolute -right-4 -top-5 opacity-15" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent" />
-
-        <div className="relative flex items-center gap-3">
-          <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[14px] border-2 border-white/70 bg-white/15 font-display text-[24px] font-extrabold backdrop-blur-sm">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+        <div className="flex items-center gap-[11px]">
+          <div
+            className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[22px] font-extrabold text-white"
+            style={{ backgroundColor: color }}
+          >
             {group.name.charAt(0)}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="truncate font-display text-[16px] font-extrabold leading-tight">{group.name}</span>
+              <span className="truncate font-display text-[14px] font-bold text-[var(--solid-ink)]">{group.name}</span>
               {group.role === 'owner' && (
-                <span className="shrink-0 rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide">owner</span>
+                <span className="shrink-0 rounded-full border border-[var(--color-border)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[var(--color-muted)]">owner</span>
               )}
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold backdrop-blur-sm">
-                <Icon name="group" size={12} />{group.memberCount}人
+            <div className="mt-[3px] flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
+              <span className="flex items-center gap-0.5">
+                <Icon name="group" size={12} />
+                {group.memberCount}人
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold backdrop-blur-sm">
-                <Icon name="menu_book" size={12} />{group.projectCount}冊
+              <span className="flex items-center gap-0.5">
+                <Icon name="menu_book" size={12} />
+                {group.projectCount}冊
               </span>
             </div>
           </div>
 
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
-            <Icon name="arrow_forward" size={18} />
-          </span>
-        </div>
-
-        <div className="relative mt-3 flex items-center justify-between rounded-[10px] bg-white/15 px-2.5 py-1.5 backdrop-blur-sm">
-          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold">
-            <Icon name="emoji_events" size={13} />ランキングをチェック
-          </span>
-          <span className="text-[11px] font-extrabold opacity-90">開く →</span>
+          <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
         </div>
       </div>
     </Link>
