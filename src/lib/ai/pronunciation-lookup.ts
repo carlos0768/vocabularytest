@@ -9,6 +9,10 @@ import { z } from 'zod';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
+import {
+  fetchLexiconQuizContent,
+  saveQuizContentToLexicon,
+} from '@/lib/lexicon/quiz-content-lexicon';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 const BATCH_SIZE = 20;
@@ -131,41 +135,63 @@ export async function lookupPronunciations(
 }
 
 /**
- * pronunciation が null の単語に対してAIで IPA を生成し DB 更新する。
+ * pronunciation が null の単語に対して IPA を補完し DB 更新する。
+ * lexicon マスターに発音があればAIを呼ばず再利用し、AIで新規生成した
+ * 発音はマスターへ書き戻して次回以降使い回せるようにする。
  */
 export async function backfillPronunciations(
   wordIds: string[],
-): Promise<{ updated: number; errors: number }> {
-  if (wordIds.length === 0) return { updated: 0, errors: 0 };
+): Promise<{ updated: number; errors: number; reusedFromLexicon: number }> {
+  if (wordIds.length === 0) return { updated: 0, errors: 0, reusedFromLexicon: 0 };
 
   const supabaseAdmin = getSupabaseAdmin();
 
   const { data: words, error: fetchError } = await supabaseAdmin
     .from('words')
-    .select('id, english, pronunciation')
+    .select('id, english, pronunciation, lexicon_entry_id')
     .in('id', wordIds)
     .is('pronunciation', null);
 
   if (fetchError || !words || words.length === 0) {
-    return { updated: 0, errors: fetchError ? 1 : 0 };
+    return { updated: 0, errors: fetchError ? 1 : 0, reusedFromLexicon: 0 };
   }
 
-  const lookupResults = await lookupPronunciations(
-    (words as Array<{ id: string; english: string }>).map((word) => ({
-      id: word.id,
-      english: word.english,
-    })),
+  const rows = words as Array<{ id: string; english: string; lexicon_entry_id: string | null }>;
+
+  // 1) lexiconマスターに発音があればAI生成をスキップして再利用する。
+  const lexicon = await fetchLexiconQuizContent(
+    { entryIds: rows.map((row) => row.lexicon_entry_id), senseIds: [] },
+    { client: supabaseAdmin },
   );
 
-  if (lookupResults.length === 0) {
-    return { updated: 0, errors: 0 };
+  const reusedResults: PronunciationResult[] = [];
+  const pendingRows: typeof rows = [];
+  for (const row of rows) {
+    const masterPronunciation = row.lexicon_entry_id
+      ? lexicon.pronunciationByEntryId.get(row.lexicon_entry_id)
+      : undefined;
+    if (masterPronunciation) {
+      reusedResults.push({ wordId: row.id, pronunciation: masterPronunciation });
+    } else {
+      pendingRows.push(row);
+    }
+  }
+
+  // 2) マスターに無い単語のみAIで生成する。
+  const lookupResults = await lookupPronunciations(
+    pendingRows.map((row) => ({ id: row.id, english: row.english })),
+  );
+
+  const allResults = [...reusedResults, ...lookupResults];
+  if (allResults.length === 0) {
+    return { updated: 0, errors: 0, reusedFromLexicon: 0 };
   }
 
   let updated = 0;
   let errors = 0;
 
   await Promise.all(
-    lookupResults.map(async (result) => {
+    allResults.map(async (result) => {
       const { error } = await supabaseAdmin
         .from('words')
         .update({ pronunciation: result.pronunciation })
@@ -180,7 +206,23 @@ export async function backfillPronunciations(
     }),
   );
 
-  return { updated, errors };
+  // 3) AIで生成した発音を lexicon マスターへ書き戻す（ベストエフォート）。
+  if (lookupResults.length > 0) {
+    const entryIdByWordId = new Map(rows.map((row) => [row.id, row.lexicon_entry_id]));
+    try {
+      await saveQuizContentToLexicon(
+        lookupResults.map((result) => ({
+          lexiconEntryId: entryIdByWordId.get(result.wordId),
+          pronunciation: result.pronunciation,
+        })),
+        { supabaseAdmin },
+      );
+    } catch (lexiconError) {
+      console.error('[pronunciation-lookup] Lexicon write-back failed (non-critical):', lexiconError);
+    }
+  }
+
+  return { updated, errors, reusedFromLexicon: reusedResults.length };
 }
 
 export const __internal = {

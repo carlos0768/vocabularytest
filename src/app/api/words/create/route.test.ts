@@ -113,6 +113,8 @@ function createImmediateResolutionResult<T extends ImmediateWordInputForTest>(
     lookupKeyCount: 0,
     masterHitCount: 0,
     masterTranslationHitCount: 0,
+    masterPronunciationHitCount: 0,
+    masterDistractorHitCount: 0,
     aiMissCount: 0,
     lookupElapsedMs: 0,
     translationElapsedMs: 0,

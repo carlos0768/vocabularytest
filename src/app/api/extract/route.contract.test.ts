@@ -189,6 +189,8 @@ function createDeps(
           lookupKeyCount: 1,
           masterHitCount: 1,
           masterTranslationHitCount: 1,
+          masterPronunciationHitCount: 0,
+          masterDistractorHitCount: 0,
           aiMissCount: 0,
           lookupElapsedMs: 0,
           translationElapsedMs: 0,

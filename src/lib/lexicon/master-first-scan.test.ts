@@ -171,6 +171,119 @@ test('resolveImmediateWordsWithMasterFirst keeps scan-provided examples when ski
   assert.equal(result.words[0]?.exampleSentenceJa, 'スキャン由来の例文。');
 });
 
+test('resolveImmediateWordsWithMasterFirst reuses master pronunciation and primary-sense distractors', async () => {
+  const entryWithQuizContent = {
+    ...MASTER_ENTRY,
+    pronunciation: '/ɪkˈsperɪmənt/',
+    primarySense: {
+      id: '33333333-3333-4333-8333-333333333333',
+      lexiconEntryId: MASTER_ENTRY.id,
+      translationJa: '実験',
+      normalizedTranslationJa: '実験',
+      distractors: ['経験', '専門家', '探検'],
+      isPrimary: true,
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+    },
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '',
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+      },
+    ],
+    {
+      lookupEntries: async () => [entryWithQuizContent],
+      translateWords: async () => new Map(),
+    },
+  );
+
+  assert.equal(result.words[0]?.pronunciation, '/ɪkˈsperɪmənt/');
+  assert.deepEqual(result.words[0]?.distractors, ['経験', '専門家', '探検']);
+  assert.equal(result.words[0]?.lexiconSenseId, entryWithQuizContent.primarySense.id);
+  assert.equal(result.metrics.masterPronunciationHitCount, 1);
+  assert.equal(result.metrics.masterDistractorHitCount, 1);
+});
+
+test('resolveImmediateWordsWithMasterFirst keeps existing word quiz content over master values', async () => {
+  const entryWithQuizContent = {
+    ...MASTER_ENTRY,
+    pronunciation: '/master/',
+    primarySense: {
+      id: '33333333-3333-4333-8333-333333333333',
+      lexiconEntryId: MASTER_ENTRY.id,
+      translationJa: '実験',
+      normalizedTranslationJa: '実験',
+      distractors: ['経験', '専門家', '探検'],
+      isPrimary: true,
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+    },
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '実験',
+        japaneseSource: 'scan' as const,
+        distractors: ['既存1', '既存2', '既存3'],
+        pronunciation: '/original/',
+        partOfSpeechTags: ['noun'],
+      },
+    ],
+    {
+      lookupEntries: async () => [entryWithQuizContent],
+      translateWords: async () => new Map(),
+    },
+  );
+
+  assert.equal(result.words[0]?.pronunciation, '/original/');
+  assert.deepEqual(result.words[0]?.distractors, ['既存1', '既存2', '既存3']);
+  assert.equal(result.metrics.masterPronunciationHitCount, 0);
+  assert.equal(result.metrics.masterDistractorHitCount, 0);
+});
+
+test('resolveImmediateWordsWithMasterFirst does not reuse distractors when the sense differs', async () => {
+  const entryWithQuizContent = {
+    ...MASTER_ENTRY,
+    primarySense: {
+      id: '33333333-3333-4333-8333-333333333333',
+      lexiconEntryId: MASTER_ENTRY.id,
+      translationJa: '実験',
+      normalizedTranslationJa: '実験',
+      distractors: ['経験', '専門家', '探検'],
+      isPrimary: true,
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+    },
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '試み',
+        japaneseSource: 'scan' as const,
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+      },
+    ],
+    {
+      lookupEntries: async () => [entryWithQuizContent],
+      translateWords: async () => new Map(),
+    },
+  );
+
+  // 正解訳がマスターのprimary senseと異なるため、誤答の使い回しはしない。
+  assert.deepEqual(result.words[0]?.distractors, []);
+  assert.equal(result.metrics.masterDistractorHitCount, 0);
+});
+
 test('resolveImmediateWordsWithMasterFirst AI-translates only unresolved misses after master lookup', async () => {
   let batchTranslationCalls = 0;
   let singleTranslationCalls = 0;
