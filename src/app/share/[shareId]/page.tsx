@@ -14,8 +14,10 @@ import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { saveSharedWordbookTags } from '@/lib/shared-projects/client';
 import type { SharedProjectPreviewPayload } from '@/lib/shared-projects/types';
 import type { Project, Word } from '@/types';
+import { formatSharedTag, parseSharedTagsInput } from '../../../../shared/shared-tags';
 
 const SHARE_PREVIEW_CLEAR_WORD_COUNT = 5;
 
@@ -137,6 +139,9 @@ export default function SharedDetailPage() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const [ownerActionBusy, setOwnerActionBusy] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [tagsDraft, setTagsDraft] = useState('');
+  const [tagsSaving, setTagsSaving] = useState(false);
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -386,6 +391,28 @@ export default function SharedDetailPage() {
     }
   };
 
+  const handleOpenTags = () => {
+    setTagsDraft((project?.sharedTags ?? []).map(formatSharedTag).join(', '));
+    setTagsOpen(true);
+  };
+
+  const handleSaveTags = async () => {
+    if (!project || tagsSaving) return;
+    setTagsSaving(true);
+    try {
+      const nextTags = parseSharedTagsInput(tagsDraft);
+      const savedTags = await saveSharedWordbookTags(project.id, nextTags);
+      setProject((current) => (current ? { ...current, sharedTags: savedTags } : current));
+      setTagsOpen(false);
+      showToast({ message: 'タグを保存しました', type: 'success' });
+    } catch (tagsError) {
+      console.error('Failed to update shared wordbook tags:', tagsError);
+      showToast({ message: 'タグの保存に失敗しました', type: 'error' });
+    } finally {
+      setTagsSaving(false);
+    }
+  };
+
   const handleUnpublish = async () => {
     if (!project || ownerActionBusy) return;
     if (typeof window !== 'undefined' && !window.confirm('この単語帳の公開を停止しますか？共有ページから削除されます。')) {
@@ -500,6 +527,29 @@ export default function SharedDetailPage() {
 
           {project.description && (
             <p className="mt-2.5 text-xs leading-[1.55] text-[var(--color-muted)]">{project.description}</p>
+          )}
+
+          {((project.sharedTags?.length ?? 0) > 0 || isOwner) && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {(project.sharedTags ?? []).map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-white px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                >
+                  {formatSharedTag(tag)}
+                </span>
+              ))}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={handleOpenTags}
+                  className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--color-border)] bg-white px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                >
+                  <Icon name="edit" size={11} />
+                  {(project.sharedTags?.length ?? 0) > 0 ? 'タグを編集' : 'タグを追加'}
+                </button>
+              )}
+            </div>
           )}
 
           <div className="mt-3 flex gap-2.5 border-t border-dashed border-[var(--color-border)] pt-3">
@@ -662,6 +712,56 @@ export default function SharedDetailPage() {
                 className="inline-flex h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-extrabold text-white disabled:opacity-45"
               >
                 <Icon name={ownerActionBusy ? 'progress_activity' : 'check'} size={15} className={ownerActionBusy ? 'animate-spin' : undefined} />
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tagsOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center px-6" style={{ fontFamily: 'var(--font-body)' }}>
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="閉じる"
+            onClick={() => setTagsOpen(false)}
+            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+          />
+          <div
+            className="relative w-full animate-fade-in-up"
+            style={{
+              maxWidth: 360,
+              background: '#faf7f1',
+              border: '2px solid var(--solid-ink)',
+              borderRadius: 18,
+              padding: '18px',
+              boxShadow: '0 12px 32px rgba(26,26,26,0.22)',
+            }}
+          >
+            <div className="mb-3 font-display text-[17px] font-extrabold text-[var(--solid-ink)]">タグを編集</div>
+            <input
+              value={tagsDraft}
+              onChange={(event) => setTagsDraft(event.target.value)}
+              placeholder="例: #TOEIC, #熟語, #高校英語"
+              autoFocus
+              className="mb-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTagsOpen(false)}
+                className="inline-flex h-[44px] flex-1 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[13px] font-extrabold text-[var(--solid-ink)]"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveTags()}
+                disabled={tagsSaving}
+                className="inline-flex h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-extrabold text-white disabled:opacity-45"
+              >
+                <Icon name={tagsSaving ? 'progress_activity' : 'check'} size={15} className={tagsSaving ? 'animate-spin' : undefined} />
                 保存
               </button>
             </div>

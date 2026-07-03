@@ -619,6 +619,60 @@ export async function renameSharedWordbook(
   return mapSharedWordbookCard(updated, 'owner', profileByUserId);
 }
 
+export async function updateSharedWordbookTags(
+  userId: string,
+  sharedWordbookId: string,
+  sharedTags: readonly string[],
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<SharedProjectCard> {
+  const { data: row, error } = await admin
+    .from('shared_wordbooks')
+    .select('id,user_id')
+    .eq('id', sharedWordbookId)
+    .maybeSingle<{ id: string; user_id: string }>();
+
+  if (error) {
+    throw new Error(error.message || 'shared_wordbook_tags_lookup_failed');
+  }
+  if (!row) {
+    throw new SharedWordbookError('not_found', 'shared_wordbook_not_found');
+  }
+  if (row.user_id !== userId) {
+    throw new SharedWordbookError('forbidden', 'shared_wordbook_not_owned');
+  }
+
+  const tags = normalizeSharedTags(sharedTags);
+
+  let tagsEmbedding: number[] | null = null;
+  try {
+    tagsEmbedding = await createSharedTagsEmbedding(tags);
+  } catch (embeddingError) {
+    console.warn('[shared-wordbooks] tag embedding skipped:', embeddingError);
+  }
+
+  const payload: Record<string, unknown> = {
+    shared_tags: tags,
+    updated_at: new Date().toISOString(),
+  };
+  if (tagsEmbedding) {
+    payload.shared_tags_embedding = tagsEmbedding;
+  }
+
+  const { data: updated, error: updateError } = await admin
+    .from('shared_wordbooks')
+    .update(payload)
+    .eq('id', sharedWordbookId)
+    .select(SHARED_WORDBOOK_SELECT)
+    .single<SharedWordbookRow>();
+
+  if (updateError || !updated) {
+    throw new Error(updateError?.message || 'shared_wordbook_tags_update_failed');
+  }
+
+  const profileByUserId = await getProfilesByUserIds(admin, [userId]);
+  return mapSharedWordbookCard(updated, 'owner', profileByUserId);
+}
+
 export async function unpublishSharedWordbook(
   userId: string,
   sharedWordbookId: string,
