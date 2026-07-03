@@ -11,7 +11,7 @@ import type {
 } from '@/lib/reels/types';
 import { decodeReelCursor, encodeReelCursor } from '@/lib/reels/cursor';
 import { eikenLevelsAround } from '@/lib/reels/eiken-cefr';
-import { rankReelCandidates } from '@/lib/reels/ranking';
+import { selectReelCandidates } from '@/lib/reels/ranking';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
@@ -312,11 +312,15 @@ async function fetchRankingInputs(admin: SupabaseAdminClient, userId: string): P
   return { eikenLevel, interestTags: Array.from(interestTags) };
 }
 
-async function fetchSeenKeys(admin: SupabaseAdminClient, userId: string): Promise<Set<string>> {
+/** item_key -> seen_at for words seen within the freshness window. */
+async function fetchSeenAtByKey(
+  admin: SupabaseAdminClient,
+  userId: string,
+): Promise<Record<string, string>> {
   const since = new Date(Date.now() - SEEN_WINDOW_DAYS * 86_400_000).toISOString();
   const { data, error } = await admin
     .from('reel_seen_words')
-    .select('item_key')
+    .select('item_key,seen_at')
     .eq('user_id', userId)
     .gte('seen_at', since)
     .order('seen_at', { ascending: false })
@@ -324,9 +328,13 @@ async function fetchSeenKeys(admin: SupabaseAdminClient, userId: string): Promis
 
   if (error) {
     // Dedup is best-effort; an error here must not break the feed.
-    return new Set();
+    return {};
   }
-  return new Set((data ?? []).map((row) => row.item_key as string));
+  const result: Record<string, string> = {};
+  for (const row of (data ?? []) as { item_key: string; seen_at: string }[]) {
+    result[row.item_key] = row.seen_at;
+  }
+  return result;
 }
 
 type UserFeedbackSummary = {
@@ -520,22 +528,25 @@ export async function buildReelFeedPage(options: {
   const page = cursor?.page ?? 0;
 
   const rankingInputs = await fetchRankingInputs(admin, options.userId);
-  const [sharedCandidates, officialCandidates, seenKeys, feedback, tagSimilarityByBookId] =
+  const [sharedCandidates, officialCandidates, seenAtByKey, feedback, tagSimilarityByBookId] =
     await Promise.all([
       fetchSharedCandidates(admin),
       fetchOfficialCandidates(admin, rankingInputs.eikenLevel),
-      fetchSeenKeys(admin, options.userId),
+      fetchSeenAtByKey(admin, options.userId),
       fetchUserFeedback(admin, options.userId),
       fetchTagSimilarity(admin, rankingInputs.interestTags),
     ]);
 
-  const unseen = [...sharedCandidates, ...officialCandidates].filter(
-    (candidate) => !seenKeys.has(candidate.id) && !feedback.excludedKeys.has(candidate.id),
+  // Only not-interested words are excluded outright; seen words stay in
+  // the pool and get recycled as review cards when the unseen pool runs dry.
+  const candidates = [...sharedCandidates, ...officialCandidates].filter(
+    (candidate) => !feedback.excludedKeys.has(candidate.id),
   );
 
   const rankSeed = (seed ^ Math.imul(page + 1, 0x9e3779b1)) >>> 0;
-  const picked = rankReelCandidates(
-    unseen,
+  const selections = selectReelCandidates(
+    candidates,
+    seenAtByKey,
     {
       eikenLevel: rankingInputs.eikenLevel,
       interestTags: rankingInputs.interestTags,
@@ -551,34 +562,41 @@ export async function buildReelFeedPage(options: {
   // Count the page against the daily limit (batch; must run as the user).
   const { data: usageData, error: usageError } = await options.userClient.rpc(
     'check_and_increment_reel_views',
-    { p_requested: picked.length },
+    { p_requested: selections.length },
   );
   if (usageError || !usageData) {
     throw new Error(usageError?.message || 'reel_usage_rpc_failed');
   }
   const usage = usageData as ReelUsageRpcResult;
 
-  const granted = Math.max(0, Math.min(picked.length, usage.granted));
-  const grantedCandidates = picked.slice(0, granted);
+  const granted = Math.max(0, Math.min(selections.length, usage.granted));
+  const grantedSelections = selections.slice(0, granted);
 
-  if (grantedCandidates.length > 0) {
+  if (grantedSelections.length > 0) {
+    // Refresh seen_at on every serve so recycled words rotate to the back
+    // of the LRU queue instead of repeating immediately.
     await admin.from('reel_seen_words').upsert(
-      grantedCandidates.map((candidate) => ({
+      grantedSelections.map((selection) => ({
         user_id: options.userId,
-        item_key: candidate.id,
+        item_key: selection.candidate.id,
+        seen_at: new Date().toISOString(),
       })),
-      { onConflict: 'user_id,item_key', ignoreDuplicates: true },
+      { onConflict: 'user_id,item_key' },
     );
   }
 
-  const items = await enrichItems(admin, options.userId, grantedCandidates);
+  const recycledByKey = new Map(
+    grantedSelections.map((selection) => [selection.candidate.id, selection.recycled]),
+  );
+  const items = (
+    await enrichItems(admin, options.userId, grantedSelections.map((s) => s.candidate))
+  ).map((item) => ({ ...item, isRecycled: recycledByKey.get(item.id) ?? false }));
 
   const limitReached = usage.limit !== null && usage.current_count >= usage.limit;
-  const poolExhausted = picked.length < limit && unseen.length <= picked.length;
+  // The feed never runs dry (seen words recycle); nextCursor is null only
+  // at the free daily limit or when the platform has no content at all.
   const nextCursor =
-    limitReached || poolExhausted || items.length === 0
-      ? null
-      : encodeReelCursor({ seed, page: page + 1 });
+    limitReached || items.length === 0 ? null : encodeReelCursor({ seed, page: page + 1 });
 
   return {
     items,

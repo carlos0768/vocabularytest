@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
+import type { ReelFeedItem } from '@/hooks/use-reel-feed';
 import { ReelCard } from './ReelCard';
-import { ReelEndCard, ReelLimitCard } from './ReelStatusCards';
+import { ReelLimitCard } from './ReelStatusCards';
 
 type ReelFeedProps = {
-  items: ReelItem[];
+  items: ReelFeedItem[];
   hasMore: boolean;
   limitReached: boolean;
   usageLimit: number | null;
@@ -88,7 +89,7 @@ export function ReelFeed({
     >
       {items.map((item, index) => (
         <div
-          key={item.id}
+          key={item.feedKey}
           ref={observeCard}
           data-reel-index={index}
           className="h-full w-full snap-start"
@@ -110,11 +111,6 @@ export function ReelFeed({
       {limitReached && (
         <div className="h-full w-full snap-start">
           <ReelLimitCard limit={usageLimit} />
-        </div>
-      )}
-      {!limitReached && !hasMore && items.length > 0 && (
-        <div className="h-full w-full snap-start">
-          <ReelEndCard />
         </div>
       )}
     </div>

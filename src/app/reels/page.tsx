@@ -236,11 +236,9 @@ export default function ReelsPage() {
         </div>
       </div>
 
-      {/* Feed area: full-bleed on mobile, centered column on desktop */}
-      <div
-        className="min-h-0 flex-1 lg:flex lg:justify-center"
-        style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
-      >
+      {/* Feed area: full-bleed on mobile, centered column on desktop.
+          Mobile bottom padding clears the always-visible floating bottom nav. */}
+      <div className="min-h-0 flex-1 pb-[max(96px,calc(env(safe-area-inset-bottom)+84px))] lg:flex lg:justify-center lg:pb-2">
         <div className="h-full w-full lg:max-w-[420px] lg:rounded-[var(--solid-radius)] lg:border-2 lg:border-[var(--solid-ink)] lg:bg-[var(--color-surface)] lg:overflow-hidden">
           {status === 'loading' && items.length === 0 ? (
             <ReelSkeleton />

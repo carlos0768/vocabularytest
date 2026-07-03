@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { ReelBook, ReelCandidate, ReelRankingContext } from './types';
-import { rankReelCandidates, scoreReelCandidate } from './ranking';
+import { rankReelCandidates, scoreReelCandidate, selectReelCandidates } from './ranking';
 
 const NOW = '2026-07-03T00:00:00.000Z';
 
@@ -168,4 +168,70 @@ test('interested feedback boosts the book, not-interested penalizes it', () => {
   const neutral = scoreReelCandidate(candidate, neutralCtx, 9);
   assert.ok(scoreReelCandidate(candidate, interestedCtx, 9) > neutral);
   assert.ok(scoreReelCandidate(candidate, notInterestedCtx, 9) < neutral);
+});
+
+// ---------- selectReelCandidates (infinite feed / seen recycling) ----------
+
+test('selectReelCandidates returns unseen-only when the pool is sufficient', () => {
+  const ctx = makeContext();
+  const candidates = Array.from({ length: 20 }, (_, i) =>
+    makeCandidate(`c${i}`, { book: makeBook({ id: `book-${i % 5}` }) }),
+  );
+  const selections = selectReelCandidates(candidates, {}, ctx, 42, 8);
+  assert.equal(selections.length, 8);
+  assert.ok(selections.every((s) => s.recycled === false));
+  const ranked = rankReelCandidates(candidates, ctx, 42, 8).map((c) => c.id);
+  assert.deepEqual(selections.map((s) => s.candidate.id), ranked);
+});
+
+test('selectReelCandidates fills the shortfall with least-recently-seen words', () => {
+  const ctx = makeContext();
+  const candidates = Array.from({ length: 6 }, (_, i) =>
+    makeCandidate(`c${i}`, { book: makeBook({ id: `book-${i}` }) }),
+  );
+  // c0..c3 already seen; c2 is the oldest, c1 the freshest.
+  const seenAtByKey = {
+    c0: '2026-07-02T00:00:00.000Z',
+    c1: '2026-07-03T00:00:00.000Z',
+    c2: '2026-07-01T00:00:00.000Z',
+    c3: '2026-07-02T12:00:00.000Z',
+  };
+  const selections = selectReelCandidates(candidates, seenAtByKey, ctx, 7, 4);
+  assert.equal(selections.length, 4);
+  const unseenPart = selections.filter((s) => !s.recycled).map((s) => s.candidate.id).sort();
+  assert.deepEqual(unseenPart, ['c4', 'c5']);
+  const recycledPart = selections.filter((s) => s.recycled).map((s) => s.candidate.id);
+  assert.equal(recycledPart.length, 2);
+  // The freshest-seen word (c1) must not be recycled while older ones exist
+  // (needed*3 = 6 covers all four seen words, ranked among the oldest first).
+  assert.ok(recycledPart.includes('c2'), 'oldest seen word should be in the recycle pool');
+});
+
+test('selectReelCandidates never returns empty when everything was seen', () => {
+  const ctx = makeContext();
+  const candidates = Array.from({ length: 30 }, (_, i) =>
+    makeCandidate(`c${i}`, { book: makeBook({ id: `book-${i % 6}` }) }),
+  );
+  const seenAtByKey = Object.fromEntries(
+    candidates.map((c, i) => [c.id, `2026-07-0${(i % 3) + 1}T00:00:00.000Z`]),
+  );
+  const selections = selectReelCandidates(candidates, seenAtByKey, ctx, 5, 8);
+  assert.equal(selections.length, 8);
+  assert.ok(selections.every((s) => s.recycled === true));
+});
+
+test('selectReelCandidates is deterministic for a fixed seed', () => {
+  const ctx = makeContext();
+  const candidates = Array.from({ length: 25 }, (_, i) =>
+    makeCandidate(`c${i}`, { book: makeBook({ id: `book-${i % 5}` }) }),
+  );
+  const seenAtByKey = Object.fromEntries(
+    candidates.slice(0, 20).map((c, i) => [c.id, `2026-06-${String(10 + i).padStart(2, '0')}T00:00:00.000Z`]),
+  );
+  const first = selectReelCandidates(candidates, seenAtByKey, ctx, 99, 8);
+  const second = selectReelCandidates(candidates, seenAtByKey, ctx, 99, 8);
+  assert.deepEqual(
+    first.map((s) => [s.candidate.id, s.recycled]),
+    second.map((s) => [s.candidate.id, s.recycled]),
+  );
 });

@@ -5,16 +5,21 @@ import type { ReelFeedPage, ReelFeedUsage, ReelItem } from '@/lib/reels/types';
 
 export type ReelFeedStatus = 'loading' | 'ready' | 'error';
 
+/** Feed entry with a client-unique key — the same word may legitimately
+ * reappear later in a session once the pool recycles. */
+export type ReelFeedItem = ReelItem & { feedKey: string };
+
 type FeedResponse = ReelFeedPage & { success: boolean; error?: string };
 
 export function useReelFeed() {
-  const [items, setItems] = useState<ReelItem[]>([]);
+  const [items, setItems] = useState<ReelFeedItem[]>([]);
   const [status, setStatus] = useState<ReelFeedStatus>('loading');
   const [usage, setUsage] = useState<ReelFeedUsage | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const nextCursorRef = useRef<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const fetchingRef = useRef(false);
+  const feedSequenceRef = useRef(0);
 
   const fetchPage = useCallback(async (cursor: string | null, replace: boolean) => {
     if (fetchingRef.current) return;
@@ -30,11 +35,11 @@ export function useReelFeed() {
       if (!payload.success) {
         throw new Error(payload.error || 'feed_failed');
       }
-      setItems((prev) => {
-        if (replace) return payload.items;
-        const seen = new Set(prev.map((item) => item.id));
-        return [...prev, ...payload.items.filter((item) => !seen.has(item.id))];
+      const keyed: ReelFeedItem[] = payload.items.map((item) => {
+        feedSequenceRef.current += 1;
+        return { ...item, feedKey: `${item.id}#${feedSequenceRef.current}` };
       });
+      setItems((prev) => (replace ? keyed : [...prev, ...keyed]));
       setUsage(payload.usage);
       setLimitReached(payload.limitReached);
       nextCursorRef.current = payload.nextCursor;
