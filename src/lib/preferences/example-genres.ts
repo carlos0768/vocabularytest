@@ -132,15 +132,12 @@ export async function isProSubscriber(
 }
 
 /**
- * ジャンル設定はPro限定機能。生成系API（スキャン・例文・クイズ）からは
- * 必ずこちらを使う。非Pro・判定失敗時は空配列を返し、ジャンル未設定として
- * 扱う（＝マスター例文利用＋汎用例文生成の従来挙動になる）。
+ * ジャンル設定は全プランで利用可能。生成系API（スキャン・例文・クイズ）
+ * からは必ずこちらを使う。
  */
 export async function fetchExampleGenresForProUser(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<string[]> {
-  const isPro = await isProSubscriber(supabase, userId);
-  if (!isPro) return [];
   return fetchExampleGenres(supabase, userId);
 }

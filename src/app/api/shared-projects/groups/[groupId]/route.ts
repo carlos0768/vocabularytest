@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { requireAuthenticatedUser } from '../../shared';
-import { deleteStudyGroup, getStudyGroupOverview, renameStudyGroup, StudyGroupAccessError } from '../shared';
+import { deleteStudyGroup, getStudyGroupOverview, updateStudyGroup, StudyGroupAccessError } from '../shared';
 
 const updateStudyGroupSchema = z.object({
-  name: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(40).optional(),
+  visibility: z.enum(['private', 'public']).optional(),
 }).strict();
 
 type StudyGroupOverviewGetDeps = {
@@ -15,7 +16,7 @@ type StudyGroupOverviewGetDeps = {
 
 type StudyGroupUpdateDeps = {
   requireAuthenticatedUser?: typeof requireAuthenticatedUser;
-  renameStudyGroup?: typeof renameStudyGroup;
+  updateStudyGroup?: typeof updateStudyGroup;
 };
 
 type StudyGroupDeleteDeps = {
@@ -61,19 +62,22 @@ export async function handleStudyGroupUpdatePatch(
   deps: StudyGroupUpdateDeps = {},
 ) {
   const requireAuthenticated = deps.requireAuthenticatedUser ?? requireAuthenticatedUser;
-  const rename = deps.renameStudyGroup ?? renameStudyGroup;
+  const update = deps.updateStudyGroup ?? updateStudyGroup;
 
   try {
     const auth = await requireAuthenticated(request);
     if (!auth.ok) return auth.response;
 
     const parsed = await parseJsonWithSchema(request, updateStudyGroupSchema, {
-      invalidMessage: 'グループ名を確認してください。',
+      invalidMessage: 'グループ情報を確認してください。',
     });
     if (!parsed.ok) return parsed.response;
 
     const { groupId } = await context.params;
-    const group = await rename(groupId, auth.user.id, parsed.data.name);
+    const group = await update(groupId, auth.user.id, {
+      name: parsed.data.name,
+      visibility: parsed.data.visibility,
+    });
     if (!group) {
       return NextResponse.json({ success: false, error: 'グループにアクセスできません。' }, { status: 403 });
     }

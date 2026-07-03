@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { getCurrentWeekStartUtc } from '@/lib/date/week';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import type {
   PublicStudyGroupSummary,
@@ -543,10 +544,15 @@ async function getStudyGroupLeaderboard(
     totals.set(id, { quizCount: 0, masteredCount: 0 });
   }
 
+  // Leaderboard is a weekly league: only sessions started since the most
+  // recent Monday 00:00 JST count toward the current week's totals.
+  const weekStartIso = getCurrentWeekStartUtc().toISOString();
+
   const { data, error } = await admin
     .from('quiz_sessions')
     .select('user_id,answer_count,mastered_count')
-    .in('user_id', memberUserIds);
+    .in('user_id', memberUserIds)
+    .gte('started_at', weekStartIso);
 
   if (error) {
     // Older environments may not have quiz_sessions yet — degrade gracefully.
@@ -988,10 +994,10 @@ export class StudyGroupAccessError extends Error {
  * Renames a study group. Owner-only. Returns the refreshed summary, or `null`
  * when the requester is not a member of the group.
  */
-export async function renameStudyGroup(
+export async function updateStudyGroup(
   groupId: string,
   userId: string,
-  name: string,
+  updates: { name?: string; visibility?: StudyGroupVisibility },
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<StudyGroupSummary | null> {
   const membership = await getStudyGroupMembership(groupId, userId, admin);
@@ -1000,18 +1006,29 @@ export async function renameStudyGroup(
     throw new StudyGroupAccessError('owner_required');
   }
 
-  const normalizedName = name.trim();
-  if (!normalizedName) {
-    throw new StudyGroupAccessError('invalid_name');
+  const patch: { name?: string; visibility?: StudyGroupVisibility } = {};
+
+  if (updates.name !== undefined) {
+    const normalizedName = updates.name.trim();
+    if (!normalizedName) {
+      throw new StudyGroupAccessError('invalid_name');
+    }
+    patch.name = normalizedName;
   }
 
-  const { error } = await admin
-    .from('study_groups')
-    .update({ name: normalizedName })
-    .eq('id', groupId);
+  if (updates.visibility !== undefined) {
+    patch.visibility = normalizeStudyGroupVisibility(updates.visibility);
+  }
 
-  if (error) {
-    throw new Error(error.message || 'study_group_rename_failed');
+  if (Object.keys(patch).length > 0) {
+    const { error } = await admin
+      .from('study_groups')
+      .update(patch)
+      .eq('id', groupId);
+
+    if (error) {
+      throw new Error(error.message || 'study_group_update_failed');
+    }
   }
 
   return getStudyGroupSummaryForUser(groupId, userId, admin);

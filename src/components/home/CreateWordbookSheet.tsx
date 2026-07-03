@@ -40,9 +40,9 @@ interface CreateWordbookSheetProps {
  */
 export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProps) {
   const router = useRouter();
-  const { user, subscription } = useAuth();
+  const { user, subscription, isPro } = useAuth();
   const [step, setStep] = useState<'method' | 'scan'>('method');
-  const [method, setMethod] = useState<CreateMethod>('scan');
+  const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'blank');
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -56,13 +56,13 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     if (!isOpen) return;
     const timer = window.setTimeout(() => {
       setStep('method');
-      setMethod('scan');
+      setMethod(isPro ? 'scan' : 'blank');
       setName('');
       setSubmitting(false);
       setErrorMsg(null);
     }, 80);
     return () => window.clearTimeout(timer);
-  }, [isOpen]);
+  }, [isOpen, isPro]);
 
   if (!isOpen) return null;
 

@@ -4,7 +4,7 @@ import { type ReactNode, useState, useEffect, useCallback, useMemo, useRef } fro
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
-import { TypeInQuizField } from '@/components/quiz';
+import { TypeInQuizField, ReviewProjectFilterSheet, type ReviewFilterProject } from '@/components/quiz';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -80,6 +80,7 @@ import type {
 
 const DEFAULT_QUESTION_COUNT = 10;
 const MAX_NORMAL_QUIZ_QUESTION_COUNT = 20;
+const REVIEW_PROJECT_FILTER_STORAGE_KEY = 'quiz-review-project-filter';
 const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
@@ -510,6 +511,19 @@ export default function QuizPage() {
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
+  const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = sessionStorage.getItem(REVIEW_PROJECT_FILTER_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.every((id) => typeof id === 'string') && parsed.length > 0
+        ? parsed
+        : null;
+    } catch { return null; }
+  });
+  const [availableReviewProjects, setAvailableReviewProjects] = useState<ReviewFilterProject[]>([]);
+  const [reviewFilterSheetOpen, setReviewFilterSheetOpen] = useState(false);
 
   const countFromUrl = searchParams.get('count');
   const returnPath = searchParams.get('from');
@@ -601,6 +615,20 @@ export default function QuizPage() {
   const clearQuizState = useCallback(() => {
     try { sessionStorage.removeItem(storageKey); } catch { /* ignore */ }
   }, [storageKey]);
+
+  const handleApplyReviewProjectFilter = useCallback((ids: string[] | null) => {
+    try {
+      if (ids && ids.length > 0) {
+        sessionStorage.setItem(REVIEW_PROJECT_FILTER_STORAGE_KEY, JSON.stringify(ids));
+      } else {
+        sessionStorage.removeItem(REVIEW_PROJECT_FILTER_STORAGE_KEY);
+      }
+    } catch { /* ignore */ }
+    clearQuizState();
+    restoredFromStorage.current = false;
+    setLoading(true);
+    setReviewProjectFilter(ids);
+  }, [clearQuizState]);
 
   const backToProject = useCallback(() => {
     clearQuizState();
@@ -875,7 +903,15 @@ export default function QuizPage() {
               if (projects.length > 0) wordRepo = remoteRepository;
             } catch { /* ignore */ }
           }
-          const projectIds = projects.map((p) => p.id);
+          if (reviewMode || learnMode) {
+            setAvailableReviewProjects(projects.map((p) => ({ id: p.id, title: p.title })));
+          }
+          let projectIds = projects.map((p) => p.id);
+          if ((reviewMode || learnMode) && reviewProjectFilter && reviewProjectFilter.length > 0) {
+            const filterSet = new Set(reviewProjectFilter);
+            const filtered = projectIds.filter((id) => filterSet.has(id));
+            if (filtered.length > 0) projectIds = filtered;
+          }
           if (projectIds.length === 0 && !wrongMode) {
             if (reminderMode) { router.replace('/'); } else { backToProject(); }
             return;
@@ -966,7 +1002,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
 
   useEffect(() => {
     if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
@@ -1491,6 +1527,15 @@ export default function QuizPage() {
 
   return (
     <>
+    {(reviewMode || learnMode) && (
+      <ReviewProjectFilterSheet
+        isOpen={reviewFilterSheetOpen}
+        onClose={() => setReviewFilterSheetOpen(false)}
+        projects={availableReviewProjects}
+        selectedIds={reviewProjectFilter}
+        onApply={handleApplyReviewProjectFilter}
+      />
+    )}
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
       <div className="ds-quiz-wrap">
         <div className="ds-quiz-head">
@@ -1703,20 +1748,22 @@ export default function QuizPage() {
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
-        <button
-          type="button"
-          onClick={async () => {
-            if (!currentQuestion) return;
-            const word = currentQuestion.word;
-            const newFavorite = !word.isFavorite;
-            await repository.updateWord(word.id, { isFavorite: newFavorite });
-            setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, isFavorite: newFavorite } } : q));
-            setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, isFavorite: newFavorite } : w));
-          }}
-          className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
-        >
-          <Icon name="bookmark" size={19} filled={currentQuestion?.word.isFavorite ?? false} />
-        </button>
+        {(reviewMode || learnMode) && (
+          <button
+            type="button"
+            onClick={() => setReviewFilterSheetOpen(true)}
+            aria-label="出題する単語帳を選ぶ"
+            className="relative inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+          >
+            <Icon name="tune" size={19} />
+            {reviewProjectFilter && reviewProjectFilter.length > 0 && (
+              <span
+                className="absolute right-0.5 top-0.5 h-[7px] w-[7px] rounded-full border border-white"
+                style={{ background: 'var(--color-accent)' }}
+              />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Main content */}

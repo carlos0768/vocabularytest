@@ -193,10 +193,10 @@ test('fetchExampleGenresForProUser returns genres for pro users', async () => {
   assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), ['サッカー', '映画']);
 });
 
-test('fetchExampleGenresForProUser returns empty array for non-pro users even with stored genres', async () => {
+test('fetchExampleGenresForProUser returns genres for non-pro users too (genres are free-plan available)', async () => {
   const supabase = createProAwareSupabaseStub({
     subscriptions: { data: { ...ACTIVE_PRO_SUBSCRIPTION_ROW, status: 'free', plan: 'free' }, error: null },
     preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
   });
-  assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), []);
+  assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), ['サッカー', '映画']);
 });

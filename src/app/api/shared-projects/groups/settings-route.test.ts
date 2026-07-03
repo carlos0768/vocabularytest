@@ -17,14 +17,14 @@ function patchRequest(body: unknown): NextRequest {
 }
 
 test('group PATCH renames the group for the owner', async () => {
-  let receivedName = '';
+  let receivedName: string | undefined;
   const res = await handleStudyGroupUpdatePatch(patchRequest({ name: '新しい名前' }), groupContext, {
     requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'owner-1' } as never }),
-    renameStudyGroup: async (_groupId, _userId, name) => {
-      receivedName = name;
+    updateStudyGroup: async (_groupId, _userId, updates) => {
+      receivedName = updates.name;
       return {
         id: 'group-1',
-        name,
+        name: updates.name ?? '',
         inviteCode: 'abcd1234',
         role: 'owner',
         visibility: 'private',
@@ -42,11 +42,36 @@ test('group PATCH renames the group for the owner', async () => {
   assert.equal(payload.group.name, '新しい名前');
 });
 
+test('group PATCH updates visibility for the owner', async () => {
+  let receivedVisibility: string | undefined;
+  const res = await handleStudyGroupUpdatePatch(patchRequest({ visibility: 'public' }), groupContext, {
+    requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'owner-1' } as never }),
+    updateStudyGroup: async (_groupId, _userId, updates) => {
+      receivedVisibility = updates.visibility;
+      return {
+        id: 'group-1',
+        name: 'グループ',
+        inviteCode: 'abcd1234',
+        role: 'owner',
+        visibility: updates.visibility ?? 'private',
+        memberCount: 2,
+        projectCount: 1,
+        createdAt: '2026-06-14T00:00:00.000Z',
+      };
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(receivedVisibility, 'public');
+  const payload = await res.json();
+  assert.equal(payload.group.visibility, 'public');
+});
+
 test('group PATCH rejects an empty name before reaching the handler', async () => {
   let called = false;
   const res = await handleStudyGroupUpdatePatch(patchRequest({ name: '   ' }), groupContext, {
     requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'owner-1' } as never }),
-    renameStudyGroup: async () => {
+    updateStudyGroup: async () => {
       called = true;
       return null;
     },
@@ -59,7 +84,7 @@ test('group PATCH rejects an empty name before reaching the handler', async () =
 test('group PATCH returns 403 when a non-owner attempts a rename', async () => {
   const res = await handleStudyGroupUpdatePatch(patchRequest({ name: 'Hi' }), groupContext, {
     requireAuthenticatedUser: async () => ({ ok: true as const, user: { id: 'member-1' } as never }),
-    renameStudyGroup: async () => {
+    updateStudyGroup: async () => {
       throw new StudyGroupAccessError('owner_required');
     },
   });

@@ -31,6 +31,7 @@ export function ShareTypeChooser({
   const { showToast } = useToast();
   const [mode, setMode] = useState<'choose' | 'group'>('choose');
   const [groupName, setGroupName] = useState('');
+  const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [creating, setCreating] = useState(false);
 
   if (!open) return null;
@@ -38,6 +39,7 @@ export function ShareTypeChooser({
   const handleClose = () => {
     setMode('choose');
     setGroupName('');
+    setVisibility('private');
     onClose();
   };
 
@@ -66,7 +68,7 @@ export function ShareTypeChooser({
       const response = await fetch('/api/shared-projects/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, visibility }),
       });
       const payload = await response.json().catch(() => null) as GroupCreateResponse | null;
       if (!response.ok || !payload?.success) {
@@ -149,6 +151,37 @@ export function ShareTypeChooser({
               autoFocus
               className="w-full rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
             />
+            <div className="flex overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)]">
+              <button
+                type="button"
+                onClick={() => setVisibility('private')}
+                className="flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[13px] font-bold transition-colors"
+                style={{
+                  background: visibility === 'private' ? 'var(--solid-ink)' : '#fff',
+                  color: visibility === 'private' ? '#fff' : 'var(--solid-ink)',
+                }}
+              >
+                <Icon name="lock" size={14} />
+                非公開
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibility('public')}
+                className="flex flex-1 items-center justify-center gap-1.5 border-l-2 border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold transition-colors"
+                style={{
+                  background: visibility === 'public' ? 'var(--solid-ink)' : '#fff',
+                  color: visibility === 'public' ? '#fff' : 'var(--solid-ink)',
+                }}
+              >
+                <Icon name="public" size={14} />
+                公開
+              </button>
+            </div>
+            <p className="text-[11px] leading-4 text-[var(--color-muted)]">
+              {visibility === 'public'
+                ? '公開グループは共有ページの一覧から誰でも見つけられます'
+                : '非公開グループは招待コードを知っている人のみ参加できます'}
+            </p>
             <div className="flex gap-2">
               <button
                 type="button"

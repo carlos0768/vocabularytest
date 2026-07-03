@@ -1,11 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { DeleteConfirmModal, Icon, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
-import { isBillingEnabled } from '@/lib/billing/feature';
 import {
   MAX_EXAMPLE_GENRES,
   MAX_EXAMPLE_GENRE_LENGTH,
@@ -17,23 +15,20 @@ type ExampleGenreSettingsProps = {
 };
 
 export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSettingsProps) {
-  const { isAuthenticated, isPro } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const { exampleGenres, loading, saving, setExampleGenres } = useUserPreferences();
   const [inputValue, setInputValue] = useState('');
   const [removalTarget, setRemovalTarget] = useState<string | null>(null);
-  const billingEnabled = isBillingEnabled();
 
   const busy = loading || saving;
   const atLimit = exampleGenres.length >= MAX_EXAMPLE_GENRES;
-  const canEdit = isAuthenticated && isPro;
+  const canEdit = isAuthenticated;
 
   const isMobile = variant === 'mobile';
 
   const detail = !isAuthenticated
     ? 'ログインするとジャンルを保存できます'
-    : !isPro
-    ? 'Proプラン限定: 例文を好きなジャンルに寄せます'
     : exampleGenres.length > 0
     ? '例文をこのジャンルに寄せて生成します'
     : '登録すると例文があなた好みになります';
@@ -50,10 +45,6 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
     if (busy) return;
     if (!isAuthenticated) {
       showToast({ type: 'warning', message: 'ジャンルを保存するにはログインしてください' });
-      return;
-    }
-    if (!isPro) {
-      showToast({ type: 'warning', message: 'ジャンル設定はProプラン限定です' });
       return;
     }
 
@@ -185,27 +176,6 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
             </div>
           )}
         </>
-      )}
-
-      {isAuthenticated && !isPro && billingEnabled && (
-        <div className={exampleGenres.length > 0 ? (isMobile ? 'mt-2.5' : 'mt-3') : ''}>
-          <Link
-            href="/subscription"
-            className={
-              isMobile
-                ? 'flex items-center justify-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-1.5 font-display text-[12px] font-bold text-white'
-                : 'flex items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 font-display text-[13px] font-bold text-white'
-            }
-          >
-            <Icon name="workspace_premium" size={isMobile ? 14 : 16} />
-            Proにアップグレードして使う
-          </Link>
-          {exampleGenres.length > 0 && (
-            <p className="mt-2 text-[11px] leading-4 text-[var(--color-muted)]">
-              登録済みのジャンルは現在反映されません。削除は可能です。
-            </p>
-          )}
-        </div>
       )}
 
       <DeleteConfirmModal
