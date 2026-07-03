@@ -206,7 +206,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // ============================================
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
-    // Pro-only: circled, eiken, idiom
+    // Scanning is Pro-only for every mode.
     const requiresPro = requiresProForModes(modes);
     const { data: scanData, error: scanError } = await supabase
       .rpc('check_and_increment_scan', { p_require_pro: requiresPro });

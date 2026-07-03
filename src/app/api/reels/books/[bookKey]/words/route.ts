@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/app/api/shared-projects/shared';
-import { isUserActivePro } from '@/app/api/shared-projects/pro';
 import { getReelBookForImport, parseReelBookKey } from '../../../shared';
 
 export const dynamic = 'force-dynamic';
@@ -9,20 +8,18 @@ type Params = { params: Promise<{ bookKey: string }> };
 
 export type ReelBookWordsRouteDeps = {
   requireAuthenticatedUser: typeof requireAuthenticatedUser;
-  isUserActivePro: typeof isUserActivePro;
   getReelBookForImport: typeof getReelBookForImport;
 };
 
 function getDeps(deps?: Partial<ReelBookWordsRouteDeps>): ReelBookWordsRouteDeps {
   return {
     requireAuthenticatedUser: deps?.requireAuthenticatedUser ?? requireAuthenticatedUser,
-    isUserActivePro: deps?.isUserActivePro ?? isUserActivePro,
     getReelBookForImport: deps?.getReelBookForImport ?? getReelBookForImport,
   };
 }
 
 // Full word list of a reel book, used by the "+" one-tap import.
-// Pro-only: mirrors the shared-wordbook import policy.
+// Available to all logged-in users: mirrors the shared-wordbook import policy.
 export async function handleReelBookWordsGet(
   request: NextRequest,
   bookKey: string,
@@ -40,14 +37,6 @@ export async function handleReelBookWordsGet(
 
     const auth = await resolved.requireAuthenticatedUser(request);
     if (!auth.ok) return auth.response;
-
-    const isPro = await resolved.isUserActivePro(auth.user.id);
-    if (!isPro) {
-      return NextResponse.json(
-        { success: false, error: '単語帳のインポートはProプラン限定です。', requiresPro: true },
-        { status: 403 },
-      );
-    }
 
     const payload = await resolved.getReelBookForImport(decodedKey);
     if (!payload) {

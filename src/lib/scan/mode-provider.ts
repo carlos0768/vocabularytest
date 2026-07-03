@@ -83,11 +83,12 @@ export function getPrimaryExtractMode(modes: Iterable<ExtractMode>): ExtractMode
   return 'all';
 }
 
+// Scanning is a Pro-only feature: every extraction mode (including 'all')
+// requires an active Pro subscription. All scan entry points
+// (/api/extract, /api/scan-jobs) gate through this function.
 export function requiresProForModes(modes: Iterable<ExtractMode>): boolean {
-  for (const mode of modes) {
-    if (mode !== 'all') return true;
-  }
-  return false;
+  void modes;
+  return true;
 }
 
 export function getProvidersForMode(mode: ExtractMode): AIProvider[] {

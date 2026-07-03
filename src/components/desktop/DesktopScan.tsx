@@ -6,6 +6,7 @@ import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { isBillingEnabled } from '@/lib/billing/feature';
 import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
 import {
   addHomeImmediateScanResult,
@@ -270,6 +271,41 @@ export function DesktopScanView({
   };
 
   const openFilePicker = () => fileInputRef.current?.click();
+
+  // Scanning is Pro-only: free users see an upgrade prompt instead of the
+  // capture UI (the server rejects free scans too — this is UX, not the gate).
+  if (!isPro) {
+    return (
+      <div className="hidden h-full min-h-0 flex-col lg:flex">
+        <DesktopTopbar
+          title={hasFixedDestination ? '単語を追加' : 'スキャン'}
+          crumb={hasFixedDestination ? `単語帳 / ${targetProjectTitle ?? '追加先'} / スキャン` : 'スキャン / 写真から単語帳を作成'}
+        />
+        <div className="ds-scroll" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 48 }}>
+          <div className="ds-card" style={{ maxWidth: 480, padding: '40px 36px', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--color-accent-light)', border: '2px solid var(--solid-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="lock" style={{ fontSize: 30, color: 'var(--color-accent-ink)' }} />
+            </div>
+            <h2 style={{ fontSize: 20, margin: '18px 0 0' }}>スキャンはProプラン限定です</h2>
+            <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.7, margin: '10px 0 0' }}>
+              写真から単語帳を自動作成できるのはProプランです。
+              共有ライブラリの単語帳は無料でインポートできます。
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 22 }}>
+              {isBillingEnabled() && (
+                <DesktopButton href="/subscription" variant="accent" icon="auto_awesome">
+                  Proプランを見る
+                </DesktopButton>
+              )}
+              <DesktopButton href="/shared" icon="group">
+                共有ライブラリを見る
+              </DesktopButton>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);

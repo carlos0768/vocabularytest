@@ -188,9 +188,14 @@ export const progressFeatures: ProgressFeature[] = [
 
 export const pricingComparisonRows: PricingComparisonRow[] = [
   {
-    feature: 'スキャン回数',
-    free: '1日3回まで',
+    feature: 'AIスキャン',
+    free: '非対応',
     pro: '無制限',
+  },
+  {
+    feature: '共有単語帳のインポート',
+    free: '対応',
+    pro: '対応',
   },
   {
     feature: '保存方式',
@@ -212,7 +217,7 @@ export const pricingComparisonRows: PricingComparisonRow[] = [
 export const pricingFaqs = [
   {
     question: '無料プランでも使えますか？',
-    answer: '使えます。まず無料で始めて、必要になったらProに切り替えできます。',
+    answer: '使えます。共有ライブラリからの単語帳インポートや手動作成、クイズ学習は無料です。写真からのAIスキャンはProプラン限定です。',
   },
   {
     question: 'Proの解約はいつでもできますか？',
@@ -220,6 +225,6 @@ export const pricingFaqs = [
   },
   {
     question: 'どんな人にProが向いていますか？',
-    answer: '複数端末で学習したい方、毎日たくさんスキャンする方に向いています。',
+    answer: '写真から単語帳を自動作成したい方、複数端末で学習したい方に向いています。',
   },
 ];

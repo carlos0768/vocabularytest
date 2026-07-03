@@ -446,7 +446,7 @@ test('/api/extract preserves usage-limit response shape', async () => {
   assert.deepEqual(client.rpcCalls, [
     {
       name: 'check_and_increment_scan',
-      args: { p_require_pro: false },
+      args: { p_require_pro: true },
     },
   ]);
 });
