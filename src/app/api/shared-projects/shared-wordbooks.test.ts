@@ -218,6 +218,48 @@ test('re-publishing replaces the existing snapshot words and keeps the share id'
   assert.equal(second.wordCount, 2);
 });
 
+test('publishSharedWordbook accepts an owned local snapshot without a source project row', async () => {
+  const store = makeStore({
+    profiles: [{ user_id: 'u1', username: 'taro', account_id: 'taro123' }],
+  });
+  const admin = new FakeAdmin(store);
+  const snapshot = {
+    project: {
+      id: 'local-project-1',
+      userId: 'u1',
+      title: 'Local list',
+      description: 'from indexeddb',
+      sourceLabels: ['local'],
+      createdAt: '2026-01-01T00:00:00Z',
+      shareId: 'local-share-1',
+      shareScope: 'public' as const,
+      isFavorite: false,
+    },
+    words: [
+      {
+        id: 'local-word-1',
+        projectId: 'local-project-1',
+        english: 'local',
+        japanese: 'ローカル',
+        distractors: [],
+        status: 'new' as const,
+        createdAt: '2026-01-01T00:00:00Z',
+        easeFactor: 2.5,
+        intervalDays: 0,
+        repetition: 0,
+        isFavorite: false,
+      },
+    ],
+  };
+
+  const card = await publishSharedWordbook('u1', 'local-project-1', ['/local'], asAdmin(admin), snapshot);
+
+  assert.equal(card.project.shareId, 'local-share-1');
+  assert.equal(card.wordCount, 1);
+  assert.equal(store.shared_wordbooks[0].source_project_id, null);
+  assert.equal(store.shared_wordbook_words[0].english, 'local');
+});
+
 test('listPublicSharedWordbooks maps snapshot rows to cards', async () => {
   const store = makeStore({
     shared_wordbooks: [

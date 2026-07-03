@@ -6,22 +6,11 @@ import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
-import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
-import {
-  addHomeImmediateScanResult,
-  buildHomeImmediateScanConfirmResultPayload,
-  createHomeImmediateScanResultAccumulator,
-  hasNoHomeImmediateScanWords,
-} from '@/lib/home/home-immediate-scan-results';
+import { processImageFile } from '@/lib/image-utils';
 import { saveHomeGeneratingWordbook } from '@/lib/home/home-session-storage';
-import {
-  prepareScanConfirmForNewProject,
-  saveScanConfirmResultPayload,
-  setScanConfirmExistingProject,
-} from '@/lib/scan/scan-session-storage';
 import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
 import { createBrowserClient } from '@/lib/supabase';
-import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
+import type { AIWordExtraction, Project } from '@/types';
 
 const STRIPE_BG = 'repeating-linear-gradient(135deg, #ecebe6, #ecebe6 10px, #e3e1da 10px, #e3e1da 20px)';
 
@@ -39,12 +28,11 @@ const SCAN_OPTIONS: {
   label: string;
   description: string;
   icon: string;
-  pro?: boolean;
 }[] = [
   { key: 'all', label: '単語帳取込', description: '単語帳形式の単語を抽出', icon: 'document_scanner' },
   { key: 'circled', label: '丸囲み', description: 'マークした単語を優先', icon: 'gesture' },
   { key: 'idiom', label: '熟語・イディオム', description: '複数語の表現も候補化', icon: 'link' },
-  { key: 'eiken', label: '英検', description: '級別の頻出語を優先', icon: 'filter_alt', pro: true },
+  { key: 'eiken', label: '英検', description: '級別の頻出語を優先', icon: 'filter_alt' },
 ];
 
 const MAX_SCAN_IMAGE_COUNT = 20;
@@ -179,60 +167,13 @@ export function DesktopScanView({
     }
   };
 
-  const extractImagesImmediately = async (files: readonly File[]) => {
-    let accumulator = createHomeImmediateScanResultAccumulator();
-    const mode = scanModes[0] ?? 'all';
-
-    for (let index = 0; index < files.length; index++) {
-      const file = files[index]!;
-      setProcessingLabel(`画像 ${index + 1}/${files.length} を解析中...`);
-      const base64 = await processImageToBase64(file, 'default');
-      const res = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: base64,
-          mode,
-          scanModes,
-          eikenLevel,
-        }),
-      });
-      const result = await res.json().catch(() => ({})) as {
-        success?: boolean;
-        words?: unknown[];
-        sourceLabels?: unknown[];
-        lexiconEntries?: LexiconEntry[];
-        error?: string;
-      };
-
-      if (!res.ok || !result.success) {
-        throw new Error(result.error ?? `画像 ${index + 1} の抽出に失敗しました`);
-      }
-
-      accumulator = addHomeImmediateScanResult(accumulator, {
-        words: result.words,
-        sourceLabels: result.sourceLabels,
-        lexiconEntries: result.lexiconEntries,
-      });
-    }
-
-    if (hasNoHomeImmediateScanWords(accumulator)) {
-      throw new Error('画像から単語を読み取れませんでした');
-    }
-
-    saveScanConfirmResultPayload(
-      sessionStorage,
-      buildHomeImmediateScanConfirmResultPayload(accumulator),
-    );
-    if (destinationProjectId) {
-      setScanConfirmExistingProject(sessionStorage, destinationProjectId);
-    } else {
-      prepareScanConfirmForNewProject(sessionStorage);
-    }
-  };
-
   const handleFilesSelected = async (files: readonly File[]) => {
     if (files.length === 0 || processing) return;
+    if (!isPro) {
+      setSuccessMsg(null);
+      setErrorMsg('スキャン機能はProプランで利用できます');
+      return;
+    }
     if (files.length > MAX_SCAN_IMAGE_COUNT) {
       setSuccessMsg(null);
       setErrorMsg(`一度に選択できる画像は${MAX_SCAN_IMAGE_COUNT}枚までです`);
@@ -245,23 +186,17 @@ export function DesktopScanView({
     setSuccessMsg(null);
 
     try {
-      if (isPro) {
-        const scanJob = await createBackgroundScanJob(files);
-        if (scanJob.jobId) {
-          saveHomeGeneratingWordbook(sessionStorage, {
-            id: `generating-${Date.now()}`,
-            title: scanJob.projectTitle,
-            linkedJobId: scanJob.jobId,
-          });
-        }
-        setProcessingLabel('ホームへ移動中...');
-        router.push('/');
-        return;
+      const scanJob = await createBackgroundScanJob(files);
+      if (scanJob.jobId) {
+        saveHomeGeneratingWordbook(sessionStorage, {
+          id: `generating-${Date.now()}`,
+          title: scanJob.projectTitle,
+          linkedJobId: scanJob.jobId,
+        });
       }
-
-      await extractImagesImmediately(files);
-      setProcessingLabel('結果を表示中...');
-      router.replace('/scan/confirm');
+      setProcessingLabel('ホームへ移動中...');
+      router.push('/');
+      return;
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : '処理に失敗しました');
       setProcessing(false);
@@ -269,7 +204,14 @@ export function DesktopScanView({
     }
   };
 
-  const openFilePicker = () => fileInputRef.current?.click();
+  const openFilePicker = () => {
+    if (!isPro) {
+      setSuccessMsg(null);
+      setErrorMsg('スキャン機能はProプランで利用できます');
+      return;
+    }
+    fileInputRef.current?.click();
+  };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
@@ -279,6 +221,11 @@ export function DesktopScanView({
 
   const handleClipboard = async () => {
     try {
+      if (!isPro) {
+        setSuccessMsg(null);
+        setErrorMsg('スキャン機能はProプランで利用できます');
+        return;
+      }
       if (!navigator.clipboard?.read) {
         throw new Error('このブラウザではクリップボード画像の読み取りに対応していません');
       }
@@ -353,8 +300,8 @@ export function DesktopScanView({
               gap: 16,
               textAlign: 'center',
               transition: 'all var(--dur-fast) var(--ease-out)',
-              cursor: processing ? 'progress' : 'pointer',
-              opacity: processing ? 0.72 : 1,
+              cursor: processing ? 'progress' : isPro ? 'pointer' : 'not-allowed',
+              opacity: processing ? 0.72 : isPro ? 1 : 0.82,
             }}
             onClick={openFilePicker}
           >
@@ -375,7 +322,7 @@ export function DesktopScanView({
                   event.stopPropagation();
                   openFilePicker();
                 }}
-                disabled={processing}
+                disabled={processing || !isPro}
               >
                 <Icon name="image" />ファイルを選択
               </button>
@@ -386,7 +333,7 @@ export function DesktopScanView({
                   event.stopPropagation();
                   void handleClipboard();
                 }}
-                disabled={processing}
+                disabled={processing || !isPro}
               >
                 <Icon name="content_paste" />クリップボードから
               </button>
@@ -404,6 +351,11 @@ export function DesktopScanView({
                 }}
               >
                 {errorMsg ?? successMsg}
+              </div>
+            )}
+            {!isPro && !errorMsg && !successMsg && (
+              <div className="mono muted" style={{ fontSize: 11, marginTop: 2 }}>
+                スキャン機能はProプランで利用できます
               </div>
             )}
           </div>
@@ -431,7 +383,7 @@ export function DesktopScanView({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="mt">
                         {option.label}
-                        {option.pro && !isPro && <span className="ds-tag accent">PRO</span>}
+                        {!isPro && <span className="ds-tag accent">PRO</span>}
                       </div>
                       <div className="md">{option.description}</div>
                     </div>

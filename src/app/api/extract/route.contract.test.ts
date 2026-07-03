@@ -317,7 +317,7 @@ test('/api/extract rejects HEIC and HEIF before usage increment', async () => {
   assert.deepEqual(client.rpcCalls, []);
 });
 
-test('/api/extract uses scan usage response to reject free users from Pro-only modes', async () => {
+test('/api/extract uses scan usage response to reject free users from scan', async () => {
   const client = new FakeExtractClient({
     scanData: allowedScanData({
       requires_pro: true,
@@ -444,7 +444,7 @@ test('/api/extract preserves usage-limit response shape', async () => {
   assert.deepEqual(client.rpcCalls, [
     {
       name: 'check_and_increment_scan',
-      args: { p_require_pro: false },
+      args: { p_require_pro: true },
     },
   ]);
 });

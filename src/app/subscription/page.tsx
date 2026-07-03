@@ -11,7 +11,7 @@ import { STRIPE_CONFIG } from '@/lib/stripe/config';
 const FEATURES = [
   { label: '単語帳の作成数', free: '制限あり', pro: '無制限' },
   { label: '4択クイズ', free: 'OK', pro: 'OK' },
-  { label: 'カメラスキャン', free: `1日${STRIPE_CONFIG.freePlan.dailyScanLimit}回`, pro: '無制限' },
+  { label: 'カメラスキャン', free: 'Pro限定', pro: '無制限' },
   { label: 'クラウド同期', free: 'なし', pro: 'OK' },
   { label: '複数デバイス', free: 'なし', pro: 'OK' },
   { label: 'データ永続化', free: 'ローカル', pro: 'Cloud' },
@@ -98,7 +98,7 @@ export default function SubscriptionPage() {
               <span className="font-extrabold">全機能を解放</span>して、<br />本気で覚える。
             </div>
             <div className="relative mt-2 text-xs leading-[1.5] text-[var(--color-muted)]">
-              無制限スキャン、クラウド同期、複数デバイス対応で単語帳を長く育てられます。
+              Pro限定スキャン、クラウド同期、複数デバイス対応で単語帳を長く育てられます。
             </div>
           </div>
         </div>

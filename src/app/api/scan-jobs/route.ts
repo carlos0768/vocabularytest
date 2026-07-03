@@ -11,7 +11,6 @@ import {
 import {
   getPrimaryExtractMode,
   normalizeExtractModes,
-  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { processJobById } from './process/route';
@@ -103,7 +102,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const requiresPro = requiresProForModes(scanModes);
+    const requiresPro = true;
     const { data: scanData, error: scanError } = await checkAndIncrementScanUsage(supabase, {
       count: 1,
       requirePro: requiresPro,

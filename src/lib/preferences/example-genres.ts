@@ -135,9 +135,19 @@ export async function isProSubscriber(
  * ジャンル設定は全プランで利用可能。生成系API（スキャン・例文・クイズ）
  * からは必ずこちらを使う。
  */
-export async function fetchExampleGenresForProUser(
+export async function fetchExampleGenresForUser(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<string[]> {
   return fetchExampleGenres(supabase, userId);
+}
+
+/**
+ * 旧名称の互換エクスポート。現在はFreeユーザにもジャンルを反映する。
+ */
+export async function fetchExampleGenresForProUser(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string[]> {
+  return fetchExampleGenresForUser(supabase, userId);
 }

@@ -11,7 +11,6 @@ import {
   EXTRACT_MODES,
   getPrimaryExtractMode,
   normalizeExtractModes,
-  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { processJobById } from '../process/route';
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     const scanModes = normalizeExtractModes(requestedScanModes, [scanMode]);
     const primaryScanMode = getPrimaryExtractMode(scanModes);
-    const requiresPro = requiresProForModes(scanModes);
+    const requiresPro = true;
 
     // Verify all images exist in storage first.
     for (const candidatePath of imagePaths) {

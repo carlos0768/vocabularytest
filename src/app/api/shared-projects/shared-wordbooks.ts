@@ -72,6 +72,11 @@ type PublicListOptions = {
   query?: string | null;
 };
 
+export type PublishSharedWordbookSnapshot = {
+  project: Project;
+  words: Word[];
+};
+
 export class SharedWordbookError extends Error {
   constructor(readonly code: 'not_found' | 'forbidden' | 'failed', message?: string) {
     super(message ?? code);
@@ -89,6 +94,22 @@ function generateShareId(): string {
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function normalizeSnapshotWords(projectId: string, words: readonly Word[]): SourceWordRow[] {
+  return words
+    .filter((word) => word.projectId === projectId)
+    .map((word) => ({
+      english: word.english,
+      japanese: word.japanese,
+      pronunciation: word.pronunciation ?? null,
+      example_sentence: word.exampleSentence ?? null,
+      example_sentence_ja: word.exampleSentenceJa ?? null,
+      part_of_speech_tags: word.partOfSpeechTags ?? null,
+      vocabulary_type: word.vocabularyType ?? null,
+      distractors: word.distractors ?? [],
+      created_at: word.createdAt,
+    }));
 }
 
 function normalizePartOfSpeechTags(value: unknown): string[] | undefined {
@@ -430,62 +451,97 @@ export async function publishSharedWordbook(
   projectId: string,
   sharedTags: readonly string[],
   admin: SupabaseAdminClient = getSupabaseAdmin(),
+  snapshot?: PublishSharedWordbookSnapshot,
 ): Promise<SharedProjectCard> {
-  const { data: projectRow, error: projectError } = await admin
-    .from('projects')
-    .select('id,user_id,title,description,icon_image,source_labels')
-    .eq('id', projectId)
-    .maybeSingle<{
-      id: string;
-      user_id: string;
-      title: string;
-      description: string | null;
-      icon_image: string | null;
-      source_labels: unknown[] | null;
-    }>();
-
-  if (projectError) {
-    throw new Error(projectError.message || 'shared_wordbook_publish_project_lookup_failed');
-  }
-  if (!projectRow) {
-    throw new SharedWordbookError('not_found', 'project_not_found');
-  }
-  if (projectRow.user_id !== userId) {
-    throw new SharedWordbookError('forbidden', 'project_not_owned');
-  }
-
   const tags = normalizeSharedTags(sharedTags);
+  let projectRow: {
+    id: string;
+    user_id: string;
+    title: string;
+    description: string | null;
+    icon_image: string | null;
+    source_labels: unknown[] | null;
+  };
+  let sourceWords: SourceWordRow[];
+  let sourceProjectId: string | null = projectId;
+  let existingLookup:
+    | { column: 'source_project_id'; value: string }
+    | { column: 'share_id'; value: string }
+    | null = { column: 'source_project_id', value: projectId };
 
-  // Snapshot the words from the source project.
-  const { data: wordRows, error: wordError } = await admin
-    .from('words')
-    .select(SOURCE_WORD_SELECT)
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: true });
+  if (snapshot) {
+    if (snapshot.project.id !== projectId) {
+      throw new SharedWordbookError('failed', 'snapshot_project_mismatch');
+    }
+    if (snapshot.project.userId !== userId) {
+      throw new SharedWordbookError('forbidden', 'snapshot_project_not_owned');
+    }
 
-  if (wordError) {
-    throw new Error(wordError.message || 'shared_wordbook_publish_words_failed');
+    projectRow = {
+      id: snapshot.project.id,
+      user_id: userId,
+      title: snapshot.project.title,
+      description: snapshot.project.description ?? null,
+      icon_image: snapshot.project.iconImage ?? null,
+      source_labels: snapshot.project.sourceLabels,
+    };
+    sourceWords = normalizeSnapshotWords(projectId, snapshot.words);
+    sourceProjectId = null;
+    existingLookup = snapshot.project.shareId
+      ? { column: 'share_id', value: snapshot.project.shareId }
+      : null;
+  } else {
+    const { data, error: projectError } = await admin
+      .from('projects')
+      .select('id,user_id,title,description,icon_image,source_labels')
+      .eq('id', projectId)
+      .maybeSingle<typeof projectRow>();
+
+    if (projectError) {
+      throw new Error(projectError.message || 'shared_wordbook_publish_project_lookup_failed');
+    }
+    if (!data) {
+      throw new SharedWordbookError('not_found', 'project_not_found');
+    }
+    if (data.user_id !== userId) {
+      throw new SharedWordbookError('forbidden', 'project_not_owned');
+    }
+    projectRow = data;
+
+    // Snapshot the words from the source project.
+    const { data: wordRows, error: wordError } = await admin
+      .from('words')
+      .select(SOURCE_WORD_SELECT)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true });
+
+    if (wordError) {
+      throw new Error(wordError.message || 'shared_wordbook_publish_words_failed');
+    }
+    sourceWords = (wordRows ?? []) as SourceWordRow[];
   }
-  const sourceWords = (wordRows ?? []) as SourceWordRow[];
 
-  // Reuse an existing snapshot for this source project, if present.
-  const { data: existing, error: existingError } = await admin
-    .from('shared_wordbooks')
-    .select('id,share_id,user_id')
-    .eq('source_project_id', projectId)
-    .maybeSingle<{ id: string; share_id: string; user_id: string }>();
+  let existing: { id: string; share_id: string; user_id: string } | null = null;
+  if (existingLookup) {
+    const { data, error: existingError } = await admin
+      .from('shared_wordbooks')
+      .select('id,share_id,user_id')
+      .eq(existingLookup.column, existingLookup.value)
+      .maybeSingle<{ id: string; share_id: string; user_id: string }>();
 
-  if (existingError) {
-    throw new Error(existingError.message || 'shared_wordbook_publish_existing_lookup_failed');
+    if (existingError) {
+      throw new Error(existingError.message || 'shared_wordbook_publish_existing_lookup_failed');
+    }
+    existing = data ?? null;
   }
   if (existing && existing.user_id !== userId) {
     throw new SharedWordbookError('forbidden', 'shared_wordbook_not_owned');
   }
 
-  const shareId = existing?.share_id ?? generateShareId();
+  const shareId = existing?.share_id ?? snapshot?.project.shareId ?? generateShareId();
   const basePayload = {
     share_id: shareId,
-    source_project_id: projectId,
+    source_project_id: sourceProjectId,
     user_id: userId,
     title: projectRow.title,
     description: projectRow.description,

@@ -24,7 +24,7 @@ export const KOMOJU_CONFIG = {
 
   // Free plan limits
   freePlan: {
-    dailyScanLimit: 3,
+    dailyScanLimit: 0,
     wordLimit: 100,
   },
 

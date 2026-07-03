@@ -21,7 +21,7 @@ export const STRIPE_CONFIG = {
   },
 
   freePlan: {
-    dailyScanLimit: 3,
+    dailyScanLimit: 0,
     wordLimit: 100,
   },
 

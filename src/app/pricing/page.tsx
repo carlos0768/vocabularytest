@@ -63,7 +63,7 @@ export default function PricingPage() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2 text-[var(--color-muted)]">
                 <Icon name="check" size={16} className="text-[var(--color-success)]" />
-                1日{STRIPE_CONFIG.freePlan.dailyScanLimit}回までスキャン
+                スキャンはProで利用可能
               </li>
               <li className="flex items-center gap-2 text-[var(--color-muted)]">
                 <Icon name="check" size={16} className="text-[var(--color-success)]" />

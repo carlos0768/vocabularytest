@@ -121,7 +121,7 @@ const ROOT_LANDING_STUDY_FEATURES = [
 const ROOT_LANDING_FAQS = [
   {
     q: '無料プランでも学習はできますか？',
-    a: 'はい。無料プランでも単語帳、4択クイズ、フラッシュカードを使えます。無料プランは1日3回までのスキャンと100単語までの保存が上限です。',
+    a: 'はい。無料プランでも単語帳、4択クイズ、フラッシュカードを使えます。スキャンはPro限定で、無料プランは100単語まで保存できます。',
   },
   {
     q: 'Proにすると何が変わりますか？',
@@ -959,14 +959,14 @@ function GuestHomePage() {
             number="05"
             label="Pricing"
             title={<>無料で始めて、<br />必要ならProへ。</>}
-            body="料金と制限は実装中の設定に合わせています。まずは無料で試し、スキャン回数や同期が必要になったらProへ切り替えられます。"
+            body="料金と制限は実装中の設定に合わせています。まずは無料で試し、スキャンや同期が必要になったらProへ切り替えられます。"
           />
           <div className="grid gap-7 lg:grid-cols-2">
             <RootLandingPricingCard
               plan="Free"
               price="0"
               description="最初の単語帳を作り、基本の復習を試すためのプランです。"
-              features={['1日3回までスキャン', '100単語まで保存', 'ローカル保存', '基本の単語帳・クイズ・カード']}
+              features={['スキャンはPro限定', '100単語まで保存', 'ローカル保存', '基本の単語帳・クイズ・カード']}
             />
             <RootLandingPricingCard
               plan="Pro"

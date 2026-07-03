@@ -76,7 +76,7 @@ import {
   type ExampleGenerationFailureKind,
   type ExampleGenerationSummary,
 } from '@/lib/ai/generate-example-sentences';
-import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import { fetchExampleGenresForUser } from '@/lib/preferences/example-genres';
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import {
   enqueueWordLexiconResolutionJobs,
@@ -877,8 +877,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const cloudRunTimingEntries: CloudRunTimingEntry[] = [];
     return await runWithCloudRunTimingCollector(cloudRunTimingEntries, async () => {
       const apiKeys = getApiKeys();
-      // ユーザの興味ジャンル（例文パーソナライズ用・Pro限定）。非Pro/取得失敗時は空配列で続行。
-      const exampleGenres = await fetchExampleGenresForProUser(supabaseAdmin, job.user_id);
+      // ユーザの興味ジャンル（例文パーソナライズ用・全プラン）。取得失敗時は空配列で続行。
+      const exampleGenres = await fetchExampleGenresForUser(supabaseAdmin, job.user_id);
       const processingStartedAt = Date.now();
       const timing = createTimingMetrics();
 

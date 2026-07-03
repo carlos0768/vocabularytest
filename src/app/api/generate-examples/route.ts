@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
-import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import { fetchExampleGenresForUser } from '@/lib/preferences/example-genres';
 import {
   checkAndIncrementFeatureUsage,
   isAiUsageLimitsEnabled,
@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 4. GENERATE EXAMPLES WITH AI
     // ============================================
-    // ユーザの興味ジャンルを例文生成プロンプトへ反映（Pro限定。非Pro/未設定なら影響なし）
-    const exampleGenres = user ? await fetchExampleGenresForProUser(supabase, user.id) : [];
+    // ユーザの興味ジャンルを例文生成プロンプトへ反映（Free含む全プラン）
+    const exampleGenres = user ? await fetchExampleGenresForUser(supabase, user.id) : [];
 
     let generationResult;
     try {

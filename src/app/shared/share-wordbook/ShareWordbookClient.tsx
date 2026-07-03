@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
-import { remoteRepository } from '@/lib/db/remote-repository';
+import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { triggerHaptic } from '@/lib/haptics';
 import { parseSharedTagsInput } from '../../../../shared/shared-tags';
-import type { Project } from '@/types';
+import type { Project, SubscriptionStatus } from '@/types';
 import type { SharedProjectCard } from '@/lib/shared-projects/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -23,7 +23,7 @@ function thumbColor(id: string) {
 type PublishResponse = {
   success?: boolean;
   error?: string;
-  wordbook?: { project?: { shareId?: string } };
+  wordbook?: SharedProjectCard;
 };
 
 type MySharedResponse = {
@@ -34,8 +34,11 @@ type MySharedResponse = {
 
 export default function ShareWordbookClient() {
   const router = useRouter();
-  const { user, isPro, loading: authLoading } = useAuth();
+  const { user, subscription, wasPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
+  const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
+  const usesLocalShareSnapshot = subscriptionStatus !== 'active' && !wasPro;
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,12 +57,12 @@ export default function ShareWordbookClient() {
   );
 
   const loadProjects = useCallback(async () => {
-    if (!user || !isPro) return;
+    if (!user) return;
     setLoading(true);
     setLoadError(null);
     try {
       const [ownProjects, sharedResponse] = await Promise.all([
-        remoteRepository.getProjects(user.id),
+        repository.getProjects(user.id),
         fetch('/api/shared-projects/share-wordbook', { cache: 'no-store' })
           .then((response) => response.json().catch(() => null) as Promise<MySharedResponse | null>)
           .catch(() => null),
@@ -74,12 +77,12 @@ export default function ShareWordbookClient() {
     } finally {
       setLoading(false);
     }
-  }, [isPro, user]);
+  }, [repository, user]);
 
   useEffect(() => {
-    if (authLoading || !user || !isPro) return;
+    if (authLoading || !user) return;
     void loadProjects();
-  }, [authLoading, isPro, loadProjects, user]);
+  }, [authLoading, loadProjects, user]);
 
   const handleStopShare = async (card: SharedProjectCard) => {
     const sharedId = card.project.id;
@@ -116,17 +119,36 @@ export default function ShareWordbookClient() {
     if (!selectedProject || saving) return;
     setSaving(true);
     try {
+      const sharedTags = parseSharedTagsInput(tagDraft);
+      const snapshotWords = usesLocalShareSnapshot
+        ? await repository.getWords(selectedProject.id)
+        : undefined;
       const response = await fetch('/api/shared-projects/share-wordbook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectId: selectedProject.id,
-          sharedTags: parseSharedTagsInput(tagDraft),
+          sharedTags,
+          ...(usesLocalShareSnapshot
+            ? { snapshot: { project: selectedProject, words: snapshotWords ?? [] } }
+            : {}),
         }),
       });
       const payload = await response.json().catch(() => null) as PublishResponse | null;
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || 'publish_failed');
+      }
+      const sharedProject = payload.wordbook?.project;
+      if (sharedProject?.shareId) {
+        try {
+          await repository.updateProject(selectedProject.id, {
+            shareId: sharedProject.shareId,
+            shareScope: sharedProject.shareScope ?? 'public',
+            sharedTags: sharedProject.sharedTags ?? sharedTags,
+          });
+        } catch (updateError) {
+          console.warn('Shared project metadata was published but not saved locally:', updateError);
+        }
       }
       invalidateHomeCache();
       showToast({ message: '単語帳を共有しました', type: 'success' });
@@ -158,7 +180,7 @@ export default function ShareWordbookClient() {
         </div>
       </div>
 
-      {user && isPro && sharedWordbooks.length > 0 && (
+      {user && sharedWordbooks.length > 0 && (
         <div className="px-[14px] pt-2">
           <div className="mb-2 flex items-center gap-1.5 px-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
             <Icon name="public" size={13} />
@@ -188,13 +210,6 @@ export default function ShareWordbookClient() {
           message="ログインすると単語帳を共有できます。"
           actionLabel="ログイン"
           onAction={() => router.push('/login?redirect=/shared/share-wordbook')}
-        />
-      ) : !isPro ? (
-        <ActionState
-          icon="auto_awesome"
-          message="単語帳の共有はProプラン限定です。"
-          actionLabel="Proを見る"
-          onAction={() => router.push('/subscription')}
         />
       ) : loading ? (
         <CenterState icon="progress_activity" spin message="読み込み中..." />
@@ -257,7 +272,7 @@ export default function ShareWordbookClient() {
         </div>
       )}
 
-      {user && isPro && projects.length > 0 && (
+      {user && projects.length > 0 && (
         <div
           className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[#faf7f1] px-4 pt-3"
           style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}

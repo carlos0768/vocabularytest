@@ -4,7 +4,6 @@ import {
   getSharedProjectWordsByShareCode,
   requireAuthenticatedUser,
 } from '../../../shared';
-import { isUserActivePro } from '../../../pro';
 import {
   getSharedWordbookByShareId,
   getSharedWordbookWords,
@@ -12,10 +11,7 @@ import {
 
 type Params = { params: Promise<{ shareId: string }> };
 
-/**
- * Full word list for a published shared wordbook. Pro-only: free users see the
- * limited preview returned by the share preview route instead.
- */
+/** Full word list for a published shared wordbook. Login is required. */
 export async function GET(request: NextRequest, { params }: Params) {
   try {
     const { shareId } = await params;
@@ -26,11 +22,6 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     const auth = await requireAuthenticatedUser(request);
     if (!auth.ok) return auth.response;
-
-    const isPro = await isUserActivePro(auth.user.id);
-    if (!isPro) {
-      return NextResponse.json({ success: false, error: 'Proプラン限定です。' }, { status: 403 });
-    }
 
     const sharedWordbook = await getSharedWordbookByShareId(shareCode);
     const words = sharedWordbook
