@@ -672,13 +672,24 @@ export async function setReelWordLike(options: {
   const column = source === 'shared' ? 'shared_word_id' : 'official_word_id';
 
   if (liked) {
-    const { error } = await admin
+    // Select-then-insert instead of upsert: the unique index is partial
+    // (WHERE <col> IS NOT NULL), which Postgres cannot use for ON CONFLICT
+    // inference — an upsert here fails with 42P10 and 500s the route.
+    const { data: existing } = await admin
       .from('reel_word_likes')
-      .upsert([{ user_id: userId, [column]: wordId }], {
-        onConflict: `user_id,${column}`,
-        ignoreDuplicates: true,
-      });
-    if (error) throw new Error(error.message || 'reel_like_upsert_failed');
+      .select('id')
+      .eq('user_id', userId)
+      .eq(column, wordId)
+      .maybeSingle<{ id: string }>();
+    if (!existing) {
+      const { error } = await admin
+        .from('reel_word_likes')
+        .insert([{ user_id: userId, [column]: wordId }]);
+      // 23505 = unique_violation from a concurrent insert → already liked.
+      if (error && (error as { code?: string }).code !== '23505') {
+        throw new Error(error.message || 'reel_like_insert_failed');
+      }
+    }
   } else {
     const { error } = await admin
       .from('reel_word_likes')
@@ -932,19 +943,39 @@ export async function setReelWordFeedback(options: {
   if (!resolved) return null;
 
   const column = options.source === 'shared' ? 'shared_word_id' : 'official_word_id';
-  const { error } = await admin
+  const nowIso = new Date().toISOString();
+
+  // Select-then-update/insert instead of upsert: the unique index is partial
+  // (WHERE <col> IS NOT NULL), which Postgres cannot use for ON CONFLICT
+  // inference — an upsert here fails with 42P10 and 500s the route.
+  const { data: existing } = await admin
     .from('reel_word_feedback')
-    .upsert(
-      [{
+    .select('id')
+    .eq('user_id', options.userId)
+    .eq(column, options.wordId)
+    .maybeSingle<{ id: string }>();
+
+  if (existing) {
+    const { error } = await admin
+      .from('reel_word_feedback')
+      .update({ feedback: options.feedback, book_ref: resolved.bookRef, updated_at: nowIso })
+      .eq('id', existing.id);
+    if (error) throw new Error(error.message || 'reel_feedback_update_failed');
+  } else {
+    const { error } = await admin
+      .from('reel_word_feedback')
+      .insert([{
         user_id: options.userId,
         [column]: options.wordId,
         book_ref: resolved.bookRef,
         feedback: options.feedback,
-        updated_at: new Date().toISOString(),
-      }],
-      { onConflict: `user_id,${column}` },
-    );
-  if (error) throw new Error(error.message || 'reel_feedback_upsert_failed');
+        updated_at: nowIso,
+      }]);
+    // 23505 = unique_violation from a concurrent insert → treat as applied.
+    if (error && (error as { code?: string }).code !== '23505') {
+      throw new Error(error.message || 'reel_feedback_insert_failed');
+    }
+  }
 
   return { feedback: options.feedback };
 }
