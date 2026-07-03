@@ -275,6 +275,11 @@ export default function SharedDetailPage() {
       setSelectedWordIds(new Set());
       invalidateHomeCache();
       showToast({ message: `${targetWords.length}語を追加しました`, type: 'success' });
+
+      // Best-effort: let the original owner know their wordbook was imported.
+      // Failure here must not affect the import itself.
+      fetch(`/api/shared-projects/share/${encodeURIComponent(shareId)}/imported`, { method: 'POST' })
+        .catch(() => { /* ignore */ });
     } catch (importError) {
       console.error('Failed to import shared project:', importError);
       showToast({ message: 'インポートに失敗しました', type: 'error' });

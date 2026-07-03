@@ -16,7 +16,6 @@ import {
 import {
   MAX_EXAMPLE_GENRES,
   MAX_EXAMPLE_GENRE_LENGTH,
-  isProSubscriber,
   normalizeExampleGenres,
 } from '@/lib/preferences/example-genres';
 
@@ -188,14 +187,6 @@ export async function PUT(request: NextRequest) {
     }
     if (parsed.data.exampleGenres !== undefined) {
       const normalizedGenres = normalizeExampleGenres(parsed.data.exampleGenres);
-      // ジャンル設定はPro限定。空配列（削除）は誰でも可能にし、
-      // Pro解約後でも残ったジャンルを消せるようにする。
-      if (normalizedGenres.length > 0 && !(await isProSubscriber(supabase, userId))) {
-        return NextResponse.json(
-          { error: 'ジャンル設定はProプラン限定です', code: 'PRO_REQUIRED' },
-          { status: 403 },
-        );
-      }
       updatePayload.example_genres = normalizedGenres;
     }
     if (parsed.data.studyReminderEnabled !== undefined) {

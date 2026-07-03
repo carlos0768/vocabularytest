@@ -16,11 +16,21 @@ export const GROUP_THUMB_COLORS = [
   '#3DA1B8',
 ] as const;
 
-// Deterministic theme color for a group id. Same id -> same color everywhere.
-export function groupThumbColor(id: string): string {
+function thumbColorForId(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   return GROUP_THUMB_COLORS[Math.abs(h) % GROUP_THUMB_COLORS.length];
+}
+
+// Deterministic theme color for a group id. Same id -> same color everywhere.
+export function groupThumbColor(id: string): string {
+  return thumbColorForId(id);
+}
+
+// Deterministic theme color for a shared wordbook (project) id, drawn from the
+// same palette so wordbook OGP cards feel consistent with group ones.
+export function wordbookThumbColor(id: string): string {
+  return thumbColorForId(id);
 }
 
 export type GroupShareInfo = {

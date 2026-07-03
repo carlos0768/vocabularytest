@@ -255,6 +255,38 @@ export async function sendGroupProjectAddedPushNotifications(
   );
 }
 
+type ProjectImportedPushParams = {
+  ownerUserId: string;
+  projectId: string;
+  projectTitle: string;
+  importerName?: string | null;
+};
+
+function createProjectImportedPayload(params: ProjectImportedPushParams): string {
+  const actor = params.importerName ? `${params.importerName}さん` : '誰か';
+  return JSON.stringify({
+    title: 'MERKEN',
+    body: `${actor}があなたの単語帳「${params.projectTitle}」をインポートしました！`,
+    tag: `project-imported-${params.projectId}`,
+    data: {
+      url: `/project/${params.projectId}`,
+      kind: 'project-imported',
+      projectId: params.projectId,
+    },
+  });
+}
+
+export async function sendProjectImportedPushNotification(
+  supabaseAdmin: SupabaseClient,
+  params: ProjectImportedPushParams,
+): Promise<PushDeliveryResult> {
+  const payload = createProjectImportedPayload(params);
+  return sendPushPayloadToUser(supabaseAdmin, params.ownerUserId, payload, {
+    ttl: 86400,
+    urgency: 'low',
+  });
+}
+
 export async function sendScanJobPushNotifications(
   supabaseAdmin: SupabaseClient,
   params: ScanJobPushParams,

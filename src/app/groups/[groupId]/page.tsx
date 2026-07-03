@@ -323,7 +323,7 @@ function LeaderboardSection({ leaderboard }: { leaderboard: StudyGroupLeaderboar
 
   if (leaderboard.length === 0) {
     return (
-      <SectionCard icon="emoji_events" title="ランキング" subtitle="解いたクイズ数で競おう" accent="#FFC800">
+      <SectionCard icon="emoji_events" title="今週のランキング" subtitle="毎週月曜0時にリセット" accent="#FFC800">
         <EmptyRow message="まだランキングがありません" />
       </SectionCard>
     );
@@ -337,7 +337,7 @@ function LeaderboardSection({ leaderboard }: { leaderboard: StudyGroupLeaderboar
   const hiddenTotal = restAll.slice(maxVisible).reduce((s, e) => s + e.quizCount, 0);
 
   return (
-    <SectionCard icon="emoji_events" title="ランキング" subtitle="解いたクイズ数で競おう" accent="#FFC800">
+    <SectionCard icon="emoji_events" title="今週のランキング" subtitle="毎週月曜0時にリセット" accent="#FFC800">
       <div className="mb-2 flex items-end justify-center gap-2">
         {podium[1] && <PodiumColumn entry={podium[1]} place={2} />}
         {podium[0] && <PodiumColumn entry={podium[0]} place={1} />}

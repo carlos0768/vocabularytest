@@ -40,6 +40,7 @@ export default function GroupSettingsPage() {
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [savingVisibility, setSavingVisibility] = useState(false);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -99,6 +100,30 @@ export default function GroupSettingsPage() {
       setSavingName(false);
     }
   }, [group, nameChanged, savingName, trimmedName, showToast]);
+
+  const handleChangeVisibility = useCallback(async (visibility: 'private' | 'public') => {
+    if (!group || savingVisibility || group.visibility === visibility) return;
+    triggerHaptic();
+    setSavingVisibility(true);
+    try {
+      const response = await fetch(`/api/shared-projects/groups/${encodeURIComponent(group.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility }),
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; group?: StudyGroupSummary; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'group_visibility_update_failed');
+      }
+      setGroup((prev) => (prev ? { ...prev, visibility } : prev));
+      showToast({ message: visibility === 'public' ? 'グループを公開しました' : 'グループを非公開にしました', type: 'success' });
+    } catch (visibilityError) {
+      const message = visibilityError instanceof Error ? visibilityError.message : '変更に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setSavingVisibility(false);
+    }
+  }, [group, savingVisibility, showToast]);
 
   const handleRemoveMember = useCallback(async (member: StudyGroupMember) => {
     if (!group || pendingMemberId) return;
@@ -242,6 +267,51 @@ export default function GroupSettingsPage() {
             ) : (
               <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)]">
                 {group.name}
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Visibility */}
+          <SectionCard icon="public" title="公開設定" accent="#664DB3">
+            {isOwner ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)]">
+                  <button
+                    type="button"
+                    disabled={savingVisibility}
+                    onClick={() => void handleChangeVisibility('private')}
+                    className="flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[13px] font-bold transition-colors disabled:opacity-60"
+                    style={{
+                      background: group.visibility === 'private' ? 'var(--solid-ink)' : '#fff',
+                      color: group.visibility === 'private' ? '#fff' : 'var(--solid-ink)',
+                    }}
+                  >
+                    <Icon name="lock" size={14} />
+                    非公開
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingVisibility}
+                    onClick={() => void handleChangeVisibility('public')}
+                    className="flex flex-1 items-center justify-center gap-1.5 border-l-2 border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold transition-colors disabled:opacity-60"
+                    style={{
+                      background: group.visibility === 'public' ? 'var(--solid-ink)' : '#fff',
+                      color: group.visibility === 'public' ? '#fff' : 'var(--solid-ink)',
+                    }}
+                  >
+                    <Icon name="public" size={14} />
+                    公開
+                  </button>
+                </div>
+                <p className="text-[11px] leading-4 text-[var(--color-muted)]">
+                  {group.visibility === 'public'
+                    ? '公開グループは共有ページの一覧から誰でも見つけられます'
+                    : '非公開グループは招待コードを知っている人のみ参加できます'}
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)]">
+                {group.visibility === 'public' ? '公開グループ' : '非公開グループ'}
               </div>
             )}
           </SectionCard>
