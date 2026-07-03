@@ -8,6 +8,7 @@ type ReelActionRailProps = {
   item: ReelItem;
   onLike: () => void;
   onSpeak: () => void;
+  onComment: () => void;
   onShare: () => void;
   onMore: () => void;
 };
@@ -58,7 +59,7 @@ function RailButton({
 }
 
 /** SNS-style vertical action rail on the right edge of a reel card. */
-export function ReelActionRail({ item, onLike, onSpeak, onShare, onMore }: ReelActionRailProps) {
+export function ReelActionRail({ item, onLike, onSpeak, onComment, onShare, onMore }: ReelActionRailProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <RailButton
@@ -69,13 +70,18 @@ export function ReelActionRail({ item, onLike, onSpeak, onShare, onMore }: ReelA
         onClick={onLike}
         ariaLabel={item.likedByMe ? 'いいねを取り消す' : 'いいねする'}
       />
+      <RailButton
+        icon="chat_bubble"
+        label={item.commentCount > 0 ? String(item.commentCount) : undefined}
+        onClick={onComment}
+        ariaLabel="コメントを見る・書く"
+      />
       <RailButton icon="volume_up" onClick={onSpeak} ariaLabel="発音を再生" />
       <RailButton icon="send" onClick={onShare} ariaLabel="この単語を共有" />
       <RailButton
         icon="more_horiz"
-        label={item.commentCount > 0 ? String(item.commentCount) : undefined}
         onClick={onMore}
-        ariaLabel="その他のメニュー（コメント・興味あり/なし）"
+        ariaLabel="その他のメニュー（興味あり/なし）"
       />
     </div>
   );

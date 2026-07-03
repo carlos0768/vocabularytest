@@ -40,21 +40,6 @@ export function ReelLimitCard({ limit }: { limit: number | null }) {
   );
 }
 
-/** Shown when the candidate pool is exhausted. */
-export function ReelEndCard() {
-  return (
-    <StatusShell>
-      <Icon name="celebration" size={40} className="text-[var(--color-accent)]" />
-      <h2 className="mt-3 font-display text-lg font-bold text-[var(--color-foreground)]">
-        今日のリールは以上です
-      </h2>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--color-secondary-text)]">
-        新しい単語帳が公開されると、ここに新しい単語が流れてきます。
-      </p>
-    </StatusShell>
-  );
-}
-
 /** Shown when there are no candidates at all. */
 export function ReelEmptyState() {
   return (

@@ -167,3 +167,45 @@ export function rankReelCandidates(
 
   return picked;
 }
+
+export type ReelSelection = { candidate: ReelCandidate; recycled: boolean };
+
+/**
+ * Select up to `limit` candidates for a feed page, never running dry:
+ * unseen candidates are ranked first; any shortfall is filled by
+ * recycling seen candidates as review cards, least-recently-seen first.
+ * Pure and deterministic for a given (candidates, seenAtByKey, ctx, seed).
+ */
+export function selectReelCandidates(
+  candidates: ReelCandidate[],
+  seenAtByKey: Record<string, string>,
+  ctx: ReelRankingContext,
+  seed: number,
+  limit: number,
+): ReelSelection[] {
+  if (limit <= 0 || candidates.length === 0) return [];
+
+  const unseen = candidates.filter((candidate) => seenAtByKey[candidate.id] === undefined);
+  const picked: ReelSelection[] = rankReelCandidates(unseen, ctx, seed, limit).map(
+    (candidate) => ({ candidate, recycled: false }),
+  );
+
+  const needed = limit - picked.length;
+  if (needed <= 0) return picked;
+
+  // LRU recycle pool: seen candidates, oldest seen_at first. Ties broken
+  // by id so the order stays deterministic.
+  const recyclePool = candidates
+    .filter((candidate) => seenAtByKey[candidate.id] !== undefined)
+    .sort(
+      (a, b) =>
+        seenAtByKey[a.id].localeCompare(seenAtByKey[b.id]) || a.id.localeCompare(b.id),
+    )
+    .slice(0, needed * 3);
+
+  for (const candidate of rankReelCandidates(recyclePool, ctx, seed, needed)) {
+    picked.push({ candidate, recycled: true });
+  }
+
+  return picked;
+}

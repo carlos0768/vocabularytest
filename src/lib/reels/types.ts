@@ -41,6 +41,8 @@ export type ReelItem = {
   likeCount: number;
   likedByMe: boolean;
   commentCount: number;
+  /** true when re-served as a review card after the unseen pool ran out */
+  isRecycled?: boolean;
   book: ReelBook;
 };
 
@@ -70,7 +72,7 @@ export type ReelFeedPage = {
 };
 
 /** Candidate fed into the ranking function (before like/imported enrichment). */
-export type ReelCandidate = Omit<ReelItem, 'likeCount' | 'likedByMe' | 'commentCount'>;
+export type ReelCandidate = Omit<ReelItem, 'likeCount' | 'likedByMe' | 'commentCount' | 'isRecycled'>;
 
 /** Personalization context for ranking. */
 export type ReelRankingContext = {

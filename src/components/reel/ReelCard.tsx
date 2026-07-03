@@ -152,8 +152,13 @@ export function ReelCard({
         >
           {/* Front: English + IPA only */}
           <div className="flex h-full w-1/2 flex-col items-center justify-center gap-4 px-8 text-center">
-            {item.partOfSpeechTags.length > 0 && (
+            {(item.partOfSpeechTags.length > 0 || item.isRecycled) && (
               <div className="flex flex-wrap justify-center gap-1.5">
+                {item.isRecycled && (
+                  <span className="rounded-full border border-[var(--color-accent)] bg-[var(--color-accent-light)] px-2.5 py-0.5 text-xs font-bold text-[var(--color-accent-ink)]">
+                    復習
+                  </span>
+                )}
                 {item.partOfSpeechTags.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
@@ -186,6 +191,7 @@ export function ReelCard({
             item={item}
             onLike={onLike}
             onSpeak={() => speak(item.english)}
+            onComment={() => setCommentsOpen(true)}
             onShare={onShare}
             onMore={() => setMoreOpen(true)}
           />
@@ -197,15 +203,11 @@ export function ReelCard({
         <ReelBookCard book={item.book} importing={importing} onImport={onImport} />
       </div>
 
-      {/* "..." menu: comments + interested / not-interested */}
+      {/* "..." menu: interested / not-interested feedback */}
       <ReelMoreSheet
         item={item}
         isOpen={moreOpen}
         onClose={() => setMoreOpen(false)}
-        onOpenComments={() => {
-          setMoreOpen(false);
-          setCommentsOpen(true);
-        }}
         onFeedback={(feedback) => {
           setMoreOpen(false);
           onFeedback(feedback);

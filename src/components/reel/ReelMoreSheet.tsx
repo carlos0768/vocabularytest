@@ -8,7 +8,6 @@ type ReelMoreSheetProps = {
   item: ReelItem;
   isOpen: boolean;
   onClose: () => void;
-  onOpenComments: () => void;
   onFeedback: (feedback: ReelFeedback) => void;
 };
 
@@ -41,26 +40,14 @@ function SheetRow({
   );
 }
 
-/** "..." menu: comments entry + interested / not-interested feedback. */
-export function ReelMoreSheet({
-  item,
-  isOpen,
-  onClose,
-  onOpenComments,
-  onFeedback,
-}: ReelMoreSheetProps) {
+/** "..." menu: interested / not-interested feedback. */
+export function ReelMoreSheet({ item, isOpen, onClose, onFeedback }: ReelMoreSheetProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} variant="sheet">
       <div className="px-4 pb-6 pt-5">
         <p className="mb-3 truncate px-3 font-display text-sm font-bold text-[var(--color-secondary-text)]">
           {item.english}
         </p>
-        <SheetRow
-          icon="chat_bubble"
-          label="コメント"
-          sub={item.commentCount > 0 ? `${item.commentCount}件のコメント` : 'コメントを見る・書く'}
-          onClick={onOpenComments}
-        />
         <SheetRow
           icon="thumb_up"
           label="興味あり"
