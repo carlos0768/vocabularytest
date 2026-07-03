@@ -49,24 +49,26 @@ const AccountIconFilled = () => (
   </svg>
 );
 
-const StatsIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 3v18h18"/>
-    <path d="M7 16l4-4 4 4 4-6"/>
-  </svg>
-);
-
-const StatsIconFilled = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 3v18h18"/>
-    <path d="M7 16l4-4 4 4 4-6"/>
-  </svg>
-);
-
 const ScanPlusIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9"/>
     <path d="M12 8v8M8 12h8"/>
+  </svg>
+);
+
+const ReelIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="3"/>
+    <path d="M4 8h16"/>
+    <path d="M10.5 12.2l4 2.3-4 2.3v-4.6z"/>
+  </svg>
+);
+
+const ReelIconFilled = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="3"/>
+    <path d="M4 8h16" stroke="#fff" strokeWidth="1.5"/>
+    <path d="M10.5 12.2l4 2.3-4 2.3v-4.6z" fill="#fff" stroke="#fff"/>
   </svg>
 );
 
@@ -105,12 +107,12 @@ const TABS: TabItem[] = [
     IconActive: ScanPlusIcon,
   },
   {
-    k: 'feed',
-    label: 'フィード',
-    href: '/friends',
-    matchPaths: ['/friends'],
-    IconDefault: StatsIcon,
-    IconActive: StatsIconFilled,
+    k: 'reels',
+    label: 'リール',
+    href: '/reels',
+    matchPaths: ['/reels'],
+    IconDefault: ReelIcon,
+    IconActive: ReelIconFilled,
   },
   {
     k: 'account',

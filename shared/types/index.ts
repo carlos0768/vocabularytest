@@ -212,6 +212,8 @@ export interface Project {
   shareScope?: ProjectShareScope; // Whether the shared project is listed publicly
   /** Set when this project was created by importing a copy from /share/[shareId] */
   importedFromShareId?: string;
+  /** Set when this project was created by importing an official wordbook (reel import) */
+  importedFromOfficialSlug?: string;
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
   /** User-defined extra columns shown in the project word list table. */
   customColumns?: CustomColumn[];
