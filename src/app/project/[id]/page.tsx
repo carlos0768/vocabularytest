@@ -1042,6 +1042,9 @@ export default function ProjectPage() {
         <StackedBar total={counts.total} m={counts.mastered} a={counts.active} l={counts.learning} n={counts.newCount} />
       </div>
 
+      {/* Quiz / card / add row and the search row assume the book has words;
+          the 0-word empty state below provides its own add actions instead. */}
+      {(!wordsLoaded || counts.total > 0) && (
       <div className="flex items-center gap-2 px-[18px] pb-4">
         <div className="relative flex-1">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
@@ -1108,7 +1111,9 @@ export default function ProjectPage() {
           )}
         </div>
       </div>
+      )}
 
+      {(!wordsLoaded || counts.total > 0) && (
       <div className="flex items-center gap-2 px-5 pb-2">
         <label
           htmlFor="project-word-search"
@@ -1167,6 +1172,7 @@ export default function ProjectPage() {
           <Icon name="check_box" size={15} />
         </button>
       </div>
+      )}
 
       <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
         {!wordsLoaded ? (
@@ -1180,7 +1186,6 @@ export default function ProjectPage() {
               isPro={isPro}
               onScan={() => setShowScanCaptureModal(true)}
               onManualAdd={openManualWordModal}
-              onBrowseShared={() => router.push('/shared')}
             />
           ) : (
             <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
@@ -1494,15 +1499,13 @@ function EmptyWordbookState({
   isPro,
   onScan,
   onManualAdd,
-  onBrowseShared,
 }: {
   isPro: boolean;
   onScan: () => void;
   onManualAdd: () => void;
-  onBrowseShared: () => void;
 }) {
-  // Free users get manual entry + shared library first (scanning is
-  // Pro-only); Pro users get scan as the recommended first action.
+  // Free users get manual entry first (scanning is Pro-only);
+  // Pro users get scan as the recommended first action.
   const actions: {
     key: string;
     icon: string;
@@ -1515,11 +1518,9 @@ function EmptyWordbookState({
     ? [
         { key: 'scan', icon: 'photo_camera', label: 'スキャンで追加', hint: '写真から自動で単語を抽出', primary: true, onClick: onScan },
         { key: 'manual', icon: 'edit', label: '手で入力', hint: '続けて何語でも入力できます', onClick: onManualAdd },
-        { key: 'shared', icon: 'group', label: '共有ライブラリから探す', hint: 'みんなの単語帳をインポート', onClick: onBrowseShared },
       ]
     : [
         { key: 'manual', icon: 'edit', label: '手で入力', hint: '続けて何語でも入力できます', primary: true, onClick: onManualAdd },
-        { key: 'shared', icon: 'group', label: '共有ライブラリから探す', hint: 'みんなの単語帳を無料でインポート', onClick: onBrowseShared },
         { key: 'scan', icon: 'photo_camera', label: 'スキャンで追加', hint: '写真から自動抽出（Pro限定）', pro: true, onClick: onScan },
       ];
 

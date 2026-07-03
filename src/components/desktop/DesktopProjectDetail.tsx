@@ -488,9 +488,6 @@ export function DesktopProjectDetailView({
                     <DesktopButton icon="photo_camera" onClick={onScan}>
                       スキャンで追加
                     </DesktopButton>
-                    <DesktopButton icon="group" href="/shared">
-                      共有ライブラリから探す
-                    </DesktopButton>
                   </div>
                 </div>
               ) : (
