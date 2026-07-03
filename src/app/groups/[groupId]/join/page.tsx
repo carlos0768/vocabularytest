@@ -78,16 +78,15 @@ export default function GroupJoinPage() {
     };
   }, [authLoading, isAuthenticated, groupId, router]);
 
-  const handleJoin = useCallback(async () => {
-    const trimmed = inviteCode.trim();
-    if (!trimmed || joining) return;
+  const submitJoin = useCallback(async (body: { inviteCode: string } | { groupId: string }) => {
+    if (joining) return;
     triggerHaptic();
     setJoining(true);
     try {
       const response = await fetch('/api/shared-projects/groups/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode: trimmed }),
+        body: JSON.stringify(body),
       });
       const payload = await response.json().catch(() => null) as JoinResponse | null;
       if (response.status === 404) {
@@ -105,7 +104,18 @@ export default function GroupJoinPage() {
     } finally {
       setJoining(false);
     }
-  }, [inviteCode, joining, router, showToast]);
+  }, [joining, router, showToast]);
+
+  const handleJoin = useCallback(() => {
+    const trimmed = inviteCode.trim();
+    if (!trimmed) return;
+    return submitJoin({ inviteCode: trimmed });
+  }, [inviteCode, submitJoin]);
+
+  const handleJoinById = useCallback(() => {
+    if (!groupId) return;
+    return submitJoin({ groupId });
+  }, [groupId, submitJoin]);
 
   return (
     <div
@@ -173,43 +183,67 @@ export default function GroupJoinPage() {
             </div>
           </section>
 
-          <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
-                <Icon name="key" size={18} />
-              </span>
-              <div>
-                <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">招待コードで参加</h2>
-                <div className="text-[11px] font-bold text-[var(--color-muted)]">グループのオーナーから招待コードを受け取ってください</div>
+          {preview?.visibility === 'public' ? (
+            <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+                  <Icon name="public" size={18} />
+                </span>
+                <div>
+                  <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">誰でも参加できます</h2>
+                  <div className="text-[11px] font-bold text-[var(--color-muted)]">公開グループなので招待コードは不要です</div>
+                </div>
               </div>
-            </div>
 
-            <form
-              onSubmit={(event) => { event.preventDefault(); void handleJoin(); }}
-              className="mt-4 flex flex-col gap-3"
-            >
-              <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3">
-                <Icon name="vpn_key" size={16} className="shrink-0 text-[var(--color-muted)]" />
-                <span className="sr-only">招待コード</span>
-                <input
-                  value={inviteCode}
-                  onChange={(event) => setInviteCode(event.target.value)}
-                  placeholder="招待コードを入力"
-                  autoComplete="off"
-                  autoCapitalize="none"
-                  className="min-w-0 flex-1 bg-transparent font-mono text-[15px] font-extrabold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
-                />
-              </label>
               <button
-                type="submit"
-                disabled={joining || !inviteCode.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:shadow-none"
+                type="button"
+                onClick={() => void handleJoinById()}
+                disabled={joining}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:shadow-none"
               >
                 <Icon name={joining ? 'progress_activity' : 'login'} size={18} className={joining ? 'animate-spin' : undefined} />
                 {joining ? '参加中...' : 'グループに参加'}
               </button>
-            </form>
-          </section>
+            </section>
+          ) : (
+            <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+                  <Icon name="key" size={18} />
+                </span>
+                <div>
+                  <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">招待コードで参加</h2>
+                  <div className="text-[11px] font-bold text-[var(--color-muted)]">グループのオーナーから招待コードを受け取ってください</div>
+                </div>
+              </div>
+
+              <form
+                onSubmit={(event) => { event.preventDefault(); void handleJoin(); }}
+                className="mt-4 flex flex-col gap-3"
+              >
+                <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3">
+                  <Icon name="vpn_key" size={16} className="shrink-0 text-[var(--color-muted)]" />
+                  <span className="sr-only">招待コード</span>
+                  <input
+                    value={inviteCode}
+                    onChange={(event) => setInviteCode(event.target.value)}
+                    placeholder="招待コードを入力"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    className="min-w-0 flex-1 bg-transparent font-mono text-[15px] font-extrabold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={joining || !inviteCode.trim()}
+                  className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:shadow-none"
+                >
+                  <Icon name={joining ? 'progress_activity' : 'login'} size={18} className={joining ? 'animate-spin' : undefined} />
+                  {joining ? '参加中...' : 'グループに参加'}
+                </button>
+              </form>
+            </section>
+          )}
         </div>
       )}
     </div>

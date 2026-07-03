@@ -293,6 +293,27 @@ export async function getPublicStudyGroupPreview(
   };
 }
 
+async function upsertStudyGroupMembership(
+  group: Pick<StudyGroupRow, 'id' | 'owner_user_id'>,
+  userId: string,
+  admin: SupabaseAdminClient,
+): Promise<void> {
+  const { error: memberError } = await admin
+    .from('study_group_members')
+    .upsert(
+      [{
+        group_id: group.id,
+        user_id: userId,
+        role: group.owner_user_id === userId ? 'owner' : 'member',
+      }],
+      { onConflict: 'group_id,user_id', ignoreDuplicates: true },
+    );
+
+  if (memberError) {
+    throw new Error(memberError.message || 'study_group_join_failed');
+  }
+}
+
 export async function joinStudyGroupByInviteCode(
   userId: string,
   inviteCodeInput: string,
@@ -312,20 +333,38 @@ export async function joinStudyGroupByInviteCode(
   }
   if (!group) return null;
 
-  const { error: memberError } = await admin
-    .from('study_group_members')
-    .upsert(
-      [{
-        group_id: group.id,
-        user_id: userId,
-        role: group.owner_user_id === userId ? 'owner' : 'member',
-      }],
-      { onConflict: 'group_id,user_id', ignoreDuplicates: true },
-    );
+  await upsertStudyGroupMembership(group, userId, admin);
 
-  if (memberError) {
-    throw new Error(memberError.message || 'study_group_join_failed');
+  return getStudyGroupSummaryForUser(group.id, userId, admin);
+}
+
+/**
+ * Joins a group by id without an invite code. Only permitted when the group's
+ * `visibility` is `public` — re-checked server-side regardless of what the
+ * client believes, since the preview payload is not itself an authorization
+ * grant. Throws `StudyGroupAccessError('not_public')` for a private group so
+ * the API can return a distinct "invite code required" error.
+ */
+export async function joinPublicStudyGroupById(
+  userId: string,
+  groupId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupSummary | null> {
+  const { data: group, error: groupError } = await admin
+    .from('study_groups')
+    .select(STUDY_GROUP_SELECT_COLUMNS)
+    .eq('id', groupId)
+    .maybeSingle<StudyGroupRow>();
+
+  if (groupError) {
+    throw new Error(groupError.message || 'study_group_lookup_failed');
   }
+  if (!group) return null;
+  if (normalizeStudyGroupVisibility(group.visibility) !== 'public') {
+    throw new StudyGroupAccessError('not_public');
+  }
+
+  await upsertStudyGroupMembership(group, userId, admin);
 
   return getStudyGroupSummaryForUser(group.id, userId, admin);
 }
@@ -984,7 +1023,7 @@ export class StudyGroupProjectAccessError extends Error {
 }
 
 export class StudyGroupAccessError extends Error {
-  constructor(readonly code: 'owner_required' | 'cannot_remove_owner' | 'invalid_name') {
+  constructor(readonly code: 'owner_required' | 'cannot_remove_owner' | 'invalid_name' | 'not_public') {
     super(code);
     this.name = 'StudyGroupAccessError';
   }
