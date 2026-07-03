@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopProjectDetailView } from '@/components/desktop/DesktopProjectDetail';
@@ -129,6 +129,7 @@ export default function ProjectPage() {
   const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
   const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
+  const [manualWordAddedCount, setManualWordAddedCount] = useState(0);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
   const wordDetailOpen = selectedWord !== null;
@@ -797,6 +798,19 @@ export default function ProjectPage() {
     setManualWordExampleSentence('');
   };
 
+  const openManualWordModal = () => {
+    setManualWordAddedCount(0);
+    setShowManualWordModal(true);
+  };
+
+  const closeManualWordModal = () => {
+    setShowManualWordModal(false);
+    resetManualWordForm();
+    if (manualWordAddedCount > 0) {
+      showToast({ message: `${manualWordAddedCount}語を追加しました`, type: 'success' });
+    }
+  };
+
   const handleSaveManualWord = async () => {
     const english = manualWordEnglish.trim();
     const japanese = manualWordJapanese.trim();
@@ -875,9 +889,11 @@ export default function ProjectPage() {
     };
 
     setWords((prev) => [optimisticWord, ...prev]);
-    showToast({ message: '単語を追加しました', type: 'success' });
+    // Keep the modal open so several words can be entered in a row
+    // (scan-like batch entry); the modal shows a running count and the
+    // summary toast fires when the user closes it.
     resetManualWordForm();
-    setShowManualWordModal(false);
+    setManualWordAddedCount((count) => count + 1);
     setManualWordSaving(false);
     setManualWordSavingMessage(undefined);
     refreshWordCount();
@@ -961,7 +977,7 @@ export default function ProjectPage() {
         onDeleteWord={handleOpenDeleteWord}
         onBulkDelete={() => setBulkDeleteModalOpen(true)}
         onScan={() => setShowScanCaptureModal(true)}
-        onManualAdd={() => setShowManualWordModal(true)}
+        onManualAdd={openManualWordModal}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       <div className="sticky top-0 z-10 flex items-center justify-between bg-[var(--color-background)] px-4 pb-2 pt-3 lg:hidden">
@@ -1084,7 +1100,7 @@ export default function ProjectPage() {
                   label="手で入力"
                   onClick={() => {
                     setAddMenuOpen(false);
-                    setShowManualWordModal(true);
+                    openManualWordModal();
                   }}
                 />
               </div>
@@ -1159,9 +1175,18 @@ export default function ProjectPage() {
             <span className="ml-2 text-sm">単語を読み込み中...</span>
           </div>
         ) : filteredWordGroups.length === 0 ? (
-          <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
-            {query ? '一致する単語がありません' : '単語がありません'}
-          </div>
+          counts.total === 0 ? (
+            <EmptyWordbookState
+              isPro={isPro}
+              onScan={() => setShowScanCaptureModal(true)}
+              onManualAdd={openManualWordModal}
+              onBrowseShared={() => router.push('/shared')}
+            />
+          ) : (
+            <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
+              {query ? '一致する単語がありません' : '条件に一致する単語がありません'}
+            </div>
+          )
         ) : (
           <div className="divide-y divide-[var(--color-border)]">
             {filteredWordGroups.map((group) => {
@@ -1185,38 +1210,6 @@ export default function ProjectPage() {
           </div>
         )}
       </div>
-
-      <ManualWordModal
-        open={showManualWordModal}
-        loading={manualWordSaving}
-        loadingMessage={manualWordSavingMessage}
-        english={manualWordEnglish}
-        japanese={manualWordJapanese}
-        partOfSpeech={manualWordPartOfSpeech}
-        exampleSentence={manualWordExampleSentence}
-        onEnglishChange={setManualWordEnglish}
-        onJapaneseChange={setManualWordJapanese}
-        onPartOfSpeechChange={setManualWordPartOfSpeech}
-        onExampleSentenceChange={setManualWordExampleSentence}
-        onCancel={() => {
-          setShowManualWordModal(false);
-          resetManualWordForm();
-        }}
-        onConfirm={handleSaveManualWord}
-      />
-
-      <WordLimitModal
-        isOpen={showWordLimitModal}
-        onClose={() => setShowWordLimitModal(false)}
-        currentCount={totalWordCount}
-      />
-
-      <ScanCaptureModal
-        isOpen={showScanCaptureModal}
-        onClose={() => setShowScanCaptureModal(false)}
-        targetProjectId={projectId}
-        targetProjectTitle={project.title}
-      />
 
       <ProjectShareSheet
         open={showShareSheet}
@@ -1286,7 +1279,37 @@ export default function ProjectPage() {
       </div>
 
       {/* Shared overlays: rendered outside the lg:hidden wrapper so the
-          desktop view's filter / sort / select buttons can use them too */}
+          desktop view's filter / sort / select / add buttons can use them too */}
+      <ManualWordModal
+        open={showManualWordModal}
+        loading={manualWordSaving}
+        loadingMessage={manualWordSavingMessage}
+        addedCount={manualWordAddedCount}
+        english={manualWordEnglish}
+        japanese={manualWordJapanese}
+        partOfSpeech={manualWordPartOfSpeech}
+        exampleSentence={manualWordExampleSentence}
+        onEnglishChange={setManualWordEnglish}
+        onJapaneseChange={setManualWordJapanese}
+        onPartOfSpeechChange={setManualWordPartOfSpeech}
+        onExampleSentenceChange={setManualWordExampleSentence}
+        onCancel={closeManualWordModal}
+        onConfirm={handleSaveManualWord}
+      />
+
+      <WordLimitModal
+        isOpen={showWordLimitModal}
+        onClose={() => setShowWordLimitModal(false)}
+        currentCount={totalWordCount}
+      />
+
+      <ScanCaptureModal
+        isOpen={showScanCaptureModal}
+        onClose={() => setShowScanCaptureModal(false)}
+        targetProjectId={projectId}
+        targetProjectTitle={project.title}
+      />
+
       <SingleWordDeleteModal
         open={deleteWordTarget !== null}
         loading={deleteWordLoading}
@@ -1467,10 +1490,111 @@ function DeleteProjectModal({
   );
 }
 
+function EmptyWordbookState({
+  isPro,
+  onScan,
+  onManualAdd,
+  onBrowseShared,
+}: {
+  isPro: boolean;
+  onScan: () => void;
+  onManualAdd: () => void;
+  onBrowseShared: () => void;
+}) {
+  // Free users get manual entry + shared library first (scanning is
+  // Pro-only); Pro users get scan as the recommended first action.
+  const actions: {
+    key: string;
+    icon: string;
+    label: string;
+    hint: string;
+    primary?: boolean;
+    pro?: boolean;
+    onClick: () => void;
+  }[] = isPro
+    ? [
+        { key: 'scan', icon: 'photo_camera', label: 'スキャンで追加', hint: '写真から自動で単語を抽出', primary: true, onClick: onScan },
+        { key: 'manual', icon: 'edit', label: '手で入力', hint: '続けて何語でも入力できます', onClick: onManualAdd },
+        { key: 'shared', icon: 'group', label: '共有ライブラリから探す', hint: 'みんなの単語帳をインポート', onClick: onBrowseShared },
+      ]
+    : [
+        { key: 'manual', icon: 'edit', label: '手で入力', hint: '続けて何語でも入力できます', primary: true, onClick: onManualAdd },
+        { key: 'shared', icon: 'group', label: '共有ライブラリから探す', hint: 'みんなの単語帳を無料でインポート', onClick: onBrowseShared },
+        { key: 'scan', icon: 'photo_camera', label: 'スキャンで追加', hint: '写真から自動抽出（Pro限定）', pro: true, onClick: onScan },
+      ];
+
+  return (
+    <div
+      className="rounded-[14px] border-2 border-dashed border-[var(--solid-ink)] bg-white px-5 py-7 text-center"
+      style={{ background: 'rgba(26,26,26,0.02)' }}
+    >
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light)]">
+        <Icon name="menu_book" size={20} className="text-[var(--color-accent-ink)]" />
+      </div>
+      <div className="mt-3 font-display text-[16px] font-extrabold text-[var(--solid-ink)]">
+        まだ単語がありません
+      </div>
+      <p className="mt-1.5 text-[12px] leading-[1.6] text-[var(--color-muted)]">
+        単語を追加すると、クイズやカードで学習を始められます。
+      </p>
+      <div className="mt-4 flex flex-col gap-2.5 text-left">
+        {actions.map((action) => (
+          <button
+            key={action.key}
+            type="button"
+            onClick={action.onClick}
+            className="flex items-center gap-3 rounded-[12px] border-2 px-3.5 py-3 transition-all duration-100 active:translate-x-px active:translate-y-px"
+            style={{
+              borderColor: 'var(--solid-ink)',
+              background: action.primary ? 'var(--color-accent)' : '#fff',
+              boxShadow: '2px 2px 0 var(--solid-ink)',
+            }}
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px]"
+              style={{
+                background: action.primary ? 'rgba(255,255,255,0.18)' : 'var(--color-surface-secondary)',
+                color: action.primary ? '#fff' : 'var(--solid-ink)',
+              }}
+            >
+              <Icon name={action.icon} size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span
+                className="flex items-center gap-1.5 text-[13.5px] font-bold"
+                style={{ color: action.primary ? '#fff' : 'var(--solid-ink)' }}
+              >
+                {action.label}
+                {action.pro && (
+                  <span className="rounded-[3px] border border-[var(--solid-ink)] bg-white px-[5px] py-[1px] font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                    PRO
+                  </span>
+                )}
+              </span>
+              <span
+                className="mt-0.5 block text-[10.5px] font-medium"
+                style={{ color: action.primary ? 'rgba(255,255,255,0.8)' : 'var(--color-muted)' }}
+              >
+                {action.hint}
+              </span>
+            </span>
+            <Icon
+              name="chevron_right"
+              size={16}
+              style={{ color: action.primary ? '#fff' : 'var(--color-muted)' }}
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ManualWordModal({
   open,
   loading,
   loadingMessage,
+  addedCount,
   english,
   japanese,
   partOfSpeech,
@@ -1485,6 +1609,7 @@ function ManualWordModal({
   open: boolean;
   loading: boolean;
   loadingMessage?: string;
+  addedCount: number;
   english: string;
   japanese: string;
   partOfSpeech: string;
@@ -1497,6 +1622,17 @@ function ManualWordModal({
   onConfirm: () => void;
 }) {
   const [showOptional, setShowOptional] = useState(false);
+  const englishInputRef = useRef<HTMLInputElement>(null);
+  const wasLoadingRef = useRef(loading);
+
+  // After each save the form clears and stays open for the next word —
+  // refocus the english field so batch entry flows without extra taps.
+  useEffect(() => {
+    if (wasLoadingRef.current && !loading && open) {
+      englishInputRef.current?.focus();
+    }
+    wasLoadingRef.current = loading;
+  }, [loading, open]);
 
   if (!open) return null;
   const canSubmit = english.trim().length > 0 && japanese.trim().length > 0 && !loading;
@@ -1523,8 +1659,14 @@ function ManualWordModal({
             単語を追加
           </h2>
           <p className="mt-1 text-[11px] leading-[1.5] text-[var(--color-muted)]">
-            品詞・例文・発音記号は AI が自動で補完します。
+            続けて何語でも入力できます。品詞・例文・発音記号は AI が自動で補完します。
           </p>
+          {addedCount > 0 && (
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[var(--solid-ink)] bg-[var(--color-accent-light)] px-2.5 py-1 font-mono text-[10px] font-bold text-[var(--color-accent-ink)]">
+              <Icon name="check" size={11} />
+              {addedCount}語追加済み
+            </div>
+          )}
 
           <div className="mt-4 space-y-3">
             <div>
@@ -1532,6 +1674,7 @@ function ManualWordModal({
                 英単語
               </label>
               <input
+                ref={englishInputRef}
                 type="text"
                 value={english}
                 onChange={(e) => onEnglishChange(e.target.value)}
@@ -1607,7 +1750,7 @@ function ManualWordModal({
               disabled={loading}
               className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
             >
-              キャンセル
+              {addedCount > 0 ? '完了' : 'キャンセル'}
             </button>
             <button
               type="button"
@@ -1616,7 +1759,7 @@ function ManualWordModal({
               className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
             >
               {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
-              {loading ? (loadingMessage ?? '保存中...') : '追加'}
+              {loading ? (loadingMessage ?? '保存中...') : '追加して次へ'}
             </button>
           </div>
         </div>
