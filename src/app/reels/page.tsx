@@ -10,6 +10,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
+import { generateWordShareImage } from '@/lib/reels/share-image';
 import type { VocabularyType } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
 import {
@@ -143,8 +144,24 @@ export default function ReelsPage() {
         : `${window.location.origin}/reels`;
       const text = `この単語知ってた？「${item.english}」${item.japanese ? ` — ${item.japanese}` : ''}\nMerkenのリールで英単語を学ぼう`;
       try {
+        // Generate the thumbnail card and prefer sharing it as an image.
+        const blob = await generateWordShareImage(item).catch(() => null);
+        const file = blob
+          ? new File([blob], `merken-${item.english.slice(0, 24)}.png`, { type: 'image/png' })
+          : null;
+
+        if (file && navigator.canShare?.({ files: [file] })) {
+          // Some targets drop `url` when files are present — keep it in text.
+          await navigator.share({ files: [file], title: 'Merken Reel', text: `${text}\n${url}` });
+          return;
+        }
         if (navigator.share) {
           await navigator.share({ title: 'Merken Reel', text, url });
+          return;
+        }
+        if (blob && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          showToast({ message: 'サムネ画像をコピーしました', type: 'success' });
           return;
         }
         await navigator.clipboard.writeText(`${text}\n${url}`);
