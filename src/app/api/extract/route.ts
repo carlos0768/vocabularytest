@@ -16,7 +16,6 @@ import {
   getProvidersForMode,
   getProvidersForModes,
   normalizeExtractModes,
-  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
 import { z } from 'zod';
@@ -25,7 +24,7 @@ import { ensureSourceLabels } from '../../../../shared/source-labels';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
-import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import { fetchExampleGenresForUser } from '@/lib/preferences/example-genres';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
 
 export type { ExtractMode } from '@/lib/scan/mode-provider';
@@ -206,8 +205,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // ============================================
     // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
     // ============================================
-    // Pro-only: circled, eiken, idiom
-    const requiresPro = requiresProForModes(modes);
+    // スキャンは全モードPro限定。
+    const requiresPro = true;
     const { data: scanData, error: scanError } = await supabase
       .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
 
@@ -305,9 +304,9 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // ============================================
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
-    // ユーザの興味ジャンル（例文パーソナライズ用・Pro限定）。非Pro/取得失敗時は空配列で続行。
+    // ユーザの興味ジャンル（例文パーソナライズ用・全プラン）。取得失敗時は空配列で続行。
     // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
-    const exampleGenres = await fetchExampleGenresForProUser(supabase, user.id);
+    const exampleGenres = await fetchExampleGenresForUser(supabase, user.id);
     const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
     const resolved = masterFirstEnabled
       ? await resolveImmediateWords(result.data.words, undefined, {

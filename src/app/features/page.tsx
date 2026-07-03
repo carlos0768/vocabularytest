@@ -351,7 +351,7 @@ export default function FeaturesPage() {
                 <ul className="mt-4 space-y-2 text-sm text-[var(--color-muted)]">
                   <li className="flex items-center gap-2">
                     <Icon name="check" size={16} className="text-[var(--color-success)]" />
-                    1日3回までスキャン
+                    スキャンはPro限定
                   </li>
                   <li className="flex items-center gap-2">
                     <Icon name="check" size={16} className="text-[var(--color-success)]" />

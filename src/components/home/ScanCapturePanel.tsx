@@ -6,28 +6,14 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { MultiShotCaptureView } from '@/components/home/MultiShotCaptureView';
 import { useAuth } from '@/hooks/use-auth';
-import { processImageToBase64 } from '@/lib/image-utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { createBrowserClient } from '@/lib/supabase';
-import {
-  addHomeImmediateScanResult,
-  buildHomeImmediateScanConfirmResultPayload,
-  createHomeImmediateScanResultAccumulator,
-  hasNoHomeImmediateScanWords,
-} from '@/lib/home/home-immediate-scan-results';
 import {
   saveHomeGeneratingWordbook,
   type HomeGeneratingWordbookPayload,
 } from '@/lib/home/home-session-storage';
-import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
 import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
 import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
-import {
-  prepareScanConfirmForNewProject,
-  saveScanConfirmProjectDraft,
-  saveScanConfirmResultPayload,
-  setScanConfirmExistingProject,
-} from '@/lib/scan/scan-session-storage';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 export const MAX_SCAN_IMAGE_COUNT = 20;
@@ -144,61 +130,13 @@ export function ScanCapturePanel({
     });
   };
 
-  const extractImagesImmediately = async (files: readonly File[]) => {
-    let accumulator = createHomeImmediateScanResultAccumulator();
-    const mode = selectedScanModes[0] ?? 'all';
-
-    for (let index = 0; index < files.length; index++) {
-      const file = files[index]!;
-      try {
-        setProcessingLabel(`画像 ${index + 1}/${files.length} を解析中...`);
-        const base64 = await processImageToBase64(file, 'default');
-        const res = await fetch('/api/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image: base64,
-            mode,
-            scanModes: selectedScanModes,
-            eikenLevel: selectedEikenLevel,
-          }),
-        });
-        const parsed = await readHomeImmediateScanExtractResponse(res, { imageIndex: index });
-        if (!parsed.ok) {
-          throw new Error(parsed.error);
-        }
-
-        accumulator = addHomeImmediateScanResult(accumulator, parsed.result);
-      } catch (error) {
-        console.error('[ScanCapturePanel] Failed to extract one image from multi-image scan', {
-          index,
-          fileName: file.name,
-          error,
-        });
-      }
-    }
-
-    if (hasNoHomeImmediateScanWords(accumulator)) {
-      throw new Error('画像から単語を読み取れませんでした');
-    }
-
-    saveScanConfirmResultPayload(
-      sessionStorage,
-      buildHomeImmediateScanConfirmResultPayload(accumulator),
-    );
-    if (targetProjectId) {
-      setScanConfirmExistingProject(sessionStorage, targetProjectId);
-    } else {
-      prepareScanConfirmForNewProject(sessionStorage);
-      const trimmedTitle = newProjectTitle?.trim();
-      if (trimmedTitle) {
-        saveScanConfirmProjectDraft(sessionStorage, { projectName: trimmedTitle });
-      }
-    }
-  };
-
   const handleFilesSelected = async (files: readonly File[]) => {
     if (files.length === 0) return;
+    if (!isPro) {
+      setProcessingLabel(null);
+      setErrorMsg('スキャン機能はProプランで利用できます');
+      return;
+    }
     if (files.length > MAX_SCAN_IMAGE_COUNT) {
       setProcessingLabel(null);
       setErrorMsg(`一度に選択できる画像は${MAX_SCAN_IMAGE_COUNT}枚までです`);
@@ -209,29 +147,20 @@ export function ScanCapturePanel({
     setErrorMsg(null);
     setProcessingLabel(files.length > 1 ? `画像 1/${files.length} を準備中...` : null);
     try {
-      // Pro: バックグラウンドジョブ送信（確認画面をスキップ）
-      if (isPro) {
-        const scanJob = await createBackgroundScanJob(files);
-        if (scanJob.jobId) {
-          const payload: HomeGeneratingWordbookPayload = {
-            id: `generating-${Date.now()}`,
-            title: scanJob.projectTitle,
-            linkedJobId: scanJob.jobId,
-          };
-          saveHomeGeneratingWordbook(sessionStorage, payload);
-          onBackgroundScanStarted?.(payload);
-        }
-        setProcessingLabel('ホームへ移動中...');
-        onClose();
-        router.push('/');
-        return;
+      const scanJob = await createBackgroundScanJob(files);
+      if (scanJob.jobId) {
+        const payload: HomeGeneratingWordbookPayload = {
+          id: `generating-${Date.now()}`,
+          title: scanJob.projectTitle,
+          linkedJobId: scanJob.jobId,
+        };
+        saveHomeGeneratingWordbook(sessionStorage, payload);
+        onBackgroundScanStarted?.(payload);
       }
-
-      // Free: 既存フロー（/api/extract → sessionStorage → /scan/confirm）
-      await extractImagesImmediately(files);
-      setProcessingLabel('結果を表示中...');
+      setProcessingLabel('ホームへ移動中...');
       onClose();
-      router.replace('/scan/confirm');
+      router.push('/');
+      return;
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '処理に失敗しました');
       setProcessingLabel(null);
@@ -305,7 +234,7 @@ export function ScanCapturePanel({
     void handleFilesSelected(heldShots.map((shot) => shot.file));
   };
 
-  const scanDisabled = activeSubs.includes('eiken') && !eikenLevel;
+  const scanDisabled = !isPro || (activeSubs.includes('eiken') && !eikenLevel);
 
   return (
     <>
@@ -355,7 +284,7 @@ export function ScanCapturePanel({
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
                     <span className="truncate">{s.label}</span>
-                    {s.pro && !isPro && (
+                    {!isPro && (
                       <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
                         PRO
                       </span>
@@ -432,6 +361,9 @@ export function ScanCapturePanel({
       {errorMsg && !captureView && (
         <p className="mt-2 text-center text-[11px] text-[var(--color-error)]">{errorMsg}</p>
       )}
+      {!isPro && !errorMsg && !captureView && (
+        <p className="mt-2 text-center text-[11px] text-[var(--color-muted)]">スキャン機能はProプランで利用できます</p>
+      )}
 
       {/* Full-screen layers: multi-shot tray + processing overlay */}
       {(captureView || processing) && typeof document !== 'undefined' && createPortal(
@@ -457,7 +389,7 @@ export function ScanCapturePanel({
               <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5">
                 <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
                 <span className="text-[13px] font-bold text-[var(--solid-ink)]">
-                  {processingLabel ?? (isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...')}
+                  {processingLabel ?? 'スキャンを送信中...'}
                 </span>
               </div>
             </div>

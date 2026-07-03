@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
-import { FREE_DAILY_SCAN_LIMIT } from '@/lib/utils';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
 import { isBillingEnabled } from '@/lib/billing/feature';
 
@@ -20,11 +19,6 @@ export function ScanLimitModal({
   todayWordsLearned = 0,
 }: ScanLimitModalProps) {
   const billingEnabled = isBillingEnabled();
-  // Calculate reset time (next midnight)
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} showCloseButton={false}>
@@ -36,14 +30,12 @@ export function ScanLimitModal({
 
         {/* Title */}
         <h2 className="text-lg font-semibold text-[var(--color-foreground)] mb-2">
-          今日のスキャンを使い切りました
+          スキャンはProプラン限定です
         </h2>
 
         {/* Achievement message */}
         {todayWordsLearned > 0 && (
           <p className="text-sm text-[var(--color-muted)] mb-5">
-            今日は{FREE_DAILY_SCAN_LIMIT}回のスキャンで
-            <br />
             <span className="font-medium text-[var(--color-primary)]">{todayWordsLearned}語</span>の単語を学習しました!
           </p>
         )}
@@ -63,12 +55,8 @@ export function ScanLimitModal({
           </div>
         )}
 
-        {/* Tomorrow message */}
         <p className="text-sm text-[var(--color-muted)] mb-1">
-          明日またスキャンできます
-        </p>
-        <p className="text-xs text-[var(--color-muted)] mb-4">
-          リセット: 0:00
+          Proにアップグレードすると写真から単語帳を作成できます
         </p>
 
         {/* Close button - prominent and clear */}

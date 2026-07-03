@@ -112,20 +112,30 @@ export function ScanModeModal({
         <div className="space-y-3">
           <button
             onClick={() => onSelectMode('all', null)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left group"
+            disabled={!isPro}
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left group disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/20 transition-colors">
               <Icon name="photo_camera" size={24} className="text-[var(--color-primary)]" />
             </div>
             <div>
-              <p className="font-semibold text-[var(--color-foreground)]">単語帳取込</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-[var(--color-foreground)]">単語帳取込</p>
+                {!isPro && (
+                  <span className="chip chip-pro">
+                    <Icon name="auto_awesome" size={12} />
+                    Pro
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-[var(--color-muted)]">単語帳形式の単語を抽出</p>
             </div>
           </button>
 
           <button
             onClick={() => onSelectMode('circled', null)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-warning)] hover:bg-[var(--color-warning-light)] transition-all text-left relative group"
+            disabled={!isPro}
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-warning)] hover:bg-[var(--color-warning-light)] transition-all text-left relative group disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div className="w-12 h-12 bg-[var(--color-warning-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-warning)]/25 transition-colors">
               <Icon name="radio_button_checked" size={24} className="text-[var(--color-warning)]" />
@@ -146,7 +156,8 @@ export function ScanModeModal({
 
           <button
             onClick={() => setShowEikenPicker(true)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left group"
+            disabled={!isPro}
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all text-left group disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div className="w-12 h-12 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/30 transition-colors">
               <Icon name="menu_book" size={24} className="text-[var(--color-primary)]" />
@@ -167,7 +178,8 @@ export function ScanModeModal({
 
           <button
             onClick={() => onSelectMode('idiom', null)}
-            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-all text-left group"
+            disabled={!isPro}
+            className="w-full flex items-center gap-4 p-4 border border-[var(--color-border)] rounded-[var(--radius-lg)] hover:border-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-all text-left group disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div className="w-12 h-12 bg-[var(--color-success-light)] rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-success)]/30 transition-colors">
               <Icon name="translate" size={24} className="text-[var(--color-success)]" />
@@ -187,6 +199,11 @@ export function ScanModeModal({
           </button>
 
         </div>
+        {!isPro && (
+          <p className="mt-3 text-center text-xs font-medium text-[var(--color-muted)]">
+            スキャン機能はProプランで利用できます
+          </p>
+        )}
         <Button
           variant="secondary"
           onClick={onClose}

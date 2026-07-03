@@ -5,6 +5,7 @@ import {
   MAX_EXAMPLE_GENRES,
   buildExampleGenreGuidance,
   fetchExampleGenres,
+  fetchExampleGenresForUser,
   fetchExampleGenresForProUser,
   isProSubscriber,
   normalizeExampleGenres,
@@ -191,6 +192,14 @@ test('fetchExampleGenresForProUser returns genres for pro users', async () => {
     preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
   });
   assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), ['サッカー', '映画']);
+});
+
+test('fetchExampleGenresForUser returns genres for non-pro users', async () => {
+  const supabase = createProAwareSupabaseStub({
+    subscriptions: { data: { ...ACTIVE_PRO_SUBSCRIPTION_ROW, status: 'free', plan: 'free' }, error: null },
+    preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
+  });
+  assert.deepEqual(await fetchExampleGenresForUser(supabase, 'user-1'), ['サッカー', '映画']);
 });
 
 test('fetchExampleGenresForProUser returns genres for non-pro users too (genres are free-plan available)', async () => {

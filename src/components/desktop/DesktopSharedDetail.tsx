@@ -77,15 +77,9 @@ export function DesktopSharedDetailView({
           {liked ? 'いいね済み' : 'いいね'} {likeCount > 0 ? likeCount : ''}
         </DesktopButton>
         {isPreviewLocked ? (
-          isLoggedIn ? (
-            <DesktopButton href="/subscription" variant="dark" icon="auto_awesome">
-              Proにアップグレード
-            </DesktopButton>
-          ) : (
-            <DesktopButton href={lockedCtaHref} variant="dark" icon="login">
-              ログインして単語を見る
-            </DesktopButton>
-          )
+          <DesktopButton href={lockedCtaHref} variant="dark" icon="login">
+            ログインして単語を見る
+          </DesktopButton>
         ) : (
           <DesktopButton variant={selectMode ? 'dark' : undefined} icon="checklist" onClick={onToggleSelectMode}>
             {selectMode ? '選択を終了' : '選択して追加'}
@@ -120,7 +114,7 @@ export function DesktopSharedDetailView({
             {isPreviewLocked && (
               <div className="muted" style={{ fontSize: 12.5, marginTop: 7 }}>
                 最初の {Math.min(previewClearWordCount, words.length)} 語は表示し、以降はぼかしています。
-                {isLoggedIn && ' Proプランで全単語を閲覧・インポートできます。'}
+                {!isLoggedIn && ' ログインすると全単語を閲覧・インポートできます。'}
               </div>
             )}
           </div>
@@ -196,27 +190,15 @@ export function DesktopSharedDetailView({
 
         <div className="ds-actionbar">
           {isPreviewLocked ? (
-            isLoggedIn ? (
-              <>
-                <span className="muted" style={{ fontSize: 13 }}>
-                  {hiddenWordCount > 0 ? `残り ${hiddenWordCount} 語はProプランで表示できます` : 'Proプランにアップグレードすると全単語を表示できます'}
-                </span>
-                <div className="grow" />
-                <DesktopButton href="/subscription" variant="accent" icon="auto_awesome">
-                  Proにアップグレード
-                </DesktopButton>
-              </>
-            ) : (
-              <>
-                <span className="muted" style={{ fontSize: 13 }}>
-                  {hiddenWordCount > 0 ? `残り ${hiddenWordCount} 語はログインすると表示できます` : 'ログインすると単語を表示できます'}
-                </span>
-                <div className="grow" />
-                <DesktopButton href={lockedCtaHref} variant="accent" icon="login">
-                  ログインして単語を見る
-                </DesktopButton>
-              </>
-            )
+            <>
+              <span className="muted" style={{ fontSize: 13 }}>
+                {hiddenWordCount > 0 ? `残り ${hiddenWordCount} 語はログインすると表示できます` : 'ログインすると単語を表示できます'}
+              </span>
+              <div className="grow" />
+              <DesktopButton href={lockedCtaHref} variant="accent" icon="login">
+                ログインして単語を見る
+              </DesktopButton>
+            </>
           ) : selectMode ? (
             <>
               <span className="muted" style={{ fontSize: 13 }}>{selectedCount} 語を選択中</span>

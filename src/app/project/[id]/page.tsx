@@ -500,8 +500,12 @@ export default function ProjectPage() {
 
   const handleOpenShareSheet = () => {
     if (!project) return;
-    if (!user || !isPro) {
-      showToast({ message: '共有はProプランで利用できます', type: 'error' });
+    if (!user) {
+      showToast({ message: '共有するにはログインしてください', type: 'error' });
+      return;
+    }
+    if (!isPro) {
+      router.push('/shared/share-wordbook');
       return;
     }
     setMenuOpen(false);

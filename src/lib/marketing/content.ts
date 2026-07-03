@@ -189,7 +189,7 @@ export const progressFeatures: ProgressFeature[] = [
 export const pricingComparisonRows: PricingComparisonRow[] = [
   {
     feature: 'スキャン回数',
-    free: '1日3回まで',
+    free: 'Pro限定',
     pro: '無制限',
   },
   {
@@ -220,6 +220,6 @@ export const pricingFaqs = [
   },
   {
     question: 'どんな人にProが向いていますか？',
-    answer: '複数端末で学習したい方、毎日たくさんスキャンする方に向いています。',
+    answer: '紙の教材から単語帳を作りたい方、複数端末で学習したい方に向いています。',
   },
 ];

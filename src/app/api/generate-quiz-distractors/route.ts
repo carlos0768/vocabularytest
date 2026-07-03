@@ -6,7 +6,7 @@ import {
   generateQuizContentForWords,
   type QuizContentWordInput,
 } from '@/lib/ai/generate-quiz-content';
-import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import { fetchExampleGenresForUser } from '@/lib/preferences/example-genres';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
 
 interface WordInput {
@@ -47,14 +47,14 @@ const requestSchema = z.object({
 interface GenerateQuizDistractorsDeps {
   createClient?: typeof createRouteHandlerClient;
   generate?: typeof generateQuizContentForWords;
-  fetchExampleGenres?: typeof fetchExampleGenresForProUser;
+  fetchExampleGenres?: typeof fetchExampleGenresForUser;
 }
 
 function getDeps(deps?: GenerateQuizDistractorsDeps) {
   return {
     createClient: deps?.createClient ?? createRouteHandlerClient,
     generate: deps?.generate ?? generateQuizContentForWords,
-    fetchExampleGenres: deps?.fetchExampleGenres ?? fetchExampleGenresForProUser,
+    fetchExampleGenres: deps?.fetchExampleGenres ?? fetchExampleGenresForUser,
   };
 }
 
@@ -131,7 +131,7 @@ export async function handleGenerateQuizDistractorsPost(
       });
     }
 
-    // ジャンル反映はPro限定。非Pro/取得失敗時は空配列で通常生成。
+    // ジャンル反映はFreeユーザにも適用。取得失敗時は空配列で通常生成。
     const exampleGenres = await fetchExampleGenres(supabase, user.id);
     const results = await generate(
       wordsToGenerate as QuizContentWordInput[],
