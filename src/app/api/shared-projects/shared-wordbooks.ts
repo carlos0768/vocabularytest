@@ -8,6 +8,7 @@ import type {
 import type { Project, Word } from '@/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../shared/db';
 import { normalizeSharedTags } from '../../../../shared/shared-tags';
+import { createSharedTagsEmbedding } from '@/lib/shared-projects/tag-embeddings';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -547,6 +548,19 @@ export async function publishSharedWordbook(
     if (wordsInsertError) {
       throw new Error(wordsInsertError.message || 'shared_wordbook_words_insert_failed');
     }
+  }
+
+  // Best-effort: store a tag embedding on the snapshot for semantic
+  // reel-feed affinity. Failure (no API key, missing column) must not
+  // break publishing.
+  try {
+    const embedding = await createSharedTagsEmbedding(tags);
+    await admin
+      .from('shared_wordbooks')
+      .update({ shared_tags_embedding: embedding })
+      .eq('id', sharedWordbookId);
+  } catch (embeddingError) {
+    console.warn('[shared-wordbooks] tag embedding skipped:', embeddingError);
   }
 
   const { data: finalRow, error: finalError } = await admin

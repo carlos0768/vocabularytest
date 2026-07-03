@@ -141,3 +141,31 @@ test('returns empty for empty input or zero limit', () => {
   assert.deepEqual(rankReelCandidates([], ctx, 1, 5), []);
   assert.deepEqual(rankReelCandidates([makeCandidate('x')], ctx, 1, 0), []);
 });
+
+test('semantic tag similarity outranks plain string overlap', () => {
+  const base = makeContext({ interestTags: ['toeic'] });
+  const semanticCtx = { ...base, tagSimilarityByBookId: { 'book-sem': 0.9 } };
+  const semanticMatch = makeCandidate('same', {
+    book: makeBook({ id: 'book-sem', sharedTags: ['ビジネス英語'] }),
+  });
+  const noSignal = makeCandidate('same', {
+    book: makeBook({ id: 'book-none', sharedTags: ['料理'] }),
+  });
+  assert.ok(
+    scoreReelCandidate(semanticMatch, semanticCtx, 3) > scoreReelCandidate(noSignal, semanticCtx, 3),
+  );
+});
+
+test('interested feedback boosts the book, not-interested penalizes it', () => {
+  const interestedCtx = makeContext({ interestedBookRefs: ['s:share-a'] });
+  const notInterestedCtx = makeContext({ notInterestedBookCounts: { 's:share-a': 3 } });
+  const neutralCtx = makeContext();
+
+  const candidate = makeCandidate('same', {
+    book: makeBook({ id: 'b1', shareId: 'share-a' }),
+  });
+
+  const neutral = scoreReelCandidate(candidate, neutralCtx, 9);
+  assert.ok(scoreReelCandidate(candidate, interestedCtx, 9) > neutral);
+  assert.ok(scoreReelCandidate(candidate, notInterestedCtx, 9) < neutral);
+});

@@ -125,6 +125,16 @@ export function useReelFeed() {
     );
   }, []);
 
+  const bumpCommentCount = useCallback((itemId: string, delta: number) => {
+    setItems((prev) =>
+      prev.map((entry) =>
+        entry.id === itemId
+          ? { ...entry, commentCount: Math.max(0, entry.commentCount + delta) }
+          : entry,
+      ),
+    );
+  }, []);
+
   return {
     items,
     status,
@@ -135,5 +145,6 @@ export function useReelFeed() {
     retry,
     likeItem,
     markBookImported,
+    bumpCommentCount,
   };
 }

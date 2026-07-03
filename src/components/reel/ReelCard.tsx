@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { ReelItem } from '@/lib/reels/types';
+import type { ReelFeedback, ReelItem } from '@/lib/reels/types';
 import { triggerHaptic } from '@/lib/haptics';
+import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { ReelActionRail } from './ReelActionRail';
 import { ReelBookCard } from './ReelBookCard';
+import { ReelCommentSheet } from './ReelCommentSheet';
 import { ReelMeaningPanel } from './ReelMeaningPanel';
+import { ReelMoreSheet } from './ReelMoreSheet';
 
 type ReelCardProps = {
   item: ReelItem;
@@ -13,6 +16,9 @@ type ReelCardProps = {
   importing: boolean;
   onLike: () => void;
   onImport: () => void;
+  onShare: () => void;
+  onFeedback: (feedback: ReelFeedback) => void;
+  onCommentCountChange: (delta: number) => void;
   onRevealed?: () => void;
 };
 
@@ -32,9 +38,21 @@ function speak(english: string) {
  * a horizontal swipe (or tap / ←→ keys on the active card) slides to
  * the Japanese meaning face, mirroring the flashcard axis-lock gesture.
  */
-export function ReelCard({ item, active, importing, onLike, onImport, onRevealed }: ReelCardProps) {
+export function ReelCard({
+  item,
+  active,
+  importing,
+  onLike,
+  onImport,
+  onShare,
+  onFeedback,
+  onCommentCountChange,
+  onRevealed,
+}: ReelCardProps) {
   const [revealed, setRevealed] = useState(false);
   const [dragX, setDragX] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
@@ -141,7 +159,7 @@ export function ReelCard({ item, active, importing, onLike, onImport, onRevealed
                     key={tag}
                     className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2.5 py-0.5 text-xs font-semibold text-[var(--color-secondary-text)]"
                   >
-                    {tag}
+                    {getPartOfSpeechLabel(tag)}
                   </span>
                 ))}
               </div>
@@ -164,7 +182,13 @@ export function ReelCard({ item, active, importing, onLike, onImport, onRevealed
       {/* Right action rail */}
       <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
         <div className="pointer-events-auto">
-          <ReelActionRail item={item} onLike={onLike} onSpeak={() => speak(item.english)} />
+          <ReelActionRail
+            item={item}
+            onLike={onLike}
+            onSpeak={() => speak(item.english)}
+            onShare={onShare}
+            onMore={() => setMoreOpen(true)}
+          />
         </div>
       </div>
 
@@ -172,6 +196,27 @@ export function ReelCard({ item, active, importing, onLike, onImport, onRevealed
       <div className="flex-shrink-0 px-4 pb-3">
         <ReelBookCard book={item.book} importing={importing} onImport={onImport} />
       </div>
+
+      {/* "..." menu: comments + interested / not-interested */}
+      <ReelMoreSheet
+        item={item}
+        isOpen={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        onOpenComments={() => {
+          setMoreOpen(false);
+          setCommentsOpen(true);
+        }}
+        onFeedback={(feedback) => {
+          setMoreOpen(false);
+          onFeedback(feedback);
+        }}
+      />
+      <ReelCommentSheet
+        item={item}
+        isOpen={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+        onCountChange={onCommentCountChange}
+      />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import type {
   ReelBook,
   ReelCandidate,
+  ReelComment,
+  ReelFeedback,
   ReelFeedPage,
   ReelItem,
   ReelSource,
@@ -10,6 +12,7 @@ import type {
 import { decodeReelCursor, encodeReelCursor } from '@/lib/reels/cursor';
 import { eikenLevelsAround } from '@/lib/reels/eiken-cefr';
 import { rankReelCandidates } from '@/lib/reels/ranking';
+import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -326,6 +329,78 @@ async function fetchSeenKeys(admin: SupabaseAdminClient, userId: string): Promis
   return new Set((data ?? []).map((row) => row.item_key as string));
 }
 
+type UserFeedbackSummary = {
+  /** word item keys the user marked not-interested (permanently excluded) */
+  excludedKeys: Set<string>;
+  interestedBookRefs: string[];
+  notInterestedBookCounts: Record<string, number>;
+};
+
+async function fetchUserFeedback(
+  admin: SupabaseAdminClient,
+  userId: string,
+): Promise<UserFeedbackSummary> {
+  const empty: UserFeedbackSummary = {
+    excludedKeys: new Set(),
+    interestedBookRefs: [],
+    notInterestedBookCounts: {},
+  };
+  const { data, error } = await admin
+    .from('reel_word_feedback')
+    .select('shared_word_id,official_word_id,book_ref,feedback')
+    .eq('user_id', userId)
+    .limit(2000);
+
+  if (error) {
+    // Feedback is best-effort personalization; never break the feed on it.
+    return empty;
+  }
+
+  const interested = new Set<string>();
+  for (const row of (data ?? []) as {
+    shared_word_id: string | null;
+    official_word_id: string | null;
+    book_ref: string;
+    feedback: string;
+  }[]) {
+    if (row.feedback === 'not_interested') {
+      if (row.shared_word_id) empty.excludedKeys.add(reelItemKey('shared', row.shared_word_id));
+      if (row.official_word_id) empty.excludedKeys.add(reelItemKey('official', row.official_word_id));
+      empty.notInterestedBookCounts[row.book_ref] =
+        (empty.notInterestedBookCounts[row.book_ref] ?? 0) + 1;
+    } else if (row.feedback === 'interested') {
+      interested.add(row.book_ref);
+    }
+  }
+  empty.interestedBookRefs = Array.from(interested);
+  return empty;
+}
+
+async function fetchTagSimilarity(
+  admin: SupabaseAdminClient,
+  interestTags: string[],
+): Promise<Record<string, number>> {
+  if (interestTags.length === 0) return {};
+  try {
+    const embedding = await createSharedSearchEmbedding(interestTags.join('、'));
+    if (!embedding) return {};
+    const { data, error } = await admin.rpc('match_shared_wordbooks_by_tag_embedding', {
+      query_embedding: embedding,
+      match_threshold: 0.2,
+      match_count: 60,
+    });
+    if (error) return {};
+    const result: Record<string, number> = {};
+    for (const row of (data ?? []) as { id: string; similarity: number }[]) {
+      result[row.id] = Number(row.similarity) || 0;
+    }
+    return result;
+  } catch {
+    // No OpenAI key / RPC missing → fall back to string tag overlap.
+    return {};
+  }
+}
+
 // ---------- enrichment ----------
 
 async function enrichItems(
@@ -344,12 +419,18 @@ async function enrichItems(
     new Set(candidates.map((c) => c.book.officialSlug).filter((v): v is string => Boolean(v))),
   );
 
-  const [sharedLikes, officialLikes, importedProjects] = await Promise.all([
+  const [sharedLikes, officialLikes, sharedComments, officialComments, importedProjects] = await Promise.all([
     sharedWordIds.length > 0
       ? admin.from('reel_word_likes').select('shared_word_id,user_id').in('shared_word_id', sharedWordIds)
       : Promise.resolve({ data: [], error: null }),
     officialWordIds.length > 0
       ? admin.from('reel_word_likes').select('official_word_id,user_id').in('official_word_id', officialWordIds)
+      : Promise.resolve({ data: [], error: null }),
+    sharedWordIds.length > 0
+      ? admin.from('reel_word_comments').select('shared_word_id').in('shared_word_id', sharedWordIds)
+      : Promise.resolve({ data: [], error: null }),
+    officialWordIds.length > 0
+      ? admin.from('reel_word_comments').select('official_word_id').in('official_word_id', officialWordIds)
       : Promise.resolve({ data: [], error: null }),
     shareIds.length > 0 || officialSlugs.length > 0
       ? admin
@@ -380,6 +461,16 @@ async function enrichItems(
     if (row.user_id === userId) likedByMeKeys.add(key);
   }
 
+  const commentCountByKey = new Map<string, number>();
+  for (const row of (sharedComments.data ?? []) as { shared_word_id: string }[]) {
+    const key = reelItemKey('shared', row.shared_word_id);
+    commentCountByKey.set(key, (commentCountByKey.get(key) ?? 0) + 1);
+  }
+  for (const row of (officialComments.data ?? []) as { official_word_id: string }[]) {
+    const key = reelItemKey('official', row.official_word_id);
+    commentCountByKey.set(key, (commentCountByKey.get(key) ?? 0) + 1);
+  }
+
   const importedShareIds = new Set<string>();
   const importedOfficialSlugs = new Set<string>();
   for (const row of (importedProjects.data ?? []) as {
@@ -394,6 +485,7 @@ async function enrichItems(
     ...candidate,
     likeCount: likeCountByKey.get(candidate.id) ?? 0,
     likedByMe: likedByMeKeys.has(candidate.id),
+    commentCount: commentCountByKey.get(candidate.id) ?? 0,
     book: {
       ...candidate.book,
       importedByMe:
@@ -428,20 +520,30 @@ export async function buildReelFeedPage(options: {
   const page = cursor?.page ?? 0;
 
   const rankingInputs = await fetchRankingInputs(admin, options.userId);
-  const [sharedCandidates, officialCandidates, seenKeys] = await Promise.all([
-    fetchSharedCandidates(admin),
-    fetchOfficialCandidates(admin, rankingInputs.eikenLevel),
-    fetchSeenKeys(admin, options.userId),
-  ]);
+  const [sharedCandidates, officialCandidates, seenKeys, feedback, tagSimilarityByBookId] =
+    await Promise.all([
+      fetchSharedCandidates(admin),
+      fetchOfficialCandidates(admin, rankingInputs.eikenLevel),
+      fetchSeenKeys(admin, options.userId),
+      fetchUserFeedback(admin, options.userId),
+      fetchTagSimilarity(admin, rankingInputs.interestTags),
+    ]);
 
   const unseen = [...sharedCandidates, ...officialCandidates].filter(
-    (candidate) => !seenKeys.has(candidate.id),
+    (candidate) => !seenKeys.has(candidate.id) && !feedback.excludedKeys.has(candidate.id),
   );
 
   const rankSeed = (seed ^ Math.imul(page + 1, 0x9e3779b1)) >>> 0;
   const picked = rankReelCandidates(
     unseen,
-    { eikenLevel: rankingInputs.eikenLevel, interestTags: rankingInputs.interestTags, now: new Date().toISOString() },
+    {
+      eikenLevel: rankingInputs.eikenLevel,
+      interestTags: rankingInputs.interestTags,
+      now: new Date().toISOString(),
+      tagSimilarityByBookId,
+      interestedBookRefs: feedback.interestedBookRefs,
+      notInterestedBookCounts: feedback.notInterestedBookCounts,
+    },
     rankSeed,
     limit,
   );
@@ -490,6 +592,50 @@ export async function buildReelFeedPage(options: {
   };
 }
 
+// ---------- word resolution (shared by likes / comments / feedback) ----------
+
+/**
+ * Validate that a reel word exists and belongs to public reel content,
+ * returning its book ref ('s:<shareId>' | 'o:<officialSlug>').
+ */
+export async function resolveReelWordSource(
+  source: ReelSource,
+  wordId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<{ bookRef: string } | null> {
+  if (source === 'shared') {
+    const { data: word } = await admin
+      .from('shared_wordbook_words')
+      .select('id,shared_wordbook_id')
+      .eq('id', wordId)
+      .maybeSingle<{ id: string; shared_wordbook_id: string }>();
+    if (!word) return null;
+    const { data: book } = await admin
+      .from('shared_wordbooks')
+      .select('share_id')
+      .eq('id', word.shared_wordbook_id)
+      .maybeSingle<{ share_id: string }>();
+    if (!book) return null;
+    return { bookRef: `s:${book.share_id}` };
+  }
+
+  // Only words belonging to active official wordbooks count as reel content.
+  const { data: word } = await admin
+    .from('words')
+    .select('id,project_id')
+    .eq('id', wordId)
+    .maybeSingle<{ id: string; project_id: string }>();
+  if (!word) return null;
+  const { data: project } = await admin
+    .from('projects')
+    .select('id,official_slug')
+    .eq('id', word.project_id)
+    .eq('official_is_active', true)
+    .maybeSingle<{ id: string; official_slug: string | null }>();
+  if (!project || !project.official_slug) return null;
+  return { bookRef: `o:${project.official_slug}` };
+}
+
 // ---------- likes ----------
 
 export async function setReelWordLike(options: {
@@ -502,29 +648,8 @@ export async function setReelWordLike(options: {
   const admin = options.admin ?? getSupabaseAdmin();
   const { userId, source, wordId, liked } = options;
 
-  if (source === 'shared') {
-    const { data: word } = await admin
-      .from('shared_wordbook_words')
-      .select('id')
-      .eq('id', wordId)
-      .maybeSingle<{ id: string }>();
-    if (!word) return null;
-  } else {
-    // Only words belonging to active official wordbooks are likeable.
-    const { data: word } = await admin
-      .from('words')
-      .select('id,project_id')
-      .eq('id', wordId)
-      .maybeSingle<{ id: string; project_id: string }>();
-    if (!word) return null;
-    const { data: project } = await admin
-      .from('projects')
-      .select('id')
-      .eq('id', word.project_id)
-      .eq('official_is_active', true)
-      .maybeSingle<{ id: string }>();
-    if (!project) return null;
-  }
+  const resolved = await resolveReelWordSource(source, wordId, admin);
+  if (!resolved) return null;
 
   const column = source === 'shared' ? 'shared_word_id' : 'official_word_id';
 
@@ -662,4 +787,146 @@ export async function getReelBookForImport(
         distractors: toStringArray(row.distractors),
       })),
   };
+}
+
+// ---------- comments ----------
+
+const COMMENT_FETCH_LIMIT = 50;
+
+type CommentRow = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+};
+
+async function fetchDisplayNames(
+  admin: SupabaseAdminClient,
+  userIds: string[],
+): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>();
+  const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return result;
+  try {
+    const { data } = await admin
+      .from('profiles')
+      .select('user_id, display_name, username')
+      .in('user_id', uniqueIds);
+    for (const row of data ?? []) {
+      result.set(
+        row.user_id as string,
+        (row.display_name as string | null) ?? (row.username as string | null) ?? null,
+      );
+    }
+  } catch {
+    // profiles lookup is best-effort; degrade to anonymous.
+  }
+  return result;
+}
+
+export async function listReelWordComments(options: {
+  viewerId: string;
+  source: ReelSource;
+  wordId: string;
+  admin?: SupabaseAdminClient;
+}): Promise<ReelComment[] | null> {
+  const admin = options.admin ?? getSupabaseAdmin();
+  const resolved = await resolveReelWordSource(options.source, options.wordId, admin);
+  if (!resolved) return null;
+
+  const column = options.source === 'shared' ? 'shared_word_id' : 'official_word_id';
+  const { data, error } = await admin
+    .from('reel_word_comments')
+    .select('id,user_id,body,created_at')
+    .eq(column, options.wordId)
+    .order('created_at', { ascending: false })
+    .limit(COMMENT_FETCH_LIMIT);
+  if (error) throw new Error(error.message || 'reel_comments_list_failed');
+
+  const rows = (data ?? []) as CommentRow[];
+  const names = await fetchDisplayNames(admin, rows.map((row) => row.user_id));
+
+  return rows.map((row) => ({
+    id: row.id,
+    body: row.body,
+    createdAt: row.created_at,
+    authorName: names.get(row.user_id) ?? '匿名ユーザー',
+    isMine: row.user_id === options.viewerId,
+  }));
+}
+
+export async function createReelWordComment(options: {
+  userId: string;
+  source: ReelSource;
+  wordId: string;
+  body: string;
+  admin?: SupabaseAdminClient;
+}): Promise<ReelComment | null> {
+  const admin = options.admin ?? getSupabaseAdmin();
+  const resolved = await resolveReelWordSource(options.source, options.wordId, admin);
+  if (!resolved) return null;
+
+  const column = options.source === 'shared' ? 'shared_word_id' : 'official_word_id';
+  const { data, error } = await admin
+    .from('reel_word_comments')
+    .insert([{ user_id: options.userId, [column]: options.wordId, body: options.body }])
+    .select('id,user_id,body,created_at')
+    .single<CommentRow>();
+  if (error || !data) throw new Error(error?.message || 'reel_comment_create_failed');
+
+  const names = await fetchDisplayNames(admin, [options.userId]);
+  return {
+    id: data.id,
+    body: data.body,
+    createdAt: data.created_at,
+    authorName: names.get(options.userId) ?? '匿名ユーザー',
+    isMine: true,
+  };
+}
+
+export async function deleteReelWordComment(options: {
+  userId: string;
+  commentId: string;
+  admin?: SupabaseAdminClient;
+}): Promise<boolean> {
+  const admin = options.admin ?? getSupabaseAdmin();
+  const { data, error } = await admin
+    .from('reel_word_comments')
+    .delete()
+    .eq('id', options.commentId)
+    .eq('user_id', options.userId)
+    .select('id');
+  if (error) throw new Error(error.message || 'reel_comment_delete_failed');
+  return (data ?? []).length > 0;
+}
+
+// ---------- interested / not-interested feedback ----------
+
+export async function setReelWordFeedback(options: {
+  userId: string;
+  source: ReelSource;
+  wordId: string;
+  feedback: ReelFeedback;
+  admin?: SupabaseAdminClient;
+}): Promise<{ feedback: ReelFeedback } | null> {
+  const admin = options.admin ?? getSupabaseAdmin();
+  const resolved = await resolveReelWordSource(options.source, options.wordId, admin);
+  if (!resolved) return null;
+
+  const column = options.source === 'shared' ? 'shared_word_id' : 'official_word_id';
+  const { error } = await admin
+    .from('reel_word_feedback')
+    .upsert(
+      [{
+        user_id: options.userId,
+        [column]: options.wordId,
+        book_ref: resolved.bookRef,
+        feedback: options.feedback,
+        updated_at: new Date().toISOString(),
+      }],
+      { onConflict: `user_id,${column}` },
+    );
+  if (error) throw new Error(error.message || 'reel_feedback_upsert_failed');
+
+  return { feedback: options.feedback };
 }

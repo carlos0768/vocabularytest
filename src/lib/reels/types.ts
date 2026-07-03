@@ -40,7 +40,18 @@ export type ReelItem = {
   cefrLevel: string | null;
   likeCount: number;
   likedByMe: boolean;
+  commentCount: number;
   book: ReelBook;
+};
+
+export type ReelFeedback = 'interested' | 'not_interested';
+
+export type ReelComment = {
+  id: string;
+  body: string;
+  createdAt: string;
+  authorName: string;
+  isMine: boolean;
 };
 
 export type ReelFeedUsage = {
@@ -59,7 +70,7 @@ export type ReelFeedPage = {
 };
 
 /** Candidate fed into the ranking function (before like/imported enrichment). */
-export type ReelCandidate = Omit<ReelItem, 'likeCount' | 'likedByMe'>;
+export type ReelCandidate = Omit<ReelItem, 'likeCount' | 'likedByMe' | 'commentCount'>;
 
 /** Personalization context for ranking. */
 export type ReelRankingContext = {
@@ -68,4 +79,10 @@ export type ReelRankingContext = {
   interestTags: string[];
   /** ISO timestamp of "now" so ranking stays a pure function */
   now: string;
+  /** semantic tag similarity per shared book id (pgvector, 0..1) */
+  tagSimilarityByBookId?: Record<string, number>;
+  /** book refs ('s:<shareId>' | 'o:<slug>') the user marked interested */
+  interestedBookRefs?: string[];
+  /** not-interested feedback count per book ref */
+  notInterestedBookCounts?: Record<string, number>;
 };

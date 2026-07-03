@@ -6,6 +6,7 @@ const WEIGHT_TAG_AFFINITY = 2.0;
 const WEIGHT_POPULARITY = 1.0;
 const WEIGHT_RECENCY = 0.5;
 const WEIGHT_JITTER = 1.0;
+const WEIGHT_FEEDBACK = 1.5;
 
 /** Neutral level fit for words with no difficulty signal (shared words). */
 const NEUTRAL_LEVEL_FIT = 0.5;
@@ -64,9 +65,32 @@ function tagAffinity(candidate: ReelCandidate, ctx: ReelRankingContext): number 
     return 0;
   }
   const interests = new Set(ctx.interestTags.map(normalizeTag).filter(Boolean));
-  if (interests.size === 0) return 0;
-  const overlap = bookTags.filter((tag) => interests.has(tag)).length;
-  return overlap / Math.max(1, Math.min(3, bookTags.length));
+  const overlap =
+    interests.size === 0
+      ? 0
+      : bookTags.filter((tag) => interests.has(tag)).length /
+        Math.max(1, Math.min(3, bookTags.length));
+  // Semantic similarity (pgvector) beats plain string overlap when present.
+  const similarity = ctx.tagSimilarityByBookId?.[candidate.book.id] ?? 0;
+  return Math.max(overlap, Math.min(1, Math.max(0, similarity)));
+}
+
+/** Book ref used by the feedback tables: 's:<shareId>' | 'o:<officialSlug>'. */
+export function candidateBookRef(candidate: ReelCandidate): string | null {
+  if (candidate.book.type === 'shared') {
+    return candidate.book.shareId ? `s:${candidate.book.shareId}` : null;
+  }
+  return candidate.book.officialSlug ? `o:${candidate.book.officialSlug}` : null;
+}
+
+function feedbackBias(candidate: ReelCandidate, ctx: ReelRankingContext): number {
+  const bookRef = candidateBookRef(candidate);
+  if (!bookRef) return 0;
+  let bias = 0;
+  if (ctx.interestedBookRefs?.includes(bookRef)) bias += 1;
+  const notInterested = ctx.notInterestedBookCounts?.[bookRef] ?? 0;
+  if (notInterested > 0) bias -= Math.min(1, notInterested / 3);
+  return bias;
 }
 
 function popularity(candidate: ReelCandidate): number {
@@ -94,7 +118,8 @@ export function scoreReelCandidate(
     WEIGHT_TAG_AFFINITY * tagAffinity(candidate, ctx) +
     WEIGHT_POPULARITY * popularity(candidate) +
     WEIGHT_RECENCY * recency(candidate, ctx) +
-    WEIGHT_JITTER * jitter
+    WEIGHT_JITTER * jitter +
+    WEIGHT_FEEDBACK * feedbackBias(candidate, ctx)
   );
 }
 

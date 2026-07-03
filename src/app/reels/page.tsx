@@ -9,7 +9,7 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
-import type { ReelBook } from '@/lib/reels/types';
+import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
 import type { VocabularyType } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
 import {
@@ -47,6 +47,7 @@ export default function ReelsPage() {
     retry,
     likeItem,
     markBookImported,
+    bumpCommentCount,
   } = useReelFeed();
   const [importingBookId, setImportingBookId] = useState<string | null>(null);
 
@@ -135,6 +136,56 @@ export default function ReelsPage() {
     [user, isPro, importingBookId, repository, router, showToast, markBookImported],
   );
 
+  const handleShare = useCallback(
+    async (item: ReelItem) => {
+      const url = item.book.shareId
+        ? `${window.location.origin}/share/${encodeURIComponent(item.book.shareId)}`
+        : `${window.location.origin}/reels`;
+      const text = `この単語知ってた？「${item.english}」${item.japanese ? ` — ${item.japanese}` : ''}\nMerkenのリールで英単語を学ぼう`;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'Merken Reel', text, url });
+          return;
+        }
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        showToast({ message: 'リンクをコピーしました', type: 'success' });
+      } catch (error) {
+        // AbortError = user cancelled the share sheet; stay silent.
+        if ((error as DOMException)?.name !== 'AbortError') {
+          console.error('Failed to share reel item:', error);
+          showToast({ message: '共有に失敗しました', type: 'error' });
+        }
+      }
+    },
+    [showToast],
+  );
+
+  const handleFeedback = useCallback(
+    async (item: ReelItem, feedback: ReelFeedback) => {
+      triggerHaptic();
+      try {
+        const response = await fetch('/api/reels/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: item.source, wordId: item.wordId, feedback }),
+        });
+        const payload = (await response.json()) as { success: boolean };
+        if (!response.ok || !payload.success) throw new Error('feedback_failed');
+        showToast({
+          message:
+            feedback === 'interested'
+              ? '似た単語帳のリールを増やします'
+              : 'この単語の表示を減らします',
+          type: 'success',
+        });
+      } catch (error) {
+        console.error('Failed to send reel feedback:', error);
+        showToast({ message: 'フィードバックの送信に失敗しました', type: 'error' });
+      }
+    },
+    [showToast],
+  );
+
   if (!authLoading && !user) {
     router.replace('/login?redirect=/reels');
     return null;
@@ -188,6 +239,9 @@ export default function ReelsPage() {
               onLoadMore={() => {}}
               onLike={() => {}}
               onImport={() => {}}
+              onShare={() => {}}
+              onFeedback={() => {}}
+              onCommentCountChange={() => {}}
             />
           ) : items.length === 0 ? (
             <ReelEmptyState />
@@ -204,6 +258,9 @@ export default function ReelsPage() {
                 void likeItem(item);
               }}
               onImport={(book) => void handleImport(book)}
+              onShare={(item) => void handleShare(item)}
+              onFeedback={(item, feedback) => void handleFeedback(item, feedback)}
+              onCommentCountChange={(item, delta) => bumpCommentCount(item.id, delta)}
             />
           )}
         </div>

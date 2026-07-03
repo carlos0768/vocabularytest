@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReelBook, ReelItem } from '@/lib/reels/types';
+import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
 import { ReelCard } from './ReelCard';
 import { ReelEndCard, ReelLimitCard } from './ReelStatusCards';
 
@@ -14,6 +14,9 @@ type ReelFeedProps = {
   onLoadMore: () => void;
   onLike: (item: ReelItem) => void;
   onImport: (book: ReelBook) => void;
+  onShare: (item: ReelItem) => void;
+  onFeedback: (item: ReelItem, feedback: ReelFeedback) => void;
+  onCommentCountChange: (item: ReelItem, delta: number) => void;
 };
 
 const RENDER_WINDOW = 2;
@@ -33,6 +36,9 @@ export function ReelFeed({
   onLoadMore,
   onLike,
   onImport,
+  onShare,
+  onFeedback,
+  onCommentCountChange,
 }: ReelFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -94,6 +100,9 @@ export function ReelFeed({
               importing={importingBookId === item.book.id}
               onLike={() => onLike(item)}
               onImport={() => onImport(item.book)}
+              onShare={() => onShare(item)}
+              onFeedback={(feedback) => onFeedback(item, feedback)}
+              onCommentCountChange={(delta) => onCommentCountChange(item, delta)}
             />
           ) : null}
         </div>
