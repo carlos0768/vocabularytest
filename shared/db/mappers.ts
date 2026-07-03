@@ -51,6 +51,7 @@ export interface ProjectRow {
   share_id?: string | null;
   share_scope?: string | null;
   imported_from_share_id?: string | null;
+  imported_from_official_slug?: string | null;
   is_favorite?: boolean | null;
 }
 
@@ -69,6 +70,9 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     importedFromShareId: row.imported_from_share_id?.trim()
       ? row.imported_from_share_id.trim()
       : undefined,
+    importedFromOfficialSlug: row.imported_from_official_slug?.trim()
+      ? row.imported_from_official_slug.trim()
+      : undefined,
     isFavorite: row.is_favorite ?? false,
   };
 }
@@ -81,6 +85,7 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
   shared_tags?: string[];
   description?: string;
   imported_from_share_id?: string;
+  imported_from_official_slug?: string;
 } {
   return {
     user_id: project.userId,
@@ -91,6 +96,9 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
     ...(project.description !== undefined && { description: project.description }),
     ...(project.importedFromShareId !== undefined && {
       imported_from_share_id: project.importedFromShareId,
+    }),
+    ...(project.importedFromOfficialSlug !== undefined && {
+      imported_from_official_slug: project.importedFromOfficialSlug,
     }),
   };
 }
@@ -107,6 +115,7 @@ export function mapProjectToInsertWithId(project: Project): {
   share_id?: string;
   share_scope?: string;
   imported_from_share_id?: string;
+  imported_from_official_slug?: string;
   is_favorite?: boolean;
 } {
   return {
@@ -123,6 +132,9 @@ export function mapProjectToInsertWithId(project: Project): {
     ...(project.importedFromShareId !== undefined && {
       imported_from_share_id: project.importedFromShareId,
     }),
+    ...(project.importedFromOfficialSlug !== undefined && {
+      imported_from_official_slug: project.importedFromOfficialSlug,
+    }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
   };
 }
@@ -138,6 +150,9 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
   if (updates.shareScope !== undefined) updateData.share_scope = updates.shareScope;
   if (updates.importedFromShareId !== undefined) {
     updateData.imported_from_share_id = updates.importedFromShareId;
+  }
+  if (updates.importedFromOfficialSlug !== undefined) {
+    updateData.imported_from_official_slug = updates.importedFromOfficialSlug;
   }
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
   return updateData;

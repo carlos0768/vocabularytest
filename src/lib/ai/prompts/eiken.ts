@@ -13,7 +13,7 @@ export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
 };
 
 // EIKEN level order for "this level and above" filtering
-const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'];
+export const EIKEN_LEVEL_ORDER = ['5', '4', '3', 'pre2', '2', 'pre1', '1'];
 
 // Get all levels at or above the specified level
 export function getEikenLevelsAbove(eikenLevel: string): string[] {
