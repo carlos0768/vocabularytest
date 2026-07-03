@@ -8,7 +8,6 @@ import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/components/ui';
-import { Icon } from '@/components/ui/Icon';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
 import { generateWordShareImage } from '@/lib/reels/share-image';
 import type { VocabularyType } from '@/types';
@@ -218,14 +217,8 @@ export default function ReelsPage() {
         className="flex flex-shrink-0 items-center justify-between px-3 pb-2"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
-        <button
-          type="button"
-          aria-label="戻る"
-          onClick={() => router.back()}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-secondary)]"
-        >
-          <Icon name="arrow_back_ios_new" size={20} />
-        </button>
+        {/* Spacer keeps the title centered (bottom nav handles navigation) */}
+        <div className="h-10 w-10" />
         <h1 className="font-display text-base font-bold text-[var(--color-foreground)]">リール</h1>
         <div className="flex h-10 min-w-10 items-center justify-end">
           {remainingLabel && (

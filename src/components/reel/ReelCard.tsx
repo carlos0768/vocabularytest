@@ -191,6 +191,7 @@ export function ReelCard({
             item={item}
             onLike={onLike}
             onSpeak={() => speak(item.english)}
+            onComment={() => setCommentsOpen(true)}
             onShare={onShare}
             onMore={() => setMoreOpen(true)}
           />
@@ -202,15 +203,11 @@ export function ReelCard({
         <ReelBookCard book={item.book} importing={importing} onImport={onImport} />
       </div>
 
-      {/* "..." menu: comments + interested / not-interested */}
+      {/* "..." menu: interested / not-interested feedback */}
       <ReelMoreSheet
         item={item}
         isOpen={moreOpen}
         onClose={() => setMoreOpen(false)}
-        onOpenComments={() => {
-          setMoreOpen(false);
-          setCommentsOpen(true);
-        }}
         onFeedback={(feedback) => {
           setMoreOpen(false);
           onFeedback(feedback);
