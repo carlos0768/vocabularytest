@@ -10,6 +10,7 @@ import {
   setSharedWordbookLike,
   SharedWordbookError,
   unpublishSharedWordbook,
+  updateSharedWordbookTags,
 } from './shared-wordbooks';
 
 type Row = Record<string, unknown>;
@@ -277,6 +278,27 @@ test('rename and unpublish enforce ownership', async () => {
 
   await unpublishSharedWordbook('u1', 'sw1', asAdmin(admin));
   assert.equal(store.shared_wordbooks.length, 0);
+});
+
+test('updateSharedWordbookTags enforces ownership and normalizes tags', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'A', shared_tags: ['old'], word_count: 0, like_count: 0, created_at: '2026-02-01T00:00:00Z' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  await assert.rejects(
+    () => updateSharedWordbookTags('intruder', 'sw1', ['#new'], asAdmin(admin)),
+    (error: unknown) => error instanceof SharedWordbookError && error.code === 'forbidden',
+  );
+
+  const updated = await updateSharedWordbookTags('u1', 'sw1', ['#TOEIC', '#TOEIC', '#熟語'], asAdmin(admin));
+  assert.deepEqual(updated.project.sharedTags, ['TOEIC', '熟語']);
+  assert.deepEqual(store.shared_wordbooks[0].shared_tags, ['TOEIC', '熟語']);
+
+  const cleared = await updateSharedWordbookTags('u1', 'sw1', [], asAdmin(admin));
+  assert.deepEqual(cleared.project.sharedTags, []);
 });
 
 test('setSharedWordbookLike updates the denormalized like_count', async () => {
