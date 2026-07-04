@@ -51,7 +51,7 @@ export default function ContactPage() {
       <div className="px-[18px] pb-3">
         <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">連絡先</div>
         <a
-          href="mailto:support@merken.jp"
+          href="mailto:support@merken.jp?cc=ahoperson@merken.jp"
           className="flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <span className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
