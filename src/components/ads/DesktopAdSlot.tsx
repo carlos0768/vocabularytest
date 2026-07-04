@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Script from 'next/script';
 import { cn } from '@/lib/utils';
 import {
   ADSENSE_CLIENT_ID,
@@ -81,15 +80,9 @@ export function DesktopAdSlot({
     );
   }
 
+  // adsbygoogle.js is loaded unconditionally from the root layout <head>.
   return (
     <>
-      <Script
-        id="google-adsense-display"
-        async
-        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
-        crossOrigin="anonymous"
-        strategy="afterInteractive"
-      />
       <aside
         aria-label={`${label} ${sideLabel}広告`}
         className={cn(
