@@ -124,7 +124,16 @@ export default function RootLayout({
             }),
           }}
         />
-        {ADSENSE_ACCOUNT_SIGNALS_ENABLED && <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />}
+        {ADSENSE_ACCOUNT_SIGNALS_ENABLED && (
+          <>
+            <script
+              async
+              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+              crossOrigin="anonymous"
+            />
+            <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />
+          </>
+        )}
       </head>
       <body className="antialiased">
         <GooglePublisherTagScript />

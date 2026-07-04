@@ -193,7 +193,20 @@ curl -s https://www.merken.jp/ | grep -c '手入力ゼロ'
 
 ---
 
-## 7. 補足: 再申請時の注意
+## 7. 本番確認結果と実施済み修正（2026-07-04 追記）
+
+セクション5の確認をオーナーが本番で実施した結果、**(1) ads.txt は空、(2) AdSense コードの痕跡 0 件、(3) 初期 HTML に LP 本文なし** — 本レポートの仮説どおりであることが確定した。
+
+これを受けて本ブランチで以下の P0 + P1（ポリシー）を実装済み:
+
+- `src/lib/adsense.ts` — `ADSENSE_ACCOUNT_SIGNALS_ENABLED` を表示フラグから切り離し、クライアント ID がある限り常時 ON に変更（ads.txt の行も常時出力される）
+- `src/app/layout.tsx` — `<head>` に Google 提供の adsbygoogle.js スニペットと `google-adsense-account` メタタグを常時出力
+- `src/components/ads/DesktopAdSlot.tsx` — head 側で常時読み込むため、コンポーネント内の重複スクリプト読み込みを削除（広告ユニット表示自体は従来どおり `NEXT_PUBLIC_ENABLE_ADSENSE_DISPLAY_ADS` でゲート）
+- `src/app/privacy/page.tsx` — §6 に第三者配信事業者（Google）の広告 Cookie・パーソナライズ広告・オプトアウト手段を追記、§3 に Google AdSense を追加
+
+未対応（要判断）: P1 のトップページ初期 HTML 改善（認証フックのデフォルト挙動に触れるため別途相談）、P2 の公開コンテンツ増強。
+
+## 8. 補足: 再申請時の注意
 
 - コード設置後、**審査が完了するまで（数日〜2週間以上）スニペットと ads.txt を外さない**こと。デプロイや env 変更で消えると自動的に不承認になる。
 - ads.txt は `https://merken.jp/ads.txt`（wwwなし）からも到達できること（Vercel のドメインリダイレクト設定で www へ 301 されていれば OK）。

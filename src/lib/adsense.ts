@@ -14,7 +14,9 @@ export const ADSENSE_DISPLAY_ADS_ENABLED =
   process.env.NEXT_PUBLIC_ENABLE_ADSENSE_DISPLAY_ADS === '1' &&
   Boolean(ADSENSE_CLIENT_ID);
 
-export const ADSENSE_ACCOUNT_SIGNALS_ENABLED = ADSENSE_DISPLAY_ADS_ENABLED;
+// Account signals (head snippet, meta tag, ads.txt) must stay on regardless of
+// the display-ad rollout: AdSense review fails whenever they disappear.
+export const ADSENSE_ACCOUNT_SIGNALS_ENABLED = Boolean(ADSENSE_CLIENT_ID);
 
 export const ADSENSE_PUBLISHER_ID = ADSENSE_CLIENT_ID
   ? ADSENSE_CLIENT_ID.replace(/^ca-/, '')
