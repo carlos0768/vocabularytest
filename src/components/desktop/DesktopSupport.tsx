@@ -92,7 +92,7 @@ export function DesktopContactView({ onBack }: { onBack: () => void }) {
                 <input className="ds-input" type="email" placeholder="you@example.com" />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
-                <a className="ds-btn accent" href={`mailto:support@merken.jp?subject=${encodeURIComponent(kind)}`}>
+                <a className="ds-btn accent" href={`mailto:support@merken.jp?cc=ahoperson@merken.jp&subject=${encodeURIComponent(kind)}`}>
                   <Icon name="send" />
                   送信する
                 </a>
@@ -102,7 +102,7 @@ export function DesktopContactView({ onBack }: { onBack: () => void }) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
-            <a href="mailto:support@merken.jp" className="ds-card ds-contact-method" style={{ color: 'inherit', textDecoration: 'none' }}>
+            <a href="mailto:support@merken.jp?cc=ahoperson@merken.jp" className="ds-card ds-contact-method" style={{ color: 'inherit', textDecoration: 'none' }}>
               <div className="ic"><Icon name="mail" style={{ color: 'var(--color-accent)' }} /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600 }}>メールで直接</div>
