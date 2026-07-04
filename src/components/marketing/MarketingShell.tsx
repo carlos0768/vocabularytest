@@ -8,12 +8,14 @@ import { StatusAwareCta } from './StatusAwareCta';
 
 interface MarketingShellProps {
   children: ReactNode;
-  active: 'features' | 'pricing';
+  active: 'features' | 'pricing' | 'guide' | 'column';
 }
 
 const navItems = [
   { href: '/features', label: '機能', key: 'features' as const },
   { href: '/pricing', label: '料金', key: 'pricing' as const },
+  { href: '/guide', label: '使い方ガイド', key: 'guide' as const },
+  { href: '/column', label: '学習コラム', key: 'column' as const },
 ];
 
 export function MarketingShell({ children, active }: MarketingShellProps) {

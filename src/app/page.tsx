@@ -129,7 +129,7 @@ const ROOT_LANDING_FAQS = [
   },
   {
     q: 'どんな抽出モードがありますか？',
-    a: '単語帳取込、丸囲み、英検レベル、熟語・イディオムの4種類です（スキャンはProプランの機能です）。このLPでは、公開時に案内する学習導線だけを掲載しています。',
+    a: '単語帳取込、丸囲み、英検レベル、熟語・イディオムの4種類です（スキャンはProプランの機能です）。教材の種類と目的に合わせて切り替えられます。詳しくは使い方ガイドをご覧ください。',
   },
   {
     q: '登録方法は？',
@@ -833,8 +833,8 @@ function GuestHomePage() {
         <RootLandingSectionHeading
           number="02"
           label="What's inside"
-          title={<>このサイトが今持っている、<br />実際の学習機能。</>}
-          body="公開対象の機能に絞って掲載しています。単語帳、スキャン、復習、進捗管理を中心に、このサイトで実際に使う導線だけを説明します。"
+          title={<>単語学習に必要な機能を、<br />ひとつのアプリに。</>}
+          body="単語帳の作成、スキャン、クイズでの復習、進捗管理まで。英単語学習に必要な流れを、迷わず使えるようにまとめています。"
         />
 
         <div className="grid gap-16 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
@@ -984,7 +984,7 @@ function GuestHomePage() {
           number="06"
           label="FAQ"
           title={<>よくある質問。</>}
-          body="このLPでは、今のサイトで実際に使える導線と制限だけを説明します。公開対象外の機能は掲載していません。"
+          body="プランの違いや使い方について、よくいただく質問をまとめました。さらに詳しい解説は使い方ガイドと学習コラムにあります。"
         />
         <div className="border-t-2 border-[#1a1a1a]">
           {ROOT_LANDING_FAQS.map((item, index) => (
@@ -1047,7 +1047,8 @@ function GuestHomePage() {
             <ul className="flex flex-col gap-2 text-sm">
               <li><Link href="#features" className="hover:text-[var(--color-accent)]">機能</Link></li>
               {billingEnabled && <li><Link href="#pricing" className="hover:text-[var(--color-accent)]">料金</Link></li>}
-              <li><Link href="#how" className="hover:text-[var(--color-accent)]">使い方</Link></li>
+              <li><Link href="/guide" className="hover:text-[var(--color-accent)]">使い方ガイド</Link></li>
+              <li><Link href="/column" className="hover:text-[var(--color-accent)]">学習コラム</Link></li>
             </ul>
           </div>
           <div>
