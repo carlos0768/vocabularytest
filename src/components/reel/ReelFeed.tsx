@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
 import type { ReelFeedItem } from '@/hooks/use-reel-feed';
+import { interleaveReelAds } from '@/lib/reels/feed-entries';
+import { ReelAdCard, REEL_AD_CARD_AVAILABLE } from '@/components/ads/ReelAdCard';
 import { ReelCard } from './ReelCard';
 import { ReelLimitCard } from './ReelStatusCards';
 
@@ -12,6 +14,7 @@ type ReelFeedProps = {
   limitReached: boolean;
   usageLimit: number | null;
   importingBookId: string | null;
+  showAds?: boolean;
   onLoadMore: () => void;
   onLike: (item: ReelItem) => void;
   onImport: (book: ReelBook) => void;
@@ -34,6 +37,7 @@ export function ReelFeed({
   limitReached,
   usageLimit,
   importingBookId,
+  showAds = false,
   onLoadMore,
   onLike,
   onImport,
@@ -45,6 +49,11 @@ export function ReelFeed({
   const [activeIndex, setActiveIndex] = useState(0);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  const entries = useMemo(
+    () => interleaveReelAds(items, showAds && REEL_AD_CARD_AVAILABLE),
+    [items, showAds],
+  );
+
   const observeCard = useCallback((node: HTMLDivElement | null) => {
     if (!node || !observerRef.current) return;
     observerRef.current.observe(node);
@@ -55,8 +64,8 @@ export function ReelFeed({
     if (!container) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
+      (observed) => {
+        for (const entry of observed) {
           if (entry.isIntersecting) {
             const index = Number((entry.target as HTMLElement).dataset.reelIndex);
             if (Number.isFinite(index)) setActiveIndex(index);
@@ -73,38 +82,42 @@ export function ReelFeed({
       observer.disconnect();
       observerRef.current = null;
     };
-    // Re-arm when the item count changes so new cards get observed.
-  }, [items.length]);
+    // Re-arm when the card count changes so new cards get observed.
+  }, [entries.length]);
 
   useEffect(() => {
-    if (hasMore && items.length > 0 && activeIndex >= items.length - PREFETCH_AHEAD) {
+    if (hasMore && entries.length > 0 && activeIndex >= entries.length - PREFETCH_AHEAD) {
       onLoadMore();
     }
-  }, [activeIndex, hasMore, items.length, onLoadMore]);
+  }, [activeIndex, hasMore, entries.length, onLoadMore]);
 
   return (
     <div
       ref={containerRef}
       className="no-scrollbar h-full w-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
     >
-      {items.map((item, index) => (
+      {entries.map((entry, index) => (
         <div
-          key={item.feedKey}
+          key={entry.kind === 'item' ? entry.item.feedKey : entry.adKey}
           ref={observeCard}
           data-reel-index={index}
           className="h-full w-full snap-start"
         >
           {Math.abs(index - activeIndex) <= RENDER_WINDOW ? (
-            <ReelCard
-              item={item}
-              active={index === activeIndex}
-              importing={importingBookId === item.book.id}
-              onLike={() => onLike(item)}
-              onImport={() => onImport(item.book)}
-              onShare={() => onShare(item)}
-              onFeedback={(feedback) => onFeedback(item, feedback)}
-              onCommentCountChange={(delta) => onCommentCountChange(item, delta)}
-            />
+            entry.kind === 'item' ? (
+              <ReelCard
+                item={entry.item}
+                active={index === activeIndex}
+                importing={importingBookId === entry.item.book.id}
+                onLike={() => onLike(entry.item)}
+                onImport={() => onImport(entry.item.book)}
+                onShare={() => onShare(entry.item)}
+                onFeedback={(feedback) => onFeedback(entry.item, feedback)}
+                onCommentCountChange={(delta) => onCommentCountChange(entry.item, delta)}
+              />
+            ) : (
+              <ReelAdCard />
+            )
           ) : null}
         </div>
       ))}
