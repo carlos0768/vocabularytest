@@ -236,6 +236,15 @@ test('EIKEN helpers and prompts keep this-level-and-above filtering', () => {
   ]);
 });
 
+test('EIKEN analysis prompt keeps lemma normalization with independent-meaning exception', () => {
+  assertIncludesAll('EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT', EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT, [
+    '単語の原形化ルール',
+    'english は原形（辞書の見出し語）で出力',
+    '活用形がそれ自体で独立した意味を持ち、辞書に見出し語として載っている場合は、その形のまま出力',
+    '"abandoned the plan" の "abandoned" → "abandon"',
+  ]);
+});
+
 test('idiom and phrasal verb classification rules stay explicit', () => {
   const generalWordPrompts = [
     ['WORD_EXTRACTION_SYSTEM_PROMPT', WORD_EXTRACTION_SYSTEM_PROMPT],
