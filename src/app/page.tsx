@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { DesktopHomeView } from '@/components/desktop/DesktopHome';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
+import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
@@ -318,6 +319,7 @@ export default function HomePage() {
   const [pendingGeneratingWordbook, setPendingGeneratingWordbook] = useState<HomeGeneratingWordbookPayload | null>(null);
 
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -691,10 +693,10 @@ export default function HomePage() {
             title="単語帳はまだありません"
             description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
             action={
-              <Link href="/scan" className="solid-link-primary">
+              <button type="button" onClick={() => setCreateSheetOpen(true)} className="solid-link-primary">
                 <Icon name="add_a_photo" size={16} />
                 新規スキャン
-              </Link>
+              </button>
             }
           />
         ) : (
@@ -708,6 +710,10 @@ export default function HomePage() {
         onClose={() => setVocabScanOpen(false)}
         defaultMode="vocab"
         onBackgroundScanStarted={showHomeGeneratingWordbook}
+      />
+      <CreateWordbookSheet
+        isOpen={createSheetOpen}
+        onClose={() => setCreateSheetOpen(false)}
       />
 
 
