@@ -15,6 +15,7 @@ type ReelCardProps = {
   active: boolean;
   importing: boolean;
   onLike: () => void;
+  onSave: () => void;
   onImport: () => void;
   onShare: () => void;
   onFeedback: (feedback: ReelFeedback) => void;
@@ -43,6 +44,7 @@ export function ReelCard({
   active,
   importing,
   onLike,
+  onSave,
   onImport,
   onShare,
   onFeedback,
@@ -190,6 +192,7 @@ export function ReelCard({
           <ReelActionRail
             item={item}
             onLike={onLike}
+            onSave={onSave}
             onSpeak={() => speak(item.english)}
             onComment={() => setCommentsOpen(true)}
             onShare={onShare}
