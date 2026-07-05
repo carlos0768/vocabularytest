@@ -19,7 +19,7 @@ test('getEikenCefrThreshold maps EIKEN grades to the easiest CEFR level of their
   assert.equal(getEikenCefrThreshold(null), null);
 });
 
-test('filterWordsByLexiconCefrLevel removes words the lexicon marks below the EIKEN level', async () => {
+test('filterWordsByLexiconCefrLevel removes below-level words and lexicon-unknown words', async () => {
   const levels = new Map<string, CefrLevel>([
     ['pen', 'A1'],
     ['consider', 'B1'],
@@ -39,9 +39,10 @@ test('filterWordsByLexiconCefrLevel removes words the lexicon marks below the EI
     lookupCefrLevels: async () => levels,
   });
 
+  // pen/consider はレベル未満、zymurgy はlexicon未登録(ゴミ文字列扱い)として除外
   assert.deepEqual(
     result.words.map((word) => word.english),
-    ['abolish', 'hypothesis', 'zymurgy'],
+    ['abolish', 'hypothesis'],
   );
   assert.equal(result.removedCount, 2);
   assert.equal(result.unknownCount, 1);
