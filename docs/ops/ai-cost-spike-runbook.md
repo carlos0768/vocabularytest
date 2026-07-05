@@ -262,6 +262,27 @@ order by created_at desc
 limit 50;
 ```
 
+スキャン別の集計（1スキャン = `/api/extract` の1リクエスト、または `scan_jobs` の1ジョブ。`metadata->>'scan_id'` で紐づく）:
+
+```sql
+select
+  metadata->>'scan_id' as scan_id,
+  metadata->>'scan_source' as scan_source,
+  max(user_id::text) as user_id,
+  count(*) as calls,
+  sum(coalesce(total_tokens, 0)) as total_tokens,
+  sum(coalesce(estimated_cost_jpy, 0)) as estimated_cost_jpy,
+  min(created_at) as started_at
+from api_cost_events
+where created_at >= now() - interval '24 hours'
+  and metadata->>'scan_id' is not null
+group by 1, 2
+order by estimated_cost_jpy desc
+limit 100;
+```
+
+`/ops/api-costs` の「スキャン別コスト」セクションでも同じ内容（件数・平均コスト・直近スキャン一覧）を確認できる。
+
 feature usage:
 
 ```sql

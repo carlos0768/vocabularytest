@@ -79,6 +79,7 @@ import {
 } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
+import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
 import {
   enqueueWordLexiconResolutionJobs,
   triggerWordLexiconResolutionProcessing,
@@ -878,7 +879,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     }
 
     const cloudRunTimingEntries: CloudRunTimingEntry[] = [];
-    return await runWithCloudRunTimingCollector(cloudRunTimingEntries, async () => {
+    // ジョブ1件分のAI呼び出しを scan_id=jobId で api_cost_events に紐づける。
+    return await runWithApiCostScanContext(
+      { scanId: jobId, source: 'scan-jobs/process', userId: job.user_id },
+      () => runWithCloudRunTimingCollector(cloudRunTimingEntries, async () => {
       const apiKeys = getApiKeys();
       // ユーザの興味ジャンル（例文パーソナライズ用・Pro限定）。非Pro/取得失敗時は空配列で続行。
       const exampleGenres = await fetchExampleGenresForProUser(supabaseAdmin, job.user_id);
@@ -905,6 +909,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         );
         const primaryMode = modes[0] ?? 'all';
         timing.scanMode = modes.join(',');
+        updateApiCostScanContext({ modes });
 
         const missingProviderKey = getMissingProviderKeyForModes(modes, apiKeys);
         if (missingProviderKey) {
@@ -1765,7 +1770,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
         return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
       }
-    });
+    }));
 
   } catch (error) {
     console.error('Process route error:', error);

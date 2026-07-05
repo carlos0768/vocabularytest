@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { readSingleLineEnv } from '@/lib/env';
 import { calculateEstimatedApiCost } from './pricing';
+import { getScanContextEventFields } from './scan-context';
 
 type EventStatus = 'succeeded' | 'failed';
 
@@ -105,14 +106,16 @@ export async function recordApiCostEvent(input: ApiCostEventInput): Promise<void
         ? input.estimatedCostJpy
         : estimated.estimatedCostJpy;
 
+    const scanContext = getScanContextEventFields();
     const metadata = normalizeMetadata({
       ...input.metadata,
+      ...(scanContext ? scanContext.metadata : {}),
       pricing_found: estimated.pricingFound,
       ...(thinkingTokens !== null ? { thinking_tokens: thinkingTokens } : {}),
     });
 
     const { error } = await client.from('api_cost_events').insert({
-      user_id: input.userId ?? null,
+      user_id: input.userId ?? scanContext?.userId ?? null,
       provider,
       model,
       operation,
