@@ -29,10 +29,10 @@ type DiscoverResponse = SharedDiscoverPayload | { error?: string };
 type ShareCategory = Exclude<SharedDiscoverCategory, 'all'>;
 type PageCategory = ShareCategory | 'groups';
 
-const CATEGORY_META: Record<PageCategory, { label: string; icon: string; description: string }> = {
-  users: { label: 'ユーザー', icon: 'person', description: '学習者をフォロー' },
-  projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳' },
-  groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探す' },
+const CATEGORY_META: Record<PageCategory, { label: string; icon: string; description: string; color: string }> = {
+  users: { label: 'ユーザー', icon: 'person', description: '学習者をフォロー', color: '#137FEC' },
+  projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳', color: '#228B22' },
+  groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探す', color: '#D97340' },
 };
 
 type FollowSearchApiResponse = {
@@ -86,14 +86,14 @@ type WordbookGenre = {
   icon: string;
 };
 
-const WORDBOOK_GENRES: WordbookGenre[] = [
-  { key: 'eiken-pre1', label: '英検準1級', description: '英検準1級レベルの単語帳', query: '英検準1級', color: '#664DB3', icon: 'school' },
-  { key: 'eiken-2', label: '英検2級', description: '英検2級レベルの単語帳', query: '英検2級', color: '#137FEC', icon: 'school' },
-  { key: 'toeic', label: 'TOEIC', description: 'TOEIC対策の単語帳', query: 'TOEIC', color: '#228B22', icon: 'work' },
-  { key: 'idiom', label: 'イディオム', description: '熟語・イディオムの単語帳', query: 'イディオム', color: '#CC4D59', icon: 'style' },
-  { key: 'exam', label: '大学受験', description: '大学受験対策の単語帳', query: '受験', color: '#D97340', icon: 'history_edu' },
-  { key: 'daily', label: '日常会話', description: '日常会話フレーズの単語帳', query: '日常会話', color: '#3DA1B8', icon: 'forum' },
-];
+const EIKEN_GENRE: WordbookGenre = {
+  key: 'eiken',
+  label: '英検',
+  description: '英検対策の単語帳',
+  query: '英検',
+  color: '#664DB3',
+  icon: 'school',
+};
 
 function thumbColor(id: string) {
   let h = 0;
@@ -339,19 +339,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         )}
 
         {category === 'all' ? (
-          <div className="grid grid-cols-3 gap-2 px-[14px] py-3">
-            {(Object.keys(CATEGORY_META) as PageCategory[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handleSelectCategory(key)}
-                className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-2 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
-              >
-                <Icon name={CATEGORY_META[key].icon} size={19} className="text-[var(--solid-ink)]" />
-                <div className="mt-2 text-[12px] font-extrabold text-[var(--solid-ink)]">{CATEGORY_META[key].label}</div>
-              </button>
-            ))}
-          </div>
+          <BrowseSection onSelectCategory={handleSelectCategory} onSelectGenre={setSelectedGenre} />
         ) : (
           <div className="flex items-center gap-2 px-[14px] py-3">
             <button
@@ -367,10 +355,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
               <div className="text-[10px] font-semibold text-[var(--color-muted)]">{CATEGORY_META[category].description}</div>
             </div>
           </div>
-        )}
-
-        {category === 'all' && !hasQuery && (
-          <GenreBrowseSection onSelect={setSelectedGenre} />
         )}
 
         {category === 'all' && <JoinedGroupsSection />}
@@ -442,31 +426,52 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   );
 }
 
-function GenreBrowseSection({ onSelect }: { onSelect: (genre: WordbookGenre) => void }) {
+function BrowseSection({
+  onSelectCategory,
+  onSelectGenre,
+}: {
+  onSelectCategory: (category: PageCategory) => void;
+  onSelectGenre: (genre: WordbookGenre) => void;
+}) {
+  const tiles = [
+    ...(Object.keys(CATEGORY_META) as PageCategory[]).map((key) => ({
+      key: key as string,
+      label: CATEGORY_META[key].label,
+      icon: CATEGORY_META[key].icon,
+      color: CATEGORY_META[key].color,
+      ariaLabel: `${CATEGORY_META[key].label}を探す`,
+      onSelect: () => onSelectCategory(key),
+    })),
+    {
+      key: EIKEN_GENRE.key,
+      label: EIKEN_GENRE.label,
+      icon: EIKEN_GENRE.icon,
+      color: EIKEN_GENRE.color,
+      ariaLabel: `${EIKEN_GENRE.label}の単語帳を探す`,
+      onSelect: () => onSelectGenre(EIKEN_GENRE),
+    },
+  ];
+
   return (
-    <div className="px-[14px] pb-1">
-      <div className="mb-2.5 flex items-center gap-2">
-        <Icon name="category" size={20} className="text-[var(--solid-ink)]" />
-        <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">ジャンルから探す</h2>
-      </div>
+    <div className="px-[14px] py-3">
       <div className="grid grid-cols-2 gap-2">
-        {WORDBOOK_GENRES.map((genre) => (
+        {tiles.map((tile) => (
           <button
-            key={genre.key}
+            key={tile.key}
             type="button"
             onClick={() => {
               triggerHaptic();
-              onSelect(genre);
+              tile.onSelect();
             }}
-            aria-label={`${genre.label}の単語帳を探す`}
+            aria-label={tile.ariaLabel}
             className="relative h-[72px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] p-3 text-left text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-            style={{ backgroundColor: genre.color }}
+            style={{ backgroundColor: tile.color }}
           >
             <span className="relative z-10 font-display text-[15px] font-extrabold leading-tight">
-              {genre.label}
+              {tile.label}
             </span>
             <Icon
-              name={genre.icon}
+              name={tile.icon}
               size={60}
               className="pointer-events-none absolute -bottom-3 -right-2 rotate-[18deg] opacity-25"
             />
