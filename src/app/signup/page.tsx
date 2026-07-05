@@ -17,6 +17,7 @@ import { OtpInput } from '@/components/ui/OtpInput';
 import {
   SIGNUP_OTP_LENGTH,
   SIGNUP_RESEND_COOLDOWN_SECONDS,
+  SIGNUP_STEPS,
   buildSignupOtpRequestBody,
   buildSignupVerifyRequestBody,
   isSignupOtpComplete,
@@ -27,8 +28,26 @@ import {
   type OnboardingData,
   type SignupStep,
 } from '@/lib/auth/signup-flow';
+import { storePendingOnboarding } from '@/lib/auth/pending-onboarding';
 import { localRepository } from '@/lib/db/local-repository';
 import type { DefaultOfficialWordbookImportItem } from '@/lib/official-wordbooks/import-default';
+import { usePageBackground } from '@/hooks/use-page-background';
+
+const SIGNUP_BG = '#f3f0e9';
+
+const STEP_THEMES: Record<SignupStep, {
+  icon: string;
+  label: string;
+  accent: string;
+  accentSub: string;
+}> = {
+  profile: { icon: 'person', label: 'PROFILE', accent: '#15803d', accentSub: '#dcfce7' },
+  level: { icon: 'flag', label: 'GOAL', accent: '#b45309', accentSub: '#fef3c7' },
+  form: { icon: 'mail', label: 'ACCOUNT', accent: '#6d28d9', accentSub: '#ede9fe' },
+  otp: { icon: 'lock', label: 'VERIFY', accent: '#dc2626', accentSub: '#fee2e2' },
+};
+
+const STEP_BAR_COLORS = ['#15803d', '#b45309', '#6d28d9', '#dc2626'] as const;
 
 const EIKEN_LEVELS: { value: EikenLevelOption; label: string }[] = [
   { value: '5', label: '5級' },
@@ -101,6 +120,8 @@ async function saveDefaultOfficialWordbooksLocally(
 }
 
 function SignupForm() {
+  usePageBackground(SIGNUP_BG);
+
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
 
@@ -178,6 +199,15 @@ function SignupForm() {
   const handleLevelSubmit = () => {
     setError(null);
     setStep('form');
+  };
+
+  // OAuth leaves this page before signup-verify can run, so stash the
+  // onboarding profile for PendingOnboardingSync to apply after the redirect.
+  const stashOnboardingForOAuth = () => {
+    const onboarding: OnboardingData = { displayName, userHandle, eikenLevel };
+    if (validateOnboardingData(onboarding).ok && handleAvailable !== false) {
+      storePendingOnboarding(onboarding);
+    }
   };
 
   const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -284,9 +314,6 @@ function SignupForm() {
     }
   };
 
-  const stepIndex = step === 'profile' ? 1 : step === 'level' ? 2 : step === 'form' ? 3 : 4;
-  const totalSteps = 4;
-
   // ── OTP Step ─────────────────────────────────────────────
   if (step === 'otp') {
     return (
@@ -346,8 +373,7 @@ function SignupForm() {
 
         <div className="lg:hidden">
           <SignupShell
-            stepIndex={stepIndex}
-            totalSteps={totalSteps}
+            step={step}
             title="メールを確認"
             description="届いた6桁の認証コードを入力してください。"
             onBack={() => {
@@ -358,7 +384,7 @@ function SignupForm() {
           >
             <SolidPanel className="mx-6 !rounded-xl" faceClassName="!p-4">
               <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#fee2e2] text-[#dc2626]">
                   <Icon name="mail" size={20} />
                 </div>
                 <div className="min-w-0">
@@ -480,6 +506,7 @@ function SignupForm() {
             redirectPath={redirect}
             disabled={loading}
             onError={(message) => setError(message || null)}
+            onBeforeRedirect={stashOnboardingForOAuth}
           />
 
           <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
@@ -502,8 +529,7 @@ function SignupForm() {
 
         <div className="lg:hidden">
           <SignupShell
-            stepIndex={stepIndex}
-            totalSteps={totalSteps}
+            step={step}
             title="アカウント情報"
             description="メールアドレスとパスワードを入力してください。"
             onBack={() => {
@@ -575,6 +601,7 @@ function SignupForm() {
               redirectPath={redirect}
               disabled={loading}
               onError={(message) => setError(message || null)}
+              onBeforeRedirect={stashOnboardingForOAuth}
             />
 
             <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
@@ -653,8 +680,7 @@ function SignupForm() {
 
         <div className="lg:hidden">
           <SignupShell
-            stepIndex={stepIndex}
-            totalSteps={totalSteps}
+            step={step}
             title="受検何級に合格したいですか？"
             description="目標の級を選択してください。"
             onBack={() => {
@@ -776,8 +802,7 @@ function SignupForm() {
       {/* Mobile */}
       <div className="lg:hidden">
         <SignupShell
-          stepIndex={stepIndex}
-          totalSteps={totalSteps}
+          step={step}
           title="プロフィール設定"
           description="ユーザー名とユーザーIDを設定してください。"
           backHref="/"
@@ -853,17 +878,22 @@ function SignupForm() {
   );
 }
 
+const SHELL_CONFETTI = [
+  { x: '8%', y: '13%', size: 9, color: '#15803d', rotate: -10 },
+  { x: '91%', y: '9%', size: 7, color: '#b45309', rotate: 14 },
+  { x: '94%', y: '30%', size: 10, color: '#dc2626', rotate: -12 },
+  { x: '4%', y: '34%', size: 6, color: '#6d28d9', rotate: 20 },
+] as const;
+
 function SignupShell({
-  stepIndex,
-  totalSteps,
+  step,
   title,
   description,
   backHref,
   onBack,
   children,
 }: {
-  stepIndex: number;
-  totalSteps: number;
+  step: SignupStep;
   title: string;
   description: string;
   backHref?: string;
@@ -871,63 +901,115 @@ function SignupShell({
   children: ReactNode;
 }) {
   const backClassName = 'flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px';
+  const theme = STEP_THEMES[step];
+  const stepIndex = SIGNUP_STEPS.indexOf(step) + 1;
+  const totalSteps = SIGNUP_STEPS.length;
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[#f3f0e9] pt-3 font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
-      <div className="flex items-center gap-2 px-[14px] pt-1">
-        {backHref ? (
-          <Link href={backHref} className={backClassName} aria-label="戻る">
-            <Icon name="chevron_left" size={16} />
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={onBack}
-            className={backClassName}
-            aria-label="戻る"
-          >
-            <Icon name="chevron_left" size={16} />
-          </button>
-        )}
-        <div className="flex-1" />
-        <div className="mr-1.5 flex items-center gap-1">
-          <span className="font-mono text-[10px] font-bold tabular-nums text-[#8a857a]">
-            {stepIndex}/{totalSteps}
-          </span>
-          <div className="flex gap-[3px]">
-            {Array.from({ length: totalSteps }, (_, i) => (
-              <div
-                key={i}
-                className="h-1 w-[18px] rounded-sm"
-                style={{
-                  background:
-                    stepIndex > i
-                      ? 'var(--solid-ink)'
-                      : 'rgba(26,26,26,0.15)',
-                }}
-              />
-            ))}
+    <div className="relative min-h-screen w-full bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-hidden pb-4 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
+        {/* Decorative accent blobs + confetti */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-14 -top-12 h-36 w-36 rounded-full"
+          style={{ background: theme.accent, opacity: 0.09 }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 top-40 h-44 w-44 rounded-full"
+          style={{ background: '#f59e0b', opacity: 0.1 }}
+        />
+        {SHELL_CONFETTI.map((c, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="pointer-events-none absolute rounded-[2px] border border-[var(--solid-ink)]"
+            style={{
+              left: c.x,
+              top: c.y,
+              width: c.size,
+              height: c.size,
+              background: c.color,
+              transform: `rotate(${c.rotate}deg)`,
+              opacity: 0.85,
+            }}
+          />
+        ))}
+
+        <div className="relative flex items-center gap-2 px-[14px] pt-1">
+          {backHref ? (
+            <Link href={backHref} className={backClassName} aria-label="戻る">
+              <Icon name="chevron_left" size={16} />
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={onBack}
+              className={backClassName}
+              aria-label="戻る"
+            >
+              <Icon name="chevron_left" size={16} />
+            </button>
+          )}
+          <div className="flex-1" />
+          <div className="mr-1.5 flex items-center gap-1.5">
+            <span className="font-mono text-[10px] font-bold tabular-nums text-[#8a857a]">
+              {stepIndex}/{totalSteps}
+            </span>
+            <div className="flex gap-[3px]">
+              {Array.from({ length: totalSteps }, (_, i) => (
+                <div
+                  key={i}
+                  className="h-[6px] w-[20px] rounded-[3px] border border-[var(--solid-ink)]"
+                  style={{
+                    background:
+                      stepIndex > i
+                        ? STEP_BAR_COLORS[i] ?? 'var(--solid-ink)'
+                        : 'rgba(255,255,255,0.7)',
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="px-6 pb-2 pt-6 text-center">
-        <div className="inline-block font-display text-[38px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
-          MERKEN
-          <span className="ml-[5px] inline-block h-[7px] w-[7px] -translate-y-3 bg-[var(--color-accent)]" />
+        <div className="relative px-6 pb-2 pt-6 text-center">
+          <div className="inline-block font-display text-[38px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
+            MERKEN
+            <span className="ml-[5px] inline-block h-[7px] w-[7px] -translate-y-3 bg-[var(--color-accent)]" />
+          </div>
         </div>
-      </div>
 
-      <div className="px-6 pb-4 pt-6">
-        <div className="font-display text-2xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
-          {title}
+        <div className="relative px-6 pb-4 pt-5">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--solid-ink)]"
+          >
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{ background: theme.accent }}
+            />
+            STEP {stepIndex} · {theme.label}
+          </span>
+          <div className="mt-3 flex items-start gap-3">
+            <div
+              className="flex h-12 w-12 shrink-0 -rotate-2 items-center justify-center rounded-[13px] border-2 border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)]"
+              style={{ background: theme.accentSub, color: theme.accent }}
+            >
+              <Icon name={theme.icon} size={24} />
+            </div>
+            <div className="min-w-0">
+              <div className="font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+                {title}
+              </div>
+              <div className="mt-1 text-xs leading-relaxed text-[#8a857a]">{description}</div>
+            </div>
+          </div>
         </div>
-        <div className="mt-1 text-xs text-[#8a857a]">{description}</div>
+
+        {children}
+
+        <div className="flex-1" />
       </div>
-
-      {children}
-
-      <div className="flex-1" />
     </div>
   );
 }
@@ -961,7 +1043,7 @@ function PrimaryAction({
       onClick={onClick}
       className="group w-full disabled:pointer-events-none disabled:opacity-60"
     >
-      <div className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-white shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]">
+      <div className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-3.5 text-center text-sm font-bold text-white shadow-[3px_4px_0_var(--solid-ink)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_var(--solid-ink)]">
         {children}
       </div>
     </button>
@@ -983,7 +1065,7 @@ function LevelChip({
       onClick={onClick}
       className={`rounded-[10px] border-2 px-3.5 py-2 text-[12px] font-bold transition-all ${
         active
-          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white shadow-[2px_3px_0_var(--solid-ink)]'
+          ? 'border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_3px_0_var(--solid-ink)]'
           : 'border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]'
       }`}
     >
@@ -993,8 +1075,10 @@ function LevelChip({
 }
 
 function SignupFallback() {
+  usePageBackground(SIGNUP_BG);
+
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
     </div>
   );

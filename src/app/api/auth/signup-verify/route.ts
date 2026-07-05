@@ -46,7 +46,9 @@ const requestSchema = z.object({
   email: z.string().trim().email().max(254),
   code: z.string().trim().regex(/^\d{6}$/),
   password: z.string().min(8).max(128),
-  display_name: z.string().trim().min(1).max(30).optional(),
+  // Max 20 to satisfy the profiles.username CHECK constraint (username is
+  // written alongside display_name).
+  display_name: z.string().trim().min(1).max(20).optional(),
   user_handle: z.string().regex(/^[a-z0-9_]{3,20}$/).optional(),
   eiken_level: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional(),
 });
@@ -81,10 +83,13 @@ function isUniqueViolation(error: { code?: string | null } | null): boolean {
   return error?.code === '23505';
 }
 
+// account_id column: NOT NULL, lowercase, ^[a-z0-9_]{4,24}$ (see profiles_account_id_format).
+const ACCOUNT_ID_FORMAT = /^[a-z0-9_]{4,24}$/;
+
 function buildSignupProfilePayload(
   userId: string,
   fields: SignupProfileFields,
-  includeAccountId: boolean,
+  accountId: string | undefined,
 ) {
   const payload: {
     user_id: string;
@@ -105,9 +110,15 @@ function buildSignupProfilePayload(
   }
   if (fields.user_handle !== undefined) payload.user_handle = fields.user_handle;
   if (fields.eiken_level !== undefined) payload.eiken_level = fields.eiken_level;
-  if (includeAccountId) payload.account_id = buildDefaultAccountId(userId);
+  if (accountId !== undefined) payload.account_id = accountId;
 
   return payload;
+}
+
+function isAccountIdUniqueViolation(error: { code?: string | null; message?: string | null; details?: string | null } | null): boolean {
+  if (!error || error.code !== '23505') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''}`;
+  return text.includes('account_id');
 }
 
 async function saveSignupProfileFields(
@@ -115,20 +126,32 @@ async function saveSignupProfileFields(
   userId: string,
   fields: SignupProfileFields,
 ): Promise<{ code?: string | null; message?: string | null; details?: string | null } | null> {
-  const upsertProfile = (includeAccountId: boolean) => adminClient
+  const upsertProfile = (accountId: string | undefined) => adminClient
     .from('profiles')
     .upsert(
-      buildSignupProfilePayload(userId, fields, includeAccountId),
+      buildSignupProfilePayload(userId, fields, accountId),
       { onConflict: 'user_id' },
     )
     .select('user_id')
     .single();
 
-  const { error } = await upsertProfile(false);
+  // Use the chosen handle as the searchable account id so the profile shows
+  // @<handle> instead of the auto-minted mkXXXX id from handle_new_user().
+  const accountIdFromHandle = fields.user_handle !== undefined && ACCOUNT_ID_FORMAT.test(fields.user_handle)
+    ? fields.user_handle
+    : undefined;
+
+  let { error } = await upsertProfile(accountIdFromHandle);
   if (!error) return null;
 
+  // Another user already owns that account_id — keep the auto-minted one.
+  if (accountIdFromHandle !== undefined && isAccountIdUniqueViolation(error)) {
+    ({ error } = await upsertProfile(undefined));
+    if (!error) return null;
+  }
+
   if (isMissingAccountIdError(error)) {
-    const retry = await upsertProfile(true);
+    const retry = await upsertProfile(buildDefaultAccountId(userId));
     return retry.error ?? null;
   }
 
