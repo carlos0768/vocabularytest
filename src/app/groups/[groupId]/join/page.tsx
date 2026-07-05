@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -117,43 +118,24 @@ export default function GroupJoinPage() {
     return submitJoin({ groupId });
   }, [groupId, submitJoin]);
 
-  return (
-    <div
-      className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
-      style={{
-        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
-        paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
-      }}
-    >
-      <div className="flex items-center gap-2 px-[14px] pt-1">
-        <Link
-          href="/shared"
-          aria-label="共有に戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="arrow_back" size={16} />
-        </Link>
-        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-          JOIN GROUP
-        </div>
-      </div>
+  const stateView = authLoading || checking ? (
+    <div className="flex items-center justify-center py-24 text-[var(--color-muted)]">
+      <Icon name="progress_activity" className="animate-spin" size={22} />
+      <span className="ml-2 text-sm font-bold">読み込み中...</span>
+    </div>
+  ) : !isAuthenticated ? (
+    <CenteredCard icon="lock" title="ログインが必要です">
+      <Link
+        href={`/login?redirect=/groups/${groupId}/join`}
+        className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white"
+      >
+        ログイン
+      </Link>
+    </CenteredCard>
+  ) : null;
 
-      {authLoading || checking ? (
-        <div className="flex items-center justify-center py-24 text-[var(--color-muted)]">
-          <Icon name="progress_activity" className="animate-spin" size={22} />
-          <span className="ml-2 text-sm font-bold">読み込み中...</span>
-        </div>
-      ) : !isAuthenticated ? (
-        <CenteredCard icon="lock" title="ログインが必要です">
-          <Link
-            href={`/login?redirect=/groups/${groupId}/join`}
-            className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white"
-          >
-            ログイン
-          </Link>
-        </CenteredCard>
-      ) : (
-        <div className="flex flex-col gap-4 px-[14px] pt-4">
+  const joinContent = stateView === null ? (
+    <div className="flex flex-col gap-4">
           <section
             className="relative overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4 text-white"
             style={{ background: `linear-gradient(135deg, ${thumbColor(preview?.id ?? groupId)} 0%, var(--solid-ink) 160%)` }}
@@ -244,9 +226,57 @@ export default function GroupJoinPage() {
               </form>
             </section>
           )}
-        </div>
-      )}
     </div>
+  ) : null;
+
+  return (
+    <>
+      {/* Desktop */}
+      <div className="hidden h-full min-h-0 flex-col lg:flex">
+        <div className="ds-top">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="crumb">共有ライブラリ / グループ</div>
+            <h1 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {preview?.name ? `${preview.name}に参加` : 'グループに参加'}
+            </h1>
+          </div>
+          <DesktopButton href="/shared" icon="arrow_back" variant="ghost">共有ライブラリ</DesktopButton>
+        </div>
+        <div className="ds-scroll">
+          <div style={{ maxWidth: 560 }}>
+            {stateView ?? joinContent}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile */}
+      <div
+        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] lg:hidden"
+        style={{
+          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <div className="flex items-center gap-2 px-[14px] pt-1">
+          <Link
+            href="/shared"
+            aria-label="共有に戻る"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="arrow_back" size={16} />
+          </Link>
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+            JOIN GROUP
+          </div>
+        </div>
+
+        {stateView ?? (
+          <div className="px-[14px] pt-4">
+            {joinContent}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
