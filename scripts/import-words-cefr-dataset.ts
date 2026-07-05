@@ -11,9 +11,10 @@ import {
 // https://github.com/Maximax67/Words-CEFR-Dataset
 //
 // インポート方針:
-// - レベルは小数(外挿値)なので四捨五入して A1-C1 のみ取り込む。
-//   C2 バケットは「稀語のデフォルト値」として全体の約7割を占めるノイズであり、
-//   英検フィルタでは lexicon 未登録語を「難しい側」として扱うため取り込む価値がない。
+// - レベルは小数(外挿値)なので四捨五入して A1-C2 を取り込む。
+//   C2 バケットは「稀語のデフォルト値」を多く含むが、英検フィルタが lexicon 未登録語を
+//   除外する(ホワイトリスト方式)ため、本物の難語を lexicon に載せておく必要がある。
+//   C2 はどの英検級のしきい値も通過するので、レベルの精度は問題にならない。
 // - 固有名詞 (Penn: NNP/NNPS) はスキップする。
 // - 既存行のうち OLP (CEFR-J / Octanove) 由来の cefr_level は人手キュレーション値なので
 //   上書きしない。それ以外(cefr_level が NULL、または runtime/AI 経由で作られた行)は
@@ -189,7 +190,6 @@ async function fetchSeeds(): Promise<Map<string, ImportSeed>> {
 
   const merged = new Map<string, ImportSeed>();
   let skippedProperNouns = 0;
-  let skippedC2 = 0;
 
   for (const row of wordPosRows) {
     const word = wordById.get(row.word_id?.trim() ?? '');
@@ -206,10 +206,6 @@ async function fetchSeeds(): Promise<Map<string, ImportSeed>> {
     const level = Number.parseFloat(row.level ?? '');
     if (!Number.isFinite(level)) continue;
     const bucket = Math.min(6, Math.max(1, Math.round(level)));
-    if (bucket >= 6) {
-      skippedC2 += 1;
-      continue;
-    }
     const cefrLevel = CEFR_BY_BUCKET[bucket];
 
     const normalized_headword = normalizeHeadword(word);
@@ -235,7 +231,7 @@ async function fetchSeeds(): Promise<Map<string, ImportSeed>> {
   }
 
   console.log(
-    `Prepared ${merged.size} seeds (skipped ${skippedProperNouns} proper-noun rows, ${skippedC2} extrapolated-C2 rows)`,
+    `Prepared ${merged.size} seeds (skipped ${skippedProperNouns} proper-noun rows)`,
   );
   return merged;
 }

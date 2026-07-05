@@ -82,9 +82,10 @@ export async function lookupLexiconCefrLevels(
 /**
  * 抽出済み単語を lexicon の CEFR レベルで決定的にフィルタする。
  * - lexicon 上のレベルが指定英検級のしきい値未満 -> 除外
- * - lexicon に無い/レベル不明な単語 -> 残す(誤除外を避ける。未知語は稀語・固有名詞が中心で
- *   「簡単すぎる単語の混入」の原因にならないため、判定はAI側の抽出結果に委ねる)
- * - ルックアップ失敗時はフィルタなしで返す(fail-open)
+ * - lexicon に無い/レベル不明な単語 -> 除外(unknownCount にカウント)。
+ *   OCR誤読やゴミ文字列の混入を防ぐため、lexicon をホワイトリストとして扱う。
+ *   本物の難語が誤除外されないよう、インポートスクリプトはC2バケットまで取り込むこと。
+ * - ルックアップ自体の失敗(DB障害など)時はフィルタなしで返す(fail-open)
  */
 export async function filterWordsByLexiconCefrLevel<T extends { english: string }>(
   words: T[],
@@ -114,7 +115,7 @@ export async function filterWordsByLexiconCefrLevel<T extends { english: string 
     const level = levels.get(normalizeHeadword(word.english));
     if (!level) {
       unknownCount += 1;
-      return true;
+      return false;
     }
     if (cefrIndex(level) < thresholdIndex) {
       removedCount += 1;
