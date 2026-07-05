@@ -11,6 +11,7 @@ const SIDEBAR_STORAGE_KEY = 'merken-sidebar-collapsed';
 const NO_SHELL_PATHS = [
   '/lp', '/login', '/signup', '/reset-password', '/auth',
   '/privacy', '/terms', '/tokusho', '/contact', '/features', '/pricing',
+  '/guide', '/column',
   '/offline', '/share-target', '/admin',
 ];
 

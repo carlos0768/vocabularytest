@@ -271,6 +271,7 @@ export default function ReelsPage() {
               limitReached={limitReached}
               usageLimit={usage?.limit ?? null}
               importingBookId={importingBookId}
+              showAds={subscriptionStatus !== 'active'}
               onLoadMore={loadMore}
               onLike={(item) => {
                 triggerHaptic();
