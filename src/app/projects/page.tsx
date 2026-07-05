@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { DesktopProjectsView } from '@/components/desktop/DesktopProjects';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
+import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { localRepository } from '@/lib/db/local-repository';
@@ -76,6 +77,7 @@ export default function ProjectListPage() {
   const [sort, setSort] = useState<SortKey>('newest');
   const [error, setError] = useState<string | null>(null);
   const [summaryStats, setSummaryStats] = useState<DesktopStudySummaryStats>(EMPTY_DESKTOP_STUDY_SUMMARY);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -233,10 +235,10 @@ export default function ProjectListPage() {
             title={query ? '一致する単語帳がありません' : '単語帳はまだありません'}
             description={query ? '検索語を変えてもう一度探してください。' : 'スキャンして最初の単語帳を作成しましょう。'}
             action={
-              <Link href="/scan" className="solid-link-primary">
+              <button type="button" onClick={() => setCreateSheetOpen(true)} className="solid-link-primary">
                 <Icon name="add_a_photo" size={16} />
                 新規スキャン
-              </Link>
+              </button>
             }
           />
         ) : (
@@ -245,6 +247,10 @@ export default function ProjectListPage() {
       </div>
 
       </div>
+      <CreateWordbookSheet
+        isOpen={createSheetOpen}
+        onClose={() => setCreateSheetOpen(false)}
+      />
     </>
   );
 }
