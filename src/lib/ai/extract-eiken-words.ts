@@ -3,6 +3,8 @@ import {
   EIKEN_OCR_PROMPT,
   EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT,
   EIKEN_WORD_ANALYSIS_USER_PROMPT,
+  EIKEN_SINGLE_PASS_SYSTEM_PROMPT,
+  EIKEN_SINGLE_PASS_USER_PROMPT,
   EIKEN_LEVEL_DESCRIPTIONS,
   getEikenLevelsAbove,
 } from './prompts';
@@ -41,6 +43,45 @@ interface EikenDeps {
   getProviderFromConfig?: typeof getProviderFromConfig;
   extractWordsFromImage?: typeof extractWordsFromImageBase;
   filterWordsByCefrLevel?: typeof filterWordsByLexiconCefrLevel;
+  /** 1段抽出(画像→単語を1回の呼び出しで)を使うか。未指定時は EIKEN_SINGLE_PASS_EXTRACTION=1 で有効。 */
+  singlePassExtraction?: boolean;
+}
+
+type ParsedImageInput =
+  | { success: true; base64Data: string; mimeType: string }
+  | { success: false; error: string };
+
+function parseImageInput(imageBase64: string): ParsedImageInput {
+  if (!imageBase64 || typeof imageBase64 !== 'string') {
+    console.error('Invalid imageBase64:', typeof imageBase64, imageBase64?.length);
+    return { success: false, error: '画像データが無効です' };
+  }
+
+  let base64Data: string;
+  let mimeType = 'image/jpeg';
+
+  if (imageBase64.startsWith('data:')) {
+    const commaIndex = imageBase64.indexOf(',');
+    if (commaIndex === -1) {
+      console.error('Invalid data URL format: no comma found');
+      return { success: false, error: '画像データの形式が不正です' };
+    }
+
+    base64Data = imageBase64.slice(commaIndex + 1);
+    const headerMatch = imageBase64.slice(0, commaIndex).match(/^data:([^;]+)/);
+    if (headerMatch) {
+      mimeType = headerMatch[1];
+    }
+  } else {
+    base64Data = imageBase64;
+  }
+
+  if (!base64Data || base64Data.length === 0) {
+    console.error('Empty base64 data');
+    return { success: false, error: '画像データが空です' };
+  }
+
+  return { success: true, base64Data, mimeType };
 }
 
 function extractJsonContent(content: string): string {
@@ -93,37 +134,11 @@ export async function extractTextForEiken(
   apiKeys: ProviderApiKeys,
   deps: EikenDeps = {}
 ): Promise<EikenOCRResult> {
-  // Validate input
-  if (!imageBase64 || typeof imageBase64 !== 'string') {
-    console.error('Invalid imageBase64:', typeof imageBase64, imageBase64?.length);
-    return { success: false, error: '画像データが無効です' };
+  const parsedImage = parseImageInput(imageBase64);
+  if (!parsedImage.success) {
+    return parsedImage;
   }
-
-  // Remove data URL prefix if present and validate
-  let base64Data: string;
-  let mimeType = 'image/jpeg';
-
-  if (imageBase64.startsWith('data:')) {
-    const commaIndex = imageBase64.indexOf(',');
-    if (commaIndex === -1) {
-      console.error('Invalid data URL format: no comma found');
-      return { success: false, error: '画像データの形式が不正です' };
-    }
-
-    base64Data = imageBase64.slice(commaIndex + 1);
-    const headerMatch = imageBase64.slice(0, commaIndex).match(/^data:([^;]+)/);
-    if (headerMatch) {
-      mimeType = headerMatch[1];
-    }
-  } else {
-    base64Data = imageBase64;
-  }
-
-  // Validate base64 data
-  if (!base64Data || base64Data.length === 0) {
-    console.error('Empty base64 data');
-    return { success: false, error: '画像データが空です' };
-  }
+  const { base64Data, mimeType } = parsedImage;
 
   console.log('AI OCR for EIKEN:', { mimeType, base64Length: base64Data.length });
 
@@ -232,66 +247,150 @@ export async function analyzeWordsForEiken(
       return { success: false, error: '単語解析の結果を取得できませんでした', reason: 'unknown' };
     }
 
-    // Parse JSON response
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(extractJsonContent(content));
-    } catch {
-      console.error('Failed to parse GPT response:', content);
-      return { success: false, error: 'AIの応答を解析できませんでした', reason: 'invalid_json' };
-    }
-
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      !Object.prototype.hasOwnProperty.call(parsed, 'words')
-    ) {
-      console.warn('EIKEN analysis response missing "words" key');
-    }
-
-    // Validate with Zod schema
-    const validated = parseAIResponse(parsed);
-
-    if (!validated.success) {
-      return {
-        success: false,
-        error: validated.error || 'データ形式が不正です',
-        reason: 'invalid_format',
-      };
-    }
-
-    // Check if any words were extracted
-    if (validated.data!.words.length === 0) {
-      return {
-        success: false,
-        error: `${levelDesc}に該当する単語が見つかりませんでした。別の画像をお試しください。`,
-        reason: 'no_words_found',
-      };
-    }
-
-    // AIのレベル判定は不安定なため、lexiconのCEFRレベルで指定級未満の単語を決定的に除外する
-    const filterWords = deps.filterWordsByCefrLevel ?? filterWordsByLexiconCefrLevel;
-    const filtered = await filterWords(validated.data!.words, eikenLevel);
-    if (filtered.removedCount > 0) {
-      console.log('EIKEN lexicon CEFR filter removed words below level', {
-        eikenLevel,
-        removedCount: filtered.removedCount,
-        unknownCount: filtered.unknownCount,
-        remainingCount: filtered.words.length,
-      });
-    }
-
-    if (filtered.words.length === 0) {
-      return {
-        success: false,
-        error: `${levelDesc}に該当する単語が見つかりませんでした。別の画像をお試しください。`,
-        reason: 'no_words_found',
-      };
-    }
-
-    return { success: true, data: { ...validated.data!, words: filtered.words } };
+    return await finalizeEikenAnalysis(content, eikenLevel, levelDesc, deps);
   } catch (error) {
     console.error('AI word analysis error:', error);
+
+    if (error instanceof AIError) {
+      return { success: false, error: error.getUserMessage(), reason: 'unknown' };
+    }
+
+    return {
+      success: false,
+      error: '単語解析に失敗しました。もう一度お試しください。',
+      reason: 'unknown',
+    };
+  }
+}
+
+/**
+ * Shared tail of the EIKEN analysis: parse JSON -> validate -> deterministic CEFR filter.
+ */
+async function finalizeEikenAnalysis(
+  content: string,
+  eikenLevel: NonNullable<EikenLevel>,
+  levelDesc: string,
+  deps: EikenDeps
+): Promise<EikenWordAnalysisResult> {
+  // Parse JSON response
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extractJsonContent(content));
+  } catch {
+    console.error('Failed to parse EIKEN analysis response:', content);
+    return { success: false, error: 'AIの応答を解析できませんでした', reason: 'invalid_json' };
+  }
+
+  if (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    !Object.prototype.hasOwnProperty.call(parsed, 'words')
+  ) {
+    console.warn('EIKEN analysis response missing "words" key');
+  }
+
+  // Validate with Zod schema
+  const validated = parseAIResponse(parsed);
+
+  if (!validated.success) {
+    return {
+      success: false,
+      error: validated.error || 'データ形式が不正です',
+      reason: 'invalid_format',
+    };
+  }
+
+  // Check if any words were extracted
+  if (validated.data!.words.length === 0) {
+    return {
+      success: false,
+      error: `${levelDesc}に該当する単語が見つかりませんでした。別の画像をお試しください。`,
+      reason: 'no_words_found',
+    };
+  }
+
+  // AIのレベル判定は不安定なため、lexiconのCEFRレベルで指定級未満の単語を決定的に除外する
+  const filterWords = deps.filterWordsByCefrLevel ?? filterWordsByLexiconCefrLevel;
+  const filtered = await filterWords(validated.data!.words, eikenLevel);
+  if (filtered.removedCount > 0) {
+    console.log('EIKEN lexicon CEFR filter removed words below level', {
+      eikenLevel,
+      removedCount: filtered.removedCount,
+      unknownCount: filtered.unknownCount,
+      remainingCount: filtered.words.length,
+    });
+  }
+
+  if (filtered.words.length === 0) {
+    return {
+      success: false,
+      error: `${levelDesc}に該当する単語が見つかりませんでした。別の画像をお試しください。`,
+      reason: 'no_words_found',
+    };
+  }
+
+  return { success: true, data: { ...validated.data!, words: filtered.words } };
+}
+
+/**
+ * Single-pass extraction (experimental): image -> level-filtered words in one call.
+ * Enabled via EIKEN_SINGLE_PASS_EXTRACTION=1 or deps.singlePassExtraction.
+ */
+export async function extractEikenWordsSinglePass(
+  imageBase64: string,
+  apiKeys: ProviderApiKeys,
+  eikenLevel: NonNullable<EikenLevel>,
+  deps: EikenDeps = {}
+): Promise<EikenWordAnalysisResult> {
+  const levelDesc = EIKEN_LEVEL_DESCRIPTIONS[eikenLevel];
+  if (!levelDesc) {
+    return { success: false, error: '無効な英検レベルです', reason: 'unknown' };
+  }
+
+  const parsedImage = parseImageInput(imageBase64);
+  if (!parsedImage.success) {
+    return { success: false, error: parsedImage.error, reason: 'unknown' };
+  }
+
+  const levelsAbove = getEikenLevelsAbove(eikenLevel);
+  const levelRange = levelsAbove.map(level => EIKEN_LEVEL_DESCRIPTIONS[level]).join('、');
+  const systemPrompt = EIKEN_SINGLE_PASS_SYSTEM_PROMPT
+    .replace('{LEVEL_DESC}', levelDesc)
+    .replace('{LEVEL_RANGE}', levelRange);
+  const config = AI_CONFIG.extraction.eiken;
+
+  console.log('Single-pass word extraction for EIKEN:', {
+    eikenLevel,
+    model: config.model,
+    base64Length: parsedImage.base64Data.length,
+  });
+
+  try {
+    const resolveProvider = deps.getProviderFromConfig ?? getProviderFromConfig;
+    const provider = resolveProvider(config, apiKeys);
+    const response = await provider.generate({
+      systemPrompt,
+      prompt: EIKEN_SINGLE_PASS_USER_PROMPT,
+      image: { base64: parsedImage.base64Data, mimeType: parsedImage.mimeType },
+      config: {
+        ...config,
+        temperature: 0.0,
+        responseFormat: 'json',
+      },
+    });
+
+    if (!response.success) {
+      return { success: false, error: response.error, reason: 'unknown' };
+    }
+
+    const content = response.content?.trim();
+    if (!content) {
+      return { success: false, error: '単語解析の結果を取得できませんでした', reason: 'unknown' };
+    }
+
+    return await finalizeEikenAnalysis(content, eikenLevel, levelDesc, deps);
+  } catch (error) {
+    console.error('EIKEN single-pass extraction error:', error);
 
     if (error instanceof AIError) {
       return { success: false, error: error.getUserMessage(), reason: 'unknown' };
@@ -314,6 +413,28 @@ export async function extractEikenWordsFromImage(
   eikenLevel: EikenLevel,
   deps: EikenDeps = {}
 ): Promise<EikenExtractionResult> {
+  // Experimental single-pass path: one multimodal call instead of OCR + analysis.
+  const useSinglePass =
+    deps.singlePassExtraction ?? process.env.EIKEN_SINGLE_PASS_EXTRACTION === '1';
+
+  if (useSinglePass && eikenLevel) {
+    const singleResult = await extractEikenWordsSinglePass(imageBase64, apiKeys, eikenLevel, deps);
+
+    if (singleResult.success) {
+      return { success: true, extractedText: '', data: singleResult.data };
+    }
+
+    // 「該当語なし」は確定結果。それ以外の失敗は2段パイプラインへフォールバックする。
+    if (singleResult.reason === 'no_words_found') {
+      return singleResult;
+    }
+
+    console.warn('EIKEN single-pass extraction failed, falling back to two-stage pipeline', {
+      reason: singleResult.reason,
+      eikenLevel,
+    });
+  }
+
   // Step 1: OCR
   const ocrResult = await extractTextForEiken(imageBase64, apiKeys, deps);
 
