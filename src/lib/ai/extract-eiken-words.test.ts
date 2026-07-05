@@ -227,6 +227,125 @@ test('extractEikenWordsFromImage applies the lexicon CEFR filter on the fallback
   }
 });
 
+test('extractEikenWordsFromImage single-pass extracts words in one call and applies the CEFR filter', async () => {
+  let generateCalls = 0;
+  let receivedImage = false;
+
+  const provider = createProvider(async (request) => {
+    generateCalls += 1;
+    receivedImage = Boolean(request.image);
+    return {
+      success: true,
+      content: JSON.stringify({
+        sourceLabels: ['LEAP'],
+        words: [
+          { english: 'pen', japanese: 'ペン' },
+          { english: 'abolish', japanese: '廃止する' },
+        ],
+      }),
+    };
+  });
+
+  const result = await extractEikenWordsFromImage(
+    'data:image/png;base64,ZmFrZQ==',
+    { gemini: 'test-key' },
+    'pre1',
+    {
+      getProviderFromConfig: () => provider,
+      singlePassExtraction: true,
+      filterWordsByCefrLevel: async (words) => ({
+        words: words.filter((word) => word.english !== 'pen'),
+        removedCount: 1,
+        unknownCount: 0,
+      }),
+    }
+  );
+
+  assert.equal(generateCalls, 1);
+  assert.equal(receivedImage, true);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.extractedText, '');
+    assert.deepEqual(
+      result.data.words.map((word) => word.english),
+      ['abolish'],
+    );
+    assert.deepEqual(result.data.sourceLabels, ['LEAP']);
+  }
+});
+
+test('extractEikenWordsFromImage single-pass falls back to two-stage on invalid JSON', async () => {
+  let generateCalls = 0;
+
+  const provider = createProvider(async () => {
+    generateCalls += 1;
+
+    // 1回目: 1段抽出が壊れたJSONを返す
+    if (generateCalls === 1) {
+      return { success: true, content: '{broken' };
+    }
+
+    // 2回目: 2段パイプラインのOCR
+    if (generateCalls === 2) {
+      return {
+        success: true,
+        content: JSON.stringify({ sourceLabels: [], text: 'abolish 廃止する' }),
+      };
+    }
+
+    // 3回目: 2段パイプラインの単語解析
+    return {
+      success: true,
+      content: JSON.stringify({
+        words: [{ english: 'abolish', japanese: '廃止する' }],
+      }),
+    };
+  });
+
+  const result = await extractEikenWordsFromImage(
+    'data:image/png;base64,ZmFrZQ==',
+    { gemini: 'test-key' },
+    'pre1',
+    {
+      getProviderFromConfig: () => provider,
+      singlePassExtraction: true,
+      filterWordsByCefrLevel: async (words) => ({
+        words,
+        removedCount: 0,
+        unknownCount: words.length,
+      }),
+    }
+  );
+
+  assert.equal(generateCalls, 3);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.words[0].english, 'abolish');
+  }
+});
+
+test('extractEikenWordsFromImage single-pass treats no_words_found as final (no fallback)', async () => {
+  let generateCalls = 0;
+
+  const provider = createProvider(async () => {
+    generateCalls += 1;
+    return { success: true, content: JSON.stringify({ words: [] }) };
+  });
+
+  const result = await extractEikenWordsFromImage(
+    'data:image/png;base64,ZmFrZQ==',
+    { gemini: 'test-key' },
+    'pre1',
+    {
+      getProviderFromConfig: () => provider,
+      singlePassExtraction: true,
+    }
+  );
+
+  assert.equal(generateCalls, 1);
+  assert.equal(result.success, false);
+});
+
 test('extractEikenWordsFromImage preserves source labels from Gemini OCR on success path', async () => {
   let generateCalls = 0;
 
