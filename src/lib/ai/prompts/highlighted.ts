@@ -33,9 +33,6 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
     {
       "english": "単語",
       "japanese": "意味",
-      "translations": [
-        { "japanese": "意味", "source": "scan", "meaningRank": 1, "annotationRanges": [] }
-      ],
       "partOfSpeechTags": ["noun"],
       "markerColor": "yellow|pink|green|orange|blue|purple|red|black|pen|unknown",
       "markType": "underline|highlight|unknown",
@@ -79,6 +76,7 @@ ${JAPANESE_TRANSLATION_STRUCTURE_RULES}
 出力はJSONのみ:
 {
   "words": [
-    { "english": "word", "japanese": "意味", "japaneseSource": "scan", "translations": [{ "japanese": "意味", "source": "scan", "meaningRank": 1, "annotationRanges": [] }] }
+    { "english": "word", "japanese": "意味", "japaneseSource": "scan" }
   ]
-}`;
+}
+translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。`;

@@ -137,3 +137,99 @@ test('parseAIResponse moves annotation ranges into the translation notes custom 
     },
   ]);
 });
+
+// --- コンパクト出力形式（プロンプトのトークン削減で採用した形）のテスト ---
+
+test('parseAIResponse synthesizes translations when the AI omits the translations array', () => {
+  const result = parseAIResponse({
+    words: [
+      {
+        english: 'accomplish',
+        japanese: '達成する',
+        japaneseSource: 'scan',
+        partOfSpeechTags: ['verb'],
+      },
+    ],
+    sourceLabels: [],
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.data?.words[0]?.japanese, '達成する');
+  assert.deepEqual(
+    result.data?.words[0]?.translations?.map((translation) => ({
+      text: translation.translationJa,
+      source: translation.source,
+      rank: translation.meaningRank,
+      primary: translation.isPrimary,
+    })),
+    [{ text: '達成する', source: 'scan', rank: 1, primary: true }],
+  );
+});
+
+test('parseAIResponse accepts translations as a plain string array with inherited source', () => {
+  const result = parseAIResponse({
+    words: [
+      {
+        english: 'sense',
+        japanese: '感覚',
+        japaneseSource: 'scan',
+        translations: ['感覚', '分別'],
+        partOfSpeechTags: ['noun'],
+      },
+    ],
+    sourceLabels: [],
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.data?.words[0]?.japanese, '感覚');
+  assert.deepEqual(
+    result.data?.words[0]?.translations?.map((translation) => ({
+      text: translation.translationJa,
+      source: translation.source,
+      rank: translation.meaningRank,
+    })),
+    [
+      { text: '感覚', source: 'scan', rank: 1 },
+      { text: '分別', source: 'scan', rank: 2 },
+    ],
+  );
+});
+
+test('parseAIResponse accepts mixed string/object translations without source or meaningRank', () => {
+  const result = parseAIResponse({
+    words: [
+      {
+        english: 'admire',
+        japanese: '敬服する',
+        japaneseSource: 'scan',
+        translations: [
+          { japanese: 'に(~のことで)敬服する', annotationRanges: ['に(~のことで)'] },
+          '感心する',
+        ],
+        partOfSpeechTags: ['verb'],
+      },
+    ],
+    sourceLabels: [],
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.data?.words[0]?.japanese, '敬服する');
+  assert.deepEqual(
+    result.data?.words[0]?.translations?.map((translation) => ({
+      text: translation.translationJa,
+      source: translation.source,
+      rank: translation.meaningRank,
+    })),
+    [
+      { text: '敬服する', source: 'scan', rank: 1 },
+      { text: '感心する', source: 'scan', rank: 2 },
+    ],
+  );
+  assert.deepEqual(result.data?.words[0]?.customSections, [
+    {
+      id: 'translation-notes',
+      title: '訳注',
+      content: 'に(~のことで)',
+    },
+  ]);
+});
