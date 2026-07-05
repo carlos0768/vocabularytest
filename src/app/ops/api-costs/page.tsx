@@ -31,6 +31,26 @@ type DashboardSummary = {
     costJpy: number;
     totalTokens: number;
   }>;
+  scans: {
+    count: number;
+    costUsd: number;
+    costJpy: number;
+    avgCostUsd: number;
+    avgCostJpy: number;
+    recent: Array<{
+      scanId: string;
+      source: string | null;
+      userId: string | null;
+      modes: string[];
+      calls: number;
+      failedCalls: number;
+      totalTokens: number;
+      costUsd: number;
+      costJpy: number;
+      startedAt: string;
+      endedAt: string;
+    }>;
+  };
   recentEvents: Array<{
     id: string;
     provider: string;
@@ -48,6 +68,15 @@ function formatYen(value: number): string {
     style: 'currency',
     currency: 'JPY',
     maximumFractionDigits: 2,
+  }).format(value);
+}
+
+// スキャン1回あたりのコストは1円未満になることが多いため小数4桁まで表示する。
+function formatYenPrecise(value: number): string {
+  return new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency: 'JPY',
+    maximumFractionDigits: 4,
   }).format(value);
 }
 
@@ -251,6 +280,53 @@ export default function ApiCostDashboardPage() {
                   </tbody>
                 </table>
               </section>
+
+              {summary.scans && (
+                <section className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4 overflow-x-auto">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                    <h2 className="font-semibold text-[var(--color-foreground)]">スキャン別コスト</h2>
+                    <p className="text-xs text-[var(--color-muted)]">
+                      スキャン {formatNumber(summary.scans.count)} 回 / 合計 {formatYen(summary.scans.costJpy)} / 平均 {formatYenPrecise(summary.scans.avgCostJpy)}・スキャン
+                    </p>
+                  </div>
+                  {summary.scans.recent.length === 0 ? (
+                    <p className="text-sm text-[var(--color-muted)]">
+                      スキャンに紐づくイベントがまだありません（scan_id 付きの記録はこの機能のデプロイ以降に作成されます）。
+                    </p>
+                  ) : (
+                    <table className="w-full text-sm min-w-[840px]">
+                      <thead>
+                        <tr className="text-left text-[var(--color-muted)] border-b border-[var(--color-border)]">
+                          <th className="py-2 font-medium">開始時刻</th>
+                          <th className="py-2 font-medium">Scan ID</th>
+                          <th className="py-2 font-medium">Source</th>
+                          <th className="py-2 font-medium">Modes</th>
+                          <th className="py-2 font-medium">Calls</th>
+                          <th className="py-2 font-medium">Tokens</th>
+                          <th className="py-2 font-medium">USD</th>
+                          <th className="py-2 font-medium">JPY</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {summary.scans.recent.map((scan) => (
+                          <tr key={scan.scanId} className="border-b border-[var(--color-border)]/50">
+                            <td className="py-2 text-[var(--color-foreground)] whitespace-nowrap">{new Date(scan.startedAt).toLocaleString('ja-JP')}</td>
+                            <td className="py-2 text-[var(--color-foreground)] font-mono text-xs" title={scan.scanId}>{scan.scanId.slice(0, 8)}</td>
+                            <td className="py-2 text-[var(--color-foreground)]">{scan.source ?? '-'}</td>
+                            <td className="py-2 text-[var(--color-foreground)]">{scan.modes.length > 0 ? scan.modes.join(',') : '-'}</td>
+                            <td className={`py-2 ${scan.failedCalls > 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]'}`}>
+                              {formatNumber(scan.calls)}{scan.failedCalls > 0 ? ` (失敗${scan.failedCalls})` : ''}
+                            </td>
+                            <td className="py-2 text-[var(--color-foreground)]">{formatNumber(scan.totalTokens)}</td>
+                            <td className="py-2 text-[var(--color-foreground)]">{formatUsd(scan.costUsd)}</td>
+                            <td className="py-2 text-[var(--color-foreground)]">{formatYenPrecise(scan.costJpy)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+              )}
 
               <section className="bg-[var(--color-surface)] rounded-2xl border-2 border-[var(--color-border)] border-b-4 p-4 overflow-x-auto">
                 <h2 className="font-semibold text-[var(--color-foreground)] mb-3">直近イベント</h2>
