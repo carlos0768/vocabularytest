@@ -7,14 +7,12 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
-import { remoteRepository } from '@/lib/db/remote-repository';
 import {
   buildGroupShareMessages,
   buildGroupShareUrl,
   buildLineShareUrl,
   buildXIntentUrl,
 } from '@/lib/shared-projects/group-share';
-import type { Project } from '@/types';
 import type {
   SharedProjectCard,
   StudyGroupLeaderboardEntry,
@@ -40,7 +38,7 @@ const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
 export default function GroupPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
-  const { user, isPro, loading: authLoading, isAuthenticated } = useAuth();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
   const [group, setGroup] = useState<StudyGroupSummary | null>(null);
@@ -50,9 +48,7 @@ export default function GroupPage() {
   const [missedWordsTotalCount, setMissedWordsTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [inviteShareOpen, setInviteShareOpen] = useState(false);
-  const [removingProjectId, setRemovingProjectId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -101,34 +97,6 @@ export default function GroupPage() {
     [leaderboard],
   );
 
-  const handleRemoveProject = useCallback(async (project: SharedProjectCard) => {
-    if (!groupId || removingProjectId) return;
-    triggerHaptic();
-    setRemovingProjectId(project.project.id);
-    try {
-      const response = await fetch(
-        `/api/shared-projects/groups/${encodeURIComponent(groupId)}/projects/${encodeURIComponent(project.project.id)}`,
-        { method: 'DELETE' },
-      );
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'remove_group_project_failed');
-      }
-
-      setProjects((current) => current.filter((card) => card.project.id !== project.project.id));
-      setGroup((current) => current ? {
-        ...current,
-        projectCount: Math.max(0, current.projectCount - 1),
-      } : current);
-      showToast({ message: 'グループ共有を解除しました', type: 'success' });
-    } catch (removeError) {
-      const message = removeError instanceof Error ? removeError.message : 'グループ共有の解除に失敗しました。';
-      showToast({ message, type: 'error' });
-    } finally {
-      setRemovingProjectId(null);
-    }
-  }, [groupId, removingProjectId, showToast]);
-
   return (
     <div
       className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
@@ -163,31 +131,15 @@ export default function GroupPage() {
             onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
             settingsHref={`/groups/${encodeURIComponent(groupId)}/settings`}
           />
+          <BookshelfSection groupId={groupId} projects={projects} />
           <LeaderboardSection leaderboard={leaderboard} />
           <MissedWordsSection
             groupId={groupId}
             missedWords={missedWords}
             totalCount={missedWordsTotalCount}
           />
-          <WordbooksSection
-            projects={projects}
-            removingProjectId={removingProjectId}
-            onShare={() => { triggerHaptic(); setShareSheetOpen(true); }}
-            onRemove={(project) => void handleRemoveProject(project)}
-          />
         </div>
       )}
-
-      <ShareToGroupSheet
-        open={shareSheetOpen}
-        groupId={groupId}
-        groupName={group?.name ?? ''}
-        userId={user?.id ?? null}
-        isPro={isPro}
-        sharedProjectIds={projects.map((card) => card.project.id)}
-        onClose={() => setShareSheetOpen(false)}
-        onShared={() => { setShareSheetOpen(false); void load(); }}
-      />
 
       {group && (
         <GroupInviteShareSheet
@@ -485,233 +437,86 @@ function MissedWordsSection({
   );
 }
 
-function WordbooksSection({
-  projects,
-  removingProjectId,
-  onShare,
-  onRemove,
-}: {
-  projects: SharedProjectCard[];
-  removingProjectId: string | null;
-  onShare: () => void;
-  onRemove: (project: SharedProjectCard) => void;
-}) {
-  return (
-    <SectionCard icon="menu_book" title="共有単語帳" subtitle={`${projects.length}冊の単語帳`} accent="#137FEC">
-      {projects.length === 0 ? (
-        <EmptyRow message="まだ単語帳が共有されていません。最初の1冊を共有しよう！" />
-      ) : (
-        <div className="flex flex-col gap-2">
-          {projects.map((card) => {
-            const href = card.project.shareId ? `/share/${card.project.shareId}` : '#';
-            const canRemove = Boolean(card.canRemoveFromGroup);
-            const removing = removingProjectId === card.project.id;
-            return (
-              <div key={card.project.id} className="flex items-center gap-2 rounded-[12px] border-2 border-[var(--color-border)] bg-white p-2.5">
-                <Link href={href} className="flex min-w-0 flex-1 items-center gap-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[18px] font-extrabold text-white"
-                    style={{
-                      backgroundColor: thumbColor(card.project.id),
-                      backgroundImage: card.project.iconImage ? `url(${card.project.iconImage})` : undefined,
-                    }}
-                  >
-                    {!card.project.iconImage && card.project.title.charAt(0)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-display text-[14px] font-bold text-[var(--solid-ink)]">{card.project.title}</div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
-                      <span className="truncate">{card.ownerUsername ? `@${card.ownerUsername}` : '共有ユーザー'}</span>
-                      <span className="opacity-50">·</span>
-                      <span className="font-mono tabular-nums">{card.wordCount ?? 0} 語</span>
-                    </div>
-                  </div>
-                </Link>
-                {canRemove ? (
-                  <button
-                    type="button"
-                    aria-label={`「${card.project.title}」のグループ共有を解除`}
-                    disabled={removingProjectId !== null}
-                    onClick={() => onRemove(card)}
-                    className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-white px-2 text-[11px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
-                  >
-                    <Icon name={removing ? 'progress_activity' : 'remove_circle'} size={15} className={removing ? 'animate-spin' : undefined} />
-                    共有解除
-                  </button>
-                ) : (
-                  <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={onShare}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-      >
-        <Icon name="library_add" size={18} />
-        単語帳を共有
-      </button>
-    </SectionCard>
-  );
-}
-
-function ShareToGroupSheet({
-  open,
-  groupId,
-  groupName,
-  userId,
-  isPro,
-  sharedProjectIds,
-  onClose,
-  onShared,
-}: {
-  open: boolean;
-  groupId: string;
-  groupName: string;
-  userId: string | null;
-  isPro: boolean;
-  sharedProjectIds: string[];
-  onClose: () => void;
-  onShared: () => void;
-}) {
-  const { showToast } = useToast();
-  const [ownProjects, setOwnProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
-
-  const sharedSet = useMemo(() => new Set(sharedProjectIds), [sharedProjectIds]);
-
-  useEffect(() => {
-    if (!open || !userId || !isPro) return;
-
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-    remoteRepository.getProjects(userId)
-      .then((projects) => {
-        if (!cancelled) setOwnProjects(projects);
-      })
-      .catch((error) => {
-        console.warn('Failed to load own projects for group share:', error);
-        if (!cancelled) setLoadError('単語帳を読み込めませんでした。');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, userId, isPro]);
-
-  if (!open) return null;
-
-  const handleShare = async (project: Project) => {
-    if (savingId) return;
-    triggerHaptic();
-    setSavingId(project.id);
-    try {
-      const response = await fetch(
-        `/api/shared-projects/groups/${encodeURIComponent(groupId)}/projects/${encodeURIComponent(project.id)}`,
-        { method: 'POST' },
-      );
-      const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; code?: string } | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'share_to_group_failed');
-      }
-      showToast({ message: `「${project.title}」を共有しました`, type: 'success' });
-      onShared();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '共有に失敗しました。';
-      showToast({ message, type: 'error' });
-    } finally {
-      setSavingId(null);
-    }
-  };
+// Bookshelf teaser: sits right below the header so members immediately see the
+// group's shared wordbooks. Renders the newest books as colorful spines on a
+// shelf; tapping anywhere opens the full bookshelf page.
+function BookshelfSection({ groupId, projects }: { groupId: string; projects: SharedProjectCard[] }) {
+  const spines = projects.slice(0, 5);
+  const overflow = projects.length - spines.length;
+  // Deterministic per-slot variation so the shelf looks hand-arranged.
+  const heights = [72, 62, 78, 58, 68];
+  const tilts = [0, -4, 0, 5, 0];
 
   return (
-    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
-      <button type="button" aria-label="閉じる" onClick={onClose} className="absolute inset-0 cursor-default" style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }} />
-      <div className="absolute inset-x-0 bottom-0 flex justify-center">
-        <div
-          className="w-full animate-fade-in-up"
-          style={{
-            maxWidth: 520,
-            background: '#faf7f1',
-            border: '2px solid var(--solid-ink)',
-            borderBottomWidth: 0,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
-            maxHeight: 'min(82vh, 680px)',
-            overflowY: 'auto',
-          }}
-        >
-          <div className="mb-2.5 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+    <Link
+      href={`/groups/${encodeURIComponent(groupId)}/bookshelf`}
+      onClick={() => triggerHaptic()}
+      aria-label="本棚をひらく"
+      className="relative block overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4 shadow-[4px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
+      style={{ background: 'linear-gradient(150deg, #FFF6DE 0%, #FFE7BC 100%)' }}
+    >
+      <div className="flex items-center gap-2.5">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#F5A623] text-white">
+          <Icon name="auto_stories" size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">本棚</h2>
+          <div className="text-[11px] font-bold text-[var(--color-muted)]">
+            {projects.length > 0 ? `みんなの単語帳 ${projects.length}冊` : 'みんなの単語帳が並ぶ場所'}
           </div>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">SHARE TO GROUP</div>
-              <div className="mt-0.5 truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">{groupName}に共有</div>
-            </div>
-            <button type="button" onClick={onClose} aria-label="閉じる" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
-              <Icon name="close" size={14} />
-            </button>
-          </div>
-
-          {!userId ? (
-            <SheetNote icon="login" message="ログインが必要です。" />
-          ) : !isPro ? (
-            <div className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white p-4 text-center">
-              <Icon name="auto_awesome" size={28} className="text-[var(--solid-ink)]" />
-              <div className="mt-2 text-[13px] font-bold text-[var(--solid-ink)]">グループへの単語帳共有はPro限定です。</div>
-              <Link href="/subscription" className="mt-3 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-[12px] font-extrabold text-white">Proを見る</Link>
-            </div>
-          ) : loading ? (
-            <SheetNote icon="progress_activity" spin message="単語帳を読み込み中..." />
-          ) : loadError ? (
-            <SheetNote icon="error" message={loadError} />
-          ) : ownProjects.length === 0 ? (
-            <SheetNote icon="menu_book" message="共有できる単語帳がありません。" />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {ownProjects.map((project) => {
-                const alreadyShared = sharedSet.has(project.id);
-                return (
-                  <button
-                    key={project.id}
-                    type="button"
-                    disabled={alreadyShared || Boolean(savingId)}
-                    onClick={() => void handleShare(project)}
-                    className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
-                  >
-                    <span
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[16px] font-extrabold text-white"
-                      style={{ backgroundColor: thumbColor(project.id) }}
-                    >
-                      {project.title.charAt(0)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-display text-[14px] font-bold text-[var(--solid-ink)]">{project.title}</span>
-                    {alreadyShared ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--color-accent)]"><Icon name="check_circle" size={15} />共有済み</span>
-                    ) : (
-                      <Icon name={savingId === project.id ? 'progress_activity' : 'add_circle'} size={20} className={`shrink-0 text-[var(--solid-ink)] ${savingId === project.id ? 'animate-spin' : ''}`} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 py-1.5 font-display text-[12px] font-extrabold text-[var(--solid-ink)]">
+          ひらく
+          <Icon name="chevron_right" size={14} />
+        </span>
       </div>
-    </div>
+
+      <div className="mt-3">
+        {spines.length === 0 ? (
+          <div className="flex items-end justify-center gap-1.5 px-2">
+            {[0, 1, 2].map((slot) => (
+              <div
+                key={slot}
+                className="w-[34px] rounded-t-[6px] rounded-b-[2px] border-2 border-dashed border-[rgba(26,26,26,0.35)] bg-white/40"
+                style={{ height: heights[slot] }}
+              />
+            ))}
+            <div className="ml-2 self-center text-[12px] font-extrabold text-[var(--solid-ink)]">
+              まだ空っぽ。最初の1冊を置こう！
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-end gap-1.5 px-2">
+            {spines.map((card, index) => (
+              <div
+                key={card.project.id}
+                className="flex items-start justify-center overflow-hidden rounded-t-[6px] rounded-b-[2px] border-2 border-[var(--solid-ink)] pt-1.5 shadow-[2px_0_0_rgba(26,26,26,0.18)]"
+                style={{
+                  backgroundColor: thumbColor(card.project.id),
+                  width: 34,
+                  height: heights[index],
+                  transform: tilts[index] ? `rotate(${tilts[index]}deg)` : undefined,
+                  transformOrigin: 'bottom center',
+                }}
+              >
+                <span
+                  className="max-h-full overflow-hidden font-display text-[10px] font-extrabold leading-none text-white"
+                  style={{ writingMode: 'vertical-rl' }}
+                >
+                  {card.project.title.slice(0, 6)}
+                </span>
+              </div>
+            ))}
+            {overflow > 0 && (
+              <div className="flex h-[56px] w-[34px] items-center justify-center rounded-t-[6px] rounded-b-[2px] border-2 border-[var(--solid-ink)] bg-white font-display text-[11px] font-extrabold text-[var(--solid-ink)]">
+                +{overflow}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="mt-0 h-2.5 rounded-[3px] border-2 border-[var(--solid-ink)] bg-[#C08A52]" />
+      </div>
+    </Link>
   );
 }
 
@@ -912,15 +717,6 @@ function DiscordBrandIcon() {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M19.27 5.33A16.6 16.6 0 0 0 15.16 4c-.18.32-.39.75-.53 1.09a15.4 15.4 0 0 0-4.27 0C10.22 4.75 10 4.32 9.83 4a16.5 16.5 0 0 0-4.11 1.33C2.93 9.4 2.18 13.37 2.55 17.28a16.7 16.7 0 0 0 5.04 2.56c.41-.55.77-1.14 1.08-1.76-.59-.22-1.15-.49-1.69-.81.14-.1.28-.21.41-.32a11.9 11.9 0 0 0 10.22 0c.13.11.27.22.41.32-.54.32-1.1.59-1.69.81.31.62.67 1.21 1.08 1.76a16.6 16.6 0 0 0 5.04-2.56c.43-4.53-.73-8.46-3.18-11.95ZM9.68 14.87c-.99 0-1.8-.91-1.8-2.02 0-1.12.79-2.03 1.8-2.03 1.01 0 1.82.91 1.8 2.03 0 1.11-.8 2.02-1.8 2.02Zm6.64 0c-.99 0-1.8-.91-1.8-2.02 0-1.12.79-2.03 1.8-2.03 1.01 0 1.82.91 1.8 2.03 0 1.11-.79 2.02-1.8 2.02Z" />
     </svg>
-  );
-}
-
-function SheetNote({ icon, message, spin = false }: { icon: string; message: string; spin?: boolean }) {
-  return (
-    <div className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-3 text-[12px] font-bold text-[var(--color-muted)]">
-      <Icon name={icon} size={15} className={spin ? 'animate-spin' : undefined} />
-      {message}
-    </div>
   );
 }
 
