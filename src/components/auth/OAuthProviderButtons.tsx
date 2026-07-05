@@ -26,10 +26,13 @@ export function OAuthProviderButtons({
   redirectPath,
   disabled = false,
   onError,
+  onBeforeRedirect,
 }: {
   redirectPath: string;
   disabled?: boolean;
   onError: (message: string) => void;
+  /** Runs just before the OAuth redirect starts (e.g. to stash signup data). */
+  onBeforeRedirect?: () => void;
 }) {
   const { signInWithOAuth } = useAuth();
   const [loadingProvider, setLoadingProvider] = useState<AuthOAuthProvider | null>(null);
@@ -43,6 +46,7 @@ export function OAuthProviderButtons({
 
     setLoadingProvider(provider);
     onError('');
+    onBeforeRedirect?.();
     const result = await signInWithOAuth(provider, redirectPath);
     if (!result.success) {
       onError(result.error || `${getOAuthProviderLabel(provider)}ログインに失敗しました`);

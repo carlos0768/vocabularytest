@@ -38,9 +38,11 @@ export function validateSignupCredentials(params: {
 }
 
 export function validateOnboardingData(data: OnboardingData): SignupCredentialsValidation {
+  // profiles.username is CHECK-constrained to 20 chars (and the settings
+  // profile editor caps at 20) — allowing more here breaks the profile save.
   const trimmedName = data.displayName.trim();
-  if (trimmedName.length < 1 || trimmedName.length > 30) {
-    return { ok: false, error: 'ユーザー名は1〜30文字で入力してください' };
+  if (trimmedName.length < 1 || trimmedName.length > 20) {
+    return { ok: false, error: 'ユーザー名は1〜20文字で入力してください' };
   }
 
   if (!/^[a-z0-9_]{3,20}$/.test(data.userHandle)) {

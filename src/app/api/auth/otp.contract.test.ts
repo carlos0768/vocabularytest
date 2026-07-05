@@ -629,6 +629,7 @@ test('signup-verify valid OTP saves onboarding profile and returns default offic
     display_name: '山田太郎',
     user_handle: 'kenta_123',
     eiken_level: 'pre2',
+    account_id: 'kenta_123',
   });
 
   const cleanup = findOtpDelete(adminClient, 'email', 'new@example.com');
