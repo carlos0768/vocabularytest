@@ -688,17 +688,17 @@ export default function HomePage() {
             <span className="ml-2 text-sm">読み込み中...</span>
           </div>
         ) : visibleProjects.length === 0 ? (
-          <SolidEmpty
-            icon="menu_book"
-            title="単語帳はまだありません"
-            description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
-            action={
-              <button type="button" onClick={() => setCreateSheetOpen(true)} className="solid-link-primary">
-                <Icon name="add_a_photo" size={16} />
-                新規スキャン
-              </button>
-            }
-          />
+            <SolidEmpty
+              icon="menu_book"
+              title="単語帳はまだありません"
+              description="スキャンまたは手入力で最初の単語帳を作成しましょう。"
+              action={
+                <button type="button" onClick={() => setCreateSheetOpen(true)} className="solid-link-primary">
+                  <Icon name="add" size={16} />
+                  単語帳を作成
+                </button>
+              }
+            />
         ) : (
           visibleProjects.map((project) => <ProjectRow key={project.id} project={project} />)
         )}

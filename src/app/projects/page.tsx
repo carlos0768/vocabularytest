@@ -236,8 +236,8 @@ export default function ProjectListPage() {
             description={query ? '検索語を変えてもう一度探してください。' : 'スキャンして最初の単語帳を作成しましょう。'}
             action={
               <button type="button" onClick={() => setCreateSheetOpen(true)} className="solid-link-primary">
-                <Icon name="add_a_photo" size={16} />
-                新規スキャン
+                <Icon name="add" size={16} />
+                単語帳を作成
               </button>
             }
           />

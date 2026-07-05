@@ -215,6 +215,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
               <div className="flex flex-col gap-2.5">
                 {METHODS.map((m) => {
                   const active = method === m.k;
+                  const disabled = m.k === 'scan' && !isPro;
                   // Scanning is Pro-only: free users see a PRO badge on scan
                   // and get the shared library recommended instead.
                   const showRecommended = m.recommended ? isPro : (m.k === 'shared' && !isPro);
@@ -223,11 +224,13 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                     <button
                       key={m.k}
                       type="button"
+                      disabled={disabled}
                       onClick={() => {
+                        if (disabled) return;
                         setMethod(m.k);
                         if (m.k === 'blank' && !trimmedName) nameInputRef.current?.focus();
                       }}
-                      className="flex items-center gap-3 rounded-[14px] border-2 bg-white px-4 py-3.5 text-left transition-all"
+                      className="flex items-center gap-3 rounded-[14px] border-2 bg-white px-4 py-3.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60"
                       style={{
                         borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
                         boxShadow: active ? '2px 3px 0 var(--solid-ink)' : 'none',
