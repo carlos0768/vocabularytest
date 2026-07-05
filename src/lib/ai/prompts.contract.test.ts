@@ -239,6 +239,8 @@ test('EIKEN helpers and prompts keep this-level-and-above filtering', () => {
 test('EIKEN analysis prompt keeps lemma normalization with independent-meaning exception', () => {
   assertIncludesAll('EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT', EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT, [
     '単語の原形化ルール',
+    '文章・例文の中から単語を抽出する場合にのみ適用',
+    '単語帳・語彙リスト形式で見出し語として掲載されている単語は、掲載されている形をそのまま出力',
     'english は原形（辞書の見出し語）で出力',
     '活用形がそれ自体で独立した意味を持ち、辞書に見出し語として載っている場合は、その形のまま出力',
     '"abandoned the plan" の "abandoned" → "abandon"',
