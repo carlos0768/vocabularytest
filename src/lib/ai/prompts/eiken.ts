@@ -1,5 +1,6 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET, SOURCE_LABEL_RULES } from './source-labels';
 import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES } from './japanese-format';
+import { LEMMA_NORMALIZATION_RULES } from './lemma';
 
 // EIKEN level descriptions for AI prompts
 export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
@@ -91,6 +92,7 @@ export const EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教材
 - このレベル以上の学習者が覚えるべき適切な難易度の単語を抽出してください
 - 指定レベル未満の単語は1語も出力しないでください
 - レベル判定に迷う単語は安全側で除外してください
+${LEMMA_NORMALIZATION_RULES}
 
 重要ルール:
 1. 日本語訳の決定:

@@ -9,6 +9,7 @@ import {
 import { AI_CONFIG } from './config';
 import { AIError, getProviderFromConfig } from './providers';
 import { extractWordsFromImage as extractWordsFromImageBase } from './extract-words';
+import { filterWordsByLexiconCefrLevel } from '@/lib/lexicon/eiken-cefr-filter';
 import type { EikenLevel } from '@/app/api/extract/route';
 import { mergeSourceLabels, normalizeSourceLabels } from '../../../shared/source-labels';
 
@@ -39,6 +40,7 @@ interface ProviderApiKeys {
 interface EikenDeps {
   getProviderFromConfig?: typeof getProviderFromConfig;
   extractWordsFromImage?: typeof extractWordsFromImageBase;
+  filterWordsByCefrLevel?: typeof filterWordsByLexiconCefrLevel;
 }
 
 function extractJsonContent(content: string): string {
@@ -215,6 +217,8 @@ export async function analyzeWordsForEiken(
       prompt: userPrompt,
       config: {
         ...config,
+        // レベル分類の一貫性のため決定的に(configの0.7は抽出系の既定値)
+        temperature: 0.0,
         responseFormat: 'json',
       },
     });
@@ -265,7 +269,27 @@ export async function analyzeWordsForEiken(
       };
     }
 
-    return { success: true, data: validated.data! };
+    // AIのレベル判定は不安定なため、lexiconのCEFRレベルで指定級未満の単語を決定的に除外する
+    const filterWords = deps.filterWordsByCefrLevel ?? filterWordsByLexiconCefrLevel;
+    const filtered = await filterWords(validated.data!.words, eikenLevel);
+    if (filtered.removedCount > 0) {
+      console.log('EIKEN lexicon CEFR filter removed words below level', {
+        eikenLevel,
+        removedCount: filtered.removedCount,
+        unknownCount: filtered.unknownCount,
+        remainingCount: filtered.words.length,
+      });
+    }
+
+    if (filtered.words.length === 0) {
+      return {
+        success: false,
+        error: `${levelDesc}に該当する単語が見つかりませんでした。別の画像をお試しください。`,
+        reason: 'no_words_found',
+      };
+    }
+
+    return { success: true, data: { ...validated.data!, words: filtered.words } };
   } catch (error) {
     console.error('AI word analysis error:', error);
 
@@ -323,12 +347,24 @@ export async function extractEikenWordsFromImage(
       });
 
       if (fallbackResult.success && fallbackResult.data.words.length > 0) {
-        console.log(`EIKEN fallback success (unfiltered extraction): extracted ${fallbackResult.data.words.length} words`);
+        // フォールバックはAIのレベルフィルタを通っていないため、lexiconベースの除外だけは必ずかける
+        const filterWords = deps.filterWordsByCefrLevel ?? filterWordsByLexiconCefrLevel;
+        const filtered = await filterWords(fallbackResult.data.words, eikenLevel);
+        console.log(`EIKEN fallback success (lexicon-filtered extraction): extracted ${fallbackResult.data.words.length} words, removed ${filtered.removedCount} below level`);
+
+        if (filtered.words.length === 0) {
+          return {
+            success: false,
+            error: `${(eikenLevel && EIKEN_LEVEL_DESCRIPTIONS[eikenLevel]) || '指定レベル'}に該当する単語が見つかりませんでした。別の画像をお試しください。`,
+          };
+        }
+
         return {
           success: true,
           extractedText: ocrResult.text,
           data: {
             ...fallbackResult.data,
+            words: filtered.words,
             sourceLabels: mergeSourceLabels(
               ocrResult.sourceLabels,
               fallbackResult.data.sourceLabels
