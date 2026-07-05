@@ -99,6 +99,134 @@ test('extractEikenWordsFromImage falls back to single-pass extraction on invalid
   }
 });
 
+test('analyzeWordsForEiken applies the lexicon CEFR filter to analyzed words', async () => {
+  const provider = createProvider(async () => ({
+    success: true,
+    content: JSON.stringify({
+      words: [
+        { english: 'pen', japanese: 'ペン' },
+        { english: 'abolish', japanese: '廃止する' },
+      ],
+    }),
+  }));
+
+  const result = await analyzeWordsForEiken(
+    'pen abolish',
+    { gemini: 'test-key' },
+    'pre1',
+    {
+      getProviderFromConfig: () => provider,
+      filterWordsByCefrLevel: async (words) => ({
+        words: words.filter((word) => word.english !== 'pen'),
+        removedCount: 1,
+        unknownCount: 0,
+      }),
+    }
+  );
+
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.deepEqual(
+      result.data.words.map((word) => word.english),
+      ['abolish'],
+    );
+  }
+});
+
+test('analyzeWordsForEiken returns no_words_found when the lexicon filter removes everything', async () => {
+  const provider = createProvider(async () => ({
+    success: true,
+    content: JSON.stringify({
+      words: [{ english: 'pen', japanese: 'ペン' }],
+    }),
+  }));
+
+  const result = await analyzeWordsForEiken(
+    'pen',
+    { gemini: 'test-key' },
+    'pre1',
+    {
+      getProviderFromConfig: () => provider,
+      filterWordsByCefrLevel: async () => ({
+        words: [],
+        removedCount: 1,
+        unknownCount: 0,
+      }),
+    }
+  );
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.reason, 'no_words_found');
+  }
+});
+
+test('extractEikenWordsFromImage applies the lexicon CEFR filter on the fallback path', async () => {
+  let generateCalls = 0;
+  const filteredInputs: string[][] = [];
+
+  const provider = createProvider(async () => {
+    generateCalls += 1;
+    if (generateCalls === 1) {
+      return {
+        success: true,
+        content: JSON.stringify({ sourceLabels: [], text: 'pen abolish' }),
+      };
+    }
+    return { success: true, content: '{not-json' };
+  });
+
+  const result = await extractEikenWordsFromImage(
+    'data:image/png;base64,ZmFrZQ==',
+    { gemini: 'test-key' },
+    'pre1',
+    {
+      getProviderFromConfig: () => provider,
+      extractWordsFromImage: async () => ({
+        success: true,
+        data: {
+          words: [
+            {
+              english: 'pen',
+              japanese: 'ペン',
+              distractors: [],
+              partOfSpeechTags: ['noun'],
+              exampleSentence: undefined,
+              exampleSentenceJa: undefined,
+            },
+            {
+              english: 'abolish',
+              japanese: '廃止する',
+              distractors: [],
+              partOfSpeechTags: ['verb'],
+              exampleSentence: undefined,
+              exampleSentenceJa: undefined,
+            },
+          ],
+          sourceLabels: [],
+        },
+      }),
+      filterWordsByCefrLevel: async (words) => {
+        filteredInputs.push(words.map((word) => word.english));
+        return {
+          words: words.filter((word) => word.english !== 'pen'),
+          removedCount: 1,
+          unknownCount: 0,
+        };
+      },
+    }
+  );
+
+  assert.deepEqual(filteredInputs, [['pen', 'abolish']]);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.deepEqual(
+      result.data.words.map((word) => word.english),
+      ['abolish'],
+    );
+  }
+});
+
 test('extractEikenWordsFromImage preserves source labels from Gemini OCR on success path', async () => {
   let generateCalls = 0;
 
