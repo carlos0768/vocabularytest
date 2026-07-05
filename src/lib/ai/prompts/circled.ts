@@ -30,14 +30,6 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
       "english": "word",
       "japanese": "意味",
       "japaneseSource": "scan",
-      "translations": [
-        {
-          "japanese": "意味",
-          "source": "scan",
-          "meaningRank": 1,
-          "annotationRanges": []
-        }
-      ],
       "partOfSpeechTags": ["noun"]
     }
   ]
@@ -45,6 +37,7 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 
 注意:
 - 必ずJSONのみを出力してください。
+- translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
 - 同一語を重複出力しないでください。
 - japaneseSource は日本語訳が画像に見えている場合だけ "scan" を使ってください。
 ${JAPANESE_PARENTHESIS_RULES}
@@ -77,15 +70,13 @@ export const CIRCLED_WORD_VERIFICATION_SYSTEM_PROMPT = `あなたは画像監査
       "english": "word",
       "japanese": "意味",
       "japaneseSource": "scan",
-      "translations": [
-        { "japanese": "意味", "source": "scan", "meaningRank": 1, "annotationRanges": [] }
-      ],
       "partOfSpeechTags": ["noun"]
     }
   ]
 }
 
 注意:
+- translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
 - 候補リストに存在しない語を追加しないでください。
 - 候補語は原形化されている場合があります。画像内で対応する活用形（過去形・過去分詞形・複数形など）に丸が付いている場合は、同一語として扱い候補の原形のまま残してください。
 ${JAPANESE_PARENTHESIS_RULES}

@@ -90,14 +90,6 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
       "english": "word",
       "japanese": "意味",
       "japaneseSource": "scan",
-      "translations": [
-        {
-          "japanese": "意味",
-          "source": "scan",
-          "meaningRank": 1,
-          "annotationRanges": []
-        }
-      ],
       "partOfSpeechTags": ["noun"]
     }
   ]
@@ -105,6 +97,7 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 
 注意:
 - 必ず上記のJSON形式のみを出力してください。
+- translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
 - 画像から英単語が読み取れない場合は、空の配列 {"words": []} を返してください。
 - **partOfSpeechTags は必須です。必ず1つの主分類を配列で返してください。**
 - partOfSpeechTags は次のいずれか1つだけを使ってください:
@@ -234,7 +227,6 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
     {
       "english": "accomplish",
       "japanese": "",
-      "translations": [],
       "partOfSpeechTags": ["verb"],
       "exampleSentence": "She accomplished her goal of running a marathon.",
       "exampleSentenceJa": "彼女はマラソンを走るという目標を達成した。"
@@ -244,6 +236,7 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 
 注意:
 - 必ず上記のJSON形式のみを出力してください。
+- translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
 - 画像から英単語が読み取れない場合は、空の配列 {"words": []} を返してください。
 - 英単語のみの画像では japanese は空文字 "" を返し、japaneseSource は付けないでください。
 - **partOfSpeechTags は必須です。必ず1つの主分類を配列で返してください。**

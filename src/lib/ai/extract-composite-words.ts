@@ -89,7 +89,6 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
       "english": "look forward to",
       "japanese": "〜を楽しみに待つ",
       "japaneseSource": "scan",
-      "distractors": [],
       "partOfSpeechTags": ["idiom"]
     }
   ]
