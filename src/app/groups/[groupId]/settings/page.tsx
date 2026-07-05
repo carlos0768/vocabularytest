@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -200,48 +201,24 @@ export default function GroupSettingsPage() {
 
   const backHref = `/groups/${encodeURIComponent(groupId)}`;
 
-  return (
-    <div
-      className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
-      style={{
-        // The <body> already pads by env(safe-area-inset-top) (globals.css), so
-        // the header sits just below the notch with no extra gap. Adding more
-        // padding here would double-count the inset and leave a dead band.
-        paddingTop: 0,
-        paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
-      }}
-    >
-      <header className="flex items-center gap-2.5 px-[14px] pb-1 pt-2">
-        <Link
-          href={backHref}
-          aria-label="グループに戻る"
-          onClick={() => triggerHaptic()}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="arrow_back" size={16} />
-        </Link>
-        <div className="min-w-0">
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">GROUP SETTINGS</div>
-          <h1 className="truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">グループ設定</h1>
-        </div>
-      </header>
+  const stateView = authLoading || loading ? (
+    <LoadingState />
+  ) : !isAuthenticated ? (
+    <CenteredCard icon="lock" title="ログインが必要です">
+      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
+        ログイン
+      </Link>
+    </CenteredCard>
+  ) : error || !group ? (
+    <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
+      <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
+        再読み込み
+      </button>
+    </CenteredCard>
+  ) : null;
 
-      {authLoading || loading ? (
-        <LoadingState />
-      ) : !isAuthenticated ? (
-        <CenteredCard icon="lock" title="ログインが必要です">
-          <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
-            ログイン
-          </Link>
-        </CenteredCard>
-      ) : error || !group ? (
-        <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
-          <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
-            再読み込み
-          </button>
-        </CenteredCard>
-      ) : (
-        <div className="flex flex-col gap-4 px-[14px] pt-3">
+  const sections = group ? (
+    <div className="flex flex-col gap-4">
           {/* Group name */}
           <SectionCard icon="badge" title="グループ名" accent="#137FEC">
             {isOwner ? (
@@ -433,14 +410,69 @@ export default function GroupSettingsPage() {
             </SectionCard>
           )}
 
-          {!isOwner && (
-            <p className="px-1 pb-2 text-[11px] font-bold leading-relaxed text-[var(--color-muted)]">
-              グループ名の変更・メンバーや単語帳の削除はオーナーのみ可能です。
-            </p>
-          )}
-        </div>
+      {!isOwner && (
+        <p className="px-1 pb-2 text-[11px] font-bold leading-relaxed text-[var(--color-muted)]">
+          グループ名の変更・メンバーや単語帳の削除はオーナーのみ可能です。
+        </p>
       )}
     </div>
+  ) : null;
+
+  return (
+    <>
+      {/* Desktop */}
+      <div className="hidden h-full min-h-0 flex-col lg:flex">
+        <div className="ds-top">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="crumb">
+              {group ? `共有ライブラリ / ${group.name}` : '共有ライブラリ / グループ'}
+            </div>
+            <h1>グループ設定</h1>
+          </div>
+          <DesktopButton href={backHref} icon="arrow_back" variant="ghost">
+            グループへ戻る
+          </DesktopButton>
+        </div>
+        <div className="ds-scroll">
+          <div style={{ maxWidth: 720 }}>
+            {stateView ?? sections}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile */}
+      <div
+        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] lg:hidden"
+        style={{
+          // The <body> already pads by env(safe-area-inset-top) (globals.css), so
+          // the header sits just below the notch with no extra gap. Adding more
+          // padding here would double-count the inset and leave a dead band.
+          paddingTop: 0,
+          paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <header className="flex items-center gap-2.5 px-[14px] pb-1 pt-2">
+          <Link
+            href={backHref}
+            aria-label="グループに戻る"
+            onClick={() => triggerHaptic()}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="arrow_back" size={16} />
+          </Link>
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">GROUP SETTINGS</div>
+            <h1 className="truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">グループ設定</h1>
+          </div>
+        </header>
+
+        {stateView ?? (
+          <div className="px-[14px] pt-3">
+            {sections}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

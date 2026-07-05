@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -97,49 +98,103 @@ export default function GroupPage() {
     [leaderboard],
   );
 
+  const settingsHref = `/groups/${encodeURIComponent(groupId)}/settings`;
+
+  const stateView = authLoading || loading ? (
+    <LoadingState />
+  ) : !isAuthenticated ? (
+    <CenteredCard icon="lock" title="ログインが必要です">
+      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
+        ログイン
+      </Link>
+    </CenteredCard>
+  ) : error || !group ? (
+    <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
+      <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
+        再読み込み
+      </button>
+    </CenteredCard>
+  ) : null;
+
   return (
-    <div
-      className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
-      style={{
-        // The <body> already pads by env(safe-area-inset-top) (globals.css), so
-        // the header sits just below the notch with no extra gap. Adding more
-        // padding here would double-count the inset and leave a dead band.
-        paddingTop: 0,
-        paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
-      }}
-    >
-      {authLoading || loading ? (
-        <LoadingState />
-      ) : !isAuthenticated ? (
-        <CenteredCard icon="lock" title="ログインが必要です">
-          <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
-            ログイン
-          </Link>
-        </CenteredCard>
-      ) : error || !group ? (
-        <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
-          <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
-            再読み込み
-          </button>
-        </CenteredCard>
-      ) : (
-        <div className="flex flex-col gap-4 px-[14px]">
-          <GroupHeader
-            group={group}
-            totalQuiz={totalQuiz}
-            onCopyInvite={() => void copyInvite()}
-            onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
-            settingsHref={`/groups/${encodeURIComponent(groupId)}/settings`}
-          />
-          <BookshelfSection groupId={groupId} projects={projects} />
-          <LeaderboardSection leaderboard={leaderboard} />
-          <MissedWordsSection
-            groupId={groupId}
-            missedWords={missedWords}
-            totalCount={missedWordsTotalCount}
-          />
+    <>
+      {/* Desktop */}
+      <div className="hidden h-full min-h-0 flex-col lg:flex">
+        <div className="ds-top">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="crumb">共有ライブラリ / グループ</div>
+            <h1 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {group?.name ?? 'グループ'}
+            </h1>
+          </div>
+          <DesktopButton href="/shared" icon="arrow_back" variant="ghost">共有ライブラリ</DesktopButton>
+          {group && (
+            <>
+              <button type="button" className="ds-btn" onClick={() => void copyInvite()} title="招待コードをコピー">
+                <Icon name="content_copy" />
+                <span className="mono">{group.inviteCode}</span>
+              </button>
+              <DesktopButton variant="dark" icon="ios_share" onClick={() => setInviteShareOpen(true)}>
+                シェア
+              </DesktopButton>
+              <DesktopButton href={settingsHref} icon="settings" variant="ghost" title="グループ設定">{''}</DesktopButton>
+            </>
+          )}
         </div>
-      )}
+        <div className="ds-scroll">
+          {stateView ?? (group && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 20 }}>
+                <DesktopGroupStat icon="group" label="メンバー" value={group.memberCount} unit="人" />
+                <DesktopGroupStat icon="menu_book" label="共有単語帳" value={group.projectCount} unit="冊" />
+                <DesktopGroupStat icon="bolt" label="今週の解答" value={totalQuiz} unit="問" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
+                <div className="flex flex-col gap-5">
+                  <BookshelfSection groupId={groupId} projects={projects} />
+                  <MissedWordsSection
+                    groupId={groupId}
+                    missedWords={missedWords}
+                    totalCount={missedWordsTotalCount}
+                  />
+                </div>
+                <LeaderboardSection leaderboard={leaderboard} />
+              </div>
+            </>
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile */}
+      <div
+        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] lg:hidden"
+        style={{
+          // The <body> already pads by env(safe-area-inset-top) (globals.css), so
+          // the header sits just below the notch with no extra gap. Adding more
+          // padding here would double-count the inset and leave a dead band.
+          paddingTop: 0,
+          paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        {stateView ?? (group && (
+          <div className="flex flex-col gap-4 px-[14px]">
+            <GroupHeader
+              group={group}
+              totalQuiz={totalQuiz}
+              onCopyInvite={() => void copyInvite()}
+              onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
+              settingsHref={settingsHref}
+            />
+            <BookshelfSection groupId={groupId} projects={projects} />
+            <LeaderboardSection leaderboard={leaderboard} />
+            <MissedWordsSection
+              groupId={groupId}
+              missedWords={missedWords}
+              totalCount={missedWordsTotalCount}
+            />
+          </div>
+        ))}
+      </div>
 
       {group && (
         <GroupInviteShareSheet
@@ -148,6 +203,37 @@ export default function GroupPage() {
           onClose={() => setInviteShareOpen(false)}
         />
       )}
+    </>
+  );
+}
+
+function DesktopGroupStat({ icon, label, value, unit }: { icon: string; label: string; value: number; unit: string }) {
+  return (
+    <div className="ds-card flat" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          border: '2px solid var(--solid-ink)',
+          background: 'var(--color-surface-secondary)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Icon name={icon} size={18} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {label}
+        </div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, lineHeight: 1.2 }}>
+          {value}
+          <span style={{ fontSize: 12, color: 'var(--color-secondary-text)', fontWeight: 700 }}> {unit}</span>
+        </div>
+      </div>
     </div>
   );
 }

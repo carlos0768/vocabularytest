@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -88,62 +89,104 @@ export default function GroupBookshelfClient() {
     }
   }, [groupId, removingProjectId, showToast]);
 
+  const stateView = authLoading || loading ? (
+    <LoadingState />
+  ) : !isAuthenticated ? (
+    <CenteredCard icon="lock" title="ログインが必要です">
+      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
+        ログイン
+      </Link>
+    </CenteredCard>
+  ) : error || !group ? (
+    <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
+      <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
+        再読み込み
+      </button>
+    </CenteredCard>
+  ) : null;
+
+  const emptyShelf = (
+    <div className="rounded-[16px] border-2 border-dashed border-[var(--color-border)] bg-white px-4 py-10 text-center">
+      <Icon name="auto_stories" size={34} className="mx-auto text-[var(--color-muted)]" />
+      <div className="mt-2 text-[13px] font-extrabold text-[var(--solid-ink)]">本棚はまだ空っぽ</div>
+      <div className="mt-1 text-[12px] font-bold text-[var(--color-muted)]">最初の1冊を共有して本棚を作ろう！</div>
+    </div>
+  );
+
+  const renderBooks = () => projects.map((card) => (
+    <BookCard
+      key={card.project.id}
+      card={card}
+      removing={removingProjectId === card.project.id}
+      removeDisabled={removingProjectId !== null}
+      onRemove={() => void handleRemoveProject(card)}
+    />
+  ));
+
   return (
-    <div
-      className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)]"
-      style={{
-        paddingTop: 0,
-        paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
-      }}
-    >
-      {authLoading || loading ? (
-        <LoadingState />
-      ) : !isAuthenticated ? (
-        <CenteredCard icon="lock" title="ログインが必要です">
-          <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
-            ログイン
-          </Link>
-        </CenteredCard>
-      ) : error || !group ? (
-        <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
-          <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
-            再読み込み
-          </button>
-        </CenteredCard>
-      ) : (
-        <div className="flex flex-col gap-4 px-[14px]">
-          <BookshelfHeader groupId={groupId} groupName={group.name} bookCount={projects.length} />
-
-          {projects.length === 0 ? (
-            <div className="rounded-[16px] border-2 border-dashed border-[var(--color-border)] bg-white px-4 py-10 text-center">
-              <Icon name="auto_stories" size={34} className="mx-auto text-[var(--color-muted)]" />
-              <div className="mt-2 text-[13px] font-extrabold text-[var(--solid-ink)]">本棚はまだ空っぽ</div>
-              <div className="mt-1 text-[12px] font-bold text-[var(--color-muted)]">最初の1冊を共有して本棚を作ろう！</div>
+    <>
+      {/* Desktop */}
+      <div className="hidden h-full min-h-0 flex-col lg:flex">
+        <div className="ds-top">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="crumb">
+              {group ? `共有ライブラリ / ${group.name}` : '共有ライブラリ / グループ'}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {projects.map((card) => (
-                <BookCard
-                  key={card.project.id}
-                  card={card}
-                  removing={removingProjectId === card.project.id}
-                  removeDisabled={removingProjectId !== null}
-                  onRemove={() => void handleRemoveProject(card)}
-                />
-              ))}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => { triggerHaptic(); setShareSheetOpen(true); }}
-            className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+            <h1>本棚{group ? `・${projects.length}冊` : ''}</h1>
+          </div>
+          <DesktopButton
+            href={`/groups/${encodeURIComponent(groupId)}`}
+            icon="arrow_back"
+            variant="ghost"
           >
-            <Icon name="library_add" size={18} />
-            単語帳を共有
-          </button>
+            グループへ戻る
+          </DesktopButton>
+          {group && (
+            <DesktopButton variant="dark" icon="library_add" onClick={() => setShareSheetOpen(true)}>
+              単語帳を共有
+            </DesktopButton>
+          )}
         </div>
-      )}
+        <div className="ds-scroll">
+          {stateView ?? (group && (
+            projects.length === 0 ? emptyShelf : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 18 }}>
+                {renderBooks()}
+              </div>
+            )
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile */}
+      <div
+        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] lg:hidden"
+        style={{
+          paddingTop: 0,
+          paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        {stateView ?? (group && (
+          <div className="flex flex-col gap-4 px-[14px]">
+            <BookshelfHeader groupId={groupId} groupName={group.name} bookCount={projects.length} />
+
+            {projects.length === 0 ? emptyShelf : (
+              <div className="grid grid-cols-2 gap-3">
+                {renderBooks()}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { triggerHaptic(); setShareSheetOpen(true); }}
+              className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+            >
+              <Icon name="library_add" size={18} />
+              単語帳を共有
+            </button>
+          </div>
+        ))}
+      </div>
 
       <ShareToGroupSheet
         open={shareSheetOpen}
@@ -155,7 +198,7 @@ export default function GroupBookshelfClient() {
         onClose={() => setShareSheetOpen(false)}
         onShared={() => { setShareSheetOpen(false); void load(); }}
       />
-    </div>
+    </>
   );
 }
 
