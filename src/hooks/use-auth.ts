@@ -13,10 +13,13 @@ import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-o
 import { getCachedSupabaseSessionSnapshot, isCachedSupabaseSessionValid } from '@/lib/supabase/session-cache';
 import {
   buildOAuthCallbackUrl,
+  buildExpiredOAuthOnboardingCookie,
   buildOAuthRedirectCookie,
+  buildOAuthOnboardingCookie,
   getOAuthProviderLabel,
   type AuthOAuthProvider,
 } from '@/lib/auth/oauth';
+import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 
 interface AuthState {
   user: User | null;
@@ -495,7 +498,11 @@ export function useAuth() {
     return { success: true, data };
   }, [getSupabase, loadUser]);
 
-  const signInWithOAuth = useCallback(async (provider: AuthOAuthProvider, redirectPath = '/') => {
+  const signInWithOAuth = useCallback(async (
+    provider: AuthOAuthProvider,
+    redirectPath = '/',
+    onboardingFields?: SignupProfileFields | null,
+  ) => {
     const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase not initialized' };
@@ -505,7 +512,11 @@ export function useAuth() {
     }
 
     notifyListeners({ ...globalAuthState, loading: true, error: null });
-    document.cookie = buildOAuthRedirectCookie(redirectPath, window.location.protocol === 'https:');
+    const secureCookie = window.location.protocol === 'https:';
+    document.cookie = buildOAuthRedirectCookie(redirectPath, secureCookie);
+    document.cookie = onboardingFields
+      ? buildOAuthOnboardingCookie(onboardingFields, secureCookie)
+      : buildExpiredOAuthOnboardingCookie();
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,

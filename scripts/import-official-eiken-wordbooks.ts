@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { existsSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
-type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1';
+type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1';
 
 type SourceWord = {
   english: string;
@@ -70,6 +70,13 @@ const EIKEN_LEVELS: Array<{
     slugPart: 'pre1',
     eigoDukeUrl: 'https://www.eigo-duke.com/tango/eikenjun1.html',
     motitownUrl: 'https://motitown.com/vocabulary/eiken/grade-p1/',
+  },
+  {
+    level: '1',
+    label: '1級',
+    slugPart: '1',
+    eigoDukeUrl: 'https://www.eigo-duke.com/tango/eiken1.html',
+    motitownUrl: 'https://motitown.com/vocabulary/eiken/grade-1/',
   },
 ];
 
@@ -256,8 +263,36 @@ function chunkWords(words: readonly SourceWord[]): SourceWord[][] {
   return chunks;
 }
 
+function getTargetLevelConfigs(): typeof EIKEN_LEVELS {
+  const requestedValues = process.argv
+    .slice(2)
+    .flatMap((arg) => {
+      if (arg.startsWith('--levels=')) return arg.slice('--levels='.length).split(',');
+      if (arg.startsWith('--')) return [];
+      return arg.split(',');
+    })
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (requestedValues.length === 0 || requestedValues.includes('all')) {
+    return EIKEN_LEVELS;
+  }
+
+  const configsByLevel = new Map(EIKEN_LEVELS.map((config) => [config.level, config]));
+  const targets = requestedValues.map((value) => {
+    const config = configsByLevel.get(value as EikenLevel);
+    if (!config) {
+      throw new Error(`Unknown EIKEN level "${value}". Use one of: ${EIKEN_LEVELS.map((item) => item.level).join(', ')}`);
+    }
+    return config;
+  });
+
+  return [...new Map(targets.map((config) => [config.level, config])).values()];
+}
+
 async function main(): Promise<void> {
   loadDotEnvLocal();
+  const targetConfigs = getTargetLevelConfigs();
 
   const url = normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const serviceRoleKey = normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -280,7 +315,7 @@ async function main(): Promise<void> {
   if (!ownerProject?.user_id) throw new Error('Could not resolve an owner user_id for official projects');
   const ownerUserId = ownerProject.user_id;
 
-  const desiredSlugs = EIKEN_LEVELS.flatMap((config) =>
+  const desiredSlugs = targetConfigs.flatMap((config) =>
     Array.from({ length: BOOKS_PER_LEVEL }, (_, index) => `merken-eiken-${config.slugPart}-${index + 1}`),
   );
 
@@ -305,22 +340,24 @@ async function main(): Promise<void> {
     if (deleteWordsError) throw new Error(`Failed to clear existing words: ${deleteWordsError.message}`);
   }
 
-  const { error: legacyError } = await supabase
-    .from('projects')
-    .update({
-      official_is_default: false,
-      official_is_active: false,
-      updated_at: new Date().toISOString(),
-    })
-    .in('official_slug', LEGACY_PRE1_SLUGS);
+  if (targetConfigs.some((config) => config.level === 'pre1')) {
+    const { error: legacyError } = await supabase
+      .from('projects')
+      .update({
+        official_is_default: false,
+        official_is_active: false,
+        updated_at: new Date().toISOString(),
+      })
+      .in('official_slug', LEGACY_PRE1_SLUGS);
 
-  if (legacyError) throw new Error(`Failed to deactivate legacy pre1 books: ${legacyError.message}`);
+    if (legacyError) throw new Error(`Failed to deactivate legacy pre1 books: ${legacyError.message}`);
+  }
 
   const now = new Date();
   const summary: Array<{ level: EikenLevel; books: number; words: number }> = [];
 
-  for (let levelIndex = 0; levelIndex < EIKEN_LEVELS.length; levelIndex += 1) {
-    const config = EIKEN_LEVELS[levelIndex];
+  for (let levelIndex = 0; levelIndex < targetConfigs.length; levelIndex += 1) {
+    const config = targetConfigs[levelIndex];
     const levelWords = await buildLevelWords(config);
     const books = chunkWords(levelWords);
 
@@ -422,7 +459,7 @@ async function main(): Promise<void> {
     counts.set(row.official_eiken_level, current);
   }
 
-  for (const config of EIKEN_LEVELS) {
+  for (const config of targetConfigs) {
     const actual = counts.get(config.level);
     if (!actual || actual.books !== BOOKS_PER_LEVEL || actual.words !== TARGET_WORDS_PER_LEVEL) {
       throw new Error(

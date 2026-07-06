@@ -28,6 +28,7 @@ import {
   type SignupStep,
 } from '@/lib/auth/signup-flow';
 import { localRepository } from '@/lib/db/local-repository';
+import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 import type { DefaultOfficialWordbookImportItem } from '@/lib/official-wordbooks/import-default';
 
 const EIKEN_LEVELS: { value: EikenLevelOption; label: string }[] = [
@@ -67,6 +68,14 @@ function getDefaultOfficialWordbooks(value: unknown): DefaultOfficialWordbookImp
     && Array.isArray(wordbook.sourceLabels)
     && Array.isArray(wordbook.words)
   ));
+}
+
+function buildOAuthOnboardingFields(onboarding: OnboardingData): SignupProfileFields {
+  return {
+    display_name: onboarding.displayName.trim(),
+    user_handle: onboarding.userHandle,
+    eiken_level: onboarding.eikenLevel,
+  };
 }
 
 async function saveDefaultOfficialWordbooksLocally(
@@ -303,6 +312,12 @@ function SignupForm() {
 
   const stepIndex = step === 'profile' ? 1 : step === 'level' ? 2 : step === 'form' ? 3 : 4;
   const totalSteps = 4;
+  const onboarding: OnboardingData = { displayName, userHandle, eikenLevel };
+  const onboardingValid =
+    displayName.trim().length >= 1 &&
+    /^[a-z0-9_]{3,20}$/.test(userHandle) &&
+    handleAvailable !== false;
+  const oauthOnboardingFields = onboardingValid ? buildOAuthOnboardingFields(onboarding) : null;
 
   // ── OTP Step ─────────────────────────────────────────────
   if (step === 'otp') {
@@ -495,6 +510,7 @@ function SignupForm() {
 
           <DesktopAuthOAuth
             redirectPath={redirect}
+            onboardingFields={oauthOnboardingFields}
             disabled={loading}
             onError={(message) => setError(message || null)}
           />
@@ -590,6 +606,7 @@ function SignupForm() {
 
             <OAuthProviderButtons
               redirectPath={redirect}
+              onboardingFields={oauthOnboardingFields}
               disabled={loading}
               onError={(message) => setError(message || null)}
             />
@@ -724,11 +741,6 @@ function SignupForm() {
   }
 
   // ── Profile Step ────────────────────────────────────────
-  const onboardingValid =
-    displayName.trim().length >= 1 &&
-    /^[a-z0-9_]{3,20}$/.test(userHandle) &&
-    handleAvailable !== false;
-
   return (
     <>
       {/* Desktop */}

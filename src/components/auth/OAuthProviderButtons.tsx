@@ -9,6 +9,7 @@ import {
   getOAuthProviderLabel,
   type AuthOAuthProvider,
 } from '@/lib/auth/oauth';
+import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 
 const PROVIDERS: { id: AuthOAuthProvider; mark: string }[] = [
   { id: 'google', mark: 'G' },
@@ -24,10 +25,12 @@ const ENABLED_PROVIDERS = PROVIDERS.filter((provider) =>
 
 export function OAuthProviderButtons({
   redirectPath,
+  onboardingFields,
   disabled = false,
   onError,
 }: {
   redirectPath: string;
+  onboardingFields?: SignupProfileFields | null;
   disabled?: boolean;
   onError: (message: string) => void;
 }) {
@@ -43,7 +46,7 @@ export function OAuthProviderButtons({
 
     setLoadingProvider(provider);
     onError('');
-    const result = await signInWithOAuth(provider, redirectPath);
+    const result = await signInWithOAuth(provider, redirectPath, onboardingFields);
     if (!result.success) {
       onError(result.error || `${getOAuthProviderLabel(provider)}ログインに失敗しました`);
       setLoadingProvider(null);
