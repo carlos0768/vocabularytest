@@ -7,9 +7,9 @@
 --   1. Lets any authenticated user read AND write their OWN projects/words.
 --   2. Keeps former-Pro (cancelled/expired) users READ-ONLY (unchanged invariant):
 --      the write policies allow "active Pro OR free plan" and exclude former-Pro.
---   3. Enforces the Free-plan 100-word cap AT THE DB LEVEL so it cannot be
---      bypassed by calling PostgREST directly (the previous cap was client-only).
---      A generous project-count ceiling guards against empty-project spam.
+--   3. Enforces the Free-plan limit of 50 wordbooks (projects) AT THE DB LEVEL
+--      so it cannot be bypassed by calling PostgREST directly. Words per
+--      wordbook are NOT capped for Free users; the limit is on wordbook count.
 --
 -- Active Pro users remain UNLIMITED. Sharing policies (share_id based) are
 -- intentionally left untouched — this migration only changes own-data access.
@@ -126,50 +126,21 @@ CREATE POLICY "Cloud writers can delete own words"
   USING (user_id = auth.uid() AND public.is_caller_cloud_writer());
 
 -- ============================================================
--- Abuse prevention: Free-plan hard limits enforced in the database.
--- Statement-level AFTER triggers with transition tables => correct for
+-- Abuse prevention: Free-plan wordbook (project) cap enforced in the database.
+-- The Free limit is on WORDBOOK COUNT (50), not word count — words per
+-- wordbook are unlimited for Free users.
+-- Statement-level AFTER trigger with a transition table => correct for
 -- multi-row (batch) inserts, where a per-row BEFORE trigger could be bypassed
 -- because sibling rows in the same statement are not yet visible to a COUNT().
 -- Active Pro users are skipped (unlimited).
 -- ============================================================
 
--- Free plan is limited to 100 words total (matches FREE_WORD_LIMIT in src/lib/utils.ts).
-CREATE OR REPLACE FUNCTION public.enforce_free_word_limit()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_user_id UUID;
-  v_count INTEGER;
-BEGIN
-  FOR v_user_id IN SELECT DISTINCT user_id FROM new_words LOOP
-    IF public.user_is_active_pro(v_user_id) THEN
-      CONTINUE; -- Pro = unlimited
-    END IF;
-
-    SELECT COUNT(*) INTO v_count FROM words WHERE user_id = v_user_id;
-    IF v_count > 100 THEN
-      RAISE EXCEPTION 'FREE_WORD_LIMIT_EXCEEDED: free plan is limited to 100 words'
-        USING ERRCODE = 'check_violation';
-    END IF;
-  END LOOP;
-  RETURN NULL;
-END;
-$$;
-
+-- Drop the earlier word-count cap if a prior version of this migration created
+-- it — the Free limit is now on wordbook count, not word count.
 DROP TRIGGER IF EXISTS trg_enforce_free_word_limit ON words;
-CREATE TRIGGER trg_enforce_free_word_limit
-  AFTER INSERT ON words
-  REFERENCING NEW TABLE AS new_words
-  FOR EACH STATEMENT
-  EXECUTE FUNCTION public.enforce_free_word_limit();
+DROP FUNCTION IF EXISTS public.enforce_free_word_limit();
 
--- Free plan is capped at a generous number of wordbooks to stop empty-project
--- spam. The ceiling is well above any realistic Free usage (100 words total)
--- so it never blocks legitimate users or the first-sync bootstrap of existing
--- local-only data.
+-- Free plan is limited to 50 wordbooks (matches FREE_WORDBOOK_LIMIT in src/lib/utils.ts).
 CREATE OR REPLACE FUNCTION public.enforce_free_project_limit()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -186,8 +157,8 @@ BEGIN
     END IF;
 
     SELECT COUNT(*) INTO v_count FROM projects WHERE user_id = v_user_id;
-    IF v_count > 500 THEN
-      RAISE EXCEPTION 'FREE_PROJECT_LIMIT_EXCEEDED: free plan is limited to 500 wordbooks'
+    IF v_count > 50 THEN
+      RAISE EXCEPTION 'FREE_WORDBOOK_LIMIT_EXCEEDED: free plan is limited to 50 wordbooks'
         USING ERRCODE = 'check_violation';
     END IF;
   END LOOP;

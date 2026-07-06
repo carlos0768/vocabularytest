@@ -43,6 +43,9 @@ const SCAN_DATE_KEY = 'scanvocab_scan_date';
 // Free plan limits (must match server-side in /api/extract and /api/grammar)
 export const FREE_DAILY_SCAN_LIMIT = 3;
 export const FREE_WORD_LIMIT = 100;
+// Free plan is limited by wordbook (project) count, enforced server-side by the
+// enforce_free_project_limit trigger. Words per wordbook are unlimited for Free.
+export const FREE_WORDBOOK_LIMIT = 50;
 
 export function getDailyScanInfo(): { count: number; remaining: number; canScan: boolean } {
   if (typeof window === 'undefined') {

@@ -19,8 +19,8 @@ import { readonlyRemoteRepository } from './readonly-remote-repository';
 
 // Factory function to get the appropriate repository based on subscription
 // Active Pro users: HybridRepository (IndexedDB + Supabase sync)
-// Free users (never Pro): HybridRepository (IndexedDB + Supabase sync, 100-word cap
-//   enforced server-side via RLS + DB triggers)
+// Free users (never Pro): HybridRepository (IndexedDB + Supabase sync, 50-wordbook
+//   cap enforced server-side via RLS + DB triggers)
 // Downgraded Pro users (wasPro=true): ReadonlyRemoteRepository (Supabase read-only)
 export function getRepository(
   subscriptionStatus: SubscriptionStatus = 'free',
@@ -34,8 +34,8 @@ export function getRepository(
     // Downgraded users: Read-only access to Supabase data
     return readonlyRemoteRepository;
   }
-  // Free users: cloud sync is now enabled (cross-device). The Free 100-word cap
-  // is enforced server-side (RLS + enforce_free_word_limit trigger), so the
-  // hybrid repository is safe to use here.
+  // Free users: cloud sync is now enabled (cross-device). The Free 50-wordbook
+  // cap is enforced server-side (RLS + enforce_free_project_limit trigger), so
+  // the hybrid repository is safe to use here.
   return hybridRepository;
 }

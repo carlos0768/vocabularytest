@@ -29,8 +29,6 @@ import {
   type SignupStep,
 } from '@/lib/auth/signup-flow';
 import { storePendingOnboarding } from '@/lib/auth/pending-onboarding';
-import { localRepository } from '@/lib/db/local-repository';
-import type { DefaultOfficialWordbookImportItem } from '@/lib/official-wordbooks/import-default';
 import { usePageBackground } from '@/hooks/use-page-background';
 
 const SIGNUP_BG = '#f3f0e9';
@@ -64,75 +62,6 @@ async function readJson(response: Response): Promise<unknown> {
     return await response.json();
   } catch {
     return {};
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function getSignupUserId(value: unknown): string | null {
-  if (!isRecord(value) || !isRecord(value.user)) return null;
-  return typeof value.user.id === 'string' ? value.user.id : null;
-}
-
-function getDefaultOfficialWordbooks(value: unknown): DefaultOfficialWordbookImportItem[] {
-  if (!isRecord(value) || !Array.isArray(value.defaultOfficialWordbooks)) return [];
-  return value.defaultOfficialWordbooks.filter((wordbook): wordbook is DefaultOfficialWordbookImportItem => (
-    isRecord(wordbook)
-    && typeof wordbook.officialWordbookId === 'string'
-    && (wordbook.officialSlug === undefined || typeof wordbook.officialSlug === 'string')
-    && typeof wordbook.title === 'string'
-    && Array.isArray(wordbook.sourceLabels)
-    && Array.isArray(wordbook.words)
-  ));
-}
-
-async function saveDefaultOfficialWordbooksLocally(
-  userId: string,
-  wordbooks: DefaultOfficialWordbookImportItem[],
-): Promise<void> {
-  const existingProjects = await localRepository.getProjects(userId);
-  const importedOfficialSlugs = new Set(
-    existingProjects
-      .map((project) => project.importedFromOfficialSlug?.trim())
-      .filter((slug): slug is string => Boolean(slug)),
-  );
-
-  for (const wordbook of wordbooks) {
-    const officialSlug = wordbook.officialSlug?.trim();
-    if (officialSlug && importedOfficialSlugs.has(officialSlug)) {
-      continue;
-    }
-
-    const project = await localRepository.createProject({
-      userId,
-      title: wordbook.title,
-      sourceLabels: wordbook.sourceLabels,
-      ...(wordbook.iconImage ? { iconImage: wordbook.iconImage } : {}),
-      ...(officialSlug ? { importedFromOfficialSlug: officialSlug } : {}),
-    });
-    if (officialSlug) importedOfficialSlugs.add(officialSlug);
-
-    await localRepository.createWords(wordbook.words.map((word) => ({
-      projectId: project.id,
-      english: word.english,
-      japanese: word.japanese,
-      translations: word.translations,
-      distractors: word.distractors,
-      vocabularyType: word.vocabularyType ?? undefined,
-      japaneseSource: word.japaneseSource,
-      lexiconEntryId: word.lexiconEntryId,
-      lexiconSenseId: word.lexiconSenseId,
-      exampleSentence: word.exampleSentence,
-      exampleSentenceJa: word.exampleSentenceJa,
-      pronunciation: word.pronunciation,
-      partOfSpeechTags: word.partOfSpeechTags,
-      relatedWords: word.relatedWords,
-      usagePatterns: word.usagePatterns,
-      wordOrderQuiz: word.wordOrderQuiz,
-      customSections: word.customSections,
-    })));
   }
 }
 
@@ -286,16 +215,8 @@ function SignupForm() {
         return;
       }
 
-      const userId = getSignupUserId(data);
-      const defaultOfficialWordbooks = getDefaultOfficialWordbooks(data);
-      if (userId && defaultOfficialWordbooks.length > 0) {
-        try {
-          await saveDefaultOfficialWordbooksLocally(userId, defaultOfficialWordbooks);
-        } catch (localImportError) {
-          console.error('Failed to save default official wordbooks locally:', localImportError);
-        }
-      }
-
+      // Default official wordbooks are now imported into Supabase server-side
+      // by /api/auth/signup-verify; the client hydrates them via full sync.
       window.location.href = redirect;
     } catch {
       setError('通信エラーが発生しました');

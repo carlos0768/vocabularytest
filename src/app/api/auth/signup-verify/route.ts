@@ -5,7 +5,10 @@ import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
-import { fetchDefaultOfficialWordbooksForLocalImport } from '@/lib/official-wordbooks/import-default';
+import {
+  fetchDefaultOfficialWordbooksForLocalImport,
+  persistDefaultOfficialWordbooksToDb,
+} from '@/lib/official-wordbooks/import-default';
 import {
   evaluateAuthOtpCode,
   findAuthUserByNormalizedEmail,
@@ -60,6 +63,7 @@ export type SignupVerifyRouteDeps = {
   getAdminClient?: typeof getAdminClient;
   getServerClient?: typeof getServerClient;
   fetchDefaultOfficialWordbooksForLocalImport?: typeof fetchDefaultOfficialWordbooksForLocalImport;
+  persistDefaultOfficialWordbooksToDb?: typeof persistDefaultOfficialWordbooksToDb;
 };
 
 function buildDefaultAccountId(userId: string): string {
@@ -345,6 +349,23 @@ export async function handleSignupVerifyPost(
         console.error('Failed to fetch default official wordbooks:', defaultImportError);
       }
     }
+
+    // Persist the default wordbooks directly into Supabase (projects + words)
+    // for the new user. The client hydrates its local cache from these rows on
+    // the next full sync, so we no longer hand the payload back for a
+    // browser-only IndexedDB import.
+    if (defaultOfficialWordbooks && defaultOfficialWordbooks.length > 0) {
+      try {
+        await (deps.persistDefaultOfficialWordbooksToDb ?? persistDefaultOfficialWordbooksToDb)(
+          adminClient,
+          userId,
+          defaultOfficialWordbooks,
+        );
+      } catch (persistError) {
+        console.error('Failed to persist default official wordbooks:', persistError);
+      }
+    }
+
     // 使用済みOTPを削除
     await adminClient
       .from('otp_requests')
@@ -357,7 +378,6 @@ export async function handleSignupVerifyPost(
         id: userId,
         email: sessionData.user?.email ?? newUser.user.email,
       },
-      ...(defaultOfficialWordbooks ? { defaultOfficialWordbooks } : {}),
     });
   } catch (error) {
     console.error('Signup verify error:', error);

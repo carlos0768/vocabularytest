@@ -7,7 +7,7 @@ import { SolidButton } from '@/components/redesign/SolidPage';
 import { ScanCapturePanel } from '@/components/home/ScanCapturePanel';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
-import { getGuestUserId } from '@/lib/utils';
+import { getGuestUserId, FREE_WORDBOOK_LIMIT } from '@/lib/utils';
 import type { SubscriptionStatus } from '@/types';
 
 type CreateMethod = 'scan' | 'shared' | 'blank';
@@ -94,6 +94,16 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     setSubmitting(true);
     try {
       const userId = user ? user.id : getGuestUserId();
+      // Free plan is limited to FREE_WORDBOOK_LIMIT wordbooks (server-enforced by
+      // the enforce_free_project_limit trigger). Pre-check for a clean message.
+      if (user && !isPro) {
+        const existing = await repository.getProjects(userId);
+        if (existing.length >= FREE_WORDBOOK_LIMIT) {
+          setErrorMsg(`無料プランは単語帳${FREE_WORDBOOK_LIMIT}冊までです。Proにアップグレードすると無制限に作成できます。`);
+          setSubmitting(false);
+          return;
+        }
+      }
       const project = await repository.createProject({ userId, title: trimmedName });
       onClose();
       router.push(`/project/${project.id}`);

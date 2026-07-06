@@ -1,9 +1,17 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
-import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
+import {
+  buildWordTranslationInsertRows,
+  isWordTranslationsSchemaError,
+  normalizeWordForTranslationPersistence,
+} from '@/lib/words/translation-persistence';
+import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
+import { mapProjectToInsertWithId, mapWordToInsertWithId } from '../../../shared/db';
 import type {
   CustomSection,
+  Project,
   RelatedWord,
   UsagePattern,
+  Word,
   WordOrderQuizCache,
   WordTranslation,
 } from '@/types';
@@ -246,4 +254,113 @@ export async function fetchDefaultOfficialWordbooksForLocalImport(
   }
 
   return imported.length > 0 ? imported : null;
+}
+
+function newId(): string {
+  return globalThis.crypto.randomUUID();
+}
+
+/**
+ * Persist default official wordbooks directly into the user's Supabase rows
+ * (projects + words + word_translations) at signup time, instead of only
+ * writing them to the browser's IndexedDB. This uses the service-role admin
+ * client, so it runs server-side and bypasses RLS; the DB triggers
+ * (set_word_user_id, enforce_free_project_limit) still apply. The client
+ * hydrates its local cache from these rows on the next full sync.
+ *
+ * Existing projects are de-duplicated by imported_from_official_slug so a
+ * re-run (or a mixed local/remote history) never creates duplicate wordbooks.
+ */
+export async function persistDefaultOfficialWordbooksToDb(
+  adminClient: SupabaseClient,
+  userId: string,
+  wordbooks: DefaultOfficialWordbookImportItem[],
+): Promise<void> {
+  if (wordbooks.length === 0) return;
+
+  const { data: existingProjects, error: existingError } = await adminClient
+    .from('projects')
+    .select('imported_from_official_slug')
+    .eq('user_id', userId);
+  if (existingError) {
+    throw new Error(`Failed to read existing projects: ${existingError.message}`);
+  }
+  const importedSlugs = new Set(
+    (existingProjects ?? [])
+      .map((row) => (row as { imported_from_official_slug?: string | null }).imported_from_official_slug?.trim())
+      .filter((slug): slug is string => Boolean(slug)),
+  );
+
+  const nowIso = new Date().toISOString();
+  const srDefaults = getDefaultSpacedRepetitionFields();
+
+  for (const wordbook of wordbooks) {
+    const officialSlug = wordbook.officialSlug?.trim();
+    if (officialSlug && importedSlugs.has(officialSlug)) {
+      continue;
+    }
+
+    const projectId = newId();
+    const project: Project = {
+      id: projectId,
+      userId,
+      title: wordbook.title,
+      sourceLabels: wordbook.sourceLabels,
+      createdAt: nowIso,
+      ...(wordbook.iconImage ? { iconImage: wordbook.iconImage } : {}),
+      ...(officialSlug ? { importedFromOfficialSlug: officialSlug } : {}),
+    };
+
+    const { error: projectError } = await adminClient
+      .from('projects')
+      .insert(mapProjectToInsertWithId(project));
+    if (projectError) {
+      throw new Error(`Failed to insert default wordbook project: ${projectError.message}`);
+    }
+    if (officialSlug) importedSlugs.add(officialSlug);
+
+    if (wordbook.words.length === 0) continue;
+
+    const wordIds = wordbook.words.map(() => newId());
+    const wordRows = wordbook.words.map((word, index) => mapWordToInsertWithId({
+      id: wordIds[index],
+      projectId,
+      english: word.english,
+      japanese: word.japanese,
+      japaneseSource: word.japaneseSource,
+      vocabularyType: word.vocabularyType ?? undefined,
+      lexiconEntryId: word.lexiconEntryId,
+      lexiconSenseId: word.lexiconSenseId,
+      distractors: word.distractors ?? [],
+      exampleSentence: word.exampleSentence,
+      exampleSentenceJa: word.exampleSentenceJa,
+      pronunciation: word.pronunciation,
+      partOfSpeechTags: word.partOfSpeechTags,
+      relatedWords: word.relatedWords,
+      usagePatterns: word.usagePatterns,
+      wordOrderQuiz: word.wordOrderQuiz,
+      customSections: word.customSections,
+      status: 'new',
+      createdAt: nowIso,
+      isFavorite: false,
+      ...srDefaults,
+    } as Word));
+
+    const { error: wordsError } = await adminClient.from('words').insert(wordRows);
+    if (wordsError) {
+      throw new Error(`Failed to insert default wordbook words: ${wordsError.message}`);
+    }
+
+    const translationRows = buildWordTranslationInsertRows(wordbook.words, wordIds);
+    if (translationRows.length > 0) {
+      const { error: translationError } = await adminClient
+        .from('word_translations')
+        .upsert(translationRows, { onConflict: 'word_id,normalized_translation_ja' });
+      // Translations are a non-critical enrichment: never fail the whole signup
+      // import if the child table is unavailable or momentarily out of sync.
+      if (translationError && !isWordTranslationsSchemaError(translationError)) {
+        console.error('[import-default] Failed to insert word translations:', translationError.message);
+      }
+    }
+  }
 }

@@ -97,8 +97,8 @@ Data storage abstracted via `WordRepository` interface. Factory in `src/lib/db/i
 getRepository(subscriptionStatus, wasPro)
 // 'active'  -> HybridWordRepository (IndexedDB + Supabase sync)
 // wasPro    -> ReadonlyRemoteRepository (Supabase read-only, writes throw)
-// otherwise -> HybridWordRepository (Free users sync too; 100-word cap enforced
-//              server-side via RLS + enforce_free_word_limit trigger)
+// otherwise -> HybridWordRepository (Free users sync too; 50-wordbook cap enforced
+//              server-side via RLS + enforce_free_project_limit trigger)
 ```
 
 ### Subscription Tiers
@@ -106,12 +106,13 @@ getRepository(subscriptionStatus, wasPro)
 | Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
 | Scanning | Not available (Pro-only, server-enforced) | Unlimited |
-| Words total | 100 (client + server-enforced) | Unlimited |
+| Wordbooks (単語帳) | 50 (server-enforced) | Unlimited |
+| Words per wordbook | Unlimited | Unlimited |
 | Scan modes | — | all, circled, eiken, idiom |
 | Shared wordbook view/import | Yes (login required) | Yes |
 | Shared wordbook publishing | No (Pro-only) | Yes |
 | Data storage | Cloud (Supabase) + IndexedDB cache (login required) | Cloud (Supabase) + IndexedDB cache |
-| Cross-device sync | Yes (login required; capped at 100 words server-side) | Yes |
+| Cross-device sync | Yes (login required; capped at 50 wordbooks server-side) | Yes |
 
 ### Data Flow
 1. User uploads image -> `/api/extract` -> Gemini 2.5 Flash (or Cloud Run proxy)
@@ -167,7 +168,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - Correct -> green highlight, Wrong -> red highlight with correct answer shown
    - SM-2 spaced repetition: tracks easeFactor, intervalDays, repetition, nextReviewAt
    - Daily stats recorded: todayCount, correctCount, streakDays
-4. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The 100-word cap is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_word_limit` DB trigger caps free users at 100 words so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only.
+4. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync.
 5. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
 6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
 7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit
