@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import type { Project } from '@/types';
 import { thumbColor } from './member-ui';
 
@@ -44,7 +45,7 @@ export function ShareToGroupSheet({
     setLoadError(null);
     remoteRepository.getProjects(userId)
       .then((projects) => {
-        if (!cancelled) setOwnProjects(projects);
+        if (!cancelled) setOwnProjects(excludeReelSavedProjects(projects));
       })
       .catch((error) => {
         console.warn('Failed to load own projects for group share:', error);

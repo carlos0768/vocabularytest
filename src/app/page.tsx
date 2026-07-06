@@ -24,6 +24,7 @@ import {
   type ProjectWithStats,
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import {
   calculateHomeCompletionPercent,
@@ -505,7 +506,10 @@ export default function HomePage() {
     : 0;
   const goalState: 'review' | 'learn' | 'empty' =
     dueCount > 0 ? 'review' : totalWords === 0 ? 'empty' : 'learn';
-  const visibleProjects = projects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
+  // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
+  // out of the browsable マイ単語帳 list (its words still count in `stats`).
+  const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
+  const visibleProjects = listProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
   const displayedPendingScans = useMemo<HomePendingScan[]>(() => {
     if (!pendingGeneratingWordbook) return pendingScans;
     if (
@@ -536,7 +540,7 @@ export default function HomePage() {
   return (
     <>
       <DesktopHomeView
-        projects={projects}
+        projects={listProjects}
         stats={stats}
         loading={loading}
         error={error}
