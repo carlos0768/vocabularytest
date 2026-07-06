@@ -236,6 +236,18 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
 
     const { data, error } = await query.select(RESOLVED_WORD_SELECT_COLUMNS);
     if (error) {
+      // The DB enforces the Free-plan 100-word cap via the enforce_free_word_limit
+      // trigger. Surface it as a clean, actionable 403 instead of a raw 500.
+      if (error.message.includes('FREE_WORD_LIMIT_EXCEEDED')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '無料プランは100単語までです。Proにアップグレードすると無制限に保存できます。',
+            code: 'FREE_WORD_LIMIT_EXCEEDED',
+          },
+          { status: 403 },
+        );
+      }
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
