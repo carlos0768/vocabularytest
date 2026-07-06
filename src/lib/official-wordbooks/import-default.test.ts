@@ -200,6 +200,7 @@ test('default official wordbook local payload reads a normal project without cre
         id: 'official-project-pre2',
         title: 'Source Project Title',
         official_title: '英検準2級 公式単語帳',
+        official_slug: 'merken-eiken-pre2-1',
         icon_image: 'icon.png',
         official_is_default: true,
       },
@@ -236,6 +237,7 @@ test('default official wordbook local payload reads a normal project without cre
 
   assert.deepEqual(result, [{
     officialWordbookId: 'official-project-pre2',
+    officialSlug: 'merken-eiken-pre2-1',
     title: '英検準2級 公式単語帳',
     sourceLabels: ['official', 'eiken:pre2'],
     iconImage: 'icon.png',
@@ -259,6 +261,9 @@ test('default official wordbook local payload reads a normal project without cre
     }],
   }]);
 
+  const projectSelect = findOperation(client, 'projects', 'select');
+  assert.match(projectSelect.columns ?? '', /official_slug/);
+
   const sourceWordsSelect = findOperation(client, 'words', 'select');
   assert.deepEqual(sourceWordsSelect.filters, [
     { field: 'project_id', value: 'official-project-pre2' },
@@ -276,12 +281,14 @@ test('default official wordbook local payload includes every active default proj
         id: 'official-pre1-1',
         title: 'ターゲット section16',
         official_title: '英検準一級単語集1',
+        official_slug: 'merken-eiken-pre1-1',
         official_is_default: true,
       },
       {
         id: 'official-pre1-2',
         title: 'ターゲット section17',
         official_title: '英検準一級単語集2',
+        official_slug: 'merken-eiken-pre1-2',
         official_is_default: true,
       },
       {
@@ -313,6 +320,7 @@ test('default official wordbook local payload includes every active default proj
   assert.deepEqual(result, [
     {
       officialWordbookId: 'official-pre1-1',
+      officialSlug: 'merken-eiken-pre1-1',
       title: '英検準一級単語集1',
       sourceLabels: ['official', 'eiken:pre1'],
       words: [{
@@ -332,6 +340,7 @@ test('default official wordbook local payload includes every active default proj
     },
     {
       officialWordbookId: 'official-pre1-2',
+      officialSlug: 'merken-eiken-pre1-2',
       title: '英検準一級単語集2',
       sourceLabels: ['official', 'eiken:pre1'],
       words: [{

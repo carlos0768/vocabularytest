@@ -14,6 +14,7 @@ type OfficialProjectRow = {
   id: string;
   title: string;
   official_title?: string | null;
+  official_slug?: string | null;
   icon_image?: string | null;
   official_is_default?: boolean | null;
 };
@@ -68,6 +69,7 @@ export type DefaultOfficialWordbookImportWord = {
 
 export type DefaultOfficialWordbookImportItem = {
   officialWordbookId: string;
+  officialSlug?: string;
   title: string;
   sourceLabels: string[];
   iconImage?: string;
@@ -283,6 +285,7 @@ async function fetchOfficialProjectForLocalImport(
 
   return {
     officialWordbookId: officialProject.id,
+    ...(officialProject.official_slug ? { officialSlug: officialProject.official_slug } : {}),
     title: getOfficialProjectTitle(officialProject),
     sourceLabels: ['official', `eiken:${eikenLevel}`],
     ...(officialProject.icon_image ? { iconImage: officialProject.icon_image } : {}),
@@ -298,7 +301,7 @@ export async function fetchDefaultOfficialWordbooksForLocalImport(
 
   const { data: officialProjects, error: projectError } = await supabase
     .from('projects')
-    .select('id,title,official_title,icon_image,official_is_default')
+    .select('id,title,official_title,official_slug,icon_image,official_is_default')
     .eq('official_eiken_level', eikenLevel)
     .eq('official_is_active', true)
     .order('official_is_default', { ascending: false })
