@@ -631,49 +631,11 @@ test('signup-verify valid OTP saves onboarding profile and returns default offic
     display_name: '山田太郎',
     user_handle: 'kenta_123',
     eiken_level: 'pre2',
+    account_id: 'kenta_123',
   });
 
   const cleanup = findOtpDelete(adminClient, 'email', 'new@example.com');
   assert.deepEqual(cleanup.filters, [{ field: 'email', value: 'new@example.com' }]);
-});
-
-test('signup-verify saves long onboarding display names without violating legacy username length', async () => {
-  const adminClient = new FakeOtpAdminClient({
-    users: [],
-    otpRecord: otpRecord({ id: 'otp-signup-long-name' }),
-    createdUser: { id: 'created-user-long-name', email: 'long-name@example.com' },
-  });
-  const serverClient = new FakeServerClient({
-    sessionUser: { id: 'created-user-long-name', email: 'long-name@example.com' },
-  });
-  const displayName = 'abcdefghijklmnopqrstu';
-
-  const response = await handleSignupVerifyPost(
-    jsonRequest('/api/auth/signup-verify', {
-      email: 'Long-Name@Example.COM',
-      code: '123456',
-      password: 'password123',
-      display_name: displayName,
-      user_handle: 'long_name_1',
-    }),
-    {
-      getAdminClient: () => adminClient as never,
-      getServerClient: async () => serverClient as never,
-    },
-  );
-
-  assert.equal(response.status, 200);
-
-  const profileUpsert = findOperation(adminClient, (operation) =>
-    operation.table === 'profiles' &&
-    operation.action === 'upsert'
-  );
-  assert.deepEqual(profileUpsert.payload, {
-    user_id: 'created-user-long-name',
-    onboarding_step: 'signed_up',
-    display_name: displayName,
-    user_handle: 'long_name_1',
-  });
 });
 
 test('reset-password set-password uses verified OTP grace, updates password, cleans OTPs, and signs in best-effort', async () => {

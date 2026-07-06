@@ -125,7 +125,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   const [category, setCategory] = useState<SharedDiscoverCategory | 'groups'>('all');
@@ -137,6 +137,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [groupResults, setGroupResults] = useState<PublicStudyGroupSummary[]>([]);
   const [groupLoading, setGroupLoading] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
+  const [myGroups, setMyGroups] = useState<StudyGroupSummary[]>([]);
 
   const [userQuery, setUserQuery] = useState('');
   const [userResults, setUserResults] = useState<FollowSearchResult[]>([]);
@@ -149,6 +150,30 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   const [chooserOpen, setChooserOpen] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<WordbookGenre | null>(null);
+
+  // Joined groups feed both the mobile 参加中のグループ section and the desktop
+  // view (which also uses them to hide already-joined groups from search).
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setMyGroups([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetch('/api/shared-projects/groups', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as MyGroupsApiResponse | null;
+        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'my_groups_failed');
+        if (!cancelled) setMyGroups(payload.groups ?? []);
+      })
+      .catch((error) => {
+        if (!cancelled) console.warn('Failed to load joined groups:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (category === 'groups') return;
@@ -279,12 +304,19 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   return (
     <>
       <DesktopSharedView
-        category={category === 'groups' ? 'all' : category}
+        category={category}
         query={query}
         payload={discover}
         loading={loading}
         loadingMore={loadingMore}
         error={error}
+        joinedGroups={myGroups}
+        groupQuery={groupQuery}
+        groupResults={groupResults}
+        groupLoading={groupLoading}
+        groupError={groupError}
+        onGroupQueryChange={setGroupQuery}
+        onGroupSearch={() => void handleGroupSearch()}
         onQueryChange={setQuery}
         onCategorySelect={handleSelectCategory}
         onBackToAll={handleBackToAll}
@@ -357,7 +389,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         )}
 
-        {category === 'all' && <JoinedGroupsSection />}
+        {category === 'all' && <JoinedGroupsSection groups={myGroups} />}
 
         {category === 'groups' ? (
           <GroupSearchSection
@@ -365,6 +397,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             groupResults={groupResults}
             groupLoading={groupLoading}
             groupError={groupError}
+            joinedGroups={myGroups}
             onQueryChange={setGroupQuery}
             onSearch={() => void handleGroupSearch()}
           />
@@ -1035,30 +1068,8 @@ function UserSearchSection({
   );
 }
 
-function JoinedGroupsSection() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
-  const [groups, setGroups] = useState<StudyGroupSummary[]>([]);
-
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-
-    let cancelled = false;
-    fetch('/api/shared-projects/groups', { cache: 'no-store' })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as MyGroupsApiResponse | null;
-        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'my_groups_failed');
-        if (!cancelled) setGroups(payload.groups ?? []);
-      })
-      .catch((error) => {
-        if (!cancelled) console.warn('Failed to load joined groups:', error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, isAuthenticated]);
-
-  if (!isAuthenticated || groups.length === 0) return null;
+function JoinedGroupsSection({ groups }: { groups: StudyGroupSummary[] }) {
+  if (groups.length === 0) return null;
 
   return (
     <div className="px-[14px] pb-1 pt-3">
@@ -1127,6 +1138,7 @@ function GroupSearchSection({
   groupResults,
   groupLoading,
   groupError,
+  joinedGroups,
   onQueryChange,
   onSearch,
 }: {
@@ -1134,11 +1146,10 @@ function GroupSearchSection({
   groupResults: PublicStudyGroupSummary[];
   groupLoading: boolean;
   groupError: string | null;
+  joinedGroups: StudyGroupSummary[];
   onQueryChange: (value: string) => void;
   onSearch: () => void;
 }) {
-  const { isAuthenticated, loading: authLoading } = useAuth();
-  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
   const searchedInitiallyRef = useRef(false);
 
   useEffect(() => {
@@ -1147,27 +1158,9 @@ function GroupSearchSection({
     onSearch();
   }, [onSearch]);
 
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-
-    let cancelled = false;
-    fetch('/api/shared-projects/groups', { cache: 'no-store' })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as MyGroupsApiResponse | null;
-        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'my_groups_failed');
-        if (!cancelled) setJoinedIds(new Set((payload.groups ?? []).map((group) => group.id)));
-      })
-      .catch((error) => {
-        if (!cancelled) console.warn('Failed to load joined groups for search filtering:', error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, isAuthenticated]);
-
   // Hide groups the viewer already belongs to — those live in the
   // "参加中のグループ" section and don't need a join entry point here.
+  const joinedIds = new Set(joinedGroups.map((group) => group.id));
   const visibleGroups = groupResults.filter((group) => !joinedIds.has(group.id));
 
   return (

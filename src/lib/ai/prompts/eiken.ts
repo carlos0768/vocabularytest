@@ -113,9 +113,6 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
       "english": "word",
       "japanese": "意味",
       "japaneseSource": "scan",
-      "translations": [
-        { "japanese": "意味", "source": "scan", "meaningRank": 1, "annotationRanges": [] }
-      ],
       "partOfSpeechTags": ["noun"]
     }
   ]
@@ -123,6 +120,7 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 
 注意:
 - 必ず上記のJSON形式のみを出力してください。
+- translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
 - 指定レベルに該当する単語が見つからない場合は、空の配列 {"words": []} を返してください。${SOURCE_LABEL_NOTES}`;
 
 export const EIKEN_WORD_ANALYSIS_USER_PROMPT = `以下のテキストから英単語を抽出し、指定された英検レベルに該当する単語のみを出力してください。
@@ -175,9 +173,6 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
       "english": "word",
       "japanese": "意味",
       "japaneseSource": "scan",
-      "translations": [
-        { "japanese": "意味", "source": "scan", "meaningRank": 1, "annotationRanges": [] }
-      ],
       "partOfSpeechTags": ["noun"]
     }
   ]
@@ -185,6 +180,7 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 
 注意:
 - 必ず上記のJSON形式のみを出力してください。
+- translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
 - 指定レベルに該当する単語が見つからない場合は、空の配列 {"words": []} を返してください。${SOURCE_LABEL_NOTES}`;
 
 export const EIKEN_SINGLE_PASS_USER_PROMPT = `この画像から英単語を抽出し、指定された英検レベル以上に該当する単語のみをJSONで出力してください。`;

@@ -9,7 +9,6 @@ import {
   getOAuthProviderLabel,
   type AuthOAuthProvider,
 } from '@/lib/auth/oauth';
-import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 
 const PROVIDERS: { id: AuthOAuthProvider; mark: string }[] = [
   { id: 'google', mark: 'G' },
@@ -25,14 +24,15 @@ const ENABLED_PROVIDERS = PROVIDERS.filter((provider) =>
 
 export function OAuthProviderButtons({
   redirectPath,
-  onboardingFields,
   disabled = false,
   onError,
+  onBeforeRedirect,
 }: {
   redirectPath: string;
-  onboardingFields?: SignupProfileFields | null;
   disabled?: boolean;
   onError: (message: string) => void;
+  /** Runs just before the OAuth redirect starts (e.g. to stash signup data). */
+  onBeforeRedirect?: () => void;
 }) {
   const { signInWithOAuth } = useAuth();
   const [loadingProvider, setLoadingProvider] = useState<AuthOAuthProvider | null>(null);
@@ -46,7 +46,8 @@ export function OAuthProviderButtons({
 
     setLoadingProvider(provider);
     onError('');
-    const result = await signInWithOAuth(provider, redirectPath, onboardingFields);
+    onBeforeRedirect?.();
+    const result = await signInWithOAuth(provider, redirectPath);
     if (!result.success) {
       onError(result.error || `${getOAuthProviderLabel(provider)}ログインに失敗しました`);
       setLoadingProvider(null);

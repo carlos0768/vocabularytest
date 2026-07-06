@@ -11,11 +11,6 @@ import {
   findAuthUserByNormalizedEmail,
   normalizeOtpEmail,
 } from '@/lib/auth/otp-lifecycle';
-import {
-  hasSignupProfileFields,
-  isUniqueSignupProfileViolation,
-  saveSignupProfileFields,
-} from '@/lib/auth/signup-profile';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -51,16 +46,117 @@ const requestSchema = z.object({
   email: z.string().trim().email().max(254),
   code: z.string().trim().regex(/^\d{6}$/),
   password: z.string().min(8).max(128),
-  display_name: z.string().trim().min(1).max(30).optional(),
+  // Max 20 to satisfy the profiles.username CHECK constraint (username is
+  // written alongside display_name).
+  display_name: z.string().trim().min(1).max(20).optional(),
   user_handle: z.string().regex(/^[a-z0-9_]{3,20}$/).optional(),
   eiken_level: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional(),
 });
+
+type SignupVerifyBody = z.infer<typeof requestSchema>;
+type SignupProfileFields = Pick<SignupVerifyBody, 'display_name' | 'user_handle' | 'eiken_level'>;
 
 export type SignupVerifyRouteDeps = {
   getAdminClient?: typeof getAdminClient;
   getServerClient?: typeof getServerClient;
   fetchDefaultOfficialWordbooksForLocalImport?: typeof fetchDefaultOfficialWordbooksForLocalImport;
 };
+
+function buildDefaultAccountId(userId: string): string {
+  const compact = userId.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
+  return `mk${compact.slice(0, 12)}`.slice(0, 24);
+}
+
+function hasSignupProfileFields(fields: SignupProfileFields): boolean {
+  return fields.display_name !== undefined
+    || fields.user_handle !== undefined
+    || fields.eiken_level !== undefined;
+}
+
+function isMissingAccountIdError(error: { code?: string | null; message?: string | null; details?: string | null } | null): boolean {
+  if (!error || error.code !== '23502') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''}`;
+  return text.includes('account_id');
+}
+
+function isUniqueViolation(error: { code?: string | null } | null): boolean {
+  return error?.code === '23505';
+}
+
+// account_id column: NOT NULL, lowercase, ^[a-z0-9_]{4,24}$ (see profiles_account_id_format).
+const ACCOUNT_ID_FORMAT = /^[a-z0-9_]{4,24}$/;
+
+function buildSignupProfilePayload(
+  userId: string,
+  fields: SignupProfileFields,
+  accountId: string | undefined,
+) {
+  const payload: {
+    user_id: string;
+    onboarding_step: 'signed_up';
+    username?: string;
+    display_name?: string;
+    user_handle?: string;
+    eiken_level?: SignupVerifyBody['eiken_level'];
+    account_id?: string;
+  } = {
+    user_id: userId,
+    onboarding_step: 'signed_up',
+  };
+
+  if (fields.display_name !== undefined) {
+    payload.username = fields.display_name;
+    payload.display_name = fields.display_name;
+  }
+  if (fields.user_handle !== undefined) payload.user_handle = fields.user_handle;
+  if (fields.eiken_level !== undefined) payload.eiken_level = fields.eiken_level;
+  if (accountId !== undefined) payload.account_id = accountId;
+
+  return payload;
+}
+
+function isAccountIdUniqueViolation(error: { code?: string | null; message?: string | null; details?: string | null } | null): boolean {
+  if (!error || error.code !== '23505') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''}`;
+  return text.includes('account_id');
+}
+
+async function saveSignupProfileFields(
+  adminClient: ReturnType<typeof getAdminClient>,
+  userId: string,
+  fields: SignupProfileFields,
+): Promise<{ code?: string | null; message?: string | null; details?: string | null } | null> {
+  const upsertProfile = (accountId: string | undefined) => adminClient
+    .from('profiles')
+    .upsert(
+      buildSignupProfilePayload(userId, fields, accountId),
+      { onConflict: 'user_id' },
+    )
+    .select('user_id')
+    .single();
+
+  // Use the chosen handle as the searchable account id so the profile shows
+  // @<handle> instead of the auto-minted mkXXXX id from handle_new_user().
+  const accountIdFromHandle = fields.user_handle !== undefined && ACCOUNT_ID_FORMAT.test(fields.user_handle)
+    ? fields.user_handle
+    : undefined;
+
+  let { error } = await upsertProfile(accountIdFromHandle);
+  if (!error) return null;
+
+  // Another user already owns that account_id — keep the auto-minted one.
+  if (accountIdFromHandle !== undefined && isAccountIdUniqueViolation(error)) {
+    ({ error } = await upsertProfile(undefined));
+    if (!error) return null;
+  }
+
+  if (isMissingAccountIdError(error)) {
+    const retry = await upsertProfile(buildDefaultAccountId(userId));
+    return retry.error ?? null;
+  }
+
+  return error;
+}
 
 export async function POST(request: Request) {
   return handleSignupVerifyPost(request);
@@ -198,11 +294,11 @@ export async function handleSignupVerifyPost(
 
         return NextResponse.json(
           {
-            error: isUniqueSignupProfileViolation(profileError)
+            error: isUniqueViolation(profileError)
               ? 'このIDは既に使われています'
               : 'プロフィール情報の保存に失敗しました',
           },
-          { status: isUniqueSignupProfileViolation(profileError) ? 409 : 500 },
+          { status: isUniqueViolation(profileError) ? 409 : 500 },
         );
       }
     }

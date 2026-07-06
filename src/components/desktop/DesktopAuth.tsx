@@ -9,7 +9,6 @@ import {
   getOAuthProviderLabel,
   type AuthOAuthProvider,
 } from '@/lib/auth/oauth';
-import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 
 const AUTH_BOOKS = [
   { title: '鉄壁', color: '#f2c94c' },
@@ -178,14 +177,15 @@ export function DesktopAuthPrimaryButton({
 
 export function DesktopAuthOAuth({
   redirectPath,
-  onboardingFields,
   disabled,
   onError,
+  onBeforeRedirect,
 }: {
   redirectPath: string;
-  onboardingFields?: SignupProfileFields | null;
   disabled?: boolean;
   onError: (message: string) => void;
+  /** Runs just before the OAuth redirect starts (e.g. to stash signup data). */
+  onBeforeRedirect?: () => void;
 }) {
   const { signInWithOAuth } = useAuth();
   const [loadingProvider, setLoadingProvider] = useState<AuthOAuthProvider | null>(null);
@@ -196,7 +196,8 @@ export function DesktopAuthOAuth({
     if (disabled || loadingProvider) return;
     setLoadingProvider(provider);
     onError('');
-    const result = await signInWithOAuth(provider, redirectPath, onboardingFields);
+    onBeforeRedirect?.();
+    const result = await signInWithOAuth(provider, redirectPath);
     if (!result.success) {
       onError(result.error || `${getOAuthProviderLabel(provider)}ログインに失敗しました`);
       setLoadingProvider(null);

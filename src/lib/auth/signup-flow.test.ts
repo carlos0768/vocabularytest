@@ -94,7 +94,12 @@ test('signup request bodies use the existing OTP API contracts', () => {
 test('validateOnboardingData validates name and handle', () => {
   assert.deepEqual(
     validateOnboardingData({ displayName: '', userHandle: 'abc', eikenLevel: null }),
-    { ok: false, error: 'ユーザー名は1〜30文字で入力してください' },
+    { ok: false, error: 'ユーザー名は1〜20文字で入力してください' },
+  );
+
+  assert.deepEqual(
+    validateOnboardingData({ displayName: 'あ'.repeat(21), userHandle: 'abc', eikenLevel: null }),
+    { ok: false, error: 'ユーザー名は1〜20文字で入力してください' },
   );
 
   assert.deepEqual(

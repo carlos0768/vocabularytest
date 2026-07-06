@@ -47,6 +47,12 @@ export class GeminiProvider implements AIProvider {
         maxOutputTokens: config.maxOutputTokens,
       };
 
+      // 検証用: 2.5 Flashはデフォルト有効のthinkingを完全オフにする
+      // （Cloud Run gateway側と同一挙動。cloud-run-scan/src/index.ts 参照）。
+      if (model.includes('2.5') && model.includes('flash')) {
+        generateConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+
       // JSON modeを設定
       if (config.responseFormat === 'json') {
         generateConfig.responseMimeType = 'application/json';

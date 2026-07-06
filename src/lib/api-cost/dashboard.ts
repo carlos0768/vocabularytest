@@ -14,6 +14,7 @@ type ApiCostEventRow = {
   total_tokens: number | null;
   estimated_cost_usd: number | string | null;
   estimated_cost_jpy: number | string | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 };
 
@@ -74,8 +75,52 @@ export type ApiCostDashboardSummary = {
     costJpy: number;
     totalTokens: number;
   }>;
+  scans: {
+    count: number;
+    costUsd: number;
+    costJpy: number;
+    avgCostUsd: number;
+    avgCostJpy: number;
+    recent: Array<{
+      scanId: string;
+      source: string | null;
+      userId: string | null;
+      modes: string[];
+      calls: number;
+      failedCalls: number;
+      totalTokens: number;
+      costUsd: number;
+      costJpy: number;
+      startedAt: string;
+      endedAt: string;
+    }>;
+  };
   recentEvents: ApiCostEventRow[];
 };
+
+const RECENT_SCANS_LIMIT = 50;
+
+type ScanAggregate = ApiCostDashboardSummary['scans']['recent'][number];
+
+function readScanMetadata(metadata: Record<string, unknown> | null | undefined): {
+  scanId: string | null;
+  source: string | null;
+  modes: string[];
+} {
+  if (!metadata || typeof metadata !== 'object') {
+    return { scanId: null, source: null, modes: [] };
+  }
+  const scanId = typeof metadata.scan_id === 'string' && metadata.scan_id.length > 0
+    ? metadata.scan_id
+    : null;
+  const source = typeof metadata.scan_source === 'string' && metadata.scan_source.length > 0
+    ? metadata.scan_source
+    : null;
+  const modes = Array.isArray(metadata.scan_modes)
+    ? metadata.scan_modes.filter((mode): mode is string => typeof mode === 'string')
+    : [];
+  return { scanId, source, modes };
+}
 
 export async function getApiCostDashboardSummary(daysInput = 30): Promise<ApiCostDashboardSummary> {
   const days = clampDays(daysInput);
@@ -87,7 +132,7 @@ export async function getApiCostDashboardSummary(daysInput = 30): Promise<ApiCos
       supabase
         .from('api_cost_events')
         .select(
-          'id,user_id,provider,model,operation,endpoint,status,input_tokens,output_tokens,total_tokens,estimated_cost_usd,estimated_cost_jpy,created_at'
+          'id,user_id,provider,model,operation,endpoint,status,input_tokens,output_tokens,total_tokens,estimated_cost_usd,estimated_cost_jpy,metadata,created_at'
         )
         .gte('created_at', since)
         .order('created_at', { ascending: false })
@@ -124,6 +169,7 @@ export async function getApiCostDashboardSummary(daysInput = 30): Promise<ApiCos
 
   const byDayMap = new Map<string, ApiCostDashboardSummary['byDay'][number]>();
   const byModelMap = new Map<string, ApiCostDashboardSummary['byModel'][number]>();
+  const byScanMap = new Map<string, ScanAggregate>();
 
   for (const event of events) {
     totals.calls += 1;
@@ -169,10 +215,56 @@ export async function getApiCostDashboardSummary(daysInput = 30): Promise<ApiCos
     modelAgg.costJpy += costJpy;
     modelAgg.totalTokens += tokens;
     byModelMap.set(modelKey, modelAgg);
+
+    const scanMeta = readScanMetadata(event.metadata);
+    if (scanMeta.scanId) {
+      const scanAgg = byScanMap.get(scanMeta.scanId) ?? {
+        scanId: scanMeta.scanId,
+        source: scanMeta.source,
+        userId: event.user_id,
+        modes: scanMeta.modes,
+        calls: 0,
+        failedCalls: 0,
+        totalTokens: 0,
+        costUsd: 0,
+        costJpy: 0,
+        startedAt: event.created_at,
+        endedAt: event.created_at,
+      };
+      scanAgg.calls += 1;
+      if (event.status === 'failed') scanAgg.failedCalls += 1;
+      scanAgg.totalTokens += tokens;
+      scanAgg.costUsd += costUsd;
+      scanAgg.costJpy += costJpy;
+      if (event.created_at < scanAgg.startedAt) scanAgg.startedAt = event.created_at;
+      if (event.created_at > scanAgg.endedAt) scanAgg.endedAt = event.created_at;
+      if (!scanAgg.source && scanMeta.source) scanAgg.source = scanMeta.source;
+      if (!scanAgg.userId && event.user_id) scanAgg.userId = event.user_id;
+      if (scanAgg.modes.length === 0 && scanMeta.modes.length > 0) scanAgg.modes = scanMeta.modes;
+      byScanMap.set(scanMeta.scanId, scanAgg);
+    }
   }
 
   const byDay = Array.from(byDayMap.values()).sort((a, b) => a.day.localeCompare(b.day));
   const byModel = Array.from(byModelMap.values()).sort((a, b) => b.costJpy - a.costJpy);
+
+  const allScans = Array.from(byScanMap.values());
+  const scanTotals = allScans.reduce(
+    (acc, scan) => {
+      acc.costUsd += scan.costUsd;
+      acc.costJpy += scan.costJpy;
+      return acc;
+    },
+    { costUsd: 0, costJpy: 0 }
+  );
+  const recentScans = allScans
+    .sort((a, b) => b.endedAt.localeCompare(a.endedAt))
+    .slice(0, RECENT_SCANS_LIMIT)
+    .map((scan) => ({
+      ...scan,
+      costUsd: Number(scan.costUsd.toFixed(6)),
+      costJpy: Number(scan.costJpy.toFixed(4)),
+    }));
 
   return {
     days,
@@ -191,6 +283,14 @@ export async function getApiCostDashboardSummary(daysInput = 30): Promise<ApiCos
       costUsd: Number(item.costUsd.toFixed(6)),
       costJpy: Number(item.costJpy.toFixed(2)),
     })),
+    scans: {
+      count: allScans.length,
+      costUsd: Number(scanTotals.costUsd.toFixed(6)),
+      costJpy: Number(scanTotals.costJpy.toFixed(2)),
+      avgCostUsd: allScans.length > 0 ? Number((scanTotals.costUsd / allScans.length).toFixed(6)) : 0,
+      avgCostJpy: allScans.length > 0 ? Number((scanTotals.costJpy / allScans.length).toFixed(4)) : 0,
+      recent: recentScans,
+    },
     recentEvents,
   };
 }

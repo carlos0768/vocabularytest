@@ -129,7 +129,7 @@ export function readOAuthOnboardingCookie(cookieHeader: string | null | undefine
     const fields: SignupProfileFields = {};
     if (typeof parsed.display_name === 'string') {
       const displayName = parsed.display_name.trim();
-      if (displayName.length >= 1 && displayName.length <= 30) {
+      if (displayName.length >= 1 && displayName.length <= 20) {
         fields.display_name = displayName;
       }
     }

@@ -150,14 +150,16 @@ async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerate
   };
 
   // Gemini 2.5 models have "thinking" enabled by default.
-  // Thinking tokens count against maxOutputTokens, causing empty content
-  // when the budget is consumed entirely by reasoning.
-  // Cap thinking at 25% of maxOutputTokens (max 1024) for all features.
+  // 検証用: 2.5 Flashはthinkingを完全オフにする（thinkingBudget: 0）。
+  // 抽出品質への影響を確認したら、恒久化するか従来の25%キャップに戻す。
+  // 2.5 Proはthinkingを無効化できないため従来のキャップ(25% / max 1024)を維持。
   if (model.includes('2.5')) {
-    const thinkingBudget = Math.min(
-      Math.floor(body.maxOutputTokens * 0.25),
-      1024,
-    );
+    const thinkingBudget = model.includes('flash')
+      ? 0
+      : Math.min(
+          Math.floor(body.maxOutputTokens * 0.25),
+          1024,
+        );
     generateConfig.thinkingConfig = { thinkingBudget };
   }
 

@@ -24,14 +24,12 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
       "english": "look forward to",
       "japanese": "〜を楽しみに待つ",
       "japaneseSource": "scan",
-      "translations": [
-        { "japanese": "〜を楽しみに待つ", "source": "scan", "meaningRank": 1, "annotationRanges": [] }
-      ],
       "partOfSpeechTags": ["idiom"]
     }
   ]
 }
 
+translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
 見つからない場合は {"words": []} を返してください。${SOURCE_LABEL_NOTES}`;
 
 export const IDIOM_USER_PROMPT = `この画像からイディオム・熟語・句動詞を抽出してください。sourceLabels には物理教材名だけを入れ、"鉄壁" や "LEAP" のような具体的書名だけを返してください。"英語教材" や "参考書" のような一般名詞は返さず、教材名不明のノート画像なら ["ノート"] を返してください。

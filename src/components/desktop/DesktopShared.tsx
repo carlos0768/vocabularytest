@@ -9,15 +9,20 @@ import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { formatSharedTag } from '../../../shared/shared-tags';
 import type {
+  PublicStudyGroupSummary,
   SharedDiscoverCategory,
   SharedDiscoverPayload,
   SharedProjectCard,
   SharedUserSummary,
+  StudyGroupSummary,
 } from '@/lib/shared-projects/types';
 
-const CATEGORY_META: Record<Exclude<SharedDiscoverCategory, 'all'>, { label: string; icon: string; description: string }> = {
+type DesktopSharedCategory = Exclude<SharedDiscoverCategory, 'all'> | 'groups';
+
+const CATEGORY_META: Record<DesktopSharedCategory, { label: string; icon: string; description: string }> = {
   users: { label: 'ユーザー', icon: 'person', description: '学習者アカウント' },
   projects: { label: '単語帳', icon: 'menu_book', description: 'みんなが公開している単語帳' },
+  groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探して参加' },
 };
 
 export function DesktopSharedView({
@@ -27,6 +32,13 @@ export function DesktopSharedView({
   loading,
   loadingMore,
   error,
+  joinedGroups,
+  groupQuery,
+  groupResults,
+  groupLoading,
+  groupError,
+  onGroupQueryChange,
+  onGroupSearch,
   onQueryChange,
   onCategorySelect,
   onBackToAll,
@@ -34,23 +46,31 @@ export function DesktopSharedView({
   onOpenShareSheet,
   onProjectMissing,
 }: {
-  category: SharedDiscoverCategory;
+  category: SharedDiscoverCategory | 'groups';
   query: string;
   payload: SharedDiscoverPayload;
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
+  joinedGroups: StudyGroupSummary[];
+  groupQuery: string;
+  groupResults: PublicStudyGroupSummary[];
+  groupLoading: boolean;
+  groupError: string | null;
+  onGroupQueryChange: (value: string) => void;
+  onGroupSearch: () => void;
   onQueryChange: (value: string) => void;
-  onCategorySelect: (category: Exclude<SharedDiscoverCategory, 'all'>) => void;
+  onCategorySelect: (category: DesktopSharedCategory) => void;
   onBackToAll: () => void;
   onLoadMore: () => void;
   onOpenShareSheet: () => void;
   onProjectMissing: (projectId: string) => void;
 }) {
   const isCategory = category !== 'all';
+  const isGroups = category === 'groups';
   const activeMeta = isCategory ? CATEGORY_META[category] : null;
   const hasQuery = query.trim().length > 0;
-  const shouldShowResults = isCategory || hasQuery || loading || Boolean(error);
+  const shouldShowResults = !isGroups && (isCategory || hasQuery || loading || Boolean(error));
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -66,12 +86,29 @@ export function DesktopSharedView({
           <div className="crumb">{isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}</div>
           <h1>{isCategory ? activeMeta!.label : '共有ライブラリ'}</h1>
         </div>
-        <DesktopSearchBox
-          placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          style={{ width: '100%', minWidth: 0 }}
-        />
+        {isGroups ? (
+          <form
+            onSubmit={(event) => { event.preventDefault(); onGroupSearch(); }}
+            style={{ display: 'flex', gap: 8, minWidth: 0 }}
+          >
+            <DesktopSearchBox
+              placeholder="グループ名で検索"
+              value={groupQuery}
+              onChange={(event) => onGroupQueryChange(event.target.value)}
+              style={{ width: '100%', minWidth: 0 }}
+            />
+            <button type="submit" className="ds-btn dark" disabled={groupLoading} aria-label="グループを検索">
+              <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
+            </button>
+          </form>
+        ) : (
+          <DesktopSearchBox
+            placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            style={{ width: '100%', minWidth: 0 }}
+          />
+        )}
         <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 8 }}>
           <FollowNotificationsButton variant="desktop" />
           <DesktopButton variant="dark" icon="add" onClick={onOpenShareSheet}>
@@ -92,8 +129,8 @@ export function DesktopSharedView({
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 24 }}>
-            {(Object.keys(CATEGORY_META) as Array<Exclude<SharedDiscoverCategory, 'all'>>).map((key) => (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 24 }}>
+            {(Object.keys(CATEGORY_META) as DesktopSharedCategory[]).map((key) => (
               <button
                 key={key}
                 type="button"
@@ -128,6 +165,19 @@ export function DesktopSharedView({
           </div>
         )}
 
+        {category === 'all' && !hasQuery && !loading && (
+          <JoinedGroupGrid groups={joinedGroups} />
+        )}
+
+        {isGroups && (
+          <GroupSearchResults
+            joinedGroups={joinedGroups}
+            groupResults={groupResults}
+            groupLoading={groupLoading}
+            groupError={groupError}
+          />
+        )}
+
         {shouldShowResults && (
           <>
             {error && (
@@ -158,6 +208,123 @@ export function DesktopSharedView({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// Joined study groups shown on the discover top view — the desktop entry
+// point into each group's page (mirrors the mobile 参加中のグループ section).
+function JoinedGroupGrid({ groups }: { groups: StudyGroupSummary[] }) {
+  if (groups.length === 0) return null;
+  return (
+    <section style={{ marginBottom: 26 }}>
+      <SectionTitle count={groups.length}>参加中のグループ</SectionTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16 }}>
+        {groups.map((group) => (
+          <Link
+            key={group.id}
+            href={`/groups/${encodeURIComponent(group.id)}`}
+            className="ds-card"
+            style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, color: 'inherit', textDecoration: 'none' }}
+          >
+            <div
+              className="ds-project-icon ds-project-icon--lg"
+              style={{ background: desktopThumbColor(group.id) }}
+            >
+              {group.name.charAt(0)}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {group.name}
+                </span>
+                {group.role === 'owner' && <span className="ds-tag plain">owner</span>}
+              </div>
+              <div className="muted" style={{ marginTop: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Icon name="group" style={{ fontSize: 14 }} />{group.memberCount}人
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Icon name="menu_book" style={{ fontSize: 14 }} />{group.projectCount}冊
+                </span>
+              </div>
+            </div>
+            <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function GroupSearchResults({
+  joinedGroups,
+  groupResults,
+  groupLoading,
+  groupError,
+}: {
+  joinedGroups: StudyGroupSummary[];
+  groupResults: PublicStudyGroupSummary[];
+  groupLoading: boolean;
+  groupError: string | null;
+}) {
+  // Groups the viewer already belongs to live in 参加中のグループ — no join entry needed.
+  const joinedIds = new Set(joinedGroups.map((group) => group.id));
+  const visibleGroups = groupResults.filter((group) => !joinedIds.has(group.id));
+
+  if (groupError) {
+    return (
+      <div className="ds-card" style={{ padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
+        {groupError}
+      </div>
+    );
+  }
+  if (groupLoading && visibleGroups.length === 0) {
+    return (
+      <div className="ds-card" style={{ padding: 34, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Icon name="progress_activity" className="animate-spin" />
+        検索中...
+      </div>
+    );
+  }
+  if (visibleGroups.length === 0) {
+    return <EmptyCard label="グループがありません" />;
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16 }}>
+      {visibleGroups.map((group) => (
+        <Link
+          key={group.id}
+          href={`/groups/${encodeURIComponent(group.id)}/join`}
+          className="ds-card"
+          style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, color: 'inherit', textDecoration: 'none' }}
+        >
+          <div
+            className="ds-project-icon ds-project-icon--lg"
+            style={{ background: desktopThumbColor(group.id) }}
+          >
+            {group.name.charAt(0)}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {group.name}
+            </div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <Icon name="group" style={{ fontSize: 14 }} />{group.memberCount}人
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <Icon name="menu_book" style={{ fontSize: 14 }} />{group.projectCount}冊
+              </span>
+              {group.ownerUsername && (
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{group.ownerUsername}</span>
+              )}
+            </div>
+          </div>
+          <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />
+        </Link>
+      ))}
     </div>
   );
 }

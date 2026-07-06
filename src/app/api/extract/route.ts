@@ -27,6 +27,7 @@ import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/bac
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
+import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
 
 export type { ExtractMode } from '@/lib/scan/mode-provider';
 
@@ -152,6 +153,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     };
     const modes = normalizeExtractModes(requestedScanModes, [mode]);
     const primaryMode = modes[0] ?? 'all';
+    updateApiCostScanContext({ userId: user.id, modes });
 
     // Detailed logging for debugging
     const imageLength = image?.length || 0;
@@ -457,5 +459,10 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
 }
 
 export async function POST(request: NextRequest) {
-  return handleExtractPost(request);
+  // スキャン1回分のAI呼び出し（抽出・翻訳補完・例文生成）を
+  // 同じ scan_id で api_cost_events に紐づける。
+  return runWithApiCostScanContext(
+    { source: 'api/extract' },
+    () => handleExtractPost(request)
+  );
 }
