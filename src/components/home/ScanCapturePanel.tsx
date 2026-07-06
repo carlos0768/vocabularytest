@@ -7,7 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { MultiShotCaptureView } from '@/components/home/MultiShotCaptureView';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins, refreshCoins } from '@/hooks/use-coins';
-import { computeScanCoinCost } from '@/lib/coins/rates';
+import { deriveScanCoinState } from '@/lib/coins/scan-cost';
 import { InsufficientCoinsError, type InsufficientCoinsInfo } from '@/lib/coins/errors';
 import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModal';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -323,22 +323,36 @@ export function ScanCapturePanel({
 
   const handleCaptureConfirm = () => {
     if (heldShots.length === 0) return;
+    // 残高不足のまま送信させない（サーバー側ゲートでも弾かれるが手前で止める）
+    if (insufficientBalance) {
+      setInsufficientCoinInfo(
+        estimatedCoinCost !== null
+          ? {
+              cost: estimatedCoinCost,
+              monthlyRemaining: coinBalance.monthlyRemaining,
+              purchasedRemaining: coinBalance.purchasedRemaining,
+              totalRemaining: coinBalance.totalRemaining,
+              monthlyAllowance: 300,
+            }
+          : null,
+      );
+      setInsufficientModalOpen(true);
+      return;
+    }
     void handleFilesSelected(heldShots.map((shot) => shot.file));
   };
 
-  // コイン制オン時のコスト見積り: 選択モード + 現在の保持枚数（未撮影なら1枚換算）
-  const estimatedImageCount = Math.max(1, heldShots.length);
-  let estimatedCoinCost: number | null = null;
-  if (coinsEnabled && isPro) {
-    try {
-      estimatedCoinCost = computeScanCoinCost(selectedScanModes, estimatedImageCount);
-    } catch {
-      estimatedCoinCost = null;
-    }
-  }
-  const insufficientBalance =
-    coinsEnabled === true && isPro && estimatedCoinCost !== null &&
-    coinBalance.totalRemaining < estimatedCoinCost;
+  // コイン制オン時のコスト見積り（モバイル・デスクトップ共通の純粋関数）。
+  // 現在の保持枚数（未撮影なら1枚換算）で見積もる。
+  const coinState = deriveScanCoinState({
+    enabled: coinsEnabled,
+    isPro,
+    modes: selectedScanModes,
+    imageCount: heldShots.length,
+    totalRemaining: coinBalance.totalRemaining,
+  });
+  const estimatedCoinCost = coinState.cost;
+  const insufficientBalance = coinState.insufficient;
 
   const scanDisabled = (activeSubs.includes('eiken') && !eikenLevel) || insufficientBalance;
 
@@ -558,6 +572,9 @@ export function ScanCapturePanel({
               onRemove={removeHeldShot}
               onConfirm={handleCaptureConfirm}
               onClose={handleCaptureClose}
+              coinCost={coinState.showCost ? estimatedCoinCost : null}
+              coinRemaining={coinState.showCost ? coinBalance.totalRemaining : null}
+              coinInsufficient={insufficientBalance}
             />
           )}
           {processing && (
