@@ -577,8 +577,24 @@ export default function FlashcardPage() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{getPartOfSpeechLabel(tag)}</span>)}
               </div>
-              {currentWord?.exampleSentenceJa && (
-                <div className="muted" style={{ fontSize: 14, maxWidth: 460, lineHeight: 1.6 }}>{currentWord.exampleSentenceJa}</div>
+              {currentWord?.exampleSentence && (
+                <div
+                  style={{
+                    maxWidth: 460,
+                    width: '100%',
+                    borderRadius: 12,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-surface)',
+                    padding: '12px 16px',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>例文</div>
+                  <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--color-ink)' }}>{currentWord.exampleSentence}</div>
+                  {currentWord.exampleSentenceJa && (
+                    <div className="muted" style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6 }}>{currentWord.exampleSentenceJa}</div>
+                  )}
+                </div>
               )}
               <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで戻る</div>
             </div>
