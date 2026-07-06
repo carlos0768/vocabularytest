@@ -10,6 +10,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
+import { REEL_SAVED_PROJECT_TITLE } from '@/lib/reels/saved-words';
 import { generateWordShareImage } from '@/lib/reels/share-image';
 import type { VocabularyType } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
@@ -33,9 +34,6 @@ type ImportWordPayload = {
 function normalizeVocabularyType(value: string | undefined): VocabularyType | undefined {
   return value === 'active' || value === 'passive' ? value : undefined;
 }
-
-/** Wordbook that collects words saved one-by-one from the reel feed. */
-const REEL_SAVED_PROJECT_TITLE = 'リールで保存した単語';
 
 export default function ReelsPage() {
   const router = useRouter();

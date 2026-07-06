@@ -22,6 +22,7 @@ import {
   type DesktopStudySummaryStats,
 } from '@/lib/desktop-study-summary';
 import { summarizeWordMemory } from '@/lib/words/memory';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getGuestUserId } from '@/lib/utils';
 import type { Project, SubscriptionStatus } from '@/types';
 
@@ -84,7 +85,9 @@ export default function ProjectListPage() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const showProjects = useCallback(async (rawProjects: Project[], repo: WordReadRepository) => {
-    const result = await addStatsToProjects(rawProjects, repo);
+    // Hide the internal reel-saved backing wordbook — its words live in 保存済み,
+    // not in the browsable マイ単語帳 list.
+    const result = await addStatsToProjects(excludeReelSavedProjects(rawProjects), repo);
     setProjects(result.projects);
     setSummaryStats(result.summaryStats);
   }, []);

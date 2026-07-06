@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { triggerHaptic } from '@/lib/haptics';
 import { parseSharedTagsInput } from '../../../../shared/shared-tags';
@@ -64,7 +65,7 @@ export default function ShareWordbookClient() {
           .then((response) => response.json().catch(() => null) as Promise<MySharedResponse | null>)
           .catch(() => null),
       ]);
-      setProjects(ownProjects);
+      setProjects(excludeReelSavedProjects(ownProjects));
       if (sharedResponse?.success) {
         setSharedWordbooks(sharedResponse.wordbooks ?? []);
       }
