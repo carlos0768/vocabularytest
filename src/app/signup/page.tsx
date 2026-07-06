@@ -80,7 +80,10 @@ function getDefaultOfficialWordbooks(value: unknown): DefaultOfficialWordbookImp
   if (!isRecord(value) || !Array.isArray(value.defaultOfficialWordbooks)) return [];
   return value.defaultOfficialWordbooks.filter((wordbook): wordbook is DefaultOfficialWordbookImportItem => (
     isRecord(wordbook)
+    && typeof wordbook.officialWordbookId === 'string'
+    && (wordbook.officialSlug === undefined || typeof wordbook.officialSlug === 'string')
     && typeof wordbook.title === 'string'
+    && Array.isArray(wordbook.sourceLabels)
     && Array.isArray(wordbook.words)
   ));
 }
@@ -89,13 +92,27 @@ async function saveDefaultOfficialWordbooksLocally(
   userId: string,
   wordbooks: DefaultOfficialWordbookImportItem[],
 ): Promise<void> {
+  const existingProjects = await localRepository.getProjects(userId);
+  const importedOfficialSlugs = new Set(
+    existingProjects
+      .map((project) => project.importedFromOfficialSlug?.trim())
+      .filter((slug): slug is string => Boolean(slug)),
+  );
+
   for (const wordbook of wordbooks) {
+    const officialSlug = wordbook.officialSlug?.trim();
+    if (officialSlug && importedOfficialSlugs.has(officialSlug)) {
+      continue;
+    }
+
     const project = await localRepository.createProject({
       userId,
       title: wordbook.title,
       sourceLabels: wordbook.sourceLabels,
       ...(wordbook.iconImage ? { iconImage: wordbook.iconImage } : {}),
+      ...(officialSlug ? { importedFromOfficialSlug: officialSlug } : {}),
     });
+    if (officialSlug) importedOfficialSlugs.add(officialSlug);
 
     await localRepository.createWords(wordbook.words.map((word) => ({
       projectId: project.id,
