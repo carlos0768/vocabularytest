@@ -5,13 +5,16 @@ import { Icon } from '@/components/ui/Icon';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { hybridRepository, syncQueue } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
+import { wasProUser } from '@/lib/subscription/status';
 
 type SyncStatus = 'synced' | 'syncing' | 'pending' | 'offline';
 
 export function SyncStatusIndicator() {
   const isOnline = useOnlineStatus();
   const { user, subscription } = useAuth();
-  const isPro = subscription?.status === 'active';
+  // Sync status is shown for cloud-synced users (active Pro AND Free);
+  // former-Pro (read-only) users are excluded.
+  const isPro = !wasProUser(subscription);
   
   const [status, setStatus] = useState<SyncStatus>('synced');
   const [pendingCount, setPendingCount] = useState(0);

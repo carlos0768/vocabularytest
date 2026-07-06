@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FREE_WORD_LIMIT } from '@/lib/utils';
 import { getCachedTotalWords, getHasLoaded, subscribeCacheUpdate } from '@/lib/home-cache';
 import { useAuth } from './use-auth';
 
@@ -16,46 +15,46 @@ interface WordCountState {
   loading: boolean;
 }
 
-function deriveState(totalWords: number, isPro: boolean, isLoading: boolean): WordCountState {
-  const limit = isPro ? Infinity : FREE_WORD_LIMIT;
-  const remaining = isPro ? Infinity : Math.max(0, FREE_WORD_LIMIT - totalWords);
-  const percentage = isPro ? 0 : Math.min(100, Math.round((totalWords / FREE_WORD_LIMIT) * 100));
-
+// The Free plan is limited by WORDBOOK count (FREE_WORDBOOK_LIMIT), not word
+// count. This hook now only reports the total word count for display and never
+// blocks adding words. Limit-related flags are inert (kept for compatibility
+// with existing consumers).
+function deriveState(totalWords: number, isLoading: boolean): WordCountState {
   return {
     count: totalWords,
-    limit,
-    remaining,
-    percentage,
-    isNearLimit: !isPro && percentage >= 80,
-    isAlmostFull: !isPro && percentage >= 95,
-    isAtLimit: !isPro && totalWords >= FREE_WORD_LIMIT,
+    limit: Infinity,
+    remaining: Infinity,
+    percentage: 0,
+    isNearLimit: false,
+    isAlmostFull: false,
+    isAtLimit: false,
     loading: isLoading,
   };
 }
 
-// Hook for tracking word count and limit status
+// Hook for tracking word count (for display only — no word cap).
 // Strategy 1: Reads from home-cache instead of making independent DB queries
 export function useWordCount() {
-  const { isPro, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const cacheReady = getHasLoaded();
 
   const [state, setState] = useState<WordCountState>(() => {
     if (cacheReady) {
-      return deriveState(getCachedTotalWords(), isPro, false);
+      return deriveState(getCachedTotalWords(), false);
     }
-    return deriveState(0, false, true);
+    return deriveState(0, true);
   });
 
   // Subscribe to cache updates from loadProjects
   useEffect(() => {
     const unsubscribe = subscribeCacheUpdate(() => {
-      setState(deriveState(getCachedTotalWords(), isPro, false));
+      setState(deriveState(getCachedTotalWords(), false));
     });
 
     // Also sync when auth finishes and cache is already ready
     if (!authLoading && getHasLoaded()) {
       const timer = window.setTimeout(() => {
-        setState(deriveState(getCachedTotalWords(), isPro, false));
+        setState(deriveState(getCachedTotalWords(), false));
       }, 0);
       return () => {
         window.clearTimeout(timer);
@@ -64,38 +63,26 @@ export function useWordCount() {
     }
 
     return unsubscribe;
-  }, [isPro, authLoading]);
+  }, [authLoading]);
 
   // Refresh function - triggers a re-read from cache
   // The actual data refresh should be done by invalidating + reloading home cache
   const refresh = useCallback(() => {
     if (getHasLoaded()) {
-      setState(deriveState(getCachedTotalWords(), isPro, false));
+      setState(deriveState(getCachedTotalWords(), false));
     }
-  }, [isPro]);
+  }, []);
 
-  // Check if adding new words would exceed limit
-  const canAddWords = useCallback((newWordCount: number): {
+  // Words are never capped now — adding words always succeeds.
+  const canAddWords = useCallback((_newWordCount: number): {
     canAdd: boolean;
     wouldExceed: boolean;
     excessCount: number;
     availableSlots: number;
   } => {
-    if (isPro) {
-      return { canAdd: true, wouldExceed: false, excessCount: 0, availableSlots: Infinity };
-    }
-
-    const availableSlots = Math.max(0, FREE_WORD_LIMIT - state.count);
-    const wouldExceed = state.count + newWordCount > FREE_WORD_LIMIT;
-    const excessCount = Math.max(0, (state.count + newWordCount) - FREE_WORD_LIMIT);
-
-    return {
-      canAdd: !state.isAtLimit,
-      wouldExceed,
-      excessCount,
-      availableSlots,
-    };
-  }, [isPro, state.count, state.isAtLimit]);
+    void _newWordCount;
+    return { canAdd: true, wouldExceed: false, excessCount: 0, availableSlots: Infinity };
+  }, []);
 
   return {
     ...state,

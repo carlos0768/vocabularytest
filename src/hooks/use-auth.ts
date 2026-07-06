@@ -404,14 +404,16 @@ export function useAuth() {
         markAuthenticated();
         logDailyActivity(result.user.id);
         
-        // Trigger initial sync for Pro users (background, non-blocking)
-        if (isActiveProSubscription(result.subscription)) {
+        // Trigger initial sync for cloud-synced users (active Pro OR Free),
+        // background, non-blocking. Former-Pro (read-only) users are excluded —
+        // they use ReadonlyRemoteRepository and must not run the hybrid sync.
+        if (!wasProUser(result.subscription)) {
           const syncedUserId = hybridRepository.getSyncedUserId();
           const lastSync = hybridRepository.getLastSync();
           const needsFullSync = shouldRunFullSync(lastSync, syncedUserId, result.user.id);
           
           if (needsFullSync) {
-            console.log('[Auth] Pro user detected, triggering initial sync');
+            console.log('[Auth] Cloud-synced user detected, triggering initial sync');
             hybridRepository.fullSync(result.user.id).catch((error) => {
               console.error('[Auth] Initial sync failed:', error);
             });
