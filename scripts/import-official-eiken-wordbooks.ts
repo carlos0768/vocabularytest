@@ -304,53 +304,47 @@ async function main(): Promise<void> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const { data: ownerProject, error: ownerError } = await supabase
-    .from('projects')
-    .select('user_id')
-    .not('official_slug', 'is', null)
-    .limit(1)
-    .maybeSingle<{ user_id: string }>();
-
-  if (ownerError) throw new Error(`Failed to resolve official owner: ${ownerError.message}`);
-  if (!ownerProject?.user_id) throw new Error('Could not resolve an owner user_id for official projects');
-  const ownerUserId = ownerProject.user_id;
-
   const desiredSlugs = targetConfigs.flatMap((config) =>
     Array.from({ length: BOOKS_PER_LEVEL }, (_, index) => `merken-eiken-${config.slugPart}-${index + 1}`),
   );
 
-  const { data: existingProjects, error: existingError } = await supabase
-    .from('projects')
-    .select('id,official_slug')
-    .in('official_slug', desiredSlugs);
+  const { data: existingWordbooks, error: existingError } = await supabase
+    .from('official_wordbooks')
+    .select('id,slug')
+    .in('slug', desiredSlugs);
 
-  if (existingError) throw new Error(`Failed to fetch existing official projects: ${existingError.message}`);
+  if (existingError) throw new Error(`Failed to fetch existing official wordbooks: ${existingError.message}`);
 
   const existingBySlug = new Map(
-    ((existingProjects ?? []) as Array<{ id: string; official_slug: string | null }>)
-      .filter((project): project is { id: string; official_slug: string } => Boolean(project.official_slug))
-      .map((project) => [project.official_slug, project.id]),
+    ((existingWordbooks ?? []) as Array<{ id: string; slug: string | null }>)
+      .filter((wordbook): wordbook is { id: string; slug: string } => Boolean(wordbook.slug))
+      .map((wordbook) => [wordbook.slug, wordbook.id]),
   );
 
   if (existingBySlug.size > 0) {
     const { error: deleteWordsError } = await supabase
-      .from('words')
+      .from('official_wordbook_words')
       .delete()
-      .in('project_id', Array.from(existingBySlug.values()));
-    if (deleteWordsError) throw new Error(`Failed to clear existing words: ${deleteWordsError.message}`);
+      .in('official_wordbook_id', Array.from(existingBySlug.values()));
+    if (deleteWordsError) throw new Error(`Failed to clear existing official words: ${deleteWordsError.message}`);
   }
 
-  if (targetConfigs.some((config) => config.level === 'pre1')) {
-    const { error: legacyError } = await supabase
-      .from('projects')
-      .update({
-        official_is_default: false,
-        official_is_active: false,
-        updated_at: new Date().toISOString(),
-      })
-      .in('official_slug', LEGACY_PRE1_SLUGS);
+  const { error: legacyError } = await supabase
+    .from('projects')
+    .update({
+      official_slug: null,
+      official_title: null,
+      official_description: null,
+      official_eiken_level: null,
+      official_is_default: false,
+      official_is_active: false,
+      official_sort_order: 0,
+      updated_at: new Date().toISOString(),
+    })
+    .in('official_slug', LEGACY_PRE1_SLUGS);
 
-    if (legacyError) throw new Error(`Failed to deactivate legacy pre1 books: ${legacyError.message}`);
+  if (legacyError) {
+    throw new Error(`Failed to clear legacy project official metadata: ${legacyError.message}`);
   }
 
   const now = new Date();
@@ -363,34 +357,30 @@ async function main(): Promise<void> {
 
     for (let bookIndex = 0; bookIndex < books.length; bookIndex += 1) {
       const slug = `merken-eiken-${config.slugPart}-${bookIndex + 1}`;
-      const projectId = existingBySlug.get(slug) ?? randomUUID();
+      const wordbookId = existingBySlug.get(slug) ?? randomUUID();
       const title = `Merken公式 英検${config.label}単語帳${bookIndex + 1}`;
       const createdAt = new Date(now.getTime() + ((levelIndex * BOOKS_PER_LEVEL + bookIndex) * 60_000)).toISOString();
 
-      const projectPayload = {
-        id: projectId,
-        user_id: ownerUserId,
+      const wordbookPayload = {
+        id: wordbookId,
+        slug,
         title,
         description: `英検${config.label}向けのMerken公式単語帳です。`,
         source_labels: ['official', `eiken:${config.level}`],
-        shared_tags: ['公式', `英検${config.label}`, 'Merken'],
-        official_slug: slug,
-        official_title: title,
-        official_description: `英語漬け.comとモチタンの公開英検語彙リストを参照した、英検${config.label}向けのMerken公式単語帳です。`,
-        official_eiken_level: config.level,
-        official_is_default: true,
-        official_is_active: true,
-        official_sort_order: bookIndex + 1,
+        eiken_level: config.level,
+        is_default: true,
+        is_active: true,
+        sort_order: bookIndex + 1,
         created_at: createdAt,
         updated_at: createdAt,
       };
 
       if (existingBySlug.has(slug)) {
-        const { error } = await supabase.from('projects').update(projectPayload).eq('id', projectId);
-        if (error) throw new Error(`Failed to update project ${slug}: ${error.message}`);
+        const { error } = await supabase.from('official_wordbooks').update(wordbookPayload).eq('id', wordbookId);
+        if (error) throw new Error(`Failed to update official wordbook ${slug}: ${error.message}`);
       } else {
-        const { error } = await supabase.from('projects').insert(projectPayload);
-        if (error) throw new Error(`Failed to insert project ${slug}: ${error.message}`);
+        const { error } = await supabase.from('official_wordbooks').insert(wordbookPayload);
+        if (error) throw new Error(`Failed to insert official wordbook ${slug}: ${error.message}`);
       }
 
       const bookWords = books[bookIndex];
@@ -398,14 +388,22 @@ async function main(): Promise<void> {
         const wordId = randomUUID();
         return {
           id: wordId,
-          project_id: projectId,
-          user_id: ownerUserId,
+          official_wordbook_id: wordbookId,
           english: word.english,
           japanese: word.japanese,
+          translations: [{
+            translationJa: word.japanese,
+            normalizedTranslationJa: word.japanese,
+            source: 'scan',
+            meaningRank: 1,
+            position: 0,
+            isPrimary: true,
+          }],
           distractors: buildDistractors(bookWords, wordIndex),
-          status: 'new',
-          source_modes: ['eiken'],
+          vocabulary_type: 'passive',
+          japanese_source: 'scan',
           custom_sections: [],
+          sort_order: wordIndex + 1,
           ...(word.partOfSpeech ? { part_of_speech_tags: [word.partOfSpeech] } : {}),
           ...(word.exampleSentence ? { example_sentence: word.exampleSentence } : {}),
           ...(word.exampleSentenceJa ? { example_sentence_ja: word.exampleSentenceJa } : {}),
@@ -414,24 +412,8 @@ async function main(): Promise<void> {
         };
       });
 
-      const { error: wordsError } = await supabase.from('words').insert(wordRows);
-      if (wordsError) throw new Error(`Failed to insert words for ${slug}: ${wordsError.message}`);
-
-      const translationRows = wordRows.map((wordRow, wordIndex) => ({
-        word_id: wordRow.id,
-        translation_ja: bookWords[wordIndex].japanese,
-        normalized_translation_ja: bookWords[wordIndex].japanese,
-        source: 'scan',
-        meaning_rank: 1,
-        position: 0,
-        is_primary: true,
-        status: 'new',
-      }));
-
-      const { error: translationsError } = await supabase.from('word_translations').insert(translationRows);
-      if (translationsError) {
-        throw new Error(`Failed to insert translations for ${slug}: ${translationsError.message}`);
-      }
+      const { error: wordsError } = await supabase.from('official_wordbook_words').insert(wordRows);
+      if (wordsError) throw new Error(`Failed to insert official words for ${slug}: ${wordsError.message}`);
     }
 
     summary.push({ level: config.level, books: books.length, words: levelWords.length });
@@ -439,24 +421,33 @@ async function main(): Promise<void> {
   }
 
   const { data: verification, error: verifyError } = await supabase
-    .from('projects')
-    .select('id,official_eiken_level,official_slug,words(id)')
-    .in('official_slug', desiredSlugs)
-    .eq('official_is_active', true)
-    .eq('official_is_default', true);
+    .from('official_wordbooks')
+    .select('id,eiken_level,slug')
+    .in('slug', desiredSlugs)
+    .eq('is_active', true)
+    .eq('is_default', true);
 
-  if (verifyError) throw new Error(`Failed to verify official projects: ${verifyError.message}`);
+  if (verifyError) throw new Error(`Failed to verify official wordbooks: ${verifyError.message}`);
 
+  const verifiedWordbooks = (verification ?? []) as Array<{
+    id: string;
+    eiken_level: EikenLevel | null;
+  }>;
   const counts = new Map<EikenLevel, { books: number; words: number }>();
-  for (const row of (verification ?? []) as Array<{
-    official_eiken_level: EikenLevel | null;
-    words?: Array<{ id: string }>;
-  }>) {
-    if (!row.official_eiken_level) continue;
-    const current = counts.get(row.official_eiken_level) ?? { books: 0, words: 0 };
+  for (const row of verifiedWordbooks) {
+    if (!row.eiken_level) continue;
+    const current = counts.get(row.eiken_level) ?? { books: 0, words: 0 };
     current.books += 1;
-    current.words += row.words?.length ?? 0;
-    counts.set(row.official_eiken_level, current);
+    counts.set(row.eiken_level, current);
+
+    const { count, error: wordCountError } = await supabase
+      .from('official_wordbook_words')
+      .select('id', { count: 'exact', head: true })
+      .eq('official_wordbook_id', row.id);
+    if (wordCountError) {
+      throw new Error(`Failed to verify official word count for ${row.id}: ${wordCountError.message}`);
+    }
+    current.words += count ?? 0;
   }
 
   for (const config of targetConfigs) {

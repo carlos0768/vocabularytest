@@ -10,19 +10,20 @@ import type {
 
 export type OfficialWordbookEikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1';
 
-type OfficialProjectRow = {
+type OfficialWordbookRow = {
   id: string;
+  slug: string;
   title: string;
-  official_title?: string | null;
-  official_slug?: string | null;
   icon_image?: string | null;
-  official_is_default?: boolean | null;
+  source_labels?: unknown;
+  is_default?: boolean | null;
 };
 
-type SourceWordRow = {
+type OfficialWordbookWordRow = {
   id: string;
   english: string;
   japanese?: string | null;
+  translations?: unknown;
   distractors?: unknown;
   vocabulary_type?: string | null;
   japanese_source?: string | null;
@@ -36,16 +37,6 @@ type SourceWordRow = {
   usage_patterns?: unknown;
   word_order_quiz?: unknown;
   custom_sections?: unknown;
-};
-
-type SourceWordTranslationRow = {
-  word_id: string;
-  translation_ja: string;
-  normalized_translation_ja?: string | null;
-  source?: 'scan' | 'ai' | 'user' | null;
-  lexicon_sense_id?: string | null;
-  meaning_rank?: number | null;
-  position?: number | null;
 };
 
 export type DefaultOfficialWordbookImportWord = {
@@ -78,7 +69,7 @@ export type DefaultOfficialWordbookImportItem = {
 
 export type DefaultOfficialWordbookImportResult = DefaultOfficialWordbookImportItem[] | null;
 
-function isOfficialProjectSchemaError(error: PostgrestError | null): boolean {
+function isOfficialWordbookSchemaError(error: PostgrestError | null): boolean {
   if (!error) return false;
   const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
   return (
@@ -87,26 +78,8 @@ function isOfficialProjectSchemaError(error: PostgrestError | null): boolean {
     || error.code === 'PGRST200'
     || error.code === 'PGRST204'
   ) && (
-    text.includes('projects')
-    || text.includes('words')
-    || text.includes('word_translations')
-    || text.includes('official_')
-    || text.includes('schema cache')
-    || text.includes('could not find')
-    || text.includes('does not exist')
-  );
-}
-
-function isWordTranslationsSchemaError(error: PostgrestError | null): boolean {
-  if (!error) return false;
-  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
-  return (
-    error.code === '42P01'
-    || error.code === '42703'
-    || error.code === 'PGRST200'
-    || error.code === 'PGRST204'
-  ) && (
-    text.includes('word_translations')
+    text.includes('official_wordbooks')
+    || text.includes('official_wordbook_words')
     || text.includes('schema cache')
     || text.includes('could not find')
     || text.includes('does not exist')
@@ -146,69 +119,18 @@ function normalizeJapaneseSource(value: string | null | undefined): 'scan' | 'ai
   return value === 'scan' || value === 'ai' ? value : undefined;
 }
 
-function getOfficialProjectTitle(project: OfficialProjectRow): string {
-  const officialTitle = project.official_title?.trim();
-  return officialTitle || project.title;
-}
-
-function buildSourceTranslationPayload(translations: readonly SourceWordTranslationRow[]): unknown[] {
-  return translations.map((translation) => ({
-    translationJa: translation.translation_ja,
-    normalizedTranslationJa: translation.normalized_translation_ja ?? translation.translation_ja,
-    source: translation.source ?? undefined,
-    lexiconSenseId: translation.lexicon_sense_id ?? undefined,
-    meaningRank: translation.meaning_rank ?? undefined,
-  }));
-}
-
-async function fetchSourceTranslations(
-  supabase: SupabaseClient,
-  wordIds: readonly string[],
-): Promise<Map<string, SourceWordTranslationRow[]>> {
-  const translationsByWordId = new Map<string, SourceWordTranslationRow[]>();
-  if (wordIds.length === 0) return translationsByWordId;
-
-  const { data, error } = await supabase
-    .from('word_translations')
-    .select([
-      'word_id',
-      'translation_ja',
-      'normalized_translation_ja',
-      'source',
-      'lexicon_sense_id',
-      'meaning_rank',
-      'position',
-    ].join(','))
-    .in('word_id', wordIds)
-    .order('position', { ascending: true })
-    .order('meaning_rank', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    if (isWordTranslationsSchemaError(error)) return translationsByWordId;
-    throw new Error(`Failed to fetch official project translations: ${error.message}`);
-  }
-
-  for (const translation of (data ?? []) as unknown as SourceWordTranslationRow[]) {
-    const list = translationsByWordId.get(translation.word_id) ?? [];
-    list.push(translation);
-    translationsByWordId.set(translation.word_id, list);
-  }
-
-  return translationsByWordId;
-}
-
-async function fetchOfficialProjectForLocalImport(
+async function fetchOfficialWordbookForLocalImport(
   supabase: SupabaseClient,
   eikenLevel: OfficialWordbookEikenLevel,
-  officialProject: OfficialProjectRow,
+  officialWordbook: OfficialWordbookRow,
 ): Promise<DefaultOfficialWordbookImportItem | null> {
   const { data: sourceRows, error: wordsError } = await supabase
-    .from('words')
+    .from('official_wordbook_words')
     .select([
       'id',
       'english',
       'japanese',
+      'translations',
       'distractors',
       'vocabulary_type',
       'japanese_source',
@@ -222,30 +144,27 @@ async function fetchOfficialProjectForLocalImport(
       'usage_patterns',
       'word_order_quiz',
       'custom_sections',
+      'sort_order',
       'created_at',
     ].join(','))
-    .eq('project_id', officialProject.id)
+    .eq('official_wordbook_id', officialWordbook.id)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
     .order('id', { ascending: true });
 
   if (wordsError) {
-    if (isOfficialProjectSchemaError(wordsError)) return null;
-    throw new Error(`Failed to fetch official project words: ${wordsError.message}`);
+    if (isOfficialWordbookSchemaError(wordsError)) return null;
+    throw new Error(`Failed to fetch official wordbook words: ${wordsError.message}`);
   }
 
-  const sourceWords = (sourceRows ?? []) as unknown as SourceWordRow[];
+  const sourceWords = (sourceRows ?? []) as unknown as OfficialWordbookWordRow[];
   if (sourceWords.length === 0) return null;
-
-  const translationsByWordId = await fetchSourceTranslations(
-    supabase,
-    sourceWords.map((word) => word.id),
-  );
 
   const words = sourceWords.map((word): DefaultOfficialWordbookImportWord => {
     const normalizedWord = normalizeWordForTranslationPersistence({
       english: word.english,
       japanese: word.japanese ?? '',
-      translations: buildSourceTranslationPayload(translationsByWordId.get(word.id) ?? []),
+      translations: normalizeJsonArray(word.translations),
       distractors: normalizeStringArray(word.distractors, 10),
       vocabularyType: normalizeVocabularyType(word.vocabulary_type),
       japaneseSource: normalizeJapaneseSource(word.japanese_source),
@@ -283,12 +202,13 @@ async function fetchOfficialProjectForLocalImport(
     };
   });
 
+  const sourceLabels = normalizeStringArray(officialWordbook.source_labels, 20);
   return {
-    officialWordbookId: officialProject.id,
-    ...(officialProject.official_slug ? { officialSlug: officialProject.official_slug } : {}),
-    title: getOfficialProjectTitle(officialProject),
-    sourceLabels: ['official', `eiken:${eikenLevel}`],
-    ...(officialProject.icon_image ? { iconImage: officialProject.icon_image } : {}),
+    officialWordbookId: officialWordbook.id,
+    officialSlug: officialWordbook.slug,
+    title: officialWordbook.title,
+    sourceLabels: sourceLabels.length > 0 ? sourceLabels : ['official', `eiken:${eikenLevel}`],
+    ...(officialWordbook.icon_image ? { iconImage: officialWordbook.icon_image } : {}),
     words,
   };
 }
@@ -299,29 +219,29 @@ export async function fetchDefaultOfficialWordbooksForLocalImport(
 ): Promise<DefaultOfficialWordbookImportResult> {
   if (!eikenLevel) return null;
 
-  const { data: officialProjects, error: projectError } = await supabase
-    .from('projects')
-    .select('id,title,official_title,official_slug,icon_image,official_is_default')
-    .eq('official_eiken_level', eikenLevel)
-    .eq('official_is_active', true)
-    .order('official_is_default', { ascending: false })
-    .order('official_sort_order', { ascending: true })
+  const { data: officialWordbooks, error: wordbookError } = await supabase
+    .from('official_wordbooks')
+    .select('id,slug,title,source_labels,icon_image,is_default')
+    .eq('eiken_level', eikenLevel)
+    .eq('is_active', true)
+    .order('is_default', { ascending: false })
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
-  if (projectError) {
-    if (isOfficialProjectSchemaError(projectError)) return null;
-    throw new Error(`Failed to fetch official projects: ${projectError.message}`);
+  if (wordbookError) {
+    if (isOfficialWordbookSchemaError(wordbookError)) return null;
+    throw new Error(`Failed to fetch official wordbooks: ${wordbookError.message}`);
   }
 
-  const activeProjects = (officialProjects ?? []) as unknown as OfficialProjectRow[];
-  if (activeProjects.length === 0) return null;
+  const activeWordbooks = (officialWordbooks ?? []) as unknown as OfficialWordbookRow[];
+  if (activeWordbooks.length === 0) return null;
 
-  const defaultProjects = activeProjects.filter((project) => project.official_is_default);
-  const projectsToImport = defaultProjects.length > 0 ? defaultProjects : activeProjects.slice(0, 1);
+  const defaultWordbooks = activeWordbooks.filter((wordbook) => wordbook.is_default);
+  const wordbooksToImport = defaultWordbooks.length > 0 ? defaultWordbooks : activeWordbooks.slice(0, 1);
   const imported: DefaultOfficialWordbookImportItem[] = [];
 
-  for (const officialProject of projectsToImport) {
-    const result = await fetchOfficialProjectForLocalImport(supabase, eikenLevel, officialProject);
+  for (const officialWordbook of wordbooksToImport) {
+    const result = await fetchOfficialWordbookForLocalImport(supabase, eikenLevel, officialWordbook);
     if (result) imported.push(result);
   }
 
