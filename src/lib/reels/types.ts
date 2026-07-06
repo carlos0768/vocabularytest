@@ -41,6 +41,8 @@ export type ReelItem = {
   likeCount: number;
   likedByMe: boolean;
   commentCount: number;
+  /** client-side only: the user added this word to 保存済み this session */
+  savedByMe?: boolean;
   /** true when re-served as a review card after the unseen pool ran out */
   isRecycled?: boolean;
   book: ReelBook;
@@ -72,7 +74,7 @@ export type ReelFeedPage = {
 };
 
 /** Candidate fed into the ranking function (before like/imported enrichment). */
-export type ReelCandidate = Omit<ReelItem, 'likeCount' | 'likedByMe' | 'commentCount' | 'isRecycled'>;
+export type ReelCandidate = Omit<ReelItem, 'likeCount' | 'likedByMe' | 'commentCount' | 'savedByMe' | 'isRecycled'>;
 
 /** Personalization context for ranking. */
 export type ReelRankingContext = {

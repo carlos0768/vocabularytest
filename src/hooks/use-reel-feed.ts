@@ -130,6 +130,14 @@ export function useReelFeed() {
     );
   }, []);
 
+  const markWordSaved = useCallback((itemId: string) => {
+    setItems((prev) =>
+      prev.map((entry) =>
+        entry.id === itemId ? { ...entry, savedByMe: true } : entry,
+      ),
+    );
+  }, []);
+
   const bumpCommentCount = useCallback((itemId: string, delta: number) => {
     setItems((prev) =>
       prev.map((entry) =>
@@ -150,6 +158,7 @@ export function useReelFeed() {
     retry,
     likeItem,
     markBookImported,
+    markWordSaved,
     bumpCommentCount,
   };
 }
