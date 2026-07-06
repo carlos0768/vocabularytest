@@ -241,6 +241,10 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     });
 
     if (!gate.ok) {
+      if (gate.status === 500) {
+        // RPCコミット後に応答だけ失われた可能性に備えたベストエフォート返還（冪等）
+        await refundScanCoinsForJob(coinScanRef);
+      }
       coinScanRef = null;
       const body =
         gate.status === 429 && !('insufficientCoins' in gate.body)
@@ -440,7 +444,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
         limit: scanGateInfo.limit,
         isPro: scanGateInfo.isPro,
       },
-      coinInfo,
+      // フラグオフ時（null）はキー自体を出さず、従来のレスポンスと同一形状を保つ
+      ...(coinInfo ? { coinInfo } : {}),
       _debug: {
         timing: {
           totalMs: Date.now() - startedAt,

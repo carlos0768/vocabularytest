@@ -33,6 +33,17 @@ export default function CoinsPage() {
     }
   }, [enabled, router]);
 
+  // フラグ状態が未取得の間は購入UIを出さない
+  if (enabled === null) {
+    return (
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
+        </div>
+      </div>
+    );
+  }
+
   const handlePurchase = async (packId: string) => {
     setPurchasingPackId(packId);
     setErrorMsg(null);

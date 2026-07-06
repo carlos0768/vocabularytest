@@ -68,6 +68,17 @@ export async function handleStripeWebhookEvent(
       );
       break;
 
+    // 遅延通知型の決済手段では completed が payment_status='unpaid' で先に届き、
+    // 入金確定時にこちらが飛ぶ。コインパックはここでクレジットされる
+    // （credit_coin_pack が (provider, external_ref) で冪等なので二重加算しない）。
+    case 'checkout.session.async_payment_succeeded':
+      await handleCheckoutSessionCompleted(
+        supabaseAdmin,
+        event.data.object as Stripe.Checkout.Session,
+        deps
+      );
+      break;
+
     case 'invoice.paid':
       await handleInvoicePaid(
         supabaseAdmin,

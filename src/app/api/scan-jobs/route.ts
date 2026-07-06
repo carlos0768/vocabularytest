@@ -67,6 +67,8 @@ function isTimedOutJob(job: {
 }
 
 export async function POST(request: NextRequest) {
+  // gate通過後（=コイン消費後）にジョブ行を残せず失敗した場合の返還キー
+  let consumedJobId: string | null = null;
   try {
     console.log('[scan-jobs] Legacy request received');
     const supabase = await createRouteHandlerClient(request);
@@ -118,8 +120,13 @@ export async function POST(request: NextRequest) {
         scanModes,
         status: gate.status,
       });
+      if (gate.status === 500) {
+        // RPCコミット後に応答だけ失われた可能性に備えたベストエフォート返還（冪等）
+        await refundScanCoinsForJob(jobId, getSupabaseAdmin());
+      }
       return NextResponse.json(gate.body, { status: gate.status });
     }
+    consumedJobId = jobId;
 
     const isProUser = Boolean(gate.scanInfo.isPro);
     const saveMode = resolveScanJobSaveMode({ clientPlatform, isProUser });
@@ -138,6 +145,7 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           targetProjectId,
         });
+        await refundScanCoinsForJob(jobId, getSupabaseAdmin());
         return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });
       }
 
@@ -147,7 +155,7 @@ export async function POST(request: NextRequest) {
     // Upload image to Supabase Storage
     const timestamp = Date.now();
     const imagePath = `${user.id}/${timestamp}.${image.name.split('.').pop()}`;
-    
+
     const { error: uploadError } = await getSupabaseAdmin().storage
       .from('scan-images')
       .upload(imagePath, image, {
@@ -157,6 +165,7 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
+      await refundScanCoinsForJob(jobId, getSupabaseAdmin());
       return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
     }
 
@@ -191,6 +200,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
 
+    // ジョブ行が残った後の返還は processJobById とタイムアウト安全網が担う
+    consumedJobId = null;
+
     if (usedLegacyColumns) {
       console.warn('[scan-jobs] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
     }
@@ -213,6 +225,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Scan job creation error:', error);
+    // 消費済みかつジョブ行が残っていない失敗はここで返還する（冪等）
+    if (consumedJobId) {
+      await refundScanCoinsForJob(consumedJobId, getSupabaseAdmin());
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -302,7 +318,7 @@ export async function GET(request: NextRequest) {
 
     if (timedOutJobIds.length > 0) {
       const nowIso = new Date().toISOString();
-      const { error: timeoutUpdateError } = await getSupabaseAdmin()
+      const { data: timedOutRows, error: timeoutUpdateError } = await getSupabaseAdmin()
         .from('scan_jobs')
         .update({
           status: 'failed',
@@ -311,11 +327,17 @@ export async function GET(request: NextRequest) {
         })
         .eq('user_id', user.id)
         .in('id', timedOutJobIds)
-        .in('status', ['pending', 'processing']);
+        .in('status', ['pending', 'processing'])
+        .select('id');
 
       if (timeoutUpdateError) {
         console.error('Failed to mark timed-out scan jobs as failed:', timeoutUpdateError);
       } else {
+        // タイムアウト = ジョブ全滅なのでコインを返還する。
+        // 実際に failed へ遷移した行だけが対象（直前に完了したジョブを誤返還しない）。冪等。
+        for (const row of timedOutRows ?? []) {
+          await refundScanCoinsForJob(String((row as { id: string }).id), getSupabaseAdmin());
+        }
         const timeoutSet = new Set(timedOutJobIds);
         for (const job of normalizedJobs) {
           if (timeoutSet.has(job.id)) {

@@ -335,24 +335,33 @@ Webhook の `charge.refunded` はコインパックの場合**意図的に何も
    WHERE type = 'pack_purchase' AND provider = 'stripe'
      AND external_ref = '<checkout session id>';
    ```
-2. 残高から回収し、`admin_adjust` の台帳行を残す（service role で実行）:
+2. 残高から回収し、`admin_adjust` の台帳行を残す（service role で実行。
+   回収額は「購入残高に残っている分まで」= `LEAST(<coins>, purchased_coins)`。
+   台帳の `purchased_amount` は実際に回収した額の符号反転、`*_after` は回収後の残高）:
    ```sql
-   -- 残高が足りない場合は purchased_coins >= 0 の CHECK に当たるため、
-   -- GREATEST で 0 止めにするか回収額を調整する
-   WITH bal AS (
-     SELECT * FROM user_coin_balances WHERE user_id = '<user_id>' FOR UPDATE
-   )
-   UPDATE user_coin_balances b
-   SET purchased_coins = GREATEST(0, b.purchased_coins - <coins>)
-   FROM bal
-   WHERE b.user_id = bal.user_id;
+   DO $$
+   DECLARE
+     v_user UUID := '<user_id>';
+     v_coins INTEGER := <coins>;  -- 返金されたパックのコイン数
+     v_clawback INTEGER;
+     v_balance user_coin_balances%ROWTYPE;
+   BEGIN
+     SELECT * INTO v_balance FROM user_coin_balances WHERE user_id = v_user FOR UPDATE;
+     v_clawback := LEAST(v_coins, v_balance.purchased_coins);
 
-   INSERT INTO coin_transactions
-     (user_id, type, monthly_amount, purchased_amount, monthly_after, purchased_after, provider, external_ref, metadata)
-   SELECT user_id, 'admin_adjust', 0, -LEAST(<coins>, purchased_coins + LEAST(<coins>, 0)),
-          monthly_coins, purchased_coins, 'stripe', '<checkout session id>:refund',
-          '{"reason":"pack_refund_clawback"}'::jsonb
-   FROM user_coin_balances WHERE user_id = '<user_id>';
+     UPDATE user_coin_balances
+     SET purchased_coins = purchased_coins - v_clawback
+     WHERE user_id = v_user;
+
+     INSERT INTO coin_transactions
+       (user_id, type, monthly_amount, purchased_amount, monthly_after, purchased_after,
+        provider, external_ref, metadata)
+     VALUES
+       (v_user, 'admin_adjust', 0, -v_clawback,
+        v_balance.monthly_coins, v_balance.purchased_coins - v_clawback,
+        'stripe', '<checkout session id>:refund',
+        jsonb_build_object('reason', 'pack_refund_clawback', 'requested', v_coins, 'clawed_back', v_clawback));
+   END $$;
    ```
 3. すでに使い切っていて回収できない場合は、回収を諦めるか（少額）、ユーザーに連絡する。
 

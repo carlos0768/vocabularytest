@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
 
@@ -50,16 +50,27 @@ let globalCoinsState: CoinsState = {
   packs: [],
 };
 
-const listeners = new Set<(state: CoinsState) => void>();
+const listeners = new Set<() => void>();
 let inflight: Promise<void> | null = null;
 
 function notifyListeners() {
-  listeners.forEach((listener) => listener(globalCoinsState));
+  listeners.forEach((listener) => listener());
 }
 
 function setState(patch: Partial<CoinsState>) {
   globalCoinsState = { ...globalCoinsState, ...patch };
   notifyListeners();
+}
+
+function subscribe(callback: () => void): () => void {
+  listeners.add(callback);
+  return () => {
+    listeners.delete(callback);
+  };
+}
+
+function getSnapshot(): CoinsState {
+  return globalCoinsState;
 }
 
 async function fetchCoins(): Promise<void> {
@@ -111,15 +122,9 @@ export async function refreshCoins(): Promise<void> {
 
 export function useCoins() {
   const { isAuthenticated } = useAuth();
-  const [state, setLocalState] = useState<CoinsState>(globalCoinsState);
-
-  useEffect(() => {
-    const listener = (next: CoinsState) => setLocalState(next);
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }, []);
+  // 外部ストア購読の標準プリミティブ。初回レンダー〜購読開始の間の更新も
+  // React 側が getSnapshot の再チェックで取りこぼさない
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   useEffect(() => {
     if (isAuthenticated && globalCoinsState.enabled === null && !globalCoinsState.loading) {

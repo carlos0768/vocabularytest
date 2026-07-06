@@ -7,6 +7,7 @@ import {
   handleChargeRefunded,
   handleCheckoutSessionCompleted,
   handleInvoicePaid,
+  handleStripeWebhookEvent,
 } from './stripe-webhook-handlers';
 
 type QueryFilter = {
@@ -409,4 +410,39 @@ test('charge refunded for a coin pack must NOT cancel the subscription', async (
   // ¥150のパック返金でPro購読が解約されないこと（ガードの回帰テスト）
   assert.deepEqual(supabase.fromCalls, []);
   assert.deepEqual(supabase.updates, []);
+});
+
+test('async_payment_succeeded credits coin packs for delayed-notification payment methods', async () => {
+  const supabase = new FakeSupabaseWithRpc();
+
+  await handleStripeWebhookEvent(
+    supabase.asClient(),
+    {
+      type: 'checkout.session.async_payment_succeeded',
+      data: {
+        object: makeCheckoutSession({
+          mode: 'payment',
+          payment_status: 'paid',
+          metadata: {
+            purpose: 'coin_pack',
+            user_id: 'user_async_1',
+            pack_id: 'coins_100',
+          },
+        } as never),
+      },
+    } as unknown as Stripe.Event,
+  );
+
+  assert.deepEqual(supabase.rpcCalls, [
+    {
+      name: 'credit_coin_pack',
+      args: {
+        p_user_id: 'user_async_1',
+        p_coins: 100,
+        p_provider: 'stripe',
+        p_external_ref: 'cs_test_1',
+        p_pack_id: 'coins_100',
+      },
+    },
+  ]);
 });

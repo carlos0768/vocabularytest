@@ -889,6 +889,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const exampleGenres = await fetchExampleGenresForProUser(supabaseAdmin, job.user_id);
       const processingStartedAt = Date.now();
       const timing = createTimingMetrics();
+      // ユーザーに単語が届いた（クラウド保存済み or completed 結果を書き込み済み）後の
+      // 予期しない例外で catch-all がコインを返還してしまわないためのガード。
+      let wordsDelivered = false;
 
       try {
         const { imagePaths, saveMode } = buildScanJobProcessingInput(job);
@@ -1177,6 +1180,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
+        // client_local: completed 結果が書き込まれた時点でユーザーに届いたとみなす
+        wordsDelivered = true;
 
         const completedParams1 = buildScanJobCompletedNotificationParams({
           userId: job.user_id,
@@ -1362,6 +1367,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
         throw new Error('Failed to insert words');
       }
+      // 単語はユーザーのクラウドプロジェクトに保存された
+      wordsDelivered = true;
 
       const insertedWordsArray = insertedWords ?? [];
       const translationRows = buildWordTranslationInsertRows(
@@ -1383,6 +1390,8 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             console.error('[scan-jobs/process] Word translations insert error:', translationError);
             if (shouldRollbackServerCloudProjectAfterWordsInsertFailure({ createdNewProject, wordsInsertError: translationError })) {
               await supabaseAdmin.from('projects').delete().eq('id', projectId);
+              // 新規プロジェクトごと削除した = 単語は届いていないので返還対象に戻す
+              wordsDelivered = false;
             }
             throw new Error('Failed to insert word translations');
           }
@@ -1751,8 +1760,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           })
           .eq('id', jobId);
 
-        // ジョブ全体の処理失敗はコインを全額返還する（冪等・二重返還不可）
-        await refundScanCoinsForJob(jobId, supabaseAdmin);
+        // ジョブ全体の処理失敗はコインを全額返還する（冪等・二重返還不可）。
+        // ただし単語が既にユーザーへ届いた後の例外（通知・後処理の失敗等）では返還しない。
+        if (!wordsDelivered) {
+          await refundScanCoinsForJob(jobId, supabaseAdmin);
+        } else {
+          console.warn('[scan-jobs/process] error after words were delivered — skipping coin refund', { jobId });
+        }
 
         const failParams2 = buildScanJobFailedNotificationParams({
           userId: job.user_id,

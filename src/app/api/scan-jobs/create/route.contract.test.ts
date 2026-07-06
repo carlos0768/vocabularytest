@@ -113,3 +113,44 @@ test('scan job creation routes use shared save mode contract and direct after pr
     'scheduleScanJobProcessing(String(job.id), scanModes);',
   ]);
 });
+
+test('scan job create route refunds on target-project-404 and hoists a catch-all refund', () => {
+  assertSourceOrder(createRouteSource, [
+    'let consumedJobId: string | null = null;',
+    'consumedJobId = jobId;',
+    "return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });",
+    'consumedJobId = null;',
+    'if (consumedJobId) {',
+    'await refundScanCoinsForJob(consumedJobId, getSupabaseAdmin());',
+  ]);
+
+  // target-404 の直前に返還があること
+  const notFoundIdx = createRouteSource.indexOf("指定した単語帳が見つかりません");
+  const refundBefore = createRouteSource.lastIndexOf('await refundScanCoinsForJob(jobId, getSupabaseAdmin());', notFoundIdx);
+  assert.ok(refundBefore >= 0 && notFoundIdx - refundBefore < 300, 'refund must precede target-404 return');
+});
+
+test('scan job create route omits coinInfo when the coin system is off (flag-off byte compatibility)', () => {
+  assert.ok(createRouteSource.includes('...(gate.coinInfo ? { coinInfo: gate.coinInfo } : {})'));
+  assert.equal(createRouteSource.includes('coinInfo: gate.coinInfo,'), false);
+});
+
+test('legacy scan job route refunds on target-404, upload failure, catch-all, and timeout sweep', () => {
+  assertSourceOrder(legacyRouteSource, [
+    'let consumedJobId: string | null = null;',
+    'consumedJobId = jobId;',
+    "return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });",
+    "return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });",
+    'consumedJobId = null;',
+    'if (consumedJobId) {',
+    'await refundScanCoinsForJob(consumedJobId, getSupabaseAdmin());',
+  ]);
+
+  // タイムアウト安全網: 実際に failed に遷移した行だけ返還する
+  assertSourceOrder(legacyRouteSource, [
+    ".in('status', ['pending', 'processing'])",
+    ".select('id')",
+    'for (const row of timedOutRows ?? []) {',
+    'await refundScanCoinsForJob(String((row as { id: string }).id), getSupabaseAdmin());',
+  ]);
+});

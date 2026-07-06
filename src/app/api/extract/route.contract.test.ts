@@ -579,3 +579,103 @@ test('/api/extract success response keeps scanInfo, sourceLabels, lexiconEntries
     'generateExamples',
   ]);
 });
+
+// ============================================
+// コイン制オン（COIN_SYSTEM_ENABLED=true）の経路
+// ============================================
+
+function withCoinFlag(fn: () => Promise<void>) {
+  return async () => {
+    process.env.COIN_SYSTEM_ENABLED = 'true';
+    try {
+      await fn();
+    } finally {
+      delete process.env.COIN_SYSTEM_ENABLED;
+    }
+  };
+}
+
+test('/api/extract (flag off) success response has no coinInfo key', async () => {
+  delete process.env.COIN_SYSTEM_ENABLED;
+  const client = new FakeExtractClient();
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client),
+  );
+
+  const payload = await jsonPayload(response);
+  assert.equal(response.status, 200);
+  // フラグオフのレスポンス形状は従来と同一（coinInfo キー自体が無い）
+  assert.equal('coinInfo' in payload, false);
+});
+
+test('/api/extract (flag on) consumes coins and returns coinInfo', withCoinFlag(async () => {
+  const client = new FakeExtractClient({
+    scanData: {
+      allowed: true,
+      requires_pro: false,
+      is_pro: true,
+      cost: 3,
+      monthly_remaining: 297,
+      purchased_remaining: 0,
+      total_remaining: 297,
+      monthly_allowance: 300,
+      month_key: '2026-07',
+      current_count: 1,
+    } as never,
+  });
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client),
+  );
+
+  const payload = await jsonPayload(response);
+  assert.equal(response.status, 200);
+  assert.equal(client.rpcCalls[0]?.name, 'consume_scan_coins');
+  assert.equal(client.rpcCalls[0]?.args.p_image_count, 1);
+  assert.deepEqual(payload.scanInfo, { currentCount: 1, limit: null, isPro: true });
+  assert.deepEqual(payload.coinInfo, {
+    cost: 3,
+    monthlyRemaining: 297,
+    purchasedRemaining: 0,
+    totalRemaining: 297,
+    monthlyAllowance: 300,
+  });
+}));
+
+test('/api/extract (flag on) maps insufficient coins to 429 with legacy-compatible body', withCoinFlag(async () => {
+  const client = new FakeExtractClient({
+    scanData: {
+      allowed: false,
+      reason: 'insufficient_coins',
+      requires_pro: false,
+      is_pro: true,
+      cost: 3,
+      monthly_remaining: 1,
+      purchased_remaining: 0,
+      total_remaining: 1,
+      monthly_allowance: 300,
+      month_key: '2026-07',
+    } as never,
+  });
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client),
+  );
+
+  const payload = await jsonPayload(response);
+  assert.equal(response.status, 429);
+  assert.equal(payload.success, false);
+  assert.equal(payload.insufficientCoins, true);
+  assert.equal(payload.limitReached, true);
+  assert.deepEqual(payload.coinInfo, {
+    cost: 3,
+    monthlyRemaining: 1,
+    purchasedRemaining: 0,
+    totalRemaining: 1,
+    monthlyAllowance: 300,
+  });
+}));

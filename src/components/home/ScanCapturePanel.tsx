@@ -117,6 +117,12 @@ export function ScanCapturePanel({
     };
   }, []);
 
+  // パネルを開くたびに残高を再取得する。アプリ起動時1回きりの古い残高で
+  // スキャンボタンが誤ってロックされ続けるのを防ぐ（サーバー側ゲートが常に正）。
+  useEffect(() => {
+    if (isPro) void refreshCoins();
+  }, [isPro]);
+
   const selectedScanModes = activeSubs;
   const selectedEikenLevel = selectedScanModes.includes('eiken') ? eikenLevel : null;
 

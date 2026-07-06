@@ -21,13 +21,17 @@ function fakeAdmin(result: { data?: unknown; error?: { message: string } | null 
   };
 }
 
-test('refundScanCoinsForJob is a no-op when the coin system is disabled', async () => {
+test('refundScanCoinsForJob attempts the RPC even when the flag is off (mid-flight scans stay refundable)', async () => {
   delete process.env.COIN_SYSTEM_ENABLED;
-  const { calls, client } = fakeAdmin({ data: { refunded: true } });
+  const { calls, client } = fakeAdmin({ data: { refunded: false, reason: 'no_consume' } });
 
   await refundScanCoinsForJob('job-1', client);
 
-  assert.deepEqual(calls, []);
+  // フラグを途中でオフにしても消費済みスキャンの返還が動くこと。
+  // 消費が無ければ RPC 側が no_consume で無害終了する。
+  assert.deepEqual(calls, [
+    { name: 'refund_scan_coins', args: { p_scan_job_id: 'job-1' } },
+  ]);
 });
 
 test('refundScanCoinsForJob calls the refund RPC when enabled', async () => {

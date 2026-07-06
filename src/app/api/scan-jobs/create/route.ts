@@ -70,6 +70,8 @@ const requestSchema = z.object({
 // Lightweight endpoint: just create job record and trigger processing
 // Images are already uploaded directly to Storage by client
 export async function POST(request: NextRequest) {
+  // gate通過後（=コイン消費後）にジョブ行を残せず失敗した場合の返還キー
+  let consumedJobId: string | null = null;
   try {
     console.log('[scan-jobs/create] Request received');
     const supabase = await createRouteHandlerClient(request);
@@ -147,8 +149,13 @@ export async function POST(request: NextRequest) {
         scanModes,
         status: gate.status,
       });
+      if (gate.status === 500) {
+        // RPCコミット後に応答だけ失われた可能性に備えたベストエフォート返還（冪等・no_consumeなら無害）
+        await refundScanCoinsForJob(jobId, getSupabaseAdmin());
+      }
       return NextResponse.json(gate.body, { status: gate.status });
     }
+    consumedJobId = jobId;
 
     const isProUser = Boolean(gate.scanInfo.isPro);
     const saveMode = resolveScanJobSaveMode({ clientPlatform, isProUser });
@@ -167,6 +174,7 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           targetProjectId,
         });
+        await refundScanCoinsForJob(jobId, getSupabaseAdmin());
         return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });
       }
       validatedTargetProjectId = project.id;
@@ -203,6 +211,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
 
+    // ジョブ行が残った後の返還は processJobById（失敗2経路）とタイムアウト安全網が担う
+    consumedJobId = null;
+
     if (usedLegacyColumns) {
       console.warn('[scan-jobs/create] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
     }
@@ -226,11 +237,16 @@ export async function POST(request: NextRequest) {
         limit: gate.scanInfo.limit,
         isPro: gate.scanInfo.isPro,
       },
-      coinInfo: gate.coinInfo,
+      // フラグオフ時（null）はキー自体を出さず、従来のレスポンスと同一形状を保つ
+      ...(gate.coinInfo ? { coinInfo: gate.coinInfo } : {}),
     });
 
   } catch (error) {
     console.error('Scan job creation error:', error);
+    // 消費済みかつジョブ行が残っていない失敗はここで返還する（冪等）
+    if (consumedJobId) {
+      await refundScanCoinsForJob(consumedJobId, getSupabaseAdmin());
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
