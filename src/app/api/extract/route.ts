@@ -16,9 +16,11 @@ import {
   getProvidersForMode,
   getProvidersForModes,
   normalizeExtractModes,
-  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
+import { randomUUID } from 'crypto';
+import { consumeScanGate } from '@/lib/coins/scan-gate';
+import { refundScanCoinsForJob } from '@/lib/coins/refund';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
@@ -117,6 +119,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     saveExamples,
   } = getDeps(deps);
   const startedAt = Date.now();
+  // コイン消費後の失敗時に返還するためのキー（消費前は null）
+  let coinScanRef: string | null = null;
   try {
     // ============================================
     // 1. AUTHENTICATION CHECK
@@ -205,48 +209,14 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       );
     }
 
-    // ============================================
-    // 3. CHECK & INCREMENT SCAN COUNT (SERVER-SIDE ENFORCEMENT)
-    // ============================================
-    // Scanning is Pro-only for every mode.
-    const requiresPro = requiresProForModes(modes);
-    const { data: scanData, error: scanError } = await supabase
-      .rpc('check_and_increment_scan', { p_require_pro: requiresPro });
-
-    if (scanError || !scanData) {
-      console.error('Scan limit check error:', scanError);
+    // バリデーションとAPIキー確認はコイン消費より前に行う（検証失敗で課金しない）
+    if (modes.includes('eiken') && !eikenLevel) {
       return NextResponse.json(
-        { success: false, error: 'スキャン制限の確認に失敗しました' },
-        { status: 500 }
+        { success: false, error: '英検レベルを指定してください' },
+        { status: 400 }
       );
     }
 
-    if (scanData.requires_pro) {
-      return NextResponse.json(
-        { success: false, error: 'この機能はProプラン限定です。' },
-        { status: 403 }
-      );
-    }
-
-    if (!scanData.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。Proプランにアップグレードすると無制限にスキャンできます。`,
-          limitReached: true,
-          scanInfo: {
-            currentCount: scanData.current_count,
-            limit: scanData.limit,
-            isPro: scanData.is_pro,
-          },
-        },
-        { status: 429 }
-      );
-    }
-
-    // ============================================
-    // 4. PROCESS IMAGE
-    // ============================================
     const apiKeys = getApiKeys();
     const missingProviderKey = resolveMissingProviderKeyForModes(modes, apiKeys);
     if (missingProviderKey) {
@@ -257,16 +227,41 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       );
     }
 
+    // ============================================
+    // 3. CHECK & CONSUME SCAN QUOTA (SERVER-SIDE ENFORCEMENT)
+    // ============================================
+    // Scanning is Pro-only for every mode. コイン制オン時は consume_scan_coins、
+    // オフ時は従来の check_and_increment_scan_batch にフォールバックする。
+    // このルートにはscan_jobs行が無いため、返還キーとしてUUIDを事前生成する。
+    coinScanRef = randomUUID();
+    const gate = await consumeScanGate(supabase, {
+      modes,
+      imageCount: 1,
+      scanJobId: coinScanRef,
+    });
+
+    if (!gate.ok) {
+      coinScanRef = null;
+      const body =
+        gate.status === 429 && !('insufficientCoins' in gate.body)
+          ? {
+              ...gate.body,
+              error: `本日のスキャン上限（${(gate.body.scanInfo as { limit?: number | null })?.limit ?? '∞'}回）に達しました。Proプランにアップグレードすると無制限にスキャンできます。`,
+            }
+          : gate.body;
+      return NextResponse.json({ success: false, ...body }, { status: gate.status });
+    }
+
+    const scanGateInfo = gate.scanInfo;
+    const coinInfo = gate.coinInfo;
+
+    // ============================================
+    // 4. PROCESS IMAGE
+    // ============================================
     let aiExtractionMs = 0;
 
     let result;
     const aiStart = Date.now();
-    if (modes.includes('eiken') && !eikenLevel) {
-      return NextResponse.json(
-        { success: false, error: '英検レベルを指定してください' },
-        { status: 400 }
-      );
-    }
 
     if (modes.length > 1) {
       result = await extractCompositeWords(image, apiKeys, {
@@ -291,6 +286,11 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     aiExtractionMs = Date.now() - aiStart;
 
     if (!result.success) {
+      // 抽出が完全に失敗したスキャンはコインを返還する
+      if (coinScanRef) {
+        await refundScanCoinsForJob(coinScanRef);
+      }
+      coinScanRef = null;
       return NextResponse.json(
         { success: false, error: result.error },
         { status: 422 }
@@ -436,10 +436,11 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       sourceLabels: ensureSourceLabels(result.data.sourceLabels),
       lexiconEntries: resolved?.lexiconEntries ?? [],
       scanInfo: {
-        currentCount: scanData.current_count,
-        limit: scanData.limit,
-        isPro: scanData.is_pro,
+        currentCount: scanGateInfo.currentCount,
+        limit: scanGateInfo.limit,
+        isPro: scanGateInfo.isPro,
       },
+      coinInfo,
       _debug: {
         timing: {
           totalMs: Date.now() - startedAt,
@@ -451,6 +452,10 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     });
   } catch (error) {
     console.error('Extract API error:', error);
+    // 消費後に到達した予期しない失敗（500 = ユーザーは何も得ていない）は返還する
+    if (coinScanRef) {
+      await refundScanCoinsForJob(coinScanRef);
+    }
     return NextResponse.json(
       { success: false, error: '予期しないエラーが発生しました' },
       { status: 500 }

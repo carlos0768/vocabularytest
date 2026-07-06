@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { MultiShotCaptureView } from '@/components/home/MultiShotCaptureView';
 import { useAuth } from '@/hooks/use-auth';
+import { useCoins, refreshCoins } from '@/hooks/use-coins';
+import { computeScanCoinCost } from '@/lib/coins/rates';
+import { InsufficientCoinsError, type InsufficientCoinsInfo } from '@/lib/coins/errors';
+import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModal';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { processImageToBase64 } from '@/lib/image-utils';
 import { triggerHaptic } from '@/lib/haptics';
@@ -90,10 +94,13 @@ export function ScanCapturePanel({
 }: ScanCapturePanelProps) {
   const router = useRouter();
   const { isPro } = useAuth();
+  const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [insufficientCoinInfo, setInsufficientCoinInfo] = useState<InsufficientCoinsInfo | null>(null);
+  const [insufficientModalOpen, setInsufficientModalOpen] = useState(false);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const [captureView, setCaptureView] = useState(false);
   const [heldShots, setHeldShots] = useState<HeldShot[]>([]);
@@ -222,6 +229,7 @@ export function ScanCapturePanel({
           saveHomeGeneratingWordbook(sessionStorage, payload);
           onBackgroundScanStarted?.(payload);
         }
+        void refreshCoins();
         setProcessingLabel('ホームへ移動中...');
         onClose();
         router.push('/');
@@ -234,7 +242,13 @@ export function ScanCapturePanel({
       onClose();
       router.replace('/scan/confirm');
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : '処理に失敗しました');
+      if (err instanceof InsufficientCoinsError) {
+        setInsufficientCoinInfo(err.coinInfo);
+        setInsufficientModalOpen(true);
+        void refreshCoins();
+      } else {
+        setErrorMsg(err instanceof Error ? err.message : '処理に失敗しました');
+      }
       setProcessingLabel(null);
       setProcessing(false);
     }
@@ -306,7 +320,21 @@ export function ScanCapturePanel({
     void handleFilesSelected(heldShots.map((shot) => shot.file));
   };
 
-  const scanDisabled = activeSubs.includes('eiken') && !eikenLevel;
+  // コイン制オン時のコスト見積り: 選択モード + 現在の保持枚数（未撮影なら1枚換算）
+  const estimatedImageCount = Math.max(1, heldShots.length);
+  let estimatedCoinCost: number | null = null;
+  if (coinsEnabled && isPro) {
+    try {
+      estimatedCoinCost = computeScanCoinCost(selectedScanModes, estimatedImageCount);
+    } catch {
+      estimatedCoinCost = null;
+    }
+  }
+  const insufficientBalance =
+    coinsEnabled === true && isPro && estimatedCoinCost !== null &&
+    coinBalance.totalRemaining < estimatedCoinCost;
+
+  const scanDisabled = (activeSubs.includes('eiken') && !eikenLevel) || insufficientBalance;
 
   // Scanning is Pro-only: free users see an upgrade prompt instead of the
   // capture UI (the server rejects free scans too — this is UX, not the gate).
@@ -452,6 +480,27 @@ export function ScanCapturePanel({
         )}
       </div>
 
+      {/* Coin cost / balance (コイン制オン時のみ) */}
+      {coinsEnabled && isPro && estimatedCoinCost !== null && (
+        <div className="mb-3 flex items-center justify-between rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-2">
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--solid-ink)]">
+            <Icon name="toll" size={14} className="text-[var(--color-accent)]" />
+            消費コイン: {estimatedCoinCost}枚
+            {heldShots.length > 1 && (
+              <span className="font-medium text-[var(--color-muted)]">（{heldShots.length}枚の画像）</span>
+            )}
+          </span>
+          <span className={`text-[11px] font-bold ${insufficientBalance ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'}`}>
+            残り {coinBalance.totalRemaining}枚
+          </span>
+        </div>
+      )}
+      {insufficientBalance && (
+        <p className="mb-3 text-center text-[11px] text-[var(--color-error)]">
+          コインが不足しています。<button type="button" className="underline" onClick={() => { onClose(); router.push('/coins'); }}>コインを購入</button>
+        </p>
+      )}
+
       {/* Camera / Library buttons */}
       <div className="flex gap-2.5">
         <button type="button" onClick={handleCamera} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
@@ -482,6 +531,12 @@ export function ScanCapturePanel({
       {errorMsg && !captureView && (
         <p className="mt-2 text-center text-[11px] text-[var(--color-error)]">{errorMsg}</p>
       )}
+
+      <InsufficientCoinsModal
+        isOpen={insufficientModalOpen}
+        onClose={() => setInsufficientModalOpen(false)}
+        coinInfo={insufficientCoinInfo}
+      />
 
       {/* Full-screen layers: multi-shot tray + processing overlay */}
       {(captureView || processing) && typeof document !== 'undefined' && createPortal(

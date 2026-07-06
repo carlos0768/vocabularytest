@@ -80,6 +80,7 @@ import {
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
+import { refundScanCoinsForJob } from '@/lib/coins/refund';
 import {
   enqueueWordLexiconResolutionJobs,
   triggerWordLexiconResolutionProcessing,
@@ -1046,6 +1047,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           })
           .eq('id', jobId);
 
+        // ジョブ全体の失敗（語ゼロ）はコインを全額返還する。
+        // 一部画像のみ失敗して語が取れた場合は返還しない。
+        await refundScanCoinsForJob(jobId, supabaseAdmin);
+
         const failParams1 = buildScanJobFailedNotificationParams({
           userId: job.user_id,
           jobId,
@@ -1745,6 +1750,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
+
+        // ジョブ全体の処理失敗はコインを全額返還する（冪等・二重返還不可）
+        await refundScanCoinsForJob(jobId, supabaseAdmin);
 
         const failParams2 = buildScanJobFailedNotificationParams({
           userId: job.user_id,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon, Modal, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { useCoins } from '@/hooks/use-coins';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import type { Subscription } from '@/types';
 
@@ -37,6 +38,7 @@ function getPlanHint(subscription: Subscription | null, isPro: boolean): string 
 export default function PlanSettingsPage() {
   const router = useRouter();
   const { subscription, isPro, refresh } = useAuth();
+  const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const { showToast } = useToast();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -110,6 +112,17 @@ export default function PlanSettingsPage() {
           />
         )}
       </SettingsGroup>
+
+      {coinsEnabled && isPro && (
+        <SettingsGroup label="コイン">
+          <SettingsRow
+            icon="toll"
+            label="コイン残高"
+            hint={`残り ${coinBalance.totalRemaining}枚（今月分 ${coinBalance.monthlyRemaining} / 購入分 ${coinBalance.purchasedRemaining}）`}
+            onClick={() => router.push('/coins')}
+          />
+        </SettingsGroup>
+      )}
 
       {billingEnabled && !isPro && (
         <div className="px-[18px] pb-4">

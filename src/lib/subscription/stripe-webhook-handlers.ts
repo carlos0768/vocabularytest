@@ -6,6 +6,10 @@ import {
   type ActivateBillingResult,
 } from '@/lib/subscription/billing-activation';
 import { STRIPE_CONFIG } from '@/lib/stripe/config';
+import {
+  handleCoinPackCheckoutCompleted,
+  isCoinPackCheckoutSession,
+} from '@/lib/coins/stripe-webhook';
 
 type SessionLookupRow = {
   id: string;
@@ -118,6 +122,12 @@ export async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
   deps?: StripeWebhookHandlerDeps
 ) {
+  // コインパック（mode: 'payment'）はサブスク有効化パスに入れない
+  if (isCoinPackCheckoutSession(session)) {
+    await handleCoinPackCheckoutCompleted(supabaseAdmin, session);
+    return;
+  }
+
   if (session.mode !== 'subscription') {
     return;
   }
@@ -405,6 +415,17 @@ export async function handleChargeRefunded(
   charge: Stripe.Charge,
   deps?: StripeWebhookHandlerDeps
 ) {
+  // コインパックの返金でサブスク解約パスに入れてはいけない —
+  // このガードがないと¥150のパック返金でProが解約される。
+  // コインの回収はv1では手動運用（docs/runbooks.md 参照）。
+  if (charge.metadata?.purpose === 'coin_pack') {
+    console.warn(
+      '[Stripe webhook] coin pack charge refunded — manual coin clawback may be needed',
+      { chargeId: charge.id }
+    );
+    return;
+  }
+
   const customerId =
     typeof charge.customer === 'string'
       ? charge.customer

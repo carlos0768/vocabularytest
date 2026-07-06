@@ -12,6 +12,7 @@ import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
+import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
@@ -547,6 +548,7 @@ export default function HomePage() {
           <span className="ml-1 inline-block h-[5px] w-[5px] -translate-y-2 bg-[var(--color-accent)]" />
         </div>
         <div className="flex items-center gap-2">
+          <CoinBalancePill />
           <div className="flex items-center gap-[5px] rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
             <span className="inline-flex text-[var(--color-warning)]">
               <Icon name="local_fire_department" size={13} filled />

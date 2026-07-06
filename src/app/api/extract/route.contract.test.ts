@@ -352,8 +352,8 @@ test('/api/extract uses scan usage response to reject free users from Pro-only m
   assert.deepEqual(client.authTokens, ['bearer-token-1']);
   assert.deepEqual(client.rpcCalls, [
     {
-      name: 'check_and_increment_scan',
-      args: { p_require_pro: true },
+      name: 'check_and_increment_scan_batch',
+      args: { p_count: 1, p_require_pro: true },
     },
   ]);
   assert.deepEqual(calls, []);
@@ -384,8 +384,8 @@ test('/api/extract runs one composite extraction and overwrites sourceModes from
   assert.equal(payload.success, true);
   assert.deepEqual(client.rpcCalls, [
     {
-      name: 'check_and_increment_scan',
-      args: { p_require_pro: true },
+      name: 'check_and_increment_scan_batch',
+      args: { p_count: 1, p_require_pro: true },
     },
   ]);
   assert.deepEqual(calls, [
@@ -445,13 +445,13 @@ test('/api/extract preserves usage-limit response shape', async () => {
   });
   assert.deepEqual(client.rpcCalls, [
     {
-      name: 'check_and_increment_scan',
-      args: { p_require_pro: true },
+      name: 'check_and_increment_scan_batch',
+      args: { p_count: 1, p_require_pro: true },
     },
   ]);
 });
 
-test('/api/extract keeps missing EIKEN level validation after usage increment and before AI extraction', async () => {
+test('/api/extract rejects missing EIKEN level before consuming scan quota', async () => {
   const client = new FakeExtractClient();
   const calls: string[] = [];
 
@@ -468,12 +468,8 @@ test('/api/extract keeps missing EIKEN level validation after usage increment an
     success: false,
     error: '英検レベルを指定してください',
   });
-  assert.deepEqual(client.rpcCalls, [
-    {
-      name: 'check_and_increment_scan',
-      args: { p_require_pro: true },
-    },
-  ]);
+  // バリデーション失敗ではコイン/スキャン枠を消費しない
+  assert.deepEqual(client.rpcCalls, []);
   assert.deepEqual(calls, []);
 });
 

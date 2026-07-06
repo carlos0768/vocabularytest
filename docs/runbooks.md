@@ -321,3 +321,39 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 **Cautions**:
 - The 10-minute client-side timeout (`SCAN_JOB_TIMEOUT_MS`) in the GET handler marks stuck jobs as `failed`. This is a safety net, not the primary processing mechanism.
 - Multiple concurrent `processJobById()` calls for the same job are safe due to the claim mechanism (`WHERE status='pending'`).
+
+## Runbook: コインパック返金時の手動コイン回収
+
+**When to use**: Stripe でコインパック（`purpose=coin_pack` の単発決済）が返金されたとき。
+
+Webhook の `charge.refunded` はコインパックの場合**意図的に何もしない**（サブスク解約パスへの誤爆防止ガード。`src/lib/subscription/stripe-webhook-handlers.ts` の `handleChargeRefunded` 冒頭）。Vercel ログに
+`coin pack charge refunded — manual coin clawback may be needed` が出るので、必要ならコインを手動回収する。
+
+1. 対象の購入台帳行を特定する:
+   ```sql
+   SELECT * FROM coin_transactions
+   WHERE type = 'pack_purchase' AND provider = 'stripe'
+     AND external_ref = '<checkout session id>';
+   ```
+2. 残高から回収し、`admin_adjust` の台帳行を残す（service role で実行）:
+   ```sql
+   -- 残高が足りない場合は purchased_coins >= 0 の CHECK に当たるため、
+   -- GREATEST で 0 止めにするか回収額を調整する
+   WITH bal AS (
+     SELECT * FROM user_coin_balances WHERE user_id = '<user_id>' FOR UPDATE
+   )
+   UPDATE user_coin_balances b
+   SET purchased_coins = GREATEST(0, b.purchased_coins - <coins>)
+   FROM bal
+   WHERE b.user_id = bal.user_id;
+
+   INSERT INTO coin_transactions
+     (user_id, type, monthly_amount, purchased_amount, monthly_after, purchased_after, provider, external_ref, metadata)
+   SELECT user_id, 'admin_adjust', 0, -LEAST(<coins>, purchased_coins + LEAST(<coins>, 0)),
+          monthly_coins, purchased_coins, 'stripe', '<checkout session id>:refund',
+          '{"reason":"pack_refund_clawback"}'::jsonb
+   FROM user_coin_balances WHERE user_id = '<user_id>';
+   ```
+3. すでに使い切っていて回収できない場合は、回収を諦めるか（少額）、ユーザーに連絡する。
+
+**Success criteria**: `user_coin_balances.purchased_coins` が回収後の期待値、`coin_transactions` に `admin_adjust` 行が1件。

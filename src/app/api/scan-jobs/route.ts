@@ -2,7 +2,8 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { readSingleLineEnv } from '@/lib/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
+import { consumeScanGate } from '@/lib/coins/scan-gate';
+import { refundScanCoinsForJob } from '@/lib/coins/refund';
 import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
 import {
   normalizeLegacyScanJobClientPlatform,
@@ -11,9 +12,9 @@ import {
 import {
   getPrimaryExtractMode,
   normalizeExtractModes,
-  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
+import { randomUUID } from 'crypto';
 import { processJobById } from './process/route';
 
 export const maxDuration = 300;
@@ -103,46 +104,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const requiresPro = requiresProForModes(scanModes);
-    const { data: scanData, error: scanError } = await checkAndIncrementScanUsage(supabase, {
-      count: 1,
-      requirePro: requiresPro,
+    // 消費台帳とジョブ行を同じIDで紐づけるため事前生成（失敗時の返還キー）
+    const jobId = randomUUID();
+    const gate = await consumeScanGate(supabase, {
+      modes: scanModes,
+      imageCount: 1,
+      scanJobId: jobId,
     });
 
-    if (scanError || !scanData) {
-      console.error('Scan limit check error:', scanError);
-      return NextResponse.json({ error: 'スキャン制限の確認に失敗しました' }, { status: 500 });
-    }
-
-    if (scanData.requires_pro) {
-      console.warn('[scan-jobs] Pro-required scan mode blocked', {
+    if (!gate.ok) {
+      console.warn('[scan-jobs] Scan gate blocked', {
         userId: user.id,
         scanModes,
+        status: gate.status,
       });
-      return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
+      return NextResponse.json(gate.body, { status: gate.status });
     }
 
-    if (!scanData.allowed) {
-      console.warn('[scan-jobs] Scan limit reached', {
-        userId: user.id,
-        currentCount: scanData.current_count,
-        limit: scanData.limit,
-      });
-      return NextResponse.json(
-        {
-          error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。`,
-          limitReached: true,
-          scanInfo: {
-            currentCount: scanData.current_count,
-            limit: scanData.limit,
-            isPro: scanData.is_pro,
-          },
-        },
-        { status: 429 }
-      );
-    }
-
-    const isProUser = Boolean(scanData.is_pro);
+    const isProUser = Boolean(gate.scanInfo.isPro);
     const saveMode = resolveScanJobSaveMode({ clientPlatform, isProUser });
 
     let validatedTargetProjectId: string | null = null;
@@ -185,6 +164,7 @@ export async function POST(request: NextRequest) {
     const { data: job, error: insertError, usedLegacyColumns } = await insertScanJobWithCompat(
       getSupabaseAdmin(),
       {
+        id: jobId,
         user_id: user.id,
         project_title: projectTitle,
         scan_mode: primaryScanMode,
@@ -201,11 +181,13 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error('Insert error:', insertError);
       await getSupabaseAdmin().storage.from('scan-images').remove([imagePath]);
+      await refundScanCoinsForJob(jobId, getSupabaseAdmin());
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
     if (!job || !('id' in job) || !job.id) {
       console.error('Insert error: missing job id in response');
       await getSupabaseAdmin().storage.from('scan-images').remove([imagePath]);
+      await refundScanCoinsForJob(jobId, getSupabaseAdmin());
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
 

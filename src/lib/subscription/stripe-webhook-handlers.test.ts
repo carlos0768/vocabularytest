@@ -316,3 +316,97 @@ test('charge refunded writes cancellation payload for matching customer', async 
     filters: [{ method: 'eq', column: 'user_id', value: 'user_refund_1' }],
   });
 });
+
+// ============================================
+// コインパック分岐（mode: 'payment' + purpose: 'coin_pack'）
+// ============================================
+
+class FakeSupabaseWithRpc extends FakeSupabase {
+  readonly rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+
+  async rpc(name: string, args: Record<string, unknown>) {
+    this.rpcCalls.push({ name, args });
+    return { data: { credited: true }, error: null };
+  }
+}
+
+test('checkout completed routes coin pack sessions to credit RPC, not billing activation', async () => {
+  const supabase = new FakeSupabaseWithRpc();
+  const activations: string[] = [];
+
+  await handleCheckoutSessionCompleted(
+    supabase.asClient(),
+    makeCheckoutSession({
+      mode: 'payment',
+      payment_status: 'paid',
+      metadata: {
+        purpose: 'coin_pack',
+        user_id: 'user_coin_1',
+        pack_id: 'coins_100',
+      },
+    } as never),
+    {
+      activateBillingFromSessionFn: async () => {
+        activations.push('activated');
+        return { ok: true } as never;
+      },
+    }
+  );
+
+  // サブスク有効化パスに入らないこと
+  assert.deepEqual(activations, []);
+  assert.deepEqual(supabase.rpcCalls, [
+    {
+      name: 'credit_coin_pack',
+      args: {
+        p_user_id: 'user_coin_1',
+        p_coins: 100,
+        p_provider: 'stripe',
+        p_external_ref: 'cs_test_1',
+        p_pack_id: 'coins_100',
+      },
+    },
+  ]);
+});
+
+test('checkout completed ignores payment-mode sessions without coin_pack purpose', async () => {
+  const supabase = new FakeSupabaseWithRpc();
+  const activations: string[] = [];
+
+  await handleCheckoutSessionCompleted(
+    supabase.asClient(),
+    makeCheckoutSession({
+      mode: 'payment',
+      metadata: { user_id: 'user_1' },
+    } as never),
+    {
+      activateBillingFromSessionFn: async () => {
+        activations.push('activated');
+        return { ok: true } as never;
+      },
+    }
+  );
+
+  assert.deepEqual(activations, []);
+  assert.deepEqual(supabase.rpcCalls, []);
+});
+
+test('charge refunded for a coin pack must NOT cancel the subscription', async () => {
+  const supabase = new FakeSupabase(() => {
+    throw new Error('subscriptions must not be queried for coin pack refunds');
+  });
+
+  await handleChargeRefunded(
+    supabase.asClient(),
+    {
+      id: 'ch_coin_1',
+      object: 'charge',
+      customer: 'cus_refund_1',
+      metadata: { purpose: 'coin_pack', user_id: 'user_1', pack_id: 'coins_100' },
+    } as unknown as Stripe.Charge,
+  );
+
+  // ¥150のパック返金でPro購読が解約されないこと（ガードの回帰テスト）
+  assert.deepEqual(supabase.fromCalls, []);
+  assert.deepEqual(supabase.updates, []);
+});

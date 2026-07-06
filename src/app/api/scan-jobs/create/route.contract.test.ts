@@ -71,24 +71,30 @@ test('legacy scan job route keeps existing clientPlatform normalization', () => 
   }
 });
 
-test('scan job create route keeps uploaded-image existence check before usage increment', () => {
+test('scan job create route keeps uploaded-image existence check before coin consumption', () => {
   assertSourceOrder(createRouteSource, [
     "getSupabaseAdmin().storage\n        .from('scan-images')",
     'return NextResponse.json({ error: `Image not found: ${fileName}` }, { status: 400 });',
-    'const { data: scanData, error: scanError } = await checkAndIncrementScanUsage',
+    'const gate = await consumeScanGate(supabase, {',
   ]);
 });
 
-test('scan job create route keeps Pro-only and usage-limit response contract', () => {
-  assert.ok(createRouteSource.includes('const requiresPro = requiresProForModes(scanModes);'));
-
+test('scan job create route consumes via the shared scan gate with a pre-generated job id', () => {
   assertSourceOrder(createRouteSource, [
-    'const { data: scanData, error: scanError } = await checkAndIncrementScanUsage',
-    'requirePro: requiresPro',
-    'if (scanData.requires_pro)',
-    "{ status: 403 }",
-    'if (!scanData.allowed)',
-    '{ status: 429 }',
+    'const jobId = randomUUID();',
+    'const gate = await consumeScanGate(supabase, {',
+    'imageCount: imagePaths.length,',
+    'scanJobId: jobId,',
+    'if (!gate.ok) {',
+    'return NextResponse.json(gate.body, { status: gate.status });',
+  ]);
+});
+
+test('scan job create route refunds coins when the job row cannot be persisted', () => {
+  assertSourceOrder(createRouteSource, [
+    'const { data: job, error: insertError, usedLegacyColumns } = await insertScanJobWithCompat',
+    'id: jobId,',
+    'await refundScanCoinsForJob(jobId, getSupabaseAdmin());',
   ]);
 });
 
