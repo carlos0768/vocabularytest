@@ -52,6 +52,36 @@ export async function createCheckoutSession(
   );
 }
 
+export interface CreateOneTimeCheckoutSessionParams {
+  priceId: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+  metadata?: Record<string, string>;
+}
+
+// 単発決済用（コインパック等）。サブスク用の createCheckoutSession とは分離。
+// metadata は Checkout Session と PaymentIntent の両方に付与する —
+// charge.refunded Webhook が charge.metadata で purpose を判別できるようにするため。
+export async function createOneTimeCheckoutSession(
+  params: CreateOneTimeCheckoutSessionParams
+): Promise<Stripe.Checkout.Session> {
+  const stripe = getStripe();
+
+  return stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: [{ price: params.priceId, quantity: 1 }],
+    ...(params.customerEmail ? { customer_email: params.customerEmail } : {}),
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+    locale: 'ja',
+    metadata: params.metadata,
+    payment_intent_data: {
+      metadata: params.metadata,
+    },
+  });
+}
+
 export async function getCheckoutSession(
   sessionId: string
 ): Promise<Stripe.Checkout.Session> {

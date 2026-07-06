@@ -11,6 +11,7 @@ const protectedPaths = [
   '/scan',
   '/settings',
   '/subscription',
+  '/coins',
   '/flashcard',
   '/favorites',
   '/grammar',

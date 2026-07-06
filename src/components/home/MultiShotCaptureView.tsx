@@ -22,6 +22,12 @@ interface MultiShotCaptureViewProps {
   onConfirm: () => void;
   /** Discard held shots and go back to the scan options sheet. */
   onClose: () => void;
+  /** コイン制オン時の見積り消費コイン（表示対象外なら null）。 */
+  coinCost?: number | null;
+  /** コイン制オン時の残高（表示対象外なら null）。 */
+  coinRemaining?: number | null;
+  /** 残高不足のとき true（確認ボタンを警告表示にする）。 */
+  coinInsufficient?: boolean;
 }
 
 const CORNER_STYLES: React.CSSProperties[] = [
@@ -52,10 +58,14 @@ export function MultiShotCaptureView({
   onRemove,
   onConfirm,
   onClose,
+  coinCost = null,
+  coinRemaining = null,
+  coinInsufficient = false,
 }: MultiShotCaptureViewProps) {
   const count = shots.length;
   const latest = count > 0 ? shots[count - 1]! : null;
   const atCapacity = count >= maxCount;
+  const showCoins = coinCost !== null;
 
   return (
     <div
@@ -195,6 +205,30 @@ export function MultiShotCaptureView({
         )}
       </div>
 
+      {/* Coin cost / balance (コイン制オン時のみ) */}
+      {showCoins && (
+        <div className="mt-2 px-5">
+          <div
+            className="flex items-center justify-between rounded-full border-2 px-3.5 py-1.5"
+            style={{
+              borderColor: coinInsufficient ? 'var(--color-error)' : 'var(--solid-ink)',
+              background: '#fff',
+            }}
+          >
+            <span className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--solid-ink)]">
+              <Icon name="toll" size={15} style={{ color: 'var(--color-accent)' }} />
+              消費 {coinCost}枚
+            </span>
+            <span
+              className="text-[12px] font-bold"
+              style={{ color: coinInsufficient ? 'var(--color-error)' : 'var(--color-muted)' }}
+            >
+              {coinInsufficient ? 'コインが不足しています' : `残り ${coinRemaining ?? 0}枚`}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Controls: (spacer) | shutter | confirm */}
       <div className="mt-2 grid grid-cols-3 items-center px-7">
         {/* Spacer keeps the shutter centered */}
@@ -251,9 +285,17 @@ export function MultiShotCaptureView({
           </button>
           <span
             className="whitespace-nowrap text-[11px] font-bold"
-            style={{ color: count > 0 ? 'var(--solid-ink)' : 'var(--color-muted)' }}
+            style={{
+              color: count > 0
+                ? (coinInsufficient ? 'var(--color-error)' : 'var(--solid-ink)')
+                : 'var(--color-muted)',
+            }}
           >
-            {count > 0 ? `${count}枚で次へ` : 'まず1枚撮影'}
+            {count === 0
+              ? 'まず1枚撮影'
+              : coinInsufficient
+                ? 'コイン不足'
+                : `${count}枚で次へ`}
           </span>
         </div>
       </div>

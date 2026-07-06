@@ -81,6 +81,18 @@
 }
 .ds-user .nm { font-size: 13px; font-weight: 600; }
 .ds-user .pl { font-size: 11px; color: var(--color-accent); font-weight: 600; }
+.ds-coins {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px; border-radius: 12px; text-decoration: none;
+  background: var(--color-surface-secondary); border: 1px solid var(--color-border);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.ds-coins:hover { border-color: var(--solid-ink); }
+.ds-coins .ico { color: var(--color-accent); font-size: 20px; }
+.ds-coins .n { font-family: var(--font-display); font-weight: 800; font-size: 16px; color: var(--color-ink); }
+.ds-coins .n span { font-size: 11px; font-weight: 600; }
+.ds-coins .l { font-size: 11px; color: var(--color-secondary-text); }
+.ds-side--collapsed .ds-coins { justify-content: center; padding: 8px; }
 
 /* ── Sidebar header (brand + toggle) ─────────────────────── */
 .ds-side-head {

@@ -1393,3 +1393,26 @@ test('server_cloud existing project words insert failure does not delete the pro
     },
   ]);
 });
+
+test('process route refunds coins after both total-failure paths', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const source = readFileSync(fileURLToPath(new URL('./route.ts', import.meta.url)), 'utf8');
+
+  // 語ゼロ失敗と catch-all 失敗の両方で、failed 更新の直後に返還が呼ばれること
+  const refundCalls = source.split('await refundScanCoinsForJob(jobId, supabaseAdmin);').length - 1;
+  assert.equal(refundCalls, 2, 'expected exactly 2 refund call sites in process route');
+
+  for (const anchor of [
+    "error_message: errorMessage,",
+    "error_message: processingError instanceof Error ? processingError.message : 'Processing failed',",
+  ]) {
+    const anchorIndex = source.indexOf(anchor);
+    assert.ok(anchorIndex >= 0, `missing anchor: ${anchor}`);
+    const refundIndex = source.indexOf('await refundScanCoinsForJob(jobId, supabaseAdmin);', anchorIndex);
+    assert.ok(
+      refundIndex >= 0 && refundIndex - anchorIndex < 600,
+      `refund call should follow failure update near: ${anchor}`,
+    );
+  }
+});

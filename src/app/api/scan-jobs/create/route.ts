@@ -4,16 +4,17 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { checkAndIncrementScanUsage } from '@/lib/supabase/scan-usage';
+import { consumeScanGate } from '@/lib/coins/scan-gate';
+import { refundScanCoinsForJob } from '@/lib/coins/refund';
 import { insertScanJobWithCompat } from '@/lib/supabase/scan-jobs-compat';
 import { resolveScanJobSaveMode } from '@/lib/scan/job-create-contract';
 import {
   EXTRACT_MODES,
   getPrimaryExtractMode,
   normalizeExtractModes,
-  requiresProForModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
+import { randomUUID } from 'crypto';
 import { processJobById } from '../process/route';
 
 export const maxDuration = 300;
@@ -69,6 +70,8 @@ const requestSchema = z.object({
 // Lightweight endpoint: just create job record and trigger processing
 // Images are already uploaded directly to Storage by client
 export async function POST(request: NextRequest) {
+  // gate通過後（=コイン消費後）にジョブ行を残せず失敗した場合の返還キー
+  let consumedJobId: string | null = null;
   try {
     console.log('[scan-jobs/create] Request received');
     const supabase = await createRouteHandlerClient(request);
@@ -114,7 +117,9 @@ export async function POST(request: NextRequest) {
 
     const scanModes = normalizeExtractModes(requestedScanModes, [scanMode]);
     const primaryScanMode = getPrimaryExtractMode(scanModes);
-    const requiresPro = requiresProForModes(scanModes);
+    // コイン消費(consume)がジョブINSERTより先に走るため、ジョブIDを事前生成して
+    // 消費台帳とジョブ行を同じIDで紐づける（失敗時の返還キーになる）。
+    const jobId = randomUUID();
 
     // Verify all images exist in storage first.
     for (const candidatePath of imagePaths) {
@@ -132,45 +137,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: scanData, error: scanError } = await checkAndIncrementScanUsage(supabase, {
-      count: imagePaths.length,
-      requirePro: requiresPro,
+    const gate = await consumeScanGate(supabase, {
+      modes: scanModes,
+      imageCount: imagePaths.length,
+      scanJobId: jobId,
     });
 
-    if (scanError || !scanData) {
-      console.error('Scan limit check error:', scanError);
-      return NextResponse.json({ error: 'スキャン制限の確認に失敗しました' }, { status: 500 });
-    }
-
-    if (scanData.requires_pro) {
-      console.warn('[scan-jobs/create] Pro-required scan mode blocked', {
+    if (!gate.ok) {
+      console.warn('[scan-jobs/create] Scan gate blocked', {
         userId: user.id,
         scanModes,
+        status: gate.status,
       });
-      return NextResponse.json({ error: 'この機能はProプラン限定です。' }, { status: 403 });
+      if (gate.status === 500) {
+        // RPCコミット後に応答だけ失われた可能性に備えたベストエフォート返還（冪等・no_consumeなら無害）
+        await refundScanCoinsForJob(jobId, getSupabaseAdmin());
+      }
+      return NextResponse.json(gate.body, { status: gate.status });
     }
+    consumedJobId = jobId;
 
-    if (!scanData.allowed) {
-      console.warn('[scan-jobs/create] Scan limit reached', {
-        userId: user.id,
-        currentCount: scanData.current_count,
-        limit: scanData.limit,
-      });
-      return NextResponse.json(
-        {
-          error: `本日のスキャン上限（${scanData.limit ?? '∞'}回）に達しました。`,
-          limitReached: true,
-          scanInfo: {
-            currentCount: scanData.current_count,
-            limit: scanData.limit,
-            isPro: scanData.is_pro,
-          },
-        },
-        { status: 429 }
-      );
-    }
-
-    const isProUser = Boolean(scanData.is_pro);
+    const isProUser = Boolean(gate.scanInfo.isPro);
     const saveMode = resolveScanJobSaveMode({ clientPlatform, isProUser });
 
     let validatedTargetProjectId: string | null = null;
@@ -187,6 +174,7 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           targetProjectId,
         });
+        await refundScanCoinsForJob(jobId, getSupabaseAdmin());
         return NextResponse.json({ error: '指定した単語帳が見つかりません。' }, { status: 400 });
       }
       validatedTargetProjectId = project.id;
@@ -196,6 +184,7 @@ export async function POST(request: NextRequest) {
     const { data: job, error: insertError, usedLegacyColumns } = await insertScanJobWithCompat(
       getSupabaseAdmin(),
       {
+        id: jobId,
         user_id: user.id,
         project_title: projectTitle,
         project_icon_image: projectIcon ?? null,
@@ -212,12 +201,18 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Insert error:', insertError);
+      // ジョブ行を作れなかった場合、消費したコインを取り残さない
+      await refundScanCoinsForJob(jobId, getSupabaseAdmin());
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
     if (!job || !('id' in job) || !job.id) {
       console.error('Insert error: missing job id in response');
+      await refundScanCoinsForJob(jobId, getSupabaseAdmin());
       return NextResponse.json({ error: 'Failed to create scan job' }, { status: 500 });
     }
+
+    // ジョブ行が残った後の返還は processJobById（失敗2経路）とタイムアウト安全網が担う
+    consumedJobId = null;
 
     if (usedLegacyColumns) {
       console.warn('[scan-jobs/create] scan_jobs compatibility fallback used (save_mode/target_project_id missing)');
@@ -238,14 +233,20 @@ export async function POST(request: NextRequest) {
       jobId: String(job.id),
       saveMode,
       scanInfo: {
-        currentCount: scanData.current_count,
-        limit: scanData.limit,
-        isPro: scanData.is_pro,
+        currentCount: gate.scanInfo.currentCount,
+        limit: gate.scanInfo.limit,
+        isPro: gate.scanInfo.isPro,
       },
+      // フラグオフ時（null）はキー自体を出さず、従来のレスポンスと同一形状を保つ
+      ...(gate.coinInfo ? { coinInfo: gate.coinInfo } : {}),
     });
 
   } catch (error) {
     console.error('Scan job creation error:', error);
+    // 消費済みかつジョブ行が残っていない失敗はここで返還する（冪等）
+    if (consumedJobId) {
+      await refundScanCoinsForJob(consumedJobId, getSupabaseAdmin());
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

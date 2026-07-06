@@ -105,7 +105,9 @@ getRepository(subscriptionStatus, wasPro)
 
 | Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
-| Scanning | Not available (Pro-only, server-enforced) | Unlimited |
+| Scanning | Not available (Pro-only, server-enforced) | Coin-based: 300 coins/month (JST calendar month, no rollover) when `COIN_SYSTEM_ENABLED=true`; unlimited when the flag is off |
+| Coin costs | — | circled=2, all/eiken/idiom=3, composite=sum, +1 per extra image |
+| Coin packs | — | Web-only Stripe one-time checkout (card + PayPay): 100/¥150, 300/¥400, 1000/¥1,200. Purchased coins never expire |
 | Wordbooks (単語帳) | 50 (server-enforced) | Unlimited |
 | Words per wordbook | Unlimited | Unlimited |
 | Scan modes | — | all, circled, eiken, idiom |
@@ -113,6 +115,8 @@ getRepository(subscriptionStatus, wasPro)
 | Shared wordbook publishing | No (Pro-only) | Yes |
 | Data storage | Cloud (Supabase) + IndexedDB cache (login required) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | Yes (login required; capped at 50 wordbooks server-side) | Yes |
+
+Coin system core: `src/lib/coins/` (rates, scan gate, refund, packs, purchase providers) + `supabase/migrations/20260705120000_create_coin_system.sql`. Rates are duplicated in TS and SQL and pinned by `src/lib/coins/rates.test.ts` — change both together.
 
 ### Data Flow
 1. User uploads image -> `/api/extract` -> Gemini 2.5 Flash (or Cloud Run proxy)

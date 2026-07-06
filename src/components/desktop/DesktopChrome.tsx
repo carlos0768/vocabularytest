@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { type InputHTMLAttributes, type ReactNode, useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { useCoins } from '@/hooks/use-coins';
 import { getStreakDays } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +44,7 @@ export function DesktopSidebar({
 }) {
   const pathname = usePathname();
   const { user, isPro } = useAuth();
+  const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const [streak, setStreak] = useState(0);
   const active = activeKeyForPath(pathname);
   const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
@@ -95,6 +97,20 @@ export function DesktopSidebar({
       </nav>
 
       <div className="ds-side-foot">
+        {coinsEnabled && isPro && (
+          <Link href="/coins" className="ds-coins" title={collapsed ? `コイン ${coinBalance.totalRemaining}枚` : undefined}>
+            <Icon name="toll" className="ico" filled />
+            {!collapsed && (
+              <div>
+                <div className="n">
+                  {coinBalance.totalRemaining}
+                  <span> 枚</span>
+                </div>
+                <div className="l">今月分 {coinBalance.monthlyRemaining} / 購入 {coinBalance.purchasedRemaining}</div>
+              </div>
+            )}
+          </Link>
+        )}
         {!collapsed && (
           <div className="ds-streak">
             <Icon name="local_fire_department" style={{ color: '#f97316', fontSize: 22 }} />

@@ -73,15 +73,39 @@ All AI extraction responses are validated with Zod schemas before use. Malformed
 
 ### INV-09: Pro-only extraction modes
 
-Extraction modes `circled`, `highlighted`, `eiken`, `idiom`, and `wrong` require Pro subscription. This is enforced server-side in `src/app/api/extract/route.ts` via the `requiresPro` flag passed to `check_and_increment_scan` RPC.
+Every extraction mode (`all`, `circled`, `eiken`, `idiom`) requires a Pro subscription. This is enforced server-side in all scan routes via `consumeScanGate` (`src/lib/coins/scan-gate.ts`): with `COIN_SYSTEM_ENABLED` off it delegates to `check_and_increment_scan_batch` with `p_require_pro=true`; with it on, `consume_scan_coins` rejects non-Pro users before touching balances.
 
 **Consequence of violation**: Free users access Pro-only features.
 
-Source: `src/app/api/extract/route.ts` lines 155-157.
+Source: `src/lib/coins/scan-gate.ts`, `src/lib/scan/mode-provider.ts` (`requiresProForModes` always true).
+
+### INV-09a: Coin tables are written only through RPCs
+
+`user_coin_balances` and `coin_transactions` are never written by the `authenticated` role directly. All mutations go through the SECURITY DEFINER RPCs `consume_scan_coins` / `get_coin_balance` (authenticated) and `refund_scan_coins` / `credit_coin_pack` (service role). RLS grants SELECT-own only.
+
+**Consequence of violation**: Users could mint or duplicate coins.
+
+Source: `supabase/migrations/20260705120000_create_coin_system.sql`.
+
+### INV-09b: Coin month boundary is the JST calendar month
+
+The monthly 300-coin grant is keyed by `coin_month_key()` = `to_char(now() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM')` — never UTC. Monthly coins reset by assignment (no rollover); consumption spends monthly coins before purchased coins; purchased coins never expire.
+
+**Consequence of violation**: The month rolls 9 hours late for Japanese users (repeat of the gateway budget-guard UTC incident), or rollover silently changes unit economics.
+
+Source: `supabase/migrations/20260705120000_create_coin_system.sql` (`coin_month_key`), pinned by `src/lib/coins/rates.test.ts`.
+
+### INV-09c: At most one coin consume and one refund per scan job
+
+`coin_transactions` has partial unique indexes on `scan_job_id` for `scan_consume` and `scan_refund`, and on `(provider, external_ref)` for `pack_purchase`. Refunds are issued only for total scan-job failure (zero words / processing error); partial failures do not refund.
+
+**Consequence of violation**: Double-charging or double-refunding coins, or double-crediting purchases on webhook replay.
+
+Source: `supabase/migrations/20260705120000_create_coin_system.sql`, `src/lib/coins/refund.ts`.
 
 ### INV-10: Protected routes redirect to login
 
-Middleware at `src/lib/supabase/middleware.ts` redirects unauthenticated users to `/login` for these paths: `/project`, `/quiz`, `/quiz2`, `/scan`, `/settings`, `/subscription`, `/share`, `/flashcard`, `/sentence-quiz`, `/favorites`, `/grammar`, `/stats`.
+Middleware at `src/lib/supabase/middleware.ts` redirects unauthenticated users to `/login` for these paths: `/project`, `/quiz`, `/quiz2`, `/scan`, `/settings`, `/subscription`, `/coins`, `/share`, `/flashcard`, `/sentence-quiz`, `/favorites`, `/grammar`, `/stats`.
 
 **Consequence of violation**: Unauthenticated access to user data.
 

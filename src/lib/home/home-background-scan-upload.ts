@@ -1,4 +1,5 @@
 import type { ExtractMode } from '@/lib/scan/mode-provider';
+import { InsufficientCoinsError } from '@/lib/coins/errors';
 import {
   type HomeBackgroundScanEikenLevel,
   buildHomeBackgroundScanJobCreatePayload,
@@ -104,10 +105,17 @@ export async function createHomeBackgroundScanJob(params: {
     const body = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const error = typeof body === 'object' && body !== null && 'error' in body
-        ? (body as { error?: unknown }).error
-        : undefined;
-      throw new Error(typeof error === 'string' ? error : 'スキャンの送信に失敗しました');
+      const record = typeof body === 'object' && body !== null
+        ? (body as Record<string, unknown>)
+        : {};
+      const error = record.error;
+      const message = typeof error === 'string' ? error : 'スキャンの送信に失敗しました';
+      // コイン不足(429)は型付きエラーで投げ、呼び出し側で専用モーダルを出せるようにする
+      if (record.insufficientCoins === true) {
+        const coinInfo = record.coinInfo as InsufficientCoinsError['coinInfo'];
+        throw new InsufficientCoinsError(message, coinInfo ?? null);
+      }
+      throw new Error(message);
     }
 
     const jobId = typeof body === 'object' && body !== null && 'jobId' in body

@@ -22,6 +22,10 @@ import {
 } from '@/lib/scan/scan-session-storage';
 import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
 import { createBrowserClient } from '@/lib/supabase';
+import { useCoins, refreshCoins } from '@/hooks/use-coins';
+import { deriveScanCoinState } from '@/lib/coins/scan-cost';
+import { InsufficientCoinsError, type InsufficientCoinsInfo } from '@/lib/coins/errors';
+import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModal';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
 const STRIPE_BG = 'repeating-linear-gradient(135deg, #ecebe6, #ecebe6 10px, #e3e1da 10px, #e3e1da 20px)';
@@ -82,6 +86,7 @@ export function DesktopScanView({
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const [dragging, setDragging] = useState(false);
   const [selectedDest, setSelectedDest] = useState('new');
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
@@ -89,6 +94,8 @@ export function DesktopScanView({
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [insufficientCoinInfo, setInsufficientCoinInfo] = useState<InsufficientCoinsInfo | null>(null);
+  const [insufficientModalOpen, setInsufficientModalOpen] = useState(false);
   const hasFixedDestination = Boolean(targetProjectId);
   const projectOptions = useMemo(() => projects.slice(0, 8), [projects]);
   const destination = selectedDest === 'new' || projectOptions.some((project) => project.id === selectedDest)
@@ -104,6 +111,16 @@ export function DesktopScanView({
     : null;
   const scanModes = selectedOptions;
   const eikenLevel = scanModes.includes('eiken') ? '3' : null;
+
+  // コイン制オン時のコスト見積り（モバイルと同一の純粋関数）。
+  // デスクトップは事前に枚数が分からないため1枚基準で表示する。
+  const coinState = deriveScanCoinState({
+    enabled: coinsEnabled,
+    isPro,
+    modes: scanModes,
+    imageCount: 1,
+    totalRemaining: coinBalance.totalRemaining,
+  });
 
   const toggleOption = (key: ScanOptionKey) => {
     setSelectedOptions([key]);
@@ -163,7 +180,18 @@ export function DesktopScanView({
       });
 
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({})) as { error?: string };
+        const errBody = await res.json().catch(() => ({})) as {
+          error?: string;
+          insufficientCoins?: boolean;
+          coinInfo?: InsufficientCoinsInfo;
+        };
+        // コイン不足(429)は専用モーダルで案内する
+        if (errBody.insufficientCoins) {
+          throw new InsufficientCoinsError(
+            errBody.error ?? 'コインが不足しています',
+            errBody.coinInfo ?? null,
+          );
+        }
         throw new Error(errBody.error ?? 'スキャンの送信に失敗しました');
       }
 
@@ -240,6 +268,33 @@ export function DesktopScanView({
       return;
     }
 
+    // 実際の枚数でコスト再判定（ドロップゾーン表示は1枚基準の見積り）。
+    // 残高不足ならアップロード前にモーダルで止める（サーバー側ゲートでも弾かれる）。
+    if (isPro) {
+      const actual = deriveScanCoinState({
+        enabled: coinsEnabled,
+        isPro,
+        modes: scanModes,
+        imageCount: files.length,
+        totalRemaining: coinBalance.totalRemaining,
+      });
+      if (actual.insufficient) {
+        setInsufficientCoinInfo(
+          actual.cost !== null
+            ? {
+                cost: actual.cost,
+                monthlyRemaining: coinBalance.monthlyRemaining,
+                purchasedRemaining: coinBalance.purchasedRemaining,
+                totalRemaining: coinBalance.totalRemaining,
+                monthlyAllowance: 300,
+              }
+            : null,
+        );
+        setInsufficientModalOpen(true);
+        return;
+      }
+    }
+
     setProcessing(true);
     setProcessingLabel(files.length > 1 ? `画像 1/${files.length} を準備中...` : '画像を準備中...');
     setErrorMsg(null);
@@ -255,6 +310,7 @@ export function DesktopScanView({
             linkedJobId: scanJob.jobId,
           });
         }
+        void refreshCoins();
         setProcessingLabel('ホームへ移動中...');
         router.push('/');
         return;
@@ -264,7 +320,13 @@ export function DesktopScanView({
       setProcessingLabel('結果を表示中...');
       router.replace('/scan/confirm');
     } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : '処理に失敗しました');
+      if (error instanceof InsufficientCoinsError) {
+        setInsufficientCoinInfo(error.coinInfo);
+        setInsufficientModalOpen(true);
+        void refreshCoins();
+      } else {
+        setErrorMsg(error instanceof Error ? error.message : '処理に失敗しました');
+      }
       setProcessing(false);
       setProcessingLabel(null);
     }
@@ -427,6 +489,35 @@ export function DesktopScanView({
                 <Icon name="content_paste" />クリップボードから
               </button>
             </div>
+            {coinState.showCost && (
+              <div
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  fontSize: 12.5, fontWeight: 700, marginTop: 2,
+                  color: coinState.insufficient ? 'var(--color-error)' : 'var(--solid-ink)',
+                }}
+              >
+                <Icon name="toll" style={{ fontSize: 16, color: 'var(--color-accent)' }} />
+                消費 {coinState.cost}枚
+                <span className="muted" style={{ fontWeight: 600 }}>·</span>
+                {coinState.insufficient ? (
+                  <>
+                    <span>コインが不足しています</span>
+                    <button
+                      type="button"
+                      className="ds-btn"
+                      style={{ padding: '2px 10px', fontSize: 11.5 }}
+                      onClick={(event) => { event.stopPropagation(); router.push('/coins'); }}
+                    >
+                      コインを購入
+                    </button>
+                  </>
+                ) : (
+                  <span className="muted" style={{ fontWeight: 600 }}>残り {coinBalance.totalRemaining}枚</span>
+                )}
+              </div>
+            )}
             <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>
               {processing ? (processingLabel ?? '処理中...') : 'JPG · PNG · HEIC — 最大 10MB · 複数枚対応'}
             </div>
@@ -540,6 +631,12 @@ export function DesktopScanView({
           </div>
         )}
       </div>
+
+      <InsufficientCoinsModal
+        isOpen={insufficientModalOpen}
+        onClose={() => setInsufficientModalOpen(false)}
+        coinInfo={insufficientCoinInfo}
+      />
     </div>
   );
 }

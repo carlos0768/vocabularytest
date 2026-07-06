@@ -7,6 +7,7 @@ import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome
 import { StudyReminderSettings } from '@/components/settings/StudyReminderSettings';
 import { ExampleGenreSettings } from '@/components/settings/ExampleGenreSettings';
 import { isBillingEnabled } from '@/lib/billing/feature';
+import { useCoins } from '@/hooks/use-coins';
 
 export function DesktopSettingsView({
   email,
@@ -180,6 +181,7 @@ export function DesktopSubscriptionView({
   userSignedIn: boolean;
   onSubscribe: () => void;
 }) {
+  const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const features: Array<[string, string | boolean, string | boolean]> = [
     ['AIスキャン', false, '無制限'],
     ['共有単語帳のインポート', true, true],
@@ -223,6 +225,25 @@ export function DesktopSubscriptionView({
               </button>
             </div>
           </div>
+
+          {coinsEnabled && isPro && (
+            <div className="ds-card" style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--color-accent-light)', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="toll" filled style={{ fontSize: 22, color: 'var(--color-accent-ink)' }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>
+                    コイン残り {coinBalance.totalRemaining}枚
+                  </div>
+                  <div className="muted" style={{ fontSize: 12.5 }}>
+                    今月分 {coinBalance.monthlyRemaining} / 購入分 {coinBalance.purchasedRemaining}（毎月300枚付与・繰り越しなし）
+                  </div>
+                </div>
+              </div>
+              <DesktopButton href="/coins" variant="dark" icon="toll">コインを購入</DesktopButton>
+            </div>
+          )}
 
           <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
             <table className="ds-table">
