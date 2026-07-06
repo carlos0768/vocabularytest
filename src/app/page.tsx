@@ -25,6 +25,7 @@ import {
   type ProjectWithStats,
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import {
   calculateHomeCompletionPercent,
@@ -148,6 +149,7 @@ type HomeStats = {
   activeW: number;
   review: number;
   newW: number;
+  favoriteCount: number;
 };
 
 type HomeProjectStats = ProjectWithStats & {
@@ -218,6 +220,7 @@ function buildHomeStats(allWords: Word[]): HomeStats {
     activeW: statusCounts.activeTotal,
     review: statusCounts.learningTotal,
     newW: statusCounts.unlearnedTotal,
+    favoriteCount: allWords.filter((word) => word.isFavorite).length,
   };
 }
 
@@ -305,6 +308,7 @@ const EMPTY_STATS: HomeStats = {
   activeW: 0,
   review: 0,
   newW: 0,
+  favoriteCount: 0,
 };
 
 export default function HomePage() {
@@ -493,7 +497,7 @@ export default function HomePage() {
     }
   }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
-  const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW } = stats;
+  const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW, favoriteCount } = stats;
   const unmasteredCount = newW + review;
   const goalTotal = dueCount + completedToday;
   const goalProgress = goalTotal > 0 ? Math.round((completedToday / goalTotal) * 100) : 0;
@@ -503,7 +507,10 @@ export default function HomePage() {
     : 0;
   const goalState: 'review' | 'learn' | 'empty' =
     dueCount > 0 ? 'review' : totalWords === 0 ? 'empty' : 'learn';
-  const visibleProjects = projects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
+  // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
+  // out of the browsable マイ単語帳 list (its words still count in `stats`).
+  const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
+  const visibleProjects = listProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
   const displayedPendingScans = useMemo<HomePendingScan[]>(() => {
     if (!pendingGeneratingWordbook) return pendingScans;
     if (
@@ -534,7 +541,7 @@ export default function HomePage() {
   return (
     <>
       <DesktopHomeView
-        projects={projects}
+        projects={listProjects}
         stats={stats}
         loading={loading}
         error={error}
@@ -659,6 +666,33 @@ export default function HomePage() {
             </div>
           </div>
         </SolidPanel>
+      </div>
+
+      <div className="px-[18px] pb-3.5">
+        <Link href="/favorites" className="block">
+          <SolidPanel className="!rounded-2xl" faceClassName="!p-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+                <Icon name="bookmark" size={17} filled />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                  SAVED WORDS
+                </div>
+                <div className="text-sm font-bold text-[var(--solid-ink)]">保存済み単語</div>
+              </div>
+              <div className="flex items-baseline gap-0.5">
+                <span className="font-display text-lg font-extrabold tabular-nums text-[var(--solid-ink)]">
+                  {favoriteCount}
+                </span>
+                <span className="text-[11px] font-bold text-[var(--color-muted)]">語</span>
+              </div>
+              <span className="inline-flex text-[var(--color-accent)]">
+                <Icon name="chevron_right" size={14} />
+              </span>
+            </div>
+          </SolidPanel>
+        </Link>
       </div>
 
       <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">

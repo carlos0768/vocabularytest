@@ -17,6 +17,7 @@ type ReelFeedProps = {
   showAds?: boolean;
   onLoadMore: () => void;
   onLike: (item: ReelItem) => void;
+  onSave: (item: ReelItem) => void;
   onImport: (book: ReelBook) => void;
   onShare: (item: ReelItem) => void;
   onFeedback: (item: ReelItem, feedback: ReelFeedback) => void;
@@ -40,6 +41,7 @@ export function ReelFeed({
   showAds = false,
   onLoadMore,
   onLike,
+  onSave,
   onImport,
   onShare,
   onFeedback,
@@ -110,6 +112,7 @@ export function ReelFeed({
                 active={index === activeIndex}
                 importing={importingBookId === entry.item.book.id}
                 onLike={() => onLike(entry.item)}
+                onSave={() => onSave(entry.item)}
                 onImport={() => onImport(entry.item.book)}
                 onShare={() => onShare(entry.item)}
                 onFeedback={(feedback) => onFeedback(entry.item, feedback)}

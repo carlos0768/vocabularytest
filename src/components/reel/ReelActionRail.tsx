@@ -7,6 +7,7 @@ import type { ReelItem } from '@/lib/reels/types';
 type ReelActionRailProps = {
   item: ReelItem;
   onLike: () => void;
+  onSave: () => void;
   onSpeak: () => void;
   onComment: () => void;
   onShare: () => void;
@@ -18,6 +19,7 @@ function RailButton({
   filled,
   label,
   active,
+  activeVariant = 'like',
   onClick,
   ariaLabel,
 }: {
@@ -25,6 +27,7 @@ function RailButton({
   filled?: boolean;
   label?: string;
   active?: boolean;
+  activeVariant?: 'like' | 'save';
   onClick: () => void;
   ariaLabel: string;
 }) {
@@ -41,14 +44,20 @@ function RailButton({
       <span
         className={cn(
           'flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] transition-transform duration-100 active:scale-90',
-          active && 'bg-[var(--color-error-light)]',
+          active && (activeVariant === 'save' ? 'bg-[var(--color-accent-light)]' : 'bg-[var(--color-error-light)]'),
         )}
       >
         <Icon
           name={icon}
           filled={filled}
           size={24}
-          className={active ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]'}
+          className={
+            active
+              ? activeVariant === 'save'
+                ? 'text-[var(--color-accent)]'
+                : 'text-[var(--color-error)]'
+              : 'text-[var(--color-foreground)]'
+          }
         />
       </span>
       {label !== undefined && (
@@ -59,7 +68,7 @@ function RailButton({
 }
 
 /** SNS-style vertical action rail on the right edge of a reel card. */
-export function ReelActionRail({ item, onLike, onSpeak, onComment, onShare, onMore }: ReelActionRailProps) {
+export function ReelActionRail({ item, onLike, onSave, onSpeak, onComment, onShare, onMore }: ReelActionRailProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <RailButton
@@ -69,6 +78,15 @@ export function ReelActionRail({ item, onLike, onSpeak, onComment, onShare, onMo
         label={String(item.likeCount)}
         onClick={onLike}
         ariaLabel={item.likedByMe ? 'いいねを取り消す' : 'いいねする'}
+      />
+      <RailButton
+        icon="bookmark"
+        filled={item.savedByMe}
+        active={item.savedByMe}
+        activeVariant="save"
+        label="保存"
+        onClick={onSave}
+        ariaLabel={item.savedByMe ? '保存済みに追加済み' : 'この単語を保存済みに追加'}
       />
       <RailButton
         icon="chat_bubble"

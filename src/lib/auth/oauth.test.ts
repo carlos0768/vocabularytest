@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildOAuthCallbackUrl,
+  buildOAuthOnboardingCookie,
   buildOAuthRedirectCookie,
+  readOAuthOnboardingCookie,
   getEnabledOAuthProviders,
   getOAuthProviderLabel,
   isAuthOAuthProvider,
@@ -35,6 +37,30 @@ test('OAuth redirect cookie stores only normalized app-relative paths', () => {
 
 test('OAuth redirect cookie rejects external paths when read', () => {
   assert.equal(readOAuthRedirectCookie('merken_oauth_next=https%3A%2F%2Fevil.example; Path=/'), '/');
+});
+
+test('OAuth onboarding cookie stores validated signup profile fields', () => {
+  const cookie = buildOAuthOnboardingCookie({
+    display_name: ' 山田太郎 ',
+    user_handle: 'kenta_123',
+    eiken_level: '1',
+  }, false);
+
+  assert.deepEqual(readOAuthOnboardingCookie(cookie), {
+    display_name: '山田太郎',
+    user_handle: 'kenta_123',
+    eiken_level: '1',
+  });
+});
+
+test('OAuth onboarding cookie ignores invalid profile fields', () => {
+  const raw = encodeURIComponent(JSON.stringify({
+    display_name: '',
+    user_handle: 'UPPER',
+    eiken_level: 'unknown',
+  }));
+
+  assert.equal(readOAuthOnboardingCookie(`merken_oauth_onboarding=${raw}; Path=/`), null);
 });
 
 test('isAuthOAuthProvider accepts only supported launch providers', () => {

@@ -13,10 +13,13 @@ import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-o
 import { getCachedSupabaseSessionSnapshot, isCachedSupabaseSessionValid } from '@/lib/supabase/session-cache';
 import {
   buildOAuthCallbackUrl,
+  buildExpiredOAuthOnboardingCookie,
   buildOAuthRedirectCookie,
+  buildOAuthOnboardingCookie,
   getOAuthProviderLabel,
   type AuthOAuthProvider,
 } from '@/lib/auth/oauth';
+import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 
 interface AuthState {
   user: User | null;
@@ -401,14 +404,16 @@ export function useAuth() {
         markAuthenticated();
         logDailyActivity(result.user.id);
         
-        // Trigger initial sync for Pro users (background, non-blocking)
-        if (isActiveProSubscription(result.subscription)) {
+        // Trigger initial sync for cloud-synced users (active Pro OR Free),
+        // background, non-blocking. Former-Pro (read-only) users are excluded —
+        // they use ReadonlyRemoteRepository and must not run the hybrid sync.
+        if (!wasProUser(result.subscription)) {
           const syncedUserId = hybridRepository.getSyncedUserId();
           const lastSync = hybridRepository.getLastSync();
           const needsFullSync = shouldRunFullSync(lastSync, syncedUserId, result.user.id);
           
           if (needsFullSync) {
-            console.log('[Auth] Pro user detected, triggering initial sync');
+            console.log('[Auth] Cloud-synced user detected, triggering initial sync');
             hybridRepository.fullSync(result.user.id).catch((error) => {
               console.error('[Auth] Initial sync failed:', error);
             });
@@ -495,7 +500,11 @@ export function useAuth() {
     return { success: true, data };
   }, [getSupabase, loadUser]);
 
-  const signInWithOAuth = useCallback(async (provider: AuthOAuthProvider, redirectPath = '/') => {
+  const signInWithOAuth = useCallback(async (
+    provider: AuthOAuthProvider,
+    redirectPath = '/',
+    onboardingFields?: SignupProfileFields | null,
+  ) => {
     const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase not initialized' };
@@ -505,7 +514,11 @@ export function useAuth() {
     }
 
     notifyListeners({ ...globalAuthState, loading: true, error: null });
-    document.cookie = buildOAuthRedirectCookie(redirectPath, window.location.protocol === 'https:');
+    const secureCookie = window.location.protocol === 'https:';
+    document.cookie = buildOAuthRedirectCookie(redirectPath, secureCookie);
+    document.cookie = onboardingFields
+      ? buildOAuthOnboardingCookie(onboardingFields, secureCookie)
+      : buildExpiredOAuthOnboardingCookie();
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,

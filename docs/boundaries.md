@@ -210,7 +210,7 @@ When you change X, you must also check Y.
 
 1. **RLS on newer tables**: Tables added after migration 001 (e.g., `scan_jobs`, `webhook_events`, `subscription_sessions`, `word_embeddings`, `web_push_subscriptions`, `ios_device_tokens`, `collections`, `api_cost_events`, `feature_usage_daily`) -- RLS status is not confirmed for all. Migration `20260209000500_explicit_rls_for_internal_tables.sql` exists and likely addresses some, but a full audit is needed.
 
-2. **Free user word limit (100 words)**: Enforced client-side only at `src/app/scan/confirm/page.tsx`. No server-side enforcement exists at the word creation level. A user calling the API directly could bypass this limit.
+2. **Free user limit (50 wordbooks)**: The Free plan is limited by wordbook (project) count = 50 (`FREE_WORDBOOK_LIMIT`), not word count. Enforced server-side by the `enforce_free_project_limit` DB trigger (migration `20260706100000`), so direct PostgREST calls cannot bypass it; the client also pre-checks in `CreateWordbookSheet`. The former 100-word client-only cap has been removed.
 
 3. **`wasPro` inconsistency**: `use-projects.ts` correctly passes `wasPro` to `getRepository()`, but `scan/confirm/page.tsx` may not pass it in all code paths. This could cause downgraded Pro users to get `localRepository` instead of `readonlyRemoteRepository` during certain operations.
 

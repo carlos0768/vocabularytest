@@ -68,9 +68,8 @@ class FakeOfficialWordbookClient {
 
   constructor(
     private readonly fixtures: {
-      officialProjects?: Array<Record<string, unknown>>;
-      wordsByProjectId?: Record<string, Array<Record<string, unknown>>>;
-      translationsByWordId?: Record<string, Array<Record<string, unknown>>>;
+      officialWordbooks?: Array<Record<string, unknown>>;
+      wordsByWordbookId?: Record<string, Array<Record<string, unknown>>>;
     } = {},
   ) {}
 
@@ -104,9 +103,9 @@ class FakeOfficialWordbookClient {
   }
 
   async resolveSingle<T>(operation: QueryOperation): Promise<{ data: T | null; error: null }> {
-    if (operation.table === 'projects' && operation.action === 'insert') {
+    if (operation.table === 'official_wordbooks' && operation.action === 'insert') {
       const projectIndex = this.operations
-        .filter((item) => item.table === 'projects' && item.action === 'insert')
+        .filter((item) => item.table === 'official_wordbooks' && item.action === 'insert')
         .indexOf(operation) + 1;
       return {
         data: { id: `project-${projectIndex}` } as T,
@@ -117,30 +116,22 @@ class FakeOfficialWordbookClient {
   }
 
   async resolveQuery(operation: QueryOperation): Promise<{ data: unknown; error: null }> {
-    if (operation.table === 'projects' && operation.action === 'select') {
+    if (operation.table === 'official_wordbooks' && operation.action === 'select') {
       return {
-        data: this.fixtures.officialProjects ?? [],
+        data: this.fixtures.officialWordbooks ?? [],
         error: null,
       };
     }
 
-    if (operation.table === 'words' && operation.action === 'select') {
-      const projectId = operation.filters.find((filter) => filter.field === 'project_id')?.value;
+    if (operation.table === 'official_wordbook_words' && operation.action === 'select') {
+      const projectId = operation.filters.find((filter) => filter.field === 'official_wordbook_id')?.value;
       return {
-        data: typeof projectId === 'string' ? this.fixtures.wordsByProjectId?.[projectId] ?? [] : [],
+        data: typeof projectId === 'string' ? this.fixtures.wordsByWordbookId?.[projectId] ?? [] : [],
         error: null,
       };
     }
 
-    if (operation.table === 'word_translations' && operation.action === 'select') {
-      const wordIds = operation.filters.find((filter) => filter.field === 'word_id')?.value;
-      const rows = Array.isArray(wordIds)
-        ? wordIds.flatMap((wordId) => this.fixtures.translationsByWordId?.[String(wordId)] ?? [])
-        : [];
-      return { data: rows, error: null };
-    }
-
-    if (operation.table === 'words' && operation.action === 'insert') {
+    if (operation.table === 'official_wordbook_words' && operation.action === 'insert') {
       const rows = Array.isArray(operation.payload) ? operation.payload : [];
       return {
         data: rows.map((_, index) => ({ id: `word-${index + 1}` })),
@@ -148,11 +139,7 @@ class FakeOfficialWordbookClient {
       };
     }
 
-    if (operation.table === 'word_translations' && operation.action === 'upsert') {
-      return { data: null, error: null };
-    }
-
-    if (operation.table === 'projects' && operation.action === 'delete') {
+    if (operation.table === 'official_wordbooks' && operation.action === 'delete') {
       return { data: null, error: null };
     }
 
@@ -179,37 +166,46 @@ test('default official wordbook local payload skips null eiken levels', async ()
   assert.equal(client.operations.length, 0);
 });
 
-test('default official wordbook local payload returns null when the level has no official projects', async () => {
-  const client = new FakeOfficialWordbookClient({ officialProjects: [] });
+test('default official wordbook local payload returns null when the level has no official wordbooks', async () => {
+  const client = new FakeOfficialWordbookClient({ officialWordbooks: [] });
 
   const result = await fetchDefaultOfficialWordbooksForLocalImport(client as never, '3');
 
   assert.equal(result, null);
 
-  const projectSelect = findOperation(client, 'projects', 'select');
+  const projectSelect = findOperation(client, 'official_wordbooks', 'select');
   assert.deepEqual(projectSelect.filters, [
-    { field: 'official_eiken_level', value: '3' },
-    { field: 'official_is_active', value: true },
+    { field: 'eiken_level', value: '3' },
+    { field: 'is_active', value: true },
   ]);
 });
 
-test('default official wordbook local payload reads a normal project without creating remote user rows', async () => {
+test('default official wordbook local payload reads dedicated official tables without creating remote user rows', async () => {
   const client = new FakeOfficialWordbookClient({
-    officialProjects: [
+    officialWordbooks: [
       {
-        id: 'official-project-pre2',
-        title: 'Source Project Title',
-        official_title: '英検準2級 公式単語帳',
+        id: 'official-wordbook-pre2',
+        title: '英検準2級 公式単語帳',
+        slug: 'merken-eiken-pre2-1',
         icon_image: 'icon.png',
-        official_is_default: true,
+        source_labels: ['official', 'eiken:pre2'],
+        is_default: true,
       },
     ],
-    wordsByProjectId: {
-      'official-project-pre2': [
+    wordsByWordbookId: {
+      'official-wordbook-pre2': [
         {
           id: 'source-word-1',
           english: 'improve',
           japanese: '改善する',
+          translations: [{
+            translationJa: '改善する',
+            normalizedTranslationJa: '改善する',
+            source: 'user',
+            meaningRank: 1,
+            position: 0,
+            isPrimary: true,
+          }],
           distractors: ['悪化する', '維持する'],
           vocabulary_type: 'active',
           japanese_source: 'scan',
@@ -218,24 +214,13 @@ test('default official wordbook local payload reads a normal project without cre
         },
       ],
     },
-    translationsByWordId: {
-      'source-word-1': [
-        {
-          word_id: 'source-word-1',
-          translation_ja: '改善する',
-          normalized_translation_ja: '改善する',
-          source: 'user',
-          meaning_rank: 1,
-          position: 0,
-        },
-      ],
-    },
   });
 
   const result = await fetchDefaultOfficialWordbooksForLocalImport(client as never, 'pre2');
 
   assert.deepEqual(result, [{
-    officialWordbookId: 'official-project-pre2',
+    officialWordbookId: 'official-wordbook-pre2',
+    officialSlug: 'merken-eiken-pre2-1',
     title: '英検準2級 公式単語帳',
     sourceLabels: ['official', 'eiken:pre2'],
     iconImage: 'icon.png',
@@ -259,43 +244,56 @@ test('default official wordbook local payload reads a normal project without cre
     }],
   }]);
 
-  const sourceWordsSelect = findOperation(client, 'words', 'select');
+  const projectSelect = findOperation(client, 'official_wordbooks', 'select');
+  assert.match(projectSelect.columns ?? '', /slug/);
+
+  const sourceWordsSelect = findOperation(client, 'official_wordbook_words', 'select');
   assert.deepEqual(sourceWordsSelect.filters, [
-    { field: 'project_id', value: 'official-project-pre2' },
+    { field: 'official_wordbook_id', value: 'official-wordbook-pre2' },
   ]);
 
-  assert.equal(findOperations(client, 'projects', 'insert').length, 0);
-  assert.equal(findOperations(client, 'words', 'insert').length, 0);
+  assert.equal(findOperations(client, 'official_wordbooks', 'insert').length, 0);
+  assert.equal(findOperations(client, 'official_wordbook_words', 'insert').length, 0);
   assert.equal(findOperations(client, 'word_translations', 'upsert').length, 0);
 });
 
-test('default official wordbook local payload includes every active default project for a level', async () => {
+test('default official wordbook local payload includes every active default wordbook for a level', async () => {
   const client = new FakeOfficialWordbookClient({
-    officialProjects: [
+    officialWordbooks: [
       {
         id: 'official-pre1-1',
-        title: 'ターゲット section16',
-        official_title: '英検準一級単語集1',
-        official_is_default: true,
+        title: '英検準一級単語集1',
+        slug: 'merken-eiken-pre1-1',
+        source_labels: ['official', 'eiken:pre1'],
+        is_default: true,
       },
       {
         id: 'official-pre1-2',
-        title: 'ターゲット section17',
-        official_title: '英検準一級単語集2',
-        official_is_default: true,
+        title: '英検準一級単語集2',
+        slug: 'merken-eiken-pre1-2',
+        source_labels: ['official', 'eiken:pre1'],
+        is_default: true,
       },
       {
         id: 'official-pre1-extra',
         title: '英検準一級 補助単語集',
-        official_is_default: false,
+        slug: 'merken-eiken-pre1-extra',
+        is_default: false,
       },
     ],
-    wordsByProjectId: {
+    wordsByWordbookId: {
       'official-pre1-1': [
         {
           id: 'source-word-1',
           english: 'notion',
           japanese: '概念',
+          translations: [{
+            translationJa: '概念',
+            normalizedTranslationJa: '概念',
+            meaningRank: 1,
+            position: 0,
+            isPrimary: true,
+          }],
         },
       ],
       'official-pre1-2': [
@@ -303,6 +301,13 @@ test('default official wordbook local payload includes every active default proj
           id: 'source-word-2',
           english: 'obscure',
           japanese: '曖昧な',
+          translations: [{
+            translationJa: '曖昧な',
+            normalizedTranslationJa: '曖昧な',
+            meaningRank: 1,
+            position: 0,
+            isPrimary: true,
+          }],
         },
       ],
     },
@@ -313,6 +318,7 @@ test('default official wordbook local payload includes every active default proj
   assert.deepEqual(result, [
     {
       officialWordbookId: 'official-pre1-1',
+      officialSlug: 'merken-eiken-pre1-1',
       title: '英検準一級単語集1',
       sourceLabels: ['official', 'eiken:pre1'],
       words: [{
@@ -332,6 +338,7 @@ test('default official wordbook local payload includes every active default proj
     },
     {
       officialWordbookId: 'official-pre1-2',
+      officialSlug: 'merken-eiken-pre1-2',
       title: '英検準一級単語集2',
       sourceLabels: ['official', 'eiken:pre1'],
       words: [{
@@ -351,12 +358,12 @@ test('default official wordbook local payload includes every active default proj
     },
   ]);
 
-  const sourceWordSelects = findOperations(client, 'words', 'select');
+  const sourceWordSelects = findOperations(client, 'official_wordbook_words', 'select');
   assert.deepEqual(sourceWordSelects.map((operation) =>
-    operation.filters.find((filter) => filter.field === 'project_id')?.value
+    operation.filters.find((filter) => filter.field === 'official_wordbook_id')?.value
   ), [
     'official-pre1-1',
     'official-pre1-2',
   ]);
-  assert.equal(findOperations(client, 'projects', 'insert').length, 0);
+  assert.equal(findOperations(client, 'official_wordbooks', 'insert').length, 0);
 });

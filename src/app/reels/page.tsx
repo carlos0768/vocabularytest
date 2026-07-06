@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks';
 import { useReelFeed } from '@/hooks/use-reel-feed';
@@ -10,6 +10,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
+import { REEL_SAVED_PROJECT_TITLE } from '@/lib/reels/saved-words';
 import { generateWordShareImage } from '@/lib/reels/share-image';
 import type { VocabularyType } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
@@ -48,9 +49,11 @@ export default function ReelsPage() {
     retry,
     likeItem,
     markBookImported,
+    markWordSaved,
     bumpCommentCount,
   } = useReelFeed();
   const [importingBookId, setImportingBookId] = useState<string | null>(null);
+  const savingWordIdsRef = useRef<Set<string>>(new Set());
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -137,6 +140,72 @@ export default function ReelsPage() {
       }
     },
     [user, wasPro, importingBookId, repository, router, showToast, markBookImported],
+  );
+
+  const handleSaveWord = useCallback(
+    async (item: ReelItem) => {
+      if (!user) {
+        router.push('/login?redirect=/reels');
+        return;
+      }
+      // Downgraded (ex-Pro) accounts get the read-only remote repository, so
+      // writes would fail — guide them back to Pro instead.
+      if (wasPro) {
+        showToast({ message: '解約後は読み取り専用のため、保存にはProプランへの再登録が必要です。', type: 'warning' });
+        router.push('/subscription');
+        return;
+      }
+      if (item.savedByMe || savingWordIdsRef.current.has(item.id)) return;
+
+      savingWordIdsRef.current.add(item.id);
+      try {
+        const projects = await repository.getProjects(user.id);
+        const savedProject =
+          projects.find((project) => project.title === REEL_SAVED_PROJECT_TITLE)
+          ?? (await repository.createProject({
+            userId: user.id,
+            title: REEL_SAVED_PROJECT_TITLE,
+          }));
+
+        const existingWords = await repository.getWords(savedProject.id);
+        const existing = existingWords.find(
+          (word) => word.english.toLowerCase() === item.english.toLowerCase(),
+        );
+        if (existing) {
+          if (!existing.isFavorite) {
+            await repository.updateWord(existing.id, { isFavorite: true });
+          }
+        } else {
+          const [created] = await repository.createWords([
+            {
+              projectId: savedProject.id,
+              english: item.english,
+              japanese: item.japanese,
+              translations: item.translations,
+              distractors: [],
+              pronunciation: item.pronunciation ?? undefined,
+              exampleSentence: item.exampleSentence ?? undefined,
+              exampleSentenceJa: item.exampleSentenceJa ?? undefined,
+              partOfSpeechTags: item.partOfSpeechTags.length > 0 ? item.partOfSpeechTags : undefined,
+            },
+          ]);
+          // createWords always starts words unfavorited; flip it so the word
+          // shows up in 保存済み (/favorites) right away.
+          await repository.updateWord(created.id, { isFavorite: true });
+        }
+
+        invalidateHomeCache();
+        markWordSaved(item.id);
+        triggerHaptic();
+        showToast({ message: `「${item.english}」を保存済みに追加しました`, type: 'success' });
+      } catch (error) {
+        console.error('Failed to save reel word:', error);
+        showToast({ message: '保存に失敗しました', type: 'error' });
+      } finally {
+        savingWordIdsRef.current.delete(item.id);
+      }
+    },
+    [user, wasPro, repository, router, showToast, markWordSaved],
   );
 
   const handleShare = useCallback(
@@ -257,6 +326,7 @@ export default function ReelsPage() {
               importingBookId={null}
               onLoadMore={() => {}}
               onLike={() => {}}
+              onSave={() => {}}
               onImport={() => {}}
               onShare={() => {}}
               onFeedback={() => {}}
@@ -277,6 +347,7 @@ export default function ReelsPage() {
                 triggerHaptic();
                 void likeItem(item);
               }}
+              onSave={(item) => void handleSaveWord(item)}
               onImport={(book) => void handleImport(book)}
               onShare={(item) => void handleShare(item)}
               onFeedback={(item, feedback) => void handleFeedback(item, feedback)}

@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCollections } from '@/hooks/use-collections';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { localRepository } from '@/lib/db/local-repository';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import type { Project } from '@/types';
 
 export default function NewCollectionPage() {
@@ -32,7 +33,7 @@ export default function NewCollectionPage() {
         const data = isPro
           ? await remoteRepository.getProjects(user.id)
           : await localRepository.getProjects(user.id);
-        setProjects(data);
+        setProjects(excludeReelSavedProjects(data));
       } catch (e) {
         console.error('Failed to load projects:', e);
       } finally {

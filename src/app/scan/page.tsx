@@ -6,6 +6,7 @@ import { DesktopScanView } from '@/components/desktop/DesktopScan';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getGuestUserId } from '@/lib/utils';
 import type { Project, SubscriptionStatus } from '@/types';
 
@@ -33,7 +34,7 @@ export default function ScanPage() {
       setProjectsLoading(true);
       try {
         const userId = user ? user.id : getGuestUserId();
-        const loadedProjects = await repository.getProjects(userId);
+        const loadedProjects = excludeReelSavedProjects(await repository.getProjects(userId));
         const sorted = [...loadedProjects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         const target = targetProjectId
           ? (sorted.find((project) => project.id === targetProjectId) ?? await repository.getProject(targetProjectId).catch(() => null)) ?? null

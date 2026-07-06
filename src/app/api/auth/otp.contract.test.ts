@@ -584,6 +584,7 @@ test('signup-verify valid OTP saves onboarding profile and returns default offic
         assert.equal(eikenLevel, 'pre2');
         return [{
           officialWordbookId: 'official-pre2',
+          officialSlug: 'merken-eiken-pre2-1',
           title: '英検準2級 公式単語帳',
           sourceLabels: ['official', 'eiken:pre2'],
           words: [{
@@ -606,6 +607,7 @@ test('signup-verify valid OTP saves onboarding profile and returns default offic
     },
     defaultOfficialWordbooks: [{
       officialWordbookId: 'official-pre2',
+      officialSlug: 'merken-eiken-pre2-1',
       title: '英検準2級 公式単語帳',
       sourceLabels: ['official', 'eiken:pre2'],
       words: [{

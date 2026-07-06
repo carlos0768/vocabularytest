@@ -4,19 +4,22 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { hybridRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
+import { wasProUser } from '@/lib/subscription/status';
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 export function OfflineSyncProvider({ children }: { children: React.ReactNode }) {
   const isOnline = useOnlineStatus();
   const { user, subscription } = useAuth();
-  const isPro = subscription?.status === 'active';
+  // Cloud sync runs for active Pro AND Free users. Former-Pro (read-only) users
+  // are excluded — they use the readonly repository, not the hybrid sync.
+  const canSync = !wasProUser(subscription);
   const wasOffline = useRef(false);
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Background sync function
   const backgroundSync = useCallback(async () => {
-    if (!isOnline || !user || !isPro) return;
+    if (!isOnline || !user || !canSync) return;
 
     try {
       console.log('[OfflineSync] Running background sync');
@@ -24,11 +27,11 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
     } catch (error) {
       console.error('[OfflineSync] Background sync failed:', error);
     }
-  }, [isOnline, user, isPro]);
+  }, [isOnline, user, canSync]);
 
   // Handle online/offline transitions
   useEffect(() => {
-    if (!isPro) return;
+    if (!canSync) return;
 
     if (!isOnline) {
       wasOffline.current = true;
@@ -39,11 +42,11 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
       wasOffline.current = false;
       backgroundSync();
     }
-  }, [isOnline, isPro, backgroundSync]);
+  }, [isOnline, canSync, backgroundSync]);
 
   // Set up periodic sync
   useEffect(() => {
-    if (!isPro || !isOnline) {
+    if (!canSync || !isOnline) {
       if (syncIntervalRef.current) {
         clearInterval(syncIntervalRef.current);
         syncIntervalRef.current = null;
@@ -65,11 +68,11 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
         clearInterval(syncIntervalRef.current);
       }
     };
-  }, [isPro, isOnline, backgroundSync]);
+  }, [canSync, isOnline, backgroundSync]);
 
   // Full sync on first Pro login (if needed)
   useEffect(() => {
-    if (!isPro || !user || !isOnline) return;
+    if (!canSync || !user || !isOnline) return;
 
     const syncedUserId = hybridRepository.getSyncedUserId();
     const lastSync = hybridRepository.getLastSync();
@@ -81,7 +84,7 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
         console.error('[OfflineSync] Full sync failed:', error);
       });
     }
-  }, [isPro, user, isOnline]);
+  }, [canSync, user, isOnline]);
 
   return <>{children}</>;
 }
