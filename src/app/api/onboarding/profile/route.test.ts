@@ -86,6 +86,8 @@ test('onboarding profile POST fills empty fields and mirrors handle to account_i
     {
       resolveUser: async () => ({ id: 'user-1' }),
       getAdmin: () => admin as never,
+      // Keep this test focused on profile writes; the wordbook seed is a no-op.
+      seedDefaultOfficialWordbooksForUser: async () => 0,
     },
   );
 
@@ -99,6 +101,51 @@ test('onboarding profile POST fills empty fields and mirrors handle to account_i
     account_id: 'kenta_123',
     eiken_level: 'pre2',
   }]);
+});
+
+test('onboarding profile POST seeds default wordbooks when the eiken level is first applied', async () => {
+  const admin = new FakeProfileAdmin(EMPTY_ROW);
+  const seedCalls: Array<{ userId: string; level: unknown }> = [];
+
+  const response = await handleOnboardingProfilePost(
+    request({ eiken_level: 'pre2' }),
+    {
+      resolveUser: async () => ({ id: 'user-1' }),
+      getAdmin: () => admin as never,
+      seedDefaultOfficialWordbooksForUser: async (_client, userId, level) => {
+        seedCalls.push({ userId, level });
+        return 5;
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { success: true, applied: true });
+  assert.equal(seedCalls.length, 1);
+  assert.equal(seedCalls[0].userId, 'user-1');
+  assert.equal(seedCalls[0].level, 'pre2');
+});
+
+test('onboarding profile POST does not seed wordbooks when the eiken level is already set', async () => {
+  const admin = new FakeProfileAdmin({ ...EMPTY_ROW, eiken_level: '2' });
+  let seedCalled = false;
+
+  const response = await handleOnboardingProfilePost(
+    request({ display_name: '山田太郎', eiken_level: '5' }),
+    {
+      resolveUser: async () => ({ id: 'user-1' }),
+      getAdmin: () => admin as never,
+      seedDefaultOfficialWordbooksForUser: async () => {
+        seedCalled = true;
+        return 0;
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  // display_name still applied, but the already-set eiken level is untouched and
+  // must not trigger a re-seed.
+  assert.equal(seedCalled, false);
 });
 
 test('onboarding profile POST never overwrites existing profile values', async () => {

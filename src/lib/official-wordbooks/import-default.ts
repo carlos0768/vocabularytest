@@ -415,3 +415,25 @@ export async function persistDefaultOfficialWordbooksToDb(
     }
   }
 }
+
+/**
+ * Fetch + persist the default official wordbooks for a user's chosen EIKEN
+ * level in one step. Shared by every signup path that establishes a level:
+ * the email/password path (signup-verify) and the OAuth paths (the auth
+ * callback cookie flow and the onboarding-profile sessionStorage flow).
+ * persist de-dupes by imported_from_official_slug, so calling this from more
+ * than one path for the same user never creates duplicate wordbooks. Returns
+ * the number of wordbooks persisted (0 when the level is unset or has no
+ * default wordbooks). Errors propagate; the caller decides how to handle them.
+ */
+export async function seedDefaultOfficialWordbooksForUser(
+  adminClient: SupabaseClient,
+  userId: string,
+  eikenLevel: OfficialWordbookEikenLevel | null | undefined,
+): Promise<number> {
+  if (!eikenLevel) return 0;
+  const wordbooks = await fetchDefaultOfficialWordbooksForLocalImport(adminClient, eikenLevel);
+  if (!wordbooks || wordbooks.length === 0) return 0;
+  await persistDefaultOfficialWordbooksToDb(adminClient, userId, wordbooks);
+  return wordbooks.length;
+}

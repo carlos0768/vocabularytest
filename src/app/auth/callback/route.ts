@@ -12,12 +12,14 @@ import {
   isUniqueSignupProfileViolation,
   saveSignupProfileFields,
 } from '@/lib/auth/signup-profile';
+import { seedDefaultOfficialWordbooksForUser } from '@/lib/official-wordbooks/import-default';
 import { NextResponse } from 'next/server';
 
 type AuthCallbackDeps = {
   createServerClient?: typeof createClient;
   getAdmin?: typeof getSupabaseAdmin;
   saveSignupProfileFields?: typeof saveSignupProfileFields;
+  seedDefaultOfficialWordbooksForUser?: typeof seedDefaultOfficialWordbooksForUser;
 };
 
 function clearOAuthCookies(response: NextResponse): void {
@@ -53,6 +55,27 @@ export async function handleAuthCallbackGet(request: Request, deps: AuthCallback
 
         if (profileError) {
           console.error('Failed to save OAuth onboarding profile:', profileError);
+        }
+
+        // Seed the default official wordbooks for the chosen EIKEN level. OAuth
+        // signups never reach signup-verify, so this is their equivalent seed.
+        // Awaited before the redirect so the wordbooks exist in Supabase by the
+        // time the client runs its first sync (the sessionStorage fallback in
+        // /api/onboarding/profile does not fire when it is lost across the OAuth
+        // round-trip). persist de-dupes by official slug, so if that fallback
+        // also runs it never creates duplicates. A seeding failure must not
+        // block the user from entering the app.
+        const eikenLevel = onboardingFields.eiken_level;
+        if (eikenLevel) {
+          try {
+            await (deps.seedDefaultOfficialWordbooksForUser ?? seedDefaultOfficialWordbooksForUser)(
+              admin,
+              data.user.id,
+              eikenLevel,
+            );
+          } catch (seedError) {
+            console.error('Failed to seed OAuth default wordbooks:', seedError);
+          }
         }
       }
 

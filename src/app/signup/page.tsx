@@ -29,6 +29,7 @@ import {
   type SignupStep,
 } from '@/lib/auth/signup-flow';
 import { storePendingOnboarding } from '@/lib/auth/pending-onboarding';
+import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 import { usePageBackground } from '@/hooks/use-page-background';
 
 const SIGNUP_BG = '#f3f0e9';
@@ -154,6 +155,17 @@ function SignupForm() {
     if (validateOnboardingData(onboarding).ok && handleAvailable !== false) {
       storePendingOnboarding(onboarding);
     }
+  };
+
+  // Carry the collected onboarding profile through the OAuth redirect in a
+  // cookie so the auth callback persists it (and seeds default wordbooks)
+  // server-side — the reliable channel when sessionStorage does not survive the
+  // provider round-trip (PWA / in-app browser). A taken handle is dropped by the
+  // callback, which still saves the name + level, so it is safe to include here.
+  const oauthOnboardingFields: SignupProfileFields = {
+    ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
+    ...(userHandle && handleAvailable !== false ? { user_handle: userHandle } : {}),
+    eiken_level: eikenLevel,
   };
 
   const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -445,6 +457,7 @@ function SignupForm() {
             disabled={loading}
             onError={(message) => setError(message || null)}
             onBeforeRedirect={stashOnboardingForOAuth}
+            onboardingFields={oauthOnboardingFields}
           />
 
           <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
@@ -540,6 +553,7 @@ function SignupForm() {
               disabled={loading}
               onError={(message) => setError(message || null)}
               onBeforeRedirect={stashOnboardingForOAuth}
+              onboardingFields={oauthOnboardingFields}
             />
 
             <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">

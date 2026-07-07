@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { resolveAuthenticatedUser } from '@/app/api/share-import/shared';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { seedDefaultOfficialWordbooksForUser } from '@/lib/official-wordbooks/import-default';
 
 /**
  * Applies onboarding profile fields (display name / handle / eiken level)
@@ -33,6 +34,7 @@ type ProfileRow = {
 type OnboardingProfileRouteDeps = {
   resolveUser?: typeof resolveAuthenticatedUser;
   getAdmin?: typeof getSupabaseAdmin;
+  seedDefaultOfficialWordbooksForUser?: typeof seedDefaultOfficialWordbooksForUser;
 };
 
 const ACCOUNT_ID_FORMAT = /^[a-z0-9_]{4,24}$/;
@@ -121,6 +123,24 @@ export async function handleOnboardingProfilePost(
     if (error) {
       console.error('Failed to apply onboarding profile:', error);
       return NextResponse.json({ error: 'プロフィール情報の保存に失敗しました' }, { status: 500 });
+    }
+
+    // OAuth users establish their EIKEN level here (the provider redirect happens
+    // before signup-verify can seed anything), so seed their default wordbooks
+    // now that the level is recorded for the first time. This backs up the
+    // auth-callback cookie flow for contexts where sessionStorage is the only
+    // channel that survived the redirect; persist de-dupes so double-seeding is
+    // harmless. A seeding failure must never block onboarding.
+    if (payload.eiken_level && eiken_level) {
+      try {
+        await (deps.seedDefaultOfficialWordbooksForUser ?? seedDefaultOfficialWordbooksForUser)(
+          admin,
+          user.id,
+          eiken_level,
+        );
+      } catch (seedError) {
+        console.error('Failed to seed default official wordbooks during onboarding:', seedError);
+      }
     }
 
     return NextResponse.json({ success: true, applied: true });
