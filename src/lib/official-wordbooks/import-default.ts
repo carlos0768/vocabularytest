@@ -261,6 +261,42 @@ function newId(): string {
 }
 
 /**
+ * PostgREST bulk insert (supabase-js `.insert([...])`) requires every object in
+ * the array to expose the SAME set of JSON keys. `mapWordToInsertWithId` leaves
+ * absent optional fields as `undefined`, and `JSON.stringify` strips those keys,
+ * so a wordbook whose words vary in which optional fields are populated (e.g.
+ * only some have an example sentence or part-of-speech tags) yields rows with
+ * different key sets. PostgREST then rejects the whole batch with
+ * "All object keys must match" (PGRST102), which aborted the signup import after
+ * the first (empty) project was created — leaving the user with a single empty
+ * wordbook. Coerce every optional column to an explicit value so all rows are
+ * uniform. NOT NULL columns fall back to their table default instead of null.
+ */
+function toHomogeneousWordInsertRow(
+  row: ReturnType<typeof mapWordToInsertWithId>,
+): Record<string, unknown> {
+  return {
+    ...row,
+    japanese_source: row.japanese_source ?? null,
+    vocabulary_type: row.vocabulary_type ?? null,
+    lexicon_entry_id: row.lexicon_entry_id ?? null,
+    lexicon_sense_id: row.lexicon_sense_id ?? null,
+    example_sentence: row.example_sentence ?? null,
+    example_sentence_ja: row.example_sentence_ja ?? null,
+    pronunciation: row.pronunciation ?? null,
+    part_of_speech_tags: row.part_of_speech_tags ?? null,
+    related_words: row.related_words ?? null,
+    usage_patterns: row.usage_patterns ?? null,
+    insights_generated_at: row.insights_generated_at ?? null,
+    insights_version: row.insights_version ?? null,
+    word_order_quiz: row.word_order_quiz ?? null,
+    last_reviewed_at: row.last_reviewed_at ?? null,
+    next_review_at: row.next_review_at ?? null,
+    custom_sections: row.custom_sections ?? [],
+  };
+}
+
+/**
  * Persist default official wordbooks directly into the user's Supabase rows
  * (projects + words + word_translations) at signup time, instead of only
  * writing them to the browser's IndexedDB. This uses the service-role admin
@@ -300,67 +336,82 @@ export async function persistDefaultOfficialWordbooksToDb(
       continue;
     }
 
-    const projectId = newId();
-    const project: Project = {
-      id: projectId,
-      userId,
-      title: wordbook.title,
-      sourceLabels: wordbook.sourceLabels,
-      createdAt: nowIso,
-      ...(wordbook.iconImage ? { iconImage: wordbook.iconImage } : {}),
-      ...(officialSlug ? { importedFromOfficialSlug: officialSlug } : {}),
-    };
+    // Import each wordbook independently so a single failure never aborts the
+    // remaining ones (previously one bad batch left the user with just one
+    // wordbook). A wordbook whose words fail to insert has its just-created
+    // project rolled back so we never leave an empty wordbook behind.
+    try {
+      const projectId = newId();
+      const project: Project = {
+        id: projectId,
+        userId,
+        title: wordbook.title,
+        sourceLabels: wordbook.sourceLabels,
+        createdAt: nowIso,
+        ...(wordbook.iconImage ? { iconImage: wordbook.iconImage } : {}),
+        ...(officialSlug ? { importedFromOfficialSlug: officialSlug } : {}),
+      };
 
-    const { error: projectError } = await adminClient
-      .from('projects')
-      .insert(mapProjectToInsertWithId(project));
-    if (projectError) {
-      throw new Error(`Failed to insert default wordbook project: ${projectError.message}`);
-    }
-    if (officialSlug) importedSlugs.add(officialSlug);
-
-    if (wordbook.words.length === 0) continue;
-
-    const wordIds = wordbook.words.map(() => newId());
-    const wordRows = wordbook.words.map((word, index) => mapWordToInsertWithId({
-      id: wordIds[index],
-      projectId,
-      english: word.english,
-      japanese: word.japanese,
-      japaneseSource: word.japaneseSource,
-      vocabularyType: word.vocabularyType ?? undefined,
-      lexiconEntryId: word.lexiconEntryId,
-      lexiconSenseId: word.lexiconSenseId,
-      distractors: word.distractors ?? [],
-      exampleSentence: word.exampleSentence,
-      exampleSentenceJa: word.exampleSentenceJa,
-      pronunciation: word.pronunciation,
-      partOfSpeechTags: word.partOfSpeechTags,
-      relatedWords: word.relatedWords,
-      usagePatterns: word.usagePatterns,
-      wordOrderQuiz: word.wordOrderQuiz,
-      customSections: word.customSections,
-      status: 'new',
-      createdAt: nowIso,
-      isFavorite: false,
-      ...srDefaults,
-    } as Word));
-
-    const { error: wordsError } = await adminClient.from('words').insert(wordRows);
-    if (wordsError) {
-      throw new Error(`Failed to insert default wordbook words: ${wordsError.message}`);
-    }
-
-    const translationRows = buildWordTranslationInsertRows(wordbook.words, wordIds);
-    if (translationRows.length > 0) {
-      const { error: translationError } = await adminClient
-        .from('word_translations')
-        .upsert(translationRows, { onConflict: 'word_id,normalized_translation_ja' });
-      // Translations are a non-critical enrichment: never fail the whole signup
-      // import if the child table is unavailable or momentarily out of sync.
-      if (translationError && !isWordTranslationsSchemaError(translationError)) {
-        console.error('[import-default] Failed to insert word translations:', translationError.message);
+      const { error: projectError } = await adminClient
+        .from('projects')
+        .insert(mapProjectToInsertWithId(project));
+      if (projectError) {
+        throw new Error(`Failed to insert default wordbook project: ${projectError.message}`);
       }
+      if (officialSlug) importedSlugs.add(officialSlug);
+
+      if (wordbook.words.length === 0) continue;
+
+      const wordIds = wordbook.words.map(() => newId());
+      const wordRows = wordbook.words.map((word, index) => toHomogeneousWordInsertRow(mapWordToInsertWithId({
+        id: wordIds[index],
+        projectId,
+        english: word.english,
+        japanese: word.japanese,
+        japaneseSource: word.japaneseSource,
+        vocabularyType: word.vocabularyType ?? undefined,
+        lexiconEntryId: word.lexiconEntryId,
+        lexiconSenseId: word.lexiconSenseId,
+        distractors: word.distractors ?? [],
+        exampleSentence: word.exampleSentence,
+        exampleSentenceJa: word.exampleSentenceJa,
+        pronunciation: word.pronunciation,
+        partOfSpeechTags: word.partOfSpeechTags,
+        relatedWords: word.relatedWords,
+        usagePatterns: word.usagePatterns,
+        wordOrderQuiz: word.wordOrderQuiz,
+        customSections: word.customSections,
+        status: 'new',
+        createdAt: nowIso,
+        isFavorite: false,
+        ...srDefaults,
+      } as Word)));
+
+      const { error: wordsError } = await adminClient.from('words').insert(wordRows);
+      if (wordsError) {
+        // Roll back the empty project so the user never sees a wordbook with no
+        // words, then let the loop continue with the other wordbooks.
+        await adminClient.from('projects').delete().eq('id', projectId);
+        if (officialSlug) importedSlugs.delete(officialSlug);
+        throw new Error(`Failed to insert default wordbook words: ${wordsError.message}`);
+      }
+
+      const translationRows = buildWordTranslationInsertRows(wordbook.words, wordIds);
+      if (translationRows.length > 0) {
+        const { error: translationError } = await adminClient
+          .from('word_translations')
+          .upsert(translationRows, { onConflict: 'word_id,normalized_translation_ja' });
+        // Translations are a non-critical enrichment: never fail the whole signup
+        // import if the child table is unavailable or momentarily out of sync.
+        if (translationError && !isWordTranslationsSchemaError(translationError)) {
+          console.error('[import-default] Failed to insert word translations:', translationError.message);
+        }
+      }
+    } catch (wordbookError) {
+      console.error(
+        `[import-default] Failed to import official wordbook "${officialSlug ?? wordbook.title}":`,
+        wordbookError instanceof Error ? wordbookError.message : wordbookError,
+      );
     }
   }
 }
