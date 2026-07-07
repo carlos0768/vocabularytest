@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { fetchDefaultOfficialWordbooksForLocalImport } from './import-default';
+import {
+  fetchDefaultOfficialWordbooksForLocalImport,
+  persistDefaultOfficialWordbooksToDb,
+  type DefaultOfficialWordbookImportItem,
+} from './import-default';
 
 type QueryAction = 'select' | 'insert' | 'upsert' | 'delete';
 
@@ -366,4 +370,152 @@ test('default official wordbook local payload includes every active default word
     'official-pre1-2',
   ]);
   assert.equal(findOperations(client, 'official_wordbooks', 'insert').length, 0);
+});
+
+// ============================================================
+// persistDefaultOfficialWordbooksToDb
+// ============================================================
+
+interface CapturedInserts {
+  projectInserts: unknown[];
+  wordInsertBatches: Array<Array<Record<string, unknown>>>;
+  translationUpserts: unknown[];
+  deletedProjectIds: string[];
+}
+
+/**
+ * Minimal service-role admin client stub for persistDefaultOfficialWordbooksToDb.
+ * Captures the exact rows handed to `.insert()` so the test can assert the
+ * bulk-insert payload is well-formed.
+ */
+function createFakeAdminClient(
+  captured: CapturedInserts,
+  overrides: { wordInsertError?: { message: string } } = {},
+) {
+  return {
+    from(table: string) {
+      if (table === 'projects') {
+        return {
+          select: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+          insert: async (payload: unknown) => {
+            captured.projectInserts.push(payload);
+            return { error: null };
+          },
+          delete: () => ({
+            eq: async (_column: string, value: string) => {
+              captured.deletedProjectIds.push(value);
+              return { error: null };
+            },
+          }),
+        };
+      }
+      if (table === 'words') {
+        return {
+          insert: async (rows: Array<Record<string, unknown>>) => {
+            captured.wordInsertBatches.push(rows);
+            return { error: overrides.wordInsertError ?? null };
+          },
+        };
+      }
+      if (table === 'word_translations') {
+        return {
+          upsert: async (rows: unknown) => {
+            captured.translationUpserts.push(rows);
+            return { error: null };
+          },
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  };
+}
+
+function makeHeterogeneousWordbook(slug: string): DefaultOfficialWordbookImportItem {
+  return {
+    officialWordbookId: `ow-${slug}`,
+    officialSlug: slug,
+    title: `単語帳 ${slug}`,
+    sourceLabels: ['official', 'eiken:3'],
+    words: [
+      // Word with several optional fields populated.
+      {
+        english: 'improve',
+        japanese: '改善する',
+        distractors: ['悪化する', '維持する'],
+        vocabularyType: 'active',
+        japaneseSource: 'scan',
+        exampleSentence: 'We must improve the plan.',
+        exampleSentenceJa: '計画を改善しなければならない。',
+        partOfSpeechTags: ['verb'],
+        customSections: [{ id: 'memo', title: 'Memo', content: 'Core verb' }],
+      },
+      // Word with NONE of the optional fields — this is what previously produced
+      // a different JSON key set and triggered PostgREST's PGRST102 error.
+      {
+        english: 'run',
+        japanese: '走る',
+        distractors: ['歩く', '座る'],
+      },
+    ],
+  };
+}
+
+test('persistDefaultOfficialWordbooksToDb inserts homogeneous word rows for heterogeneous words', async () => {
+  const captured: CapturedInserts = {
+    projectInserts: [],
+    wordInsertBatches: [],
+    translationUpserts: [],
+    deletedProjectIds: [],
+  };
+  const client = createFakeAdminClient(captured);
+
+  await persistDefaultOfficialWordbooksToDb(
+    client as never,
+    'user-1',
+    [makeHeterogeneousWordbook('merken-eiken-3-1')],
+  );
+
+  assert.equal(captured.wordInsertBatches.length, 1);
+  const rows = captured.wordInsertBatches[0];
+  assert.equal(rows.length, 2);
+
+  // Every row in a bulk insert must expose the same JSON keys, otherwise
+  // PostgREST rejects the batch with "All object keys must match" (PGRST102).
+  const keySets = rows.map((row) => Object.keys(row).sort());
+  assert.deepEqual(keySets[0], keySets[1]);
+
+  // No key may serialize away as `undefined` (JSON.stringify drops those and
+  // re-introduces the key-set mismatch).
+  for (const row of rows) {
+    for (const [key, value] of Object.entries(row)) {
+      assert.notEqual(value, undefined, `word row key "${key}" must not be undefined`);
+    }
+    // custom_sections is NOT NULL in the DB — it must be an array, never null.
+    assert.ok(Array.isArray(row.custom_sections), 'custom_sections must be an array');
+  }
+});
+
+test('persistDefaultOfficialWordbooksToDb isolates a failing wordbook and rolls back its empty project', async () => {
+  const captured: CapturedInserts = {
+    projectInserts: [],
+    wordInsertBatches: [],
+    translationUpserts: [],
+    deletedProjectIds: [],
+  };
+  const client = createFakeAdminClient(captured, {
+    wordInsertError: { message: 'simulated words insert failure' },
+  });
+
+  // Should not throw even though the words insert fails.
+  await persistDefaultOfficialWordbooksToDb(
+    client as never,
+    'user-1',
+    [makeHeterogeneousWordbook('merken-eiken-3-1')],
+  );
+
+  // The just-created (empty) project is rolled back so no empty wordbook remains.
+  assert.equal(captured.projectInserts.length, 1);
+  assert.equal(captured.deletedProjectIds.length, 1);
 });
