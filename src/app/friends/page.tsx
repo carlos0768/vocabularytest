@@ -431,13 +431,15 @@ function TimelineItem({
         <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
           <div className="pl-[52px]">
             {session.words.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
-                    <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
-                    <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
-                  </div>
-                ))}
+              <div className="overflow-hidden rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
+                <div className="divide-y divide-[var(--color-border)]">
+                  {session.words.map((word) => (
+                    <div key={word.id} className="px-4 py-2.5">
+                      <div className="font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+                      <div className="mt-px text-[11px] text-[var(--color-muted)]">{word.japanese}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
@@ -555,12 +557,12 @@ function MetricChip({
   variant?: 'quiz' | 'mastered' | 'default';
 }) {
   const styles = {
-    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
-    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
-    default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
+    quiz: 'border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
+    mastered: 'border-[var(--solid-ink)] bg-[var(--color-success-light)] text-[var(--color-success)]',
+    default: 'border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
   };
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full border-2 px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
       <Icon name={icon} size={13} />
       {label}
     </span>
