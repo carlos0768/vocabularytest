@@ -18,7 +18,6 @@ import {
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
-import { groupWordsByMemory, type WordMemoryGroup } from '@/lib/words/memory';
 import type { Project, Word, WordStatus } from '@/types';
 
 type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
@@ -61,7 +60,7 @@ export function DesktopProjectDetailView({
   onOpenFilterSheet,
   onOpenSortSheet,
   onToggleSelectMode,
-  onToggleSelectWordGroup,
+  onToggleSelectWord,
   onRename,
   onToggleFavorite,
   onCycleVocabularyType,
@@ -85,7 +84,7 @@ export function DesktopProjectDetailView({
   onOpenFilterSheet: () => void;
   onOpenSortSheet: () => void;
   onToggleSelectMode: () => void;
-  onToggleSelectWordGroup: (group: WordMemoryGroup<Word>) => void;
+  onToggleSelectWord: (word: Word) => void;
   onRename: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
@@ -145,11 +144,6 @@ export function DesktopProjectDetailView({
       return result * sortDir;
     });
   }, [filteredWords, sortDir, sortKey]);
-  const rowGroups = useMemo(() => groupWordsByMemory(rows), [rows]);
-  const visibleRepresentativeWords = useMemo(
-    () => rowGroups.map((group) => group.representative),
-    [rowGroups],
-  );
 
   const recentWrongRows = useMemo<RecentWrongRailItem[]>(() => {
     const wordById = new Map(words.map((word) => [word.id, word]));
@@ -190,11 +184,11 @@ export function DesktopProjectDetailView({
 
   const selectedWord = selectedWordId ? words.find((word) => word.id === selectedWordId) ?? null : null;
   const modalWords = useMemo(() => {
-    if (!selectedWord) return visibleRepresentativeWords;
-    return visibleRepresentativeWords.some((word) => word.id === selectedWord.id)
-      ? visibleRepresentativeWords
-      : [selectedWord, ...visibleRepresentativeWords];
-  }, [selectedWord, visibleRepresentativeWords]);
+    if (!selectedWord) return rows;
+    return rows.some((word) => word.id === selectedWord.id)
+      ? rows
+      : [selectedWord, ...rows];
+  }, [selectedWord, rows]);
   const pctMastered = counts.total > 0 ? Math.round((counts.mastered / counts.total) * 100) : 0;
 
   const toggleSort = (key: SortKey) => {
@@ -350,7 +344,7 @@ export function DesktopProjectDetailView({
             )}
             {(filterActive || query.trim()) && (
               <span className="mono muted tnum" style={{ fontSize: 12 }}>
-                {rowGroups.length} / {counts.total}
+                {rows.length} / {counts.total}
               </span>
             )}
             <div style={{ flex: 1 }} />
@@ -399,14 +393,13 @@ export function DesktopProjectDetailView({
                 </tr>
               </thead>
               <tbody>
-                {rowGroups.map((group) => {
-                  const word = group.representative;
-                  const isChecked = group.words.every((item) => selectedWordIds.has(item.id));
-                  const displayStatus = group.status;
+                {rows.map((word) => {
+                  const isChecked = selectedWordIds.has(word.id);
+                  const displayStatus = word.status;
                   return (
                   <tr
-                    key={group.key}
-                    onClick={() => (selectMode ? onToggleSelectWordGroup(group) : setSelectedWordId(word.id))}
+                    key={word.id}
+                    onClick={() => (selectMode ? onToggleSelectWord(word) : setSelectedWordId(word.id))}
                     style={
                       (selectMode ? isChecked : selectedWordId === word.id)
                         ? { background: 'var(--color-accent-subtle)' }
@@ -446,9 +439,6 @@ export function DesktopProjectDetailView({
                     {hiddenCols.has('ja') ? null : (
                       <td className="ja">
                         <TranslationDisplay word={word} compact />
-                        {group.isDistinctGroup && (
-                          <DesktopMemoryGroupSummary group={group} />
-                        )}
                       </td>
                     )}
                     <td style={{ textAlign: 'center' }}>
@@ -469,7 +459,7 @@ export function DesktopProjectDetailView({
                 単語を読み込み中...
               </div>
             )}
-            {wordsLoaded && rowGroups.length === 0 && (
+            {wordsLoaded && rows.length === 0 && (
               counts.total === 0 ? (
                 <div style={{ textAlign: 'center', padding: '54px 24px' }}>
                   <div style={{ width: 58, height: 58, borderRadius: 16, background: 'var(--color-accent-light)', border: '2px solid var(--solid-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -496,7 +486,7 @@ export function DesktopProjectDetailView({
             )}
           </div>
           <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>
-            {rowGroups.length} / {counts.total} 語を表示・行をクリックで詳細を表示
+            {rows.length} / {counts.total} 語を表示・行をクリックで詳細を表示
           </div>
         </div>
 
@@ -533,16 +523,6 @@ export function DesktopProjectDetailView({
           }}
         />
       )}
-    </div>
-  );
-}
-
-function DesktopMemoryGroupSummary({ group }: { group: WordMemoryGroup<Word> }) {
-  return (
-    <div className="mono muted" style={{ marginTop: 3, fontSize: 10, lineHeight: 1.5 }}>
-      暗記率 {group.memoryRate}% · {group.senses.map((sense) => (
-        `${sense.isPrimary ? '主' : '別'}:${sense.japanese}/${DESKTOP_STATUS_LABEL[sense.status]}`
-      )).join(' · ')}
     </div>
   );
 }
