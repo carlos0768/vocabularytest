@@ -6,7 +6,7 @@ const billingScopedFeaturePaths = ['/correction', '/parser'];
 
 export async function middleware(request: NextRequest) {
   if (
-    process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true' &&
+    process.env.NEXT_PUBLIC_BILLING_ENABLED === 'false' &&
     [...billingPaths, ...billingScopedFeaturePaths].some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))
   ) {
     const url = request.nextUrl.clone();

@@ -225,7 +225,6 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
               <div className="flex flex-col gap-2.5">
                 {METHODS.map((m) => {
                   const active = method === m.k;
-                  const disabled = m.k === 'scan' && !isPro;
                   // Scanning is Pro-only: free users see a PRO badge on scan
                   // and get the shared library recommended instead.
                   const showRecommended = m.recommended ? isPro : (m.k === 'shared' && !isPro);
@@ -234,9 +233,14 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                     <button
                       key={m.k}
                       type="button"
-                      disabled={disabled}
                       onClick={() => {
-                        if (disabled) return;
+                        if (m.k === 'scan' && !isPro) {
+                          // Scanning is Pro-only: jump straight to the scan step,
+                          // where ScanCapturePanel renders the Pro upgrade funnel
+                          // instead of the camera UI.
+                          setStep('scan');
+                          return;
+                        }
                         setMethod(m.k);
                         if (m.k === 'blank' && !trimmedName) nameInputRef.current?.focus();
                       }}
