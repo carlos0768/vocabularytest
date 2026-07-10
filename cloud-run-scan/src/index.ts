@@ -98,6 +98,8 @@ interface GenerateRequest {
   temperature: number;
   maxOutputTokens: number;
   responseFormat?: 'json' | 'text';
+  // Gemini Controlled Generation schema forwarded from the web app. Only honored for Gemini + json.
+  responseSchema?: Record<string, unknown>;
   requestId?: string;
   feature?: string;
   env?: AppEnv;
@@ -165,6 +167,10 @@ async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerate
 
   if (body.responseFormat === 'json') {
     generateConfig.responseMimeType = 'application/json';
+    // Controlled Generation: constrain output to the shape the web app requested.
+    if (body.responseSchema) {
+      generateConfig.responseSchema = body.responseSchema;
+    }
   }
 
   const response = await geminiClient.models.generateContent({

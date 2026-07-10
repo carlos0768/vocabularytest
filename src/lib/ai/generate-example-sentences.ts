@@ -7,9 +7,9 @@
  */
 
 import { z } from 'zod';
-import { AI_CONFIG } from '@/lib/ai/config';
+import { AI_CONFIG, type ResponseSchema } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
-import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { normalizePartOfSpeechTags, PART_OF_SPEECH_TAGS } from '@/lib/ai/part-of-speech';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { buildExampleGenreGuidance } from '@/lib/preferences/example-genres';
@@ -93,6 +93,24 @@ const singleExampleSchema = z.object({
   exampleSentence: z.string(),
   exampleSentenceJa: z.string(),
 });
+
+/**
+ * Gemini Controlled Generation schema mirroring `singleExampleSchema`.
+ * `partOfSpeechTags` intentionally omitted from `required` (it has a Zod default([])).
+ */
+export const EXAMPLE_SENTENCE_RESPONSE_SCHEMA: ResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    partOfSpeechTags: {
+      type: 'ARRAY',
+      items: { type: 'STRING', enum: [...PART_OF_SPEECH_TAGS] },
+    },
+    exampleSentence: { type: 'STRING' },
+    exampleSentenceJa: { type: 'STRING' },
+  },
+  required: ['exampleSentence', 'exampleSentenceJa'],
+  propertyOrdering: ['partOfSpeechTags', 'exampleSentence', 'exampleSentenceJa'],
+};
 
 const CONCURRENCY = 5;
 
@@ -231,6 +249,7 @@ export const __internal = {
   classifyExampleGenerationError,
   createSummary,
   buildSingleExamplePrompt,
+  generateSingle,
 };
 
 // ---------- Core ----------
@@ -376,9 +395,11 @@ async function generateSingle(
   word: ExampleSeedWord,
   apiKeys: { gemini?: string; openai?: string },
   genres?: readonly string[],
+  deps: { getProviderFromConfig?: typeof getProviderFromConfig } = {},
 ): Promise<GeneratedExample> {
   const config = AI_CONFIG.defaults.openai;
-  const provider = getProviderFromConfig(config, apiKeys);
+  const resolveProvider = deps.getProviderFromConfig ?? getProviderFromConfig;
+  const provider = resolveProvider(config, apiKeys);
 
   const aiResponse = await provider.generateText(
     buildSingleExamplePrompt(word, genres),
@@ -386,6 +407,7 @@ async function generateSingle(
       ...config,
       maxOutputTokens: 512,
       responseFormat: 'json',
+      responseSchema: EXAMPLE_SENTENCE_RESPONSE_SCHEMA,
     },
   );
 

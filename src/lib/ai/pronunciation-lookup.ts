@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { AI_CONFIG } from '@/lib/ai/config';
+import { AI_CONFIG, type ResponseSchema } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import {
@@ -24,6 +24,26 @@ const pronunciationResponseSchema = z.object({
     pronunciation: z.string().trim().max(MAX_PRONUNCIATION_LENGTH).optional().default(''),
   })).default([]),
 });
+
+/** Gemini Controlled Generation schema mirroring `pronunciationResponseSchema`. */
+export const PRONUNCIATION_RESPONSE_SCHEMA: ResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    results: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          id: { type: 'STRING' },
+          pronunciation: { type: 'STRING' },
+        },
+        required: ['id', 'pronunciation'],
+        propertyOrdering: ['id', 'pronunciation'],
+      },
+    },
+  },
+  required: ['results'],
+};
 
 const PRONUNCIATION_PROMPT = `あなたは英語発音辞典の編集者です。
 与えられた英単語または英語フレーズについて、標準的なIPA発音記号を生成してください。
@@ -88,6 +108,7 @@ async function generatePronunciationBatch(
     temperature: 0,
     maxOutputTokens: 2048,
     responseFormat: 'json' as const,
+    responseSchema: PRONUNCIATION_RESPONSE_SCHEMA,
   };
   const provider = getProviderFromConfig(config, {
     gemini: process.env.GOOGLE_AI_API_KEY,

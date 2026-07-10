@@ -56,6 +56,11 @@ export class GeminiProvider implements AIProvider {
       // JSON modeを設定
       if (config.responseFormat === 'json') {
         generateConfig.responseMimeType = 'application/json';
+        // Controlled Generation: constrain output to a known shape when provided.
+        // Must be paired with responseMimeType, so it is set inside the same block.
+        if (config.responseSchema) {
+          generateConfig.responseSchema = config.responseSchema;
+        }
       }
 
       const response = await this.client.models.generateContent({

@@ -1,3 +1,23 @@
+/**
+ * Canonical part-of-speech values (the normalized *outputs* of PART_OF_SPEECH_ALIASES).
+ * Single source for the Controlled Generation enum so it can't drift from normalization.
+ */
+export const PART_OF_SPEECH_TAGS = [
+  'noun',
+  'verb',
+  'adjective',
+  'adverb',
+  'idiom',
+  'phrasal_verb',
+  'preposition',
+  'conjunction',
+  'pronoun',
+  'determiner',
+  'interjection',
+  'auxiliary',
+  'other',
+] as const;
+
 const PART_OF_SPEECH_ALIASES: Record<string, string> = {
   noun: 'noun',
   名詞: 'noun',
