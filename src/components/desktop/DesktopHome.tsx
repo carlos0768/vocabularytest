@@ -49,6 +49,7 @@ export function DesktopHomeView({
   pendingScans,
   onStartScan,
   showUpgrade = false,
+  onDismissUpgrade,
 }: {
   projects: DesktopHomeProject[];
   stats: DesktopHomeStats;
@@ -57,6 +58,7 @@ export function DesktopHomeView({
   pendingScans: DesktopPendingScan[];
   onStartScan: () => void;
   showUpgrade?: boolean;
+  onDismissUpgrade?: () => void;
 }) {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [query, setQuery] = useState('');
@@ -191,7 +193,7 @@ export function DesktopHomeView({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
-          {showUpgrade && <DesktopUpgradeCard />}
+          {showUpgrade && <DesktopUpgradeCard onDismiss={onDismissUpgrade} />}
           <DesktopStudySidebar stats={stats} reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'} />
         </div>
       </div>
@@ -199,8 +201,35 @@ export function DesktopHomeView({
   );
 }
 
-function DesktopUpgradeCard() {
+function DesktopUpgradeCard({ onDismiss }: { onDismiss?: () => void }) {
   return (
+    <div style={{ position: 'relative' }}>
+      {onDismiss && (
+        <button
+          type="button"
+          aria-label="アップグレード案内を閉じる"
+          onClick={onDismiss}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
+            borderRadius: 999,
+            border: '1.5px solid var(--solid-ink)',
+            background: '#fff',
+            color: 'var(--solid-ink)',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          <Icon name="close" size={13} />
+        </button>
+      )}
     <Link
       href="/subscription"
       className="ds-card"
@@ -243,6 +272,7 @@ function DesktopUpgradeCard() {
         Proプランを見る
       </div>
     </Link>
+    </div>
   );
 }
 

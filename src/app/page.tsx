@@ -12,7 +12,7 @@ import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
-import { ProUpgradeBanner } from '@/components/home/ProUpgradeBanner';
+import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
 import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useAuth } from '@/hooks/use-auth';
@@ -531,7 +531,8 @@ export default function HomePage() {
     ];
   }, [pendingGeneratingWordbook, pendingScans]);
 
-  const showUpgradeBanner = isBillingEnabled() && !isPro;
+  const [upgradeBannerDismissed, dismissUpgradeBanner] = useProUpgradeBannerDismissed();
+  const showUpgradeBanner = isBillingEnabled() && !isPro && !upgradeBannerDismissed;
 
   if (authLoading) {
     return <HomeLoadingScreen />;
@@ -551,6 +552,7 @@ export default function HomePage() {
         pendingScans={displayedPendingScans}
         onStartScan={() => router.push('/scan')}
         showUpgrade={showUpgradeBanner}
+        onDismissUpgrade={dismissUpgradeBanner}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
@@ -674,7 +676,7 @@ export default function HomePage() {
 
       {showUpgradeBanner && (
         <div className="px-[18px] pb-3.5">
-          <ProUpgradeBanner />
+          <ProUpgradeBanner onDismiss={dismissUpgradeBanner} />
         </div>
       )}
 
