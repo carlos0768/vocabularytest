@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
+import { OfflineBanner } from '@/components/pwa/OfflineBanner';
 import { StatsSync } from '@/components/StatsSync';
 import { PendingOnboardingSync } from '@/components/onboarding/PendingOnboardingSync';
 import { HomeOpenLogger } from '@/components/analytics/HomeOpenLogger';
@@ -143,6 +144,7 @@ export default function RootLayout({
             <OfflineSyncProvider>
               <PersistentAppShell>{children}</PersistentAppShell>
               <StatusBarCover />
+              <OfflineBanner />
             </OfflineSyncProvider>
           </ToastProvider>
           <StatsSync />
