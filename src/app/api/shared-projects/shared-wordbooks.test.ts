@@ -22,6 +22,7 @@ type Store = {
   projects: Row[];
   words: Row[];
   profiles: Row[];
+  lexicon_entries: Row[];
 };
 
 let idCounter = 0;
@@ -163,6 +164,7 @@ function makeStore(overrides: Partial<Store> = {}): Store {
     projects: [],
     words: [],
     profiles: [],
+    lexicon_entries: [],
     ...overrides,
   };
 }
@@ -188,6 +190,39 @@ test('publishSharedWordbook snapshots project words and is owner-gated', async (
   assert.ok(card.project.shareId, 'a share id is assigned');
   assert.equal(store.shared_wordbooks.length, 1);
   assert.equal(store.shared_wordbook_words.length, 2);
+});
+
+test('publishSharedWordbook auto-tags the snapshot with the estimated EIKEN grade', async () => {
+  const store = makeStore({
+    projects: [{ id: 'p1', user_id: 'u1', title: '難単語', description: null, icon_image: null, source_labels: [] }],
+    words: [
+      { project_id: 'p1', english: 'ubiquitous', japanese: '遍在する', distractors: [], created_at: '2026-01-01T00:00:00Z' },
+      { project_id: 'p1', english: 'ephemeral', japanese: '儚い', distractors: [], created_at: '2026-01-02T00:00:00Z' },
+      { project_id: 'p1', english: 'meticulous', japanese: '几帳面な', distractors: [], created_at: '2026-01-03T00:00:00Z' },
+    ],
+    lexicon_entries: [
+      { normalized_headword: 'ubiquitous', cefr_level: 'C1' },
+      { normalized_headword: 'ephemeral', cefr_level: 'C2' },
+      { normalized_headword: 'meticulous', cefr_level: 'C1' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  const card = await publishSharedWordbook('u1', 'p1', ['#英検3級', '#単語'], asAdmin(admin));
+  assert.deepEqual(card.project.sharedTags, ['英検1級', '単語'], 'stale grade tag is replaced by the estimated one');
+});
+
+test('publishSharedWordbook skips the level tag when word levels are unknown', async () => {
+  const store = makeStore({
+    projects: [{ id: 'p1', user_id: 'u1', title: 'List', description: null, icon_image: null, source_labels: [] }],
+    words: [
+      { project_id: 'p1', english: 'zzz-unknown', japanese: '?', distractors: [], created_at: '2026-01-01T00:00:00Z' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  const card = await publishSharedWordbook('u1', 'p1', ['#単語'], asAdmin(admin));
+  assert.deepEqual(card.project.sharedTags, ['単語']);
 });
 
 test('publishSharedWordbook rejects a project the user does not own', async () => {
@@ -299,6 +334,28 @@ test('updateSharedWordbookTags enforces ownership and normalizes tags', async ()
 
   const cleared = await updateSharedWordbookTags('u1', 'sw1', [], asAdmin(admin));
   assert.deepEqual(cleared.project.sharedTags, []);
+});
+
+test('updateSharedWordbookTags keeps the auto EIKEN grade tag derived from the snapshot words', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'A', shared_tags: ['英検5級'], word_count: 3, like_count: 0, created_at: '2026-02-01T00:00:00Z' },
+    ],
+    shared_wordbook_words: [
+      { id: 'w1', shared_wordbook_id: 'sw1', position: 0, english: 'apple', japanese: 'りんご', distractors: [], created_at: '2026-02-01T00:00:00Z' },
+      { id: 'w2', shared_wordbook_id: 'sw1', position: 1, english: 'banana', japanese: 'バナナ', distractors: [], created_at: '2026-02-01T00:00:00Z' },
+      { id: 'w3', shared_wordbook_id: 'sw1', position: 2, english: 'cat', japanese: '猫', distractors: [], created_at: '2026-02-01T00:00:00Z' },
+    ],
+    lexicon_entries: [
+      { normalized_headword: 'apple', cefr_level: 'A1' },
+      { normalized_headword: 'banana', cefr_level: 'A1' },
+      { normalized_headword: 'cat', cefr_level: 'A1' },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  const updated = await updateSharedWordbookTags('u1', 'sw1', ['#TOEIC', '#英検1級'], asAdmin(admin));
+  assert.deepEqual(updated.project.sharedTags, ['英検5級', 'TOEIC'], 'auto grade tag survives edits and user-supplied grades are replaced');
 });
 
 test('setSharedWordbookLike updates the denormalized like_count', async () => {

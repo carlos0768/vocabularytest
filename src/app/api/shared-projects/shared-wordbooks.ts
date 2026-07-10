@@ -9,6 +9,7 @@ import type { Project, Word } from '@/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../shared/db';
 import { normalizeSharedTags } from '../../../../shared/shared-tags';
 import { createSharedTagsEmbedding } from '@/lib/shared-projects/tag-embeddings';
+import { computeEikenLevelTagForWords, mergeEikenLevelTag } from '@/lib/shared-projects/eiken-level-tag';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -455,8 +456,6 @@ export async function publishSharedWordbook(
     throw new SharedWordbookError('forbidden', 'project_not_owned');
   }
 
-  const tags = normalizeSharedTags(sharedTags);
-
   // Snapshot the words from the source project.
   const { data: wordRows, error: wordError } = await admin
     .from('words')
@@ -468,6 +467,14 @@ export async function publishSharedWordbook(
     throw new Error(wordError.message || 'shared_wordbook_publish_words_failed');
   }
   const sourceWords = (wordRows ?? []) as SourceWordRow[];
+
+  // Auto-tag the snapshot with the EIKEN grade estimated from its words so
+  // discovery always reflects the current difficulty (英検5級〜英検1級).
+  const levelTag = await computeEikenLevelTagForWords(
+    sourceWords.map((word) => word.english),
+    { supabaseAdmin: admin },
+  );
+  const tags = normalizeSharedTags(mergeEikenLevelTag(normalizeSharedTags(sharedTags), levelTag));
 
   // Reuse an existing snapshot for this source project, if present.
   const { data: existing, error: existingError } = await admin
@@ -641,7 +648,22 @@ export async function updateSharedWordbookTags(
     throw new SharedWordbookError('forbidden', 'shared_wordbook_not_owned');
   }
 
-  const tags = normalizeSharedTags(sharedTags);
+  // Re-derive the EIKEN grade tag from the snapshot words so editing tags
+  // can neither drop it nor pin a stale grade.
+  const { data: snapshotWords, error: snapshotWordsError } = await admin
+    .from('shared_wordbook_words')
+    .select('english')
+    .eq('shared_wordbook_id', sharedWordbookId);
+
+  if (snapshotWordsError) {
+    throw new Error(snapshotWordsError.message || 'shared_wordbook_tags_words_lookup_failed');
+  }
+
+  const levelTag = await computeEikenLevelTagForWords(
+    ((snapshotWords ?? []) as Array<{ english: string }>).map((word) => word.english),
+    { supabaseAdmin: admin },
+  );
+  const tags = normalizeSharedTags(mergeEikenLevelTag(normalizeSharedTags(sharedTags), levelTag));
 
   let tagsEmbedding: number[] | null = null;
   try {
