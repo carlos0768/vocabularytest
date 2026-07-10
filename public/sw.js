@@ -1,18 +1,27 @@
 // MERKEN Service Worker
-// Handles PWA offline support (caching) + Web Push notifications.
+// Handles PWA offline support + Web Push notifications.
 //
-// Caching strategy:
-//   - Navigations (HTML)      -> network-first, fall back to cached shell, then /offline
-//   - Static assets (_next,   -> stale-while-revalidate (content-hashed, safe to cache)
-//     scripts, styles, fonts,
-//     images, manifest)
-//   - API / auth requests     -> never handled here (network-only; data goes through
-//                                IndexedDB + the sync queue)
-//   - Cross-origin requests   -> left to the browser (Supabase, Google Fonts, ads, AI, etc.)
+// Caching strategy (deliberately conservative to guarantee the app never gets
+// stranded on a stale/broken shell):
+//   - Navigations (HTML)      -> network-ONLY. On success the browser always gets a
+//                                fresh document (identical to having no SW, so the
+//                                online experience can never break). Only when the
+//                                network fails do we serve the dedicated /offline page.
+//                                We never serve a cached app shell, because Next.js
+//                                pre-renders "/" as a loading screen that only becomes
+//                                the app after its JS chunks hydrate — serving a cached
+//                                shell whose chunk hashes changed on a later deploy would
+//                                strand the page on that loading screen.
+//   - Immutable static assets -> cache-first. Only /_next/static/** and /_next/image are
+//                                content-hashed (safe to cache forever) plus a tiny
+//                                precache list (icons, manifest, offline page).
+//   - API / auth / RSC        -> never handled here (network-only; data goes through
+//                                IndexedDB + the sync queue).
+//   - Cross-origin requests   -> left to the browser (Supabase, Google Fonts, ads, AI...).
 //
 // Bump SW_VERSION whenever the caching logic changes so old caches are purged on activate.
 
-const SW_VERSION = 'v1';
+const SW_VERSION = 'v2';
 const CACHE_PREFIX = 'scanvocab-';
 const PRECACHE = `${CACHE_PREFIX}precache-${SW_VERSION}`;
 const RUNTIME = `${CACHE_PREFIX}runtime-${SW_VERSION}`;
@@ -21,9 +30,9 @@ const ACTIVE_CACHES = new Set([PRECACHE, RUNTIME]);
 const OFFLINE_URL = '/offline';
 const DEFAULT_NOTIFICATION_URL = '/';
 
-// Minimal shell assets that must be available offline even before the user
-// has visited the corresponding pages. Kept small and stable so install is fast
-// and resilient (each asset is fetched independently so one 404 can't break install).
+// Small, stable shell assets fetched at install so the offline fallback is always
+// available. The /offline page is statically pre-rendered, so its HTML shows the
+// offline message even if its JS chunks are not cached.
 const PRECACHE_URLS = [
   OFFLINE_URL,
   '/manifest.json',
@@ -57,6 +66,8 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
+    // Purge every cache that isn't part of the current version. Bumping
+    // SW_VERSION therefore clears any stale app-shell cached by older workers.
     const cacheNames = await caches.keys();
     await Promise.all(
       cacheNames
@@ -77,41 +88,24 @@ self.addEventListener('message', (event) => {
 // Fetch / caching
 // ---------------------------------------------------------------------------
 
-function isStaticAsset(url, request) {
-  if (url.pathname.startsWith('/_next/static/')) return true;
-  if (url.pathname.startsWith('/_next/image')) return true;
-  if (url.pathname === '/manifest.json') return true;
-
-  const destination = request.destination;
-  if (
-    destination === 'style' ||
-    destination === 'script' ||
-    destination === 'font' ||
-    destination === 'image'
-  ) {
-    return true;
-  }
-
-  return /\.(?:js|css|woff2?|ttf|otf|png|jpe?g|gif|svg|webp|avif|ico)$/i.test(url.pathname);
+// Only content-hashed Next.js output is safe to cache forever. Everything else
+// (HTML shells, dynamic assets) is left to the network so we never serve stale.
+function isImmutableAsset(url) {
+  return url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/_next/image');
 }
 
-async function networkFirstNavigation(request) {
-  const runtime = await caches.open(RUNTIME);
+function isPrecachedAsset(url) {
+  return PRECACHE_URLS.includes(url.pathname);
+}
 
+// Network-only navigation with an offline-page fallback. Never returns a cached
+// app shell, so a chunk-hash mismatch across deploys can never strand the app.
+async function navigateOrOffline(request) {
   try {
-    const response = await fetch(request);
-    // Cache successful, non-opaque navigations so the shell loads offline next time.
-    if (response && response.ok && response.type === 'basic') {
-      runtime.put(request, response.clone()).catch(() => {});
-    }
-    return response;
+    return await fetch(request);
   } catch {
-    const cached = await runtime.match(request);
-    if (cached) return cached;
-
     const offline = await caches.match(OFFLINE_URL);
     if (offline) return offline;
-
     return new Response('Offline', {
       status: 503,
       statusText: 'Service Unavailable',
@@ -120,20 +114,22 @@ async function networkFirstNavigation(request) {
   }
 }
 
-async function staleWhileRevalidate(request) {
-  const runtime = await caches.open(RUNTIME);
-  const cached = await runtime.match(request);
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  if (cached) return cached;
 
-  const networkFetch = fetch(request)
-    .then((response) => {
-      if (response && response.ok && response.type === 'basic') {
-        runtime.put(request, response.clone()).catch(() => {});
-      }
-      return response;
-    })
-    .catch(() => undefined);
-
-  return cached || (await networkFetch) || Response.error();
+  try {
+    const response = await fetch(request);
+    if (response && response.ok && response.type === 'basic') {
+      cache.put(request, response.clone()).catch(() => {});
+    }
+    return response;
+  } catch (error) {
+    const fallback = await cache.match(request);
+    if (fallback) return fallback;
+    throw error;
+  }
 }
 
 self.addEventListener('fetch', (event) => {
@@ -157,12 +153,17 @@ self.addEventListener('fetch', (event) => {
   if (request.headers.has('range')) return;
 
   if (request.mode === 'navigate' || request.destination === 'document') {
-    event.respondWith(networkFirstNavigation(request));
+    event.respondWith(navigateOrOffline(request));
     return;
   }
 
-  if (isStaticAsset(url, request)) {
-    event.respondWith(staleWhileRevalidate(request));
+  if (isImmutableAsset(url)) {
+    event.respondWith(cacheFirst(request, RUNTIME));
+    return;
+  }
+
+  if (isPrecachedAsset(url)) {
+    event.respondWith(cacheFirst(request, PRECACHE));
   }
 });
 
