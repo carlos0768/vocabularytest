@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { WordOrderQuizCache } from '@/types';
-import { AI_CONFIG } from '@/lib/ai/config';
+import { AI_CONFIG, type ResponseSchema } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import {
@@ -28,6 +28,31 @@ const wordOrderResponseSchema = z.object({
     decoyTokens: z.array(z.string().trim().min(1).max(80)).length(3),
   })).default([]),
 });
+
+/**
+ * Gemini Controlled Generation schema mirroring `wordOrderResponseSchema`.
+ * Array-length bounds are left to Zod to avoid over-constraining structured output.
+ */
+export const WORD_ORDER_RESPONSE_SCHEMA: ResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    results: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          id: { type: 'STRING' },
+          sentenceTokens: { type: 'ARRAY', items: { type: 'STRING' } },
+          answerTokens: { type: 'ARRAY', items: { type: 'STRING' } },
+          decoyTokens: { type: 'ARRAY', items: { type: 'STRING' } },
+        },
+        required: ['id', 'sentenceTokens', 'answerTokens', 'decoyTokens'],
+        propertyOrdering: ['id', 'sentenceTokens', 'answerTokens', 'decoyTokens'],
+      },
+    },
+  },
+  required: ['results'],
+};
 
 const WORD_ORDER_PROMPT = `あなたは英語学習アプリの語順整序クイズ作成者です。
 複数語の英語表現について、下の単語チップを選んで英文を完成させる問題を作ってください。
@@ -97,6 +122,7 @@ export async function generateWordOrderQuizForWords(
     temperature: 0.4,
     maxOutputTokens: 4096,
     responseFormat: 'json' as const,
+    responseSchema: WORD_ORDER_RESPONSE_SCHEMA,
   };
   const provider = getProviderFromConfig(config, {
     gemini: process.env.GOOGLE_AI_API_KEY,

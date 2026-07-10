@@ -26,12 +26,35 @@ const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
 const QUESTION_GENERATION_MODEL: GeminiModel = 'gemini-2.5-flash';
 const OPENAI_MODEL: OpenAIModel = 'gpt-4o';
 
+/**
+ * Provider-agnostic subset of a Gemini / JSON-Schema "controlled generation" schema.
+ *
+ * Kept minimal and JSON-serializable (no `@google/genai` types) so it survives the
+ * round-trip to the Cloud Run gateway and does not couple the shared abstraction to a
+ * Gemini-specific SDK type. `type` uses the uppercase strings of Gemini's `Type` enum
+ * (e.g. 'OBJECT', 'ARRAY', 'STRING').
+ */
+export interface ResponseSchema {
+  type: string;
+  description?: string;
+  nullable?: boolean;
+  enum?: string[];
+  items?: ResponseSchema;
+  properties?: Record<string, ResponseSchema>;
+  required?: string[];
+  propertyOrdering?: string[];
+  minItems?: number;
+  maxItems?: number;
+}
+
 export interface AIModelConfig {
   provider: AIProvider;
   model: string;
   temperature: number;
   maxOutputTokens: number;
   responseFormat?: 'json' | 'text';
+  // Optional Gemini Controlled Generation schema. Only honored when responseFormat === 'json'.
+  responseSchema?: ResponseSchema;
 }
 
 export interface AIConfig {

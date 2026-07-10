@@ -1,4 +1,4 @@
-import { AI_CONFIG, type AIModelConfig, getAPIKeys } from '@/lib/ai/config';
+import { AI_CONFIG, type AIModelConfig, type ResponseSchema, getAPIKeys } from '@/lib/ai/config';
 import { getProviderFromConfig, isCloudRunConfigured } from '@/lib/ai/providers';
 import {
   LEXICON_POS_VALUES,
@@ -119,6 +119,27 @@ const batchPosClassificationResponseSchema = z.object({
     pos: z.enum(LEXICON_POS_VALUES),
   }).strict()),
 }).strict();
+
+/** Gemini Controlled Generation schema mirroring `batchPosClassificationResponseSchema`. */
+export const POS_CLASSIFICATION_RESPONSE_SCHEMA: ResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    results: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          english: { type: 'STRING' },
+          japaneseHint: { type: 'STRING', nullable: true },
+          pos: { type: 'STRING', enum: [...LEXICON_POS_VALUES] },
+        },
+        required: ['english', 'pos'],
+        propertyOrdering: ['english', 'japaneseHint', 'pos'],
+      },
+    },
+  },
+  required: ['results'],
+};
 
 type LexiconAIKind = 'translate' | 'validateHint' | 'classifyPos';
 
@@ -400,6 +421,7 @@ ${chunk.map((item, index) => (
       ...aiClient.config,
       maxOutputTokens: Math.min(8192, Math.max(768, chunk.length * 72)),
       responseFormat: 'json',
+      responseSchema: POS_CLASSIFICATION_RESPONSE_SCHEMA,
     });
 
     if (!result.success || !result.content?.trim()) {

@@ -4,8 +4,82 @@ import test from 'node:test';
 import {
   __internal,
   generateExampleSentences,
+  EXAMPLE_SENTENCE_RESPONSE_SCHEMA,
   type ExampleSeedWord,
 } from './generate-example-sentences';
+import { PART_OF_SPEECH_TAGS } from './part-of-speech';
+import type { AIProvider } from './providers';
+
+function createProvider(generateText: AIProvider['generateText']): AIProvider {
+  return {
+    name: 'mock-provider',
+    generate: async () => ({ success: false, error: 'not used in tests' }),
+    generateText,
+  };
+}
+
+test('generateSingle passes the Controlled Generation schema + json format on the provider config', async () => {
+  let receivedConfig: Parameters<AIProvider['generateText']>[1] | undefined;
+  const provider = createProvider(async (_prompt, config) => {
+    receivedConfig = config;
+    return {
+      success: true,
+      content: JSON.stringify({
+        partOfSpeechTags: ['noun'],
+        exampleSentence: 'The plan improved our workflow.',
+        exampleSentenceJa: 'その計画は作業を改善した。',
+      }),
+    };
+  });
+
+  const result = await __internal.generateSingle(
+    { id: '1', english: 'plan', japanese: '計画' },
+    { gemini: 'test-key' },
+    undefined,
+    { getProviderFromConfig: () => provider },
+  );
+
+  assert.equal(receivedConfig?.responseFormat, 'json');
+  assert.deepEqual(receivedConfig?.responseSchema, EXAMPLE_SENTENCE_RESPONSE_SCHEMA);
+  assert.equal(receivedConfig?.maxOutputTokens, 512);
+  assert.equal(result.exampleSentence, 'The plan improved our workflow.');
+  assert.deepEqual(result.partOfSpeechTags, ['noun']);
+});
+
+test('generateSingle still rejects via Zod when the provider returns a malformed shape', async () => {
+  const provider = createProvider(async () => ({
+    success: true,
+    // Structurally-plausible but incomplete: exampleSentenceJa missing -> Zod must still reject.
+    content: JSON.stringify({
+      partOfSpeechTags: ['noun'],
+      exampleSentence: 'Missing the Japanese field.',
+    }),
+  }));
+
+  await assert.rejects(
+    () => __internal.generateSingle(
+      { id: '1', english: 'plan', japanese: '計画' },
+      { gemini: 'test-key' },
+      undefined,
+      { getProviderFromConfig: () => provider },
+    ),
+    /Invalid example response|Failed to parse/,
+  );
+});
+
+test('EXAMPLE_SENTENCE_RESPONSE_SCHEMA mirrors the Zod shape and sources the POS enum', () => {
+  assert.equal(EXAMPLE_SENTENCE_RESPONSE_SCHEMA.type, 'OBJECT');
+  assert.deepEqual(EXAMPLE_SENTENCE_RESPONSE_SCHEMA.required, ['exampleSentence', 'exampleSentenceJa']);
+  assert.deepEqual(EXAMPLE_SENTENCE_RESPONSE_SCHEMA.propertyOrdering, [
+    'partOfSpeechTags',
+    'exampleSentence',
+    'exampleSentenceJa',
+  ]);
+  assert.deepEqual(
+    EXAMPLE_SENTENCE_RESPONSE_SCHEMA.properties?.partOfSpeechTags?.items?.enum,
+    [...PART_OF_SPEECH_TAGS],
+  );
+});
 
 test('parseSingleExampleResponse accepts string partOfSpeechTags inside code fences', () => {
   const parsed = __internal.parseSingleExampleResponse(`\`\`\`json

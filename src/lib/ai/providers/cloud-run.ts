@@ -75,6 +75,8 @@ export class CloudRunProvider implements AIProvider {
           temperature: config.temperature,
           maxOutputTokens: config.maxOutputTokens,
           responseFormat: config.responseFormat,
+          // Controlled Generation schema; undefined drops out of the JSON body.
+          responseSchema: config.responseSchema,
         }),
       });
 
