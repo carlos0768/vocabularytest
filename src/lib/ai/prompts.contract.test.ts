@@ -174,6 +174,9 @@ test('translation structure rules distinguish alternate meanings from annotation
     '"感覚 [分別]"',
     '"意味する（平均）"',
     '[感心]',
+    '意味的独立性の判定',
+    '同義語・言い換え・ニュアンス差にすぎない場合は分けない',
+    '"感覚;知覚"',
   ]);
 
   const prompts = [
