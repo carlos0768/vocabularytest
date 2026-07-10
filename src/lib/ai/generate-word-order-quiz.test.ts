@@ -5,7 +5,17 @@ import { WORD_ORDER_BLANK_TOKEN } from '@/lib/quiz/word-order';
 import {
   buildWordOrderPrompt,
   normalizeGeneratedWordOrderResult,
+  WORD_ORDER_RESPONSE_SCHEMA,
 } from './generate-word-order-quiz';
+
+test('WORD_ORDER_RESPONSE_SCHEMA mirrors the results/{id,tokens} shape', () => {
+  assert.equal(WORD_ORDER_RESPONSE_SCHEMA.type, 'OBJECT');
+  assert.deepEqual(WORD_ORDER_RESPONSE_SCHEMA.required, ['results']);
+  const item = WORD_ORDER_RESPONSE_SCHEMA.properties?.results?.items;
+  assert.equal(item?.type, 'OBJECT');
+  assert.deepEqual(item?.required, ['id', 'sentenceTokens', 'answerTokens', 'decoyTokens']);
+  assert.equal(item?.properties?.sentenceTokens?.type, 'ARRAY');
+});
 
 const word = {
   id: 'word-1',
