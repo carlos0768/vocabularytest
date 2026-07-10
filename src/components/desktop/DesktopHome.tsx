@@ -48,6 +48,7 @@ export function DesktopHomeView({
   error,
   pendingScans,
   onStartScan,
+  showUpgrade = false,
 }: {
   projects: DesktopHomeProject[];
   stats: DesktopHomeStats;
@@ -55,6 +56,7 @@ export function DesktopHomeView({
   error: string | null;
   pendingScans: DesktopPendingScan[];
   onStartScan: () => void;
+  showUpgrade?: boolean;
 }) {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [query, setQuery] = useState('');
@@ -188,9 +190,59 @@ export function DesktopHomeView({
           )}
         </div>
 
-        <DesktopStudySidebar stats={stats} reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
+          {showUpgrade && <DesktopUpgradeCard />}
+          <DesktopStudySidebar stats={stats} reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'} />
+        </div>
       </div>
     </div>
+  );
+}
+
+function DesktopUpgradeCard() {
+  return (
+    <Link
+      href="/subscription"
+      className="ds-card"
+      style={{
+        display: 'block',
+        padding: 16,
+        textDecoration: 'none',
+        color: 'inherit',
+        background: 'linear-gradient(135deg, oklch(0.96 0.04 130), #fff)',
+      }}
+    >
+      <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--color-accent)' }}>
+        UPGRADE
+      </div>
+      <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16, color: 'var(--solid-ink)' }}>
+        Pro でぜんぶ使う
+      </div>
+      <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.6, color: 'var(--color-muted)' }}>
+        写真スキャンで単語帳を自動作成。単語帳の作成数も無制限に。
+      </div>
+      <div
+        style={{
+          marginTop: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          borderRadius: 10,
+          border: '2px solid var(--solid-ink)',
+          background: 'var(--solid-ink)',
+          color: '#fff',
+          padding: '10px 0',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+          fontSize: 13,
+          boxShadow: '2px 2px 0 var(--color-accent)',
+        }}
+      >
+        <Icon name="auto_awesome" size={16} filled />
+        Proプランを見る
+      </div>
+    </Link>
   );
 }
 
