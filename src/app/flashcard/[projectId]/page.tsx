@@ -125,66 +125,11 @@ function nextWordStatus(current: string): 'new' | 'review' | 'mastered' {
   return 'new';
 }
 
-type FlashcardSortOrder = 'mastery' | 'partOfSpeech';
-
-const FLASHCARD_SORT_OPTIONS: Array<{ value: FlashcardSortOrder; label: string; icon: string }> = [
-  { value: 'mastery', label: '習得度順', icon: 'trending_up' },
-  { value: 'partOfSpeech', label: '品詞順', icon: 'category' },
-];
-
-function getPrimaryPartOfSpeech(word: Word): string {
-  return word.partOfSpeechTags?.[0]?.trim().toLowerCase() || 'zzz';
-}
-
-function sortFlashcardWords(wordList: Word[], order: FlashcardSortOrder): Word[] {
-  if (order === 'mastery') return sortWordsByPriority(wordList);
-  return [...wordList].sort((a, b) => {
-    const posDiff = getPrimaryPartOfSpeech(a).localeCompare(getPrimaryPartOfSpeech(b), undefined, { sensitivity: 'base' });
-    if (posDiff !== 0) return posDiff;
-    return a.english.localeCompare(b.english, undefined, { sensitivity: 'base' });
-  });
-}
-
-/* ---------- Progress storage ---------- */
-const getProgressKey = (projectId: string, favoritesOnly: boolean) =>
-  `flashcard_progress_${projectId}${favoritesOnly ? '_favorites' : ''}`;
-const getSessionKey = (projectId: string, favoritesOnly: boolean) =>
-  `flashcard_session_${projectId}${favoritesOnly ? '_favorites' : ''}`;
-
-interface FlashcardProgress {
-  wordIds: string[];
-  currentIndex: number;
-  savedAt: number;
-  sortOrder?: FlashcardSortOrder;
-}
-
-interface RestoredFlashcardProgress {
-  words: Word[];
-  currentIndex: number;
-  sortOrder: FlashcardSortOrder;
-}
-
-function getSavedSortOrder(progress: FlashcardProgress): FlashcardSortOrder {
-  return progress.sortOrder === 'partOfSpeech' ? 'partOfSpeech' : 'mastery';
-}
-
-function restoreFlashcardProgress(wordList: Word[], progress: FlashcardProgress): RestoredFlashcardProgress | null {
-  if (wordList.length === 0 || progress.wordIds.length === 0) return null;
-
-  const restoredSortOrder = getSavedSortOrder(progress);
-  const sortedWords = sortFlashcardWords(wordList, restoredSortOrder);
-  const currentWordId = progress.wordIds[progress.currentIndex];
-  const restoredIndex = currentWordId
-    ? sortedWords.findIndex(word => word.id === currentWordId)
-    : -1;
-
-  return {
-    words: sortedWords,
-    currentIndex: restoredIndex >= 0
-      ? restoredIndex
-      : Math.min(progress.currentIndex, sortedWords.length - 1),
-    sortOrder: restoredSortOrder,
-  };
+// フラッシュカードはクイズと同じ優先度順（sortWordsByPriority）でカードを並べる。
+// 表示順はクイズ出題順と常に一致し、状態保存は行わない。ロジックはすべて
+// フロントエンドで完結するため、順番仕様の変更にサーバー更新は不要。
+function sortFlashcardWords(wordList: Word[]): Word[] {
+  return sortWordsByPriority(wordList);
 }
 
 export default function FlashcardPage() {
@@ -200,8 +145,6 @@ export default function FlashcardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [sortOrder, setSortOrder] = useState<FlashcardSortOrder>('mastery');
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
   /* Swipe state */
   const [swipeX, setSwipeX] = useState(0);
@@ -226,24 +169,15 @@ export default function FlashcardPage() {
     cacheRestoredRef.current = true;
     const cachedWords = getCachedProjectWords()[projectId];
     if (cachedWords && cachedWords.length > 0 && !favoritesOnly && !collectionId) {
-      const sorted = sortFlashcardWords(cachedWords, 'mastery');
-      setWords(sorted);
+      setWords(sortFlashcardWords(cachedWords));
       hasLoadedRef.current = true;
       setLoading(false);
     }
   }, [projectId, favoritesOnly, collectionId]);
 
-  const saveProgress = useCallback((wordList: Word[], index: number) => {
-    const progress: FlashcardProgress = { wordIds: wordList.map(w => w.id), currentIndex: index, savedAt: Date.now(), sortOrder };
-    const str = JSON.stringify(progress);
-    localStorage.setItem(getProgressKey(projectId, favoritesOnly), str);
-    sessionStorage.setItem(getSessionKey(projectId, favoritesOnly), str);
-  }, [projectId, favoritesOnly, sortOrder]);
-
   const backToProject = useCallback(() => {
-    if (words.length > 0) saveProgress(words, currentIndex);
     router.back();
-  }, [words, currentIndex, saveProgress, router]);
+  }, [router]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -264,53 +198,6 @@ export default function FlashcardPage() {
           return false;
         };
 
-        /* Try session storage first */
-        const sessionProgressStr = sessionStorage.getItem(getSessionKey(projectId, favoritesOnly));
-        if (sessionProgressStr) {
-          try {
-            const progress: FlashcardProgress = JSON.parse(sessionProgressStr);
-            if (progress.savedAt > Date.now() - 30 * 60 * 1000 && progress.wordIds.length > 0) {
-              let wordsData: Word[];
-              if (collectionId) {
-                wordsData = await loadCollectionWords(collectionId);
-              } else if (projectId === 'all' && favoritesOnly) {
-                const userId = user ? user.id : getGuestUserId();
-                const projects = await repository.getProjects(userId);
-                const allWordsArrays = await Promise.all(projects.map(p => repository.getWords(p.id)));
-                wordsData = allWordsArrays.flat().filter(w => w.isFavorite);
-              } else {
-                const hasAccess = await ensureProjectAccess();
-                if (!hasAccess) { backToProject(); return; }
-                wordsData = await repository.getWords(projectId);
-                if (wordsData.length === 0 && user && navigator.onLine) {
-                  try { wordsData = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
-                }
-              }
-              const restored = restoreFlashcardProgress(wordsData, progress);
-              if (restored) {
-                setSortOrder(restored.sortOrder);
-                setWords(restored.words);
-                setCurrentIndex(restored.currentIndex);
-                hasLoadedRef.current = true;
-                setLoading(false);
-                return;
-              }
-            }
-          } catch { /* fall through */ }
-        }
-
-        /* Try localStorage progress */
-        const localProgressStr = localStorage.getItem(getProgressKey(projectId, favoritesOnly));
-        let savedProgress: FlashcardProgress | null = null;
-        if (localProgressStr) {
-          try {
-            const progress: FlashcardProgress = JSON.parse(localProgressStr);
-            if (progress.savedAt > Date.now() - 7 * 24 * 60 * 60 * 1000) {
-              savedProgress = progress;
-            }
-          } catch { /* ignore */ }
-        }
-
         let loadedWords: Word[];
         if (collectionId) {
           loadedWords = await loadCollectionWords(collectionId);
@@ -330,21 +217,9 @@ export default function FlashcardPage() {
 
         if (loadedWords.length === 0) { backToProject(); return; }
 
-        const sorted = sortFlashcardWords(loadedWords, 'mastery');
-        let finalWords = sorted;
-        let finalIndex = 0;
-
-        if (savedProgress) {
-          const restored = restoreFlashcardProgress(loadedWords, savedProgress);
-          if (restored) {
-            setSortOrder(restored.sortOrder);
-            finalWords = restored.words;
-            finalIndex = restored.currentIndex;
-          }
-        }
-
-        setWords(finalWords);
-        setCurrentIndex(finalIndex);
+        // クイズと同じ優先度順に並べて、常に先頭カードから開始する。
+        setWords(sortFlashcardWords(loadedWords));
+        setCurrentIndex(0);
         hasLoadedRef.current = true;
       } catch (error) {
         console.error('Failed to load flashcard words:', error);
@@ -355,20 +230,6 @@ export default function FlashcardPage() {
     };
     loadWords();
   }, [authLoading, projectId, favoritesOnly, collectionId, repository, user, backToProject, words.length]);
-
-  /* Save on unload */
-  useEffect(() => {
-    const handleSave = () => { if (words.length > 0) saveProgress(words, currentIndex); };
-    const handleVisibilityChange = () => { if (document.visibilityState === 'hidden') handleSave(); };
-    window.addEventListener('beforeunload', handleSave);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', handleSave);
-    return () => {
-      window.removeEventListener('beforeunload', handleSave);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', handleSave);
-    };
-  }, [words, currentIndex, saveProgress]);
 
   const currentWord = words[currentIndex];
 
@@ -430,19 +291,6 @@ export default function FlashcardPage() {
     else if (swipeX > 80) handlePrev(true);
     setSwipeX(0);
     setTimeout(() => { isSwiping.current = false; }, 50);
-  };
-
-  const handleSortOrderChange = (nextOrder: FlashcardSortOrder) => {
-    const sorted = sortFlashcardWords(words, nextOrder);
-    setSortOrder(nextOrder);
-    setSortMenuOpen(false);
-    setWords(sorted); setCurrentIndex(0); setIsFlipped(false);
-    saveProgress(sorted, 0);
-  };
-
-  const handleSaveCurrentProgress = () => {
-    saveProgress(words, currentIndex);
-    setSortMenuOpen(false);
   };
 
   /* Keyboard nav */
@@ -634,61 +482,8 @@ export default function FlashcardPage() {
           </div>
         </div>
 
-        <div className="relative">
-          <HeaderBtn
-            onClick={() => setSortMenuOpen((open) => !open)}
-            aria-label="詳細"
-            aria-expanded={sortMenuOpen}
-            aria-haspopup="menu"
-          >
-            <Icon name="more_horiz" size={18} />
-          </HeaderBtn>
-          {sortMenuOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="詳細メニューを閉じる"
-                className="fixed inset-0 z-10 cursor-default bg-transparent"
-                onClick={() => setSortMenuOpen(false)}
-              />
-              <div
-                role="menu"
-                className="absolute right-0 top-[48px] z-20 w-[132px] rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-1.5"
-              >
-                {FLASHCARD_SORT_OPTIONS.map((option) => {
-                  const selected = sortOrder === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={selected}
-                      onClick={() => handleSortOrderChange(option.value)}
-                      className={`flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-left text-xs font-bold text-[var(--solid-ink)] ${
-                        selected ? 'bg-[rgba(26,26,26,0.06)]' : 'hover:bg-[rgba(26,26,26,0.04)]'
-                      }`}
-                    >
-                      <span className="inline-flex items-center gap-1.5">
-                        <Icon name={option.icon} size={14} />
-                        {option.label}
-                      </span>
-                      {selected && <Icon name="check" size={14} />}
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleSaveCurrentProgress}
-                  className="flex w-full items-center gap-1.5 rounded-[10px] px-2.5 py-2 text-left text-xs font-bold text-[var(--solid-ink)] hover:bg-[rgba(26,26,26,0.04)]"
-                >
-                  <Icon name="save" size={14} />
-                  保存
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        {/* 並び替え・保存メニューは廃止。進捗表示を中央に保つためのスペーサー。 */}
+        <div className="h-[38px] w-[38px]" aria-hidden="true" />
       </div>
 
       {/* Card area (no ghost cards) */}

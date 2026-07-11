@@ -143,13 +143,13 @@ Source: `src/lib/db/hybrid-repository.ts` lines 107-113.
 
 **Consequence of violation**: New users cannot complete real registration, or existing users get surprising auth state changes.
 
-### INV-16: Flashcard progress restore must include newly added words
+### INV-16: Flashcard order stays synced with quiz order (no persisted state)
 
-`src/app/flashcard/[projectId]/page.tsx` may restore card order from `flashcard_session_*` or `flashcard_progress_*` storage records. Those records store historical `wordIds` for resume order only; they are not the source of truth for the current project word list.
+`src/app/flashcard/[projectId]/page.tsx` must derive its card order purely from the current repository/cache word list, sorted with `sortWordsByPriority` — the same comparator the quiz uses. It must not persist or restore flashcard resume state (the retired `flashcard_session_*` / `flashcard_progress_*` records) and must not offer an alternate sort mode that would diverge from the quiz question order.
 
-When repository-loaded words contain IDs that are missing from saved progress, the flashcard page must include those words after applying the active saved sort mode. In mastery order, newly added `new` words must participate in the normal priority sort rather than being forced to the end by stale progress.
+The ordering logic must remain frontend-only: it recomputes on every load from live data, so it never needs a server-side migration or PWA data update to stay correct.
 
-**Consequence of violation**: Words added to an existing wordbook can be present in IndexedDB/Supabase and visible in the project page, but missing from flashcards until progress storage is cleared.
+**Consequence of violation**: The flashcard sequence drifts from the quiz question order, or stale persisted state hides newly added words / pins an outdated order that a PWA update cannot easily correct.
 
 ---
 
