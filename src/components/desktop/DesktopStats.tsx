@@ -39,6 +39,9 @@ export function DesktopStatsView({
         activeW,
         review,
         newW: newWords,
+        // Any word progressed beyond 'new' means it has been quizzed and carries
+        // a review schedule; a brand-new account has none of these.
+        hasReviewSchedule: mastered + activeW + review > 0,
       }
     : EMPTY_DESKTOP_STUDY_SUMMARY;
 
@@ -125,7 +128,11 @@ export function DesktopStatsView({
           )}
         </div>
 
-        <DesktopStudySidebar stats={summaryStats} reviewHref={summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/stats' : '/projects'} />
+        <DesktopStudySidebar
+          stats={summaryStats}
+          reviewHref={summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/stats' : '/projects'}
+          learnHref={summaryStats.totalWords > 0 ? '/quiz/all?learn=1&from=/stats' : '/projects'}
+        />
       </div>
     </div>
   );

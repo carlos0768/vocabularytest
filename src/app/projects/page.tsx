@@ -171,6 +171,7 @@ export default function ProjectListPage() {
         sort={sort}
         summaryStats={summaryStats}
         reviewHref={summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/projects' : '/projects'}
+        learnHref={summaryStats.totalWords > 0 ? '/quiz/all?learn=1&from=/projects' : '/projects'}
         onQueryChange={setQuery}
         onSortChange={setSort}
       />

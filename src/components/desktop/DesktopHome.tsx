@@ -33,6 +33,7 @@ type DesktopHomeStats = {
   activeW: number;
   review: number;
   newW: number;
+  hasReviewSchedule: boolean;
 };
 
 type DesktopPendingScan = {
@@ -194,7 +195,11 @@ export function DesktopHomeView({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
           {showUpgrade && <DesktopUpgradeCard onDismiss={onDismissUpgrade} />}
-          <DesktopStudySidebar stats={stats} reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'} />
+          <DesktopStudySidebar
+            stats={stats}
+            reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'}
+            learnHref={stats.totalWords > 0 ? '/quiz/all?learn=1&from=/' : '/projects'}
+          />
         </div>
       </div>
     </div>

@@ -151,6 +151,10 @@ type HomeStats = {
   review: number;
   newW: number;
   favoriteCount: number;
+  // False until at least one word has an actual review schedule (been quizzed).
+  // Distinguishes a brand-new account (default wordbook imported, nothing studied
+  // yet) from a user who has words waiting between review intervals.
+  hasReviewSchedule: boolean;
 };
 
 type HomeProjectStats = ProjectWithStats & {
@@ -222,6 +226,7 @@ function buildHomeStats(allWords: Word[]): HomeStats {
     review: statusCounts.learningTotal,
     newW: statusCounts.unlearnedTotal,
     favoriteCount: allWords.filter((word) => word.isFavorite).length,
+    hasReviewSchedule: allWords.some((word) => Boolean(word.nextReviewAt) || Boolean(word.lastReviewedAt)),
   };
 }
 
@@ -310,6 +315,7 @@ const EMPTY_STATS: HomeStats = {
   review: 0,
   newW: 0,
   favoriteCount: 0,
+  hasReviewSchedule: false,
 };
 
 export default function HomePage() {
@@ -498,7 +504,7 @@ export default function HomePage() {
     }
   }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
-  const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW, favoriteCount } = stats;
+  const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW, favoriteCount, hasReviewSchedule } = stats;
   const unmasteredCount = newW + review;
   const goalTotal = dueCount + completedToday;
   const goalProgress = goalTotal > 0 ? Math.round((completedToday / goalTotal) * 100) : 0;
@@ -506,8 +512,17 @@ export default function HomePage() {
   const learnProgress = dailyLearnTarget > 0
     ? Math.min(100, Math.round((completedToday / dailyLearnTarget) * 100))
     : 0;
-  const goalState: 'review' | 'learn' | 'empty' =
-    dueCount > 0 ? 'review' : totalWords === 0 ? 'empty' : 'learn';
+  // `start`: brand-new account with a default wordbook but no review schedule yet
+  // (nothing quizzed). Showing the full unlearned backlog as the goal is
+  // demotivating, so surface a small, achievable daily learning target instead.
+  const goalState: 'review' | 'learn' | 'empty' | 'start' =
+    dueCount > 0
+      ? 'review'
+      : totalWords === 0
+        ? 'empty'
+        : !hasReviewSchedule
+          ? 'start'
+          : 'learn';
   // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
   // out of the browsable マイ単語帳 list (its words still count in `stats`).
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
@@ -605,6 +620,32 @@ export default function HomePage() {
               </div>
             </SolidPanel>
           </button>
+        ) : goalState === 'start' ? (
+          <Link href="/quiz/all?learn=1&from=/" className="block">
+            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                TODAY&apos;S GOAL
+              </div>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
+                  {dailyLearnTarget}
+                </span>
+                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
+              </div>
+              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
+                まずはここから
+              </div>
+              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${learnProgress}%` }} />
+              </div>
+              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
+                <span className="text-[13px] font-bold">学習を始める</span>
+                <span className="inline-flex text-[var(--color-accent)]">
+                  <Icon name="chevron_right" size={12} />
+                </span>
+              </div>
+            </SolidPanel>
+          </Link>
         ) : goalState === 'learn' ? (
           <Link href="/quiz/all?learn=1&from=/" className="block">
             <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
