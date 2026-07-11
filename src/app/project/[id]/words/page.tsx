@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
+import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import type { Project, Word, SubscriptionStatus } from '@/types';
@@ -88,7 +89,8 @@ export default function WordListPage() {
             console.error('Remote fallback failed:', e);
           }
         }
-        setWords(wordList);
+        // クイズ・フラッシュカードと同じ学習優先度順で表示する。
+        setWords(sortWordsByPriority(wordList));
       } catch (error) {
         console.error('Failed to load:', error);
         router.push('/');

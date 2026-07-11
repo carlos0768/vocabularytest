@@ -156,7 +156,7 @@ function WordRow({ word, onCycleStatus, onCycleVocabularyType, onToggleFavorite 
   );
 }
 
-type SortOrder = 'createdAsc' | 'alphabetical' | 'statusAsc';
+type SortOrder = 'priority' | 'createdAsc' | 'alphabetical' | 'statusAsc';
 
 export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const { user, subscription, isPro: _isPro, loading: authLoading } = useAuth();

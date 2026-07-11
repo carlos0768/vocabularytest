@@ -84,7 +84,7 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
-  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('statusAsc');
+  const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('priority');
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
   const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
@@ -951,7 +951,7 @@ export default function ProjectPage() {
         query={query}
         onQueryChange={setQuery}
         filterActive={wordFilterActive}
-        sortActive={wordSortOrder !== 'createdAsc'}
+        sortActive={wordSortOrder !== 'priority'}
         selectMode={selectMode}
         selectedWordIds={selectedWordIds}
         onOpenFilterSheet={() => setWordShowFilterSheet(true)}
@@ -1142,7 +1142,7 @@ export default function ProjectPage() {
           onClick={() => setWordShowSortSheet(true)}
           aria-label="並べ替え"
           className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
-            wordSortOrder !== 'createdAsc'
+            wordSortOrder !== 'priority'
               ? 'bg-[var(--solid-ink)] text-white'
               : 'bg-white text-[var(--solid-ink)]'
           }`}
