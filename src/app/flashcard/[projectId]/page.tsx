@@ -4,12 +4,15 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } fr
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { FlashcardTutorialGuide } from '@/components/onboarding/FlashcardTutorialGuide';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
+import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { triggerHaptic } from '@/lib/haptics';
@@ -203,6 +206,12 @@ export default function FlashcardPage() {
   const [sortOrder, setSortOrder] = useState<FlashcardSortOrder>('mastery');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
+  /* Guided tutorial: count forward advances toward the "view N cards" goal */
+  const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
+  const isMobileViewport = useIsMobileViewport();
+  const tutorialActive = tutorialStage === 'view-cards' && isMobileViewport;
+  const [tutorialAdvances, setTutorialAdvances] = useState(0);
+
   /* Swipe state */
   const [swipeX, setSwipeX] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -374,6 +383,7 @@ export default function FlashcardPage() {
 
   const handleNext = useCallback((withAnimation = false) => {
     if (isAnimating) return;
+    if (tutorialActive) setTutorialAdvances((count) => count + 1);
     const nextIndex = currentIndex < words.length - 1 ? currentIndex + 1 : 0;
     if (withAnimation) {
       setIsAnimating(true); setSlideDirection('left'); setSlidePhase('exit');
@@ -387,7 +397,7 @@ export default function FlashcardPage() {
     } else {
       setCurrentIndex(nextIndex); setIsFlipped(false);
     }
-  }, [isAnimating, currentIndex, words.length]);
+  }, [isAnimating, currentIndex, words.length, tutorialActive]);
 
   const handlePrev = useCallback((withAnimation = false) => {
     if (isAnimating) return;
@@ -538,6 +548,8 @@ export default function FlashcardPage() {
   const masteryLevel = getMasteryLevel(currentWord?.repetition ?? 0);
   const total = words.length;
   const currentPartOfSpeechLabel = formatPartOfSpeechLabels(currentWord?.partOfSpeechTags);
+  const tutorialTarget = Math.min(10, total);
+  const tutorialSeen = Math.min(total, 1 + tutorialAdvances);
 
   return (
     <>
@@ -858,6 +870,14 @@ export default function FlashcardPage() {
       </div>
 
     </div>
+
+    {tutorialActive && total > 0 && (
+      <FlashcardTutorialGuide
+        seen={tutorialSeen}
+        target={tutorialTarget}
+        onReturn={() => { setTutorialStage('open-quiz'); backToProject(); }}
+      />
+    )}
     </>
   );
 }

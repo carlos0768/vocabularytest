@@ -17,6 +17,7 @@ import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useTourSeen } from '@/hooks/use-tour-seen';
+import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -114,6 +115,7 @@ export default function ProjectPage() {
   const { showToast } = useToast();
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
   const { shouldRender: projectTourReady, markSeen: markProjectTourSeen } = useTourSeen('project-intro');
+  const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
   const isMobileViewport = useIsMobileViewport();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -290,17 +292,76 @@ export default function ProjectPage() {
     [filteredWords, selectedWordIds],
   );
 
+  // The guided flashcard→quiz flow takes priority over the status/A-P coach mark.
+  const tutorialFlowActive = tutorialStage !== null && tutorialStage !== 'finished';
+
   // Word-list coach mark: only while the plain list is visible and no competing
-  // sheet/modal is open (the anchored rows are replaced in select mode).
+  // sheet/modal is open (the anchored rows are replaced in select mode), and not
+  // during the guided flow (shown afterward instead).
   const runProjectTour =
     projectTourReady
     && isMobileViewport
+    && !tutorialFlowActive
     && wordsLoaded
     && !selectMode
     && filteredWords.length > 0
     && !selectedWord
     && !showManualWordModal
     && !menuOpen;
+
+  // Guided-flow action tours: nudge toward flashcards, then (after returning) the quiz.
+  const flowTourEligible =
+    isMobileViewport
+    && wordsLoaded
+    && words.length > 0
+    && !selectMode
+    && !selectedWord
+    && !showManualWordModal
+    && !menuOpen;
+
+  const runOpenFlashcardTour = flowTourEligible && tutorialStage === 'open-flashcard';
+  const openFlashcardTourSteps = useMemo<TourStep[]>(
+    () => [
+      {
+        target: '[data-tour="project-flashcard"]',
+        title: 'まずはフラッシュカード',
+        content: 'カードで単語をざっと見てから、クイズで確認します。まずはカードを開きましょう。',
+        placement: 'bottom',
+        data: {
+          primaryAction: {
+            label: 'フラッシュカードを開く',
+            onClick: () => {
+              setTutorialStage('view-cards');
+              router.push(`/flashcard/${projectId}`);
+            },
+          },
+        },
+      },
+    ],
+    [projectId, router, setTutorialStage],
+  );
+
+  const runOpenQuizTour = flowTourEligible && tutorialStage === 'open-quiz';
+  const openQuizTourSteps = useMemo<TourStep[]>(
+    () => [
+      {
+        target: '[data-tour="project-quiz"]',
+        title: '今度はクイズ',
+        content: 'さっき見た単語を、クイズで覚えているか試してみましょう。',
+        placement: 'bottom',
+        data: {
+          primaryAction: {
+            label: 'クイズを始める',
+            onClick: () => {
+              setTutorialStage('awaiting-quiz');
+              router.push(`/quiz/${projectId}`);
+            },
+          },
+        },
+      },
+    ],
+    [projectId, router, setTutorialStage],
+  );
 
   const handleExitSelectMode = useCallback(() => {
     setSelectMode(false);
@@ -1089,6 +1150,8 @@ export default function ProjectPage() {
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/quiz/${projectId}`}
+            data-tour="project-quiz"
+            onClick={() => { if (tutorialStage === 'open-quiz') setTutorialStage('awaiting-quiz'); }}
             className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="check" size={14} />
@@ -1100,6 +1163,8 @@ export default function ProjectPage() {
           <Link
             href={`/flashcard/${projectId}`}
             aria-label="カード"
+            data-tour="project-flashcard"
+            onClick={() => { if (tutorialStage === 'open-flashcard') setTutorialStage('view-cards'); }}
             className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="style" size={18} />
@@ -1381,6 +1446,16 @@ export default function ProjectPage() {
       />
 
       <GuidedTour run={runProjectTour} steps={PROJECT_INTRO_TOUR_STEPS} onFinish={markProjectTourSeen} />
+      <GuidedTour
+        run={runOpenFlashcardTour}
+        steps={openFlashcardTourSteps}
+        onFinish={() => setTutorialStage('finished')}
+      />
+      <GuidedTour
+        run={runOpenQuizTour}
+        steps={openQuizTourSteps}
+        onFinish={() => setTutorialStage('finished')}
+      />
 
       <BulkActionBar
         open={selectMode}

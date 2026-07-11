@@ -17,7 +17,7 @@ import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useOnboarding } from '@/hooks/use-onboarding';
-import { useTourSeen } from '@/hooks/use-tour-seen';
+import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
 import { getDb, getRepository } from '@/lib/db';
@@ -48,18 +48,13 @@ import type { Project, SubscriptionStatus, Word } from '@/types';
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 const HOME_MY_BOOKS_VISIBLE_LIMIT = 5;
 
-// Guided tour that walks a first-time user from their wordbook to the quiz.
-const QUIZ_TOUR_STEPS: TourStep[] = [
-  {
-    target: '[data-tour="wordbook-row"]',
-    title: 'まずは単語帳',
-    content: '作った・取り込んだ単語帳はここに並びます。タップすると中身を確認できます。',
-    placement: 'bottom',
-  },
+// Final tip of the guided flow: the play button as a quiz shortcut. Shown only
+// once the flashcard→quiz flow is complete (tutorial stage 'done').
+const PLAY_BUTTON_TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="quiz-start"]',
-    title: 'クイズで覚える',
-    content: 'この再生ボタンでクイズをスタート。4択で意味を選んで、記憶に定着させましょう。',
+    title: 'クイズはここからも',
+    content: 'この再生ボタンから、単語帳を開かずに直接クイズを始められます。',
     placement: 'left',
   },
 ];
@@ -335,7 +330,7 @@ export default function HomePage() {
   const router = useRouter();
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   useOnboarding();
-  const { shouldRender: quizTourReady, markSeen: markQuizTourSeen } = useTourSeen('quiz-intro');
+  const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
   const isMobileViewport = useIsMobileViewport();
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
@@ -534,16 +529,40 @@ export default function HomePage() {
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
   const visibleProjects = listProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
-  // Quiz-intro tour targets any user who hasn't studied yet. Word status only
+  // The guided flow starts for any user who hasn't studied yet. Word status only
   // advances past 'new' via quiz/study, so any progress means they've quizzed.
   const hasStudiedBefore = completedToday > 0 || mastered > 0 || review > 0 || stats.activeW > 0;
-  const runQuizTour =
-    quizTourReady
-    && isMobileViewport
-    && !!user
-    && !loading
-    && !hasStudiedBefore
-    && (visibleProjects[0]?.totalWords ?? 0) > 0;
+  const firstProject = visibleProjects[0];
+  const firstProjectHasWords = (firstProject?.totalWords ?? 0) > 0;
+  const homeTourEligible = isMobileViewport && !!user && !loading && firstProjectHasWords;
+
+  // Step 1 of the flow: nudge the user to open their wordbook. Only shown before
+  // the flow has started (stage null) and only to users who haven't studied yet.
+  const runOpenProjectTour = homeTourEligible && tutorialStage === null && !hasStudiedBefore;
+  const openProjectTourSteps = useMemo<TourStep[]>(() => {
+    if (!firstProject) return [];
+    return [
+      {
+        target: '[data-tour="wordbook-row"]',
+        title: 'まずは単語帳を開こう',
+        content: '単語帳をタップして、中の単語を見てみましょう。',
+        placement: 'bottom',
+        data: {
+          primaryAction: {
+            label: '単語帳を開く',
+            onClick: () => {
+              setTutorialStage('open-flashcard');
+              router.push(`/project/${firstProject.id}`);
+            },
+          },
+        },
+      },
+    ];
+  }, [firstProject, router, setTutorialStage]);
+
+  // Final step of the flow: reveal the play button as a quiz shortcut, only once
+  // the flashcard→quiz flow has completed (stage 'done').
+  const runPlayButtonTour = homeTourEligible && tutorialStage === 'done';
   const displayedPendingScans = useMemo<HomePendingScan[]>(() => {
     if (!pendingGeneratingWordbook) return pendingScans;
     if (
@@ -785,7 +804,11 @@ export default function HomePage() {
           visibleProjects.map((project, i) =>
             i === 0 ? (
               <div key={project.id} data-tour="wordbook-row">
-                <ProjectRow project={project} tourAnchor />
+                <ProjectRow
+                  project={project}
+                  tourAnchor
+                  onCardOpen={runOpenProjectTour ? () => setTutorialStage('open-flashcard') : undefined}
+                />
               </div>
             ) : (
               <ProjectRow key={project.id} project={project} />
@@ -805,7 +828,16 @@ export default function HomePage() {
         isOpen={createSheetOpen}
         onClose={() => setCreateSheetOpen(false)}
       />
-      <GuidedTour run={runQuizTour} steps={QUIZ_TOUR_STEPS} onFinish={markQuizTourSeen} />
+      <GuidedTour
+        run={runOpenProjectTour}
+        steps={openProjectTourSteps}
+        onFinish={() => setTutorialStage('finished')}
+      />
+      <GuidedTour
+        run={runPlayButtonTour}
+        steps={PLAY_BUTTON_TOUR_STEPS}
+        onFinish={() => setTutorialStage('finished')}
+      />
 
 
     </>
@@ -1420,7 +1452,16 @@ function LegendItem({ color, label, count }: { color: string; label: string; cou
   );
 }
 
-function ProjectRow({ project, tourAnchor = false }: { project: HomeProjectStats; tourAnchor?: boolean }) {
+function ProjectRow({
+  project,
+  tourAnchor = false,
+  onCardOpen,
+}: {
+  project: HomeProjectStats;
+  tourAnchor?: boolean;
+  /** Advances the guided tutorial when the wordbook card is tapped. */
+  onCardOpen?: () => void;
+}) {
   const bg = thumbColor(project.id);
   const hasWords = project.totalWords > 0;
   return (
@@ -1431,6 +1472,7 @@ function ProjectRow({ project, tourAnchor = false }: { project: HomeProjectStats
       <div className="flex items-center gap-[13px]">
         <Link
           href={`/project/${project.id}`}
+          onClick={onCardOpen}
           className="flex min-w-0 flex-1 items-center gap-[13px] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <div

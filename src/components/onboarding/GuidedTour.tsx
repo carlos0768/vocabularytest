@@ -15,6 +15,16 @@ const Joyride = dynamic(() => import('react-joyride').then((m) => m.Joyride), {
 /** Re-export so callers build steps against a single, stable type. */
 export type TourStep = Step;
 
+/**
+ * Optional per-step action button. When a step's `data.primaryAction` is set,
+ * the tooltip's primary button runs this instead of advancing/closing the tour
+ * — used for single-step "action" tours (e.g. "open the flashcards").
+ */
+export interface TourPrimaryAction {
+  label: string;
+  onClick: () => void;
+}
+
 const JOYRIDE_LOCALE = {
   back: '戻る',
   close: '閉じる',
@@ -85,7 +95,8 @@ function MerkenTourTooltip({
   skipProps,
   tooltipProps,
 }: TooltipRenderProps) {
-  const showBack = index > 0;
+  const primaryAction = (step.data as { primaryAction?: TourPrimaryAction } | undefined)?.primaryAction;
+  const showBack = index > 0 && !primaryAction;
   const showSkip = size > 1 && !isLastStep;
   const primaryLabel = isLastStep ? '完了' : '次へ';
 
@@ -150,14 +161,25 @@ function MerkenTourTooltip({
                   戻る
                 </button>
               ) : null}
-              <button
-                type="button"
-                {...primaryProps}
-                className="relative inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-1.5 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-              >
-                {primaryLabel}
-                {!isLastStep ? <Icon name="arrow_forward" size={14} /> : null}
-              </button>
+              {primaryAction ? (
+                <button
+                  type="button"
+                  onClick={primaryAction.onClick}
+                  className="relative inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-1.5 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                >
+                  {primaryAction.label}
+                  <Icon name="arrow_forward" size={14} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  {...primaryProps}
+                  className="relative inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-1.5 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                >
+                  {primaryLabel}
+                  {!isLastStep ? <Icon name="arrow_forward" size={14} /> : null}
+                </button>
+              )}
             </div>
           </div>
         </div>
