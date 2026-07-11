@@ -4,7 +4,7 @@ import { type ReactNode, useState, useEffect, useCallback, useMemo, useRef } fro
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
-import { TypeInQuizField, ReviewProjectFilterSheet, type ReviewFilterProject } from '@/components/quiz';
+import { TypeInQuizField, ReviewProjectFilterSheet, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -113,6 +113,16 @@ function isWordOrderQuestion(question: QuizQuestion | undefined): question is Wo
 
 function isMultipleChoiceQuestion(question: QuizQuestion | undefined): question is MultipleChoiceQuizQuestion {
   return question !== undefined && question.type !== 'word-order';
+}
+
+// Mirrors the type-in mode decision made per question in the quiz screen:
+// non-word-order questions for active-vocabulary or active-status words are
+// answered by typing rather than choosing an option.
+function isTypeInQuizQuestion(question: QuizQuestion | undefined): boolean {
+  return (
+    isMultipleChoiceQuestion(question) &&
+    (question.word.vocabularyType === 'active' || question.word.status === 'active')
+  );
 }
 
 function chipKey(token: string): string {
@@ -563,6 +573,15 @@ export default function QuizPage() {
   // presentation time. Answering promotes the word's status (e.g. active →
   // mastered), and we must not let that flip the UI to multiple-choice mid-question.
   const typeInModeRef = useRef<{ key: string; value: boolean }>({ key: '', value: false });
+  // Desktop and mobile layouts each render a TypeInQuizField (one is always
+  // display:none). Focusing the hidden one is a silent no-op, so we can safely
+  // focus both to reach whichever layout is currently visible.
+  const typeInFieldMobileRef = useRef<TypeInQuizFieldHandle>(null);
+  const typeInFieldDesktopRef = useRef<TypeInQuizFieldHandle>(null);
+  const focusTypeInField = useCallback(() => {
+    typeInFieldMobileRef.current?.focus();
+    typeInFieldDesktopRef.current?.focus();
+  }, []);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -1063,6 +1082,15 @@ export default function QuizPage() {
   // user type Japanese, regardless of quiz direction or active source.
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
 
+  // Auto-focus the input whenever a new, unanswered type-in question is shown so
+  // the user does not have to tap the field every time. On Android a
+  // programmatic focus opens the software keyboard directly; on iOS the keyboard
+  // only opens from the "next" tap gesture, which `moveToNext` handles.
+  useEffect(() => {
+    if (!isTypeInMode || isRevealed) return;
+    focusTypeInField();
+  }, [currentIndex, isTypeInMode, isRevealed, focusTypeInField]);
+
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean, marker?: QuizAnswerResult) => {
     playAnswerFeedbackSound(isCorrect);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
@@ -1189,8 +1217,13 @@ export default function QuizPage() {
 
   const moveToNext = () => {
     if (isTransitioning) return;
-    setIsTransitioning(true);
     const advanceState = getQuizAdvanceState(currentIndex, questions.length);
+    // Reopen the software keyboard for the next question while we are still
+    // inside this tap gesture (iOS only opens the keyboard from a user gesture).
+    if (!advanceState.isComplete && isTypeInQuizQuestion(questions[advanceState.nextIndex])) {
+      focusTypeInField();
+    }
+    setIsTransitioning(true);
     if (advanceState.isComplete) {
       setIsComplete(true);
       setIsTransitioning(advanceState.isTransitioning);
@@ -1598,6 +1631,7 @@ export default function QuizPage() {
         ) : (
           <div style={{ width: '100%', maxWidth: 520 }}>
             <TypeInQuizField
+              ref={typeInFieldDesktopRef}
               answer={typeInExpectedAnswer}
               spaceAsGap={isActiveVocab}
               value={typeInAnswer}
@@ -1850,6 +1884,7 @@ export default function QuizPage() {
         ) : (
           <div className="mt-[18px] w-full space-y-4">
             <TypeInQuizField
+              ref={typeInFieldMobileRef}
               answer={typeInExpectedAnswer}
               spaceAsGap={isActiveVocab}
               value={typeInAnswer}

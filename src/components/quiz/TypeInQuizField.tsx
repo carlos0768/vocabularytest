@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ChangeEvent } from 'react';
+import { forwardRef, useImperativeHandle, useRef, type ChangeEvent } from 'react';
 import { Icon } from '@/components/ui/Icon';
 
 export type TypeInQuizFieldResult = 'correct' | 'wrong' | null;
@@ -31,10 +31,15 @@ export interface TypeInQuizFieldProps {
   variant?: 'plain' | 'solid';
 }
 
+export interface TypeInQuizFieldHandle {
+  /** Focus the underlying input, reopening the mobile keyboard when called from a tap gesture. */
+  focus: () => void;
+}
+
 /**
  * Typing quiz field: bold characters for input, gray first-letter hint, underscores for remaining slots.
  */
-export function TypeInQuizField({
+export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizFieldProps>(function TypeInQuizField({
   answer,
   spaceAsGap = false,
   value,
@@ -44,8 +49,20 @@ export function TypeInQuizField({
   disabled,
   result,
   variant = 'plain',
-}: TypeInQuizFieldProps) {
+}, ref) {
   const inputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      const el = inputRef.current;
+      if (!el) return;
+      // While an answer is revealed the input is `disabled`, which blocks focus.
+      // To reopen the keyboard for the next question we focus inside the "next"
+      // tap gesture (iOS only shows the software keyboard from a user gesture),
+      // before React re-renders the input as enabled -- so force-enable first.
+      if (el.disabled) el.disabled = false;
+      el.focus();
+    },
+  }), []);
   const target: string[] = [];
   const slots: Slot[] = [];
   for (const ch of answer) {
@@ -210,4 +227,4 @@ export function TypeInQuizField({
       {input}
     </div>
   );
-}
+});
