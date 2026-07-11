@@ -7,13 +7,25 @@ import type { DesktopStudySummaryStats } from '@/lib/desktop-study-summary';
 export function DesktopStudySidebar({
   stats,
   reviewHref,
+  learnHref,
 }: {
   stats: DesktopStudySummaryStats;
   reviewHref: string;
+  /** Where "学習を始める" links in the brand-new (no review schedule) state.
+   *  Falls back to reviewHref if a caller doesn't supply it. */
+  learnHref?: string;
 }) {
   const totalGoal = stats.dueCount + stats.completedToday;
   const goalProgress = totalGoal > 0 ? Math.round((stats.completedToday / totalGoal) * 100) : 0;
   const masteryPercent = stats.totalWords > 0 ? Math.round((stats.mastered / stats.totalWords) * 100) : 0;
+  // Brand-new account: default wordbook imported but nothing quizzed yet, so no
+  // word has a review schedule. Show a small, achievable learning target rather
+  // than "0語 復習を始める" (which would launch an empty review).
+  const isFreshStart = stats.totalWords > 0 && !stats.hasReviewSchedule && stats.dueCount === 0;
+  const dailyLearnTarget = Math.min(stats.newW + stats.review, 10);
+  const learnProgress = dailyLearnTarget > 0
+    ? Math.min(100, Math.round((stats.completedToday / dailyLearnTarget) * 100))
+    : 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
@@ -21,19 +33,25 @@ export function DesktopStudySidebar({
         <div className="muted" style={{ fontSize: 12.5, fontWeight: 600 }}>今日の目標</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 6 }}>
           <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40, lineHeight: 1 }}>
-            {stats.dueCount}
+            {isFreshStart ? dailyLearnTarget : stats.dueCount}
           </span>
           <span style={{ fontSize: 16, fontWeight: 700 }}>語</span>
         </div>
         <div className="ds-prog" style={{ marginTop: 14 }}>
-          <div className="fi" style={{ width: `${goalProgress}%` }} />
+          <div className="fi" style={{ width: `${isFreshStart ? learnProgress : goalProgress}%` }} />
         </div>
         <div className="mono muted" style={{ fontSize: 11, marginTop: 6 }}>
-          {stats.completedToday} / {totalGoal} 完了
+          {isFreshStart ? 'まずはここから' : `${stats.completedToday} / ${totalGoal} 完了`}
         </div>
-        <DesktopButton href={reviewHref} variant="accent" icon="play_arrow" className="w-full">
-          復習を始める
-        </DesktopButton>
+        {isFreshStart ? (
+          <DesktopButton href={learnHref ?? reviewHref} variant="accent" icon="play_arrow" className="w-full">
+            学習を始める
+          </DesktopButton>
+        ) : (
+          <DesktopButton href={reviewHref} variant="accent" icon="play_arrow" className="w-full">
+            復習を始める
+          </DesktopButton>
+        )}
       </div>
 
       <div className="ds-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>

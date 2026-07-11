@@ -13,6 +13,9 @@ export type DesktopStudySummaryStats = {
   activeW: number;
   review: number;
   newW: number;
+  // False for a brand-new account whose words have never been quizzed (no review
+  // schedule yet). Lets the sidebar show a small learning target instead of "0語".
+  hasReviewSchedule: boolean;
 };
 
 export const EMPTY_DESKTOP_STUDY_SUMMARY: DesktopStudySummaryStats = {
@@ -24,6 +27,7 @@ export const EMPTY_DESKTOP_STUDY_SUMMARY: DesktopStudySummaryStats = {
   activeW: 0,
   review: 0,
   newW: 0,
+  hasReviewSchedule: false,
 };
 
 export function buildDesktopStudySummaryStats(words: Word[]): DesktopStudySummaryStats {
@@ -40,5 +44,6 @@ export function buildDesktopStudySummaryStats(words: Word[]): DesktopStudySummar
     activeW: statusCounts.activeTotal,
     review: statusCounts.learningTotal,
     newW: statusCounts.unlearnedTotal,
+    hasReviewSchedule: words.some((word) => Boolean(word.nextReviewAt) || Boolean(word.lastReviewedAt)),
   };
 }

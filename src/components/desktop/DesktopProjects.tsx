@@ -33,6 +33,7 @@ export function DesktopProjectsView({
   sort,
   summaryStats,
   reviewHref,
+  learnHref,
   onQueryChange,
   onSortChange,
 }: {
@@ -43,6 +44,7 @@ export function DesktopProjectsView({
   sort: 'newest' | 'words' | 'lastUsed';
   summaryStats: DesktopStudySummaryStats;
   reviewHref: string;
+  learnHref?: string;
   onQueryChange: (value: string) => void;
   onSortChange: (value: 'newest' | 'words' | 'lastUsed') => void;
 }) {
@@ -126,7 +128,7 @@ export function DesktopProjectsView({
           </div>
         </div>
 
-        <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} />
+        <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} learnHref={learnHref} />
             </div>
     </div>
   );
