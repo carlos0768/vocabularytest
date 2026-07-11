@@ -204,14 +204,26 @@ export function getReviewCount(words: Word[]): number {
   return getWordsDueForReview(words).length;
 }
 
-const STATUS_PRIORITY: Record<Word['status'], number> = {
+const STATUS_PRIORITY: Record<WordStatus, number> = {
   new: 0,
   review: 1,
   active: 2,
   mastered: 3,
 };
 
-function getReviewBucket(word: Word, nowMs: number): number {
+/**
+ * Minimal fields needed to order words by study priority. Word satisfies this,
+ * but so can lighter shapes (e.g. the project word-list selector) so the quiz,
+ * flashcard, and word-list screens can all share one canonical ordering.
+ */
+export interface WordPriorityFields {
+  id: string;
+  status: WordStatus;
+  createdAt: string;
+  nextReviewAt?: string;
+}
+
+function getReviewBucket(word: WordPriorityFields, nowMs: number): number {
   if (!word.nextReviewAt) return 1;
   const nextMs = Date.parse(word.nextReviewAt);
   if (Number.isNaN(nextMs)) return 1;
@@ -222,7 +234,7 @@ function getReviewBucket(word: Word, nowMs: number): number {
  * Compare words by study priority.
  * Lower return value means higher priority.
  */
-export function compareWordsByPriority(a: Word, b: Word, now: Date = new Date()): number {
+export function compareWordsByPriority(a: WordPriorityFields, b: WordPriorityFields, now: Date = new Date()): number {
   const nowMs = now.getTime();
 
   const reviewBucketDiff = getReviewBucket(a, nowMs) - getReviewBucket(b, nowMs);

@@ -3,7 +3,7 @@
 import { Icon } from '@/components/ui';
 
 type Activeness = 'all' | 'active' | 'passive';
-type SortOrder = 'createdAsc' | 'alphabetical' | 'statusAsc';
+type SortOrder = 'priority' | 'createdAsc' | 'alphabetical' | 'statusAsc';
 
 const POS_LABEL_MAP: Record<string, string> = {
   noun: '名詞',
@@ -233,6 +233,7 @@ type WordSortSheetProps = {
 };
 
 const SORT_OPTIONS: Array<{ value: SortOrder; label: string; description: string; icon: string }> = [
+  { value: 'priority', label: '学習順', description: 'クイズ・カードと同じ並び順', icon: 'school' },
   { value: 'createdAsc', label: '追加順', description: '追加した順に表示', icon: 'schedule' },
   { value: 'alphabetical', label: 'アルファベット', description: 'A → Z の順に表示', icon: 'sort_by_alpha' },
   { value: 'statusAsc', label: '未習得順', description: '未習得の単語を先に表示', icon: 'trending_up' },

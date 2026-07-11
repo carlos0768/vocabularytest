@@ -1,7 +1,9 @@
 import type { VocabularyType, WordStatus } from '@/types';
 import { summarizeWordMemory } from '@/lib/words/memory';
+import { compareWordsByPriority } from '@/lib/spaced-repetition';
 
-export type ProjectWordSortOrder = 'createdAsc' | 'alphabetical' | 'statusAsc';
+// 'priority' はクイズ・フラッシュカードと同じ学習優先度順（sortWordsByPriority）。
+export type ProjectWordSortOrder = 'priority' | 'createdAsc' | 'alphabetical' | 'statusAsc';
 export type ProjectWordActivenessFilter = 'all' | 'active' | 'passive';
 
 export interface ProjectWordStats {
@@ -27,6 +29,8 @@ export interface ProjectPageWord {
   english: string;
   japanese: string;
   createdAt: string;
+  id?: string;
+  nextReviewAt?: string;
   projectId?: string;
   status?: WordStatus;
   isFavorite?: boolean;
@@ -122,6 +126,16 @@ export function selectFilteredProjectWords<T extends ProjectPageWord>(
     return [...result].sort(
       (a, b) => (STATUS_SORT_ORDER[a.status ?? 'new'] ?? 0) - (STATUS_SORT_ORDER[b.status ?? 'new'] ?? 0),
     );
+  }
+
+  if (options.sortOrder === 'priority') {
+    // クイズ・フラッシュカードと完全に同じ並び（復習期限→ステータス→作成日昇順→id）。
+    const now = new Date();
+    return [...result].sort((a, b) => compareWordsByPriority(
+      { id: a.id ?? '', status: a.status ?? 'new', createdAt: a.createdAt, nextReviewAt: a.nextReviewAt },
+      { id: b.id ?? '', status: b.status ?? 'new', createdAt: b.createdAt, nextReviewAt: b.nextReviewAt },
+      now,
+    ));
   }
 
   return [...result].sort(

@@ -231,7 +231,7 @@ export default function ProjectDetailPage() {
   // Word list toolbar: search, filter, sort
   const [wordSearchText, setWordSearchText] = useState('');
   const [wordShowSearch, setWordShowSearch] = useState(false);
-  const [wordSortOrder, setWordSortOrder] = useState<'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
+  const [wordSortOrder, setWordSortOrder] = useState<'priority' | 'createdAsc' | 'alphabetical' | 'statusAsc'>('createdAsc');
   const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
   const [wordFilterActiveness, setWordFilterActiveness] = useState<'all' | 'active' | 'passive'>('all');
   const [wordFilterPos, setWordFilterPos] = useState<string | null>(null);

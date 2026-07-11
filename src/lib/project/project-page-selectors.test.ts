@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { WordStatus, VocabularyType } from '@/types';
+import type { WordStatus, VocabularyType, Word } from '@/types';
+import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import {
   countProjectWordStats,
   getProjectPartOfSpeechLabel,
@@ -23,6 +24,7 @@ function word(
     japanese = id,
     createdAt = '2026-05-01T00:00:00.000Z',
     status = 'new',
+    nextReviewAt,
     isFavorite = false,
     vocabularyType = null,
     partOfSpeechTags,
@@ -36,6 +38,7 @@ function word(
     japanese?: string;
     createdAt?: string;
     status?: WordStatus;
+    nextReviewAt?: string;
     isFavorite?: boolean;
     vocabularyType?: VocabularyType | null;
     partOfSpeechTags?: string[];
@@ -52,6 +55,7 @@ function word(
     japanese,
     createdAt,
     status,
+    nextReviewAt,
     isFavorite,
     vocabularyType,
     partOfSpeechTags,
@@ -199,6 +203,29 @@ test('selectFilteredProjectWords sorts by status ascending', () => {
   ];
 
   assert.deepEqual(selectIds(words, { sortOrder: 'statusAsc' }), ['missing', 'new', 'review', 'mastered']);
+});
+
+test('selectFilteredProjectWords "priority" order matches quiz/flashcard sortWordsByPriority', () => {
+  const now = Date.now();
+  const past = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const future = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+  const words = [
+    word('mastered-old', { status: 'mastered', createdAt: '2026-05-01T00:00:00.000Z' }),
+    word('new-due', { status: 'new', createdAt: '2026-05-04T00:00:00.000Z', nextReviewAt: past }),
+    word('review-future', { status: 'review', createdAt: '2026-05-02T00:00:00.000Z', nextReviewAt: future }),
+    word('new-fresh-b', { status: 'new', createdAt: '2026-05-03T00:00:00.000Z' }),
+    word('new-fresh-a', { status: 'new', createdAt: '2026-05-02T00:00:00.000Z' }),
+  ];
+
+  // The selector must produce exactly the same sequence as the shared
+  // spaced-repetition comparator used by the quiz and flashcard screens.
+  const expected = sortWordsByPriority(words as unknown as Word[]).map((item) => item.id);
+
+  assert.deepEqual(selectIds(words, { sortOrder: 'priority' }), expected);
+  // Sanity check: due word first (bucket 0); then the never-scheduled bucket by
+  // status (new words in createdAt-asc order, then mastered); then the
+  // future-scheduled review word last (bucket 2 is deprioritized below bucket 1).
+  assert.deepEqual(expected, ['new-due', 'new-fresh-a', 'new-fresh-b', 'mastered-old', 'review-future']);
 });
 
 test('selectFilteredProjectWords sorts by createdAt ascending by default', () => {
