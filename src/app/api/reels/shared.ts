@@ -12,6 +12,12 @@ import type {
 import { decodeReelCursor, encodeReelCursor } from '@/lib/reels/cursor';
 import { eikenLevelsAround } from '@/lib/reels/eiken-cefr';
 import { selectReelCandidates } from '@/lib/reels/ranking';
+import {
+  sampleBookWords,
+  sharedCefrLookupHeadwords,
+  withSharedCefrLevels,
+} from '@/lib/reels/sampling';
+import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
@@ -19,12 +25,15 @@ type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 export const REEL_FEED_DEFAULT_LIMIT = 8;
 export const REEL_FEED_MAX_LIMIT = 12;
 
-const SHARED_POPULAR_BOOK_COUNT = 30;
-const SHARED_RECENT_BOOK_COUNT = 10;
-const SHARED_WORDS_PER_BOOK = 5;
-const SHARED_WORDS_FETCH_LIMIT = 600;
-const OFFICIAL_WORDS_PER_BOOK = 10;
-const OFFICIAL_WORDS_FETCH_LIMIT = 300;
+// Pool sizes: fetch deep so the per-page sampler has material to rotate
+// through. The long-term fix for even deeper books is a DB-side per-book
+// sampling RPC (needs a migration); until then these limits bound payload.
+const SHARED_POPULAR_BOOK_COUNT = 40;
+const SHARED_RECENT_BOOK_COUNT = 15;
+const SHARED_WORDS_PER_BOOK = 8;
+const SHARED_WORDS_FETCH_LIMIT = 1500;
+const OFFICIAL_WORDS_PER_BOOK = 12;
+const OFFICIAL_WORDS_FETCH_LIMIT = 1000;
 const SEEN_WINDOW_DAYS = 7;
 const SEEN_FETCH_LIMIT = 3000;
 
@@ -87,24 +96,23 @@ function firstOrNull<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
-/** Pick up to `count` items spread evenly across the list. */
-function spreadPick<T>(items: T[], count: number): T[] {
-  if (items.length <= count) return items;
-  const picked: T[] = [];
-  const step = items.length / count;
-  for (let i = 0; i < count; i += 1) {
-    picked.push(items[Math.floor(i * step)]);
-  }
-  return picked;
-}
-
 export function reelItemKey(source: ReelSource, wordId: string): string {
   return `${source === 'shared' ? 's' : 'o'}:${wordId}`;
 }
 
 // ---------- candidate fetchers ----------
 
-async function fetchSharedCandidates(admin: SupabaseAdminClient): Promise<ReelCandidate[]> {
+/** Per-request sampling context so each page surfaces different words. */
+type CandidateSampling = {
+  seed: number;
+  seenKeys: ReadonlySet<string>;
+  excludedKeys: ReadonlySet<string>;
+};
+
+async function fetchSharedCandidates(
+  admin: SupabaseAdminClient,
+  sampling: CandidateSampling,
+): Promise<ReelCandidate[]> {
   const bookSelect = 'id,share_id,user_id,title,icon_image,shared_tags,word_count,like_count,created_at';
 
   const [popularResult, recentResult] = await Promise.all([
@@ -185,8 +193,14 @@ async function fetchSharedCandidates(admin: SupabaseAdminClient): Promise<ReelCa
       createdAt: bookRow.created_at,
       importedByMe: false,
     };
-    for (const word of spreadPick(words, SHARED_WORDS_PER_BOOK)) {
-      if (!word.english?.trim() || !word.japanese?.trim()) continue;
+    const validWords = words.filter((word) => word.english?.trim() && word.japanese?.trim());
+    const sampled = sampleBookWords(
+      validWords,
+      SHARED_WORDS_PER_BOOK,
+      (word) => reelItemKey('shared', word.id),
+      { ...sampling, bookId },
+    );
+    for (const word of sampled) {
       candidates.push({
         id: reelItemKey('shared', word.id),
         source: 'shared',
@@ -209,6 +223,7 @@ async function fetchSharedCandidates(admin: SupabaseAdminClient): Promise<ReelCa
 async function fetchOfficialCandidates(
   admin: SupabaseAdminClient,
   eikenLevel: string | null,
+  sampling: CandidateSampling,
 ): Promise<ReelCandidate[]> {
   let bookQuery = admin
     .from('projects')
@@ -235,6 +250,9 @@ async function fetchOfficialCandidates(
     .from('words')
     .select('id,project_id,english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,lexicon_entries(cefr_level)')
     .in('project_id', books.map((book) => book.id))
+    // Deterministic ordering so which rows fall under the limit is stable.
+    .order('project_id', { ascending: true })
+    .order('created_at', { ascending: true })
     .limit(OFFICIAL_WORDS_FETCH_LIMIT);
 
   if (wordsError) throw new Error(wordsError.message || 'reel_official_words_failed');
@@ -265,8 +283,14 @@ async function fetchOfficialCandidates(
       createdAt: bookRow.created_at,
       importedByMe: false,
     };
-    for (const word of spreadPick(words, OFFICIAL_WORDS_PER_BOOK)) {
-      if (!word.english?.trim() || !word.japanese?.trim()) continue;
+    const validWords = words.filter((word) => word.english?.trim() && word.japanese?.trim());
+    const sampled = sampleBookWords(
+      validWords,
+      OFFICIAL_WORDS_PER_BOOK,
+      (word) => reelItemKey('official', word.id),
+      { ...sampling, bookId: projectId },
+    );
+    for (const word of sampled) {
       candidates.push({
         id: reelItemKey('official', word.id),
         source: 'official',
@@ -527,23 +551,47 @@ export async function buildReelFeedPage(options: {
   const seed = cursor?.seed ?? Math.floor(Math.random() * 0xffffffff);
   const page = cursor?.page ?? 0;
 
-  const rankingInputs = await fetchRankingInputs(admin, options.userId);
-  const [sharedCandidates, officialCandidates, seenAtByKey, feedback, tagSimilarityByBookId] =
-    await Promise.all([
-      fetchSharedCandidates(admin),
-      fetchOfficialCandidates(admin, rankingInputs.eikenLevel),
-      fetchSeenAtByKey(admin, options.userId),
-      fetchUserFeedback(admin, options.userId),
-      fetchTagSimilarity(admin, rankingInputs.interestTags),
-    ]);
+  const rankSeed = (seed ^ Math.imul(page + 1, 0x9e3779b1)) >>> 0;
+
+  const [rankingInputs, seenAtByKey, feedback] = await Promise.all([
+    fetchRankingInputs(admin, options.userId),
+    fetchSeenAtByKey(admin, options.userId),
+    fetchUserFeedback(admin, options.userId),
+  ]);
+
+  // Page-scoped sampling: fetchers rotate which words of each book become
+  // candidates (unseen-first), so successive pages keep surfacing new words.
+  const sampling: CandidateSampling = {
+    seed: rankSeed,
+    seenKeys: new Set(Object.keys(seenAtByKey)),
+    excludedKeys: feedback.excludedKeys,
+  };
+
+  const [sharedCandidates, officialCandidates, tagSimilarityByBookId] = await Promise.all([
+    fetchSharedCandidates(admin, sampling),
+    fetchOfficialCandidates(admin, rankingInputs.eikenLevel, sampling),
+    fetchTagSimilarity(admin, rankingInputs.interestTags),
+  ]);
 
   // Only not-interested words are excluded outright; seen words stay in
   // the pool and get recycled as review cards when the unseen pool runs dry.
-  const candidates = [...sharedCandidates, ...officialCandidates].filter(
+  let candidates = [...sharedCandidates, ...officialCandidates].filter(
     (candidate) => !feedback.excludedKeys.has(candidate.id),
   );
 
-  const rankSeed = (seed ^ Math.imul(page + 1, 0x9e3779b1)) >>> 0;
+  if (rankingInputs.eikenLevel) {
+    // Shared words carry no CEFR level; fill it from the lexicon so levelFit
+    // can personalize them too. Best-effort — never break the feed on it.
+    try {
+      const headwords = sharedCefrLookupHeadwords(candidates);
+      if (headwords.length > 0) {
+        const levels = await lookupLexiconCefrLevels(headwords, { supabaseAdmin: admin });
+        candidates = withSharedCefrLevels(candidates, levels);
+      }
+    } catch {
+      // cefrLevel stays null → neutral level fit.
+    }
+  }
   const selections = selectReelCandidates(
     candidates,
     seenAtByKey,
