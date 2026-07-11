@@ -43,8 +43,21 @@ import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Wo
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
-// One-time coach mark explaining the Active / Passive vocabulary toggle.
-const VOCAB_TYPE_TOUR_STEPS: TourStep[] = [
+// One-time coach mark for a wordbook's word list. Two steps in left-to-right
+// reading order: the status squares, then the Active / Passive toggle.
+const PROJECT_INTRO_TOUR_STEPS: TourStep[] = [
+  {
+    target: '.tour-anchor-word-status',
+    title: '左のマスは定着度',
+    content: (
+      <>
+        単語ごとの定着度を表します。タップするたびに{' '}
+        <strong>未学習 → 学習中 → 定着中 → 習得済み</strong>{' '}
+        と段階が上がり、満タン（習得済み）からはタップで下げられます。クイズの正誤でも自動で更新されます。
+      </>
+    ),
+    placement: 'bottom-start',
+  },
   {
     target: '.tour-anchor-vocab-type',
     title: 'A / P とは？',
@@ -100,7 +113,7 @@ export default function ProjectPage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
-  const { shouldRender: vocabTourReady, markSeen: markVocabTourSeen } = useTourSeen('vocab-type');
+  const { shouldRender: projectTourReady, markSeen: markProjectTourSeen } = useTourSeen('project-intro');
   const isMobileViewport = useIsMobileViewport();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -277,10 +290,10 @@ export default function ProjectPage() {
     [filteredWords, selectedWordIds],
   );
 
-  // A/P coach mark: only while the plain word list is visible and no competing
-  // sheet/modal is open (the anchored A/P button is hidden in select mode).
-  const runVocabTour =
-    vocabTourReady
+  // Word-list coach mark: only while the plain list is visible and no competing
+  // sheet/modal is open (the anchored rows are replaced in select mode).
+  const runProjectTour =
+    projectTourReady
     && isMobileViewport
     && wordsLoaded
     && !selectMode
@@ -1228,7 +1241,7 @@ export default function ProjectPage() {
                 word={word}
                 selectMode={selectMode}
                 selected={selected}
-                vocabAnchor={index === 0}
+                tourAnchor={index === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
                 onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
                 onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
@@ -1367,7 +1380,7 @@ export default function ProjectPage() {
         onSortOrderChange={setWordSortOrder}
       />
 
-      <GuidedTour run={runVocabTour} steps={VOCAB_TYPE_TOUR_STEPS} onFinish={markVocabTourSeen} />
+      <GuidedTour run={runProjectTour} steps={PROJECT_INTRO_TOUR_STEPS} onFinish={markProjectTourSeen} />
 
       <BulkActionBar
         open={selectMode}
@@ -1890,10 +1903,12 @@ function StatusSquares({
   wordId,
   status,
   onStatusChange,
+  className,
 }: {
   wordId: string;
   status: WordStatus;
   onStatusChange: (newStatus: WordStatus) => void;
+  className?: string;
 }) {
   const [filledCount, setFilledCount] = useState(() => PP_FILLED[status] ?? 0);
   const [direction, setDirection] = useState<'up' | 'down'>(() =>
@@ -1934,7 +1949,7 @@ function StatusSquares({
       type="button"
       onClick={handleClick}
       aria-label={`ステータス: ${PP_ARIA[status] ?? status}`}
-      className="shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]"
+      className={`shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]${className ? ` ${className}` : ''}`}
     >
       <div className="flex flex-col gap-[1.5px]">
         {[0, 1, 2].map((i) => (
@@ -1953,7 +1968,7 @@ function WordRow({
   word,
   selectMode,
   selected,
-  vocabAnchor = false,
+  tourAnchor = false,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -1963,7 +1978,7 @@ function WordRow({
   word: Word;
   selectMode: boolean;
   selected: boolean;
-  vocabAnchor?: boolean;
+  tourAnchor?: boolean;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -2004,7 +2019,12 @@ function WordRow({
   return (
     <div className="px-1 py-2.5">
       <div className="flex items-center gap-2.5">
-        <StatusSquares wordId={word.id} status={displayStatus} onStatusChange={onCycleStatus} />
+        <StatusSquares
+          wordId={word.id}
+          status={displayStatus}
+          onStatusChange={onCycleStatus}
+          className={tourAnchor ? 'tour-anchor-word-status' : undefined}
+        />
 
         <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
           <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
@@ -2019,7 +2039,7 @@ function WordRow({
         <VocabularyTypeButton
           vocabularyType={word.vocabularyType}
           onClick={onCycleVocabularyType}
-          className={vocabAnchor ? 'shrink-0 tour-anchor-vocab-type' : 'shrink-0'}
+          className={tourAnchor ? 'shrink-0 tour-anchor-vocab-type' : 'shrink-0'}
         />
         <button
           type="button"
