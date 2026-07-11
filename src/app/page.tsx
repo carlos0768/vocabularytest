@@ -14,7 +14,10 @@ import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCar
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
 import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
+import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
+import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useOnboarding } from '@/hooks/use-onboarding';
+import { useTourSeen } from '@/hooks/use-tour-seen';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
 import { getDb, getRepository } from '@/lib/db';
@@ -44,6 +47,22 @@ import type { Project, SubscriptionStatus, Word } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 const HOME_MY_BOOKS_VISIBLE_LIMIT = 5;
+
+// Guided tour that walks a first-time user from their wordbook to the quiz.
+const QUIZ_TOUR_STEPS: TourStep[] = [
+  {
+    target: '[data-tour="wordbook-row"]',
+    title: 'まずは単語帳',
+    content: '作った・取り込んだ単語帳はここに並びます。タップすると中身を確認できます。',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tour="quiz-start"]',
+    title: 'クイズで覚える',
+    content: 'この再生ボタンでクイズをスタート。4択で意味を選んで、記憶に定着させましょう。',
+    placement: 'left',
+  },
+];
 
 const ROOT_LANDING_SCAN_MODES = [
   {
@@ -316,6 +335,8 @@ export default function HomePage() {
   const router = useRouter();
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   useOnboarding();
+  const { shouldRender: quizTourReady, markSeen: markQuizTourSeen } = useTourSeen('quiz-intro');
+  const isMobileViewport = useIsMobileViewport();
   const [projects, setProjects] = useState<HomeProjectStats[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
@@ -512,6 +533,17 @@ export default function HomePage() {
   // out of the browsable マイ単語帳 list (its words still count in `stats`).
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
   const visibleProjects = listProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
+
+  // Quiz-intro tour targets any user who hasn't studied yet. Word status only
+  // advances past 'new' via quiz/study, so any progress means they've quizzed.
+  const hasStudiedBefore = completedToday > 0 || mastered > 0 || review > 0 || stats.activeW > 0;
+  const runQuizTour =
+    quizTourReady
+    && isMobileViewport
+    && !!user
+    && !loading
+    && !hasStudiedBefore
+    && (visibleProjects[0]?.totalWords ?? 0) > 0;
   const displayedPendingScans = useMemo<HomePendingScan[]>(() => {
     if (!pendingGeneratingWordbook) return pendingScans;
     if (
@@ -750,7 +782,15 @@ export default function HomePage() {
               }
             />
         ) : (
-          visibleProjects.map((project) => <ProjectRow key={project.id} project={project} />)
+          visibleProjects.map((project, i) =>
+            i === 0 ? (
+              <div key={project.id} data-tour="wordbook-row">
+                <ProjectRow project={project} tourAnchor />
+              </div>
+            ) : (
+              <ProjectRow key={project.id} project={project} />
+            ),
+          )
         )}
       </div>
 
@@ -765,6 +805,7 @@ export default function HomePage() {
         isOpen={createSheetOpen}
         onClose={() => setCreateSheetOpen(false)}
       />
+      <GuidedTour run={runQuizTour} steps={QUIZ_TOUR_STEPS} onFinish={markQuizTourSeen} />
 
 
     </>
@@ -1379,7 +1420,7 @@ function LegendItem({ color, label, count }: { color: string; label: string; cou
   );
 }
 
-function ProjectRow({ project }: { project: HomeProjectStats }) {
+function ProjectRow({ project, tourAnchor = false }: { project: HomeProjectStats; tourAnchor?: boolean }) {
   const bg = thumbColor(project.id);
   const hasWords = project.totalWords > 0;
   return (
@@ -1418,6 +1459,7 @@ function ProjectRow({ project }: { project: HomeProjectStats }) {
           <Link
             href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
             aria-label={`${project.title}のクイズを開始`}
+            data-tour={tourAnchor ? 'quiz-start' : undefined}
             className="flex h-[37px] w-[37px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
           >
             <Icon name="play_arrow" size={20} filled />

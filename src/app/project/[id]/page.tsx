@@ -10,10 +10,13 @@ import { WordLimitModal } from '@/components/limits';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
+import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
+import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useTourSeen } from '@/hooks/use-tour-seen';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -39,6 +42,25 @@ import {
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+
+// One-time coach mark explaining the Active / Passive vocabulary toggle.
+const VOCAB_TYPE_TOUR_STEPS: TourStep[] = [
+  {
+    target: '.tour-anchor-vocab-type',
+    title: 'A / P とは？',
+    content: (
+      <>
+        この丸ボタンで単語を分類できます。
+        <br />
+        <strong>A（Active）</strong>＝自分でも使いこなしたい発信語彙、
+        <strong>P（Passive）</strong>＝意味が分かればよい受信語彙。
+        <br />
+        タップするたび 未設定 → A → P → 未設定 と切り替わり、あとでフィルタで絞り込めます。
+      </>
+    ),
+    placement: 'left',
+  },
+];
 
 type StudyGroupsResponse = {
   success?: boolean;
@@ -78,6 +100,8 @@ export default function ProjectPage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
+  const { shouldRender: vocabTourReady, markSeen: markVocabTourSeen } = useTourSeen('vocab-type');
+  const isMobileViewport = useIsMobileViewport();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -252,6 +276,18 @@ export default function ProjectPage() {
     () => filteredWords.filter((word) => selectedWordIds.has(word.id)),
     [filteredWords, selectedWordIds],
   );
+
+  // A/P coach mark: only while the plain word list is visible and no competing
+  // sheet/modal is open (the anchored A/P button is hidden in select mode).
+  const runVocabTour =
+    vocabTourReady
+    && isMobileViewport
+    && wordsLoaded
+    && !selectMode
+    && filteredWords.length > 0
+    && !selectedWord
+    && !showManualWordModal
+    && !menuOpen;
 
   const handleExitSelectMode = useCallback(() => {
     setSelectMode(false);
@@ -1184,7 +1220,7 @@ export default function ProjectPage() {
           )
         ) : (
           <div className="divide-y divide-[var(--color-border)]">
-            {filteredWords.map((word) => {
+            {filteredWords.map((word, index) => {
               const selected = selectedWordIds.has(word.id);
               return (
               <WordRow
@@ -1192,6 +1228,7 @@ export default function ProjectPage() {
                 word={word}
                 selectMode={selectMode}
                 selected={selected}
+                vocabAnchor={index === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
                 onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
                 onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
@@ -1329,6 +1366,8 @@ export default function ProjectPage() {
         sortOrder={wordSortOrder}
         onSortOrderChange={setWordSortOrder}
       />
+
+      <GuidedTour run={runVocabTour} steps={VOCAB_TYPE_TOUR_STEPS} onFinish={markVocabTourSeen} />
 
       <BulkActionBar
         open={selectMode}
@@ -1914,6 +1953,7 @@ function WordRow({
   word,
   selectMode,
   selected,
+  vocabAnchor = false,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -1923,6 +1963,7 @@ function WordRow({
   word: Word;
   selectMode: boolean;
   selected: boolean;
+  vocabAnchor?: boolean;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -1978,7 +2019,7 @@ function WordRow({
         <VocabularyTypeButton
           vocabularyType={word.vocabularyType}
           onClick={onCycleVocabularyType}
-          className="shrink-0"
+          className={vocabAnchor ? 'shrink-0 tour-anchor-vocab-type' : 'shrink-0'}
         />
         <button
           type="button"
