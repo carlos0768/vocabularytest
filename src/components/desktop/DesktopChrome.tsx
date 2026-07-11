@@ -9,13 +9,12 @@ import { useCoins } from '@/hooks/use-coins';
 import { getStreakDays } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-type NavKey = 'home' | 'books' | 'stats' | 'reels' | 'friends' | 'shared' | 'fav' | 'scan' | 'settings';
+type NavKey = 'home' | 'books' | 'stats' | 'reels' | 'shared' | 'fav' | 'scan' | 'settings';
 
 const NAV_ITEMS: { key: NavKey; href: string; icon: string; label: string; count?: number }[] = [
   { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
   { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'reels', href: '/reels', icon: 'movie', label: 'リール' },
-  { key: 'friends', href: '/friends', icon: 'groups', label: 'フィード' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'star', label: 'お気に入り', count: 21 },
   { key: 'scan', href: '/scan', icon: 'photo_camera', label: 'スキャン' },
@@ -27,7 +26,6 @@ function activeKeyForPath(pathname: string): NavKey {
   if (pathname === '/projects' || pathname.startsWith('/project/') || pathname.startsWith('/word/')) return 'books';
   if (pathname === '/stats') return 'stats';
   if (pathname === '/reels') return 'reels';
-  if (pathname === '/friends') return 'friends';
   if (pathname === '/shared' || pathname.startsWith('/share/') || pathname.startsWith('/groups/')) return 'shared';
   if (pathname === '/favorites' || pathname.startsWith('/collections')) return 'fav';
   if (pathname.startsWith('/scan')) return 'scan';
