@@ -10,10 +10,14 @@ import { WordLimitModal } from '@/components/limits';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
+import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
+import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useTourSeen } from '@/hooks/use-tour-seen';
+import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -39,6 +43,38 @@ import {
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+
+// One-time coach mark for a wordbook's word list. Two steps in left-to-right
+// reading order: the status squares, then the Active / Passive toggle.
+const PROJECT_INTRO_TOUR_STEPS: TourStep[] = [
+  {
+    target: '.tour-anchor-word-status',
+    title: '左のマスは定着度',
+    content: (
+      <>
+        単語ごとの定着度を表します。タップするたびに{' '}
+        <strong>未学習 → 学習中 → 定着中 → 習得済み</strong>{' '}
+        と段階が上がり、満タン（習得済み）からはタップで下げられます。クイズの正誤でも自動で更新されます。
+      </>
+    ),
+    placement: 'bottom-start',
+  },
+  {
+    target: '.tour-anchor-vocab-type',
+    title: 'A / P とは？',
+    content: (
+      <>
+        この丸ボタンで単語を分類できます。
+        <br />
+        <strong>A（Active）</strong>＝自分でも使いこなしたい発信語彙、
+        <strong>P（Passive）</strong>＝意味が分かればよい受信語彙。
+        <br />
+        タップするたび 未設定 → A → P → 未設定 と切り替わり、あとでフィルタで絞り込めます。
+      </>
+    ),
+    placement: 'left',
+  },
+];
 
 type StudyGroupsResponse = {
   success?: boolean;
@@ -78,6 +114,9 @@ export default function ProjectPage() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
+  const { shouldRender: projectTourReady, markSeen: markProjectTourSeen } = useTourSeen('project-intro');
+  const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
+  const isMobileViewport = useIsMobileViewport();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -251,6 +290,77 @@ export default function ProjectPage() {
   const selectedFilteredWords = useMemo(
     () => filteredWords.filter((word) => selectedWordIds.has(word.id)),
     [filteredWords, selectedWordIds],
+  );
+
+  // The guided flashcard→quiz flow takes priority over the status/A-P coach mark.
+  const tutorialFlowActive = tutorialStage !== null && tutorialStage !== 'finished';
+
+  // Word-list coach mark: only while the plain list is visible and no competing
+  // sheet/modal is open (the anchored rows are replaced in select mode), and not
+  // during the guided flow (shown afterward instead).
+  const runProjectTour =
+    projectTourReady
+    && isMobileViewport
+    && !tutorialFlowActive
+    && wordsLoaded
+    && !selectMode
+    && filteredWords.length > 0
+    && !selectedWord
+    && !showManualWordModal
+    && !menuOpen;
+
+  // Guided-flow action tours: nudge toward flashcards, then (after returning) the quiz.
+  const flowTourEligible =
+    isMobileViewport
+    && wordsLoaded
+    && words.length > 0
+    && !selectMode
+    && !selectedWord
+    && !showManualWordModal
+    && !menuOpen;
+
+  const runOpenFlashcardTour = flowTourEligible && tutorialStage === 'open-flashcard';
+  const openFlashcardTourSteps = useMemo<TourStep[]>(
+    () => [
+      {
+        target: '[data-tour="project-flashcard"]',
+        title: 'まずはフラッシュカード',
+        content: 'カードで単語をざっと見てから、クイズで確認します。まずはカードを開きましょう。',
+        placement: 'bottom',
+        data: {
+          primaryAction: {
+            label: 'フラッシュカードを開く',
+            onClick: () => {
+              setTutorialStage('view-cards');
+              router.push(`/flashcard/${projectId}`);
+            },
+          },
+        },
+      },
+    ],
+    [projectId, router, setTutorialStage],
+  );
+
+  const runOpenQuizTour = flowTourEligible && tutorialStage === 'open-quiz';
+  const openQuizTourSteps = useMemo<TourStep[]>(
+    () => [
+      {
+        target: '[data-tour="project-quiz"]',
+        title: '今度はクイズ',
+        content: 'さっき見た単語を、クイズで覚えているか試してみましょう。',
+        placement: 'bottom',
+        data: {
+          primaryAction: {
+            label: 'クイズを始める',
+            onClick: () => {
+              setTutorialStage('awaiting-quiz');
+              router.push(`/quiz/${projectId}`);
+            },
+          },
+        },
+      },
+    ],
+    [projectId, router, setTutorialStage],
   );
 
   const handleExitSelectMode = useCallback(() => {
@@ -1040,6 +1150,8 @@ export default function ProjectPage() {
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/quiz/${projectId}`}
+            data-tour="project-quiz"
+            onClick={() => { if (tutorialStage === 'open-quiz') setTutorialStage('awaiting-quiz'); }}
             className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="check" size={14} />
@@ -1051,6 +1163,8 @@ export default function ProjectPage() {
           <Link
             href={`/flashcard/${projectId}`}
             aria-label="カード"
+            data-tour="project-flashcard"
+            onClick={() => { if (tutorialStage === 'open-flashcard') setTutorialStage('view-cards'); }}
             className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="style" size={18} />
@@ -1184,7 +1298,7 @@ export default function ProjectPage() {
           )
         ) : (
           <div className="divide-y divide-[var(--color-border)]">
-            {filteredWords.map((word) => {
+            {filteredWords.map((word, index) => {
               const selected = selectedWordIds.has(word.id);
               return (
               <WordRow
@@ -1192,6 +1306,7 @@ export default function ProjectPage() {
                 word={word}
                 selectMode={selectMode}
                 selected={selected}
+                tourAnchor={index === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
                 onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
                 onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
@@ -1328,6 +1443,18 @@ export default function ProjectPage() {
         onClose={() => setWordShowSortSheet(false)}
         sortOrder={wordSortOrder}
         onSortOrderChange={setWordSortOrder}
+      />
+
+      <GuidedTour run={runProjectTour} steps={PROJECT_INTRO_TOUR_STEPS} onFinish={markProjectTourSeen} />
+      <GuidedTour
+        run={runOpenFlashcardTour}
+        steps={openFlashcardTourSteps}
+        onFinish={() => setTutorialStage('finished')}
+      />
+      <GuidedTour
+        run={runOpenQuizTour}
+        steps={openQuizTourSteps}
+        onFinish={() => setTutorialStage('finished')}
       />
 
       <BulkActionBar
@@ -1851,10 +1978,12 @@ function StatusSquares({
   wordId,
   status,
   onStatusChange,
+  className,
 }: {
   wordId: string;
   status: WordStatus;
   onStatusChange: (newStatus: WordStatus) => void;
+  className?: string;
 }) {
   const [filledCount, setFilledCount] = useState(() => PP_FILLED[status] ?? 0);
   const [direction, setDirection] = useState<'up' | 'down'>(() =>
@@ -1895,7 +2024,7 @@ function StatusSquares({
       type="button"
       onClick={handleClick}
       aria-label={`ステータス: ${PP_ARIA[status] ?? status}`}
-      className="shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]"
+      className={`shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]${className ? ` ${className}` : ''}`}
     >
       <div className="flex flex-col gap-[1.5px]">
         {[0, 1, 2].map((i) => (
@@ -1914,6 +2043,7 @@ function WordRow({
   word,
   selectMode,
   selected,
+  tourAnchor = false,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -1923,6 +2053,7 @@ function WordRow({
   word: Word;
   selectMode: boolean;
   selected: boolean;
+  tourAnchor?: boolean;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -1963,7 +2094,12 @@ function WordRow({
   return (
     <div className="px-1 py-2.5">
       <div className="flex items-center gap-2.5">
-        <StatusSquares wordId={word.id} status={displayStatus} onStatusChange={onCycleStatus} />
+        <StatusSquares
+          wordId={word.id}
+          status={displayStatus}
+          onStatusChange={onCycleStatus}
+          className={tourAnchor ? 'tour-anchor-word-status' : undefined}
+        />
 
         <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
           <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
@@ -1978,7 +2114,7 @@ function WordRow({
         <VocabularyTypeButton
           vocabularyType={word.vocabularyType}
           onClick={onCycleVocabularyType}
-          className="shrink-0"
+          className={tourAnchor ? 'shrink-0 tour-anchor-vocab-type' : 'shrink-0'}
         />
         <button
           type="button"

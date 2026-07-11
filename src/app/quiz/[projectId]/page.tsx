@@ -68,6 +68,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
+import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { PwaInstallPromptModal } from '@/components/onboarding/PwaInstallPromptModal';
 import type {
   MultipleChoiceQuizQuestion,
@@ -510,6 +511,7 @@ export default function QuizPage() {
   const billingEnabled = isBillingEnabled();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
+  const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
   const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -1197,6 +1199,11 @@ export default function QuizPage() {
         void setOnboardingStep('completed');
         // Defer PWA prompt slightly so the completion screen lands first.
         window.setTimeout(() => setPwaPromptOpen(true), 700);
+      }
+      // Guided flow: finishing a quiz completes the flashcard→quiz lesson and
+      // unlocks the home play-button tip.
+      if (tutorialStage === 'open-quiz' || tutorialStage === 'awaiting-quiz') {
+        setTutorialStage('done');
       }
     } else {
       setCurrentIndex(advanceState.nextIndex);
