@@ -1,5 +1,12 @@
 import { Firestore, Timestamp } from '@google-cloud/firestore';
-import type { GatewayLimiterConfig, GatewayLimiterSummary } from './gateway-limiter.js';
+import type { CostCalculationMode } from './pricing/types.js';
+
+export interface GatewayCapConfig {
+  callsDailyCap: number;
+  costDailyCapYen: number;
+  /** 0 disables this secondary safety cap. */
+  usageMissingCallsDailyCap: number;
+}
 
 export interface GatewayFirestoreGuardConfig {
   enabled: boolean;
@@ -8,18 +15,53 @@ export interface GatewayFirestoreGuardConfig {
   stateDocPath: string;
 }
 
-export interface GatewayGuardReservation extends GatewayLimiterSummary {
+export type GatewayBlockReason =
+  | 'budget_guard_disabled'
+  | 'global_daily_cap_reached'
+  | 'usage_missing_fallback_cap_reached'
+  | 'budget_guard_error';
+
+export interface GatewayEligibility {
   allowed: boolean;
-  reason?: 'budget-guard-disabled' | 'global-daily-cap-reached' | 'budget-guard-error';
+  reason?: GatewayBlockReason;
   disabledReason?: string;
+  calls: number;
+  yen: number;
+  callsDailyCap: number;
+  costDailyCapYen: number;
+}
+
+export interface CommitRequestCostInput {
+  requestId: string;
+  provider: 'openai' | 'gemini';
+  modelUsed: string;
+  estimatedCostUsd: number;
+  estimatedCostJpy: number;
+  pricingVersion: string;
+  costCalculationMode: CostCalculationMode;
+  usageAvailable: boolean;
+}
+
+export interface GatewayDailyTotals {
+  calls: number;
+  yen: number;
+  estimatedCostUsdTotal: number;
+  usageMissingCalls: number;
+  fallbackPricedCalls: number;
 }
 
 export interface GatewayBudgetGuard {
   readonly store: 'disabled' | 'firestore';
-  reserveStart(now?: number): Promise<GatewayGuardReservation>;
+  /** Checks caps/disabled state and atomically reserves a call slot. Does not add cost. */
+  checkEligibility(now?: number): Promise<GatewayEligibility>;
+  /** Adds the actual estimated cost for a completed request. */
+  commitRequestCost(input: CommitRequestCostInput, now?: number): Promise<GatewayDailyTotals>;
+  /** Best-effort observability for a failed request. Never adds cost (D3: zero cost + failure log). */
+  recordFailure(requestId: string, now?: number): Promise<void>;
 }
 
 const DEFAULT_STATE_DOC_PATH = 'ops/aiGatewayGuard';
+const FALLBACK_COST_MODES = new Set<CostCalculationMode>(['flat_fallback', 'usage_priced_with_fallback_parts']);
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined || value.trim() === '') {
@@ -36,16 +78,33 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
+function parseNonNegativeNumber(value: string | undefined, fallback: number): number {
+  if (value === undefined || value.trim() === '') {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
+}
+
 function utcDayKey(timestampMs: number): string {
   return new Date(timestampMs).toISOString().slice(0, 10);
 }
 
 function readNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 function readString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+export function loadGatewayCapConfigFromEnv(env: NodeJS.ProcessEnv): GatewayCapConfig {
+  return {
+    callsDailyCap: parseNonNegativeNumber(env.GATEWAY_CALLS_DAILY_CAP, 300),
+    costDailyCapYen: parseNonNegativeNumber(env.GATEWAY_COST_DAILY_CAP_YEN, 900),
+    usageMissingCallsDailyCap: parseNonNegativeNumber(env.GATEWAY_USAGE_MISSING_CALLS_DAILY_CAP, 0),
+  };
 }
 
 export function loadGatewayFirestoreGuardConfigFromEnv(env: NodeJS.ProcessEnv): GatewayFirestoreGuardConfig {
@@ -57,59 +116,83 @@ export function loadGatewayFirestoreGuardConfigFromEnv(env: NodeJS.ProcessEnv): 
   };
 }
 
-export function evaluateGatewayGuardState(
+/**
+ * Pure decision function used both by the transactional Firestore guard and
+ * by unit tests. Reserves the next call slot on success; never touches yen.
+ */
+export function evaluateGatewayEligibility(
   stateData: Record<string, unknown> | undefined,
   dayData: Record<string, unknown> | undefined,
-  limiterConfig: GatewayLimiterConfig,
-): GatewayGuardReservation {
+  capConfig: GatewayCapConfig,
+): GatewayEligibility {
   const calls = readNumber(dayData?.calls);
   const yen = readNumber(dayData?.yen);
+  const usageMissingCalls = readNumber(dayData?.usageMissingCalls);
 
   if (stateData?.disabled === true) {
     return {
       allowed: false,
-      reason: 'budget-guard-disabled',
+      reason: 'budget_guard_disabled',
       disabledReason: readString(stateData.disabledReason),
       calls,
       yen,
-      callsDailyCap: limiterConfig.callsDailyCap,
-      costDailyCapYen: limiterConfig.costDailyCapYen,
+      callsDailyCap: capConfig.callsDailyCap,
+      costDailyCapYen: capConfig.costDailyCapYen,
     };
   }
 
-  if (calls >= limiterConfig.callsDailyCap || yen >= limiterConfig.costDailyCapYen) {
+  if (calls >= capConfig.callsDailyCap || yen >= capConfig.costDailyCapYen) {
     return {
       allowed: false,
-      reason: 'global-daily-cap-reached',
+      reason: 'global_daily_cap_reached',
       calls,
       yen,
-      callsDailyCap: limiterConfig.callsDailyCap,
-      costDailyCapYen: limiterConfig.costDailyCapYen,
+      callsDailyCap: capConfig.callsDailyCap,
+      costDailyCapYen: capConfig.costDailyCapYen,
+    };
+  }
+
+  if (capConfig.usageMissingCallsDailyCap > 0 && usageMissingCalls >= capConfig.usageMissingCallsDailyCap) {
+    return {
+      allowed: false,
+      reason: 'usage_missing_fallback_cap_reached',
+      calls,
+      yen,
+      callsDailyCap: capConfig.callsDailyCap,
+      costDailyCapYen: capConfig.costDailyCapYen,
     };
   }
 
   return {
     allowed: true,
     calls: calls + 1,
-    yen: yen + limiterConfig.estimatedYenPerCall,
-    callsDailyCap: limiterConfig.callsDailyCap,
-    costDailyCapYen: limiterConfig.costDailyCapYen,
+    yen,
+    callsDailyCap: capConfig.callsDailyCap,
+    costDailyCapYen: capConfig.costDailyCapYen,
   };
 }
 
 class DisabledGatewayBudgetGuard implements GatewayBudgetGuard {
   readonly store = 'disabled' as const;
 
-  constructor(private readonly limiterConfig: GatewayLimiterConfig) {}
+  constructor(private readonly capConfig: GatewayCapConfig) {}
 
-  async reserveStart(): Promise<GatewayGuardReservation> {
+  async checkEligibility(): Promise<GatewayEligibility> {
     return {
       allowed: true,
       calls: 0,
       yen: 0,
-      callsDailyCap: this.limiterConfig.callsDailyCap,
-      costDailyCapYen: this.limiterConfig.costDailyCapYen,
+      callsDailyCap: this.capConfig.callsDailyCap,
+      costDailyCapYen: this.capConfig.costDailyCapYen,
     };
+  }
+
+  async commitRequestCost(): Promise<GatewayDailyTotals> {
+    return { calls: 0, yen: 0, estimatedCostUsdTotal: 0, usageMissingCalls: 0, fallbackPricedCalls: 0 };
+  }
+
+  async recordFailure(): Promise<void> {
+    // No shared state to update when the guard is disabled.
   }
 }
 
@@ -119,7 +202,7 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
 
   constructor(
     private readonly config: GatewayFirestoreGuardConfig,
-    private readonly limiterConfig: GatewayLimiterConfig,
+    private readonly capConfig: GatewayCapConfig,
   ) {
     this.firestore = new Firestore({
       projectId: config.projectId,
@@ -127,10 +210,14 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
     });
   }
 
-  async reserveStart(now: number = Date.now()): Promise<GatewayGuardReservation> {
+  private dayRef(now: number) {
     const stateRef = this.firestore.doc(this.config.stateDocPath);
     const dayKey = utcDayKey(now);
-    const dayRef = stateRef.collection('daily').doc(dayKey);
+    return { stateRef, dayKey, dayRef: stateRef.collection('daily').doc(dayKey) };
+  }
+
+  async checkEligibility(now: number = Date.now()): Promise<GatewayEligibility> {
+    const { stateRef, dayKey, dayRef } = this.dayRef(now);
     const timestamp = Timestamp.fromMillis(now);
 
     try {
@@ -140,10 +227,10 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
           transaction.get(dayRef),
         ]);
 
-        const decision = evaluateGatewayGuardState(
+        const decision = evaluateGatewayEligibility(
           stateSnap.exists ? stateSnap.data() : undefined,
           daySnap.exists ? daySnap.data() : undefined,
-          this.limiterConfig,
+          this.capConfig,
         );
 
         if (!decision.allowed) {
@@ -156,9 +243,8 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
             dayKey,
             calls: decision.calls,
             yen: decision.yen,
-            callsDailyCap: this.limiterConfig.callsDailyCap,
-            costDailyCapYen: this.limiterConfig.costDailyCapYen,
-            estimatedYenPerCall: this.limiterConfig.estimatedYenPerCall,
+            callsDailyCap: this.capConfig.callsDailyCap,
+            costDailyCapYen: this.capConfig.costDailyCapYen,
             updatedAt: timestamp,
             ...(daySnap.exists ? {} : { createdAt: timestamp }),
           },
@@ -168,36 +254,100 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
         return decision;
       });
     } catch (error) {
-      console.error('[gateway-budget-guard-error]', error);
+      console.error('[gateway-budget-guard-error]', { requestPhase: 'checkEligibility', error });
       if (!this.config.failClosed) {
         return {
           allowed: true,
           calls: 0,
           yen: 0,
-          callsDailyCap: this.limiterConfig.callsDailyCap,
-          costDailyCapYen: this.limiterConfig.costDailyCapYen,
+          callsDailyCap: this.capConfig.callsDailyCap,
+          costDailyCapYen: this.capConfig.costDailyCapYen,
         };
       }
 
       return {
         allowed: false,
-        reason: 'budget-guard-error',
+        reason: 'budget_guard_error',
         calls: 0,
         yen: 0,
-        callsDailyCap: this.limiterConfig.callsDailyCap,
-        costDailyCapYen: this.limiterConfig.costDailyCapYen,
+        callsDailyCap: this.capConfig.callsDailyCap,
+        costDailyCapYen: this.capConfig.costDailyCapYen,
       };
+    }
+  }
+
+  async commitRequestCost(input: CommitRequestCostInput, now: number = Date.now()): Promise<GatewayDailyTotals> {
+    const { dayKey, dayRef } = this.dayRef(now);
+    const timestamp = Timestamp.fromMillis(now);
+    const isFallbackPriced = FALLBACK_COST_MODES.has(input.costCalculationMode);
+
+    try {
+      return await this.firestore.runTransaction(async (transaction) => {
+        const daySnap = await transaction.get(dayRef);
+        const data = daySnap.exists ? daySnap.data() : undefined;
+
+        const totals: GatewayDailyTotals = {
+          calls: readNumber(data?.calls),
+          yen: readNumber(data?.yen) + input.estimatedCostJpy,
+          estimatedCostUsdTotal: readNumber(data?.estimatedCostUsdTotal) + input.estimatedCostUsd,
+          usageMissingCalls: readNumber(data?.usageMissingCalls) + (input.usageAvailable ? 0 : 1),
+          fallbackPricedCalls: readNumber(data?.fallbackPricedCalls) + (isFallbackPriced ? 1 : 0),
+        };
+
+        transaction.set(
+          dayRef,
+          {
+            dayKey,
+            calls: totals.calls,
+            yen: totals.yen,
+            estimatedCostUsdTotal: totals.estimatedCostUsdTotal,
+            usageMissingCalls: totals.usageMissingCalls,
+            fallbackPricedCalls: totals.fallbackPricedCalls,
+            callsDailyCap: this.capConfig.callsDailyCap,
+            costDailyCapYen: this.capConfig.costDailyCapYen,
+            pricingVersion: input.pricingVersion,
+            lastRequestId: input.requestId,
+            lastModelUsed: input.modelUsed,
+            updatedAt: timestamp,
+            ...(daySnap.exists ? {} : { createdAt: timestamp }),
+          },
+          { merge: true },
+        );
+
+        return totals;
+      });
+    } catch (error) {
+      console.error('[gateway-budget-guard-error]', { requestPhase: 'commitRequestCost', requestId: input.requestId, error });
+      return { calls: 0, yen: 0, estimatedCostUsdTotal: 0, usageMissingCalls: 0, fallbackPricedCalls: 0 };
+    }
+  }
+
+  async recordFailure(requestId: string, now: number = Date.now()): Promise<void> {
+    const { dayKey, dayRef } = this.dayRef(now);
+    const timestamp = Timestamp.fromMillis(now);
+
+    try {
+      await dayRef.set(
+        {
+          dayKey,
+          lastFailedRequestId: requestId,
+          updatedAt: timestamp,
+        },
+        { merge: true },
+      );
+    } catch (error) {
+      console.error('[gateway-budget-guard-error]', { requestPhase: 'recordFailure', requestId, error });
     }
   }
 }
 
 export function createGatewayBudgetGuard(
   config: GatewayFirestoreGuardConfig,
-  limiterConfig: GatewayLimiterConfig,
+  capConfig: GatewayCapConfig,
 ): GatewayBudgetGuard {
   if (!config.enabled) {
-    return new DisabledGatewayBudgetGuard(limiterConfig);
+    return new DisabledGatewayBudgetGuard(capConfig);
   }
 
-  return new FirestoreGatewayBudgetGuard(config, limiterConfig);
+  return new FirestoreGatewayBudgetGuard(config, capConfig);
 }

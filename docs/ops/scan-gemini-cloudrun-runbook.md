@@ -76,10 +76,13 @@ echo -n 'https://hooks.slack.com/services/xxx/yyy/zzz' | gcloud secrets create s
 - `FALLBACK_BREAKER_OPEN_MS` <- `300000`
 - `GATEWAY_CALLS_DAILY_CAP` <- `300`
 - `GATEWAY_COST_DAILY_CAP_YEN` <- `900`
-- `GATEWAY_ESTIMATED_YEN_PER_CALL` <- `3`
 - `GATEWAY_FIRESTORE_GUARD_ENABLED` <- `true`
 - `GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED` <- `true`
 - `GATEWAY_GUARD_STATE_DOC` <- `ops/aiGatewayGuard`
+- `GATEWAY_USD_TO_JPY_RATE` <- `155`
+- `GATEWAY_FLAT_FALLBACK_USD` <- `0.05`
+- `GATEWAY_USAGE_MISSING_CALLS_DAILY_CAP` <- `0`
+- `GATEWAY_BLOCK_UNPRICED_MODELS` <- `false`
 
 ### 2.2 Cloud Run課金防御
 - `--max-instances=3`
@@ -138,7 +141,8 @@ curl -sS "${CLOUD_RUN_URL}/health"
 - `GATEWAY_COST_DAILY_CAP_YEN=900`
 - `GATEWAY_FIRESTORE_GUARD_ENABLED=true`
 - `GATEWAY_GUARD_STATE_DOC=ops/aiGatewayGuard`
-- cap到達後は Gemini / OpenAI を問わず provider 呼び出し前に 429
+- cap到達後は Gemini / OpenAI を問わず provider 呼び出し前に 429（in-memory limiterは廃止済みで、判定はFirestore guardのみ）
+- `yen` はリクエスト完了ごとに provider の実際の usage を価格表で円換算した動的見積もりを加算する（固定 3円/回の見積もりは廃止）。詳細は [`gcp-budget-guard-runbook.md`](gcp-budget-guard-runbook.md) を参照。
 - Firestore transactionで `ops/aiGatewayGuard/daily/<UTC_DATE>` を更新するため、Cloud Run instanceがscale-to-zeroしても日次カウンタはリセットされない。
 - 緊急停止は `ops/aiGatewayGuard.disabled=true`。手順は [`gcp-budget-guard-runbook.md`](gcp-budget-guard-runbook.md) を使う。
 

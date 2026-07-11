@@ -14,14 +14,15 @@ import {
   loadFallbackConfigFromEnv,
 } from './fallback/runner.js';
 import {
-  DailyGatewayLimiter,
-  loadGatewayLimiterConfigFromEnv,
-} from './gateway-limiter.js';
-import {
   createGatewayBudgetGuard,
+  loadGatewayCapConfigFromEnv,
   loadGatewayFirestoreGuardConfigFromEnv,
 } from './gateway-firestore-guard.js';
+import type { GatewayDailyTotals, GatewayEligibility } from './gateway-firestore-guard.js';
 import { normalizeGeminiModel } from './gemini-model.js';
+import { calculateEstimatedCost, findModelPrice, loadPricingEnvConfig, PRICING_VERSION } from './pricing/pricing.js';
+import { normalizeGeminiUsage, normalizeOpenAIUsage } from './pricing/usage-normalizer.js';
+import type { CostResult, NormalizedUsage } from './pricing/types.js';
 import type { AppEnv, ProviderGenerateResult, ProviderUsage } from './fallback/types.js';
 
 const app = express();
@@ -61,12 +62,22 @@ if (!openaiApiKey) {
 
 const openaiClient = new OpenAI({ apiKey: openaiApiKey });
 
+function parseBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined || value.trim() === '') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
+  if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
+  return fallback;
+}
+
 const fallbackConfig = loadFallbackConfigFromEnv(process.env);
 const fallbackRunner = new GeminiFallbackRunner(fallbackConfig);
-const gatewayLimiterConfig = loadGatewayLimiterConfigFromEnv(process.env);
-const gatewayLimiter = new DailyGatewayLimiter(gatewayLimiterConfig);
+const gatewayCapConfig = loadGatewayCapConfigFromEnv(process.env);
 const gatewayFirestoreGuardConfig = loadGatewayFirestoreGuardConfigFromEnv(process.env);
-const gatewayFirestoreGuard = createGatewayBudgetGuard(gatewayFirestoreGuardConfig, gatewayLimiterConfig);
+const gatewayFirestoreGuard = createGatewayBudgetGuard(gatewayFirestoreGuardConfig, gatewayCapConfig);
+const pricingConfig = loadPricingEnvConfig(process.env);
+// D2: default policy is a high flat-fallback estimate, not blocking. Ops can opt into blocking.
+const blockUnpricedModels = parseBoolean(process.env.GATEWAY_BLOCK_UNPRICED_MODELS, false);
 
 // ============================================
 // Health check
@@ -76,10 +87,15 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     fallbackModel: fallbackConfig.fallbackOpenAIModel,
     breakerOpenMs: fallbackConfig.breakerOpenMs,
-    gatewayCallsDailyCap: gatewayLimiterConfig.callsDailyCap,
-    gatewayCostDailyCapYen: gatewayLimiterConfig.costDailyCapYen,
+    gatewayCallsDailyCap: gatewayCapConfig.callsDailyCap,
+    gatewayCostDailyCapYen: gatewayCapConfig.costDailyCapYen,
+    gatewayUsageMissingCallsDailyCap: gatewayCapConfig.usageMissingCallsDailyCap,
     gatewayGuardStore: gatewayFirestoreGuard.store,
     gatewayGuardStateDoc: gatewayFirestoreGuardConfig.stateDocPath,
+    pricingVersion: PRICING_VERSION,
+    usdToJpyRate: pricingConfig.usdToJpyRate,
+    flatFallbackUsd: pricingConfig.flatFallbackUsd,
+    blockUnpricedModels,
   });
 });
 
@@ -130,8 +146,30 @@ function asProviderUsage(raw: unknown): ProviderUsage | undefined {
   return { inputTokens: input, outputTokens: output, totalTokens: total };
 }
 
+interface GatewayAuditEntry {
+  requestId: string;
+  providerRequested: string;
+  providerUsed: string | null;
+  modelRequested: string;
+  modelUsed: string | null;
+  feature: string;
+  fallbackHappened: boolean;
+  fallbackReason?: string;
+  usage?: NormalizedUsage;
+  cost?: CostResult;
+  guardDecision: 'allowed' | 'blocked' | 'error';
+  stopReason?: string | null;
+  dailyTotals?: GatewayDailyTotals;
+  error?: string;
+}
+
+function logGatewayAudit(entry: GatewayAuditEntry): void {
+  console.log(JSON.stringify({ event: 'gateway-audit', ...entry }));
+}
+
 async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerateResult> {
   const model = normalizeGeminiModel(body.model);
+  const imageInputPresent = !!body.image;
   const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
   const fullPrompt = body.systemPrompt ? `${body.systemPrompt}\n\n${body.prompt}` : body.prompt;
   parts.push({ text: fullPrompt });
@@ -195,21 +233,25 @@ async function runGeminiRequest(body: GenerateRequest): Promise<ProviderGenerate
     throw new Error(`Gemini returned empty content${reasonSuffix}`);
   }
 
+  const modelUsed = response.modelVersion || model;
   const usage = asProviderUsage({
     inputTokens: response.usageMetadata?.promptTokenCount,
     outputTokens: response.usageMetadata?.candidatesTokenCount,
     totalTokens: response.usageMetadata?.totalTokenCount,
   });
+  const normalizedUsage = normalizeGeminiUsage(response.usageMetadata, modelUsed, imageInputPresent);
 
   return {
     content,
-    modelUsed: response.modelVersion || model,
+    modelUsed,
     usage,
+    normalizedUsage,
   };
 }
 
 async function runOpenAIRequest(body: GenerateRequest, modelOverride?: string): Promise<ProviderGenerateResult> {
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+  const imageInputPresent = !!body.image;
 
   if (body.systemPrompt) {
     messages.push({
@@ -248,16 +290,19 @@ async function runOpenAIRequest(body: GenerateRequest, modelOverride?: string): 
     throw new Error('OpenAI returned empty content');
   }
 
+  const modelUsed = response.model || modelOverride || body.model;
   const usage = asProviderUsage({
     inputTokens: response.usage?.prompt_tokens,
     outputTokens: response.usage?.completion_tokens,
     totalTokens: response.usage?.total_tokens,
   });
+  const normalizedUsage = normalizeOpenAIUsage(response.usage, modelUsed, imageInputPresent);
 
   return {
     content,
-    modelUsed: response.model || modelOverride || body.model,
+    modelUsed,
     usage,
+    normalizedUsage,
   };
 }
 
@@ -265,6 +310,8 @@ app.post('/generate', async (req, res) => {
   const startTime = Date.now();
   const body = req.body as GenerateRequest;
   const { provider, model, image, responseFormat } = body;
+  const feature = body.feature || 'scan_extraction';
+  const isBillable = provider === 'gemini' || provider === 'openai';
 
   const requestId =
     req.headers['x-request-id']?.toString() ||
@@ -272,58 +319,81 @@ app.post('/generate', async (req, res) => {
     randomUUID();
 
   try {
-    if (provider === 'gemini' || provider === 'openai') {
-      if (!gatewayLimiter.canStart()) {
+    if (isBillable) {
+      const requestedModel = provider === 'gemini' ? normalizeGeminiModel(model) : model;
+
+      if (blockUnpricedModels && !findModelPrice(provider, requestedModel)) {
         const timing = buildTimingPayload(startTime);
-        const summary = gatewayLimiter.getTodaySummary();
-        console.warn('[gateway-cap-reached]', {
+        logGatewayAudit({
           requestId,
-          calls: summary.calls,
-          callsDailyCap: summary.callsDailyCap,
-          yen: summary.yen,
-          costDailyCapYen: summary.costDailyCapYen,
+          providerRequested: provider,
+          providerUsed: null,
+          modelRequested: model,
+          modelUsed: null,
+          feature,
+          fallbackHappened: false,
+          guardDecision: 'blocked',
+          stopReason: 'unpriced_model_blocked',
         });
         res.status(429).json({
           success: false,
-          error: 'Gateway daily cap reached',
+          error: 'Gateway blocked this request: model has no price definition',
+          reason: 'unpriced_model_blocked',
           timing,
         });
         return;
       }
 
-      const firestoreGuardReservation = await gatewayFirestoreGuard.reserveStart(startTime);
-      if (!firestoreGuardReservation.allowed) {
+      const eligibility: GatewayEligibility = await gatewayFirestoreGuard.checkEligibility(startTime);
+      if (!eligibility.allowed) {
         const timing = buildTimingPayload(startTime);
         console.warn('[gateway-budget-guard-blocked]', {
           requestId,
-          reason: firestoreGuardReservation.reason,
-          disabledReason: firestoreGuardReservation.disabledReason,
-          calls: firestoreGuardReservation.calls,
-          callsDailyCap: firestoreGuardReservation.callsDailyCap,
-          yen: firestoreGuardReservation.yen,
-          costDailyCapYen: firestoreGuardReservation.costDailyCapYen,
+          reason: eligibility.reason,
+          disabledReason: eligibility.disabledReason,
+          calls: eligibility.calls,
+          callsDailyCap: eligibility.callsDailyCap,
+          yen: eligibility.yen,
+          costDailyCapYen: eligibility.costDailyCapYen,
+        });
+        logGatewayAudit({
+          requestId,
+          providerRequested: provider,
+          providerUsed: null,
+          modelRequested: model,
+          modelUsed: null,
+          feature,
+          fallbackHappened: false,
+          guardDecision: 'blocked',
+          stopReason: eligibility.reason ?? null,
+          dailyTotals: {
+            calls: eligibility.calls,
+            yen: eligibility.yen,
+            estimatedCostUsdTotal: 0,
+            usageMissingCalls: 0,
+            fallbackPricedCalls: 0,
+          },
         });
         res.status(429).json({
           success: false,
           error: 'Gateway budget guard blocked this request',
-          reason: firestoreGuardReservation.reason,
+          reason: eligibility.reason,
+          disabledReason: eligibility.disabledReason,
           timing,
         });
         return;
       }
 
-      const gatewaySummary = gatewayLimiter.recordStart();
       console.log(
         `[generate] id=${requestId} provider=${provider} model=${model} hasImage=${!!image} format=${responseFormat}` +
-          ` gatewayCalls=${gatewaySummary.calls}/${gatewaySummary.callsDailyCap}` +
-          ` globalGatewayCalls=${firestoreGuardReservation.calls}/${firestoreGuardReservation.callsDailyCap}`,
+          ` gatewayCalls=${eligibility.calls}/${eligibility.callsDailyCap} gatewayYen=${eligibility.yen}/${eligibility.costDailyCapYen}`,
       );
     }
 
     if (provider === 'gemini') {
       const ctx = {
         env: normalizeAppEnv(body.env, fallbackConfig.appEnv),
-        feature: body.feature || 'scan_extraction',
+        feature,
         requestId,
       };
 
@@ -338,6 +408,37 @@ app.post('/generate', async (req, res) => {
       );
 
       const timing = buildTimingPayload(startTime);
+      const cost = calculateEstimatedCost(result.normalizedUsage, pricingConfig);
+      const dailyTotals = await gatewayFirestoreGuard.commitRequestCost(
+        {
+          requestId,
+          provider: result.provider,
+          modelUsed: result.modelUsed,
+          estimatedCostUsd: cost.estimatedCostUsd,
+          estimatedCostJpy: cost.estimatedCostJpy,
+          pricingVersion: cost.pricingVersion,
+          costCalculationMode: cost.costCalculationMode,
+          usageAvailable: result.normalizedUsage.usageAvailable,
+        },
+        startTime,
+      );
+
+      logGatewayAudit({
+        requestId,
+        providerRequested: 'gemini',
+        providerUsed: result.provider,
+        modelRequested: model,
+        modelUsed: result.modelUsed,
+        feature,
+        fallbackHappened: result.provider !== 'gemini',
+        fallbackReason: result.fallbackReason,
+        usage: result.normalizedUsage,
+        cost,
+        guardDecision: 'allowed',
+        stopReason: null,
+        dailyTotals,
+      });
+
       console.log(
         `[generate] id=${requestId} provider=${result.provider} completed in ${timing.elapsedMs}ms` +
           (result.fallbackReason ? ` reason=${result.fallbackReason}` : ''),
@@ -350,6 +451,9 @@ app.post('/generate', async (req, res) => {
         modelUsed: result.modelUsed,
         usage: result.usage,
         fallbackReason: result.fallbackReason,
+        estimatedCostJpy: cost.estimatedCostJpy,
+        costCalculationMode: cost.costCalculationMode,
+        pricingVersion: cost.pricingVersion,
         timing,
       });
       return;
@@ -358,6 +462,36 @@ app.post('/generate', async (req, res) => {
     if (provider === 'openai') {
       const result = await runOpenAIRequest(body);
       const timing = buildTimingPayload(startTime);
+      const cost = calculateEstimatedCost(result.normalizedUsage, pricingConfig);
+      const dailyTotals = await gatewayFirestoreGuard.commitRequestCost(
+        {
+          requestId,
+          provider: 'openai',
+          modelUsed: result.modelUsed,
+          estimatedCostUsd: cost.estimatedCostUsd,
+          estimatedCostJpy: cost.estimatedCostJpy,
+          pricingVersion: cost.pricingVersion,
+          costCalculationMode: cost.costCalculationMode,
+          usageAvailable: result.normalizedUsage.usageAvailable,
+        },
+        startTime,
+      );
+
+      logGatewayAudit({
+        requestId,
+        providerRequested: 'openai',
+        providerUsed: 'openai',
+        modelRequested: model,
+        modelUsed: result.modelUsed,
+        feature,
+        fallbackHappened: false,
+        usage: result.normalizedUsage,
+        cost,
+        guardDecision: 'allowed',
+        stopReason: null,
+        dailyTotals,
+      });
+
       console.log(`[generate] id=${requestId} provider=openai completed in ${timing.elapsedMs}ms`);
       res.json({
         success: true,
@@ -365,6 +499,9 @@ app.post('/generate', async (req, res) => {
         providerUsed: 'openai',
         modelUsed: result.modelUsed,
         usage: result.usage,
+        estimatedCostJpy: cost.estimatedCostJpy,
+        costCalculationMode: cost.costCalculationMode,
+        pricingVersion: cost.pricingVersion,
         timing,
       });
       return;
@@ -379,6 +516,23 @@ app.post('/generate', async (req, res) => {
     const timing = buildTimingPayload(startTime);
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error(`[generate] id=${requestId} error after ${timing.elapsedMs}ms:`, errMsg);
+
+    if (isBillable) {
+      // D3: a failed provider call adds zero cost; the failure itself is logged for observability.
+      await gatewayFirestoreGuard.recordFailure(requestId, startTime);
+      logGatewayAudit({
+        requestId,
+        providerRequested: provider,
+        providerUsed: null,
+        modelRequested: model,
+        modelUsed: null,
+        feature,
+        fallbackHappened: false,
+        guardDecision: 'error',
+        stopReason: null,
+        error: errMsg,
+      });
+    }
 
     // Forward error details so Vercel-side can classify them
     res.status(500).json({
@@ -401,7 +555,8 @@ app.listen(PORT, () => {
   console.log(`  Fallback model: ${fallbackRunner.getConfig().fallbackOpenAIModel}`);
   console.log(`  Fallback calls cap/day: ${fallbackRunner.getConfig().fallbackCallsDailyCap}`);
   console.log(`  Fallback cost cap/day: ${fallbackRunner.getConfig().fallbackCostDailyCapYen}`);
-  console.log(`  Gateway calls cap/day: ${gatewayLimiterConfig.callsDailyCap}`);
-  console.log(`  Gateway cost cap/day: ${gatewayLimiterConfig.costDailyCapYen}`);
+  console.log(`  Gateway calls cap/day: ${gatewayCapConfig.callsDailyCap}`);
+  console.log(`  Gateway cost cap/day: ${gatewayCapConfig.costDailyCapYen}`);
   console.log(`  Gateway guard store: ${gatewayFirestoreGuard.store}`);
+  console.log(`  Pricing version: ${PRICING_VERSION}`);
 });
