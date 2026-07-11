@@ -209,27 +209,23 @@ Notes:
 
 ---
 
-## Data Flow: Flashcard Word Loading and Resume
+## Data Flow: Flashcard Word Loading (quiz-synced order)
 
 `src/app/flashcard/[projectId]/page.tsx` owns the active flashcard word list in React state:
 
 ```
-repository/get cache -> Word[] -> sort/restore order -> setWords(finalWords)
+repository/get cache -> Word[] -> sortWordsByPriority() -> setWords(sorted)
 ```
 
 Load priority:
 
 1. Restore immediately from Home cache when available (`getCachedProjectWords()`).
 2. Load fresh words through the selected repository (`localRepository`, `hybridRepository`, or `readonlyRemoteRepository`).
-3. If a recent flashcard progress record exists, restore the previous sort mode and current card from saved progress.
+3. Sort the loaded list with `sortWordsByPriority()` and always start at the first card (`currentIndex = 0`).
 
-Progress is persisted in browser storage:
+Flashcards no longer persist any resume state. The `flashcard_session_*` / `flashcard_progress_*` records and the flashcard sort-mode selector (mastery vs. part-of-speech) have been removed.
 
-- `flashcard_session_{projectId}` in `sessionStorage` for short-term resume.
-- `flashcard_progress_{projectId}` in `localStorage` for longer resume.
-- Favorites mode appends `_favorites` to the key.
-
-Important behavior: saved `wordIds` identify the previous current card and historical order, but they are not the source of truth for the current project word list. When words have been added to the project after progress was saved, the flashcard page must include those new words in the restored list. Current behavior sorts the full repository-loaded word list by saved `sortOrder` (`mastery` by default), then restores `currentIndex` to the same word ID when it still exists. This keeps newly added `new` words in the expected priority position for mastery order.
+Important behavior: the flashcard order is intentionally kept in sync with the quiz question order. Both the flashcard page and the quiz (`src/app/quiz/[projectId]/page.tsx` -> `sortWordsByPriority` / `generateQuizQuestions`) sort words with the same `sortWordsByPriority` comparator, so the two features present overlapping words in the same sequence. Because there is no saved order to migrate, this ordering logic runs entirely on the frontend and stays correct without any server-side or PWA data update.
 
 ---
 
