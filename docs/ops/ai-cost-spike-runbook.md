@@ -48,7 +48,7 @@
 - `api_cost_events` が記録されず、provider側請求だけ増えている。
 - `feature_usage_daily` が増えていないのにAI provider usageが増えている。
 - Cloud Run Logsで `QUOTA_EXHAUSTED`、`BREAKER_OPEN`、`FALLBACK_RATE_HIGH` が続く。
-- Cloud Run Logsで `gateway-cap-reached` が出る。
+- Cloud Run Logsで `gateway-budget-guard-blocked` が出る。
 
 ## 初動確認手順
 
@@ -84,7 +84,7 @@ Cloud Run:
 
 - `[generate]`
 - `[generate] id=`
-- `[gateway-cap-reached]`
+- `[gateway-budget-guard-blocked]`
 - `[gemini-empty-content]`
 - `[fallback] OpenAI fallback failed:`
 - `[fallback-notify]`
@@ -141,7 +141,6 @@ Cloud Run:
 - `FALLBACK_COST_DAILY_CAP_YEN`
 - `FALLBACK_ESTIMATED_YEN_PER_CALL`
 - `FALLBACK_BREAKER_OPEN_MS`
-- `GATEWAY_CALLS_DAILY_CAP`
 - `GATEWAY_COST_DAILY_CAP_YEN`
 - `GATEWAY_USD_TO_JPY_RATE`
 - `GATEWAY_FLAT_FALLBACK_USD`
@@ -209,7 +208,7 @@ Cloud Run:
   - Cloud Run Logsの `QUOTA_EXHAUSTED`, `BREAKER_OPEN`, `FALLBACK_RATE_HIGH`
   - `FALLBACK_CALLS_DAILY_CAP`, `FALLBACK_COST_DAILY_CAP_YEN`
   - fallback Slack通知が出ているか
-  - `gateway-cap-reached` が出ている場合、Cloud Run gateway全体の日次capに達している
+  - `gateway-budget-guard-blocked` が出ている場合、Cloud Run gateway全体の日次コストcapなどの停止条件に達している
 
 ## 実行してよい読み取りSQL例
 
@@ -329,7 +328,6 @@ order by jobs desc;
   - 最初に [`gcp-budget-guard-runbook.md`](gcp-budget-guard-runbook.md) で Firestore `ops/aiGatewayGuard.disabled=true` にする。
   - Cloud Run側 `FALLBACK_CALLS_DAILY_CAP`
   - Cloud Run側 `FALLBACK_COST_DAILY_CAP_YEN`
-  - Cloud Run側 `GATEWAY_CALLS_DAILY_CAP`
   - Cloud Run側 `GATEWAY_COST_DAILY_CAP_YEN`
   - 緊急迂回は [`scan-gemini-cloudrun-runbook.md`](scan-gemini-cloudrun-runbook.md) のCloud Run迂回手順を確認してから行う
 

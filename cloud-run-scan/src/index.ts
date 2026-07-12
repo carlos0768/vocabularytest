@@ -87,7 +87,6 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     fallbackModel: fallbackConfig.fallbackOpenAIModel,
     breakerOpenMs: fallbackConfig.breakerOpenMs,
-    gatewayCallsDailyCap: gatewayCapConfig.callsDailyCap,
     gatewayCostDailyCapYen: gatewayCapConfig.costDailyCapYen,
     gatewayUsageMissingCallsDailyCap: gatewayCapConfig.usageMissingCallsDailyCap,
     gatewayGuardStore: gatewayFirestoreGuard.store,
@@ -352,7 +351,6 @@ app.post('/generate', async (req, res) => {
           reason: eligibility.reason,
           disabledReason: eligibility.disabledReason,
           calls: eligibility.calls,
-          callsDailyCap: eligibility.callsDailyCap,
           yen: eligibility.yen,
           costDailyCapYen: eligibility.costDailyCapYen,
         });
@@ -386,7 +384,7 @@ app.post('/generate', async (req, res) => {
 
       console.log(
         `[generate] id=${requestId} provider=${provider} model=${model} hasImage=${!!image} format=${responseFormat}` +
-          ` gatewayCalls=${eligibility.calls}/${eligibility.callsDailyCap} gatewayYen=${eligibility.yen}/${eligibility.costDailyCapYen}`,
+          ` gatewayCalls=${eligibility.calls} gatewayYen=${eligibility.yen}/${eligibility.costDailyCapYen}`,
       );
     }
 
@@ -555,7 +553,6 @@ app.listen(PORT, () => {
   console.log(`  Fallback model: ${fallbackRunner.getConfig().fallbackOpenAIModel}`);
   console.log(`  Fallback calls cap/day: ${fallbackRunner.getConfig().fallbackCallsDailyCap}`);
   console.log(`  Fallback cost cap/day: ${fallbackRunner.getConfig().fallbackCostDailyCapYen}`);
-  console.log(`  Gateway calls cap/day: ${gatewayCapConfig.callsDailyCap}`);
   console.log(`  Gateway cost cap/day: ${gatewayCapConfig.costDailyCapYen}`);
   console.log(`  Gateway guard store: ${gatewayFirestoreGuard.store}`);
   console.log(`  Pricing version: ${PRICING_VERSION}`);

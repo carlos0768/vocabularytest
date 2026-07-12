@@ -66,7 +66,6 @@ Budget guard function は以下のどれかを満たすと `ops/aiGatewayGuard.d
 ## gateway 側 cap
 
 ```bash
-GATEWAY_CALLS_DAILY_CAP=300
 GATEWAY_COST_DAILY_CAP_YEN=900
 GATEWAY_FIRESTORE_GUARD_ENABLED=true
 GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED=true
@@ -158,7 +157,6 @@ curl -sS \
   | jq '{
       calls: .fields.calls.integerValue,
       yen: .fields.yen.integerValue,
-      callsDailyCap: .fields.callsDailyCap.integerValue,
       costDailyCapYen: .fields.costDailyCapYen.integerValue,
       estimatedCostUsdTotal: .fields.estimatedCostUsdTotal.doubleValue,
       usageMissingCalls: .fields.usageMissingCalls.integerValue,
@@ -198,7 +196,7 @@ curl -sS -X PATCH \
 | reason | 意味 |
 |---|---|
 | `budget_guard_disabled` | `ops/aiGatewayGuard.disabled=true`（月次 Budget Guard か手動停止） |
-| `global_daily_cap_reached` | 日次 `calls` または `yen` の cap 到達 |
+| `global_daily_cost_cap_reached` | 日次 `yen` の cap 到達 |
 | `usage_missing_fallback_cap_reached` | `GATEWAY_USAGE_MISSING_CALLS_DAILY_CAP` を超えて usage 取得失敗が続いた |
 | `unpriced_model_blocked` | `GATEWAY_BLOCK_UNPRICED_MODELS=true` の時、価格表に無いモデルをブロックした |
 | `budget_guard_error` | Firestore 障害時に `GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED=true` で fail-closed した |

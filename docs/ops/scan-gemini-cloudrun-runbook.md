@@ -74,7 +74,6 @@ echo -n 'https://hooks.slack.com/services/xxx/yyy/zzz' | gcloud secrets create s
 - `FALLBACK_COST_DAILY_CAP_YEN` <- `300`
 - `FALLBACK_ESTIMATED_YEN_PER_CALL` <- `3`
 - `FALLBACK_BREAKER_OPEN_MS` <- `300000`
-- `GATEWAY_CALLS_DAILY_CAP` <- `300`
 - `GATEWAY_COST_DAILY_CAP_YEN` <- `900`
 - `GATEWAY_FIRESTORE_GUARD_ENABLED` <- `true`
 - `GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED` <- `true`
@@ -137,7 +136,6 @@ curl -sS "${CLOUD_RUN_URL}/health"
 - cap到達後は OpenAI フォールバック停止（Gemini失敗時はそのままエラー）
 
 ### 5.3 gateway日次cap
-- `GATEWAY_CALLS_DAILY_CAP=300`
 - `GATEWAY_COST_DAILY_CAP_YEN=900`
 - `GATEWAY_FIRESTORE_GUARD_ENABLED=true`
 - `GATEWAY_GUARD_STATE_DOC=ops/aiGatewayGuard`
@@ -164,7 +162,7 @@ curl -sS "${CLOUD_RUN_URL}/health"
 - 直近10分の fallback率（20%超）
 - breaker状態（OPENが連続していないか）
 - fallback日次消費（calls/yen）
-- gateway cap到達（`gateway-cap-reached`, `gateway-budget-guard-blocked`）
+- gateway cap到達（`gateway-budget-guard-blocked`）
 - Firestore `ops/aiGatewayGuard.disabled`
 - Firestore `ops/aiGatewayGuard/daily/<UTC_DATE>` の `calls` / `yen`
 

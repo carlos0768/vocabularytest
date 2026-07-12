@@ -2,7 +2,6 @@ import { Firestore, Timestamp } from '@google-cloud/firestore';
 import type { CostCalculationMode } from './pricing/types.js';
 
 export interface GatewayCapConfig {
-  callsDailyCap: number;
   costDailyCapYen: number;
   /** 0 disables this secondary safety cap. */
   usageMissingCallsDailyCap: number;
@@ -17,7 +16,7 @@ export interface GatewayFirestoreGuardConfig {
 
 export type GatewayBlockReason =
   | 'budget_guard_disabled'
-  | 'global_daily_cap_reached'
+  | 'global_daily_cost_cap_reached'
   | 'usage_missing_fallback_cap_reached'
   | 'budget_guard_error';
 
@@ -27,7 +26,6 @@ export interface GatewayEligibility {
   disabledReason?: string;
   calls: number;
   yen: number;
-  callsDailyCap: number;
   costDailyCapYen: number;
 }
 
@@ -101,7 +99,6 @@ function readString(value: unknown): string | undefined {
 
 export function loadGatewayCapConfigFromEnv(env: NodeJS.ProcessEnv): GatewayCapConfig {
   return {
-    callsDailyCap: parseNonNegativeNumber(env.GATEWAY_CALLS_DAILY_CAP, 300),
     costDailyCapYen: parseNonNegativeNumber(env.GATEWAY_COST_DAILY_CAP_YEN, 900),
     usageMissingCallsDailyCap: parseNonNegativeNumber(env.GATEWAY_USAGE_MISSING_CALLS_DAILY_CAP, 0),
   };
@@ -136,18 +133,16 @@ export function evaluateGatewayEligibility(
       disabledReason: readString(stateData.disabledReason),
       calls,
       yen,
-      callsDailyCap: capConfig.callsDailyCap,
       costDailyCapYen: capConfig.costDailyCapYen,
     };
   }
 
-  if (calls >= capConfig.callsDailyCap || yen >= capConfig.costDailyCapYen) {
+  if (yen >= capConfig.costDailyCapYen) {
     return {
       allowed: false,
-      reason: 'global_daily_cap_reached',
+      reason: 'global_daily_cost_cap_reached',
       calls,
       yen,
-      callsDailyCap: capConfig.callsDailyCap,
       costDailyCapYen: capConfig.costDailyCapYen,
     };
   }
@@ -158,7 +153,6 @@ export function evaluateGatewayEligibility(
       reason: 'usage_missing_fallback_cap_reached',
       calls,
       yen,
-      callsDailyCap: capConfig.callsDailyCap,
       costDailyCapYen: capConfig.costDailyCapYen,
     };
   }
@@ -167,7 +161,6 @@ export function evaluateGatewayEligibility(
     allowed: true,
     calls: calls + 1,
     yen,
-    callsDailyCap: capConfig.callsDailyCap,
     costDailyCapYen: capConfig.costDailyCapYen,
   };
 }
@@ -182,7 +175,6 @@ class DisabledGatewayBudgetGuard implements GatewayBudgetGuard {
       allowed: true,
       calls: 0,
       yen: 0,
-      callsDailyCap: this.capConfig.callsDailyCap,
       costDailyCapYen: this.capConfig.costDailyCapYen,
     };
   }
@@ -243,7 +235,6 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
             dayKey,
             calls: decision.calls,
             yen: decision.yen,
-            callsDailyCap: this.capConfig.callsDailyCap,
             costDailyCapYen: this.capConfig.costDailyCapYen,
             updatedAt: timestamp,
             ...(daySnap.exists ? {} : { createdAt: timestamp }),
@@ -260,7 +251,6 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
           allowed: true,
           calls: 0,
           yen: 0,
-          callsDailyCap: this.capConfig.callsDailyCap,
           costDailyCapYen: this.capConfig.costDailyCapYen,
         };
       }
@@ -270,7 +260,6 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
         reason: 'budget_guard_error',
         calls: 0,
         yen: 0,
-        callsDailyCap: this.capConfig.callsDailyCap,
         costDailyCapYen: this.capConfig.costDailyCapYen,
       };
     }
@@ -303,7 +292,6 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
             estimatedCostUsdTotal: totals.estimatedCostUsdTotal,
             usageMissingCalls: totals.usageMissingCalls,
             fallbackPricedCalls: totals.fallbackPricedCalls,
-            callsDailyCap: this.capConfig.callsDailyCap,
             costDailyCapYen: this.capConfig.costDailyCapYen,
             pricingVersion: input.pricingVersion,
             lastRequestId: input.requestId,

@@ -8,7 +8,6 @@ import {
 } from './gateway-firestore-guard.js';
 
 const capConfig = {
-  callsDailyCap: 3,
   costDailyCapYen: 9,
   usageMissingCallsDailyCap: 0,
 };
@@ -35,13 +34,11 @@ test('firestore guard env parser enables shared guard', () => {
   assert.equal(config.projectId, 'project-id');
 });
 
-test('gateway cap config env parser allows zero for emergency stop', () => {
+test('gateway cap config env parser allows zero yen cap for emergency stop', () => {
   const config = loadGatewayCapConfigFromEnv({
-    GATEWAY_CALLS_DAILY_CAP: '0',
     GATEWAY_COST_DAILY_CAP_YEN: '0',
   });
 
-  assert.equal(config.callsDailyCap, 0);
   assert.equal(config.costDailyCapYen, 0);
 });
 
@@ -68,18 +65,18 @@ test('firestore guard blocks when the global stop flag is enabled', () => {
   assert.equal(decision.disabledReason, 'monthly budget threshold exceeded');
 });
 
-test('firestore guard blocks when the global daily call cap is reached', () => {
-  const decision = evaluateGatewayEligibility(undefined, { calls: 3, yen: 1 }, capConfig);
+test('firestore guard does not block when only the global daily call count is high', () => {
+  const decision = evaluateGatewayEligibility(undefined, { calls: 3000, yen: 1 }, capConfig);
 
-  assert.equal(decision.allowed, false);
-  assert.equal(decision.reason, 'global_daily_cap_reached');
+  assert.equal(decision.allowed, true);
+  assert.equal(decision.calls, 3001);
 });
 
 test('firestore guard blocks when the global daily cost cap is reached', () => {
   const decision = evaluateGatewayEligibility(undefined, { calls: 1, yen: 9 }, capConfig);
 
   assert.equal(decision.allowed, false);
-  assert.equal(decision.reason, 'global_daily_cap_reached');
+  assert.equal(decision.reason, 'global_daily_cost_cap_reached');
 });
 
 test('firestore guard blocks on the usage-missing safety cap when configured', () => {
