@@ -1,4 +1,4 @@
-import { EIKEN_LEVEL_LABELS, VOCAB_SIZE_BY_LEVEL } from './engine';
+import { EIKEN_LEVEL_LABELS, VOCAB_SIZE_BY_LEVEL, estimateVocabularySize } from './engine';
 import type { LevelTestResultPayload } from './result-code';
 
 // 診断結果のシェア文言。group-share.ts の GroupShareMessages と同じ形で、
@@ -22,17 +22,31 @@ export function buildLevelTestShareUrl(origin: string, code: string): string {
   return `${base}/level-test/r/${encodeURIComponent(code)}`;
 }
 
+// v1(階段型時代)の共有コードには能力値θが無いので級の固定値で表示する。
 export function formatVocabSize(level: number): string {
   const size = VOCAB_SIZE_BY_LEVEL[level] ?? VOCAB_SIZE_BY_LEVEL[0];
   return size.toLocaleString('ja-JP');
 }
 
+export function formatVocabSizeFromTheta(theta: number): string {
+  return estimateVocabularySize(theta).toLocaleString('ja-JP');
+}
+
+// v2ならθ由来の推定語彙数、v1なら級の固定値。表示・シェア文言の共通入口。
+export function vocabSizeTextFor(
+  payload: Pick<LevelTestResultPayload, 'finalLevel' | 'ability'>,
+): string {
+  return payload.ability !== undefined
+    ? formatVocabSizeFromTheta(payload.ability)
+    : formatVocabSize(payload.finalLevel);
+}
+
 export function buildLevelTestShareMessages(
-  payload: Pick<LevelTestResultPayload, 'finalLevel' | 'clearedMax'>,
+  payload: Pick<LevelTestResultPayload, 'finalLevel' | 'clearedMax' | 'ability'>,
   url: string,
 ): LevelTestShareMessages {
   const grade = EIKEN_LEVEL_LABELS[payload.finalLevel] ?? EIKEN_LEVEL_LABELS[0];
-  const vocab = formatVocabSize(payload.finalLevel);
+  const vocab = vocabSizeTextFor(payload);
   const crown = payload.clearedMax ? '最高レベル完全制覇👑 ' : '';
 
   const native = `${crown}私の語彙レベルは【${grade}】、推定語彙数${vocab}語でした！🎉 あなたも20問でサクッと診断してみよう📚`;

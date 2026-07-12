@@ -1,10 +1,11 @@
-import type { LevelTestState } from './engine';
+import { THETA_GRID, type LevelTestState } from './engine';
 
 // 診断の途中経過を sessionStorage に保存して中断再開できるようにする。
 // メインクイズ(quiz-state.ts)と同じ30分TTL。
 
-// v3: 回答履歴(answeredWords)が追加された(古いスナップショットは捨てる)
-export const LEVEL_TEST_SESSION_KEY = 'level_test_state_v3';
+// v4: ベイズ推定化で state が事後分布(posterior)を持つ形に変わった
+// (階段型時代の古いスナップショットはキーが違うので読まれず自然消滅する)
+export const LEVEL_TEST_SESSION_KEY = 'level_test_state_v4';
 export const LEVEL_TEST_SESSION_TTL_MS = 30 * 60 * 1000;
 
 // 出題された単語1問分の記録(結果画面の○×リスト用)
@@ -26,6 +27,19 @@ export type LevelTestSessionSnapshot = {
 export function isLevelTestSessionExpired(savedAt: number, now: number = Date.now()): boolean {
   if (!Number.isFinite(savedAt)) return true;
   return now - savedAt > LEVEL_TEST_SESSION_TTL_MS;
+}
+
+// 事後分布が壊れたまま復元すると以降の推定が全て狂うので厳しめに検証する。
+function isValidPosterior(value: unknown): value is number[] {
+  if (!Array.isArray(value) || value.length !== THETA_GRID.length) return false;
+  let sum = 0;
+  for (const probability of value) {
+    if (typeof probability !== 'number' || !Number.isFinite(probability) || probability < 0) {
+      return false;
+    }
+    sum += probability;
+  }
+  return Math.abs(sum - 1) < 1e-6;
 }
 
 export function saveLevelTestSession(snapshot: Omit<LevelTestSessionSnapshot, 'savedAt'>): void {
@@ -50,6 +64,7 @@ export function loadLevelTestSession(): LevelTestSessionSnapshot | null {
       return null;
     }
     if (!parsed.state || !Array.isArray(parsed.usedKeys) || !Array.isArray(parsed.answeredWords)) return null;
+    if (!isValidPosterior(parsed.state.posterior)) return null;
     return parsed;
   } catch {
     return null;
