@@ -532,14 +532,16 @@ export default function HomePage() {
   // `start`: brand-new account with a default wordbook but no review schedule yet
   // (nothing quizzed). Showing the full unlearned backlog as the goal is
   // demotivating, so surface a small, achievable daily learning target instead.
-  const goalState: 'review' | 'learn' | 'empty' | 'start' =
+  const goalState: 'review' | 'learn' | 'empty' | 'start' | 'done' =
     dueCount > 0
       ? 'review'
       : totalWords === 0
         ? 'empty'
         : !hasReviewSchedule
           ? 'start'
-          : 'learn';
+          : unmasteredCount === 0
+            ? 'done'
+            : 'learn';
   // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
   // out of the browsable マイ単語帳 list (its words still count in `stats`).
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
@@ -698,6 +700,22 @@ export default function HomePage() {
               </div>
             </SolidPanel>
           </Link>
+        ) : goalState === 'done' ? (
+          <div className="block">
+            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                TODAY&apos;S GOAL
+              </div>
+              <div className="mt-5 flex items-center gap-1.5">
+                <span className="inline-flex text-[var(--color-success)]">
+                  <Icon name="check_circle" size={26} filled />
+                </span>
+                <span className="font-display text-[20px] font-extrabold leading-tight text-[var(--solid-ink)]">
+                  復習完了
+                </span>
+              </div>
+            </SolidPanel>
+          </div>
         ) : goalState === 'learn' ? (
           <Link href="/quiz/all?learn=1&from=/" className="block">
             <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
