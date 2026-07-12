@@ -269,16 +269,24 @@ function commonSuffixLength(a: string, b: string): number {
   return length;
 }
 
-// 綴りの紛らわしさスコア。接尾辞一致(品詞まで揃って見える)を最重視。
+// 綴りの紛らわしさスコア。接尾辞一致を最優先する(接尾辞は品詞まで揃って
+// 見えるため最も紛らわしい)。接尾辞系の加点(最低3)が接頭辞のみの加点
+// (最大2)を常に上回るような重み付けにしている。
 function morphologicalSimilarity(a: string, b: string): number {
   let score = 0;
   const suffixA = knownSuffixOf(a);
-  if (suffixA && suffixA === knownSuffixOf(b)) score += 2;
+  if (suffixA && suffixA === knownSuffixOf(b)) score += 4;
+  if (commonSuffixLength(a, b) >= 4) score += 3;
   const prefixA = knownPrefixOf(a);
   if (prefixA && prefixA === knownPrefixOf(b)) score += 1;
-  if (commonPrefixLength(a, b) >= 4) score += 2;
-  if (commonSuffixLength(a, b) >= 4) score += 1;
+  if (commonPrefixLength(a, b) >= 4) score += 1;
   return score;
+}
+
+// 訳語が完全にカタカナ(+長音・中点)の語は、英単語の音写(ナイフ、ヨガ等)で
+// 答えが自明なので出題プールから除外する。
+function isKatakanaLoanwordGloss(gloss: string): boolean {
+  return /^[ァ-ヶヴー・\s]+$/.test(gloss);
 }
 
 function isConfusablePair(a: string, b: string): boolean {
@@ -474,6 +482,7 @@ async function buildPoolsFromDatasets(): Promise<Map<EikenLevel, PoolWord[]>> {
 
   const usable: RankedWord[] = [];
   let missingGloss = 0;
+  let katakanaLoanwords = 0;
 
   for (const word of curated) {
     const rawGloss = ejdict.get(word.english);
@@ -482,9 +491,14 @@ async function buildPoolsFromDatasets(): Promise<Map<EikenLevel, PoolWord[]>> {
       missingGloss += 1;
       continue;
     }
+    if (isKatakanaLoanwordGloss(japanese)) {
+      katakanaLoanwords += 1;
+      continue;
+    }
     usable.push({ english: word.english, japanese, pos: word.pos, cefr: word.cefr });
   }
   console.log(`  skipped ${missingGloss} words without a usable Japanese gloss`);
+  console.log(`  skipped ${katakanaLoanwords} katakana loanwords (answer would be self-evident)`);
 
   // 「tiredness」「compellingly」のような透明な派生語は、頻度は低くても
   // 意味が自明で上位級の問題として成立しないため、基語が候補にある場合は除外する。
@@ -582,6 +596,7 @@ async function buildPoolsFromDb(): Promise<Map<EikenLevel, PoolWord[]>> {
       const english = row.english?.trim();
       const japanese = cleanJapaneseGloss(row.japanese ?? '') ?? row.japanese?.trim();
       if (!english || !japanese) continue;
+      if (isKatakanaLoanwordGloss(japanese)) continue;
       const key = english.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
