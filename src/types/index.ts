@@ -18,6 +18,8 @@ export type {
   DatabaseBlockData,
   RelatedWord,
   UsagePattern,
+  WordMorphology,
+  WordMorphologyPart,
   WordTranslation,
   WordTranslationSource,
   AIJapaneseTranslation,

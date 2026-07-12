@@ -154,6 +154,32 @@ export interface ProjectBlock {
   data: ProjectBlockData;
 }
 
+// ============ Morphology (語源) Types ============
+
+/** One segment of a word-formation formula (e.g. un / anim / ous). */
+export interface WordMorphologyPart {
+  /** Surface form as it appears in the word, e.g. "un". */
+  text: string;
+  kind: 'prefix' | 'suffix' | 'infix' | 'root';
+  /** Short Japanese gloss, e.g. "否定" / "心". */
+  meaningJa: string;
+  /** Affix catalogue id (affixes.id / AFFIX_CATALOG id). Roots omit it. */
+  affixId?: string;
+}
+
+/**
+ * AI-generated word-formation breakdown, cached in lexicon_entries.morphology
+ * and snapshotted onto words.morphology.
+ * `none: true` marks "no affix structure" so the word is never re-sent to AI.
+ */
+export interface WordMorphology {
+  formula: WordMorphologyPart[];
+  /** Nuance explanation, at most 2 lines. */
+  explanation: string;
+  version: 1;
+  none?: boolean;
+}
+
 export interface Word {
   id: string;
   projectId: string;
@@ -190,6 +216,8 @@ export interface Word {
   wordOrderQuiz?: WordOrderQuizCache;
   // User-created custom sections
   customSections?: CustomSection[];
+  /** Word-formation breakdown (語源解析). Generated at scan time when the option is on. */
+  morphology?: WordMorphology;
   quizTarget?: {
     kind: 'word' | 'translation';
     key: string;
@@ -261,6 +289,7 @@ export interface AIWordExtraction {
   exampleSentence?: string;
   exampleSentenceJa?: string;
   customSections?: CustomSection[];
+  morphology?: WordMorphology;
 }
 
 export interface AIResponse {

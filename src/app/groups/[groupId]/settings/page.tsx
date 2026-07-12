@@ -8,20 +8,17 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
+import {
+  invalidateGroupOverview,
+  loadGroupOverview,
+  updateCachedGroupOverview,
+} from '@/lib/shared-projects/group-overview-cache';
 import type {
   SharedProjectCard,
   StudyGroupMember,
   StudyGroupSummary,
 } from '@/lib/shared-projects/types';
 import { ProfileTapTarget, memberInitial, memberLabel, profileHref, thumbColor } from '../member-ui';
-
-type OverviewResponse = {
-  success?: boolean;
-  group?: StudyGroupSummary;
-  projects?: SharedProjectCard[];
-  members?: StudyGroupMember[];
-  error?: string;
-};
 
 export default function GroupSettingsPage() {
   const params = useParams<{ groupId: string }>();
@@ -43,20 +40,18 @@ export default function GroupSettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options: { force?: boolean } = {}) => {
     if (!groupId) return;
-    setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/shared-projects/groups/${encodeURIComponent(groupId)}`, { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as OverviewResponse | null;
-      if (!response.ok || !payload?.success || !payload.group) {
-        throw new Error(payload?.error || 'group_overview_failed');
-      }
-      setGroup(payload.group);
-      setMembers(payload.members ?? []);
-      setProjects(payload.projects ?? []);
-      setName(payload.group.name);
+      // 概要・本棚ページと同じキャッシュを共有（stale-while-revalidate）。
+      await loadGroupOverview(groupId, (payload) => {
+        setGroup(payload.group);
+        setMembers(payload.members);
+        setProjects(payload.projects);
+        setName(payload.group.name);
+        setLoading(false);
+      }, options);
     } catch (loadError) {
       console.warn('Failed to load group settings:', loadError);
       setError('グループ情報を読み込めませんでした。');
@@ -65,14 +60,10 @@ export default function GroupSettingsPage() {
     }
   }, [groupId]);
 
+  // authLoading を待たずに即フェッチ（サーバー側はCookieで認証）。
   useEffect(() => {
-    if (authLoading) return;
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
     void load();
-  }, [authLoading, isAuthenticated, load]);
+  }, [load]);
 
   const isOwner = group?.role === 'owner';
   const trimmedName = name.trim();
@@ -93,6 +84,10 @@ export default function GroupSettingsPage() {
         throw new Error(payload?.error || 'group_rename_failed');
       }
       setGroup((prev) => (prev ? { ...prev, name: trimmedName } : prev));
+      updateCachedGroupOverview(group.id, (cached) => ({
+        ...cached,
+        group: { ...cached.group, name: trimmedName },
+      }));
       showToast({ message: 'グループ名を変更しました', type: 'success' });
     } catch (renameError) {
       const message = renameError instanceof Error ? renameError.message : '変更に失敗しました。';
@@ -117,6 +112,10 @@ export default function GroupSettingsPage() {
         throw new Error(payload?.error || 'group_visibility_update_failed');
       }
       setGroup((prev) => (prev ? { ...prev, visibility } : prev));
+      updateCachedGroupOverview(group.id, (cached) => ({
+        ...cached,
+        group: { ...cached.group, visibility },
+      }));
       showToast({ message: visibility === 'public' ? 'グループを公開しました' : 'グループを非公開にしました', type: 'success' });
     } catch (visibilityError) {
       const message = visibilityError instanceof Error ? visibilityError.message : '変更に失敗しました。';
@@ -143,6 +142,7 @@ export default function GroupSettingsPage() {
       }
       setMembers((current) => current.filter((entry) => entry.userId !== member.userId));
       setGroup((current) => current ? { ...current, memberCount: Math.max(0, current.memberCount - 1) } : current);
+      invalidateGroupOverview(group.id);
       showToast({ message: `${label}さんを削除しました`, type: 'success' });
     } catch (removeError) {
       const message = removeError instanceof Error ? removeError.message : '削除に失敗しました。';
@@ -168,6 +168,7 @@ export default function GroupSettingsPage() {
       }
       setProjects((current) => current.filter((entry) => entry.project.id !== card.project.id));
       setGroup((current) => current ? { ...current, projectCount: Math.max(0, current.projectCount - 1) } : current);
+      invalidateGroupOverview(group.id);
       showToast({ message: `「${card.project.title}」を削除しました`, type: 'success' });
     } catch (removeError) {
       const message = removeError instanceof Error ? removeError.message : '削除に失敗しました。';
@@ -190,6 +191,7 @@ export default function GroupSettingsPage() {
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || 'group_delete_failed');
       }
+      invalidateGroupOverview(group.id);
       showToast({ message: 'グループを削除しました', type: 'success' });
       router.replace('/shared');
     } catch (deleteError) {

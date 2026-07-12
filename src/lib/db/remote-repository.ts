@@ -115,6 +115,7 @@ type WordsCreateRequestWord = {
   insightsVersion?: number;
   wordOrderQuiz?: Word['wordOrderQuiz'];
   customSections?: Word['customSections'];
+  morphology?: Word['morphology'];
   status: Word['status'];
   createdAt: string;
   lastReviewedAt?: string;
@@ -265,6 +266,29 @@ function normalizeWordsCreateInsightsVersion(value: unknown): number | undefined
   return Math.min(100, Math.max(1, value as number));
 }
 
+function normalizeWordsCreateMorphology(morphology: Word['morphology']): Word['morphology'] | undefined {
+  if (!morphology || morphology.version !== 1) return undefined;
+  if (morphology.none) return undefined; // 「構造なし」は保存対象にしない
+  if (!Array.isArray(morphology.formula) || morphology.formula.length === 0) return undefined;
+
+  const formula = morphology.formula
+    .slice(0, 8)
+    .map((part) => {
+      const text = normalizeRequestText(part.text, 40);
+      const meaningJa = normalizeRequestText(part.meaningJa, 60);
+      if (!text || !meaningJa) return null;
+      if (!['prefix', 'suffix', 'infix', 'root'].includes(part.kind)) return null;
+      const affixId = normalizeRequestText(part.affixId, 60);
+      return { text, kind: part.kind, meaningJa, ...(affixId ? { affixId } : {}) };
+    })
+    .filter((part): part is NonNullable<typeof part> => part !== null);
+
+  const explanation = normalizeRequestText(morphology.explanation, 200);
+  if (formula.length === 0 || !explanation) return undefined;
+
+  return { formula, explanation, version: 1 };
+}
+
 export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord {
   return {
     id: word.id,
@@ -287,6 +311,7 @@ export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord 
     insightsVersion: normalizeWordsCreateInsightsVersion(word.insightsVersion),
     wordOrderQuiz: normalizeWordsCreateWordOrderQuiz(word.wordOrderQuiz),
     customSections: normalizeWordsCreateCustomSections(word.customSections),
+    morphology: normalizeWordsCreateMorphology(word.morphology),
     status: word.status,
     createdAt: word.createdAt,
     lastReviewedAt: word.lastReviewedAt,

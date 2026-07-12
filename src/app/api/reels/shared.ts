@@ -19,6 +19,8 @@ import {
 } from '@/lib/reels/sampling';
 import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
+import { getCachedMorphologyByHeadword } from '@/lib/morphology/lexicon';
+import { normalizeHeadword } from '../../../../shared/lexicon';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -636,8 +638,27 @@ export async function buildReelFeedPage(options: {
   const recycledByKey = new Map(
     grantedSelections.map((selection) => [selection.candidate.id, selection.recycled]),
   );
+
+  // 語源（morphology）を lexicon キャッシュから1バッチで結合する。
+  // キャッシュ専用（フィード内で生成はしない）。best-effort — フィードは絶対に壊さない。
+  const grantedCandidates = grantedSelections.map((s) => s.candidate);
+  try {
+    const morphologyByHeadword = await getCachedMorphologyByHeadword(
+      grantedCandidates.map((candidate) => normalizeHeadword(candidate.english)),
+      { supabaseAdmin: admin },
+    );
+    for (const candidate of grantedCandidates) {
+      const morphology = morphologyByHeadword.get(normalizeHeadword(candidate.english));
+      candidate.morphology = morphology && !morphology.none && morphology.formula.length > 0
+        ? morphology
+        : null;
+    }
+  } catch {
+    // morphology は任意情報。失敗時は全カード2面のまま配信する。
+  }
+
   const items = (
-    await enrichItems(admin, options.userId, grantedSelections.map((s) => s.candidate))
+    await enrichItems(admin, options.userId, grantedCandidates)
   ).map((item) => ({ ...item, isRecycled: recycledByKey.get(item.id) ?? false }));
 
   const limitReached = usage.limit !== null && usage.current_count >= usage.limit;

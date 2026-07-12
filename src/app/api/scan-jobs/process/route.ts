@@ -93,7 +93,10 @@ import {
   isWordTranslationsSchemaError,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
-import type { CustomSection, WordTranslation } from '@/types';
+import type { CustomSection, WordMorphology, WordTranslation } from '@/types';
+import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
+import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { normalizeHeadword } from '../../../../../shared/lexicon';
 import {
   insertProjectWithSourceLabelsCompat,
   selectProjectWithSourceLabelsCompat,
@@ -146,6 +149,7 @@ export interface ProcessJobDeps {
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
+  resolveMorphology?: typeof resolveMorphologyForWords;
   prefillWordOrderQuizzes?: typeof prefillWordOrderQuizzesForWords;
   sendPushNotifications?: typeof sendScanJobPushNotifications;
   sendApnsNotifications?: typeof sendScanJobApnsNotifications;
@@ -192,6 +196,7 @@ interface ProcessedExtractedWord {
   exampleSentence?: string;
   exampleSentenceJa?: string;
   customSections?: CustomSection[];
+  morphology?: WordMorphology;
 }
 
 type InsertedServerCloudWord =
@@ -835,6 +840,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const resolveImmediateWords = processDeps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst;
     const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
     const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
+    const resolveMorphology = processDeps?.resolveMorphology ?? resolveMorphologyForWords;
     const prefillWordOrderQuizzes = processDeps?.prefillWordOrderQuizzes ?? prefillWordOrderQuizzesForWords;
     const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
     const sendApnsNotifications = processDeps?.sendApnsNotifications ?? sendScanJobApnsNotifications;
@@ -1098,6 +1104,48 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       ).map((word) => normalizeWordForTranslationPersistence(word));
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
+      // --- Morphology (語源解析): opt-in, best-effort ---
+      // client_local は結果payload、server_cloud は words INSERT の両方が
+      // resolvedWords（のspreadコピー）を使うため、ここで一度だけ付与する。
+      const includeMorphology =
+        (job as { include_morphology?: unknown }).include_morphology === true;
+      if (includeMorphology && resolvedWords.length > 0) {
+        const morphologyStart = Date.now();
+        try {
+          const morphologyMap = await withCloudRunTimingPhase('morphologyGeneration', () =>
+            resolveMorphology(
+              resolvedWords
+                .map((word) => ({ english: String((word as Record<string, unknown>).english ?? '') }))
+                .filter((word) => word.english.length > 0),
+              apiKeys,
+              { supabaseAdmin },
+            ),
+          );
+          let attachedCount = 0;
+          for (const word of resolvedWords) {
+            const w = word as Record<string, unknown>;
+            const english = String(w.english ?? '');
+            if (!english) continue;
+            const morphology = morphologyMap.get(normalizeHeadword(english));
+            if (hasDisplayableMorphology(morphology)) {
+              w.morphology = morphology;
+              attachedCount++;
+            }
+          }
+          console.log('[scan-jobs/process] Morphology generation completed', {
+            jobId,
+            requested: resolvedWords.length,
+            attached: attachedCount,
+            elapsedMs: Date.now() - morphologyStart,
+          });
+        } catch (morphologyError) {
+          console.error(
+            '[scan-jobs/process] Morphology generation failed (non-critical):',
+            morphologyError,
+          );
+        }
+      }
+
       console.log('[scan-jobs/process] Extraction finished', {
         jobId,
         modes,
@@ -1307,19 +1355,22 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let omitJapaneseSource = false;
       let omitSourceModes = false;
       let omitLexiconSenseId = false;
+      let omitMorphology = false;
 
-      for (let attempt = 0; attempt < 4; attempt += 1) {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
         const insertPayload =
-          omitJapaneseSource || omitSourceModes || omitLexiconSenseId
+          omitJapaneseSource || omitSourceModes || omitLexiconSenseId || omitMorphology
             ? stripServerCloudWordsInsertPayloadForCompat(wordsToInsert, {
                 omitJapaneseSource,
                 omitSourceModes,
                 omitLexiconSenseId,
+                omitMorphology,
               })
             : wordsToInsert;
         const selectColumns = getServerCloudWordsInsertSelectColumns({
           omitJapaneseSource,
           omitLexiconSenseId,
+          omitMorphology,
         });
         const result = await supabaseAdmin
           .from('words')
@@ -1350,6 +1401,14 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (missingColumn === 'lexicon_sense_id' && !omitLexiconSenseId) {
           omitLexiconSenseId = true;
           console.warn('[scan-jobs/process] words.lexicon_sense_id compatibility fallback used', {
+            jobId,
+            message: result.error?.message,
+          });
+          continue;
+        }
+        if (missingColumn === 'morphology' && !omitMorphology) {
+          omitMorphology = true;
+          console.warn('[scan-jobs/process] words.morphology compatibility fallback used', {
             jobId,
             message: result.error?.message,
           });

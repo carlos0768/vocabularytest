@@ -166,6 +166,7 @@ export interface WordRow {
   usage_patterns?: unknown | null;
   insights_generated_at?: string | null;
   insights_version?: number | null;
+  morphology?: unknown | null;
   status?: string | null;
   created_at: string;
   last_reviewed_at?: string | null;
@@ -207,7 +208,15 @@ export function mapWordFromRow(row: WordRow): Word {
     usagePatterns: normalizeUsagePatterns(row.usage_patterns),
     insightsGeneratedAt: row.insights_generated_at ?? undefined,
     insightsVersion: row.insights_version ?? undefined,
+    morphology: normalizeMorphology(row.morphology),
   };
+}
+
+function normalizeMorphology(value: unknown): Word['morphology'] {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  if (record.version !== 1 || !Array.isArray(record.formula)) return undefined;
+  return record as unknown as Word['morphology'];
 }
 
 export type WordInput = Omit<
@@ -244,6 +253,7 @@ export function mapWordToInsert(word: WordInput): Record<string, unknown> {
     ...(word.insightsGeneratedAt !== undefined && { insights_generated_at: word.insightsGeneratedAt }),
     ...(word.insightsVersion !== undefined && { insights_version: word.insightsVersion }),
     ...(word.vocabularyType !== undefined && { vocabulary_type: word.vocabularyType }),
+    ...(word.morphology !== undefined && { morphology: word.morphology }),
     status: 'new',
     ease_factor: defaults.easeFactor,
     interval_days: defaults.intervalDays,
@@ -278,6 +288,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.usagePatterns !== undefined) updateData.usage_patterns = updates.usagePatterns;
   if (updates.insightsGeneratedAt !== undefined) updateData.insights_generated_at = updates.insightsGeneratedAt;
   if (updates.insightsVersion !== undefined) updateData.insights_version = updates.insightsVersion;
+  if (updates.morphology !== undefined) updateData.morphology = updates.morphology;
 
   return updateData;
 }

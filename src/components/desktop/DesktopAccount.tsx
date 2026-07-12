@@ -152,6 +152,13 @@ export function DesktopSettingsView({
           <ExampleGenreSettings variant="desktop" />
 
           <div className="ds-set-group">
+            <div className="gh">豆知識</div>
+            <SettingsLink icon="text_fields" label="接頭語（プレフィックス）" description="un- / re- / pre- など、頭に付くパーツの意味と例" href="/tips/prefixes" />
+            <SettingsLink icon="text_fields" label="接尾語（サフィックス）" description="-tion / -ous / -able など、品詞を決めるパーツ" href="/tips/suffixes" />
+            <SettingsLink icon="text_fields" label="接中語（インフィックス）" description="therm-o-meter の -o- など、語根をつなぐパーツ" href="/tips/infixes" />
+          </div>
+
+          <div className="ds-set-group">
             <div className="gh">サポート</div>
             <SettingsLink icon="mail" label="お問い合わせ" description="不具合の報告・ご要望はこちら" href="/contact" />
             <SettingsLink icon="description" label="利用規約" href="/terms" />

@@ -9,6 +9,7 @@ import { getRepository } from '@/lib/db';
 import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
 import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { hasDisplayableMorphology } from '@/lib/morphology/format';
 
 function formatCustomSectionValue(value: string, type: CustomColumn['type']): string {
   if (!value) return '';
@@ -501,6 +502,41 @@ export function WordDetailView({
             </p>
           )}
         </section>
+
+        {hasDisplayableMorphology(word.morphology) && (
+          <>
+            <SectionDivider />
+            <section className="py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <SectionHeading title="ETYMOLOGY" />
+                <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">語源</span>
+              </div>
+              {/* 式: un(否定) ＋ anim(心) ＋ ous(形容詞化) */}
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
+                {word.morphology.formula.map((part, index) => (
+                  <span key={`${part.text}-${index}`} className="flex items-center gap-1.5">
+                    {index > 0 && (
+                      <span className="text-[14px] font-bold text-[var(--color-muted)]">＋</span>
+                    )}
+                    <span
+                      className={`rounded-full border-2 px-2.5 py-1 font-display text-[13px] font-bold leading-none ${
+                        part.kind === 'root'
+                          ? 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]'
+                          : 'border-[var(--color-accent)] bg-[var(--color-accent-light)] text-[var(--color-accent-ink)]'
+                      }`}
+                    >
+                      {part.text}
+                      <span className="ml-1 text-[11px] font-semibold opacity-80">({part.meaningJa})</span>
+                    </span>
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.6] text-[var(--color-ink-muted)]">
+                {word.morphology.explanation}
+              </p>
+            </section>
+          </>
+        )}
 
         {relatedWords.length > 0 && (
           <>

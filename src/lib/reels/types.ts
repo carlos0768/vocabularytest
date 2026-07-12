@@ -1,4 +1,4 @@
-import type { WordTranslation } from '@/types';
+import type { WordMorphology, WordTranslation } from '@/types';
 
 export type ReelSource = 'shared' | 'official';
 
@@ -38,6 +38,8 @@ export type ReelItem = {
   partOfSpeechTags: string[];
   /** CEFR level joined from lexicon_entries; official words only */
   cefrLevel: string | null;
+  /** 語源分解。lexicon_entries.morphology のキャッシュから結合（無ければ null） */
+  morphology?: WordMorphology | null;
   likeCount: number;
   likedByMe: boolean;
   commentCount: number;

@@ -117,6 +117,48 @@ test('flag on: consumes via consume_scan_coins with modes, count, and job id', w
   });
 }));
 
+test('flag on: sends p_include_morphology only when the option is on', withFlag('true', async () => {
+  const { calls, client } = fakeClient(() => ({
+    data: {
+      allowed: true,
+      requires_pro: false,
+      is_pro: true,
+      cost: 5,
+      monthly_remaining: 295,
+      purchased_remaining: 0,
+      total_remaining: 295,
+      monthly_allowance: 300,
+      month_key: '2026-07',
+      current_count: 1,
+    },
+  }));
+
+  await consumeScanGate(client, {
+    modes: ['all'],
+    imageCount: 1,
+    includeMorphology: true,
+  });
+  await consumeScanGate(client, {
+    modes: ['all'],
+    imageCount: 1,
+    includeMorphology: false,
+  });
+
+  // オン時のみ p_include_morphology を送る（未対応DBとの互換のため、
+  // オフ時は従来と同一のRPC引数を維持する）
+  assert.deepEqual(calls[0]!.args, {
+    p_modes: ['all'],
+    p_image_count: 1,
+    p_scan_job_id: null,
+    p_include_morphology: true,
+  });
+  assert.deepEqual(calls[1]!.args, {
+    p_modes: ['all'],
+    p_image_count: 1,
+    p_scan_job_id: null,
+  });
+}));
+
 test('flag on: maps requires_pro to the existing 403 body', withFlag('true', async () => {
   const { client } = fakeClient(() => ({
     data: { allowed: false, requires_pro: true, is_pro: false, cost: null },

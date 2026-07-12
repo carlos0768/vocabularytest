@@ -153,6 +153,13 @@ export default function SettingsPage() {
         </Link>
       </div>
 
+      {/* 豆知識 — 語源（接頭語・接尾語・接中語）コーナー */}
+      <SettingsGroup label="豆知識">
+        <SettingsRow icon="text_fields" label="接頭語（プレフィックス）" description="un- / re- / pre- など、頭に付くパーツの意味と例" href="/tips/prefixes" />
+        <SettingsRow icon="text_fields" label="接尾語（サフィックス）" description="-tion / -ous / -able など、品詞を決めるパーツ" href="/tips/suffixes" />
+        <SettingsRow icon="text_fields" label="接中語（インフィックス）" description="therm-o-meter の -o- など、語根をつなぐパーツ" href="/tips/infixes" />
+      </SettingsGroup>
+
       <SettingsGroup label="カスタマイズ">
         <SettingsRow icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
       </SettingsGroup>

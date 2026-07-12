@@ -7,6 +7,7 @@ import { DesktopSharedView } from '@/components/desktop/DesktopShared';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { useMyGroups } from '@/hooks/use-my-groups';
 import { useToast } from '@/components/ui/toast';
 import { ShareTypeChooser } from './ShareTypeChooser';
 import { triggerHaptic } from '@/lib/haptics';
@@ -58,12 +59,6 @@ type GroupSearchApiResponse = {
   success?: boolean;
   groups?: PublicStudyGroupSummary[];
   nextCursor?: string | null;
-  error?: string;
-};
-
-type MyGroupsApiResponse = {
-  success?: boolean;
-  groups?: StudyGroupSummary[];
   error?: string;
 };
 
@@ -125,7 +120,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const { showToast } = useToast();
 
   const [category, setCategory] = useState<SharedDiscoverCategory | 'groups'>('all');
@@ -137,7 +132,9 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [groupResults, setGroupResults] = useState<PublicStudyGroupSummary[]>([]);
   const [groupLoading, setGroupLoading] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
-  const [myGroups, setMyGroups] = useState<StudyGroupSummary[]>([]);
+  // 参加中のグループ。表示はホームへ移設済みだが、グループ検索の
+  // 参加済みフィルタ（モバイル/デスクトップ両方）が引き続き使う。
+  const { groups: myGroups } = useMyGroups();
 
   const [userQuery, setUserQuery] = useState('');
   const [userResults, setUserResults] = useState<FollowSearchResult[]>([]);
@@ -150,30 +147,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   const [chooserOpen, setChooserOpen] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<WordbookGenre | null>(null);
-
-  // Joined groups feed both the mobile 参加中のグループ section and the desktop
-  // view (which also uses them to hide already-joined groups from search).
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) {
-      setMyGroups([]);
-      return;
-    }
-
-    let cancelled = false;
-    fetch('/api/shared-projects/groups', { cache: 'no-store' })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as MyGroupsApiResponse | null;
-        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'my_groups_failed');
-        if (!cancelled) setMyGroups(payload.groups ?? []);
-      })
-      .catch((error) => {
-        if (!cancelled) console.warn('Failed to load joined groups:', error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (category === 'groups') return;
@@ -388,8 +361,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             </div>
           </div>
         )}
-
-        {category === 'all' && <JoinedGroupsSection groups={myGroups} />}
 
         {category === 'groups' ? (
           <GroupSearchSection
@@ -1065,71 +1036,6 @@ function UserSearchSection({
         </div>
       )}
     </div>
-  );
-}
-
-function JoinedGroupsSection({ groups }: { groups: StudyGroupSummary[] }) {
-  if (groups.length === 0) return null;
-
-  return (
-    <div className="px-[14px] pb-1 pt-3">
-      <div className="mb-2.5 flex items-center gap-2">
-        <Icon name="groups" size={20} className="text-[var(--solid-ink)]" />
-        <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">参加中のグループ</h2>
-        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-white">
-          {groups.length}
-        </span>
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {groups.map((group) => (
-          <JoinedGroupCard key={group.id} group={group} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function JoinedGroupCard({ group }: { group: StudyGroupSummary }) {
-  const color = thumbColor(group.id);
-  return (
-    <Link
-      href={`/groups/${group.id}`}
-      onPointerDown={() => triggerHaptic()}
-      aria-label={`${group.name}のグループを開く`}
-      className="block focus:outline-none"
-    >
-      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
-        <div className="flex items-center gap-[11px]">
-          <div
-            className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[22px] font-extrabold text-white"
-            style={{ backgroundColor: color }}
-          >
-            {group.name.charAt(0)}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="truncate font-display text-[14px] font-bold text-[var(--solid-ink)]">{group.name}</span>
-              {group.role === 'owner' && (
-                <span className="shrink-0 rounded-full border border-[var(--color-border)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[var(--color-muted)]">owner</span>
-              )}
-            </div>
-            <div className="mt-[3px] flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
-              <span className="flex items-center gap-0.5">
-                <Icon name="group" size={12} />
-                {group.memberCount}人
-              </span>
-              <span className="flex items-center gap-0.5">
-                <Icon name="menu_book" size={12} />
-                {group.projectCount}冊
-              </span>
-            </div>
-          </div>
-
-          <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
-        </div>
-      </div>
-    </Link>
   );
 }
 

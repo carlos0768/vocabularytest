@@ -14,6 +14,7 @@ const NO_SHELL_PATHS = [
   '/guide', '/column',
   '/offline', '/share-target', '/admin',
   '/level-test', '/ops',
+  '/tips',
 ];
 
 const HIDE_BOTTOM_NAV_PATHS = [
