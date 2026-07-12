@@ -22,6 +22,9 @@ export function DesktopStudySidebar({
   // word has a review schedule. Show a small, achievable learning target rather
   // than "0語 復習を始める" (which would launch an empty review).
   const isFreshStart = stats.totalWords > 0 && !stats.hasReviewSchedule && stats.dueCount === 0;
+  // Review schedule exists but nothing is due right now: the review is done for
+  // now, so show "復習完了" rather than "0語 復習を始める" (an empty review).
+  const isReviewDone = stats.totalWords > 0 && stats.hasReviewSchedule && stats.dueCount === 0;
   const dailyLearnTarget = Math.min(stats.newW + stats.review, 10);
   const learnProgress = dailyLearnTarget > 0
     ? Math.min(100, Math.round((stats.completedToday / dailyLearnTarget) * 100))
@@ -31,26 +34,39 @@ export function DesktopStudySidebar({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
       <div className="ds-card" style={{ padding: '20px 22px' }}>
         <div className="muted" style={{ fontSize: 12.5, fontWeight: 600 }}>今日の目標</div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 6 }}>
-          <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40, lineHeight: 1 }}>
-            {isFreshStart ? dailyLearnTarget : stats.dueCount}
-          </span>
-          <span style={{ fontSize: 16, fontWeight: 700 }}>語</span>
-        </div>
-        <div className="ds-prog" style={{ marginTop: 14 }}>
-          <div className="fi" style={{ width: `${isFreshStart ? learnProgress : goalProgress}%` }} />
-        </div>
-        <div className="mono muted" style={{ fontSize: 11, marginTop: 6 }}>
-          {isFreshStart ? 'まずはここから' : `${stats.completedToday} / ${totalGoal} 完了`}
-        </div>
-        {isFreshStart ? (
-          <DesktopButton href={learnHref ?? reviewHref} variant="accent" icon="play_arrow" className="w-full">
-            学習を始める
-          </DesktopButton>
+        {isReviewDone ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18 }}>
+            <span className="inline-flex" style={{ color: 'var(--color-success)' }}>
+              <Icon name="check_circle" size={28} filled />
+            </span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, lineHeight: 1 }}>
+              復習完了
+            </span>
+          </div>
         ) : (
-          <DesktopButton href={reviewHref} variant="accent" icon="play_arrow" className="w-full">
-            復習を始める
-          </DesktopButton>
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 6 }}>
+              <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40, lineHeight: 1 }}>
+                {isFreshStart ? dailyLearnTarget : stats.dueCount}
+              </span>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>語</span>
+            </div>
+            <div className="ds-prog" style={{ marginTop: 14 }}>
+              <div className="fi" style={{ width: `${isFreshStart ? learnProgress : goalProgress}%` }} />
+            </div>
+            <div className="mono muted" style={{ fontSize: 11, marginTop: 6 }}>
+              {isFreshStart ? 'まずはここから' : `${stats.completedToday} / ${totalGoal} 完了`}
+            </div>
+            {isFreshStart ? (
+              <DesktopButton href={learnHref ?? reviewHref} variant="accent" icon="play_arrow" className="w-full">
+                学習を始める
+              </DesktopButton>
+            ) : (
+              <DesktopButton href={reviewHref} variant="accent" icon="play_arrow" className="w-full">
+                復習を始める
+              </DesktopButton>
+            )}
+          </>
         )}
       </div>
 
