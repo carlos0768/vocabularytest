@@ -253,6 +253,25 @@ export default function LevelTestPage() {
           <div className="mb-4 text-center font-display text-[22px] font-extrabold text-[var(--solid-ink)]">
             診断結果
           </div>
+
+          {/* シェア導線は画面最上部(カードの上)に置く。カードのリビール演出後に現れる */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.3 }}
+            className="mb-4"
+          >
+            <SolidButton
+              variant="accent"
+              size="lg"
+              iconLeft="ios_share"
+              className="w-full"
+              onClick={() => setShareOpen(true)}
+            >
+              結果をシェアする
+            </SolidButton>
+          </motion.div>
+
           <LevelTestResultCard payload={resultPayload} variant="own" />
 
           {bank && answeredWords.length > 0 && (
@@ -271,15 +290,6 @@ export default function LevelTestPage() {
             transition={{ delay: 1.3 }}
             className="mt-5 space-y-3"
           >
-            <SolidButton
-              variant="accent"
-              size="lg"
-              iconLeft="ios_share"
-              className="w-full"
-              onClick={() => setShareOpen(true)}
-            >
-              結果をシェアする
-            </SolidButton>
             <SolidButton size="md" className="w-full" iconLeft="refresh" onClick={() => startQuiz(false)}>
               もう一度測定する
             </SolidButton>
