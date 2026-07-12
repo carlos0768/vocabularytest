@@ -8,6 +8,7 @@ export interface HomeBackgroundScanJobCreatePayload {
   scanMode: ExtractMode;
   scanModes?: ExtractMode[];
   eikenLevel: HomeBackgroundScanEikenLevel;
+  includeMorphology?: boolean;
   targetProjectId?: string;
   clientPlatform: 'web';
 }
@@ -17,6 +18,7 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
   scanMode: ExtractMode;
   scanModes?: readonly ExtractMode[];
   eikenLevel?: HomeBackgroundScanEikenLevel;
+  includeMorphology?: boolean;
   projectTitle?: string | null;
   targetProjectId?: string | null;
   now?: Date;
@@ -34,6 +36,7 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
     eikenLevel: params.scanMode === 'eiken' || params.scanModes?.includes('eiken')
       ? params.eikenLevel ?? null
       : null,
+    ...(params.includeMorphology ? { includeMorphology: true } : {}),
     targetProjectId: params.targetProjectId || undefined,
     clientPlatform: 'web',
   };

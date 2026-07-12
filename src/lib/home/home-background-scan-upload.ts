@@ -50,6 +50,7 @@ export async function createHomeBackgroundScanJob(params: {
   scanMode: ExtractMode;
   scanModes?: readonly ExtractMode[];
   eikenLevel?: HomeBackgroundScanEikenLevel;
+  includeMorphology?: boolean;
   projectTitle?: string | null;
   targetProjectId?: string | null;
   onProgress?: (label: string) => void;
@@ -91,6 +92,7 @@ export async function createHomeBackgroundScanJob(params: {
       scanMode: params.scanMode,
       scanModes: params.scanModes,
       eikenLevel: params.eikenLevel,
+      includeMorphology: params.includeMorphology,
       projectTitle: params.projectTitle,
       targetProjectId: params.targetProjectId,
     });

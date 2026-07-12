@@ -97,6 +97,7 @@ export function ScanCapturePanel({
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
+  const [morphologyOn, setMorphologyOn] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [insufficientCoinInfo, setInsufficientCoinInfo] = useState<InsufficientCoinsInfo | null>(null);
@@ -152,6 +153,7 @@ export function ScanCapturePanel({
       scanMode: selectedScanModes[0] ?? 'all',
       scanModes: selectedScanModes,
       eikenLevel: selectedEikenLevel,
+      includeMorphology: morphologyOn,
       targetProjectId,
       projectTitle: targetProjectTitle ?? newProjectTitle,
       onProgress: setProcessingLabel,
@@ -175,6 +177,7 @@ export function ScanCapturePanel({
             mode,
             scanModes: selectedScanModes,
             eikenLevel: selectedEikenLevel,
+            includeMorphology: morphologyOn,
           }),
         });
         const parsed = await readHomeImmediateScanExtractResponse(res, { imageIndex: index });
@@ -350,6 +353,7 @@ export function ScanCapturePanel({
     modes: selectedScanModes,
     imageCount: heldShots.length,
     totalRemaining: coinBalance.totalRemaining,
+    includeMorphology: morphologyOn,
   });
   const estimatedCoinCost = coinState.cost;
   const insufficientBalance = coinState.insufficient;
@@ -498,6 +502,43 @@ export function ScanCapturePanel({
             )}
           </div>
         )}
+
+        {/* Morphology (語源解析) toggle */}
+        <div className="mt-2.5 pt-2.5" style={{ borderTop: '1px dashed var(--solid-ink)' }}>
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic();
+              setMorphologyOn((prev) => !prev);
+            }}
+            className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all"
+            style={{
+              borderColor: morphologyOn ? 'var(--solid-ink)' : 'var(--color-border)',
+              boxShadow: morphologyOn ? '2px 2px 0 var(--solid-ink)' : 'none',
+            }}
+          >
+            <span
+              className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+              style={{
+                border: `1.25px solid ${morphologyOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                background: morphologyOn ? 'var(--color-accent)' : '#fff',
+              }}
+            >
+              {morphologyOn && <Icon name="check" size={11} className="text-white" />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                <span className="truncate">語源解析</span>
+                <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                  +2コイン
+                </span>
+              </span>
+              <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
+                接頭語・接尾語・接中語と語根の成り立ちを解説
+              </span>
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Coin cost / balance (コイン制オン時のみ) */}

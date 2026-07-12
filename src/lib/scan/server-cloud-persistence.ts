@@ -1,6 +1,6 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
-import type { CustomSection } from '@/types';
+import type { CustomSection, WordMorphology } from '@/types';
 
 export interface ServerCloudProjectInsertParams {
   userId: string;
@@ -30,6 +30,7 @@ export interface ServerCloudWordForInsert {
   partOfSpeechTags?: string[];
   sourceModes?: ExtractMode[];
   customSections?: CustomSection[];
+  morphology?: WordMorphology;
 }
 
 export interface ServerCloudWordInsertPayload {
@@ -46,6 +47,7 @@ export interface ServerCloudWordInsertPayload {
   part_of_speech_tags?: string[];
   source_modes?: ExtractMode[];
   custom_sections: CustomSection[];
+  morphology: WordMorphology | null;
 }
 
 type MaybePostgrestColumnError = {
@@ -55,12 +57,17 @@ type MaybePostgrestColumnError = {
   hint?: unknown;
 };
 
-export type MissingWordsCompatColumn = 'japanese_source' | 'source_modes' | 'lexicon_sense_id';
+export type MissingWordsCompatColumn =
+  | 'japanese_source'
+  | 'source_modes'
+  | 'lexicon_sense_id'
+  | 'morphology';
 
 export type ServerCloudWordsInsertCompatOptions = {
   omitJapaneseSource?: boolean;
   omitSourceModes?: boolean;
   omitLexiconSenseId?: boolean;
+  omitMorphology?: boolean;
 };
 
 const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
@@ -76,6 +83,7 @@ const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
   'pronunciation',
   'part_of_speech_tags',
   'word_order_quiz',
+  'morphology',
 ] as const;
 
 export function buildServerCloudProjectInsertPayload(
@@ -114,6 +122,7 @@ export function buildServerCloudWordsInsertPayload(
     part_of_speech_tags: word.partOfSpeechTags,
     source_modes: word.sourceModes,
     custom_sections: word.customSections ?? [],
+    morphology: word.morphology ?? null,
   }));
 }
 
@@ -152,6 +161,14 @@ export function getMissingWordsCompatColumn(error: unknown): MissingWordsCompatC
     return 'lexicon_sense_id';
   }
 
+  if (
+    message.includes('words.morphology')
+    || message.includes("'morphology' column of 'words'")
+    || message.includes('morphology')
+  ) {
+    return 'morphology';
+  }
+
   return null;
 }
 
@@ -169,6 +186,7 @@ export function getServerCloudWordsInsertSelectColumns(
   return SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS
     .filter((column) => !(options.omitJapaneseSource && column === 'japanese_source'))
     .filter((column) => !(options.omitLexiconSenseId && column === 'lexicon_sense_id'))
+    .filter((column) => !(options.omitMorphology && column === 'morphology'))
     .join(', ');
 }
 
@@ -198,6 +216,9 @@ export function stripServerCloudWordsInsertPayloadForCompat(
     }
     if (!options.omitSourceModes) {
       row.source_modes = word.source_modes;
+    }
+    if (!options.omitMorphology) {
+      row.morphology = word.morphology;
     }
 
     return row;

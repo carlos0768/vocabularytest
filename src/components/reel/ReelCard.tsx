@@ -8,6 +8,7 @@ import { ReelActionRail } from './ReelActionRail';
 import { ReelBookCard } from './ReelBookCard';
 import { ReelCommentSheet } from './ReelCommentSheet';
 import { ReelMeaningPanel } from './ReelMeaningPanel';
+import { ReelMorphologyPanel } from './ReelMorphologyPanel';
 import { ReelMoreSheet } from './ReelMoreSheet';
 
 type ReelCardProps = {
@@ -36,8 +37,9 @@ function speak(english: string) {
 
 /**
  * One full-height reel card. The front face shows English + IPA only;
- * a horizontal swipe (or tap / ←→ keys on the active card) slides to
- * the Japanese meaning face, mirroring the flashcard axis-lock gesture.
+ * a horizontal swipe (or tap / ←→ keys on the active card) slides through
+ * the faces (meaning → optional morphology), mirroring the flashcard
+ * axis-lock gesture. Cards without cached morphology stay 2-faced.
  */
 export function ReelCard({
   item,
@@ -51,7 +53,7 @@ export function ReelCard({
   onCommentCountChange,
   onRevealed,
 }: ReelCardProps) {
-  const [revealed, setRevealed] = useState(false);
+  const [page, setPage] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -59,20 +61,28 @@ export function ReelCard({
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
 
+  const hasMorphology = Boolean(
+    item.morphology && !item.morphology.none && item.morphology.formula.length > 0,
+  );
+  const faces = hasMorphology ? 3 : 2;
+  const lastPage = faces - 1;
+  const faceWidth = 100 / faces;
+
   // Reset to the English face whenever the card leaves the viewport
   // (adjust-state-during-render pattern; avoids an extra effect pass).
   const [prevActive, setPrevActive] = useState(active);
   if (prevActive !== active) {
     setPrevActive(active);
     if (!active) {
-      setRevealed(false);
+      setPage(0);
       setDragX(0);
     }
   }
 
-  const toggleReveal = (next: boolean) => {
-    setRevealed(next);
-    if (next) onRevealed?.();
+  const goToPage = (next: number) => {
+    const clamped = Math.max(0, Math.min(lastPage, next));
+    if (clamped !== 0 && page === 0) onRevealed?.();
+    setPage(clamped);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -94,11 +104,11 @@ export function ReelCard({
 
   const handleTouchEnd = () => {
     if (isSwiping.current) {
-      if (dragX < -SWIPE_THRESHOLD && !revealed) {
-        toggleReveal(true);
+      if (dragX < -SWIPE_THRESHOLD && page < lastPage) {
+        goToPage(page + 1);
         triggerHaptic();
-      } else if (dragX > SWIPE_THRESHOLD && revealed) {
-        toggleReveal(false);
+      } else if (dragX > SWIPE_THRESHOLD && page > 0) {
+        goToPage(page - 1);
         triggerHaptic();
       }
     }
@@ -108,8 +118,10 @@ export function ReelCard({
     }, 50);
   };
 
+  // Tap cycles forward through faces (wrap to the front at the end),
+  // preserving the old tap-to-toggle feel on 2-face cards.
   const handleTap = () => {
-    if (!isSwiping.current) toggleReveal(!revealed);
+    if (!isSwiping.current) goToPage(page >= lastPage ? 0 : page + 1);
   };
 
   useEffect(() => {
@@ -119,20 +131,21 @@ export function ReelCard({
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setRevealed(true);
+        goToPage(page + 1);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setRevealed(false);
+        goToPage(page - 1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [active]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, page, lastPage]);
 
-  const baseOffset = revealed ? -50 : 0;
-  const dragPercent = typeof window !== 'undefined' ? (dragX / window.innerWidth) * 50 : 0;
-  const clampedDrag = Math.max(-50, Math.min(50, dragPercent));
-  const trackOffset = Math.max(-50, Math.min(0, baseOffset + clampedDrag));
+  const baseOffset = -faceWidth * page;
+  const dragPercent = typeof window !== 'undefined' ? (dragX / window.innerWidth) * faceWidth : 0;
+  const clampedDrag = Math.max(-faceWidth, Math.min(faceWidth, dragPercent));
+  const trackOffset = Math.max(-faceWidth * lastPage, Math.min(0, baseOffset + clampedDrag));
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden">
@@ -146,14 +159,18 @@ export function ReelCard({
         onClick={handleTap}
       >
         <div
-          className="flex h-full w-[200%]"
+          className="flex h-full"
           style={{
+            width: `${faces * 100}%`,
             transform: `translateX(${trackOffset}%)`,
             transition: dragX === 0 ? 'transform 200ms ease-out' : 'none',
           }}
         >
           {/* Front: English + IPA only */}
-          <div className="flex h-full w-1/2 flex-col items-center justify-center gap-4 px-8 text-center">
+          <div
+            className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center"
+            style={{ width: `${faceWidth}%` }}
+          >
             {(item.partOfSpeechTags.length > 0 || item.isRecycled) && (
               <div className="flex flex-wrap justify-center gap-1.5">
                 {item.isRecycled && (
@@ -180,9 +197,20 @@ export function ReelCard({
             </p>
           </div>
           {/* Back: Japanese meaning */}
-          <div className="h-full w-1/2">
+          <div className="relative h-full" style={{ width: `${faceWidth}%` }}>
             <ReelMeaningPanel item={item} />
+            {hasMorphology && (
+              <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-xs text-[var(--color-muted)]">
+                ← スワイプで語源を表示
+              </p>
+            )}
           </div>
+          {/* Third face: morphology (only when cached morphology exists) */}
+          {hasMorphology && (
+            <div className="h-full" style={{ width: `${faceWidth}%` }}>
+              <ReelMorphologyPanel item={item} />
+            </div>
+          )}
         </div>
       </div>
 

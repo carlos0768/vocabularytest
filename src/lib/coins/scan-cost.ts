@@ -9,6 +9,8 @@ export interface ScanCoinStateInput {
   /** 現時点の画像枚数。未撮影でも最低1枚として見積もる。 */
   imageCount: number;
   totalRemaining: number;
+  /** 語源解析（+2コイン）オプションの有効状態。 */
+  includeMorphology?: boolean;
 }
 
 export interface ScanCoinState {
@@ -33,7 +35,9 @@ export function deriveScanCoinState(input: ScanCoinStateInput): ScanCoinState {
 
   let cost: number | null;
   try {
-    cost = computeScanCoinCost(input.modes, Math.max(1, Math.floor(input.imageCount || 1)));
+    cost = computeScanCoinCost(input.modes, Math.max(1, Math.floor(input.imageCount || 1)), {
+      includeMorphology: input.includeMorphology === true,
+    });
   } catch {
     // モード未選択等、コストを算出できない状態ではブロックしない
     return { showCost: false, cost: null, insufficient: false };

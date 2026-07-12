@@ -429,10 +429,14 @@ export async function getStudyGroupOverview(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<StudyGroupOverviewPayload | null> {
-  const membership = await getStudyGroupMembership(groupId, userId, admin);
+  // membership と roles は独立クエリなので並列化する（membership が null なら
+  // roles の結果は捨てる）。直列だとこの2往復が概要APIの先頭を塞いでいた。
+  const [membership, memberRoles] = await Promise.all([
+    getStudyGroupMembership(groupId, userId, admin),
+    getStudyGroupMemberRoles(groupId, admin),
+  ]);
   if (!membership) return null;
 
-  const memberRoles = await getStudyGroupMemberRoles(groupId, admin);
   const memberUserIds = Array.from(memberRoles.keys());
 
   const [projectPayload, leaderboard] = await Promise.all([

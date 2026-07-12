@@ -103,6 +103,7 @@ export function DesktopScanView({
   const [selectedDest, setSelectedDest] = useState('new');
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
+  const [morphologyOn, setMorphologyOn] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -134,6 +135,7 @@ export function DesktopScanView({
     modes: scanModes,
     imageCount: 1,
     totalRemaining: coinBalance.totalRemaining,
+    includeMorphology: morphologyOn,
   });
 
   const toggleOption = (key: ScanOptionKey) => {
@@ -188,6 +190,7 @@ export function DesktopScanView({
           scanMode: scanModes[0] ?? 'all',
           scanModes,
           eikenLevel: selectedEikenLevel,
+          includeMorphology: morphologyOn,
           targetProjectId: destinationProjectId || undefined,
           clientPlatform: 'web',
         }),
@@ -238,6 +241,7 @@ export function DesktopScanView({
           mode,
           scanModes,
           eikenLevel: selectedEikenLevel,
+          includeMorphology: morphologyOn,
         }),
       });
       const result = await res.json().catch(() => ({})) as {
@@ -297,6 +301,7 @@ export function DesktopScanView({
         modes: scanModes,
         imageCount: files.length,
         totalRemaining: coinBalance.totalRemaining,
+        includeMorphology: morphologyOn,
       });
       if (actual.insufficient) {
         setInsufficientCoinInfo(
@@ -635,6 +640,29 @@ export function DesktopScanView({
                 )}
               </div>
             )}
+
+            {/* 語源解析トグル（+2コイン） */}
+            <button
+              type="button"
+              className={'ds-method' + (morphologyOn ? ' sel' : '')}
+              onClick={() => setMorphologyOn((prev) => !prev)}
+              aria-pressed={morphologyOn}
+              style={{ marginTop: 14, width: '100%' }}
+            >
+              <div className="mic" style={{ background: morphologyOn ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)' }}>
+                <Icon name="account_tree" style={{ color: morphologyOn ? 'var(--color-accent-ink)' : 'var(--color-ink)' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="mt">
+                  語源解析
+                  <span className="ds-tag accent">+2コイン</span>
+                </div>
+                <div className="md">接頭語・接尾語・接中語と語根の成り立ちを解説</div>
+              </div>
+              <span className="mradio">
+                {morphologyOn && <Icon name="check" style={{ fontSize: 15 }} />}
+              </span>
+            </button>
           </div>
         </div>
 

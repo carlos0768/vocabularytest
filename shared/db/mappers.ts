@@ -14,6 +14,8 @@ import type {
   UsagePattern,
   WordTranslation,
   WordOrderQuizCache,
+  WordMorphology,
+  WordMorphologyPart,
 } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
 import { normalizeSharedTags } from '../shared-tags';
@@ -179,6 +181,7 @@ export interface WordRow {
   insights_generated_at?: string | null;
   insights_version?: number | null;
   word_order_quiz?: unknown | null;
+  morphology?: unknown | null;
   status?: string | null;
   created_at: string;
   last_reviewed_at?: string | null;
@@ -528,6 +531,40 @@ function normalizeStringArray(value: unknown, maxCount: number): string[] | unde
   return result.length > 0 ? result : undefined;
 }
 
+const MORPHOLOGY_PART_KINDS = new Set(['prefix', 'suffix', 'infix', 'root']);
+
+function normalizeWordMorphologyValue(value: unknown): WordMorphology | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  if (record.version !== 1) return undefined;
+  if (!Array.isArray(record.formula)) return undefined;
+
+  const formula: WordMorphologyPart[] = [];
+  for (const item of record.formula) {
+    if (!item || typeof item !== 'object') return undefined;
+    const part = item as Record<string, unknown>;
+    const text = toNonEmptyString(part.text);
+    const meaningJa = toNonEmptyString(part.meaningJa ?? part.meaning_ja);
+    const kind = typeof part.kind === 'string' && MORPHOLOGY_PART_KINDS.has(part.kind)
+      ? (part.kind as WordMorphologyPart['kind'])
+      : undefined;
+    if (!text || !meaningJa || !kind) return undefined;
+    const affixId = toNonEmptyString(part.affixId ?? part.affix_id);
+    formula.push({ text, kind, meaningJa, ...(affixId ? { affixId } : {}) });
+  }
+
+  const explanation = typeof record.explanation === 'string' ? record.explanation : '';
+  const none = record.none === true;
+  if (!none && (formula.length === 0 || !explanation)) return undefined;
+
+  return {
+    formula,
+    explanation,
+    version: 1,
+    ...(none ? { none: true } : {}),
+  };
+}
+
 function normalizeWordOrderQuizCache(value: unknown): WordOrderQuizCache | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const record = value as Record<string, unknown>;
@@ -584,6 +621,7 @@ export function mapWordFromRow(row: WordRow): Word {
     insightsGeneratedAt: row.insights_generated_at ?? undefined,
     insightsVersion: row.insights_version ?? undefined,
     wordOrderQuiz: normalizeWordOrderQuizCache(row.word_order_quiz),
+    morphology: normalizeWordMorphologyValue(row.morphology),
     status: (row.status as Word['status']) ?? 'new',
     createdAt: row.created_at,
     lastReviewedAt: row.last_reviewed_at ?? undefined,
@@ -621,6 +659,7 @@ export function mapWordToInsert(word: WordInput): {
   insights_generated_at?: string;
   insights_version?: number;
   word_order_quiz?: WordOrderQuizCache;
+  morphology?: WordMorphology;
   status: string;
   ease_factor: number;
   interval_days: number;
@@ -647,6 +686,7 @@ export function mapWordToInsert(word: WordInput): {
     insights_generated_at: word.insightsGeneratedAt,
     insights_version: word.insightsVersion,
     word_order_quiz: word.wordOrderQuiz,
+    morphology: word.morphology,
     status: 'new',
     ease_factor: defaultSR.easeFactor,
     interval_days: defaultSR.intervalDays,
@@ -675,6 +715,7 @@ export function mapWordToInsertWithId(word: Word): {
   insights_generated_at?: string;
   insights_version?: number;
   word_order_quiz?: WordOrderQuizCache;
+  morphology?: WordMorphology;
   status: string;
   created_at: string;
   last_reviewed_at?: string;
@@ -704,6 +745,7 @@ export function mapWordToInsertWithId(word: Word): {
     insights_generated_at: word.insightsGeneratedAt,
     insights_version: word.insightsVersion,
     word_order_quiz: word.wordOrderQuiz,
+    morphology: word.morphology,
     status: word.status,
     created_at: word.createdAt,
     last_reviewed_at: word.lastReviewedAt,
@@ -736,6 +778,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.insightsGeneratedAt !== undefined) updateData.insights_generated_at = updates.insightsGeneratedAt;
   if (updates.insightsVersion !== undefined) updateData.insights_version = updates.insightsVersion;
   if (updates.wordOrderQuiz !== undefined) updateData.word_order_quiz = updates.wordOrderQuiz;
+  if (updates.morphology !== undefined) updateData.morphology = updates.morphology;
 
   // Spaced repetition fields
   if (updates.lastReviewedAt !== undefined) updateData.last_reviewed_at = updates.lastReviewedAt;

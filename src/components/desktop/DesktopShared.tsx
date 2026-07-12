@@ -148,8 +148,6 @@ export function DesktopSharedView({
 
             <CategoryChipRow onCategorySelect={onCategorySelect} onQueryChange={onQueryChange} />
 
-            <JoinedGroupGrid groups={joinedGroups} columns={2} />
-
             <DiscoverFeed
               feed={feed}
               onProjectMissing={handleFeedProjectMissing}
@@ -873,51 +871,6 @@ function sharedOwnerLabel(project: SharedProjectCard): string {
     : project.ownerUsername
       ? `@${project.ownerUsername}`
       : '共有ユーザー';
-}
-
-// Joined study groups shown on the discover top view — the desktop entry
-// point into each group's page (mirrors the mobile 参加中のグループ section).
-function JoinedGroupGrid({ groups, columns = 3 }: { groups: StudyGroupSummary[]; columns?: number }) {
-  if (groups.length === 0) return null;
-  return (
-    <section style={{ marginBottom: 26 }}>
-      <SectionTitle count={groups.length}>参加中のグループ</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 16 }}>
-        {groups.map((group) => (
-          <Link
-            key={group.id}
-            href={`/groups/${encodeURIComponent(group.id)}`}
-            className="ds-card"
-            style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, color: 'inherit', textDecoration: 'none' }}
-          >
-            <div
-              className="ds-project-icon ds-project-icon--lg"
-              style={{ background: desktopThumbColor(group.id) }}
-            >
-              {group.name.charAt(0)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {group.name}
-                </span>
-                {group.role === 'owner' && <span className="ds-tag plain">owner</span>}
-              </div>
-              <div className="muted" style={{ marginTop: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Icon name="group" style={{ fontSize: 14 }} />{group.memberCount}人
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Icon name="menu_book" style={{ fontSize: 14 }} />{group.projectCount}冊
-                </span>
-              </div>
-            </div>
-            <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
 }
 
 function GroupSearchResults({

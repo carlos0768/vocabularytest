@@ -14,10 +14,23 @@ export const SCAN_MODE_COIN_RATES: Record<ExtractMode, number> = {
 
 export const EXTRA_IMAGE_COIN_COST = 1;
 
+// 語源解析（接頭語・接尾語・接中語）オプションのサーチャージ。
+// SQL側は 20260712101000_morphology_coin_cost.sql の scan_coin_cost()。
+export const MORPHOLOGY_COIN_COST = 2;
+
 export const MONTHLY_COIN_ALLOWANCE = 300;
 
+export interface ScanCoinCostOptions {
+  includeMorphology?: boolean;
+}
+
 // 複数モードは重複排除して合算、2枚目以降の画像は+1/枚。
-export function computeScanCoinCost(modes: ExtractMode[], imageCount: number): number {
+// 語源解析オプションが有効なら +MORPHOLOGY_COIN_COST。
+export function computeScanCoinCost(
+  modes: ExtractMode[],
+  imageCount: number,
+  options: ScanCoinCostOptions = {},
+): number {
   if (!Number.isFinite(imageCount) || imageCount < 1) {
     throw new Error('imageCount must be >= 1');
   }
@@ -32,5 +45,6 @@ export function computeScanCoinCost(modes: ExtractMode[], imageCount: number): n
     }
     return sum + rate;
   }, 0);
-  return modeCost + (Math.floor(imageCount) - 1) * EXTRA_IMAGE_COIN_COST;
+  const morphologyCost = options.includeMorphology ? MORPHOLOGY_COIN_COST : 0;
+  return modeCost + (Math.floor(imageCount) - 1) * EXTRA_IMAGE_COIN_COST + morphologyCost;
 }

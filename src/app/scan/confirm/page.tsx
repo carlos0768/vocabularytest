@@ -20,6 +20,7 @@ import {
   normalizeWordOrderQuizCache,
 } from '@/lib/quiz/word-order';
 import type { AIWordExtraction, LexiconEntry, Word, WordOrderQuizCache } from '@/types';
+import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphology/format';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 
 interface EditableWord extends AIWordExtraction {
@@ -303,6 +304,7 @@ export default function ConfirmPage() {
         translations: w.translations, customSections: w.customSections,
         lexiconEntryId: w.lexiconEntryId, lexiconSenseId: w.lexiconSenseId, cefrLevel: w.cefrLevel, distractors: w.distractors,
         partOfSpeechTags: w.partOfSpeechTags, pronunciation: w.pronunciation, exampleSentence: w.exampleSentence, exampleSentenceJa: w.exampleSentenceJa,
+        morphology: w.morphology,
       })));
 
       if (aiEnabledForGeneration) void prefillQuizData(createdWords, repository.updateWord.bind(repository));
@@ -525,6 +527,16 @@ function WordRow({
         <div className="mt-px text-[11px] text-[var(--color-muted)]">
           <TranslationDisplay word={w} compact />
         </div>
+        {hasDisplayableMorphology(w.morphology) && (
+          <div className="mt-1 border-t border-dashed border-[var(--color-border)] pt-1">
+            <div className="font-mono text-[10px] font-bold text-[var(--solid-ink)]">
+              {formatMorphologyFormula(w.morphology)}
+            </div>
+            <div className="mt-px whitespace-pre-line text-[10px] leading-snug text-[var(--color-muted)]">
+              {w.morphology.explanation}
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex gap-0.5">
         <button

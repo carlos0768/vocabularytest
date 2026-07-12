@@ -49,6 +49,20 @@ const customSectionSchema = z.object({
   content: z.string().trim().max(2000),
 }).strict();
 
+const morphologyPartSchema = z.object({
+  text: z.string().trim().min(1).max(40),
+  kind: z.enum(['prefix', 'suffix', 'infix', 'root']),
+  meaningJa: z.string().trim().min(1).max(60),
+  affixId: z.string().trim().min(1).max(60).optional(),
+}).strict();
+
+const morphologySchema = z.object({
+  version: z.literal(1),
+  formula: z.array(morphologyPartSchema).min(1).max(8),
+  explanation: z.string().trim().min(1).max(200),
+  none: z.boolean().optional(),
+}).strict();
+
 const translationSchema = z.object({
   japanese: z.string().trim().min(1).max(300).optional(),
   translationJa: z.string().trim().min(1).max(300).optional(),
@@ -87,6 +101,7 @@ const wordInputSchema = z.object({
   insightsVersion: z.number().int().min(1).max(100).optional(),
   wordOrderQuiz: wordOrderQuizSchema.optional(),
   customSections: z.array(customSectionSchema).max(20).optional(),
+  morphology: morphologySchema.optional(),
   status: z.enum(['new', 'review', 'active', 'mastered']).optional(),
   createdAt: z.string().datetime().optional(),
   lastReviewedAt: z.string().datetime().optional(),
@@ -211,6 +226,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         insights_generated_at: word.insightsGeneratedAt ?? null,
         insights_version: word.insightsVersion ?? null,
         word_order_quiz: word.wordOrderQuiz ?? null,
+        morphology: word.morphology ?? null,
         status: word.status ?? 'new',
         created_at: word.createdAt ?? new Date().toISOString(),
         last_reviewed_at: word.lastReviewedAt ?? null,

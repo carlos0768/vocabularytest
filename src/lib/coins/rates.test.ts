@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   EXTRA_IMAGE_COIN_COST,
   MONTHLY_COIN_ALLOWANCE,
+  MORPHOLOGY_COIN_COST,
   SCAN_MODE_COIN_RATES,
   computeScanCoinCost,
 } from './rates';
@@ -27,6 +28,14 @@ test('computeScanCoinCost adds one coin per image beyond the first', () => {
   assert.equal(computeScanCoinCost(['all'], 2), 4);
   assert.equal(computeScanCoinCost(['all'], 20), 22);
   assert.equal(computeScanCoinCost(['circled'], 4), 5);
+});
+
+test('computeScanCoinCost adds the morphology surcharge only when enabled', () => {
+  assert.equal(computeScanCoinCost(['circled'], 1, { includeMorphology: true }), 4);
+  assert.equal(computeScanCoinCost(['all'], 1, { includeMorphology: true }), 5);
+  assert.equal(computeScanCoinCost(['all', 'idiom'], 2, { includeMorphology: true }), 9);
+  assert.equal(computeScanCoinCost(['all'], 1, { includeMorphology: false }), 3);
+  assert.equal(computeScanCoinCost(['all'], 1, {}), 3);
 });
 
 test('computeScanCoinCost rejects invalid input', () => {
@@ -61,4 +70,37 @@ test('coin rates in SQL migration match the TS mirror', () => {
 
   // 月境界はJST。UTC日付事故の再発防止として明示的にピン留めする
   assert.ok(migrationSource.includes("AT TIME ZONE 'Asia/Tokyo'"));
+});
+
+// 語源解析サーチャージのTS/SQLリテラル一致。
+// レート変更時は src/lib/coins/rates.ts と
+// supabase/migrations/20260712101000_morphology_coin_cost.sql を同時に更新すること。
+test('morphology surcharge in SQL migration matches the TS mirror', () => {
+  const migrationSource = readFileSync(
+    fileURLToPath(
+      new URL(
+        '../../../supabase/migrations/20260712101000_morphology_coin_cost.sql',
+        import.meta.url,
+      ),
+    ),
+    'utf8',
+  );
+
+  assert.equal(MORPHOLOGY_COIN_COST, 2);
+  assert.ok(
+    migrationSource.includes(
+      `CASE WHEN COALESCE(p_include_morphology, FALSE) THEN ${MORPHOLOGY_COIN_COST} ELSE 0 END`,
+    ),
+  );
+
+  // 再作成後の関数もモードレート・追加画像レートを維持していること
+  assert.ok(migrationSource.includes(`WHEN 'circled' THEN ${SCAN_MODE_COIN_RATES.circled}`));
+  assert.ok(migrationSource.includes(`WHEN 'all'     THEN ${SCAN_MODE_COIN_RATES.all}`));
+  assert.ok(migrationSource.includes(`WHEN 'eiken'   THEN ${SCAN_MODE_COIN_RATES.eiken}`));
+  assert.ok(migrationSource.includes(`WHEN 'idiom'   THEN ${SCAN_MODE_COIN_RATES.idiom}`));
+  assert.ok(migrationSource.includes('RETURN v_cost + (p_image_count - 1)'));
+
+  // PostgRESTのオーバーロード曖昧化防止: 旧シグネチャのDROPが必須
+  assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.consume_scan_coins(TEXT[], INTEGER, UUID);'));
+  assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.scan_coin_cost(TEXT[], INTEGER);'));
 });

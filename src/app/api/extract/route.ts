@@ -30,6 +30,9 @@ import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/genera
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
 import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
+import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
+import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { normalizeHeadword } from '../../../../shared/lexicon';
 
 export type { ExtractMode } from '@/lib/scan/mode-provider';
 
@@ -41,6 +44,7 @@ const requestSchema = z.object({
   mode: z.enum(EXTRACT_MODES).optional().default('all'),
   scanModes: z.array(z.enum(EXTRACT_MODES)).min(1).max(EXTRACT_MODES.length).optional(),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
+  includeMorphology: z.boolean().optional().default(false),
 }).strict();
 
 export const __internal = {
@@ -67,6 +71,7 @@ export type ExtractRouteDeps = {
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
   saveExamples?: typeof saveExamplesToLexicon;
+  resolveMorphology?: typeof resolveMorphologyForWords;
 };
 
 function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
@@ -86,6 +91,7 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
     saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
+    resolveMorphology: deps?.resolveMorphology ?? resolveMorphologyForWords,
   };
 }
 
@@ -117,6 +123,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     backfillWords,
     generateExamples,
     saveExamples,
+    resolveMorphology,
   } = getDeps(deps);
   const startedAt = Date.now();
   // コイン消費後の失敗時に返還するためのキー（消費前は null）
@@ -149,11 +156,12 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     if (!parsed.ok) {
       return parsed.response;
     }
-    const { image, mode, scanModes: requestedScanModes, eikenLevel } = parsed.data as {
+    const { image, mode, scanModes: requestedScanModes, eikenLevel, includeMorphology } = parsed.data as {
       image: string;
       mode: ExtractMode;
       scanModes?: ExtractMode[];
       eikenLevel: EikenLevel;
+      includeMorphology: boolean;
     };
     const modes = normalizeExtractModes(requestedScanModes, [mode]);
     const primaryMode = modes[0] ?? 'all';
@@ -238,6 +246,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       modes,
       imageCount: 1,
       scanJobId: coinScanRef,
+      includeMorphology,
     });
 
     if (!gate.ok) {
@@ -431,6 +440,37 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
         exampleGenDiag.error = exampleError instanceof Error ? exampleError.message : 'Unknown error';
         exampleGenDiag.elapsedMs = Date.now() - exGenStart;
         console.error('[extract] Example generation failed, continuing without:', exampleError);
+      }
+    }
+
+    // --- Morphology (語源解析) generation: opt-in, best-effort ---
+    if (includeMorphology && extractedWords.length > 0) {
+      const morphStart = Date.now();
+      try {
+        const morphologyMap = await resolveMorphology(
+          extractedWords
+            .map((w) => ({ english: String((w as Record<string, unknown>).english ?? '') }))
+            .filter((w) => w.english.length > 0),
+          apiKeys,
+        );
+        let attachedCount = 0;
+        for (const word of extractedWords) {
+          const w = word as Record<string, unknown>;
+          const english = String(w.english ?? '');
+          if (!english) continue;
+          const morphology = morphologyMap.get(normalizeHeadword(english));
+          if (hasDisplayableMorphology(morphology)) {
+            w.morphology = morphology;
+            attachedCount++;
+          }
+        }
+        console.log('[extract] Morphology generation completed', {
+          requested: extractedWords.length,
+          attached: attachedCount,
+          elapsedMs: Date.now() - morphStart,
+        });
+      } catch (morphologyError) {
+        console.error('[extract] Morphology generation failed (non-critical):', morphologyError);
       }
     }
 

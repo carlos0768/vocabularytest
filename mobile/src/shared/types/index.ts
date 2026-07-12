@@ -16,6 +16,20 @@ export interface UsagePattern {
   register?: string;
 }
 
+export interface WordMorphologyPart {
+  text: string;
+  kind: 'prefix' | 'suffix' | 'infix' | 'root';
+  meaningJa: string;
+  affixId?: string;
+}
+
+export interface WordMorphology {
+  formula: WordMorphologyPart[];
+  explanation: string;
+  version: 1;
+  none?: boolean;
+}
+
 export interface Word {
   id: string;
   projectId: string;
@@ -42,6 +56,7 @@ export interface Word {
   usagePatterns?: UsagePattern[];
   insightsGeneratedAt?: string;
   insightsVersion?: number;
+  morphology?: WordMorphology;
 }
 
 export interface Project {
@@ -68,6 +83,7 @@ export interface AIWordExtraction {
   partOfSpeechTags?: string[];
   exampleSentence?: string;
   exampleSentenceJa?: string;
+  morphology?: WordMorphology;
 }
 
 export interface AIResponse {

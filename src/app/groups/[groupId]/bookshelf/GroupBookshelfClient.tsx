@@ -8,16 +8,13 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
+import {
+  invalidateGroupOverview,
+  loadGroupOverview,
+} from '@/lib/shared-projects/group-overview-cache';
 import type { SharedProjectCard, StudyGroupSummary } from '@/lib/shared-projects/types';
 import { thumbColor } from '../member-ui';
 import { ShareToGroupSheet } from '../share-to-group-sheet';
-
-type OverviewResponse = {
-  success?: boolean;
-  group?: StudyGroupSummary;
-  projects?: SharedProjectCard[];
-  error?: string;
-};
 
 export default function GroupBookshelfClient() {
   const params = useParams<{ groupId: string }>();
@@ -32,18 +29,16 @@ export default function GroupBookshelfClient() {
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [removingProjectId, setRemovingProjectId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options: { force?: boolean } = {}) => {
     if (!groupId) return;
-    setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/shared-projects/groups/${encodeURIComponent(groupId)}`, { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as OverviewResponse | null;
-      if (!response.ok || !payload?.success || !payload.group) {
-        throw new Error(payload?.error || 'group_overview_failed');
-      }
-      setGroup(payload.group);
-      setProjects(payload.projects ?? []);
+      // 概要ページと同じキャッシュを共有（stale-while-revalidate）。
+      await loadGroupOverview(groupId, (payload) => {
+        setGroup(payload.group);
+        setProjects(payload.projects);
+        setLoading(false);
+      }, options);
     } catch (loadError) {
       console.warn('Failed to load group bookshelf:', loadError);
       setError('本棚を読み込めませんでした。');
@@ -52,14 +47,10 @@ export default function GroupBookshelfClient() {
     }
   }, [groupId]);
 
+  // authLoading を待たずに即フェッチ（サーバー側はCookieで認証）。
   useEffect(() => {
-    if (authLoading) return;
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
     void load();
-  }, [authLoading, isAuthenticated, load]);
+  }, [load]);
 
   const handleRemoveProject = useCallback(async (card: SharedProjectCard) => {
     if (!groupId || removingProjectId) return;
@@ -80,6 +71,7 @@ export default function GroupBookshelfClient() {
         ...current,
         projectCount: Math.max(0, current.projectCount - 1),
       } : current);
+      invalidateGroupOverview(groupId);
       showToast({ message: 'グループ共有を解除しました', type: 'success' });
     } catch (removeError) {
       const message = removeError instanceof Error ? removeError.message : 'グループ共有の解除に失敗しました。';
@@ -196,7 +188,7 @@ export default function GroupBookshelfClient() {
         isPro={isPro}
         sharedProjectIds={projects.map((card) => card.project.id)}
         onClose={() => setShareSheetOpen(false)}
-        onShared={() => { setShareSheetOpen(false); void load(); }}
+        onShared={() => { setShareSheetOpen(false); invalidateGroupOverview(groupId); void load({ force: true }); }}
       />
     </>
   );

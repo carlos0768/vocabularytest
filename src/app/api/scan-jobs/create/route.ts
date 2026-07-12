@@ -55,6 +55,7 @@ const requestSchema = z.object({
   imagePath: z.string().trim().min(1).max(500).optional(),
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
   aiEnabled: z.boolean().nullable().optional(),
+  includeMorphology: z.boolean().optional().default(false),
   targetProjectId: z.string().uuid().optional(),
   clientPlatform: z.enum(['android', 'ios', 'web']).optional().default('web'),
 }).strict().superRefine((value, ctx) => {
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
       eikenLevel,
       imagePath,
       imagePaths: multiplePaths,
+      includeMorphology,
       targetProjectId,
       clientPlatform,
     } = parsed.data;
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
       modes: scanModes,
       imageCount: imagePaths.length,
       scanJobId: jobId,
+      includeMorphology,
     });
 
     if (!gate.ok) {
@@ -191,6 +194,7 @@ export async function POST(request: NextRequest) {
         scan_mode: primaryScanMode,
         scan_modes: scanModes,
         eiken_level: eikenLevel,
+        include_morphology: includeMorphology,
         image_path: imagePaths[0], // Primary image (backward compat)
         image_paths: imagePaths,   // All images
         save_mode: saveMode,

@@ -9,12 +9,14 @@ import {
   DesktopTopbar,
 } from '@/components/desktop/DesktopChrome';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
+import { JoinedGroupGrid } from '@/components/groups/JoinedGroupsSection';
 import {
   desktopSourceLabel,
   desktopThumbColor,
   desktopUpdatedLabel,
 } from '@/components/desktop/desktop-data';
 import type { Project } from '@/types';
+import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 
 type DesktopHomeProject = Project & {
   totalWords: number;
@@ -48,6 +50,7 @@ export function DesktopHomeView({
   loading,
   error,
   pendingScans,
+  joinedGroups = [],
   onStartScan,
   showUpgrade = false,
   onDismissUpgrade,
@@ -57,6 +60,7 @@ export function DesktopHomeView({
   loading: boolean;
   error: string | null;
   pendingScans: DesktopPendingScan[];
+  joinedGroups?: StudyGroupSummary[];
   onStartScan: () => void;
   showUpgrade?: boolean;
   onDismissUpgrade?: () => void;
@@ -191,6 +195,11 @@ export function DesktopHomeView({
               ))}
             </div>
           )}
+
+          {/* 参加中のグループ（マイ単語帳の下・/shared から移設） */}
+          <div style={{ marginTop: 26 }}>
+            <JoinedGroupGrid groups={joinedGroups} columns={3} />
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>

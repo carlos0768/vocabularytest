@@ -46,6 +46,32 @@ test('deriveScanCoinState flags insufficient balance', () => {
   );
 });
 
+test('deriveScanCoinState adds the morphology surcharge to the preview', () => {
+  assert.deepEqual(
+    deriveScanCoinState({
+      enabled: true,
+      isPro: true,
+      modes: ['all'],
+      imageCount: 1,
+      totalRemaining: 300,
+      includeMorphology: true,
+    }),
+    { showCost: true, cost: 5, insufficient: false },
+  );
+  // サーチャージ込みで残高不足になるケース
+  assert.deepEqual(
+    deriveScanCoinState({
+      enabled: true,
+      isPro: true,
+      modes: ['all'],
+      imageCount: 1,
+      totalRemaining: 4,
+      includeMorphology: true,
+    }),
+    { showCost: true, cost: 5, insufficient: true },
+  );
+});
+
 test('deriveScanCoinState treats 0 images as 1 and never throws on empty modes', () => {
   assert.deepEqual(
     deriveScanCoinState({ enabled: true, isPro: true, modes: ['circled'], imageCount: 0, totalRemaining: 300 }),

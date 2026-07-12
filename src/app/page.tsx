@@ -16,7 +16,9 @@ import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/hom
 import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { HomeAnnouncementSpotlight } from '@/components/announcements/HomeAnnouncementSpotlight';
+import { JoinedGroupsSection } from '@/components/groups/JoinedGroupsSection';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useMyGroups } from '@/hooks/use-my-groups';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { useAuth } from '@/hooks/use-auth';
@@ -602,6 +604,8 @@ export default function HomePage() {
 
   const [upgradeBannerDismissed, dismissUpgradeBanner] = useProUpgradeBannerDismissed();
   const showUpgradeBanner = isBillingEnabled() && !isPro && !upgradeBannerDismissed;
+  // 参加中のグループ（マイ単語帳の下に表示。/shared から移設）
+  const { groups: myGroups } = useMyGroups();
 
   if (authLoading) {
     return <HomeLoadingScreen />;
@@ -619,6 +623,7 @@ export default function HomePage() {
         loading={loading}
         error={error}
         pendingScans={displayedPendingScans}
+        joinedGroups={myGroups}
         onStartScan={() => router.push('/scan')}
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
@@ -876,6 +881,9 @@ export default function HomePage() {
           )
         )}
       </div>
+
+      {/* 参加中のグループ（/shared から移設） */}
+      <JoinedGroupsSection groups={myGroups} />
 
       </div>
       <ScanCaptureModal
