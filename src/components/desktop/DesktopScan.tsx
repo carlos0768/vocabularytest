@@ -26,6 +26,7 @@ import { useCoins, refreshCoins } from '@/hooks/use-coins';
 import { deriveScanCoinState } from '@/lib/coins/scan-cost';
 import { InsufficientCoinsError, type InsufficientCoinsInfo } from '@/lib/coins/errors';
 import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModal';
+import type { EikenLevel } from '@/app/api/extract/route';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
 const STRIPE_BG = 'repeating-linear-gradient(135deg, #ecebe6, #ecebe6 10px, #e3e1da 10px, #e3e1da 20px)';
@@ -50,6 +51,17 @@ const SCAN_OPTIONS: {
   { key: 'circled', label: '丸囲み', description: 'マークした単語を優先', icon: 'gesture' },
   { key: 'idiom', label: '熟語・イディオム', description: '複数語の表現も候補化', icon: 'link' },
   { key: 'eiken', label: '英検', description: '級別の頻出語を優先', icon: 'filter_alt', pro: true },
+];
+
+// 英検の級（nullなし）。モバイルの ScanCapturePanel と同一の順序・ラベル。
+const EIKEN_LEVEL_OPTIONS: { value: Exclude<EikenLevel, null>; label: string }[] = [
+  { value: '5', label: '5級' },
+  { value: '4', label: '4級' },
+  { value: '3', label: '3級' },
+  { value: 'pre2', label: '準2級' },
+  { value: '2', label: '2級' },
+  { value: 'pre1', label: '準1級' },
+  { value: '1', label: '1級' },
 ];
 
 const MAX_SCAN_IMAGE_COUNT = 20;
@@ -90,6 +102,7 @@ export function DesktopScanView({
   const [dragging, setDragging] = useState(false);
   const [selectedDest, setSelectedDest] = useState('new');
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
+  const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [processing, setProcessing] = useState(false);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -110,7 +123,8 @@ export function DesktopScanView({
     ? projectOptions.find((project) => project.id === destinationProjectId) ?? null
     : null;
   const scanModes = selectedOptions;
-  const eikenLevel = scanModes.includes('eiken') ? '3' : null;
+  // 英検モード時のみ級を送る。未選択(null)ならスキャン前にガードする。
+  const selectedEikenLevel = scanModes.includes('eiken') ? eikenLevel : null;
 
   // コイン制オン時のコスト見積り（モバイルと同一の純粋関数）。
   // デスクトップは事前に枚数が分からないため1枚基準で表示する。
@@ -173,7 +187,7 @@ export function DesktopScanView({
           projectTitle,
           scanMode: scanModes[0] ?? 'all',
           scanModes,
-          eikenLevel,
+          eikenLevel: selectedEikenLevel,
           targetProjectId: destinationProjectId || undefined,
           clientPlatform: 'web',
         }),
@@ -223,7 +237,7 @@ export function DesktopScanView({
           image: base64,
           mode,
           scanModes,
-          eikenLevel,
+          eikenLevel: selectedEikenLevel,
         }),
       });
       const result = await res.json().catch(() => ({})) as {
@@ -265,6 +279,12 @@ export function DesktopScanView({
     if (files.length > MAX_SCAN_IMAGE_COUNT) {
       setSuccessMsg(null);
       setErrorMsg(`一度に選択できる画像は${MAX_SCAN_IMAGE_COUNT}枚までです`);
+      return;
+    }
+    // 英検モードは級の指定が必須（モバイルの scanDisabled と同じ挙動）。
+    if (scanModes.includes('eiken') && !eikenLevel) {
+      setSuccessMsg(null);
+      setErrorMsg('英検レベル（級）を選択してください');
       return;
     }
 
@@ -569,6 +589,52 @@ export function DesktopScanView({
                 );
               })}
             </div>
+
+            {/* 英検レベル指定（英検モード選択時のみ表示） */}
+            {selectedOptions.includes('eiken') && (
+              <div className="ds-card" style={{ marginTop: 14, padding: '16px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon name="filter_alt" style={{ fontSize: 18, color: 'var(--color-accent)' }} />
+                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>英検レベル</span>
+                  </div>
+                  <span className="mono muted" style={{ fontSize: 11 }}>級を選択</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))', gap: 8 }}>
+                  {EIKEN_LEVEL_OPTIONS.map((level) => {
+                    const active = eikenLevel === level.value;
+                    return (
+                      <button
+                        key={level.value}
+                        type="button"
+                        onClick={() => setEikenLevel(level.value)}
+                        aria-pressed={active}
+                        style={{
+                          padding: '10px 6px',
+                          borderRadius: 10,
+                          border: `2px solid ${active ? 'var(--solid-ink)' : 'var(--color-border)'}`,
+                          background: active ? 'var(--color-accent)' : '#fff',
+                          color: active ? '#fff' : 'var(--solid-ink)',
+                          boxShadow: active ? '2px 2px 0 var(--solid-ink)' : 'none',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 700,
+                          fontSize: 13.5,
+                          cursor: 'pointer',
+                          transition: 'all var(--dur-fast) var(--ease-out)',
+                        }}
+                      >
+                        {level.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {!eikenLevel && (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+                    級を選んでからスキャンを開始してください
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
