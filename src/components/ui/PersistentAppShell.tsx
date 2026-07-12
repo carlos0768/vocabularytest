@@ -13,6 +13,7 @@ const NO_SHELL_PATHS = [
   '/privacy', '/terms', '/tokusho', '/contact', '/features', '/pricing',
   '/guide', '/column',
   '/offline', '/share-target', '/admin',
+  '/level-test', '/ops',
 ];
 
 const HIDE_BOTTOM_NAV_PATHS = [

@@ -18,6 +18,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.9,
     },
+    // 語彙力レベル診断のLPのみ索引させる(/level-test/r/* の結果ページはnoindex)
+    {
+      url: `${baseUrl}/level-test`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
   ];
 
   // /pricing redirects to / when billing is disabled — keep it out of the sitemap then.

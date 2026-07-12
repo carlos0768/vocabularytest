@@ -15,6 +15,7 @@ import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
 import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
+import { HomeAnnouncementSpotlight } from '@/components/announcements/HomeAnnouncementSpotlight';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
@@ -801,6 +802,28 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* 語彙力レベル診断への導線 */}
+      <div className="px-[18px] pb-3.5">
+        <Link href="/level-test" className="block">
+          <SolidPanel className="!rounded-2xl" faceClassName="!p-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white">
+                <Icon name="military_tech" size={17} filled />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
+                  LEVEL TEST
+                </div>
+                <div className="text-sm font-bold text-[var(--solid-ink)]">語彙力レベル診断 — 英検何級レベル?</div>
+              </div>
+              <span className="inline-flex text-[var(--color-accent)]">
+                <Icon name="chevron_right" size={14} />
+              </span>
+            </div>
+          </SolidPanel>
+        </Link>
+      </div>
+
       <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
         <div>
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
@@ -879,6 +902,8 @@ export default function HomePage() {
         steps={PLAY_BUTTON_TOUR_STEPS}
         onFinish={() => setTutorialStage('finished')}
       />
+      {/* 未読のお知らせを中央モーダルで1件表示(チュートリアルのツアー中は出さない) */}
+      {!runOpenProjectTour && !runPlayButtonTour && <HomeAnnouncementSpotlight />}
 
 
     </>
@@ -961,6 +986,30 @@ function GuestHomePage() {
             </div>
           </div>
           <RootLandingHeroVisual />
+        </div>
+      </section>
+
+      {/* 語彙力レベル診断 — 登録不要で遊べるバイラル導線 */}
+      <section className="border-b-2 border-[#1a1a1a] bg-[#1a1a1a] text-white" aria-label="語彙力レベル診断">
+        <div className="mx-auto flex max-w-[1200px] flex-col items-start gap-5 px-5 py-10 md:flex-row md:items-center md:justify-between md:px-10">
+          <div>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)]">
+              Vocabulary level test
+            </p>
+            <h2 className="mt-2 font-display text-[clamp(26px,4vw,40px)] font-black leading-tight">
+              あなたの語彙力は<span className="text-[var(--color-accent)]">英検何級</span>レベル?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              20問・約3分の4択クイズで語彙レベルと推定語彙数を診断。無料・登録不要。
+            </p>
+          </div>
+          <Link
+            href="/level-test"
+            className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[14px] border-2 border-white bg-[var(--color-accent)] px-7 text-base font-bold text-white shadow-[3px_4px_0_rgba(255,255,255,0.35)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+          >
+            いますぐ診断する
+            <Icon name="arrow_forward" size={18} />
+          </Link>
         </div>
       </section>
 
