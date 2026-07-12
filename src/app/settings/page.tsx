@@ -119,7 +119,40 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Navigation groups */}
+      {/* 語彙力レベル診断 — 目を引くカラフルな特別カード */}
+      <div className="px-[18px] pb-3">
+        <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">学習ツール</div>
+        <Link
+          href="/level-test"
+          className="block rounded-[14px] p-[3px] shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-ink)]"
+          style={{ background: 'linear-gradient(120deg,#15803d,#137FEC,#7C3AED,#EE2A7B,#F9CE34)' }}
+        >
+          <div className="flex items-center gap-3 rounded-[11px] bg-white px-3 py-3">
+            <span
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] text-white"
+              style={{ background: 'linear-gradient(135deg,#137FEC,#7C3AED,#EE2A7B)' }}
+            >
+              <Icon name="military_tech" size={20} filled />
+            </span>
+            <div className="min-w-0 flex-1">
+              <span
+                className="font-display text-[15px] font-extrabold"
+                style={{
+                  background: 'linear-gradient(90deg,#15803d,#137FEC,#7C3AED,#EE2A7B)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                }}
+              >
+                語彙力レベル診断
+              </span>
+              <p className="mt-px truncate text-[10px] leading-4 text-[var(--color-muted)]">あなたの語彙力は英検何級レベル? 20問で診断</p>
+            </div>
+            <Icon name="chevron_right" size={16} className="text-[var(--solid-ink)]" />
+          </div>
+        </Link>
+      </div>
+
       <SettingsGroup label="カスタマイズ">
         <SettingsRow icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
       </SettingsGroup>
