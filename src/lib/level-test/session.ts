@@ -13,6 +13,8 @@ export type AnsweredWord = {
   levelIndex: number;
   wordIndex: number;
   correct: boolean;
+  // 「わからない」を選んだ(または時間切れ)。correct=false と組で使う
+  unknown?: boolean;
 };
 
 export type LevelTestSessionSnapshot = {

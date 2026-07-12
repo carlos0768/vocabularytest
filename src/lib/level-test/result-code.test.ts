@@ -47,7 +47,7 @@ function resultFromRun(answerFor: (index: number) => boolean, seed = 1): LevelTe
     const picked = selectNextQuestion(TEST_BANK, state, used, random);
     if (!picked) throw new Error('bank exhausted');
     used.add(usedKeyFor(picked.levelIndex, picked.wordIndex));
-    state = answerQuestion(state, picked, TEST_BANK, answerFor(index));
+    state = answerQuestion(state, picked, TEST_BANK, answerFor(index) ? 'correct' : 'wrong');
     index += 1;
   }
   return buildResult(state);
