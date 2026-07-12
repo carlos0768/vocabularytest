@@ -2,17 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { LevelTestResultCard } from '@/components/level-test/LevelTestResultCard';
 import { LevelTestShareSheet } from '@/components/level-test/LevelTestShareSheet';
 import { useAuth } from '@/hooks/use-auth';
-import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { triggerHaptic } from '@/lib/haptics';
 import { loadLevelTestBank, type LevelTestBank } from '@/lib/level-test/bank';
 import {
-  EIKEN_LEVEL_LABELS,
   LEVEL_TEST_QUESTION_COUNT,
   answerQuestion,
   buildQuestion,
@@ -21,7 +19,6 @@ import {
   isFinished,
   pickQuestionIndex,
   usedKeyFor,
-  type LevelTestEvent,
   type LevelTestQuestion,
   type LevelTestState,
 } from '@/lib/level-test/engine';
@@ -43,10 +40,9 @@ type CurrentQuestion = {
   question: LevelTestQuestion;
 };
 
-// 誤答時は正解を確認する時間を少し長めに取る
-const ADVANCE_DELAY_CORRECT_MS = 700;
-const ADVANCE_DELAY_WRONG_MS = 1200;
-const LEVEL_FLASH_MS = 1500;
+// 正誤やレベル変動は途中で見せず、結果画面まで分からないテンポ重視の構成。
+// タップの押下感が伝わる程度の短い間を置いて次の問題へ進む。
+const ADVANCE_DELAY_MS = 250;
 
 // 「続きから再開」の表示可否。sessionStorageが実体なので
 // useSyncExternalStoreで読む(SSR/初回描画ではfalse = ハイドレーション安全)。
@@ -72,14 +68,11 @@ export default function LevelTestPage() {
   const usedKeysRef = useRef<Set<string>>(new Set());
   const [current, setCurrent] = useState<CurrentQuestion | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [isRevealed, setIsRevealed] = useState(false);
-  const [levelFlash, setLevelFlash] = useState<LevelTestEvent | null>(null);
   const [resultPayload, setResultPayload] = useState<LevelTestResultPayload | null>(null);
   const [resultCode, setResultCode] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
 
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // バンクはスタート画面表示中に先読みする(CDNキャッシュされる静的JSON)
   useEffect(() => {
@@ -99,7 +92,6 @@ export default function LevelTestPage() {
   useEffect(() => {
     return () => {
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
-      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
 
@@ -110,7 +102,6 @@ export default function LevelTestPage() {
     const next: CurrentQuestion = { ...picked, question: buildQuestion(word) };
     setCurrent(next);
     setSelectedIndex(null);
-    setIsRevealed(false);
     return next;
   }, []);
 
@@ -131,7 +122,6 @@ export default function LevelTestPage() {
           if (word) {
             setCurrent({ ...session.currentQuestion, question: buildQuestion(word) });
             setSelectedIndex(null);
-            setIsRevealed(false);
             return;
           }
         }
@@ -177,23 +167,16 @@ export default function LevelTestPage() {
   }, []);
 
   const handleSelect = useCallback((optionIndex: number) => {
-    if (!bank || !current || isRevealed) return;
+    // selectedIndexが立っている間は次の問題への遷移待ち(二重回答ガード)
+    if (!bank || !current || selectedIndex !== null) return;
 
     const correct = optionIndex === current.question.correctIndex;
     setSelectedIndex(optionIndex);
-    setIsRevealed(true);
-    playAnswerFeedbackSound(correct);
-    triggerHaptic(correct ? 12 : 30);
+    triggerHaptic();
 
-    const { state: nextState, events } = answerQuestion(state, correct);
+    // 正誤やレベル変動は途中では見せない(結果画面まで分からない)
+    const { state: nextState } = answerQuestion(state, correct);
     setState(nextState);
-
-    const specialEvent = events.find((event) => event === 'level-up' || event === 'level-down' || event === 'max-cleared');
-    if (specialEvent) {
-      setLevelFlash(specialEvent);
-      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-      flashTimerRef.current = setTimeout(() => setLevelFlash(null), LEVEL_FLASH_MS);
-    }
 
     const used = usedKeysRef.current;
     used.add(usedKeyFor(current.levelIndex, current.wordIndex));
@@ -212,8 +195,8 @@ export default function LevelTestPage() {
           ? { levelIndex: question.levelIndex, wordIndex: question.wordIndex }
           : null,
       });
-    }, correct ? ADVANCE_DELAY_CORRECT_MS : ADVANCE_DELAY_WRONG_MS);
-  }, [bank, current, isRevealed, state, finishQuiz, presentQuestion]);
+    }, ADVANCE_DELAY_MS);
+  }, [bank, current, selectedIndex, state, finishQuiz, presentQuestion]);
 
   if (screen === 'quiz' && current) {
     return (
@@ -221,8 +204,6 @@ export default function LevelTestPage() {
         state={state}
         current={current}
         selectedIndex={selectedIndex}
-        isRevealed={isRevealed}
-        levelFlash={levelFlash}
         onSelect={handleSelect}
       />
     );
@@ -394,27 +375,23 @@ function QuizScreen({
   state,
   current,
   selectedIndex,
-  isRevealed,
-  levelFlash,
   onSelect,
 }: {
   state: LevelTestState;
   current: CurrentQuestion;
   selectedIndex: number | null;
-  isRevealed: boolean;
-  levelFlash: LevelTestEvent | null;
   onSelect: (index: number) => void;
 }) {
-  const levelLabel = EIKEN_LEVEL_LABELS[state.levelIndex];
   const questionNumber = Math.min(state.answeredCount + 1, LEVEL_TEST_QUESTION_COUNT);
   const progressPercent = (state.answeredCount / LEVEL_TEST_QUESTION_COUNT) * 100;
+  const isLocked = selectedIndex !== null;
 
   return (
     <div
       className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)]"
       style={{ fontFamily: 'var(--font-body)' }}
     >
-      {/* ヘッダー: 進捗 + 現在レベル */}
+      {/* ヘッダー: 進捗のみ(正誤・レベル変動は結果画面まで見せない) */}
       <div className="mx-auto w-full max-w-[560px] px-4 pt-[max(16px,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between gap-3">
           <Link href="/" aria-label="やめる" className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]">
@@ -431,19 +408,6 @@ function QuizScreen({
           <div className="font-mono text-[12px] font-bold text-[var(--color-muted)]">
             {questionNumber}/{LEVEL_TEST_QUESTION_COUNT}
           </div>
-        </div>
-
-        <div className="mt-3 flex justify-center">
-          <motion.div
-            key={state.levelIndex}
-            initial={{ scale: 0.85, opacity: 0.6 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', bounce: 0.5, duration: 0.5 }}
-            className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-1.5 font-display text-[13px] font-extrabold text-white"
-          >
-            <Icon name="military_tech" size={15} />
-            Lv.{state.levelIndex + 1} ・ {levelLabel}
-          </motion.div>
         </div>
       </div>
 
@@ -465,103 +429,28 @@ function QuizScreen({
 
         <div className="mt-8 space-y-2.5">
           {current.question.options.map((option, optionIndex) => {
-            const isCorrectOption = optionIndex === current.question.correctIndex;
             const isSelected = optionIndex === selectedIndex;
-            let stateClass = 'border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]';
-            if (isRevealed && isCorrectOption) {
-              stateClass = 'border-[var(--color-success,#15803d)] bg-[var(--color-success-light,#dcfce7)] text-[var(--solid-ink)]';
-            } else if (isRevealed && isSelected) {
-              stateClass = 'border-[var(--color-error,#dc2626)] bg-[var(--color-error-light,#fee2e2)] text-[var(--solid-ink)]';
-            } else if (isRevealed) {
-              stateClass = 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] opacity-60';
-            }
             return (
               <button
                 key={`${current.question.prompt}-${optionIndex}`}
                 type="button"
-                disabled={isRevealed}
+                disabled={isLocked}
                 onClick={() => onSelect(optionIndex)}
-                className={`flex w-full items-center gap-3 rounded-[14px] border-2 px-4 py-3.5 text-left shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-ink)] disabled:active:translate-x-0 disabled:active:translate-y-0 ${stateClass}`}
+                className={`flex w-full items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] px-4 py-3.5 text-left shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-ink)] disabled:active:translate-x-0 disabled:active:translate-y-0 ${
+                  isSelected
+                    ? 'bg-[var(--solid-ink)] text-white'
+                    : 'bg-[var(--color-surface)] text-[var(--solid-ink)]'
+                }`}
               >
                 <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-current font-display text-[12px] font-extrabold">
                   {String.fromCharCode(65 + optionIndex)}
                 </span>
                 <span className="min-w-0 flex-1 break-words text-[15px] font-bold">{option}</span>
-                {isRevealed && isCorrectOption && <Icon name="check_circle" size={20} className="text-[var(--color-success,#15803d)]" filled />}
-                {isRevealed && isSelected && !isCorrectOption && <Icon name="cancel" size={20} className="text-[var(--color-error,#dc2626)]" filled />}
               </button>
             );
           })}
         </div>
       </div>
-
-      {/* レベルアップ/ダウン演出 */}
-      <AnimatePresence>
-        {levelFlash === 'level-up' && (
-          <LevelFlashOverlay
-            key="level-up"
-            accent="var(--color-accent)"
-            icon="trending_up"
-            title="LEVEL UP! 🎉"
-            subtitle={`${EIKEN_LEVEL_LABELS[state.levelIndex]}に挑戦`}
-          />
-        )}
-        {levelFlash === 'max-cleared' && (
-          <LevelFlashOverlay
-            key="max-cleared"
-            accent="#B8860B"
-            icon="crown"
-            title="最高レベル到達! 👑"
-            subtitle="英検1級を完全制覇"
-          />
-        )}
-        {levelFlash === 'level-down' && (
-          <motion.div
-            key="level-down"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-1.5 text-[12px] font-extrabold text-[var(--color-muted)]"
-          >
-            {EIKEN_LEVEL_LABELS[state.levelIndex]}に戻って再挑戦
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
-  );
-}
-
-function LevelFlashOverlay({
-  accent,
-  icon,
-  title,
-  subtitle,
-}: {
-  accent: string;
-  icon: string;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center"
-      style={{ background: 'rgba(26,26,26,0.35)', backdropFilter: 'blur(2px)' }}
-    >
-      <motion.div
-        initial={{ scale: 0.6, rotate: -4 }}
-        animate={{ scale: 1, rotate: 0 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        transition={{ type: 'spring', bounce: 0.55 }}
-        className="rounded-[20px] border-[3px] border-[var(--solid-ink)] px-8 py-6 text-center text-white shadow-[6px_6px_0_var(--solid-ink)]"
-        style={{ background: accent }}
-      >
-        <Icon name={icon} size={34} filled className="mx-auto" />
-        <div className="mt-1 font-display text-[26px] font-extrabold">{title}</div>
-        <div className="mt-1 text-[14px] font-bold opacity-90">{subtitle}</div>
-      </motion.div>
-    </motion.div>
   );
 }

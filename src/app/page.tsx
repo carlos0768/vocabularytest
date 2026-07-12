@@ -983,7 +983,8 @@ function GuestHomePage() {
           </div>
           <Link
             href="/level-test"
-            className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[14px] border-2 border-white bg-[var(--color-accent)] px-7 text-base font-bold text-white shadow-[3px_4px_0_rgba(255,255,255,0.35)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+            className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[14px] border-2 border-white px-7 text-base font-bold text-white shadow-[3px_4px_0_rgba(255,255,255,0.35)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+            style={{ background: 'linear-gradient(120deg,#15803d,#137FEC,#7C3AED,#EE2A7B)' }}
           >
             いますぐ診断する
             <Icon name="arrow_forward" size={18} />
