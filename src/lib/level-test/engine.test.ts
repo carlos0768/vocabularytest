@@ -62,7 +62,7 @@ function simulateRun(trueTheta: number, seed: number): LevelTestState {
     used.add(usedKeyFor(picked!.levelIndex, picked!.wordIndex));
     const difficulty = questionDifficulty(picked!.levelIndex, picked!.wordIndex, WORDS_PER_LEVEL);
     const correct = random() < probabilityOfCorrect(trueTheta, difficulty);
-    state = answerQuestion(state, picked!, TEST_BANK, correct);
+    state = answerQuestion(state, picked!, TEST_BANK, correct ? 'correct' : 'wrong');
   }
   return state;
 }
@@ -109,20 +109,44 @@ test('updatePosterior treats answers as evidence, not verdicts', () => {
   const meanBefore = posteriorMean(uniform);
 
   // 難しい問題への正解は上位レベルを支持する強い証拠
-  const afterHardCorrect = updatePosterior(uniform, 5.5, true);
+  const afterHardCorrect = updatePosterior(uniform, 5.5, 'correct');
   assert.ok(posteriorMean(afterHardCorrect) > meanBefore + 0.3);
 
   // 簡単な問題への不正解は下位レベルを支持する強い証拠
-  const afterEasyWrong = updatePosterior(uniform, 0.5, false);
+  const afterEasyWrong = updatePosterior(uniform, 0.5, 'wrong');
   assert.ok(posteriorMean(afterEasyWrong) < meanBefore - 0.3);
 
   // 難しい問題への不正解は自然な結果なので弱い証拠(変化が小さい)
-  const afterHardWrong = updatePosterior(uniform, 6.5, false);
+  const afterHardWrong = updatePosterior(uniform, 6.5, 'wrong');
   assert.ok(Math.abs(posteriorMean(afterHardWrong) - meanBefore) <
     Math.abs(posteriorMean(afterEasyWrong) - meanBefore));
 
   // 1問で可能性を消さない: どの更新後も全域で確率が正
   for (const p of afterEasyWrong) assert.ok(p > 0);
+});
+
+test('「わからない」 is stronger evidence of not knowing than a wrong pick', () => {
+  const uniform = createInitialState().posterior;
+  const meanBefore = posteriorMean(uniform);
+
+  // 誤答には25%の当て推量で正解し損ねただけの可能性が混ざるが、
+  // わからないには混ざらないので、同じ難易度なら推定をより強く下げる
+  const afterWrong = updatePosterior(uniform, 3, 'wrong');
+  const afterUnknown = updatePosterior(uniform, 3, 'unknown');
+  assert.ok(posteriorMean(afterUnknown) < posteriorMean(afterWrong));
+  assert.ok(posteriorMean(afterUnknown) < meanBefore);
+
+  // 知っていたのに時間切れ等で申告した可能性を残すため、高θの確率もゼロにしない
+  for (const p of afterUnknown) assert.ok(p > 0);
+});
+
+test('answerQuestion with 「わからない」 counts as asked but not correct', () => {
+  const state = createInitialState();
+  const next = answerQuestion(state, { levelIndex: 3, wordIndex: 0 }, TEST_BANK, 'unknown');
+  assert.equal(next.answeredCount, 1);
+  assert.equal(next.askedByLevel[3], 1);
+  assert.equal(next.correctByLevel[3], 0);
+  assert.ok(posteriorMean(next.posterior) < posteriorMean(state.posterior));
 });
 
 test('expectedInformationGain prefers mid-difficulty questions under a uniform prior', () => {
@@ -165,7 +189,7 @@ test('confirmation phase (last 4 questions) probes below and above the estimate'
   for (let i = 0; i < 16; i += 1) {
     const ref = { levelIndex: 5, wordIndex: i };
     used.add(usedKeyFor(ref.levelIndex, ref.wordIndex));
-    state = answerQuestion(state, ref, TEST_BANK, i % 2 === 0);
+    state = answerQuestion(state, ref, TEST_BANK, i % 2 === 0 ? 'correct' : 'wrong');
   }
   assert.equal(state.answeredCount, 16);
   const mean = posteriorMean(state.posterior);
@@ -176,7 +200,7 @@ test('confirmation phase (last 4 questions) probes below and above the estimate'
   assert.ok(belowDifficulty < mean, '17問目は境界の下側を確認する');
 
   used.add(usedKeyFor(below!.levelIndex, below!.wordIndex));
-  state = answerQuestion(state, below!, TEST_BANK, true);
+  state = answerQuestion(state, below!, TEST_BANK, 'correct');
   const above = selectNextQuestion(TEST_BANK, state, used, random);
   assert.ok(above);
   const aboveDifficulty = questionDifficulty(above!.levelIndex, above!.wordIndex, WORDS_PER_LEVEL);
@@ -191,7 +215,7 @@ test('a perfect 20-question run is judged 英検1級 with clearedMax', () => {
     const picked = selectNextQuestion(TEST_BANK, state, used, random);
     assert.ok(picked);
     used.add(usedKeyFor(picked!.levelIndex, picked!.wordIndex));
-    state = answerQuestion(state, picked!, TEST_BANK, true);
+    state = answerQuestion(state, picked!, TEST_BANK, 'correct');
   }
   const result = buildResult(state);
   assert.equal(result.finalLevel, MAX_LEVEL_INDEX);
@@ -210,7 +234,7 @@ test('an all-wrong 20-question run is judged 英検5級', () => {
     const picked = selectNextQuestion(TEST_BANK, state, used, random);
     assert.ok(picked);
     used.add(usedKeyFor(picked!.levelIndex, picked!.wordIndex));
-    state = answerQuestion(state, picked!, TEST_BANK, false);
+    state = answerQuestion(state, picked!, TEST_BANK, 'wrong');
   }
   const result = buildResult(state);
   assert.equal(result.finalLevel, MIN_LEVEL_INDEX);
@@ -259,10 +283,10 @@ test('flipping only the final answer barely moves the estimate (anti-swing)', ()
       break;
     }
     // 準1級相当のユーザーを模して正誤を交ぜる
-    state = answerQuestion(state, picked!, TEST_BANK, i % 3 !== 2);
+    state = answerQuestion(state, picked!, TEST_BANK, i % 3 !== 2 ? 'correct' : 'wrong');
   }
-  const withCorrect = buildResult(answerQuestion(state, lastPicked!, TEST_BANK, true));
-  const withWrong = buildResult(answerQuestion(state, lastPicked!, TEST_BANK, false));
+  const withCorrect = buildResult(answerQuestion(state, lastPicked!, TEST_BANK, 'correct'));
+  const withWrong = buildResult(answerQuestion(state, lastPicked!, TEST_BANK, 'wrong'));
   assert.ok(Math.abs(withCorrect.ability - withWrong.ability) < 0.35);
 });
 
@@ -270,8 +294,8 @@ test('buildResult maps posterior statistics to level, range, and confidence', ()
   // θ=4.6付近に集中した事後分布を手で作る
   let posterior = createInitialState().posterior;
   for (let i = 0; i < 10; i += 1) {
-    posterior = updatePosterior(posterior, 4.6, i % 2 === 0);
-    posterior = updatePosterior(posterior, 4.0, true);
+    posterior = updatePosterior(posterior, 4.6, i % 2 === 0 ? 'correct' : 'wrong');
+    posterior = updatePosterior(posterior, 4.0, 'correct');
   }
   const state: LevelTestState = {
     posterior,

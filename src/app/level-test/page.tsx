@@ -13,6 +13,7 @@ import { loadLevelTestBank, type LevelTestBank } from '@/lib/level-test/bank';
 import {
   EIKEN_LEVEL_LABELS,
   LEVEL_TEST_QUESTION_COUNT,
+  LEVEL_TEST_QUESTION_TIME_MS,
   answerQuestion,
   buildQuestion,
   buildResult,
@@ -20,6 +21,7 @@ import {
   isFinished,
   selectNextQuestion,
   usedKeyFor,
+  type LevelTestAnswer,
   type LevelTestQuestion,
   type LevelTestState,
 } from '@/lib/level-test/engine';
@@ -41,6 +43,9 @@ type CurrentQuestion = {
   wordIndex: number;
   question: LevelTestQuestion;
 };
+
+// 選択状態。数値=選択肢のindex、'unknown'=「わからない」(タップまたは時間切れ)
+type Selection = number | 'unknown';
 
 // 正誤やレベル変動は途中で見せず、結果画面まで分からないテンポ重視の構成。
 // タップの押下感が伝わる程度の短い間を置いて次の問題へ進む。
@@ -70,7 +75,7 @@ export default function LevelTestPage() {
   const usedKeysRef = useRef<Set<string>>(new Set());
   const answeredWordsRef = useRef<AnsweredWord[]>([]);
   const [current, setCurrent] = useState<CurrentQuestion | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<Selection | null>(null);
   const [answeredWords, setAnsweredWords] = useState<AnsweredWord[]>([]);
   const [resultPayload, setResultPayload] = useState<LevelTestResultPayload | null>(null);
   const [resultCode, setResultCode] = useState<string | null>(null);
@@ -181,12 +186,17 @@ export default function LevelTestPage() {
     setScreen('result');
   }, []);
 
-  const handleSelect = useCallback((optionIndex: number) => {
+  const handleSelect = useCallback((selection: Selection) => {
     // selectedIndexが立っている間は次の問題への遷移待ち(二重回答ガード)
     if (!bank || !current || selectedIndex !== null) return;
 
-    const correct = optionIndex === current.question.correctIndex;
-    setSelectedIndex(optionIndex);
+    const answer: LevelTestAnswer =
+      selection === 'unknown'
+        ? 'unknown'
+        : selection === current.question.correctIndex
+          ? 'correct'
+          : 'wrong';
+    setSelectedIndex(selection);
     triggerHaptic();
 
     // 正誤や推定の変動は途中では見せない(結果画面まで分からない)
@@ -194,7 +204,7 @@ export default function LevelTestPage() {
       state,
       { levelIndex: current.levelIndex, wordIndex: current.wordIndex },
       bank,
-      correct,
+      answer,
     );
     setState(nextState);
 
@@ -203,7 +213,8 @@ export default function LevelTestPage() {
     answeredWordsRef.current.push({
       levelIndex: current.levelIndex,
       wordIndex: current.wordIndex,
-      correct,
+      correct: answer === 'correct',
+      ...(answer === 'unknown' ? { unknown: true } : {}),
     });
 
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
@@ -394,7 +405,7 @@ function StartScreen({
         </motion.div>
 
         <p className="mt-4 text-center text-[11px] font-bold text-[var(--color-muted)]">
-          回答に合わせて出題の難易度が変わる適応式テストです。20問すべての回答から、最も確からしい語彙レベルを推定します。
+          回答に合わせて出題の難易度が変わる適応式テストです。制限時間は1問10秒(時間切れは「わからない」扱い)。20問すべての回答から、最も確からしい語彙レベルを推定します。
         </p>
 
         {!user && (
@@ -439,6 +450,8 @@ function AnsweredWordsPanel({
             <div key={`${answered.levelIndex}-${answered.wordIndex}-${index}`} className="flex items-center gap-2.5 py-2.5">
               {answered.correct ? (
                 <Icon name="check" size={18} className="shrink-0 text-[var(--color-success,#15803d)]" />
+              ) : answered.unknown ? (
+                <Icon name="question_mark" size={18} className="shrink-0 text-[var(--color-muted)]" />
               ) : (
                 <Icon name="close" size={18} className="shrink-0 text-[var(--color-error,#dc2626)]" />
               )}
@@ -463,6 +476,57 @@ function AnsweredWordsPanel({
   );
 }
 
+// 1問10秒のカウントダウン。時間切れでonTimeUp(=「わからない」扱い)を呼ぶ。
+// 問題ごとにkeyでリマウントしてリセットし、回答済み(locked)の間は凍結する。
+function QuestionTimer({ locked, onTimeUp }: { locked: boolean; onTimeUp: () => void }) {
+  const [remainingMs, setRemainingMs] = useState(LEVEL_TEST_QUESTION_TIME_MS);
+  const onTimeUpRef = useRef(onTimeUp);
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
+
+  useEffect(() => {
+    if (locked) return;
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      const left = LEVEL_TEST_QUESTION_TIME_MS - (Date.now() - startedAt);
+      if (left <= 0) {
+        setRemainingMs(0);
+        clearInterval(interval);
+        onTimeUpRef.current();
+        return;
+      }
+      setRemainingMs(left);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [locked]);
+
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  const timeRatio = remainingMs / LEVEL_TEST_QUESTION_TIME_MS;
+  const timeCritical = !locked && remainingMs <= 3000;
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]">
+        <div
+          className="h-full rounded-full transition-[width] duration-100 ease-linear"
+          style={{
+            width: `${timeRatio * 100}%`,
+            background: timeCritical ? '#dc2626' : 'var(--color-accent)',
+          }}
+        />
+      </div>
+      <div
+        className={`w-7 shrink-0 text-right font-mono text-[12px] font-bold ${
+          timeCritical ? 'text-[#dc2626]' : 'text-[var(--color-muted)]'
+        }`}
+      >
+        {remainingSeconds}s
+      </div>
+    </div>
+  );
+}
+
 function QuizScreen({
   state,
   current,
@@ -471,12 +535,13 @@ function QuizScreen({
 }: {
   state: LevelTestState;
   current: CurrentQuestion;
-  selectedIndex: number | null;
-  onSelect: (index: number) => void;
+  selectedIndex: Selection | null;
+  onSelect: (selection: Selection) => void;
 }) {
   const questionNumber = Math.min(state.answeredCount + 1, LEVEL_TEST_QUESTION_COUNT);
   const progressPercent = (state.answeredCount / LEVEL_TEST_QUESTION_COUNT) * 100;
   const isLocked = selectedIndex !== null;
+  const questionKey = `${current.levelIndex}:${current.wordIndex}`;
 
   return (
     <div
@@ -501,6 +566,13 @@ function QuizScreen({
             {questionNumber}/{LEVEL_TEST_QUESTION_COUNT}
           </div>
         </div>
+
+        {/* 残り時間バー(時間切れは「わからない」扱い)。keyで問題ごとにリセット */}
+        <QuestionTimer
+          key={questionKey}
+          locked={isLocked}
+          onTimeUp={() => onSelect('unknown')}
+        />
       </div>
 
       {/* 問題 */}
@@ -541,6 +613,21 @@ function QuizScreen({
               </button>
             );
           })}
+
+          {/* わからない(時間切れでも自動的にこの扱いになる) */}
+          <button
+            type="button"
+            disabled={isLocked}
+            onClick={() => onSelect('unknown')}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-[14px] border-2 border-dashed px-4 py-3 text-[14px] font-bold transition-all duration-100 active:translate-y-[1px] disabled:active:translate-y-0 ${
+              selectedIndex === 'unknown'
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-muted)] bg-transparent text-[var(--color-muted)]'
+            }`}
+          >
+            <Icon name="help" size={18} />
+            わからない
+          </button>
         </div>
       </div>
     </div>

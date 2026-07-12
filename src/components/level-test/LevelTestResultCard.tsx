@@ -50,11 +50,16 @@ export function LevelTestResultCard({
   const rangeText = hasEstimate && payload.lowerLevel !== payload.upperLevel
     ? `${EIKEN_LEVEL_LABELS[payload.lowerLevel!]}〜${(EIKEN_LEVEL_LABELS[payload.upperLevel!] ?? '').replace('英検', '')}`
     : null;
-  const vocabRangeText = hasEstimate
-    && payload.lowerAbility !== undefined
-    && payload.upperAbility !== undefined
-    && payload.lowerAbility < payload.upperAbility
-    ? `約${formatVocabSizeFromTheta(payload.lowerAbility)}〜${formatVocabSizeFromTheta(payload.upperAbility)}語`
+  // 上下限が同じ語数に丸まる場合(グリッド端に張り付いた場合など)は
+  // 「約600〜600語」のような縮退した範囲を出さない
+  const lowerVocab = hasEstimate && payload.lowerAbility !== undefined
+    ? formatVocabSizeFromTheta(payload.lowerAbility)
+    : null;
+  const upperVocab = hasEstimate && payload.upperAbility !== undefined
+    ? formatVocabSizeFromTheta(payload.upperAbility)
+    : null;
+  const vocabRangeText = lowerVocab && upperVocab && lowerVocab !== upperVocab
+    ? `約${lowerVocab}〜${upperVocab}語`
     : null;
 
   return (

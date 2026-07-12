@@ -18,6 +18,8 @@ import type { BankWord, LevelTestBank } from './bank';
 export const LEVEL_TEST_QUESTION_COUNT = 20;
 export const MIN_LEVEL_INDEX = 0;
 export const MAX_LEVEL_INDEX = EIKEN_LEVEL_ORDER.length - 1; // 6
+// 1問あたりの制限時間。時間切れは「わからない」として扱う(UI側で使用)。
+export const LEVEL_TEST_QUESTION_TIME_MS = 10_000;
 
 // index 0..6 = 英検5級..1級(EIKEN_LEVEL_ORDER と同順)
 export const EIKEN_LEVEL_LABELS = [
@@ -50,6 +52,10 @@ export const THETA_GRID: readonly number[] = Array.from(
 const DEFAULT_DISCRIMINATION = 1.2;
 const DEFAULT_GUESSING = 0.25; // 四択
 const DEFAULT_SLIP = 0.05;
+// 「わからない」回答時に、実は知っていた(時間切れ・自信不足)可能性の床。
+// 誤答の尤度比(0.75/0.05=15倍)より強い証拠になるよう 1/UNKNOWN_SLIP > 15、
+// かつ時間切れの巻き込みを考慮してゼロにはしない。
+const UNKNOWN_SLIP = 0.05;
 
 // 級内の難易度ばらつき幅(基準値±0.3)
 const WITHIN_LEVEL_DIFFICULTY_SPREAD = 0.3;
@@ -72,9 +78,31 @@ function sigmoid(x: number): number {
   return 1 / (1 + Math.exp(-x));
 }
 
+// 単語を「知っている」確率(IRTの2PL部分)
+function knowledgeProbability(theta: number, difficulty: number): number {
+  return sigmoid(DEFAULT_DISCRIMINATION * (theta - difficulty));
+}
+
 export function probabilityOfCorrect(theta: number, difficulty: number): number {
-  const knowledgeProbability = sigmoid(DEFAULT_DISCRIMINATION * (theta - difficulty));
-  return DEFAULT_GUESSING + (1 - DEFAULT_GUESSING - DEFAULT_SLIP) * knowledgeProbability;
+  return DEFAULT_GUESSING + (1 - DEFAULT_GUESSING - DEFAULT_SLIP) * knowledgeProbability(theta, difficulty);
+}
+
+// 回答の種類。「わからない」は誤答よりも「知らない」ことを強く支持する証拠になる
+// (誤答には25%の当て推量で偶然正解し損ねただけの可能性が混ざるが、
+//  わからないの申告には当て推量が混ざらないため)。
+export type LevelTestAnswer = 'correct' | 'wrong' | 'unknown';
+
+// 観測(正解/誤答/わからない)のθに対する尤度。
+// 「わからない」は P(知らない) に比例し、知っていたのに時間切れ等で
+// 申告してしまう可能性(UNKNOWN_SLIP)を床として残す。
+export function answerLikelihood(
+  theta: number,
+  difficulty: number,
+  answer: LevelTestAnswer,
+): number {
+  if (answer === 'correct') return probabilityOfCorrect(theta, difficulty);
+  if (answer === 'wrong') return 1 - probabilityOfCorrect(theta, difficulty);
+  return 1 - (1 - UNKNOWN_SLIP) * knowledgeProbability(theta, difficulty);
 }
 
 // ---------------------------------------------------------------------------
@@ -96,13 +124,11 @@ function normalize(values: number[]): number[] {
 export function updatePosterior(
   posterior: readonly number[],
   difficulty: number,
-  correct: boolean,
+  answer: LevelTestAnswer,
 ): number[] {
-  const updated = posterior.map((priorProbability, index) => {
-    const correctProbability = probabilityOfCorrect(THETA_GRID[index], difficulty);
-    const likelihood = correct ? correctProbability : 1 - correctProbability;
-    return priorProbability * likelihood;
-  });
+  const updated = posterior.map((priorProbability, index) =>
+    priorProbability * answerLikelihood(THETA_GRID[index], difficulty, answer),
+  );
   return normalize(updated);
 }
 
@@ -146,8 +172,8 @@ export function expectedInformationGain(
     0,
   );
   const expectedEntropy =
-    probabilityCorrect * entropy(updatePosterior(posterior, difficulty, true)) +
-    (1 - probabilityCorrect) * entropy(updatePosterior(posterior, difficulty, false));
+    probabilityCorrect * entropy(updatePosterior(posterior, difficulty, 'correct')) +
+    (1 - probabilityCorrect) * entropy(updatePosterior(posterior, difficulty, 'wrong'));
   return currentEntropy - expectedEntropy;
 }
 
@@ -185,7 +211,7 @@ export function answerQuestion(
   state: LevelTestState,
   question: QuestionRef,
   bank: LevelTestBank,
-  correct: boolean,
+  answer: LevelTestAnswer,
 ): LevelTestState {
   const levelWordCount = bank.levels[question.levelIndex]?.length ?? 1;
   const difficulty = questionDifficulty(question.levelIndex, question.wordIndex, levelWordCount);
@@ -193,10 +219,10 @@ export function answerQuestion(
   const askedByLevel = [...state.askedByLevel];
   const correctByLevel = [...state.correctByLevel];
   askedByLevel[question.levelIndex] += 1;
-  if (correct) correctByLevel[question.levelIndex] += 1;
+  if (answer === 'correct') correctByLevel[question.levelIndex] += 1;
 
   return {
-    posterior: updatePosterior(state.posterior, difficulty, correct),
+    posterior: updatePosterior(state.posterior, difficulty, answer),
     answeredCount: state.answeredCount + 1,
     askedByLevel,
     correctByLevel,
