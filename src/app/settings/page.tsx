@@ -120,6 +120,10 @@ export default function SettingsPage() {
       )}
 
       {/* Navigation groups */}
+      <SettingsGroup label="学習ツール">
+        <SettingsRow icon="military_tech" label="語彙力レベル診断" description="あなたの語彙力は英検何級レベル? 20問で診断" href="/level-test" />
+      </SettingsGroup>
+
       <SettingsGroup label="カスタマイズ">
         <SettingsRow icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
       </SettingsGroup>

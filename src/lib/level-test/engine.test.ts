@@ -32,6 +32,7 @@ test('createInitialState starts at 英検4級 with firstAtLevel armed', () => {
   assert.equal(state.levelIndex, LEVEL_TEST_START_LEVEL);
   assert.equal(state.firstAtLevel, true);
   assert.equal(state.answeredCount, 0);
+  assert.equal(state.wrongStreak, 0);
   assert.equal(state.askedByLevel.length, 7);
   assert.equal(EIKEN_LEVEL_LABELS.length, 7);
   assert.equal(VOCAB_SIZE_BY_LEVEL.length, 7);
@@ -59,10 +60,14 @@ test('wrong on the first question after a level-up drops one level', () => {
   const dropped = answerQuestion(state, false);
   assert.deepEqual(dropped.events, ['wrong', 'level-down']);
   assert.equal(dropped.state.levelIndex, 1);
-  // 降格後は firstAtLevel ではないので連鎖降格しない
+  // 降格直後の誤答1回では連鎖降格しない(wrongStreakは降格でリセット)
   const again = answerQuestion(dropped.state, false);
   assert.deepEqual(again.events, ['wrong']);
   assert.equal(again.state.levelIndex, 1);
+  // ただしそこからさらに誤答が続く(2連続誤答)と降格する
+  const cascade = answerQuestion(again.state, false);
+  assert.deepEqual(cascade.events, ['wrong', 'level-down']);
+  assert.equal(cascade.state.levelIndex, 0);
 });
 
 test('wrong on the very first question drops from the start level', () => {
@@ -72,13 +77,34 @@ test('wrong on the very first question drops from the start level', () => {
   assert.equal(result.state.levelIndex, 0);
 });
 
-test('non-first wrong answers keep the level and reset the streak', () => {
+test('a single non-first wrong answer keeps the level and resets the streak', () => {
   let state = createInitialState(1);
   state = answerQuestion(state, true).state; // streak 1, firstAtLevel consumed
   const wrong = answerQuestion(state, false);
   assert.deepEqual(wrong.events, ['wrong']);
   assert.equal(wrong.state.levelIndex, 1);
   assert.equal(wrong.state.streak, 0);
+  assert.equal(wrong.state.wrongStreak, 1);
+});
+
+test('two consecutive wrong answers at the same level drop one level', () => {
+  let state = createInitialState(1);
+  state = answerQuestion(state, true).state; // firstAtLevel consumed
+  const first = answerQuestion(state, false);
+  assert.deepEqual(first.events, ['wrong']);
+  const second = answerQuestion(first.state, false);
+  assert.deepEqual(second.events, ['wrong', 'level-down']);
+  assert.equal(second.state.levelIndex, 0);
+  assert.equal(second.state.wrongStreak, 0);
+
+  // 間に正解を挟むと連続誤答カウントはリセットされる
+  let mixed = createInitialState(1);
+  mixed = answerQuestion(mixed, true).state;
+  mixed = answerQuestion(mixed, false).state; // wrongStreak 1
+  mixed = answerQuestion(mixed, true).state; // reset
+  const afterReset = answerQuestion(mixed, false);
+  assert.deepEqual(afterReset.events, ['wrong']);
+  assert.equal(afterReset.state.levelIndex, 1);
 });
 
 test('level floor: wrong answers at level 0 never drop below 0', () => {

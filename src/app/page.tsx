@@ -802,28 +802,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 語彙力レベル診断への導線 */}
-      <div className="px-[18px] pb-3.5">
-        <Link href="/level-test" className="block">
-          <SolidPanel className="!rounded-2xl" faceClassName="!p-3">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white">
-                <Icon name="military_tech" size={17} filled />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                  LEVEL TEST
-                </div>
-                <div className="text-sm font-bold text-[var(--solid-ink)]">語彙力レベル診断 — 英検何級レベル?</div>
-              </div>
-              <span className="inline-flex text-[var(--color-accent)]">
-                <Icon name="chevron_right" size={14} />
-              </span>
-            </div>
-          </SolidPanel>
-        </Link>
-      </div>
-
       <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
         <div>
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">

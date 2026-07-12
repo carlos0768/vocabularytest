@@ -377,7 +377,7 @@ function StartScreen({
         </motion.div>
 
         <p className="mt-4 text-center text-[11px] font-bold text-[var(--color-muted)]">
-          2問連続で正解するとレベルアップ。最後にいたレベルがあなたの語彙レベルです。
+          2問連続正解でレベルアップ、2問連続不正解でレベルダウン。最後にいたレベルがあなたの語彙レベルです。
         </p>
 
         {!user && (

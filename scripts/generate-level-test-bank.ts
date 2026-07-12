@@ -167,12 +167,26 @@ function cleanJapaneseGloss(raw: string): string | null {
     .replace(/〈[^〉]*〉/g, '')
     .replace(/\([^)]*\)/g, '')
     .replace(/\([^)]*\)/g, '')
+    .replace(/[[^\]]*]/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    // 『自動車』電車 のように閉じ括弧の直後に別語義が続くケースがあるため、
+    // 『』を除去する前に閉じ括弧を語義区切りとして復元する
+    .replace(/』\s*/g, '』、')
     .replace(/『|』/g, '')
     .replace(/^[=・:;:;]+/, '')
     .trim();
 
-  const first = sense.split(/[,,;;]/)[0]?.trim() ?? '';
-  const normalized = first.replace(/^…/, '〜').replace(/\s+/g, ' ').trim();
+  const first = sense.split(/[,,、;;]/)[0]?.trim() ?? '';
+  const normalized = first
+    .replace(/…/g, '〜')
+    // 括弧が語義区切りをまたいだ/幅違いで対応していた場合の残骸を除去
+    .replace(/[()[\]]/g, '')
+    .replace(/[()[]]/g, '')
+    // 「を捜す」「に頼る」のような助詞始まりは目的語の省略なので〜を補う
+    .replace(/^(を|に|へ|と|が)(?=.)/, '〜$1')
+    .replace(/^〜?(を|に|へ|と|が)?$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   if (!normalized) return null;
   if (normalized.length > MAX_JAPANESE_LENGTH) return null;
@@ -353,6 +367,38 @@ async function fetchCuratedWords(): Promise<CuratedWord[]> {
   return [...seen.values()];
 }
 
+type RankedWord = PoolWord & { cefr: string };
+
+// 各級の「出題帯」。全候補語を頻度降順に並べた単一ランキング上の順位窓で、
+// VOCAB_SIZE_BY_LEVEL(600/1300/2100/3600/5100/7500/12000語)の上限付近=
+// その級の合否を分けるボーダーライン語彙を出題する。最頻出語だけを取ると
+// 実際の英検レベルより大幅に易しくなるため、窓の下限を高めに設定している。
+// CEFRの許可帯は「頻度は低いが易しい語(具象名詞等)」が上位級に混ざるのを防ぐガード。
+const GRADE_WINDOWS: Array<{
+  level: EikenLevel;
+  startRank: number;
+  endRank: number; // exclusive。Infinityで末尾まで
+  allowedCefr: Set<string>;
+}> = [
+  { level: '5', startRank: 150, endRank: 620, allowedCefr: new Set(['A1', 'A2']) },
+  { level: '4', startRank: 700, endRank: 1400, allowedCefr: new Set(['A1', 'A2', 'B1']) },
+  { level: '3', startRank: 1350, endRank: 2150, allowedCefr: new Set(['A2', 'B1']) },
+  { level: 'pre2', startRank: 2500, endRank: 3700, allowedCefr: new Set(['A2', 'B1', 'B2']) },
+  { level: '2', startRank: 3900, endRank: 5200, allowedCefr: new Set(['B1', 'B2', 'C1']) },
+  { level: 'pre1', startRank: 5400, endRank: 6700, allowedCefr: new Set(['B2', 'C1', 'C2']) },
+  { level: '1', startRank: 6300, endRank: Number.POSITIVE_INFINITY, allowedCefr: new Set(['C1', 'C2']) },
+];
+
+// 窓内の候補から、難易度の偏りが出ないよう等間隔に250語選ぶ。
+function evenSpread<T>(items: readonly T[], count: number): T[] {
+  if (items.length <= count) return [...items];
+  const selected: T[] = [];
+  for (let i = 0; i < count; i += 1) {
+    selected.push(items[Math.floor((i * items.length) / count)]);
+  }
+  return selected;
+}
+
 async function buildPoolsFromDatasets(): Promise<Map<EikenLevel, PoolWord[]>> {
   console.log('Fetching curated CEFR word lists (CEFR-J + Octanove)...');
   const curated = await fetchCuratedWords();
@@ -366,7 +412,7 @@ async function buildPoolsFromDatasets(): Promise<Map<EikenLevel, PoolWord[]>> {
   const frequencyByWord = await fetchFrequencyRanks();
   console.log(`  ${frequencyByWord.size} frequency entries`);
 
-  const usableByCefr = new Map<string, PoolWord[]>();
+  const usable: RankedWord[] = [];
   let missingGloss = 0;
 
   for (const word of curated) {
@@ -376,37 +422,60 @@ async function buildPoolsFromDatasets(): Promise<Map<EikenLevel, PoolWord[]>> {
       missingGloss += 1;
       continue;
     }
-    const list = usableByCefr.get(word.cefr) ?? [];
-    list.push({ english: word.english, japanese, pos: word.pos });
-    usableByCefr.set(word.cefr, list);
+    usable.push({ english: word.english, japanese, pos: word.pos, cefr: word.cefr });
   }
   console.log(`  skipped ${missingGloss} words without a usable Japanese gloss`);
 
-  // CEFR帯内は頻度降順(頻度が高い=易しい)。頻度不明は末尾。
-  for (const list of usableByCefr.values()) {
-    list.sort((a, b) => (frequencyByWord.get(b.english) ?? 0) - (frequencyByWord.get(a.english) ?? 0));
-  }
+  // 「tiredness」「compellingly」のような透明な派生語は、頻度は低くても
+  // 意味が自明で上位級の問題として成立しないため、基語が候補にある場合は除外する。
+  const headwords = new Set(usable.map((word) => word.english));
+  const beforeDerivativeFilter = usable.length;
+  const withoutDerivatives = usable.filter((word) => {
+    if (word.english.endsWith('ness') && headwords.has(word.english.slice(0, -4))) return false;
+    if (word.english.endsWith('ly')) {
+      const stem = word.english.slice(0, -2);
+      // quick+ly / full+ly(l重複) / happy→happily(y→i) をカバー
+      if (headwords.has(stem) || headwords.has(`${stem}l`)
+        || (stem.endsWith('i') && headwords.has(`${stem.slice(0, -1)}y`))) {
+        return false;
+      }
+    }
+    return true;
+  });
+  usable.length = 0;
+  usable.push(...withoutDerivatives);
+  console.log(`  dropped ${beforeDerivativeFilter - usable.length} transparent derivatives`);
 
-  // 7つの互いに素なプールを構成する。EIKEN_TO_CEFR_BAND
-  // (5:A1 / 4:A1-A2 / 3:A2 / pre2:A2-B1 / 2:B1 / pre1:B2 / 1:C1)に合わせ、
-  // 帯を頻度順の前半/後半で分割して単調な難易度勾配を作る。
-  const a1 = usableByCefr.get('A1') ?? [];
-  const a2 = usableByCefr.get('A2') ?? [];
-  const b1 = usableByCefr.get('B1') ?? [];
-  const b2 = usableByCefr.get('B2') ?? [];
-  const c1 = [...(usableByCefr.get('C1') ?? []), ...(usableByCefr.get('C2') ?? [])];
+  // 全候補を頻度降順の単一ランキングにする(頻度不明は末尾=最難扱い)
+  usable.sort((a, b) => (frequencyByWord.get(b.english) ?? 0) - (frequencyByWord.get(a.english) ?? 0));
+  console.log(`  ${usable.length} usable ranked words`);
 
-  const need = WORDS_PER_LEVEL;
   const pools = new Map<EikenLevel, PoolWord[]>();
-  pools.set('5', a1.slice(0, need));
-  pools.set('4', [...a1.slice(need, need * 2), ...a2.slice(0, Math.max(0, need - Math.max(0, a1.length - need)))].slice(0, need));
-  const a2Offset = Math.max(0, need - Math.max(0, a1.length - need));
-  pools.set('3', a2.slice(a2Offset, a2Offset + need));
-  pools.set('pre2', [...a2.slice(a2Offset + need, a2Offset + need * 2), ...b1.slice(0, Math.max(0, need - Math.max(0, a2.length - a2Offset - need)))].slice(0, need));
-  const b1Offset = Math.max(0, need - Math.max(0, a2.length - a2Offset - need));
-  pools.set('2', b1.slice(b1Offset, b1Offset + need));
-  pools.set('pre1', b2.slice(0, need));
-  pools.set('1', c1.slice(0, need));
+
+  for (const window of GRADE_WINDOWS) {
+    const endRank = Math.min(window.endRank, usable.length);
+    let startRank = Math.min(window.startRank, usable.length);
+    let candidates = usable
+      .slice(startRank, endRank)
+      .filter((word) => window.allowedCefr.has(word.cefr));
+
+    // CEFRガードで250語を割った場合は窓を下(易しい側)へ広げて充足させる
+    while (candidates.length < WORDS_PER_LEVEL && startRank > 0) {
+      startRank = Math.max(0, startRank - 200);
+      candidates = usable
+        .slice(startRank, endRank)
+        .filter((word) => window.allowedCefr.has(word.cefr));
+    }
+
+    pools.set(
+      window.level,
+      evenSpread(candidates, WORDS_PER_LEVEL).map(({ english, japanese, pos }) => ({
+        english,
+        japanese,
+        ...(pos ? { pos } : {}),
+      })),
+    );
+  }
 
   return pools;
 }

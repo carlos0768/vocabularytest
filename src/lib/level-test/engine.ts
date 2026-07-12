@@ -5,8 +5,8 @@ import type { BankWord, LevelTestBank } from './bank';
 // 語彙レベル診断の適応アルゴリズム(純粋ロジック)。
 //
 // - 全20問。同一レベルで2問連続正解するとレベルアップ。
-// - レベルアップ直後の1問目を誤答すると1レベル降格(連鎖降格はしない)。
-// - それ以外の誤答はレベル維持でstreakリセットのみ。
+// - レベルアップ直後の1問目を誤答すると即1レベル降格(連鎖降格はしない)。
+// - それ以外でも同一レベルで2問連続誤答すると1レベル降格。
 // - 20問終了時点のレベルが測定結果。
 
 export const LEVEL_TEST_QUESTION_COUNT = 20;
@@ -16,6 +16,7 @@ export const MAX_LEVEL_INDEX = EIKEN_LEVEL_ORDER.length - 1; // 6
 // 上級者が易しすぎる問題に費やす問数も最小限になる。
 export const LEVEL_TEST_START_LEVEL = 1;
 const STREAK_TO_LEVEL_UP = 2;
+const WRONG_STREAK_TO_LEVEL_DOWN = 2;
 
 // index 0..6 = 英検5級..1級(EIKEN_LEVEL_ORDER と同順)
 export const EIKEN_LEVEL_LABELS = [
@@ -36,6 +37,8 @@ export type LevelTestState = {
   answeredCount: number;
   // 現在のレベルでの連続正解数
   streak: number;
+  // 現在のレベルでの連続誤答数(2でレベルダウン)
+  wrongStreak: number;
   // 次の回答が「レベルアップ(または開始)直後の1問目」かどうか
   firstAtLevel: boolean;
   maxLevelIndex: number;
@@ -61,6 +64,7 @@ export function createInitialState(startLevel: number = LEVEL_TEST_START_LEVEL):
     levelIndex,
     answeredCount: 0,
     streak: 0,
+    wrongStreak: 0,
     firstAtLevel: true,
     maxLevelIndex: levelIndex,
     clearedMax: false,
@@ -90,6 +94,7 @@ export function answerQuestion(
   if (correct) {
     next.correctByLevel[next.levelIndex] += 1;
     next.streak += 1;
+    next.wrongStreak = 0;
     next.firstAtLevel = false;
 
     if (next.streak >= STREAK_TO_LEVEL_UP) {
@@ -110,12 +115,21 @@ export function answerQuestion(
     return { state: next, events };
   }
 
-  const droppedFromFirst = next.firstAtLevel && next.levelIndex > MIN_LEVEL_INDEX;
   next.streak = 0;
+  next.wrongStreak += 1;
+
+  // レベルアップ直後の1問目の誤答は即降格、それ以外は2連続誤答で降格
+  const shouldDrop =
+    (next.firstAtLevel || next.wrongStreak >= WRONG_STREAK_TO_LEVEL_DOWN)
+    && next.levelIndex > MIN_LEVEL_INDEX;
   next.firstAtLevel = false;
-  if (droppedFromFirst) {
+  if (shouldDrop) {
     next.levelIndex -= 1;
+    next.wrongStreak = 0;
     events.push('level-down');
+  } else if (next.wrongStreak >= WRONG_STREAK_TO_LEVEL_DOWN) {
+    // 最下位レベルではこれ以上下がらないのでカウントだけリセットする
+    next.wrongStreak = 0;
   }
   return { state: next, events };
 }

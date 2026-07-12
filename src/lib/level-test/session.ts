@@ -3,7 +3,8 @@ import type { LevelTestState } from './engine';
 // 診断の途中経過を sessionStorage に保存して中断再開できるようにする。
 // メインクイズ(quiz-state.ts)と同じ30分TTL。
 
-export const LEVEL_TEST_SESSION_KEY = 'level_test_state_v1';
+// v2: LevelTestState に wrongStreak が追加された(古いスナップショットは捨てる)
+export const LEVEL_TEST_SESSION_KEY = 'level_test_state_v2';
 export const LEVEL_TEST_SESSION_TTL_MS = 30 * 60 * 1000;
 
 export type LevelTestSessionSnapshot = {
