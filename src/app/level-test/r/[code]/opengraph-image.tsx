@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
-import { EIKEN_LEVEL_LABELS, MAX_LEVEL_INDEX } from '@/lib/level-test/engine';
+import { EIKEN_LEVEL_LABELS } from '@/lib/level-test/engine';
 import { decodeLevelTestResult } from '@/lib/level-test/result-code';
-import { formatVocabSize } from '@/lib/level-test/share';
+import { vocabSizeTextFor } from '@/lib/level-test/share';
 
 // 診断結果の動的シェアカード(OG/Twitter)。結果はURLのcodeから復元するので
 // DBアクセスなし。share/[shareId]/opengraph-image.tsx と同じ構成で、
@@ -45,7 +45,7 @@ export default async function Image({ params }: { params: Promise<{ code: string
   const payload = decodeLevelTestResult(decodeURIComponent(code));
 
   const grade = payload ? EIKEN_LEVEL_LABELS[payload.finalLevel] : null;
-  const vocab = payload ? formatVocabSize(payload.finalLevel) : null;
+  const vocab = payload ? vocabSizeTextFor(payload) : null;
   const accent = payload ? LEVEL_ACCENTS[payload.finalLevel] : LEVEL_ACCENTS[2];
   const crowned = Boolean(payload?.clearedMax);
 

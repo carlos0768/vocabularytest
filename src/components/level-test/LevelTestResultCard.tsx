@@ -2,9 +2,9 @@
 
 import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui';
-import { EIKEN_LEVEL_LABELS } from '@/lib/level-test/engine';
+import { CONFIDENCE_LABELS, EIKEN_LEVEL_LABELS } from '@/lib/level-test/engine';
 import type { LevelTestResultPayload } from '@/lib/level-test/result-code';
-import { formatVocabSize } from '@/lib/level-test/share';
+import { formatVocabSizeFromTheta, vocabSizeTextFor } from '@/lib/level-test/share';
 
 // 診断結果カード。自分の結果画面(variant='own': 段階的リビール演出あり)と
 // 共有された結果の閲覧ページ(variant='viewer': 即時表示)で共用する。
@@ -40,7 +40,22 @@ export function LevelTestResultCard({
 }) {
   const grade = EIKEN_LEVEL_LABELS[payload.finalLevel] ?? EIKEN_LEVEL_LABELS[0];
   const accent = LEVEL_ACCENT_COLORS[payload.finalLevel] ?? LEVEL_ACCENT_COLORS[0];
-  const vocab = formatVocabSize(payload.finalLevel);
+  const vocab = vocabSizeTextFor(payload);
+
+  // v2(ベイズ推定)のみ: 推定範囲と判定の確かさ。v1の旧共有URLは従来表示のまま。
+  const hasEstimate = payload.ability !== undefined
+    && payload.lowerLevel !== undefined
+    && payload.upperLevel !== undefined
+    && payload.confidence !== undefined;
+  const rangeText = hasEstimate && payload.lowerLevel !== payload.upperLevel
+    ? `${EIKEN_LEVEL_LABELS[payload.lowerLevel!]}〜${(EIKEN_LEVEL_LABELS[payload.upperLevel!] ?? '').replace('英検', '')}`
+    : null;
+  const vocabRangeText = hasEstimate
+    && payload.lowerAbility !== undefined
+    && payload.upperAbility !== undefined
+    && payload.lowerAbility < payload.upperAbility
+    ? `約${formatVocabSizeFromTheta(payload.lowerAbility)}〜${formatVocabSizeFromTheta(payload.upperAbility)}語`
+    : null;
 
   return (
     <div className="w-full rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 shadow-[4px_4px_0_var(--solid-ink)]">
@@ -63,6 +78,14 @@ export function LevelTestResultCard({
             {grade}
           </div>
           <div className="mt-1 font-display text-[14px] font-bold text-[var(--color-muted)]">レベル</div>
+          {hasEstimate && (
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--color-muted)]">
+              {rangeText && <span>推定範囲: {rangeText}</span>}
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-0.5">
+                判定の確かさ: {CONFIDENCE_LABELS[payload.confidence!]}
+              </span>
+            </div>
+          )}
         </motion.div>
 
         <motion.div {...revealProps(variant, 1)} className="mt-4">
@@ -71,6 +94,11 @@ export function LevelTestResultCard({
             <span className="font-display text-[24px] font-extrabold text-[var(--solid-ink)]">{vocab}</span>
             <span className="text-[13px] font-bold text-[var(--solid-ink)]">語</span>
           </div>
+          {vocabRangeText && (
+            <div className="mt-1.5 text-[11px] font-bold text-[var(--color-muted)]">
+              推定範囲 {vocabRangeText}
+            </div>
+          )}
           <div className="mt-2 text-[12px] font-bold text-[var(--color-muted)]">
             20問中{payload.correctTotal}問正解
           </div>

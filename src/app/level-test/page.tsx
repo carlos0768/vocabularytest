@@ -18,7 +18,7 @@ import {
   buildResult,
   createInitialState,
   isFinished,
-  pickQuestionIndex,
+  selectNextQuestion,
   usedKeyFor,
   type LevelTestQuestion,
   type LevelTestState,
@@ -99,8 +99,8 @@ export default function LevelTestPage() {
     };
   }, []);
 
-  const presentQuestion = useCallback((bankData: LevelTestBank, levelIndex: number, used: Set<string>) => {
-    const picked = pickQuestionIndex(bankData, levelIndex, used);
+  const presentQuestion = useCallback((bankData: LevelTestBank, quizState: LevelTestState, used: Set<string>) => {
+    const picked = selectNextQuestion(bankData, quizState, used);
     if (!picked) return null;
     const word = bankData.levels[picked.levelIndex][picked.wordIndex];
     const next: CurrentQuestion = { ...picked, question: buildQuestion(word) };
@@ -130,7 +130,7 @@ export default function LevelTestPage() {
             return;
           }
         }
-        presentQuestion(bank, restored.levelIndex, used);
+        presentQuestion(bank, restored, used);
         return;
       }
     }
@@ -144,7 +144,7 @@ export default function LevelTestPage() {
     setResultPayload(null);
     setResultCode(null);
     setScreen('quiz');
-    const question = presentQuestion(bank, initial.levelIndex, usedKeysRef.current);
+    const question = presentQuestion(bank, initial, usedKeysRef.current);
     if (question) {
       saveLevelTestSession({
         state: initial,
@@ -164,13 +164,19 @@ export default function LevelTestPage() {
     setAnsweredWords([...answeredWordsRef.current]);
     setResultCode(code);
     setResultPayload(payload ?? {
-      v: 1,
+      v: 2,
       finalLevel: result.finalLevel,
-      maxLevel: result.maxLevel,
+      maxLevel: result.upperLevel,
       clearedMax: result.clearedMax,
       correctTotal: result.correctTotal,
       askedByLevel: result.askedByLevel,
       correctByLevel: result.correctByLevel,
+      ability: result.ability,
+      lowerLevel: result.lowerLevel,
+      upperLevel: result.upperLevel,
+      lowerAbility: result.lowerAbility,
+      upperAbility: result.upperAbility,
+      confidence: result.confidence,
     });
     setScreen('result');
   }, []);
@@ -183,8 +189,13 @@ export default function LevelTestPage() {
     setSelectedIndex(optionIndex);
     triggerHaptic();
 
-    // 正誤やレベル変動は途中では見せない(結果画面まで分からない)
-    const { state: nextState } = answerQuestion(state, correct);
+    // 正誤や推定の変動は途中では見せない(結果画面まで分からない)
+    const nextState = answerQuestion(
+      state,
+      { levelIndex: current.levelIndex, wordIndex: current.wordIndex },
+      bank,
+      correct,
+    );
     setState(nextState);
 
     const used = usedKeysRef.current;
@@ -201,7 +212,7 @@ export default function LevelTestPage() {
         finishQuiz(nextState);
         return;
       }
-      const question = presentQuestion(bank, nextState.levelIndex, used);
+      const question = presentQuestion(bank, nextState, used);
       saveLevelTestSession({
         state: nextState,
         usedKeys: [...used],
@@ -383,7 +394,7 @@ function StartScreen({
         </motion.div>
 
         <p className="mt-4 text-center text-[11px] font-bold text-[var(--color-muted)]">
-          2問連続正解でレベルアップ、2問連続不正解でレベルダウン。最後にいたレベルがあなたの語彙レベルです。
+          回答に合わせて出題の難易度が変わる適応式テストです。20問すべての回答から、最も確からしい語彙レベルを推定します。
         </p>
 
         {!user && (
