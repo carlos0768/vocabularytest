@@ -51,7 +51,6 @@ Budget guard function は以下のどれかを満たすと `ops/aiGatewayGuard.d
 ## gateway 側 cap
 
 ```bash
-GATEWAY_CALLS_DAILY_CAP=300
 GATEWAY_COST_DAILY_CAP_YEN=900
 GATEWAY_ESTIMATED_YEN_PER_CALL=3
 GATEWAY_FIRESTORE_GUARD_ENABLED=true
@@ -101,7 +100,7 @@ TOKEN=$(gcloud auth print-access-token)
 curl -sS \
   -H "Authorization: Bearer ${TOKEN}" \
   "https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/ops/aiGatewayGuard/daily/${DAY}" \
-  | jq '{calls: .fields.calls.integerValue, yen: .fields.yen.integerValue, callsDailyCap: .fields.callsDailyCap.integerValue, costDailyCapYen: .fields.costDailyCapYen.integerValue}'
+  | jq '{calls: .fields.calls.integerValue, yen: .fields.yen.integerValue, costDailyCapYen: .fields.costDailyCapYen.integerValue}'
 ```
 
 ## 手動でAI gatewayを止める

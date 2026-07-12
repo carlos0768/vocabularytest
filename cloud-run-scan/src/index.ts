@@ -76,7 +76,6 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     fallbackModel: fallbackConfig.fallbackOpenAIModel,
     breakerOpenMs: fallbackConfig.breakerOpenMs,
-    gatewayCallsDailyCap: gatewayLimiterConfig.callsDailyCap,
     gatewayCostDailyCapYen: gatewayLimiterConfig.costDailyCapYen,
     gatewayGuardStore: gatewayFirestoreGuard.store,
     gatewayGuardStateDoc: gatewayFirestoreGuardConfig.stateDocPath,
@@ -270,16 +269,15 @@ app.post('/generate', async (req, res) => {
       if (!gatewayLimiter.canStart()) {
         const timing = buildTimingPayload(startTime);
         const summary = gatewayLimiter.getTodaySummary();
-        console.warn('[gateway-cap-reached]', {
+        console.warn('[gateway-cost-cap-reached]', {
           requestId,
           calls: summary.calls,
-          callsDailyCap: summary.callsDailyCap,
           yen: summary.yen,
           costDailyCapYen: summary.costDailyCapYen,
         });
         res.status(429).json({
           success: false,
-          error: 'Gateway daily cap reached',
+          error: 'Gateway daily cost cap reached',
           timing,
         });
         return;
@@ -293,7 +291,6 @@ app.post('/generate', async (req, res) => {
           reason: firestoreGuardReservation.reason,
           disabledReason: firestoreGuardReservation.disabledReason,
           calls: firestoreGuardReservation.calls,
-          callsDailyCap: firestoreGuardReservation.callsDailyCap,
           yen: firestoreGuardReservation.yen,
           costDailyCapYen: firestoreGuardReservation.costDailyCapYen,
         });
@@ -309,8 +306,10 @@ app.post('/generate', async (req, res) => {
       const gatewaySummary = gatewayLimiter.recordStart();
       console.log(
         `[generate] id=${requestId} provider=${provider} model=${model} hasImage=${!!image} format=${responseFormat}` +
-          ` gatewayCalls=${gatewaySummary.calls}/${gatewaySummary.callsDailyCap}` +
-          ` globalGatewayCalls=${firestoreGuardReservation.calls}/${firestoreGuardReservation.callsDailyCap}`,
+          ` gatewayCalls=${gatewaySummary.calls}` +
+          ` gatewayYen=${gatewaySummary.yen}/${gatewaySummary.costDailyCapYen}` +
+          ` globalGatewayCalls=${firestoreGuardReservation.calls}` +
+          ` globalGatewayYen=${firestoreGuardReservation.yen}/${firestoreGuardReservation.costDailyCapYen}`,
       );
     }
 
@@ -395,7 +394,6 @@ app.listen(PORT, () => {
   console.log(`  Fallback model: ${fallbackRunner.getConfig().fallbackOpenAIModel}`);
   console.log(`  Fallback calls cap/day: ${fallbackRunner.getConfig().fallbackCallsDailyCap}`);
   console.log(`  Fallback cost cap/day: ${fallbackRunner.getConfig().fallbackCostDailyCapYen}`);
-  console.log(`  Gateway calls cap/day: ${gatewayLimiterConfig.callsDailyCap}`);
   console.log(`  Gateway cost cap/day: ${gatewayLimiterConfig.costDailyCapYen}`);
   console.log(`  Gateway guard store: ${gatewayFirestoreGuard.store}`);
 });

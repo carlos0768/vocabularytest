@@ -7,7 +7,6 @@ import {
 } from './gateway-firestore-guard.js';
 
 const limiterConfig = {
-  callsDailyCap: 3,
   costDailyCapYen: 9,
   estimatedYenPerCall: 3,
 };
@@ -52,11 +51,19 @@ test('firestore guard blocks when the global stop flag is enabled', () => {
   assert.equal(decision.disabledReason, 'monthly budget threshold exceeded');
 });
 
-test('firestore guard blocks when the global daily cap is reached', () => {
-  const decision = evaluateGatewayGuardState(undefined, { calls: 3, yen: 6 }, limiterConfig);
+test('firestore guard does not block when only the global daily call count is high', () => {
+  const decision = evaluateGatewayGuardState(undefined, { calls: 3000, yen: 6 }, limiterConfig);
+
+  assert.equal(decision.allowed, true);
+  assert.equal(decision.calls, 3001);
+  assert.equal(decision.yen, 9);
+});
+
+test('firestore guard blocks when the global daily yen cap is reached', () => {
+  const decision = evaluateGatewayGuardState(undefined, { calls: 3, yen: 9 }, limiterConfig);
 
   assert.equal(decision.allowed, false);
-  assert.equal(decision.reason, 'global-daily-cap-reached');
+  assert.equal(decision.reason, 'global-daily-cost-cap-reached');
 });
 
 test('firestore guard reserves the next global call', () => {

@@ -13,8 +13,8 @@ test('generate responses include timing payloads', () => {
   assert.equal(source.includes('timing: buildTimingPayload(startTime)'), true);
 });
 
-test('gateway cap is enforced before provider calls', () => {
-  assert.equal(source.includes('Gateway daily cap reached'), true);
+test('gateway cost cap is enforced before provider calls', () => {
+  assert.equal(source.includes('Gateway daily cost cap reached'), true);
   assert.equal(source.includes('gatewayLimiter.recordStart'), true);
   assert.equal(source.includes('gatewayFirestoreGuard.reserveStart'), true);
   assert.equal(source.includes("if (provider === 'gemini' || provider === 'openai')"), true);

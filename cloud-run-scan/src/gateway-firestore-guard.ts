@@ -10,7 +10,7 @@ export interface GatewayFirestoreGuardConfig {
 
 export interface GatewayGuardReservation extends GatewayLimiterSummary {
   allowed: boolean;
-  reason?: 'budget-guard-disabled' | 'global-daily-cap-reached' | 'budget-guard-error';
+  reason?: 'budget-guard-disabled' | 'global-daily-cost-cap-reached' | 'budget-guard-error';
   disabledReason?: string;
 }
 
@@ -72,18 +72,16 @@ export function evaluateGatewayGuardState(
       disabledReason: readString(stateData.disabledReason),
       calls,
       yen,
-      callsDailyCap: limiterConfig.callsDailyCap,
       costDailyCapYen: limiterConfig.costDailyCapYen,
     };
   }
 
-  if (calls >= limiterConfig.callsDailyCap || yen >= limiterConfig.costDailyCapYen) {
+  if (yen >= limiterConfig.costDailyCapYen) {
     return {
       allowed: false,
-      reason: 'global-daily-cap-reached',
+      reason: 'global-daily-cost-cap-reached',
       calls,
       yen,
-      callsDailyCap: limiterConfig.callsDailyCap,
       costDailyCapYen: limiterConfig.costDailyCapYen,
     };
   }
@@ -92,7 +90,6 @@ export function evaluateGatewayGuardState(
     allowed: true,
     calls: calls + 1,
     yen: yen + limiterConfig.estimatedYenPerCall,
-    callsDailyCap: limiterConfig.callsDailyCap,
     costDailyCapYen: limiterConfig.costDailyCapYen,
   };
 }
@@ -107,7 +104,6 @@ class DisabledGatewayBudgetGuard implements GatewayBudgetGuard {
       allowed: true,
       calls: 0,
       yen: 0,
-      callsDailyCap: this.limiterConfig.callsDailyCap,
       costDailyCapYen: this.limiterConfig.costDailyCapYen,
     };
   }
@@ -156,7 +152,6 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
             dayKey,
             calls: decision.calls,
             yen: decision.yen,
-            callsDailyCap: this.limiterConfig.callsDailyCap,
             costDailyCapYen: this.limiterConfig.costDailyCapYen,
             estimatedYenPerCall: this.limiterConfig.estimatedYenPerCall,
             updatedAt: timestamp,
@@ -174,7 +169,6 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
           allowed: true,
           calls: 0,
           yen: 0,
-          callsDailyCap: this.limiterConfig.callsDailyCap,
           costDailyCapYen: this.limiterConfig.costDailyCapYen,
         };
       }
@@ -184,7 +178,6 @@ class FirestoreGatewayBudgetGuard implements GatewayBudgetGuard {
         reason: 'budget-guard-error',
         calls: 0,
         yen: 0,
-        callsDailyCap: this.limiterConfig.callsDailyCap,
         costDailyCapYen: this.limiterConfig.costDailyCapYen,
       };
     }

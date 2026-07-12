@@ -6,9 +6,8 @@ import {
   loadGatewayLimiterConfigFromEnv,
 } from './gateway-limiter.js';
 
-test('blocks gateway calls when call cap is reached', () => {
+test('does not block gateway calls by call count', () => {
   const limiter = new DailyGatewayLimiter({
-    callsDailyCap: 2,
     costDailyCapYen: 100,
     estimatedYenPerCall: 3,
   });
@@ -18,12 +17,11 @@ test('blocks gateway calls when call cap is reached', () => {
   limiter.recordStart(base + 1);
   assert.equal(limiter.canStart(base + 2), true);
   limiter.recordStart(base + 3);
-  assert.equal(limiter.canStart(base + 4), false);
+  assert.equal(limiter.canStart(base + 4), true);
 });
 
 test('blocks gateway calls when estimated cost cap is reached', () => {
   const limiter = new DailyGatewayLimiter({
-    callsDailyCap: 100,
     costDailyCapYen: 6,
     estimatedYenPerCall: 3,
   });
@@ -37,7 +35,6 @@ test('blocks gateway calls when estimated cost cap is reached', () => {
 
 test('gateway caps reset on the next UTC day', () => {
   const limiter = new DailyGatewayLimiter({
-    callsDailyCap: 1,
     costDailyCapYen: 3,
     estimatedYenPerCall: 3,
   });
@@ -49,14 +46,12 @@ test('gateway caps reset on the next UTC day', () => {
   assert.equal(limiter.canStart(nextDay), true);
 });
 
-test('gateway limiter env parser allows zero for emergency stop', () => {
+test('gateway limiter env parser allows zero yen cap for emergency stop', () => {
   const config = loadGatewayLimiterConfigFromEnv({
-    GATEWAY_CALLS_DAILY_CAP: '0',
     GATEWAY_COST_DAILY_CAP_YEN: '0',
     GATEWAY_ESTIMATED_YEN_PER_CALL: '0',
   });
 
-  assert.equal(config.callsDailyCap, 0);
   assert.equal(config.costDailyCapYen, 0);
   assert.equal(config.estimatedYenPerCall, 0);
 });
