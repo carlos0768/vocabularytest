@@ -228,10 +228,66 @@ function isUsableEnglishHeadword(headword: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// ディストラクタ生成(同レベル・同品詞優先・重複/類似回避)
+// ディストラクタ生成
+// 優先順位: 接頭辞/接尾辞が似た単語(形態的に紛らわしい) > 同品詞 > その他。
+// 例: instruction の誤答には construction / institution の訳語が優先的に入る。
 // ---------------------------------------------------------------------------
 
 type PoolWord = { english: string; japanese: string; pos?: string };
+
+const KNOWN_PREFIXES = [
+  'inter', 'trans', 'under', 'super', 'micro', 'multi', 'over', 'fore', 'anti',
+  'semi', 'non', 'out', 'mis', 'dis', 'pre', 'pro', 'con', 'com', 'sub', 'ex',
+  'un', 'in', 'im', 'il', 'ir', 're', 'de', 'en', 'em', 'up',
+];
+
+const KNOWN_SUFFIXES = [
+  'ical', 'tion', 'sion', 'ment', 'ness', 'ance', 'ence', 'able', 'ible',
+  'ship', 'ward', 'some', 'hood', 'less', 'ity', 'ous', 'ive', 'ful', 'ish',
+  'ary', 'ory', 'ist', 'ism', 'ize', 'ise', 'ate', 'age', 'ure', 'dom',
+  'al', 'ic', 'er', 'or', 'fy', 'ly', 'en',
+];
+
+function knownPrefixOf(word: string): string | null {
+  // 語幹が短くなりすぎる場合は接辞とみなさない(inn に "in" 等)
+  return KNOWN_PREFIXES.find((prefix) => word.startsWith(prefix) && word.length >= prefix.length + 3) ?? null;
+}
+
+function knownSuffixOf(word: string): string | null {
+  return KNOWN_SUFFIXES.find((suffix) => word.endsWith(suffix) && word.length >= suffix.length + 3) ?? null;
+}
+
+function commonPrefixLength(a: string, b: string): number {
+  let length = 0;
+  while (length < a.length && length < b.length && a[length] === b[length]) length += 1;
+  return length;
+}
+
+function commonSuffixLength(a: string, b: string): number {
+  let length = 0;
+  while (length < a.length && length < b.length && a[a.length - 1 - length] === b[b.length - 1 - length]) length += 1;
+  return length;
+}
+
+// 綴りの紛らわしさスコア。接尾辞一致を最優先する(接尾辞は品詞まで揃って
+// 見えるため最も紛らわしい)。接尾辞系の加点(最低3)が接頭辞のみの加点
+// (最大2)を常に上回るような重み付けにしている。
+function morphologicalSimilarity(a: string, b: string): number {
+  let score = 0;
+  const suffixA = knownSuffixOf(a);
+  if (suffixA && suffixA === knownSuffixOf(b)) score += 4;
+  if (commonSuffixLength(a, b) >= 4) score += 3;
+  const prefixA = knownPrefixOf(a);
+  if (prefixA && prefixA === knownPrefixOf(b)) score += 1;
+  if (commonPrefixLength(a, b) >= 4) score += 1;
+  return score;
+}
+
+// 訳語が完全にカタカナ(+長音・中点)の語は、英単語の音写(ナイフ、ヨガ等)で
+// 答えが自明なので出題プールから除外する。
+function isKatakanaLoanwordGloss(gloss: string): boolean {
+  return /^[ァ-ヶヴー・\s]+$/.test(gloss);
+}
 
 function isConfusablePair(a: string, b: string): boolean {
   if (a === b) return true;
@@ -245,42 +301,54 @@ function buildDistractorsForWord(
   word: PoolWord,
   pool: readonly PoolWord[],
   random: () => number,
-): [string, string, string] | null {
-  const samePos = pool.filter((candidate) => candidate.english !== word.english
-    && Boolean(word.pos) && candidate.pos === word.pos);
-  const others = pool.filter((candidate) => candidate.english !== word.english
-    && (!word.pos || candidate.pos !== word.pos));
+): { distractors: [string, string, string]; lookalikeCount: number } | null {
+  const candidates = seededShuffle(
+    pool.filter((candidate) => candidate.english !== word.english),
+    random,
+  );
 
-  const ordered = [...seededShuffle(samePos, random), ...seededShuffle(others, random)];
+  // 安定ソート: 綴り類似スコア降順 -> 同品詞優先。同点はシャッフル順のまま。
+  const scored = candidates
+    .map((candidate) => ({
+      candidate,
+      similarity: morphologicalSimilarity(word.english, candidate.english),
+      samePos: Boolean(word.pos) && candidate.pos === word.pos ? 1 : 0,
+    }))
+    .sort((a, b) => (b.similarity - a.similarity) || (b.samePos - a.samePos));
+
   const distractors: string[] = [];
+  let lookalikeCount = 0;
 
-  for (const candidate of ordered) {
+  for (const { candidate, similarity } of scored) {
     if (distractors.length >= 3) break;
     if (isConfusablePair(candidate.japanese, word.japanese)) continue;
     if (distractors.some((existing) => isConfusablePair(existing, candidate.japanese))) continue;
     distractors.push(candidate.japanese);
+    if (similarity > 0) lookalikeCount += 1;
   }
 
   if (distractors.length < 3) return null;
-  return [distractors[0], distractors[1], distractors[2]];
+  return { distractors: [distractors[0], distractors[1], distractors[2]], lookalikeCount };
 }
 
-function buildLevelBank(pool: PoolWord[], levelIndex: number): BankWord[] {
+function buildLevelBank(pool: PoolWord[], levelIndex: number): { bank: BankWord[]; wordsWithLookalike: number } {
   const random = createSeededRandom(0x4d45524b + levelIndex); // 'MERK' + level
   const bank: BankWord[] = [];
+  let wordsWithLookalike = 0;
 
   for (const word of pool) {
-    const distractors = buildDistractorsForWord(word, pool, random);
-    if (!distractors) continue;
+    const built = buildDistractorsForWord(word, pool, random);
+    if (!built) continue;
+    if (built.lookalikeCount > 0) wordsWithLookalike += 1;
     bank.push({
       english: word.english,
       japanese: word.japanese,
-      distractors,
+      distractors: built.distractors,
       ...(word.pos ? { pos: word.pos } : {}),
     });
   }
 
-  return bank;
+  return { bank, wordsWithLookalike };
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +482,7 @@ async function buildPoolsFromDatasets(): Promise<Map<EikenLevel, PoolWord[]>> {
 
   const usable: RankedWord[] = [];
   let missingGloss = 0;
+  let katakanaLoanwords = 0;
 
   for (const word of curated) {
     const rawGloss = ejdict.get(word.english);
@@ -422,9 +491,14 @@ async function buildPoolsFromDatasets(): Promise<Map<EikenLevel, PoolWord[]>> {
       missingGloss += 1;
       continue;
     }
+    if (isKatakanaLoanwordGloss(japanese)) {
+      katakanaLoanwords += 1;
+      continue;
+    }
     usable.push({ english: word.english, japanese, pos: word.pos, cefr: word.cefr });
   }
   console.log(`  skipped ${missingGloss} words without a usable Japanese gloss`);
+  console.log(`  skipped ${katakanaLoanwords} katakana loanwords (answer would be self-evident)`);
 
   // 「tiredness」「compellingly」のような透明な派生語は、頻度は低くても
   // 意味が自明で上位級の問題として成立しないため、基語が候補にある場合は除外する。
@@ -522,6 +596,7 @@ async function buildPoolsFromDb(): Promise<Map<EikenLevel, PoolWord[]>> {
       const english = row.english?.trim();
       const japanese = cleanJapaneseGloss(row.japanese ?? '') ?? row.japanese?.trim();
       if (!english || !japanese) continue;
+      if (isKatakanaLoanwordGloss(japanese)) continue;
       const key = english.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -558,12 +633,13 @@ async function main(): Promise<void> {
   const pools = source === 'db' ? await buildPoolsFromDb() : await buildPoolsFromDatasets();
 
   const levels: Array<Array<[string, string, [string, string, string]]>> = [];
-  const summary: Array<{ level: string; poolWords: number; bankWords: number }> = [];
+  const summary: Array<{ level: string; poolWords: number; bankWords: number; withLookalike: string }> = [];
 
   for (let levelIndex = 0; levelIndex < EIKEN_LEVEL_ORDER.length; levelIndex += 1) {
     const level = EIKEN_LEVEL_ORDER[levelIndex];
     const pool = pools.get(level) ?? [];
-    const bank = buildLevelBank(pool, levelIndex).slice(0, WORDS_PER_LEVEL);
+    const { bank: levelBank, wordsWithLookalike } = buildLevelBank(pool, levelIndex);
+    const bank = levelBank.slice(0, WORDS_PER_LEVEL);
 
     if (bank.length < 100) {
       throw new Error(`${EIKEN_LEVEL_LABELS[level]}: only ${bank.length} usable words (need at least 100)`);
@@ -573,7 +649,13 @@ async function main(): Promise<void> {
     }
 
     levels.push(bank.map((word) => [word.english, word.japanese, word.distractors]));
-    summary.push({ level: EIKEN_LEVEL_LABELS[level], poolWords: pool.length, bankWords: bank.length });
+    summary.push({
+      level: EIKEN_LEVEL_LABELS[level],
+      poolWords: pool.length,
+      bankWords: bank.length,
+      // 接頭辞/接尾辞が似た誤答を1つ以上含む問題の割合
+      withLookalike: `${Math.round((wordsWithLookalike / Math.max(1, levelBank.length)) * 100)}%`,
+    });
   }
 
   const output = { version: BANK_VERSION, levels };
