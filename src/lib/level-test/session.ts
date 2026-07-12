@@ -3,13 +3,21 @@ import type { LevelTestState } from './engine';
 // 診断の途中経過を sessionStorage に保存して中断再開できるようにする。
 // メインクイズ(quiz-state.ts)と同じ30分TTL。
 
-// v2: LevelTestState に wrongStreak が追加された(古いスナップショットは捨てる)
-export const LEVEL_TEST_SESSION_KEY = 'level_test_state_v2';
+// v3: 回答履歴(answeredWords)が追加された(古いスナップショットは捨てる)
+export const LEVEL_TEST_SESSION_KEY = 'level_test_state_v3';
 export const LEVEL_TEST_SESSION_TTL_MS = 30 * 60 * 1000;
+
+// 出題された単語1問分の記録(結果画面の○×リスト用)
+export type AnsweredWord = {
+  levelIndex: number;
+  wordIndex: number;
+  correct: boolean;
+};
 
 export type LevelTestSessionSnapshot = {
   state: LevelTestState;
   usedKeys: string[];
+  answeredWords: AnsweredWord[];
   // 表示中の問題(回答前にリロードされても同じ問題を復元する)
   currentQuestion: { levelIndex: number; wordIndex: number } | null;
   savedAt: number;
@@ -41,7 +49,7 @@ export function loadLevelTestSession(): LevelTestSessionSnapshot | null {
       clearLevelTestSession();
       return null;
     }
-    if (!parsed.state || !Array.isArray(parsed.usedKeys)) return null;
+    if (!parsed.state || !Array.isArray(parsed.usedKeys) || !Array.isArray(parsed.answeredWords)) return null;
     return parsed;
   } catch {
     return null;

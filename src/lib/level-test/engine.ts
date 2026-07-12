@@ -135,8 +135,16 @@ export function answerQuestion(
 }
 
 export function buildResult(state: LevelTestState): LevelTestResult {
+  // 最終問題の正解でレベルアップした直後に終了すると、そのレベルでは
+  // 一度も正解していない(あるいは出題すらされていない)のに判定されてしまう。
+  // 判定レベルは「正解実績のあるレベル」まで下げる。
+  let finalLevel = state.levelIndex;
+  while (finalLevel > MIN_LEVEL_INDEX && state.correctByLevel[finalLevel] === 0) {
+    finalLevel -= 1;
+  }
+
   return {
-    finalLevel: state.levelIndex,
+    finalLevel,
     maxLevel: state.maxLevelIndex,
     clearedMax: state.clearedMax,
     correctTotal: state.correctByLevel.reduce((sum, count) => sum + count, 0),

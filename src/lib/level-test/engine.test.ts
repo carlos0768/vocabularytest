@@ -153,6 +153,33 @@ test('an all-wrong 20-question run ends at level 0', () => {
   assert.equal(result.askedByLevel.reduce((a, b) => a + b, 0), LEVEL_TEST_QUESTION_COUNT);
 });
 
+test('a level-up on the final answer does not award an unproven level', () => {
+  // 実際に報告されたバグ: 途中で1級に到達→1級の1問を誤答して降格→
+  // 最後の2問連続正解で20問目にちょうど再昇格すると、1級で1問も
+  // 正解していないのに1級判定になっていた。
+  const answers = [
+    true, true, // 4級 -> 3級
+    true, true, // -> 準2級
+    true, true, // -> 2級
+    true, true, // -> 準1級
+    true, true, // -> 1級
+    false, // 1級の1問目を誤答 -> 準1級へ降格
+    false, true, false, true, false, true, false, true, true, // 最後の2連続正解で1級へ再昇格
+  ];
+  assert.equal(answers.length, LEVEL_TEST_QUESTION_COUNT);
+
+  let state = createInitialState();
+  state = answerMany(state, answers);
+  assert.equal(isFinished(state), true);
+  assert.equal(state.levelIndex, MAX_LEVEL_INDEX); // 内部状態としては1級にいる
+
+  const result = buildResult(state);
+  assert.equal(result.correctByLevel[MAX_LEVEL_INDEX], 0);
+  // 正解実績のない1級ではなく、実績のある準1級で判定される
+  assert.equal(result.finalLevel, MAX_LEVEL_INDEX - 1);
+  assert.equal(result.maxLevel, MAX_LEVEL_INDEX);
+});
+
 test('per-level tallies stay consistent through a mixed run', () => {
   let state = createInitialState();
   const answers = [true, true, false, true, true, false, false, true, true, true,
