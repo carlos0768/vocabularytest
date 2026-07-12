@@ -163,6 +163,7 @@ export class GeminiFallbackRunner {
           content: geminiResult.content,
           modelUsed: geminiResult.modelUsed,
           usage: geminiResult.usage,
+          normalizedUsage: geminiResult.normalizedUsage,
         };
       } catch (error) {
         const classified = classifyGeminiError(error);
@@ -257,6 +258,7 @@ export class GeminiFallbackRunner {
         content: openaiResult.content,
         modelUsed: openaiResult.modelUsed,
         usage: openaiResult.usage,
+        normalizedUsage: openaiResult.normalizedUsage,
         fallbackReason: reason,
       };
     } catch (error) {

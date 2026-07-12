@@ -114,10 +114,11 @@ FALLBACK_ESTIMATED_YEN_PER_CALL=3
 FALLBACK_BREAKER_OPEN_MS=300000
 GATEWAY_CALLS_DAILY_CAP=300
 GATEWAY_COST_DAILY_CAP_YEN=900
-GATEWAY_ESTIMATED_YEN_PER_CALL=3
 GATEWAY_FIRESTORE_GUARD_ENABLED=true
 GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED=true
 GATEWAY_GUARD_STATE_DOC=ops/aiGatewayGuard
+GATEWAY_USD_TO_JPY_RATE=155
+GATEWAY_FLAT_FALLBACK_USD=0.05
 ```
 
 `FALLBACK_*` は Gemini 障害時の OpenAI fallback だけを止めます。`GATEWAY_*` は Gemini / OpenAI を問わず Cloud Run gateway 全体を provider 呼び出し前に止めます。Firestore guard が有効な本番では、日次 cap は全 Cloud Run instance 共通で判定されます。
@@ -131,7 +132,7 @@ GATEWAY_GUARD_STATE_DOC=ops/aiGatewayGuard
 | Scan DB limit | ユーザーごとの scan 連打 | `check_and_increment_scan` |
 | Cloud Run auth | Cloud Run URL 直接攻撃 | Bearer token 必須、未認証 401 |
 | Cloud Run scale | 瞬間的な provider 呼び出し爆発 | max 3 instances、concurrency 10 |
-| Gateway Firestore guard | Cloud Run instance 再起動・複数 instance をまたぐ日次暴走 | Firestore transaction、300 calls / 900 円 estimate |
+| Gateway Firestore guard | Cloud Run instance 再起動・複数 instance をまたぐ日次暴走 | Firestore transaction、300 calls / 900 円（usage ベースの動的見積もり） |
 | Budget auto stop | 月次 GCP spend / forecast の高騰 | 5,000 円 budget の90%で Firestore disabled |
 | Fallback cap | Gemini 障害時の OpenAI fallback 暴走 | 100 calls / 300 円 estimate |
 | Billing budget | GCP 月次支出の早期検知 | 5,000 円 budget |
@@ -145,7 +146,8 @@ GATEWAY_GUARD_STATE_DOC=ops/aiGatewayGuard
    - Cloud Billing API で billing disable する方式もあるが、project の全サービス停止を伴うため通常運用では使わない。
 
 2. 日次 cap は推定額ベース。
-   - `GATEWAY_ESTIMATED_YEN_PER_CALL=3` による保守的な概算であり、実請求と完全一致しない。
+   - リクエスト完了ごとに provider の実際の usage (tokens) を `cloud-run-scan/src/pricing/pricing.ts` の価格表で円換算した動的見積もりであり、実請求と完全一致しない。
+   - usage が取得できない場合も無料扱いにはせず、保守的な `GATEWAY_FLAT_FALLBACK_USD` 見積もりを課金する。
    - ただし Firestore transaction により、Cloud Run instance 再起動や scale-to-zero ではリセットされない。
 
 3. Google Cloud quota は金額 cap ではない。

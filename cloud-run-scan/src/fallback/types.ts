@@ -1,3 +1,5 @@
+import type { NormalizedUsage } from '../pricing/types.js';
+
 export type BreakerState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 export type AppEnv = 'prod' | 'stg';
 
@@ -104,6 +106,7 @@ export interface ProviderGenerateResult {
   content: string;
   modelUsed: string;
   usage?: ProviderUsage;
+  normalizedUsage: NormalizedUsage;
 }
 
 export interface FallbackRunnerDeps {
@@ -121,5 +124,6 @@ export interface ExecuteGeminiWithFallbackResult {
   content: string;
   modelUsed: string;
   usage?: ProviderUsage;
+  normalizedUsage: NormalizedUsage;
   fallbackReason?: string;
 }

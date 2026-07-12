@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 
 import { GeminiFallbackRunner, loadFallbackConfigFromEnv } from './runner.js';
 import type { FallbackConfig } from './types.js';
+import type { NormalizedUsage } from '../pricing/types.js';
+
+function openAIUsage(overrides: Partial<NormalizedUsage> = {}): NormalizedUsage {
+  return {
+    provider: 'openai',
+    model: 'gpt-4o',
+    imageInputPresent: false,
+    usageAvailable: true,
+    usageSource: 'provider_response',
+    ...overrides,
+  };
+}
 
 const baseConfig: FallbackConfig = {
   fallbackOpenAIModel: 'gpt-4o',
@@ -43,6 +55,7 @@ test('QUOTA_EXHAUSTED falls back immediately without retries', async () => {
           content: 'fallback-ok',
           modelUsed: 'gpt-4o',
           usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+          normalizedUsage: openAIUsage({ inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
         };
       },
     },
@@ -75,6 +88,7 @@ test('RATE_LIMIT_BURST retries twice then falls back', async () => {
         return {
           content: 'fallback-after-retry',
           modelUsed: 'gpt-4o',
+          normalizedUsage: openAIUsage(),
         };
       },
     },
@@ -106,6 +120,7 @@ test('TIMEOUT retries once then falls back', async () => {
         return {
           content: 'fallback-timeout',
           modelUsed: 'gpt-4o',
+          normalizedUsage: openAIUsage(),
         };
       },
     },
@@ -136,6 +151,7 @@ test('INVALID_INPUT does not fallback', async () => {
           return {
             content: 'should-not-run',
             modelUsed: 'gpt-4o',
+            normalizedUsage: openAIUsage(),
           };
         },
       },
@@ -212,6 +228,7 @@ test('empty-content errors retry and fallback to OpenAI', async () => {
         return {
           content: 'fallback-empty-content',
           modelUsed: 'gpt-4o',
+          normalizedUsage: openAIUsage(),
         };
       },
     },

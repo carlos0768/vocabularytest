@@ -81,7 +81,9 @@ Cloud Run側:
 - [ ] `GATEWAY_FIRESTORE_GUARD_ENABLED=true`。
 - [ ] `GATEWAY_FIRESTORE_GUARD_FAIL_CLOSED=true`。
 - [ ] `GATEWAY_GUARD_STATE_DOC=ops/aiGatewayGuard`。
-- [ ] `/health` の `gatewayGuardStore` が `firestore`。
+- [ ] `GATEWAY_USD_TO_JPY_RATE` が現在の為替レートに近い値。
+- [ ] `GATEWAY_FLAT_FALLBACK_USD` が保守的な高めの見積もりになっている。
+- [ ] `/health` の `gatewayGuardStore` が `firestore`、`pricingVersion` が期待するバージョン。
 - [ ] `FALLBACK_SLACK_WEBHOOK_URL` は必要な場合だけ設定。
 
 注意:
