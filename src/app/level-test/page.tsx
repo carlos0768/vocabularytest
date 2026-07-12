@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { triggerHaptic } from '@/lib/haptics';
 import { loadLevelTestBank, type LevelTestBank } from '@/lib/level-test/bank';
 import {
+  EIKEN_LEVEL_LABELS,
   LEVEL_TEST_QUESTION_COUNT,
   answerQuestion,
   buildQuestion,
@@ -27,6 +28,7 @@ import {
   clearLevelTestSession,
   loadLevelTestSession,
   saveLevelTestSession,
+  type AnsweredWord,
 } from '@/lib/level-test/session';
 
 // 語彙レベル診断。未ログインで完全動作し、DBには一切アクセスしない
@@ -66,8 +68,10 @@ export default function LevelTestPage() {
 
   const [state, setState] = useState<LevelTestState>(() => createInitialState());
   const usedKeysRef = useRef<Set<string>>(new Set());
+  const answeredWordsRef = useRef<AnsweredWord[]>([]);
   const [current, setCurrent] = useState<CurrentQuestion | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [answeredWords, setAnsweredWords] = useState<AnsweredWord[]>([]);
   const [resultPayload, setResultPayload] = useState<LevelTestResultPayload | null>(null);
   const [resultCode, setResultCode] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -115,6 +119,7 @@ export default function LevelTestPage() {
         const restored = session.state;
         const used = new Set(session.usedKeys);
         usedKeysRef.current = used;
+        answeredWordsRef.current = [...session.answeredWords];
         setState(restored);
         setScreen('quiz');
         if (session.currentQuestion) {
@@ -133,7 +138,9 @@ export default function LevelTestPage() {
     clearLevelTestSession();
     const initial = createInitialState();
     usedKeysRef.current = new Set();
+    answeredWordsRef.current = [];
     setState(initial);
+    setAnsweredWords([]);
     setResultPayload(null);
     setResultCode(null);
     setScreen('quiz');
@@ -142,6 +149,7 @@ export default function LevelTestPage() {
       saveLevelTestSession({
         state: initial,
         usedKeys: [],
+        answeredWords: [],
         currentQuestion: { levelIndex: question.levelIndex, wordIndex: question.wordIndex },
       });
     }
@@ -153,6 +161,7 @@ export default function LevelTestPage() {
     // 表示は共有ページと同じdecode済みペイロードを使う(表示条件を揃える)
     const payload = decodeLevelTestResult(code);
     clearLevelTestSession();
+    setAnsweredWords([...answeredWordsRef.current]);
     setResultCode(code);
     setResultPayload(payload ?? {
       v: 1,
@@ -180,6 +189,11 @@ export default function LevelTestPage() {
 
     const used = usedKeysRef.current;
     used.add(usedKeyFor(current.levelIndex, current.wordIndex));
+    answeredWordsRef.current.push({
+      levelIndex: current.levelIndex,
+      wordIndex: current.wordIndex,
+      correct,
+    });
 
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     advanceTimerRef.current = setTimeout(() => {
@@ -191,6 +205,7 @@ export default function LevelTestPage() {
       saveLevelTestSession({
         state: nextState,
         usedKeys: [...used],
+        answeredWords: [...answeredWordsRef.current],
         currentQuestion: question
           ? { levelIndex: question.levelIndex, wordIndex: question.wordIndex }
           : null,
@@ -217,6 +232,16 @@ export default function LevelTestPage() {
             診断結果
           </div>
           <LevelTestResultCard payload={resultPayload} variant="own" />
+
+          {bank && answeredWords.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.15 }}
+            >
+              <AnsweredWordsPanel bank={bank} answeredWords={answeredWords} />
+            </motion.div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -366,6 +391,62 @@ function StartScreen({
             MERKENのアカウントをお持ちの方はログイン
           </Link>
         )}
+      </div>
+    </div>
+  );
+}
+
+// 出題された全単語の○×ふり返りリスト(結果画面のレベル表示の下に出す)。
+// 回答履歴は端末内(sessionStorage/メモリ)にのみあるため、共有ページでは表示されない。
+function AnsweredWordsPanel({
+  bank,
+  answeredWords,
+}: {
+  bank: LevelTestBank;
+  answeredWords: AnsweredWord[];
+}) {
+  const wrongCount = answeredWords.filter((answered) => !answered.correct).length;
+
+  return (
+    <div className="mt-4 rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 shadow-[3px_3px_0_var(--solid-ink)]">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <div className="font-display text-[16px] font-extrabold text-[var(--solid-ink)]">
+          出題された単語をふり返ろう
+        </div>
+        {wrongCount > 0 && (
+          <div className="shrink-0 text-[11px] font-bold text-[var(--color-muted)]">
+            間違えた単語 {wrongCount}語
+          </div>
+        )}
+      </div>
+      <div className="divide-y divide-[var(--color-border)]">
+        {answeredWords.map((answered, index) => {
+          const word = bank.levels[answered.levelIndex]?.[answered.wordIndex];
+          if (!word) return null;
+          const gradeLabel = EIKEN_LEVEL_LABELS[answered.levelIndex].replace('英検', '');
+          return (
+            <div key={`${answered.levelIndex}-${answered.wordIndex}-${index}`} className="flex items-center gap-2.5 py-2.5">
+              {answered.correct ? (
+                <Icon name="check" size={18} className="shrink-0 text-[var(--color-success,#15803d)]" />
+              ) : (
+                <Icon name="close" size={18} className="shrink-0 text-[var(--color-error,#dc2626)]" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">
+                    {word.english}
+                  </span>
+                  <span className="shrink-0 rounded-[6px] border border-[var(--color-border)] bg-[var(--color-background)] px-1.5 py-0.5 font-mono text-[9px] font-bold text-[var(--color-muted)]">
+                    {gradeLabel}
+                  </span>
+                </div>
+              </div>
+              <div className={`max-w-[45%] truncate text-right text-[12px] font-bold ${answered.correct ? 'text-[var(--color-muted)]' : 'text-[var(--color-error,#dc2626)]'}`}>
+                {word.japanese}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
