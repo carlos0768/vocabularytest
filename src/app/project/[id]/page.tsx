@@ -932,6 +932,7 @@ export default function ProjectPage() {
     let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
     let enrichedExampleSentence = userExample;
     let enrichedExampleSentenceJa = '';
+    let enrichedMorphology: Word['morphology'];
 
     try {
       const enrichResponse = await fetch('/api/words/enrich-manual', {
@@ -954,6 +955,7 @@ export default function ProjectPage() {
             exampleSentence?: string;
             exampleSentenceJa?: string;
           };
+          morphology?: Word['morphology'];
         };
         if (data.success && data.enriched) {
           enrichedPronunciation = data.enriched.pronunciation ?? '';
@@ -964,6 +966,7 @@ export default function ProjectPage() {
             enrichedExampleSentence = data.enriched.exampleSentence;
           }
           enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
+          enrichedMorphology = data.morphology;
         }
       }
     } catch (enrichError) {
@@ -980,6 +983,7 @@ export default function ProjectPage() {
       partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
       exampleSentence: enrichedExampleSentence || undefined,
       exampleSentenceJa: enrichedExampleSentenceJa || undefined,
+      morphology: enrichedMorphology,
       status: 'new',
       createdAt: new Date().toISOString(),
       easeFactor: 2.5,
@@ -1009,6 +1013,7 @@ export default function ProjectPage() {
           ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
           ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
           ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
+          ...(enrichedMorphology ? { morphology: enrichedMorphology } : {}),
         },
       ])
       .then((created) => {

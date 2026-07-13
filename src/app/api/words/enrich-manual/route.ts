@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { AI_CONFIG } from '@/lib/ai/config';
+import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
 import { getProviderFromConfig, getProvider, isCloudRunConfigured } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
+import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { normalizeHeadword } from '../../../../../shared/lexicon';
+import type { WordMorphology } from '../../../../../shared/types';
 
 /**
  * POST /api/words/enrich-manual
@@ -12,6 +16,10 @@ import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
  * 手動単語追加時に、未入力の補助フィールドをAIで素早く補完する。
  * body パース → AI 呼び出しを即座に開始し、認証チェックと並列実行する。
  * 認証失敗時は AI 結果を破棄して 401 を返す。
+ *
+ * あわせて語源解析（morphology）もスキャン経路と同じ resolver で best-effort
+ * 生成し、成功時のみ `morphology` としてレスポンスに含める。生成は補完 AI と
+ * 並列で走り、失敗・タイムアウトしても手動追加は成功させる。
  */
 
 const requestSchema = z.object({
@@ -44,9 +52,41 @@ exampleSentenceJa: exampleSentenceの日本語訳
 指示されたフィールドのみ生成せよ。`;
 
 const ENRICH_TIMEOUT_MS = 8000;
+const MORPHOLOGY_TIMEOUT_MS = 8000;
 
 function buildPrompt(english: string, japanese: string): string {
   return `"${english}"${japanese ? ` (${japanese})` : ''}\n生成: pronunciation, partOfSpeechTags, exampleSentence, exampleSentenceJa`;
+}
+
+/**
+ * promise を ms でタイムアウトさせ、間に合わなければ fallback を返す。
+ * タイマーは必ず解除する。
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
+/**
+ * 単語1語の語源解析を best-effort で解決する。
+ * スキャン経路と同じ resolver（lexicon キャッシュ照会 → 候補マッチ → AI 生成 →
+ * lexicon 保存）を使うので、既知語は即時ヒットし全ユーザーで結果を共有する。
+ * 表示可能な語源構造がない場合や失敗時は undefined を返す（例外は投げない）。
+ */
+async function resolveManualMorphology(english: string): Promise<WordMorphology | undefined> {
+  try {
+    const morphologyMap = await resolveMorphologyForWords([{ english }], getAPIKeys());
+    const morphology = morphologyMap.get(normalizeHeadword(english));
+    return hasDisplayableMorphology(morphology) ? morphology : undefined;
+  } catch (error) {
+    console.error('[enrich-manual] Morphology generation failed (non-critical):', error);
+    return undefined;
+  }
 }
 
 function getEnrichProvider() {
@@ -116,6 +156,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // 2b. 語源解析も補完 AI と並列で開始 (best-effort, auth 完了を待たない)。
+    // resolveManualMorphology は例外を投げず、タイムアウト時は undefined を返す。
+    const morphologyPromise = withTimeout(
+      resolveManualMorphology(englishTrimmed),
+      MORPHOLOGY_TIMEOUT_MS,
+      undefined,
+    );
 
     // 3. 認証チェックを AI と並列で実行
     const authHeader = request.headers.get('authorization');
@@ -188,12 +236,17 @@ export async function POST(request: NextRequest) {
     const finalExampleJa = filledExampleJa || (parsedAi.exampleSentenceJa || '').trim();
     if (needsExample && finalExample && finalExampleJa) generatedFields.push('exampleSentence');
 
+    // 7. 並列実行していた語源解析を回収 (既に enrich と重なって進行済み)
+    const morphology = await morphologyPromise;
+    if (morphology) generatedFields.push('morphology');
+
     const totalMs = Date.now() - totalStart;
     console.log('[enrich-manual] Completed', {
       english: englishTrimmed,
       totalMs,
       aiWaitMs,
       generatedFields,
+      morphology: Boolean(morphology),
     });
 
     return NextResponse.json({
@@ -205,6 +258,7 @@ export async function POST(request: NextRequest) {
         exampleSentenceJa: finalExampleJa,
       },
       generatedFields,
+      ...(morphology ? { morphology } : {}),
     });
   } catch (error) {
     console.error('[enrich-manual] Unexpected error:', error);
