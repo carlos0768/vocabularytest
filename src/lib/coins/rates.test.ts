@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   EXTRA_IMAGE_COIN_COST,
+  MANUAL_MORPHOLOGY_COIN_COST,
   MONTHLY_COIN_ALLOWANCE,
   MORPHOLOGY_COIN_COST,
   SCAN_MODE_COIN_RATES,
@@ -103,4 +104,31 @@ test('morphology surcharge in SQL migration matches the TS mirror', () => {
   // PostgRESTのオーバーロード曖昧化防止: 旧シグネチャのDROPが必須
   assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.consume_scan_coins(TEXT[], INTEGER, UUID);'));
   assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.scan_coin_cost(TEXT[], INTEGER);'));
+});
+
+// 手動追加の語源解析コスト（1語あたり）のTS/SQLリテラル一致。
+// レート変更時は src/lib/coins/rates.ts と
+// supabase/migrations/20260713120000_manual_morphology_coin_cost.sql を同時に更新すること。
+test('manual-add morphology cost in SQL migration matches the TS mirror', () => {
+  const migrationSource = readFileSync(
+    fileURLToPath(
+      new URL(
+        '../../../supabase/migrations/20260713120000_manual_morphology_coin_cost.sql',
+        import.meta.url,
+      ),
+    ),
+    'utf8',
+  );
+
+  assert.equal(MANUAL_MORPHOLOGY_COIN_COST, 1);
+  // 1語あたりの定額コスト（p_count * <RATE>）
+  assert.ok(migrationSource.includes(`v_cost := p_count * ${MANUAL_MORPHOLOGY_COIN_COST};`));
+
+  // 専用の消費RPCと専用トランザクション種別を持つこと
+  assert.ok(migrationSource.includes('CREATE OR REPLACE FUNCTION public.consume_manual_morphology_coins'));
+  assert.ok(migrationSource.includes("'manual_morphology_consume'"));
+  assert.ok(migrationSource.includes('GRANT EXECUTE ON FUNCTION public.consume_manual_morphology_coins(INTEGER) TO authenticated;'));
+
+  // 月次付与300枚・JST境界は共有ヘルパー由来だが、金額のピン留めは共通で維持
+  assert.ok(migrationSource.includes('v_balance.monthly_coins := 300;'));
 });

@@ -106,7 +106,7 @@ getRepository(subscriptionStatus, wasPro)
 | Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
 | Scanning | Not available (Pro-only, server-enforced) | Coin-based: 300 coins/month (JST calendar month, no rollover) when `COIN_SYSTEM_ENABLED=true`; unlimited when the flag is off |
-| Coin costs | — | circled=2, all/eiken/idiom=3, composite=sum, +1 per extra image |
+| Coin costs | — | Scan: circled=2, all/eiken/idiom=3, composite=sum, +1 per extra image, +2 morphology surcharge. Manual add: 1/word morphology (語源解析), success-gated & skipped (not blocked) when out of coins |
 | Coin packs | — | Web-only Stripe one-time checkout (card + PayPay): 100/¥150, 300/¥400, 1000/¥1,200. Purchased coins never expire |
 | Wordbooks (単語帳) | 50 (server-enforced) | Unlimited |
 | Words per wordbook | Unlimited | Unlimited |
@@ -116,7 +116,7 @@ getRepository(subscriptionStatus, wasPro)
 | Data storage | Cloud (Supabase) + IndexedDB cache (login required) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | Yes (login required; capped at 50 wordbooks server-side) | Yes |
 
-Coin system core: `src/lib/coins/` (rates, scan gate, refund, packs, purchase providers) + `supabase/migrations/20260705120000_create_coin_system.sql`. Rates are duplicated in TS and SQL and pinned by `src/lib/coins/rates.test.ts` — change both together.
+Coin system core: `src/lib/coins/` (rates, scan gate, manual-morphology gate, refund, packs, purchase providers) + `supabase/migrations/20260705120000_create_coin_system.sql`. Rates are duplicated in TS and SQL and pinned by `src/lib/coins/rates.test.ts` — change both together. Manual-add morphology consumes coins via the dedicated `consume_manual_morphology_coins` RPC (`20260713120000_manual_morphology_coin_cost.sql`); charging is success-gated (only after a displayable etymology is produced) and best-effort (Free users and out-of-coins Pro users simply get no morphology — the word is still saved).
 
 ### Data Flow
 1. User uploads image -> `/api/extract` -> Gemini 2.5 Flash (or Cloud Run proxy)
