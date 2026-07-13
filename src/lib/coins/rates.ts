@@ -18,6 +18,11 @@ export const EXTRA_IMAGE_COIN_COST = 1;
 // SQL側は 20260712101000_morphology_coin_cost.sql の scan_coin_cost()。
 export const MORPHOLOGY_COIN_COST = 2;
 
+// 手動追加時の語源解析コスト（1語あたり）。スキャンと違いモードがないため
+// 定額。SQL側は 20260713120000_manual_morphology_coin_cost.sql の
+// consume_manual_morphology_coins()。両者のリテラル一致は rates.test.ts で担保。
+export const MANUAL_MORPHOLOGY_COIN_COST = 1;
+
 export const MONTHLY_COIN_ALLOWANCE = 300;
 
 export interface ScanCoinCostOptions {

@@ -7,6 +7,8 @@ import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { chargeManualMorphologyCoins } from '@/lib/coins/manual-morphology-gate';
+import type { CoinInfo } from '@/lib/coins/scan-gate';
 import { normalizeHeadword } from '../../../../../shared/lexicon';
 import type { WordMorphology } from '../../../../../shared/types';
 
@@ -236,8 +238,21 @@ export async function POST(request: NextRequest) {
     const finalExampleJa = filledExampleJa || (parsedAi.exampleSentenceJa || '').trim();
     if (needsExample && finalExample && finalExampleJa) generatedFields.push('exampleSentence');
 
-    // 7. 並列実行していた語源解析を回収 (既に enrich と重なって進行済み)
-    const morphology = await morphologyPromise;
+    // 7. 並列実行していた語源解析を回収 (既に enrich と重なって進行済み)。
+    //    表示可能な語源解析が得られたときだけコインを消費し（成果課金）、消費
+    //    できたときのみ morphology を付与する。無料ユーザー・コイン不足時は
+    //    語源解析を落として単語追加は成功させる（COIN_SYSTEM_ENABLED オフ時は
+    //    従来どおり無料で付与）。
+    const generatedMorphology = await morphologyPromise;
+    let morphology = generatedMorphology;
+    let coinInfo: CoinInfo | null = null;
+    if (generatedMorphology) {
+      const charge = await chargeManualMorphologyCoins(supabase, 1);
+      coinInfo = charge.coinInfo;
+      if (!charge.charged) {
+        morphology = undefined;
+      }
+    }
     if (morphology) generatedFields.push('morphology');
 
     const totalMs = Date.now() - totalStart;
@@ -247,6 +262,7 @@ export async function POST(request: NextRequest) {
       aiWaitMs,
       generatedFields,
       morphology: Boolean(morphology),
+      morphologyCharged: Boolean(coinInfo),
     });
 
     return NextResponse.json({
@@ -259,6 +275,7 @@ export async function POST(request: NextRequest) {
       },
       generatedFields,
       ...(morphology ? { morphology } : {}),
+      ...(coinInfo ? { coinInfo } : {}),
     });
   } catch (error) {
     console.error('[enrich-manual] Unexpected error:', error);
