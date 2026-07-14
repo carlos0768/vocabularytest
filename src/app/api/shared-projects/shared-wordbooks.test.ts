@@ -271,6 +271,66 @@ test('listPublicSharedWordbooks maps snapshot rows to cards', async () => {
   assert.equal(payload.items[0].ownerAccountId, 'taro123');
 });
 
+test('publishSharedWordbook snapshots the full multi-meaning translation list', async () => {
+  const store = makeStore({
+    projects: [{ id: 'p1', user_id: 'u1', title: 'Multi', description: null, icon_image: null, source_labels: [] }],
+    words: [
+      {
+        project_id: 'p1',
+        english: 'run',
+        japanese: '走る',
+        distractors: [],
+        created_at: '2026-01-01T00:00:00Z',
+        word_translations: [
+          { translation_ja: '経営する', meaning_rank: 2, position: 1, is_primary: false, source: 'ai' },
+          { translation_ja: '走る', meaning_rank: 1, position: 0, is_primary: true },
+        ],
+      },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  await publishSharedWordbook('u1', 'p1', [], asAdmin(admin));
+
+  assert.equal(store.shared_wordbook_words.length, 1);
+  assert.deepEqual(store.shared_wordbook_words[0].translations, [
+    { translationJa: '走る', meaningRank: 1 },
+    { translationJa: '経営する', meaningRank: 2, source: 'ai' },
+  ], 'primary meaning first, all meanings kept');
+});
+
+test('getSharedWordbookPreview rehydrates snapshot translations onto words', async () => {
+  const store = makeStore({
+    shared_wordbooks: [
+      { id: 'sw1', share_id: 'abc', source_project_id: 'p1', user_id: 'u1', title: 'A', shared_tags: [], word_count: 1, like_count: 0, created_at: '2026-02-01T00:00:00Z' },
+    ],
+    shared_wordbook_words: [
+      {
+        id: 'w1',
+        shared_wordbook_id: 'sw1',
+        position: 0,
+        english: 'run',
+        japanese: '走る',
+        distractors: [],
+        created_at: '2026-02-01T00:00:00Z',
+        translations: [
+          { translationJa: '走る', meaningRank: 1 },
+          { translationJa: '経営する', meaningRank: 2 },
+        ],
+      },
+    ],
+  });
+  const admin = new FakeAdmin(store);
+
+  const preview = await getSharedWordbookPreview('abc', 5, asAdmin(admin));
+  assert.ok(preview);
+  const word = preview!.words[0];
+  assert.equal(word.translations?.length, 2, 'both meanings survive the snapshot round-trip');
+  assert.equal(word.translations?.[0].translationJa, '走る');
+  assert.equal(word.translations?.[0].isPrimary, true);
+  assert.equal(word.translations?.[1].translationJa, '経営する');
+});
+
 test('getSharedWordbookPreview returns mapped project and words', async () => {
   const store = makeStore({
     shared_wordbooks: [

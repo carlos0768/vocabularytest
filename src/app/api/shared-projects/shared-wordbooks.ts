@@ -8,6 +8,11 @@ import type {
 import type { Project, Word } from '@/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../shared/db';
 import { normalizeSharedTags } from '../../../../shared/shared-tags';
+import {
+  normalizeSnapshotTranslations,
+  snapshotTranslationsFromWordTranslationRows,
+  snapshotTranslationsToWordTranslations,
+} from '@/lib/shared-projects/snapshot-translations';
 import { createSharedTagsEmbedding } from '@/lib/shared-projects/tag-embeddings';
 import { computeEikenLevelTagForWords, mergeEikenLevelTag } from '@/lib/shared-projects/eiken-level-tag';
 
@@ -15,7 +20,9 @@ type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
 const SHARED_WORDBOOK_SELECT = 'id,share_id,source_project_id,user_id,title,description,icon_image,source_labels,shared_tags,word_count,like_count,created_at';
 const SHARED_WORDBOOK_WORD_SELECT = 'id,position,english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,created_at';
+const SHARED_WORDBOOK_WORD_SELECT_WITH_TRANSLATIONS = `${SHARED_WORDBOOK_WORD_SELECT},translations`;
 const SOURCE_WORD_SELECT = 'english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,created_at';
+const SOURCE_WORD_SELECT_WITH_TRANSLATIONS = `${SOURCE_WORD_SELECT},word_translations(translation_ja,meaning_rank,position,is_primary,source)`;
 
 const DEFAULT_PUBLIC_PAGE_SIZE = 8;
 const MAX_PUBLIC_PAGE_SIZE = 24;
@@ -48,6 +55,7 @@ type SharedWordbookWordRow = {
   part_of_speech_tags?: unknown;
   vocabulary_type?: string | null;
   distractors?: unknown;
+  translations?: unknown;
   created_at: string;
 };
 
@@ -60,6 +68,7 @@ type SourceWordRow = {
   part_of_speech_tags?: unknown;
   vocabulary_type?: string | null;
   distractors?: unknown;
+  word_translations?: unknown;
   created_at: string;
 };
 
@@ -134,11 +143,15 @@ function mapSharedWordbookCard(
 }
 
 function mapSharedWordbookWord(row: SharedWordbookWordRow, sharedWordbookId: string): Word {
+  const translations = snapshotTranslationsToWordTranslations(
+    normalizeSnapshotTranslations(row.translations),
+  );
   return {
     id: row.id,
     projectId: sharedWordbookId,
     english: row.english,
     japanese: row.japanese,
+    ...(translations ? { translations } : {}),
     pronunciation: row.pronunciation ?? undefined,
     exampleSentence: row.example_sentence ?? undefined,
     exampleSentenceJa: row.example_sentence_ja ?? undefined,
@@ -353,6 +366,30 @@ export async function getSharedWordbookByShareId(
   return data ?? null;
 }
 
+/**
+ * Select snapshot words, preferring the multi-meaning `translations` column
+ * and retrying without it while the column migration has not been applied.
+ */
+async function selectSnapshotWords(
+  admin: SupabaseAdminClient,
+  sharedWordbookId: string,
+  limit?: number,
+) {
+  const run = (columns: string) => {
+    const query = admin
+      .from('shared_wordbook_words')
+      .select(columns)
+      .eq('shared_wordbook_id', sharedWordbookId)
+      .order('position', { ascending: true });
+    return typeof limit === 'number' ? query.limit(limit) : query;
+  };
+
+  const primary = await run(SHARED_WORDBOOK_WORD_SELECT_WITH_TRANSLATIONS);
+  if (!primary.error) return primary;
+  console.warn('[shared-wordbooks] snapshot word select fallback:', primary.error.message);
+  return run(SHARED_WORDBOOK_WORD_SELECT);
+}
+
 export async function getSharedWordbookPreview(
   shareId: string,
   wordLimit = DEFAULT_SHARE_PREVIEW_WORD_LIMIT,
@@ -363,12 +400,7 @@ export async function getSharedWordbookPreview(
 
   const limit = clampSharePreviewWordLimit(wordLimit);
   const [wordsResult, profileByUserId] = await Promise.all([
-    admin
-      .from('shared_wordbook_words')
-      .select(SHARED_WORDBOOK_WORD_SELECT)
-      .eq('shared_wordbook_id', row.id)
-      .order('position', { ascending: true })
-      .limit(limit),
+    selectSnapshotWords(admin, row.id, limit),
     getProfilesByUserIds(admin, [row.user_id]),
   ]);
 
@@ -379,7 +411,7 @@ export async function getSharedWordbookPreview(
   const profile = profileByUserId.get(row.user_id);
   return {
     project: mapProjectFromRow(toProjectRow(row)),
-    words: ((wordsResult.data ?? []) as SharedWordbookWordRow[]).map((word) => mapSharedWordbookWord(word, row.id)),
+    words: ((wordsResult.data ?? []) as unknown as SharedWordbookWordRow[]).map((word) => mapSharedWordbookWord(word, row.id)),
     totalWordCount: Number(row.word_count ?? wordsResult.data?.length ?? 0),
     likeCount: Number(row.like_count ?? 0),
     ownerUsername: profile?.username ?? null,
@@ -394,16 +426,12 @@ export async function getSharedWordbookWords(
   const row = await getSharedWordbookByShareId(shareId, admin);
   if (!row) return [];
 
-  const { data, error } = await admin
-    .from('shared_wordbook_words')
-    .select(SHARED_WORDBOOK_WORD_SELECT)
-    .eq('shared_wordbook_id', row.id)
-    .order('position', { ascending: true });
+  const { data, error } = await selectSnapshotWords(admin, row.id);
 
   if (error) {
     throw new Error(error.message || 'shared_wordbook_words_failed');
   }
-  return ((data ?? []) as SharedWordbookWordRow[]).map((word) => mapSharedWordbookWord(word, row.id));
+  return ((data ?? []) as unknown as SharedWordbookWordRow[]).map((word) => mapSharedWordbookWord(word, row.id));
 }
 
 // ============ Owner management ============
@@ -456,17 +484,25 @@ export async function publishSharedWordbook(
     throw new SharedWordbookError('forbidden', 'project_not_owned');
   }
 
-  // Snapshot the words from the source project.
-  const { data: wordRows, error: wordError } = await admin
+  // Snapshot the words from the source project, including the full
+  // multi-meaning list so imports keep every translation. Retry without the
+  // word_translations relation if the embed is unavailable.
+  const selectSourceWords = (columns: string) => admin
     .from('words')
-    .select(SOURCE_WORD_SELECT)
+    .select(columns)
     .eq('project_id', projectId)
     .order('created_at', { ascending: true });
+
+  let { data: wordRows, error: wordError } = await selectSourceWords(SOURCE_WORD_SELECT_WITH_TRANSLATIONS);
+  if (wordError) {
+    console.warn('[shared-wordbooks] publish source word select fallback:', wordError.message);
+    ({ data: wordRows, error: wordError } = await selectSourceWords(SOURCE_WORD_SELECT));
+  }
 
   if (wordError) {
     throw new Error(wordError.message || 'shared_wordbook_publish_words_failed');
   }
-  const sourceWords = (wordRows ?? []) as SourceWordRow[];
+  const sourceWords = (wordRows ?? []) as unknown as SourceWordRow[];
 
   // Auto-tag the snapshot with the EIKEN grade estimated from its words so
   // discovery always reflects the current difficulty (英検5級〜英検1級).
@@ -535,7 +571,7 @@ export async function publishSharedWordbook(
   }
 
   if (sourceWords.length > 0) {
-    const wordPayload = sourceWords.map((word, index) => ({
+    const buildWordPayload = (withTranslations: boolean) => sourceWords.map((word, index) => ({
       shared_wordbook_id: sharedWordbookId,
       position: index,
       english: word.english,
@@ -546,12 +582,23 @@ export async function publishSharedWordbook(
       part_of_speech_tags: word.part_of_speech_tags ?? null,
       vocabulary_type: word.vocabulary_type ?? null,
       distractors: Array.isArray(word.distractors) ? word.distractors : [],
+      ...(withTranslations
+        ? { translations: snapshotTranslationsFromWordTranslationRows(word.word_translations) ?? null }
+        : {}),
       created_at: word.created_at,
     }));
 
-    const { error: wordsInsertError } = await admin
+    // Retry without the translations column while its migration has not
+    // been applied — a snapshot with single meanings beats a failed publish.
+    let { error: wordsInsertError } = await admin
       .from('shared_wordbook_words')
-      .insert(wordPayload);
+      .insert(buildWordPayload(true));
+    if (wordsInsertError) {
+      console.warn('[shared-wordbooks] snapshot word insert fallback:', wordsInsertError.message);
+      ({ error: wordsInsertError } = await admin
+        .from('shared_wordbook_words')
+        .insert(buildWordPayload(false)));
+    }
     if (wordsInsertError) {
       throw new Error(wordsInsertError.message || 'shared_wordbook_words_insert_failed');
     }

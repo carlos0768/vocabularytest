@@ -514,6 +514,7 @@ export default function ProjectPage() {
         projectId: targetProjectId,
         english: w.english,
         japanese: w.japanese,
+        translations: w.translations,
         vocabularyType: w.vocabularyType,
         japaneseSource: w.japaneseSource,
         lexiconEntryId: w.lexiconEntryId,
