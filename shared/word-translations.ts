@@ -93,12 +93,17 @@ function removeAnnotationRanges(text: string, ranges: readonly string[]): string
 }
 
 function splitNumberedTranslations(text: string): string[] {
-  const markerPattern = /(?:^|\s)(?:\d+|[①②③④⑤⑥⑦⑧⑨⑩])[\.\)、)]\s*/g;
+  // A rank marker is "1." / "2)" / "①" etc. It may directly follow the
+  // previous meaning with no whitespace ("1.走る2.経営する"), so any
+  // non-alphanumeric boundary counts. The captured boundary character is
+  // re-inserted so meanings keep their trailing text. Circled numerals are
+  // markers on their own, with or without trailing punctuation.
+  const markerPattern = /(^|[^0-9A-Za-z.])(?:\d{1,2}[.)、)]|[①②③④⑤⑥⑦⑧⑨⑩][.)、)]?)\s*/g;
   const matches = Array.from(text.matchAll(markerPattern));
   if (matches.length < 2) return [text];
 
   return text
-    .replace(markerPattern, '\n')
+    .replace(markerPattern, '$1\n')
     .split('\n')
     .map(normalizeTranslationText)
     .filter(Boolean);
