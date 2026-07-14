@@ -20,6 +20,11 @@ import {
 import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 import { getCachedMorphologyByHeadword } from '@/lib/morphology/lexicon';
+import {
+  normalizeSnapshotTranslations,
+  snapshotTranslationsFromWordTranslationRows,
+  type SnapshotTranslation,
+} from '@/lib/shared-projects/snapshot-translations';
 import { normalizeHeadword } from '../../../../shared/lexicon';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
@@ -782,6 +787,7 @@ export async function setReelWordLike(options: {
 export type ReelBookWordPayload = {
   english: string;
   japanese: string;
+  translations?: SnapshotTranslation[];
   pronunciation?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
@@ -822,18 +828,27 @@ export async function getReelBookForImport(
       .maybeSingle<{ id: string; share_id: string; title: string; icon_image: string | null }>();
     if (!book) return null;
 
-    const { data: words, error } = await admin
+    // Prefer the multi-meaning translations column; retry without it while
+    // the column migration has not been applied.
+    const selectSnapshotWords = (columns: string) => admin
       .from('shared_wordbook_words')
-      .select('english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors')
+      .select(columns)
       .eq('shared_wordbook_id', book.id)
       .order('position', { ascending: true });
+
+    let { data: words, error } = await selectSnapshotWords('english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,translations');
+    if (error) {
+      console.warn('[reels] shared book word select fallback:', error.message);
+      ({ data: words, error } = await selectSnapshotWords('english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors'));
+    }
     if (error) throw new Error(error.message || 'reel_book_words_failed');
 
     return {
       book: { type: 'shared', title: book.title, iconImage: book.icon_image, shareId: book.share_id },
-      words: (words ?? []).map((row) => ({
+      words: ((words ?? []) as unknown as Record<string, unknown>[]).map((row) => ({
         english: row.english as string,
         japanese: (row.japanese as string) ?? '',
+        translations: normalizeSnapshotTranslations(row.translations),
         pronunciation: (row.pronunciation as string | null) ?? undefined,
         exampleSentence: (row.example_sentence as string | null) ?? undefined,
         exampleSentenceJa: (row.example_sentence_ja as string | null) ?? undefined,
@@ -858,11 +873,19 @@ export async function getReelBookForImport(
     }>();
   if (!project) return null;
 
-  const { data: words, error } = await admin
+  // Include each word's full meaning list; retry without the
+  // word_translations relation if the embed is unavailable.
+  const selectOfficialWords = (columns: string) => admin
     .from('words')
-    .select('english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors')
+    .select(columns)
     .eq('project_id', project.id)
     .order('created_at', { ascending: true });
+
+  let { data: words, error } = await selectOfficialWords('english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,word_translations(translation_ja,meaning_rank,position,is_primary,source)');
+  if (error) {
+    console.warn('[reels] official book word select fallback:', error.message);
+    ({ data: words, error } = await selectOfficialWords('english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors'));
+  }
   if (error) throw new Error(error.message || 'reel_book_words_failed');
 
   return {
@@ -872,11 +895,12 @@ export async function getReelBookForImport(
       iconImage: project.icon_image,
       officialSlug: project.official_slug,
     },
-    words: (words ?? [])
+    words: ((words ?? []) as unknown as Record<string, unknown>[])
       .filter((row) => typeof row.english === 'string' && row.english.trim() !== '')
       .map((row) => ({
         english: row.english as string,
         japanese: (row.japanese as string | null) ?? '',
+        translations: snapshotTranslationsFromWordTranslationRows(row.word_translations),
         pronunciation: (row.pronunciation as string | null) ?? undefined,
         exampleSentence: (row.example_sentence as string | null) ?? undefined,
         exampleSentenceJa: (row.example_sentence_ja as string | null) ?? undefined,

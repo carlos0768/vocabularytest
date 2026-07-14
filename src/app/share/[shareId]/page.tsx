@@ -267,6 +267,7 @@ export default function SharedDetailPage() {
           projectId: newProject.id,
           english: word.english,
           japanese: word.japanese,
+          translations: word.translations,
           distractors: word.distractors ?? [],
           exampleSentence: word.exampleSentence ?? undefined,
           exampleSentenceJa: word.exampleSentenceJa ?? undefined,

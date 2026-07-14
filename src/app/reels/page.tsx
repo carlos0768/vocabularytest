@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui/Icon';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
 import { REEL_SAVED_PROJECT_TITLE } from '@/lib/reels/saved-words';
 import { generateWordShareImage } from '@/lib/reels/share-image';
-import type { VocabularyType } from '@/types';
+import type { VocabularyType, WordTranslation } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
 import {
   ReelEmptyState,
@@ -20,9 +20,16 @@ import {
   ReelSkeleton,
 } from '@/components/reel/ReelStatusCards';
 
+type ImportWordTranslation = {
+  translationJa: string;
+  meaningRank?: number;
+  source?: 'scan' | 'ai' | 'user';
+};
+
 type ImportWordPayload = {
   english: string;
   japanese: string;
+  translations?: ImportWordTranslation[];
   pronunciation?: string;
   exampleSentence?: string;
   exampleSentenceJa?: string;
@@ -33,6 +40,19 @@ type ImportWordPayload = {
 
 function normalizeVocabularyType(value: string | undefined): VocabularyType | undefined {
   return value === 'active' || value === 'passive' ? value : undefined;
+}
+
+function toWordTranslations(entries: ImportWordTranslation[] | undefined): WordTranslation[] | undefined {
+  const valid = entries?.filter((entry) => typeof entry.translationJa === 'string' && entry.translationJa.trim() !== '');
+  if (!valid || valid.length === 0) return undefined;
+  return valid.map((entry, index) => ({
+    translationJa: entry.translationJa,
+    normalizedTranslationJa: entry.translationJa,
+    ...(entry.source ? { source: entry.source } : {}),
+    meaningRank: entry.meaningRank ?? index + 1,
+    position: index,
+    isPrimary: index === 0,
+  }));
 }
 
 export default function ReelsPage() {
@@ -119,6 +139,7 @@ export default function ReelsPage() {
             projectId: newProject.id,
             english: word.english,
             japanese: word.japanese,
+            translations: toWordTranslations(word.translations),
             distractors: word.distractors ?? [],
             pronunciation: word.pronunciation,
             exampleSentence: word.exampleSentence,

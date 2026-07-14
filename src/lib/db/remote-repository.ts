@@ -158,7 +158,7 @@ function normalizeRequestDateTime(value: unknown): string | undefined {
   return new Date(parsed).toISOString();
 }
 
-function normalizeWordsCreateTranslations(word: Word): WordsCreateRequestTranslation[] | undefined {
+function normalizeWordsCreateTranslations(word: Pick<Word, 'translations'>): WordsCreateRequestTranslation[] | undefined {
   const translations = word.translations
     ?.map((translation) => {
       const translationJa = normalizeRequestText(translation.translationJa, 300);
@@ -602,7 +602,15 @@ export class RemoteWordRepository implements WordRepository {
     const response = await fetch('/api/words/create', {
       method: 'POST',
       headers: await this.getAuthHeaders(),
-      body: JSON.stringify({ words }),
+      body: JSON.stringify({
+        // Domain WordTranslation objects carry keys the strict API schema
+        // rejects (normalizedTranslationJa, position, ...) — send only the
+        // accepted wire shape.
+        words: words.map((word) => ({
+          ...word,
+          translations: normalizeWordsCreateTranslations(word),
+        })),
+      }),
     });
 
     const payload = await response.json().catch(() => null);
@@ -888,6 +896,7 @@ export class RemoteWordRepository implements WordRepository {
         projectId: newProject.id,
         english: w.english,
         japanese: w.japanese,
+        translations: w.translations,
         distractors: w.distractors,
         exampleSentence: w.exampleSentence,
         exampleSentenceJa: w.exampleSentenceJa,
