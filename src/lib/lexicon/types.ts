@@ -6,6 +6,13 @@ export interface ValidatedTranslationCandidate {
   suggestedJapanese?: string | null;
 }
 
+/** AI訳生成の1つの意味（多義語対応）。 */
+export interface TranslatedSense {
+  japanese: string;
+  meaningSummary: string | null;
+  isPrimary: boolean;
+}
+
 export interface PendingLexiconEnrichmentCandidate {
   lexiconEntryId: string;
   english: string;

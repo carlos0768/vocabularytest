@@ -12,13 +12,18 @@ import {
   buildLexiconKey,
   buildPosClassificationKey,
   classifyPartOfSpeechBatchWithAI,
+  primaryTranslation,
   translateWithAI,
+  translateWordSensesWithAI,
+  translateWordsSensesWithAI,
   translateWordsWithAI,
   validateTranslationCandidatesWithAI,
 } from './ai';
+import { upsertAiTranslationSenses } from './senses';
 import type {
   LexiconResolveMetrics,
   PendingLexiconEnrichmentCandidate,
+  TranslatedSense,
   ValidatedTranslationCandidate,
 } from './types';
 
@@ -76,12 +81,22 @@ export interface ResolveLexiconDeps {
   translateWords?: (
     inputs: Array<{ english: string; pos: LexiconPos }>
   ) => Promise<Map<string, string | null>>;
+  /** 多義語対応の訳生成。未指定時は translateWord/translateWords をラップする。 */
+  translateWordSenses?: (english: string, pos: LexiconPos) => Promise<TranslatedSense[]>;
+  translateWordsSenses?: (
+    inputs: Array<{ english: string; pos: LexiconPos }>
+  ) => Promise<Map<string, TranslatedSense[]>>;
   validateTranslationCandidates?: (
     inputs: Array<{ english: string; pos: LexiconPos; japaneseHint: string }>
   ) => Promise<Map<string, ValidatedTranslationCandidate | null>>;
   classifyPartOfSpeechBatch?: (
     inputs: Array<{ english: string; japaneseHint?: string | null }>
   ) => Promise<Map<string, LexiconPos>>;
+}
+
+function wrapSingleTranslationAsSenses(japanese: string | null): TranslatedSense[] {
+  const normalized = normalizeLexiconTranslation(japanese);
+  return normalized ? [{ japanese: normalized, meaningSummary: null, isPrimary: true }] : [];
 }
 
 function mapLexiconEntry(row: LexiconEntryRow): LexiconEntry {
@@ -240,8 +255,9 @@ async function updateTranslationIfMissing(
     };
   }
 
-  const { supabaseAdmin, translateWord } = getResolverDeps(deps);
-  const translation = await translateWord(row.headword, pos);
+  const { supabaseAdmin, translateWordSenses } = getResolverDeps(deps);
+  const senses = await translateWordSenses(row.headword, pos);
+  const translation = primaryTranslation(senses);
   if (!translation) {
     return {
       entry: mapLexiconEntry(row),
@@ -265,6 +281,9 @@ async function updateTranslationIfMissing(
     throw new Error(error?.message || 'Failed to update lexicon translation');
   }
 
+  // 多義語の全senseを lexicon_senses へ保存（ベストエフォート）
+  await persistAiSensesBestEffort(supabaseAdmin, data.id, senses);
+
   return {
     entry: mapLexiconEntry(data),
     translatedSynchronously: true,
@@ -274,13 +293,48 @@ async function updateTranslationIfMissing(
 }
 
 function getResolverDeps(deps?: ResolveLexiconDeps) {
+  // テスト等で translateWord / translateWords（単一訳）だけが注入された場合は
+  // senses 版をそのラッパーとして構成し、既存の注入コードを壊さない。
+  const translateWordSenses = deps?.translateWordSenses
+    ?? (deps?.translateWord
+      ? async (english: string, pos: LexiconPos) =>
+          wrapSingleTranslationAsSenses(await deps.translateWord!(english, pos))
+      : translateWordSensesWithAI);
+  const translateWordsSenses = deps?.translateWordsSenses
+    ?? (deps?.translateWords
+      ? async (inputs: Array<{ english: string; pos: LexiconPos }>) => {
+          const primaries = await deps.translateWords!(inputs);
+          const map = new Map<string, TranslatedSense[]>();
+          for (const [key, japanese] of primaries) {
+            map.set(key, wrapSingleTranslationAsSenses(japanese));
+          }
+          return map;
+        }
+      : translateWordsSensesWithAI);
+
   return {
     supabaseAdmin: deps?.supabaseAdmin ?? getSupabaseAdmin(),
     translateWord: deps?.translateWord ?? translateWithAI,
     translateWords: deps?.translateWords ?? translateWordsWithAI,
+    translateWordSenses,
+    translateWordsSenses,
     validateTranslationCandidates: deps?.validateTranslationCandidates ?? validateTranslationCandidatesWithAI,
     classifyPartOfSpeechBatch: deps?.classifyPartOfSpeechBatch ?? classifyPartOfSpeechBatchWithAI,
   };
+}
+
+/** AI訳senseの保存（ベストエフォート）。失敗しても解決処理は落とさない。 */
+async function persistAiSensesBestEffort(
+  supabaseAdmin: SupabaseClient,
+  lexiconEntryId: string,
+  senses: TranslatedSense[],
+): Promise<void> {
+  if (senses.length === 0) return;
+  try {
+    await upsertAiTranslationSenses(supabaseAdmin, lexiconEntryId, senses);
+  } catch (senseError) {
+    console.warn('[lexicon-resolver] Sense persistence failed (non-critical):', senseError);
+  }
 }
 
 async function resolveOrCreateLexiconEntryResult(
@@ -289,7 +343,7 @@ async function resolveOrCreateLexiconEntryResult(
   existingRow?: LexiconEntryRow | null,
 ): Promise<ResolveLexiconEntryResult> {
   const resolverDeps = getResolverDeps(deps);
-  const { supabaseAdmin, translateWord } = resolverDeps;
+  const { supabaseAdmin, translateWordSenses } = resolverDeps;
   const { inputs: [preparedInput] } = await inferMissingPartOfSpeechTags([input], resolverDeps);
   const headword = preparedInput?.english.trim() ?? input.english.trim();
   const normalizedHeadword = normalizeHeadword(headword);
@@ -313,12 +367,14 @@ async function resolveOrCreateLexiconEntryResult(
 
   let translation: string | null = null;
   let translationSource: LexiconTranslationSource | null = null;
+  let aiSenses: TranslatedSense[] = [];
 
   if (japaneseHint && japaneseHintSource === 'ai') {
     translation = japaneseHint;
     translationSource = 'ai';
   } else if (!japaneseHint) {
-    translation = await translateWord(headword, pos);
+    aiSenses = await translateWordSenses(headword, pos);
+    translation = primaryTranslation(aiSenses);
     translationSource = translation ? 'ai' : null;
   }
 
@@ -339,6 +395,9 @@ async function resolveOrCreateLexiconEntryResult(
     .single<LexiconEntryRow>();
 
   if (!insertError && insertedRow) {
+    // 多義語の全senseを lexicon_senses へ保存（ベストエフォート）
+    await persistAiSensesBestEffort(supabaseAdmin, insertedRow.id, aiSenses);
+
     return {
       entry: mapLexiconEntry(insertedRow),
       pendingEnrichmentCandidate: translation
@@ -446,23 +505,31 @@ export async function resolveWordsWithLexicon<T extends ResolverWordInput>(
       english: input.english,
       pos,
     }));
-  const batchedTranslations = batchTranslationInputs.length > 0
-    ? await resolverDeps.translateWords(batchTranslationInputs)
-    : new Map<string, string | null>();
+  const batchedSenses = batchTranslationInputs.length > 0
+    ? await resolverDeps.translateWordsSenses(batchTranslationInputs)
+    : new Map<string, TranslatedSense[]>();
   const batchTranslationKeys = new Set(batchTranslationInputs.map((input) => buildLexiconKey(input.english, input.pos)));
 
   const effectiveDeps: ResolveLexiconDeps = {
     ...deps,
     supabaseAdmin: resolverDeps.supabaseAdmin,
     translateWords: resolverDeps.translateWords,
+    translateWordsSenses: resolverDeps.translateWordsSenses,
     validateTranslationCandidates: resolverDeps.validateTranslationCandidates,
     classifyPartOfSpeechBatch: resolverDeps.classifyPartOfSpeechBatch,
     translateWord: async (english, pos) => {
       const key = buildLexiconKey(english, pos);
       if (batchTranslationKeys.has(key)) {
-        return batchedTranslations.get(key) ?? null;
+        return primaryTranslation(batchedSenses.get(key) ?? []);
       }
       return resolverDeps.translateWord(english, pos);
+    },
+    translateWordSenses: async (english, pos) => {
+      const key = buildLexiconKey(english, pos);
+      if (batchTranslationKeys.has(key)) {
+        return batchedSenses.get(key) ?? [];
+      }
+      return resolverDeps.translateWordSenses(english, pos);
     },
   };
 
