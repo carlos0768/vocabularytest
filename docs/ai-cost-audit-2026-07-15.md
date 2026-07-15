@@ -6,6 +6,16 @@
 
 ---
 
+## 実装状況（2026-07-15 更新）
+
+フェーズ1+2 を実装済み（本ブランチのコミット参照）:
+
+- **S1/S2/S3/M2 対応済み**: `generateQuizContentForWords` にフィールド選択（`needs`）を導入。server_cloud・同期パスとも1語1コールの例文生成は語順クイズ対象語のみに縮小され、多肢選択語の例文は30語/バッチのクイズ生成に一本化。既存フィールド・masterヒット値は再生成も上書きもされない。
+- **M1 対応済み**: `enrich-manual` はlexiconマスター優先参照+AI生成分のfill-if-empty書き戻しに変更。マスター完全ヒット時はAIコールなし。
+- **L2 対応済み**: 訳生成プロンプトを多義語対応（senses形式・最大3件）に変更。resolverが全senseを `lexicon_senses` へinsert-onlyで保存。既存の `translateWithAI`/`translateWordsWithAI` はprimary返却の互換ラッパーとして維持。
+- **L1 手順書作成済み**: `docs/runbook-lexicon-ai-purge.md`（手動実行SQL。**L2デプロイ確認後**に実行。夜間ジョブ3本の停止/再開手順込み — 夜間ジョブはVaultシークレット設定済みで現在稼働中であることを確認済み）。
+- **フェーズ3（未着手）**: M3/M4（認証・コイン判定の前倒し）、M5（in-flight重複排除）、S4（語源解析バッチ化）、M6/S5（投機的prefill整理）、ヒント検証プロンプトの複数sense対応。
+
 ## 優先度サマリー
 
 | # | 問題 | フロー | 影響 | 優先度 |
