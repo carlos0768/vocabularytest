@@ -157,26 +157,31 @@ test('buildPostScanQuizPrefillSeedWords uses the Task 3 quiz prefill selector cr
       id: 'missing-distractors',
       english: 'concise',
       japanese: '簡潔な',
+      needs: { distractors: true, example: false, pronunciation: false, pos: false },
     },
     {
       id: 'missing-example',
       english: 'persist',
       japanese: '続ける',
+      needs: { distractors: false, example: true, pronunciation: false, pos: false },
     },
     {
       id: 'missing-pos',
       english: 'resilience',
       japanese: '回復力',
+      needs: { distractors: false, example: false, pronunciation: false, pos: true },
     },
     {
       id: 'placeholder-distractors',
       english: 'adapt',
       japanese: '適応する',
+      needs: { distractors: true, example: false, pronunciation: false, pos: false },
     },
     {
       id: 'missing-pronunciation',
       english: 'reliable',
       japanese: '信頼できる',
+      needs: { distractors: false, example: false, pronunciation: true, pos: false },
     },
   ]);
   assert.deepEqual(seedWords, buildQuizPrefillSeedWords(words));

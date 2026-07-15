@@ -1,4 +1,4 @@
-import type { QuizContentResult } from '@/lib/ai/generate-quiz-content';
+import type { QuizContentFieldNeeds, QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import type { LexiconQuizContentUpdate } from '@/lib/lexicon/quiz-content-lexicon';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
@@ -18,11 +18,13 @@ export interface QuizPrefillSeedWord {
   id: string;
   english: string;
   japanese: string;
+  /** 生成が必要なフィールドのみ true。既に値がある（master解決済み等）フィールドは再生成しない。 */
+  needs: QuizContentFieldNeeds;
 }
 
 export interface QuizPrefillWordUpdatePayload {
   [key: string]: unknown;
-  distractors: string[];
+  distractors?: string[];
   part_of_speech_tags?: string[];
   pronunciation?: string;
   example_sentence?: string;
@@ -54,23 +56,35 @@ function normalizeGeneratedText(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+export function buildQuizPrefillNeeds(word: {
+  distractors: unknown;
+  example_sentence: unknown;
+  pronunciation?: unknown;
+  part_of_speech_tags: unknown;
+}): QuizContentFieldNeeds {
+  return {
+    distractors: !hasValidDistractors(word.distractors),
+    example: !hasExampleSentence(word.example_sentence),
+    pronunciation: !hasPronunciation(word.pronunciation),
+    pos: !hasPartOfSpeechTags(word.part_of_speech_tags),
+  };
+}
+
+function hasAnyNeed(needs: QuizContentFieldNeeds): boolean {
+  return Boolean(needs.distractors || needs.example || needs.pronunciation || needs.pos);
+}
+
 export function buildQuizPrefillSeedWords(
   words: QuizPrefillCandidateWord[],
 ): QuizPrefillSeedWord[] {
   return words
-    .filter((word) =>
-      !isWordOrderEligible(word) &&
-      (
-        !hasValidDistractors(word.distractors) ||
-        !hasExampleSentence(word.example_sentence) ||
-        !hasPronunciation(word.pronunciation) ||
-        !hasPartOfSpeechTags(word.part_of_speech_tags)
-      )
-    )
-    .map((word) => ({
+    .map((word) => ({ word, needs: buildQuizPrefillNeeds(word) }))
+    .filter(({ word, needs }) => !isWordOrderEligible(word) && hasAnyNeed(needs))
+    .map(({ word, needs }) => ({
       id: word.id,
       english: word.english,
       japanese: word.japanese,
+      needs,
     }));
 }
 
@@ -109,9 +123,12 @@ export function buildQuizPrefillLexiconUpdates(
 export function buildQuizPrefillWordUpdatePayload(
   item: QuizContentResult,
 ): QuizPrefillWordUpdatePayload {
-  const payload: QuizPrefillWordUpdatePayload = {
-    distractors: item.distractors,
-  };
+  const payload: QuizPrefillWordUpdatePayload = {};
+  // 生成対象外だった（=既に有効な値がある）フィールドは結果が空で返るため、
+  // 空のまま payload に含めて既存値を上書きしないようスキップする。
+  if (Array.isArray(item.distractors) && item.distractors.length >= 3) {
+    payload.distractors = item.distractors;
+  }
   const partOfSpeechTags = normalizePartOfSpeechTags(item.partOfSpeechTags);
   const pronunciation = normalizeGeneratedText(item.pronunciation);
   const exampleSentence = normalizeGeneratedText(item.exampleSentence);

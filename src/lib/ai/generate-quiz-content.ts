@@ -4,10 +4,48 @@ import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { buildExampleGenreGuidance } from '@/lib/preferences/example-genres';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
 
+export interface QuizContentFieldNeeds {
+  distractors?: boolean;
+  example?: boolean;
+  pronunciation?: boolean;
+  pos?: boolean;
+}
+
 export interface QuizContentWordInput {
   id: string;
   english: string;
   japanese: string;
+  /** 生成するフィールドの指定。省略時は全フィールド生成（後方互換）。 */
+  needs?: QuizContentFieldNeeds;
+}
+
+export interface ResolvedQuizContentFieldNeeds {
+  distractors: boolean;
+  example: boolean;
+  pronunciation: boolean;
+  pos: boolean;
+}
+
+export function resolveQuizContentNeeds(word: QuizContentWordInput): ResolvedQuizContentFieldNeeds {
+  return {
+    distractors: word.needs?.distractors ?? true,
+    example: word.needs?.example ?? true,
+    pronunciation: word.needs?.pronunciation ?? true,
+    pos: word.needs?.pos ?? true,
+  };
+}
+
+function hasAnyNeed(needs: ResolvedQuizContentFieldNeeds): boolean {
+  return needs.distractors || needs.example || needs.pronunciation || needs.pos;
+}
+
+function formatNeedsForPrompt(needs: ResolvedQuizContentFieldNeeds): string {
+  const fields: string[] = [];
+  if (needs.distractors) fields.push('distractors');
+  if (needs.pos) fields.push('partOfSpeechTags');
+  if (needs.pronunciation) fields.push('pronunciation');
+  if (needs.example) fields.push('exampleSentence');
+  return fields.join(', ');
 }
 
 export interface QuizContentResult {
@@ -95,6 +133,11 @@ export const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成�
 - アメリカ英語の一般的な発音を優先する
 - 発音を確定できない場合は空文字にする
 
+【生成対象フィールドの指定】
+- 各単語の行末に「生成対象: ...」として生成すべきフィールドが指定される
+- 生成対象に含まれないフィールドは生成せず、必ず空で返すこと（distractors は []、partOfSpeechTags は []、pronunciation と exampleSentence と exampleSentenceJa は ""）
+- 生成対象外のフィールドは既にデータが存在するため、生成してもトークンの無駄になる
+
 【出力フォーマット】
 必ず以下のJSON形式のみを出力してください:
 {
@@ -123,7 +166,9 @@ export async function generateQuizContentForWords(
   words: QuizContentWordInput[],
   options: { genres?: readonly string[] } = {},
 ): Promise<QuizContentResult[]> {
-  const multipleChoiceWords = words.filter((word) => !isWordOrderEligible(word));
+  const multipleChoiceWords = words.filter(
+    (word) => !isWordOrderEligible(word) && hasAnyNeed(resolveQuizContentNeeds(word)),
+  );
   if (multipleChoiceWords.length === 0) {
     return [];
   }
@@ -133,7 +178,10 @@ export async function generateQuizContentForWords(
   const provider = getProviderFromConfig(config, { openai: openaiApiKey });
 
   const wordListText = multipleChoiceWords
-    .map((w, i) => `${i + 1}. ID: ${w.id} / 英語: ${w.english} / 日本語（正解）: ${w.japanese}`)
+    .map((w, i) => {
+      const needs = resolveQuizContentNeeds(w);
+      return `${i + 1}. ID: ${w.id} / 英語: ${w.english} / 日本語（正解）: ${w.japanese} / 生成対象: ${formatNeedsForPrompt(needs)}`;
+    })
     .join('\n');
 
   const genreGuidance = buildExampleGenreGuidance(options.genres ?? []);
@@ -178,15 +226,42 @@ export async function generateQuizContentForWords(
     throw new Error('AIレスポンスの形式が不正です');
   }
 
-  const inputMap = new Map(multipleChoiceWords.map((w) => [w.id, w]));
+  return buildQuizContentResults(aiParsed.results, multipleChoiceWords);
+}
 
-  return aiParsed.results
-    .filter((r) => r.id && inputMap.has(r.id) && Array.isArray(r.distractors) && r.distractors.length === 3)
+export interface RawQuizContentAiResult {
+  id: string;
+  distractors?: unknown;
+  partOfSpeechTags?: string[];
+  pronunciation?: string;
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
+}
+
+export function buildQuizContentResults(
+  rawResults: RawQuizContentAiResult[],
+  words: QuizContentWordInput[],
+): QuizContentResult[] {
+  const inputMap = new Map(words.map((w) => [w.id, w]));
+
+  return rawResults
+    .filter((r) => {
+      if (!r.id) return false;
+      const input = inputMap.get(r.id);
+      if (!input) return false;
+      // distractors を要求した単語のみ「3つ揃っていること」を成功条件にする。
+      // 要求していない単語は distractors 抜きで受理する。
+      if (!resolveQuizContentNeeds(input).distractors) return true;
+      return Array.isArray(r.distractors) && r.distractors.length === 3;
+    })
     .map((r) => {
       const input = inputMap.get(r.id);
-      let distractors = r.distractors;
+      const needs = input ? resolveQuizContentNeeds(input) : {
+        distractors: true, example: true, pronunciation: true, pos: true,
+      };
+      let distractors = needs.distractors && Array.isArray(r.distractors) ? r.distractors : [];
 
-      if (input) {
+      if (input && needs.distractors) {
         const correctAnswer = input.japanese.trim().toLowerCase();
 
         distractors = distractors.filter((d) => {
@@ -209,13 +284,14 @@ export async function generateQuizContentForWords(
         }
       }
 
+      // 生成対象外のフィールドはモデルが返しても捨てる（既存値の上書きを防ぐ）。
       return {
         wordId: r.id,
         distractors: distractors.slice(0, 3),
-        partOfSpeechTags: normalizePartOfSpeechTags(r.partOfSpeechTags),
-        pronunciation: normalizePronunciation(r.pronunciation),
-        exampleSentence: r.exampleSentence || '',
-        exampleSentenceJa: r.exampleSentenceJa || '',
+        partOfSpeechTags: needs.pos ? normalizePartOfSpeechTags(r.partOfSpeechTags) : [],
+        pronunciation: needs.pronunciation ? normalizePronunciation(r.pronunciation) : '',
+        exampleSentence: needs.example ? (r.exampleSentence || '') : '',
+        exampleSentenceJa: needs.example ? (r.exampleSentenceJa || '') : '',
       };
     });
 }

@@ -70,6 +70,7 @@ import {
   prefillWordOrderQuizzesForWords,
   type WordOrderQuizPrefillCandidateWord,
 } from '@/lib/scan/word-order-prefill';
+import { isWordOrderEligible } from '@/lib/quiz/word-order';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
@@ -750,8 +751,19 @@ async function generateQuizContentWithRetry(
       const generated = await generateQuizContentForWords(pending, { genres });
       const succeededIds = new Set<string>();
 
+      const needsDistractorsByWordId = new Map(
+        pending.map((word) => [word.id, word.needs.distractors !== false]),
+      );
       for (const item of generated) {
-        if (!item?.wordId || !Array.isArray(item.distractors) || item.distractors.length === 0) continue;
+        if (!item?.wordId) continue;
+        // distractors を要求した単語のみ distractors 有りを成功条件にする。
+        // 要求していない単語（master解決済み等）は他フィールドだけで成功扱い。
+        if (
+          needsDistractorsByWordId.get(item.wordId) &&
+          (!Array.isArray(item.distractors) || item.distractors.length === 0)
+        ) {
+          continue;
+        }
         resultMap.set(item.wordId, item);
         succeededIds.add(item.wordId);
       }
@@ -1461,7 +1473,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
       // --- Synchronous example sentence generation (server_cloud) ---
-      const wordsForExampleGen = buildServerCloudExampleSeedWords(insertedWordsArray);
+      // 多肢選択語の例文はクイズprefill（30語/バッチ）が生成するため、
+      // 1語1コールの例文生成は語順クイズ対象語（prefill対象外）のみに限定する。
+      const wordsForExampleGen = aiEnabled
+        ? buildServerCloudExampleSeedWords(
+            insertedWordsArray.filter((word: { english: string }) => isWordOrderEligible(word)),
+          )
+        : buildServerCloudExampleSeedWords(insertedWordsArray);
 
       let exampleGenerationSummary: ExampleGenerationSummary | undefined;
       let exampleGenerationErrors: string[] = [];
@@ -1586,13 +1604,15 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             if (results.length > 0) {
               try {
                 await Promise.all(
-                  results.map((item) => {
-                    const updatePayload = buildQuizPrefillWordUpdatePayload(item);
-                    return supabaseAdmin
-                      .from('words')
-                      .update(updatePayload)
-                      .eq('id', item.wordId);
-                  })
+                  results
+                    .map((item) => ({ item, updatePayload: buildQuizPrefillWordUpdatePayload(item) }))
+                    .filter(({ updatePayload }) => Object.keys(updatePayload).length > 0)
+                    .map(({ item, updatePayload }) =>
+                      supabaseAdmin
+                        .from('words')
+                        .update(updatePayload)
+                        .eq('id', item.wordId)
+                    )
                 );
                 quizPrefillSucceeded += results.length;
                 quizPrefillPersistedResults.push(...results);
@@ -1627,6 +1647,48 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
                   console.error('[scan-jobs/process] Lexicon quiz content save failed (non-critical):', lexSaveError);
                 }
               });
+            }
+
+            // クイズprefillが生成した例文もマスターへ書き戻す（例文生成の
+            // 一本化により、多肢選択語の例文はここが生成元になる）。
+            // ジャンル指定で個人向けに生成した例文は共有マスターには書き込まない。
+            if (exampleGenres.length === 0) {
+              const prefillExamples = quizPrefillPersistedResults.filter(
+                (item) => item.exampleSentence && item.exampleSentenceJa,
+              );
+              if (prefillExamples.length > 0) {
+                scheduleAfter(async () => {
+                  try {
+                    const generatedWordIds = prefillExamples.map((item) => item.wordId);
+                    const { data: wordsWithLexicon } = await supabaseAdmin
+                      .from('words')
+                      .select('id, lexicon_entry_id')
+                      .in('id', generatedWordIds)
+                      .not('lexicon_entry_id', 'is', null);
+
+                    if (wordsWithLexicon && wordsWithLexicon.length > 0) {
+                      const lexiconUpdates = wordsWithLexicon
+                        .map((w: { id: string; lexicon_entry_id: string | null }) => {
+                          const example = prefillExamples.find((item) => item.wordId === w.id);
+                          if (!example || !w.lexicon_entry_id) return null;
+                          return {
+                            lexiconEntryId: w.lexicon_entry_id,
+                            exampleSentence: example.exampleSentence,
+                            exampleSentenceJa: example.exampleSentenceJa,
+                          };
+                        })
+                        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+                      if (lexiconUpdates.length > 0) {
+                        const lexResult = await saveExamplesToLexicon(lexiconUpdates);
+                        console.log('[scan-jobs/process] Lexicon master example update (quiz prefill):', lexResult);
+                      }
+                    }
+                  } catch (lexSaveError) {
+                    console.error('[scan-jobs/process] Lexicon example save failed (non-critical):', lexSaveError);
+                  }
+                });
+              }
             }
           }
 
@@ -1749,13 +1811,15 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
               if (results.length > 0) {
                 try {
                   await Promise.all(
-                    results.map((item) => {
-                      const updatePayload = buildQuizPrefillWordUpdatePayload(item);
-                      return supabaseAdmin
-                        .from('words')
-                        .update(updatePayload)
-                        .eq('id', item.wordId);
-                    })
+                    results
+                      .map((item) => ({ item, updatePayload: buildQuizPrefillWordUpdatePayload(item) }))
+                      .filter(({ updatePayload }) => Object.keys(updatePayload).length > 0)
+                      .map(({ item, updatePayload }) =>
+                        supabaseAdmin
+                          .from('words')
+                          .update(updatePayload)
+                          .eq('id', item.wordId)
+                      )
                   );
                   quizPrefillSucceeded += results.length;
                   quizPrefillPersistedResults.push(...results);

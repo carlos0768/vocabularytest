@@ -66,21 +66,25 @@ test('buildQuizPrefillSeedWords selects only words missing distractors, examples
       id: 'missing-distractors',
       english: 'concise',
       japanese: '簡潔な',
+      needs: { distractors: true, example: false, pronunciation: false, pos: false },
     },
     {
       id: 'missing-example',
       english: 'persist',
       japanese: '続ける',
+      needs: { distractors: false, example: true, pronunciation: false, pos: false },
     },
     {
       id: 'missing-pos',
       english: 'resilience',
       japanese: '回復力',
+      needs: { distractors: false, example: false, pronunciation: false, pos: true },
     },
     {
       id: 'missing-pronunciation',
       english: 'adapt',
       japanese: '適応する',
+      needs: { distractors: false, example: false, pronunciation: true, pos: false },
     },
   ]);
 });
@@ -104,6 +108,7 @@ test('buildQuizPrefillSeedWords treats placeholder distractors as missing', () =
       id: 'placeholder',
       english: 'adapt',
       japanese: '適応する',
+      needs: { distractors: true, example: false, pronunciation: false, pos: false },
     },
   ]);
 });
@@ -137,8 +142,51 @@ test('buildQuizPrefillSeedWords excludes multi-word entries from multiple-choice
       id: 'single-word',
       english: 'adapt',
       japanese: '適応する',
+      needs: { distractors: true, example: false, pronunciation: false, pos: false },
     },
   ]);
+});
+
+test('buildQuizPrefillSeedWords does not overwrite fields that already have values (needs=false)', () => {
+  // masterヒットで distractors / pronunciation 済みの単語は example だけ生成対象になる
+  const seedWords = buildQuizPrefillSeedWords([
+    {
+      id: 'master-hit',
+      english: 'delegate',
+      japanese: '委任する',
+      distractors: ['拒否する', '奪う', '独占する'],
+      example_sentence: '',
+      example_sentence_ja: '',
+      pronunciation: '/ˈdelɪɡeɪt/',
+      part_of_speech_tags: ['verb'],
+    },
+  ]);
+
+  assert.deepEqual(seedWords, [
+    {
+      id: 'master-hit',
+      english: 'delegate',
+      japanese: '委任する',
+      needs: { distractors: false, example: true, pronunciation: false, pos: false },
+    },
+  ]);
+});
+
+test('buildQuizPrefillWordUpdatePayload omits distractors when the result has none', () => {
+  const payload = buildQuizPrefillWordUpdatePayload({
+    wordId: 'word-1',
+    distractors: [],
+    partOfSpeechTags: [],
+    pronunciation: '',
+    exampleSentence: 'She delegates tasks to her team.',
+    exampleSentenceJa: '彼女はチームに仕事を委任する。',
+  });
+
+  assert.deepEqual(payload, {
+    example_sentence: 'She delegates tasks to her team.',
+    example_sentence_ja: '彼女はチームに仕事を委任する。',
+  });
+  assert.equal(Object.hasOwn(payload, 'distractors'), false);
 });
 
 
