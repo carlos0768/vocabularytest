@@ -16,7 +16,9 @@ import {
   desktopThumbColor,
 } from '@/components/desktop/desktop-data';
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
+import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
@@ -792,6 +794,18 @@ function DesktopWordDetailModal({
                 </div>
               )}
             </div>
+
+          {hasDisplayableMorphology(word.morphology) && (
+            <div>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Icon name="account_tree" style={{ fontSize: 14 }} />語源
+              </div>
+              <MorphologyFormulaChips morphology={word.morphology} />
+              <div style={{ fontSize: 13, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 12, whiteSpace: 'pre-line' }}>
+                {word.morphology.explanation}
+              </div>
+            </div>
+          )}
 
           {word.relatedWords && word.relatedWords.length > 0 && (
             <div>

@@ -7,6 +7,7 @@ import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { isBillingEnabled } from '@/lib/billing/feature';
+import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphology/format';
 import { processImageFile, processImageToBase64 } from '@/lib/image-utils';
 import {
   addHomeImmediateScanResult,
@@ -931,7 +932,19 @@ function DesktopScanConfirmRow({
       </td>
       <td className="en">{word.english || `単語 ${index + 1}`}</td>
       <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
-      <td className="ja">{word.japanese ? <TranslationDisplay word={word} compact /> : '-'}</td>
+      <td className="ja">
+        {word.japanese ? <TranslationDisplay word={word} compact /> : '-'}
+        {hasDisplayableMorphology(word.morphology) && (
+          <div style={{ marginTop: 5, paddingTop: 5, borderTop: '1px dashed var(--color-border)' }}>
+            <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--solid-ink)' }}>
+              {formatMorphologyFormula(word.morphology)}
+            </div>
+            <div className="muted" style={{ fontSize: 10.5, lineHeight: 1.5, whiteSpace: 'pre-line', marginTop: 2 }}>
+              {word.morphology.explanation}
+            </div>
+          </div>
+        )}
+      </td>
       <td className="cefr"><span className="cefr-pill">{word.cefrLevel || '-'}</span></td>
       <td onClick={(event) => event.stopPropagation()}>
         <div style={{ display: 'flex', gap: 4 }}>
