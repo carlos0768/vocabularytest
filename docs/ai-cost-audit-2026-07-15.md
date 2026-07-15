@@ -21,6 +21,8 @@
 | M5 | クイズ取得のクライアントリトライがサーバー側生成を重複起動 | クイズ | 同一チャンク最大2〜3回生成 | ★★ |
 | M6 | 単語作成時の語順クイズ投機的prefill | 手動追加/スキャン | 出題されない単語too含め全対象語で生成、ユーザー間共有なし | ★ |
 | S5 | 発音バックフィルの冗長スケジュール | スキャン | AIコストほぼゼロ（DBクエリのみ無駄） | ★ |
+| L1 | lexicon内のAI生成レコード（`translation_source='ai'`）の全削除 | lexiconマスター | データ品質対応（L2とセットで実施） | ★★★ |
+| L2 | lexicon訳生成プロンプトの多義語対応 | lexiconマスター | 単一訳強制による品質劣化・再生成コストの解消 | ★★★ |
 
 ---
 
@@ -118,6 +120,71 @@
 
 ---
 
+## lexiconマスターの品質対応（追加項目）
+
+コスト削減と同時に実施するlexiconデータ品質の是正。**L2（プロンプト多義語対応）を先に実施してからL1（削除）を実行する**こと。順序が逆だと、夜間成長ジョブや通常フローの書き戻しが単一訳プロンプトのまま低品質データを再蓄積してしまう。
+
+### L1. AI生成フラグ付きlexiconレコードの全削除 ★★★
+
+**対象**: `translation_source = 'ai'` のレコード。AIフラグは2箇所に存在する。
+
+- `lexicon_senses.translation_source = 'ai'`（`supabase/migrations/20260624090000_add_lexicon_sense_distinct_key.sql:25`）
+- `lexicon_entries.translation_source = 'ai'`（`supabase/migrations/20260312100000_create_lexicon_entries.sql:25`）
+
+**削除手順（新規マイグレーションで実施。適用済みマイグレーションは変更しない）**:
+
+1. `lexicon_senses` から `translation_source='ai'` の行を削除。
+2. `lexicon_entries` は「エントリ自体の訳がAI由来（`translation_source='ai'`）かつ、手順1の後に非AIのsenseが1つも残らない」ものを削除。非AI senseが残るエントリは行ごと消さず、エントリ側の `translation_ja` / `translation_source` をNULL化して非AI senseから再解決させる。
+3. 各エントリで `is_primary` のsenseが消えた場合、残存senseへprimaryを付け替える。
+
+**安全性（スキーマ確認済み）**:
+- `words.lexicon_entry_id` / `words.lexicon_sense_id` はいずれも `ON DELETE SET NULL`（`20260312100000:87`、`20260624090000:540-553`）。`official_wordbook_words` も同様（`20260628224834:70-96`）。削除してもユーザーの単語データ（`words.japanese`、例文、誤答など）は一切消えず、マスターへのリンクが外れるだけ。
+- `lexicon_senses` は `lexicon_entries` から `ON DELETE CASCADE`（`20260624090000:16`）。
+- `lexicon_entry_resolved_rows` は解決ビュー/RPCなので削除後は自動的に反映される。
+
+**留意点**:
+- リンクが外れた単語は次回のlexicon解決ジョブ（`src/lib/lexicon/word-resolution-jobs.ts`）で再リンク対象になる。L2適用後であれば多義語対応の高品質データで再構築される。
+- 削除前に対象件数の確認と`lexicon_senses`/`lexicon_entries`のバックアップ（`CREATE TABLE ... AS SELECT`でのスナップショット）を取ること。
+- M1（enrich-manualの書き戻し実装）より前に削除を済ませておくと、削除後に低品質データが混ざる経路を塞げる。
+
+### L2. lexicon訳生成プロンプトの多義語対応 ★★★
+
+**現状の問題**: 訳生成プロンプトが単一訳を強制している。
+
+- 単発翻訳 `TRANSLATION_PROMPT`（`src/lib/lexicon/ai.ts:13-25`）:「複数の意味がある場合は最も一般的な訳を1つ返す」
+- バッチ翻訳 `translateWordsWithAI` 内プロンプト（`ai.ts:268-286`）:「各項目について最も一般的な日本語訳を1つだけ返す」
+
+スキーマ側は既に多義語対応済み（`lexicon_senses` が entry:senses = 1:N、`distinct_key`・`meaning_summary`・`is_primary` を保持 — `20260624090000:15-30`）なのに、AI生成側が1訳しか作らないため、多義語（例: "run" = 走る/経営する/立候補する）がマスター上1訳に潰れる。これが原因で、ユーザーのスキャン訳とマスター訳が一致せず lexicon再利用条件（`generate-quiz-distractors/route.ts:36-40` の完全一致判定など）が成立しにくくなり、**再生成コスト（S3/M2の無駄）を間接的に増やしている**。
+
+**修正内容**:
+
+1. `TRANSLATION_PROMPT` と `translateWordsWithAI` のプロンプトを、意味ごとに複数訳を返す形式へ変更する。出力例:
+   ```json
+   {
+     "translations": [
+       {
+         "english": "run",
+         "pos": "verb",
+         "senses": [
+           { "japanese": "走る", "meaningSummary": "移動する", "isPrimary": true },
+           { "japanese": "経営する", "meaningSummary": "組織を運営する", "isPrimary": false }
+         ]
+       }
+     ]
+   }
+   ```
+   - 一般的な意味が1つの語は senses 1件でよい（無理に増やさない）ことをルールに明記。senses は主要な意味のみ最大3〜4件程度に制限しトークン増を抑える。
+   - 動詞「〜する」形・括弧ルール（`JAPANESE_PARENTHESIS_RULES`）等の既存ルールは維持。
+2. Zodスキーマ（`translationResponseSchema` / `batchTranslationResponseSchema`、`ai.ts:92-102`）とGemini Controlled Generation用スキーマを新形式に合わせて更新。
+3. 呼び出し側の反映:
+   - senses配列を `lexicon_senses` へ複数行upsertし、`is_primary`・`meaning_summary` を保存。エントリ側 `translation_ja` はprimary senseで埋める。
+   - 単一訳を期待している既存呼び出し（`master-first-scan.ts:340-358` のバッチ翻訳フォールバック、`backfill-japanese.ts` など）はprimary senseを使う互換レイヤを挟み、既存動作を壊さない。
+4. 夜間lexicon成長ジョブ（`20260320103000_master_first_scan_and_nightly_lexicon_growth.sql` 系）とヒント検証 `TRANSLATION_HINT_VALIDATION_PROMPT`（`ai.ts:27-52`）が新形式と整合するか確認。ヒント検証は「候補がいずれかのsenseに合致するか」で判定するよう拡張するとマスター採用率が上がる。
+
+**コスト面の note**: senses複数化で1コールあたりの出力トークンは微増するが、バッチ50語/コール構造は不変。マスター再利用率の向上（S3/M2の再生成減）で相殺が見込める。
+
+---
+
 ## 修正ロードマップ（推奨順）
 
 ### フェーズ1: 二重生成の解消（最大のROI、リスク低）
@@ -125,14 +192,16 @@
 2. **S2/M2**: `generateQuizContentForWords` に「欠けているフィールドのみ生成・非空カラムは上書きしない」を導入（scan-jobs / generate-quiz-distractors 共通）。
 3. **S3**: フィールド単位のlexicon再利用をscan-jobsクイズprefillへ移植。
 
-### フェーズ2: lexiconマスター活用の徹底
-4. **M1**: enrich-manual にマスター優先参照+書き戻しを実装。頻出語のAIコストがユーザー横断で1回きりになる。
+### フェーズ2: lexiconマスターの品質是正と活用の徹底
+4. **L2**: 訳生成プロンプトの多義語対応（削除より先に実施）。
+5. **L1**: AI生成フラグ付きlexiconレコードの全削除（バックアップ→sense削除→エントリ削除/NULL化→primary付け替え）。
+6. **M1**: enrich-manual にマスター優先参照+書き戻しを実装。頻出語のAIコストがユーザー横断で1回きりになる。L1の後に実施すれば、書き戻されるデータは多義語対応後の高品質なものだけになる。
 
 ### フェーズ3: ガード・構造整理
-5. **M3/M4**: 認証・コイン判定をAI呼び出しより前へ。
-6. **M5**: クイズ生成のin-flight重複排除。
-7. **S4**: 例文・語源解析のバッチ化（フェーズ1で例文が一本化されていれば語源解析のみ）。
-8. **M6/S5**: 投機的prefillと冗長バックフィルの整理。
+7. **M3/M4**: 認証・コイン判定をAI呼び出しより前へ。
+8. **M5**: クイズ生成のin-flight重複排除。
+9. **S4**: 例文・語源解析のバッチ化（フェーズ1で例文が一本化されていれば語源解析のみ）。
+10. **M6/S5**: 投機的prefillと冗長バックフィルの整理。
 
 ### 概算削減効果
 - スキャン（server_cloud）: 例文生成コールが約半減（現状: N語ぶんの単発コール + 同じ例文を作り直す N/30 バッチコール）。加えてマスターヒット語の誤答再生成が消える。
