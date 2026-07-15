@@ -249,8 +249,9 @@ export default function ConfirmPage() {
       if (!generated && !wordOrderQuiz) continue;
       const patch: Partial<Word> = {};
       if (generated) {
-        patch.distractors = generated.distractors;
-        patch.partOfSpeechTags = generated.partOfSpeechTags;
+        // 生成対象外だったフィールドは空で返るため、空値では既存値を潰さない
+        if (generated.distractors.length > 0) patch.distractors = generated.distractors;
+        if (generated.partOfSpeechTags.length > 0) patch.partOfSpeechTags = generated.partOfSpeechTags;
         if (generated.pronunciation.trim().length > 0) patch.pronunciation = generated.pronunciation;
         if (generated.exampleSentence.trim().length > 0) { patch.exampleSentence = generated.exampleSentence; patch.exampleSentenceJa = generated.exampleSentenceJa; }
       }
@@ -266,8 +267,8 @@ export default function ConfirmPage() {
       return {
         ...word,
         ...(generated ? {
-          distractors: generated.distractors,
-          partOfSpeechTags: generated.partOfSpeechTags,
+          ...(generated.distractors.length > 0 ? { distractors: generated.distractors } : {}),
+          ...(generated.partOfSpeechTags.length > 0 ? { partOfSpeechTags: generated.partOfSpeechTags } : {}),
           ...(generated.pronunciation.trim().length > 0 ? { pronunciation: generated.pronunciation } : {}),
           ...(generated.exampleSentence.trim().length > 0 ? { exampleSentence: generated.exampleSentence, exampleSentenceJa: generated.exampleSentenceJa } : {}),
         } : {}),
