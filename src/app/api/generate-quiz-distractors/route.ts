@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import {
   generateQuizContentForWords,
+  type QuizContentFieldNeeds,
   type QuizContentResult,
   type QuizContentWordInput,
 } from '@/lib/ai/generate-quiz-content';
@@ -143,16 +144,24 @@ export async function handleGenerateQuizDistractorsPost(
       ((existingWordRows || []) as ExistingWordRow[]).map((row) => [row.id, row])
     );
 
-    let wordsToGenerate = multipleChoiceWords.filter((word) => {
-      const existing = existingWordMap.get(word.id);
-      if (!existing) return true;
-      return (
-        !hasValidDistractors(existing.distractors) ||
-        !hasExampleSentence(existing.example_sentence) ||
-        !hasPronunciation(existing.pronunciation) ||
-        !hasPartOfSpeechTags(existing.part_of_speech_tags)
+    // 単語ごとに「欠けているフィールドだけ」を生成対象にする。
+    // 既に値があるフィールド（enrich-manualの生成結果やmaster解決値など）は
+    // 再生成せず、上書きもしない。
+    type WordToGenerate = WordInput & { needs: QuizContentFieldNeeds };
+    let wordsToGenerate: WordToGenerate[] = multipleChoiceWords
+      .map((word) => {
+        const existing = existingWordMap.get(word.id);
+        const needs: QuizContentFieldNeeds = {
+          distractors: !existing || !hasValidDistractors(existing.distractors),
+          example: !existing || !hasExampleSentence(existing.example_sentence),
+          pronunciation: !existing || !hasPronunciation(existing.pronunciation),
+          pos: !existing || !hasPartOfSpeechTags(existing.part_of_speech_tags),
+        };
+        return { ...word, needs };
+      })
+      .filter((word) =>
+        word.needs.distractors || word.needs.example || word.needs.pronunciation || word.needs.pos
       );
-    });
 
     if (wordsToGenerate.length === 0) {
       return NextResponse.json({
@@ -165,9 +174,11 @@ export async function handleGenerateQuizDistractorsPost(
     // 誤答選択肢・発音記号がマスターに揃っていて他に生成すべきものが無い
     // 単語は、AI生成せずマスターの値をそのまま返す。
     const reusedResults: QuizContentResult[] = [];
+    // 完全には揃わない単語でも、masterにある誤答・発音は再生成せず使い回す。
+    const partialReuseByWordId = new Map<string, { distractors?: string[]; pronunciation?: string }>();
     const reuseCandidates = wordsToGenerate
       .map((word) => ({ word, row: existingWordMap.get(word.id) }))
-      .filter((candidate): candidate is { word: WordInput; row: ExistingWordRow } => Boolean(candidate.row));
+      .filter((candidate): candidate is { word: WordToGenerate; row: ExistingWordRow } => Boolean(candidate.row));
 
     if (reuseCandidates.length > 0) {
       const lexicon = await fetchLexiconContent(
@@ -203,7 +214,23 @@ export async function handleGenerateQuizDistractorsPost(
           && hasExampleSentence(row.example_sentence)
           && Boolean(effectivePronunciation)
           && hasPartOfSpeechTags(row.part_of_speech_tags);
-        if (!satisfied) continue; // 例文・品詞が未生成なら従来どおりAIに回す
+        if (!satisfied) {
+          // 一部フィールドだけmasterにある場合: そのフィールドの再生成を止め、
+          // 生成結果へマージする（残りのフィールドだけAI生成される）。
+          const partial: { distractors?: string[]; pronunciation?: string } = {};
+          if (reusedDistractors) {
+            word.needs.distractors = false;
+            partial.distractors = reusedDistractors;
+          }
+          if (reusedPronunciation) {
+            word.needs.pronunciation = false;
+            partial.pronunciation = reusedPronunciation;
+          }
+          if (partial.distractors || partial.pronunciation) {
+            partialReuseByWordId.set(word.id, partial);
+          }
+          continue;
+        }
 
         satisfiedIds.add(word.id);
         reusedResults.push({
@@ -227,6 +254,17 @@ export async function handleGenerateQuizDistractorsPost(
         wordsToGenerate as QuizContentWordInput[],
         { genres: exampleGenres }
       );
+
+      // masterから部分再利用した誤答・発音を生成結果へマージして返す。
+      generatedResults = generatedResults.map((result) => {
+        const partial = partialReuseByWordId.get(result.wordId);
+        if (!partial) return result;
+        return {
+          ...result,
+          distractors: result.distractors.length > 0 ? result.distractors : (partial.distractors ?? []),
+          pronunciation: result.pronunciation || partial.pronunciation || '',
+        };
+      });
     }
 
     const results = [...reusedResults, ...generatedResults];
@@ -262,18 +300,22 @@ export async function handleGenerateQuizDistractorsPost(
     const resultsForDb = results.filter((r) => r.exampleSentence || r.partOfSpeechTags.length > 0 || r.pronunciation);
     if (resultsForDb.length > 0) {
       for (const result of resultsForDb) {
-        if (!existingWordMap.has(result.wordId)) continue;
+        const existing = existingWordMap.get(result.wordId);
+        if (!existing) continue;
+        // 既にDBに値があるカラムは上書きしない（enrich-manualやスキャン時の
+        // 生成結果を、クイズ開始時の再生成で潰さないための二重の安全策）。
         const updateData: Record<string, unknown> = {};
-        if (result.exampleSentence) {
+        if (result.exampleSentence && !hasExampleSentence(existing.example_sentence)) {
           updateData.example_sentence = result.exampleSentence;
           updateData.example_sentence_ja = result.exampleSentenceJa;
         }
-        if (result.partOfSpeechTags.length > 0) {
+        if (result.partOfSpeechTags.length > 0 && !hasPartOfSpeechTags(existing.part_of_speech_tags)) {
           updateData.part_of_speech_tags = result.partOfSpeechTags;
         }
-        if (result.pronunciation) {
+        if (result.pronunciation && !hasPronunciation(existing.pronunciation)) {
           updateData.pronunciation = result.pronunciation;
         }
+        if (Object.keys(updateData).length === 0) continue;
         await supabase
           .from('words')
           .update(updateData)

@@ -29,6 +29,8 @@ import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/bac
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
+import { isWordOrderEligible } from '@/lib/quiz/word-order';
+import { fetchAiGenerationEnabled } from '@/lib/preferences/ai-generation';
 import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
@@ -72,6 +74,7 @@ export type ExtractRouteDeps = {
   generateExamples?: typeof generateExampleSentences;
   saveExamples?: typeof saveExamplesToLexicon;
   resolveMorphology?: typeof resolveMorphologyForWords;
+  fetchAiGeneration?: typeof fetchAiGenerationEnabled;
 };
 
 function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
@@ -92,6 +95,7 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
     saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
     resolveMorphology: deps?.resolveMorphology ?? resolveMorphologyForWords,
+    fetchAiGeneration: deps?.fetchAiGeneration ?? fetchAiGenerationEnabled,
   };
 }
 
@@ -124,6 +128,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     generateExamples,
     saveExamples,
     resolveMorphology,
+    fetchAiGeneration,
   } = getDeps(deps);
   const startedAt = Date.now();
   // コイン消費後の失敗時に返還するためのキー（消費前は null）
@@ -361,14 +366,20 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       elapsedMs?: number;
     } = { attempted: false, wordsRequested: 0, wordsGenerated: 0 };
 
+    // AI生成が有効なユーザーは保存後のクイズprefill（30語/バッチ）が
+    // 多肢選択語の例文を生成するため、1語1コールの同期例文生成は
+    // 語順クイズ対象語（prefill対象外）のみに限定して二重生成を防ぐ。
+    // AI生成が無効なユーザーはprefillが走らないので従来どおり全語生成する。
+    const aiGenerationEnabled = await fetchAiGeneration(supabase, user.id);
     const wordsNeedingExamples = extractedWords
-      .filter((w: { exampleSentence?: string }) => !w.exampleSentence)
-      .map((w: { english?: string; japanese?: string }, i: number) => ({
+      .map((w: { english?: string; japanese?: string; exampleSentence?: string }, i: number) => ({
         id: String(i),
-        english: (w as Record<string, unknown>).english as string || '',
-        japanese: (w as Record<string, unknown>).japanese as string || '',
+        english: String((w as Record<string, unknown>).english ?? ''),
+        japanese: String((w as Record<string, unknown>).japanese ?? ''),
+        exampleSentence: (w as Record<string, unknown>).exampleSentence as string | undefined,
       }))
-      .filter((w: { english: string }) => w.english.length > 0);
+      .filter((w) => !w.exampleSentence && w.english.length > 0)
+      .filter((w) => !aiGenerationEnabled || isWordOrderEligible(w));
 
     if (wordsNeedingExamples.length > 0) {
       exampleGenDiag.attempted = true;
@@ -379,21 +390,16 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
         const exampleResult = await generateExamples(wordsNeedingExamples, apiKeys, { genres: exampleGenres });
         const exampleMap = new Map(exampleResult.examples.map((ex) => [ex.wordId, ex]));
 
-        let exIdx = 0;
-        for (const word of extractedWords) {
+        extractedWords.forEach((word, index) => {
           const w = word as Record<string, unknown>;
-          if (!w.exampleSentence) {
-            const generated = exampleMap.get(String(exIdx));
-            if (generated) {
-              w.exampleSentence = generated.exampleSentence;
-              w.exampleSentenceJa = generated.exampleSentenceJa;
-              if (!Array.isArray(w.partOfSpeechTags) || (w.partOfSpeechTags as string[]).length === 0) {
-                w.partOfSpeechTags = generated.partOfSpeechTags;
-              }
-            }
-            exIdx++;
+          const generated = exampleMap.get(String(index));
+          if (!generated || w.exampleSentence) return;
+          w.exampleSentence = generated.exampleSentence;
+          w.exampleSentenceJa = generated.exampleSentenceJa;
+          if (!Array.isArray(w.partOfSpeechTags) || (w.partOfSpeechTags as string[]).length === 0) {
+            w.partOfSpeechTags = generated.partOfSpeechTags;
           }
-        }
+        });
 
         exampleGenDiag.wordsGenerated = exampleResult.examples.length;
         exampleGenDiag.elapsedMs = Date.now() - exGenStart;

@@ -116,7 +116,12 @@ test('generate-quiz-distractors sends only single-word entries to AI generation'
   assert.deepEqual(fake.selectedIds, [['word-2']]);
   assert.deepEqual(genreCalls, ['user-1']);
   assert.deepEqual(generateCalls, [{
-    words: [{ id: 'word-2', english: 'adapt', japanese: '適応する' }],
+    words: [{
+      id: 'word-2',
+      english: 'adapt',
+      japanese: '適応する',
+      needs: { distractors: true, example: true, pronunciation: true, pos: true },
+    }],
     genres: ['travel'],
   }]);
 

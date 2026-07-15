@@ -573,10 +573,100 @@ test('/api/extract success response keeps scanInfo, sourceLabels, lexiconEntries
       partOfSpeechTags: ['noun'],
     },
   ]);
+  // AI生成が有効なユーザーの多肢選択語は保存後のクイズprefillが例文を
+  // 生成するため、同期例文生成（1語1コール）は呼ばれない。
   assert.deepEqual(calls, [
     'extractWords:false',
     'resolveImmediateWords',
-    'generateExamples',
+  ]);
+});
+
+test('/api/extract still generates examples synchronously when AI generation is disabled', async () => {
+  const client = new FakeExtractClient();
+  const calls: string[] = [];
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client, calls, {
+      fetchAiGeneration: async () => false,
+      generateExamples: async (words) => {
+        calls.push(`generateExamples:${words.map((w) => w.english).join(',')}`);
+        return {
+          examples: [],
+          errors: [],
+          summary: {
+            requested: words.length,
+            generated: 0,
+            failed: 0,
+            retried: 0,
+            retryRecovered: 0,
+            failureKinds: { provider: 0, parse: 0, validation: 0, empty: 0 },
+          },
+        };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  // prefillが走らないユーザーは従来どおり同期生成でカバーする
+  assert.deepEqual(calls, [
+    'extractWords:false',
+    'resolveImmediateWords',
+    'generateExamples:book',
+  ]);
+});
+
+test('/api/extract generates examples synchronously for word-order eligible words even with AI generation enabled', async () => {
+  const client = new FakeExtractClient();
+  const calls: string[] = [];
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA', mode: 'idiom' }),
+    createDeps(client, calls, {
+      fetchAiGeneration: async () => true,
+      extractIdioms: async () => {
+        calls.push('extractIdioms');
+        return {
+          success: true,
+          data: {
+            words: [
+              {
+                english: 'give up',
+                japanese: '諦める',
+                japaneseSource: 'scan',
+                sourceModes: ['idiom'],
+                distractors: [],
+                partOfSpeechTags: ['phrasal_verb'],
+              },
+            ],
+            sourceLabels: ['教材'],
+          },
+        };
+      },
+      generateExamples: async (words) => {
+        calls.push(`generateExamples:${words.map((w) => w.english).join(',')}`);
+        return {
+          examples: [],
+          errors: [],
+          summary: {
+            requested: words.length,
+            generated: 0,
+            failed: 0,
+            retried: 0,
+            retryRecovered: 0,
+            failureKinds: { provider: 0, parse: 0, validation: 0, empty: 0 },
+          },
+        };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  // 語順クイズ対象語（複数トークン）はprefill対象外なので同期生成が残る
+  assert.deepEqual(calls, [
+    'extractIdioms',
+    'resolveImmediateWords',
+    'generateExamples:give up',
   ]);
 });
 
