@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import {
+  buildManualEnrichPrompt,
+  fetchManualEnrichmentFromMaster,
+  type ManualMasterEnrichment,
+} from '@/lib/words/manual-enrichment';
+import { saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
+import { saveQuizContentToLexicon } from '@/lib/lexicon/quiz-content-lexicon';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
 import { getProviderFromConfig, getProvider, isCloudRunConfigured } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
@@ -55,10 +64,6 @@ exampleSentenceJa: exampleSentenceの日本語訳
 
 const ENRICH_TIMEOUT_MS = 8000;
 const MORPHOLOGY_TIMEOUT_MS = 8000;
-
-function buildPrompt(english: string, japanese: string): string {
-  return `"${english}"${japanese ? ` (${japanese})` : ''}\n生成: pronunciation, partOfSpeechTags, exampleSentence, exampleSentenceJa`;
-}
 
 /**
  * promise を ms でタイムアウトさせ、間に合わなければ fallback を返す。
@@ -146,26 +151,58 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2. AI 呼び出しを即座に開始 (auth 完了を待たない)
-    let aiPromise: Promise<import('@/lib/ai/providers').AIResponse>;
-    try {
-      const { provider, config } = getEnrichProvider();
-      const prompt = buildPrompt(englishTrimmed, filledJapanese);
-      aiPromise = provider.generateText(`${SYSTEM_PROMPT}\n\n${prompt}`, config);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'AIプロバイダーの初期化に失敗しました' },
-        { status: 500 }
-      );
-    }
-
-    // 2b. 語源解析も補完 AI と並列で開始 (best-effort, auth 完了を待たない)。
+    // 2a. 語源解析を先に開始 (best-effort, auth 完了を待たない)。
     // resolveManualMorphology は例外を投げず、タイムアウト時は undefined を返す。
     const morphologyPromise = withTimeout(
       resolveManualMorphology(englishTrimmed),
       MORPHOLOGY_TIMEOUT_MS,
       undefined,
     );
+
+    // 2b. lexiconマスターを優先参照（DBクエリ1回・ベストエフォート）。
+    // マスターに値がある分はAI生成をスキップし、頻出語のAIコストを
+    // ユーザー横断で1回きりにする。
+    let master: ManualMasterEnrichment | null = null;
+    try {
+      master = await fetchManualEnrichmentFromMaster(
+        getSupabaseAdmin(),
+        englishTrimmed,
+        filledJapanese,
+      );
+    } catch {
+      master = null;
+    }
+
+    const masterPronunciation = needsPronunciation ? (master?.pronunciation ?? '') : '';
+    const masterPosTags = needsPos
+      ? normalizePartOfSpeechTags(master?.partOfSpeechTags ?? [])
+      : [];
+    const masterExample = needsExample ? (master?.exampleSentence ?? '') : '';
+    const masterExampleJa = needsExample ? (master?.exampleSentenceJa ?? '') : '';
+
+    const aiNeedsPronunciation = needsPronunciation && !masterPronunciation;
+    const aiNeedsPos = needsPos && masterPosTags.length === 0;
+    const aiNeedsExample = needsExample && !(masterExample && masterExampleJa);
+    const needsAi = aiNeedsPronunciation || aiNeedsPos || aiNeedsExample;
+
+    // 2c. マスターで埋まらなかったフィールドのみAI生成を開始 (auth 完了を待たない)
+    let aiPromise: Promise<import('@/lib/ai/providers').AIResponse> | null = null;
+    if (needsAi) {
+      try {
+        const { provider, config } = getEnrichProvider();
+        const prompt = buildManualEnrichPrompt(englishTrimmed, filledJapanese, {
+          pronunciation: aiNeedsPronunciation,
+          pos: aiNeedsPos,
+          example: aiNeedsExample,
+        });
+        aiPromise = provider.generateText(`${SYSTEM_PROMPT}\n\n${prompt}`, config);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: 'AIプロバイダーの初期化に失敗しました' },
+          { status: 500 }
+        );
+      }
+    }
 
     // 3. 認証チェックを AI と並列で実行
     const authHeader = request.headers.get('authorization');
@@ -183,60 +220,101 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. AI 結果を取得 (auth 中に既に進行していたので待ち時間が短い)
+    // 4. AI 結果を取得 (auth 中に既に進行していたので待ち時間が短い)。
+    //    マスターで全フィールドが埋まった場合はAIコール自体が無い。
     const aiStart = Date.now();
-    let aiResponse;
-    try {
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('timeout')), ENRICH_TIMEOUT_MS);
-      });
+    let parsedAi: z.infer<typeof aiResponseSchema> = {
+      pronunciation: '',
+      partOfSpeechTags: [],
+      exampleSentence: '',
+      exampleSentenceJa: '',
+    };
+    if (aiPromise) {
+      let aiResponse;
       try {
-        aiResponse = await Promise.race([aiPromise, timeoutPromise]);
-      } finally {
-        if (timeoutId) clearTimeout(timeoutId);
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('timeout')), ENRICH_TIMEOUT_MS);
+        });
+        try {
+          aiResponse = await Promise.race([aiPromise, timeoutPromise]);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
+      } catch {
+        return NextResponse.json(
+          { success: false, error: 'AIによる補完に失敗しました' },
+          { status: 500 }
+        );
       }
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'AIによる補完に失敗しました' },
-        { status: 500 }
-      );
+
+      if (!aiResponse.success) {
+        return NextResponse.json(
+          { success: false, error: 'AIによる補完に失敗しました' },
+          { status: 500 }
+        );
+      }
+
+      // 5. レスポンスのパース
+      try {
+        parsedAi = aiResponseSchema.parse(parseJsonResponse(aiResponse.content));
+      } catch {
+        console.error('[enrich-manual] Parse failed:', aiResponse.content);
+        return NextResponse.json(
+          { success: false, error: 'AIレスポンスの解析に失敗しました' },
+          { status: 500 }
+        );
+      }
     }
     const aiWaitMs = Date.now() - aiStart;
 
-    if (!aiResponse.success) {
-      return NextResponse.json(
-        { success: false, error: 'AIによる補完に失敗しました' },
-        { status: 500 }
-      );
-    }
-
-    // 5. レスポンスのパース
-    let parsedAi: z.infer<typeof aiResponseSchema>;
-    try {
-      parsedAi = aiResponseSchema.parse(parseJsonResponse(aiResponse.content));
-    } catch {
-      console.error('[enrich-manual] Parse failed:', aiResponse.content);
-      return NextResponse.json(
-        { success: false, error: 'AIレスポンスの解析に失敗しました' },
-        { status: 500 }
-      );
-    }
-
-    // 6. ユーザ入力を優先し、不足分のみ埋める
+    // 6. ユーザ入力 > マスター > AI の優先順で埋める
     const generatedFields: string[] = [];
 
+    const aiPronunciation = (parsedAi.pronunciation || '').trim();
     const finalPronunciation = needsPronunciation
-      ? (parsedAi.pronunciation || '').trim() : filledPronunciation;
+      ? (masterPronunciation || aiPronunciation)
+      : filledPronunciation;
     if (needsPronunciation && finalPronunciation) generatedFields.push('pronunciation');
 
     const finalPosTags = needsPos
-      ? normalizePartOfSpeechTags(parsedAi.partOfSpeechTags) : filledPosTags;
+      ? (masterPosTags.length > 0 ? masterPosTags : normalizePartOfSpeechTags(parsedAi.partOfSpeechTags))
+      : filledPosTags;
     if (needsPos && finalPosTags.length > 0) generatedFields.push('partOfSpeechTags');
 
-    const finalExample = filledExample || (parsedAi.exampleSentence || '').trim();
-    const finalExampleJa = filledExampleJa || (parsedAi.exampleSentenceJa || '').trim();
+    const aiExample = (parsedAi.exampleSentence || '').trim();
+    const aiExampleJa = (parsedAi.exampleSentenceJa || '').trim();
+    const finalExample = filledExample || masterExample || aiExample;
+    const finalExampleJa = filledExampleJa || masterExampleJa || aiExampleJa;
     if (needsExample && finalExample && finalExampleJa) generatedFields.push('exampleSentence');
+
+    // 6b. AI生成した発音・例文をマスターへ書き戻す（fill-if-empty・ベスト
+    //     エフォート）。次に同じ単語を追加するユーザーはAIコール不要になる。
+    if (master?.entryId) {
+      const entryId = master.entryId;
+      const writeBackPronunciation = aiNeedsPronunciation && aiPronunciation ? aiPronunciation : null;
+      const writeBackExample = aiNeedsExample && aiExample && aiExampleJa
+        ? { exampleSentence: aiExample, exampleSentenceJa: aiExampleJa }
+        : null;
+      if (writeBackPronunciation || writeBackExample) {
+        after(async () => {
+          try {
+            if (writeBackPronunciation) {
+              await saveQuizContentToLexicon([
+                { lexiconEntryId: entryId, pronunciation: writeBackPronunciation },
+              ]);
+            }
+            if (writeBackExample) {
+              await saveExamplesToLexicon([
+                { lexiconEntryId: entryId, ...writeBackExample },
+              ]);
+            }
+          } catch (writeBackError) {
+            console.error('[enrich-manual] Lexicon write-back failed (non-critical):', writeBackError);
+          }
+        });
+      }
+    }
 
     // 7. 並列実行していた語源解析を回収 (既に enrich と重なって進行済み)。
     //    表示可能な語源解析が得られたときだけコインを消費し（成果課金）、消費
