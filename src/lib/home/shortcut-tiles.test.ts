@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildHomeShortcutTiles } from './shortcut-tiles';
+import { buildHomeShortcutTiles, homeShortcutContentSlots } from './shortcut-tiles';
 
 const p = (id: string) => ({ id });
 const g = (id: string) => ({ id });
@@ -65,4 +65,20 @@ test('コンテンツが無い新規ユーザーはおすすめのみになる',
 test('全て空なら空配列を返す', () => {
   const tiles = buildHomeShortcutTiles({ projects: [], groups: [], recommendations: [], slots: 7 });
   assert.deepEqual(tiles, []);
+});
+
+test('コンテンツ枠数はgoalタイルと保存済みタイルを除いた残り', () => {
+  // 8枠 - goal 1枠 = 7、保存済みタイル表示時はさらに1枠減って6
+  assert.equal(homeShortcutContentSlots(false), 7);
+  assert.equal(homeShortcutContentSlots(true), 6);
+});
+
+test('溢れた単語帳の計算がグリッドの表示数と一致する', () => {
+  // ホーム側は min(単語帳数, 枠数) をグリッド掲載数として溢れを求める。
+  // グリッド本体（buildHomeShortcutTiles）の project タイル数と一致すること。
+  const projects = Array.from({ length: 10 }, (_, i) => p(`p${i}`));
+  const slots = homeShortcutContentSlots(true);
+  const tiles = buildHomeShortcutTiles({ projects, groups: [], recommendations: [], slots });
+  const gridProjectCount = Math.min(projects.length, slots);
+  assert.equal(tiles.filter((tile) => tile.kind === 'project').length, gridProjectCount);
 });

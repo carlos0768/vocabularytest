@@ -38,6 +38,7 @@ import {
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { countHomeWordStatuses } from '@/lib/home/home-page-selectors';
+import { homeShortcutContentSlots } from '@/lib/home/shortcut-tiles';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import {
   clearHomeGeneratingWordbook,
@@ -465,7 +466,16 @@ export function HomeClient() {
   // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
   // out of the browsable マイ単語帳 list (its words still count in `stats`).
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
-  const visibleProjects = listProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
+  // ショートカットグリッドに載り切らなかった単語帳だけを下のマイ単語帳リストに
+  // 出す（重複表示を避ける）。全部グリッドに収まる場合は従来どおり全件を出す
+  // （新規ユーザーのチュートリアルが最初の ProjectRow をアンカーにしているため）。
+  const gridProjectCount = Math.min(
+    listProjects.length,
+    homeShortcutContentSlots(favoriteCount > 0),
+  );
+  const overflowProjects = listProjects.slice(gridProjectCount);
+  const myBooksProjects = overflowProjects.length > 0 ? overflowProjects : listProjects;
+  const visibleProjects = myBooksProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
   // The guided flow starts for any user who hasn't studied yet. Word status only
   // advances past 'new' via quiz/study, so any progress means they've quizzed.

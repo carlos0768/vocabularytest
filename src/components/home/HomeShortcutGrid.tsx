@@ -14,7 +14,7 @@ import {
   prefetchGroupOverview,
   seedGroupSummary,
 } from '@/lib/shared-projects/group-overview-cache';
-import { buildHomeShortcutTiles, HOME_SHORTCUT_GRID_SIZE } from '@/lib/home/shortcut-tiles';
+import { buildHomeShortcutTiles, homeShortcutContentSlots } from '@/lib/home/shortcut-tiles';
 import type { HomeRecommendedBook } from '@/lib/home/recommendations-types';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 
@@ -59,7 +59,7 @@ export function HomeShortcutGrid({
     projects,
     groups,
     recommendations,
-    slots: HOME_SHORTCUT_GRID_SIZE - 1 - (showSavedTile ? 1 : 0),
+    slots: homeShortcutContentSlots(showSavedTile),
   });
 
   return (
