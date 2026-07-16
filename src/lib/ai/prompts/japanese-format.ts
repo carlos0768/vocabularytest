@@ -27,3 +27,13 @@ export const JAPANESE_TRANSLATION_STRUCTURE_RULES = `【日本語訳の構造化
 - 例: "mean": "意味する（平均）" → "japanese": "意味する", "translations": ["意味する", "平均"]
 - 例: "admire": "に(~のことで)敬服 [感心] する" → "japanese": "敬服する", "translations": [{"japanese": "敬服する", "annotationRanges": ["に(~のことで)"]}, "感心する"]
 - annotationRanges はDB保存用の一時情報であり、保存時に custom section へ移すためだけに使われる。`;
+
+export const POLYSEMOUS_HEADWORD_MERGE_RULES = `【多義語見出しの統合ルール】
+- 同じ英語見出し語（english が完全一致する語）が画像内に複数の独立したエントリとして掲載されている場合（品詞違い・語義違いで別項目に分かれている場合）でも、words 配列に同じ english を複数回出力してはいけない。必ず1つのエントリに統合する。
+- 統合するときは、画像に書かれている各エントリの訳を掲載順にすべて translations に入れる（先頭が最重要）。japanese には先頭の訳を1つだけ入れる。
+- どの訳も画像由来なら japaneseSource は "scan" のまま。画像に書かれていない語義を推測で追加するのは禁止。
+- partOfSpeechTags には統合した語義に該当する品詞をすべて入れる（先頭の語義の品詞を最初に）。
+- 例: 画像に「spare (形) 余分な」「spare (動) 割く」「spare (動) 省く」が別項目として載っている場合:
+  {"english": "spare", "japanese": "余分な", "japaneseSource": "scan", "partOfSpeechTags": ["adjective", "verb"], "translations": ["余分な", "割く", "省く"]}
+- english が完全一致する場合のみ統合する。"spare" と "spare time" と "spare no effort to" は別の見出し語なので統合してはいけない。
+- 「文脈に最も合う意味を1つだけ選ぶ」ルールは、1つのエントリに対して訳を決める場合にのみ適用する。画像内に複数の語義が別項目として実際に書かれている場合は、すべての訳を残して1つのエントリに統合する。`;

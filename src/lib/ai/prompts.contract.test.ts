@@ -28,6 +28,7 @@ import {
 import {
   JAPANESE_PARENTHESIS_RULES,
   JAPANESE_TRANSLATION_STRUCTURE_RULES,
+  POLYSEMOUS_HEADWORD_MERGE_RULES,
 } from '@/lib/ai/prompts/japanese-format';
 import { LEMMA_NORMALIZATION_RULES } from '@/lib/ai/prompts/lemma';
 
@@ -197,6 +198,34 @@ test('translation structure rules distinguish alternate meanings from annotation
       'annotationRanges に日本語の別訳を入れてはいけない',
       'クイズの答えとして自然に使える語',
     ]);
+  }
+});
+
+test('polysemous headword rules merge duplicate entries into one word with multiple translations', () => {
+  assertIncludesAll('POLYSEMOUS_HEADWORD_MERGE_RULES', POLYSEMOUS_HEADWORD_MERGE_RULES, [
+    '多義語見出しの統合ルール',
+    '同じ english を複数回出力してはいけない',
+    '掲載順にすべて translations に入れる',
+    '該当する品詞をすべて入れる',
+    '"spare"',
+    '"translations": ["余分な", "割く", "省く"]',
+    'english が完全一致する場合のみ統合する',
+  ]);
+
+  const prompts = [
+    ['WORD_EXTRACTION_SYSTEM_PROMPT', WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['USER_PROMPT_TEMPLATE', USER_PROMPT_TEMPLATE],
+    ['WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT', WORD_EXTRACTION_WITH_EXAMPLES_SYSTEM_PROMPT],
+    ['USER_PROMPT_WITH_EXAMPLES_TEMPLATE', USER_PROMPT_WITH_EXAMPLES_TEMPLATE],
+    ['CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT', CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT],
+    ['EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT', EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT],
+    ['EIKEN_SINGLE_PASS_SYSTEM_PROMPT', EIKEN_SINGLE_PASS_SYSTEM_PROMPT],
+    ['IDIOM_EXTRACTION_SYSTEM_PROMPT', IDIOM_EXTRACTION_SYSTEM_PROMPT],
+    ['HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT', HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT],
+  ] as const;
+
+  for (const [name, prompt] of prompts) {
+    assertIncludesAll(name, prompt, [POLYSEMOUS_HEADWORD_MERGE_RULES]);
   }
 });
 

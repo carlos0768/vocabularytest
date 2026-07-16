@@ -1,5 +1,5 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET } from './source-labels';
-import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES } from './japanese-format';
+import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES, POLYSEMOUS_HEADWORD_MERGE_RULES } from './japanese-format';
 import { LEMMA_NORMALIZATION_RULES } from './lemma';
 
 // 丸をつけた単語のみ抽出するプロンプト (Gemini用)
@@ -38,10 +38,11 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 注意:
 - 必ずJSONのみを出力してください。
 - translations は複数の独立した意味・訳注がある場合のみ追加してください（【日本語訳の構造化ルール】参照）。
-- 同一語を重複出力しないでください。
+- 同一語を重複出力しないでください。同じ見出し語に複数の語義が丸で囲まれている場合は、1エントリに統合して全訳を translations に入れてください（【多義語見出しの統合ルール】参照）。
 - japaneseSource は日本語訳が画像に見えている場合だけ "scan" を使ってください。
 ${JAPANESE_PARENTHESIS_RULES}
 ${JAPANESE_TRANSLATION_STRUCTURE_RULES}
+${POLYSEMOUS_HEADWORD_MERGE_RULES}
 ${LEMMA_NORMALIZATION_RULES}
 - 手書きの丸で囲まれた語が見つからない場合は {"words": []} を返してください。${SOURCE_LABEL_NOTES}`;
 
