@@ -429,35 +429,34 @@ export async function getStudyGroupOverview(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<StudyGroupOverviewPayload | null> {
-  // membership と roles は独立クエリなので並列化する（membership が null なら
-  // roles の結果は捨てる）。直列だとこの2往復が概要APIの先頭を塞いでいた。
-  const [membership, memberRoles] = await Promise.all([
-    getStudyGroupMembership(groupId, userId, admin),
+  // アクセス検査は listStudyGroupProjects 内の membership チェックに任せ、
+  // 独立クエリ（本棚 / メンバー一覧）を最初から並列で走らせる。旧実装は
+  // membership → 本棚 → 苦戦単語集計 の直列ウォーターフォールで、概要APIの
+  // 応答（＝グループページ遷移の体感）を塞いでいた。
+  const [projectPayload, memberRoles] = await Promise.all([
+    listStudyGroupProjects(groupId, userId, admin),
     getStudyGroupMemberRoles(groupId, admin),
   ]);
-  if (!membership) return null;
-
-  const memberUserIds = Array.from(memberRoles.keys());
-
-  const [projectPayload, leaderboard] = await Promise.all([
-    listStudyGroupProjects(groupId, userId, admin),
-    getStudyGroupLeaderboard(memberUserIds, userId, admin),
-  ]);
-
   if (!projectPayload) return null;
 
-  const members = buildStudyGroupMembers(memberRoles, leaderboard, userId);
+  const memberUserIds = Array.from(memberRoles.keys());
 
   // "Struggling words" are aggregated ONLY from words inside the group's
   // wordbooks: the shared projects themselves plus the copies members imported
   // from them (tracked via projects.imported_from_share_id).
-  const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
-  const missedWordSummary = await getStudyGroupMissedWordSummary(
-    memberUserIds,
-    groupProjectIds,
-    admin,
-    STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT,
-  );
+  const [leaderboard, missedWordSummary] = await Promise.all([
+    getStudyGroupLeaderboard(memberUserIds, userId, admin),
+    getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin).then(
+      (groupProjectIds) => getStudyGroupMissedWordSummary(
+        memberUserIds,
+        groupProjectIds,
+        admin,
+        STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT,
+      ),
+    ),
+  ]);
+
+  const members = buildStudyGroupMembers(memberRoles, leaderboard, userId);
 
   return {
     group: projectPayload.group,

@@ -9,7 +9,7 @@ import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
-import { loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
+import { getSeededGroupSummary, loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
 import type {
   SharedProjectCard,
   StudyGroupLeaderboardEntry,
@@ -33,7 +33,11 @@ export default function GroupPage() {
   const { loading: authLoading, isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
-  const [group, setGroup] = useState<StudyGroupSummary | null>(null);
+  // 遷移元（ホームのグループカード等）がシードしたサマリーがあれば、フルの
+  // 概要ペイロードを待たずにヘッダーを即描画する（遷移の体感短縮）。
+  const [group, setGroup] = useState<StudyGroupSummary | null>(() =>
+    groupId ? getSeededGroupSummary(groupId) : null,
+  );
   const [projects, setProjects] = useState<SharedProjectCard[]>([]);
   const [leaderboard, setLeaderboard] = useState<StudyGroupLeaderboardEntry[]>([]);
   const [missedWords, setMissedWords] = useState<StudyGroupMissedWord[]>([]);
@@ -87,7 +91,9 @@ export default function GroupPage() {
 
   const settingsHref = `/groups/${encodeURIComponent(groupId)}/settings`;
 
-  const stateView = authLoading || loading ? (
+  // シード済みサマリーがある間は loading 中でも全画面スピナーにしない
+  //（ヘッダーだけ先に出し、セクション部分にスピナーを出す）。
+  const stateView = authLoading || (loading && !group) ? (
     <LoadingState />
   ) : !isAuthenticated ? (
     <CenteredCard icon="lock" title="ログインが必要です">
@@ -136,17 +142,21 @@ export default function GroupPage() {
                 <DesktopGroupStat icon="menu_book" label="共有単語帳" value={group.projectCount} unit="冊" />
                 <DesktopGroupStat icon="bolt" label="今週の解答" value={totalQuiz} unit="問" />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
-                <div className="flex flex-col gap-5">
-                  <BookshelfSection groupId={groupId} projects={projects} />
-                  <MissedWordsSection
-                    groupId={groupId}
-                    missedWords={missedWords}
-                    totalCount={missedWordsTotalCount}
-                  />
+              {loading ? (
+                <LoadingState />
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
+                  <div className="flex flex-col gap-5">
+                    <BookshelfSection groupId={groupId} projects={projects} />
+                    <MissedWordsSection
+                      groupId={groupId}
+                      missedWords={missedWords}
+                      totalCount={missedWordsTotalCount}
+                    />
+                  </div>
+                  <LeaderboardSection leaderboard={leaderboard} />
                 </div>
-                <LeaderboardSection leaderboard={leaderboard} />
-              </div>
+              )}
             </>
           ))}
         </div>
@@ -172,13 +182,19 @@ export default function GroupPage() {
               onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
               settingsHref={settingsHref}
             />
-            <BookshelfSection groupId={groupId} projects={projects} />
-            <LeaderboardSection leaderboard={leaderboard} />
-            <MissedWordsSection
-              groupId={groupId}
-              missedWords={missedWords}
-              totalCount={missedWordsTotalCount}
-            />
+            {loading ? (
+              <LoadingState />
+            ) : (
+              <>
+                <BookshelfSection groupId={groupId} projects={projects} />
+                <LeaderboardSection leaderboard={leaderboard} />
+                <MissedWordsSection
+                  groupId={groupId}
+                  missedWords={missedWords}
+                  totalCount={missedWordsTotalCount}
+                />
+              </>
+            )}
           </div>
         ))}
       </div>

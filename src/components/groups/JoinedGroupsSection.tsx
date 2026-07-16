@@ -4,13 +4,17 @@
  * 参加中のグループ表示（共通コンポーネント）。
  * 元は /shared（SharedPageClient / DesktopShared）のローカル実装だったが、
  * ホームのマイ単語帳直下へ移設するにあたり共通化した。
- * - JoinedGroupsSection: モバイル向け縦リスト
+ * - JoinedGroupsSection: モバイル向け。横長カードの横スライド（スナップ付き）
  * - JoinedGroupGrid: デスクトップ向けカードグリッド
  */
 
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { triggerHaptic } from '@/lib/haptics';
+import {
+  prefetchGroupOverview,
+  seedGroupSummary,
+} from '@/lib/shared-projects/group-overview-cache';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -24,32 +28,54 @@ function thumbColor(id: string) {
 export function JoinedGroupsSection({ groups }: { groups: StudyGroupSummary[] }) {
   if (groups.length === 0) return null;
 
+  // 複数所属時は横長カードを横スライドで閲覧（次のカードが少し覗く幅）。
+  // 1つだけの場合は全幅の1枚カード。
+  const multiple = groups.length > 1;
+
   return (
-    <div className="px-[14px] pb-1 pt-3">
-      <div className="mb-2.5 flex items-center gap-2">
+    <div className="pb-1 pt-3">
+      <div className="mb-2.5 flex items-center gap-2 px-[14px]">
         <Icon name="groups" size={20} className="text-[var(--solid-ink)]" />
         <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">参加中のグループ</h2>
         <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-white">
           {groups.length}
         </span>
       </div>
-      <div className="flex flex-col gap-2.5">
+      <div
+        className={
+          multiple
+            ? 'no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[14px] pb-1'
+            : 'px-[14px]'
+        }
+      >
         {groups.map((group) => (
-          <JoinedGroupCard key={group.id} group={group} />
+          <JoinedGroupCard
+            key={group.id}
+            group={group}
+            className={multiple ? 'w-[84%] max-w-[340px] shrink-0 snap-start' : undefined}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-export function JoinedGroupCard({ group }: { group: StudyGroupSummary }) {
+export function JoinedGroupCard({ group, className }: { group: StudyGroupSummary; className?: string }) {
   const color = thumbColor(group.id);
+  const handlePress = () => {
+    triggerHaptic();
+    // タップ時点で概要をシード+先読みし、グループページのヘッダーを
+    // 即描画できるようにする（遷移の体感短縮）。
+    seedGroupSummary(group);
+    prefetchGroupOverview(group.id);
+  };
   return (
     <Link
       href={`/groups/${group.id}`}
-      onPointerDown={() => triggerHaptic()}
+      onPointerDown={handlePress}
+      onClick={handlePress}
       aria-label={`${group.name}のグループを開く`}
-      className="block focus:outline-none"
+      className={`block focus:outline-none ${className ?? ''}`}
     >
       <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div className="flex items-center gap-[11px]">
