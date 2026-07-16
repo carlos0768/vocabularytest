@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopSharedDetailView } from '@/components/desktop/DesktopSharedDetail';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { Modal } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
@@ -14,6 +15,8 @@ import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
+import { generateWordShareImage } from '@/lib/reels/share-image';
 import { saveSharedWordbookTags } from '@/lib/shared-projects/client';
 import type { SharedProjectPreviewPayload } from '@/lib/shared-projects/types';
 import type { Project, Word } from '@/types';
@@ -142,6 +145,11 @@ export default function SharedDetailPage() {
   const [tagsOpen, setTagsOpen] = useState(false);
   const [tagsDraft, setTagsDraft] = useState('');
   const [tagsSaving, setTagsSaving] = useState(false);
+  // 単語ごとの「…」メニューと「単語帳に追加」ピッカー
+  const [actionWord, setActionWord] = useState<Word | null>(null);
+  const [bookPickerOpen, setBookPickerOpen] = useState(false);
+  const [myBooks, setMyBooks] = useState<Project[] | null>(null);
+  const [addingToBookId, setAddingToBookId] = useState<string | null>(null);
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -358,6 +366,103 @@ export default function SharedDetailPage() {
     });
   };
 
+  // 単語単体の共有。リールの共有と同じ挙動（共有カード画像を生成して
+  // navigator.share を優先し、順にフォールバック）。
+  const handleShareWord = async (word: Word) => {
+    if (!project) return;
+    const url = `${window.location.origin}/share/${encodeURIComponent(shareId)}`;
+    const text = `この単語知ってた？「${word.english}」${word.japanese ? ` — ${word.japanese}` : ''}\nMerkenで英単語を学ぼう`;
+    try {
+      const blob = await generateWordShareImage({
+        english: word.english,
+        pronunciation: word.pronunciation ?? null,
+        japanese: word.japanese,
+        book: { title: project.title },
+      }).catch(() => null);
+      const file = blob
+        ? new File([blob], `merken-${word.english.slice(0, 24)}.png`, { type: 'image/png' })
+        : null;
+
+      if (file && navigator.canShare?.({ files: [file] })) {
+        // Some targets drop `url` when files are present — keep it in text.
+        await navigator.share({ files: [file], title: 'Merken', text: `${text}\n${url}` });
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({ title: 'Merken', text, url });
+        return;
+      }
+      if (blob && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showToast({ message: 'サムネ画像をコピーしました', type: 'success' });
+        return;
+      }
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      showToast({ message: 'リンクをコピーしました', type: 'success' });
+    } catch (shareError) {
+      // AbortError = user cancelled the share sheet; stay silent.
+      if ((shareError as DOMException)?.name !== 'AbortError') {
+        console.error('Failed to share word:', shareError);
+        showToast({ message: '共有に失敗しました', type: 'error' });
+      }
+    }
+  };
+
+  // 「単語帳に追加」: 自分の単語帳一覧を開く
+  const handleOpenBookPicker = async () => {
+    if (!user) {
+      router.push(loginRedirectHref);
+      return;
+    }
+    if (wasPro) {
+      showToast({ message: '解約後は読み取り専用のため、追加にはProプランへの再登録が必要です。', type: 'warning' });
+      return;
+    }
+    setBookPickerOpen(true);
+    if (myBooks !== null) return;
+    try {
+      const repo = getRepository(subscriptionStatus, wasPro);
+      const projects = await repo.getProjects(user.id);
+      setMyBooks(excludeReelSavedProjects(projects));
+    } catch (loadError) {
+      console.error('Failed to load my wordbooks:', loadError);
+      setMyBooks([]);
+      showToast({ message: '単語帳の読み込みに失敗しました', type: 'error' });
+    }
+  };
+
+  const handleAddWordToBook = async (target: Project) => {
+    if (!user || !actionWord || addingToBookId) return;
+    setAddingToBookId(target.id);
+    try {
+      const repo = getRepository(subscriptionStatus, wasPro);
+      await repo.createWords([
+        {
+          projectId: target.id,
+          english: actionWord.english,
+          japanese: actionWord.japanese,
+          translations: actionWord.translations,
+          distractors: actionWord.distractors ?? [],
+          exampleSentence: actionWord.exampleSentence ?? undefined,
+          exampleSentenceJa: actionWord.exampleSentenceJa ?? undefined,
+          pronunciation: actionWord.pronunciation ?? undefined,
+          partOfSpeechTags: actionWord.partOfSpeechTags ?? undefined,
+          vocabularyType: actionWord.vocabularyType ?? undefined,
+          wordOrderQuiz: actionWord.wordOrderQuiz ?? undefined,
+        },
+      ]);
+      invalidateHomeCache();
+      showToast({ message: `「${target.title}」に追加しました`, type: 'success' });
+      setBookPickerOpen(false);
+      setActionWord(null);
+    } catch (addError) {
+      console.error('Failed to add word to wordbook:', addError);
+      showToast({ message: '追加に失敗しました', type: 'error' });
+    } finally {
+      setAddingToBookId(null);
+    }
+  };
+
   const handleOpenRename = () => {
     setRenameDraft(project?.title ?? '');
     setRenameOpen(true);
@@ -570,41 +675,20 @@ export default function SharedDetailPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-1 px-3.5 pb-[130px]">
-        {displayWords.map((word, i) => {
-          const selected = selectedWordIds.has(word.id);
-          const locked = isPreviewLocked && i >= SHARE_PREVIEW_CLEAR_WORD_COUNT;
-          const previewTextClass = locked ? 'select-none blur-[3.5px]' : '';
-          return (
-            <button
-              key={word.id}
-              type="button"
-              onClick={() => {
-                if (!locked) handleToggleSelect(word.id);
-              }}
-              disabled={locked}
-              className="flex items-center gap-2.5 rounded-lg border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left"
-              style={{
-                borderColor: selected ? 'var(--solid-ink)' : 'var(--color-border)',
-                opacity: locked ? 0.82 : 1,
-              }}
-            >
-              <span className="min-w-[16px] font-mono text-[9px] font-bold tabular-nums text-[var(--color-muted)]">
-                {selectMode ? (selected ? '✓' : String(i + 1).padStart(2, '0')) : String(i + 1).padStart(2, '0')}
-              </span>
-              <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
-                <span className={`font-display text-[14px] font-bold text-[var(--solid-ink)] ${previewTextClass}`}>{word.english}</span>
-                {word.partOfSpeechTags?.[0] && (
-                  <span className={`text-[10px] font-bold text-[var(--color-muted)] ${previewTextClass}`}>{getPartOfSpeechLabel(word.partOfSpeechTags[0])}</span>
-                )}
-                <span className={`ml-1 truncate text-[11px] text-[var(--color-muted)] ${previewTextClass}`}>
-                  <TranslationDisplay word={word} compact />
-                </span>
-              </div>
-              {locked && <Icon name="lock" size={13} className="text-[var(--color-muted)]" />}
-            </button>
-          );
-        })}
+      <div className="flex flex-col px-4 pb-[130px]">
+        <div className="divide-y divide-[var(--color-border)]">
+          {displayWords.map((word, i) => {
+            const locked = isPreviewLocked && i >= SHARE_PREVIEW_CLEAR_WORD_COUNT;
+            return (
+              <SharedWordRow
+                key={word.id}
+                word={word}
+                locked={locked}
+                onMore={() => setActionWord(word)}
+              />
+            );
+          })}
+        </div>
         {isPreviewLocked && lockedPreviewWordCount > 0 && (
           <div className="px-2 py-3 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
             {`残り ${lockedPreviewWordCount.toLocaleString()} 語はログインすると表示できます`}
@@ -770,6 +854,96 @@ export default function SharedDetailPage() {
         </div>
       )}
       </div>
+
+      {/* 単語の「…」メニュー: 単語帳に追加 / 共有 */}
+      <Modal
+        isOpen={actionWord !== null && !bookPickerOpen}
+        onClose={() => setActionWord(null)}
+        variant="sheet"
+      >
+        {actionWord && (
+          <div className="px-4 pb-6 pt-5">
+            <p className="mb-3 truncate px-3 font-display text-sm font-bold text-[var(--color-secondary-text)]">
+              {actionWord.english}
+              {actionWord.japanese && (
+                <span className="ml-1.5 text-xs font-semibold text-[var(--color-muted)]">{actionWord.japanese}</span>
+              )}
+            </p>
+            <WordActionSheetRow
+              icon="bookmark_add"
+              label="単語帳に追加"
+              sub="自分の単語帳を選んで追加します"
+              onClick={() => void handleOpenBookPicker()}
+            />
+            <WordActionSheetRow
+              icon="ios_share"
+              label="共有"
+              sub="共有カードを作成してシェアします"
+              onClick={() => {
+                const word = actionWord;
+                setActionWord(null);
+                void handleShareWord(word);
+              }}
+            />
+          </div>
+        )}
+      </Modal>
+
+      {/* 「単語帳に追加」: 自分の単語帳一覧 */}
+      <Modal
+        isOpen={bookPickerOpen}
+        onClose={() => {
+          if (!addingToBookId) setBookPickerOpen(false);
+        }}
+        variant="sheet"
+      >
+        <div className="px-4 pb-6 pt-5">
+          <p className="mb-3 px-3 font-display text-sm font-bold text-[var(--color-secondary-text)]">
+            追加先の単語帳を選択
+          </p>
+          <div className="max-h-[52dvh] overflow-y-auto overscroll-contain">
+            {myBooks === null ? (
+              <div className="flex items-center justify-center py-8 text-[var(--color-muted)]">
+                <Icon name="progress_activity" size={18} className="animate-spin" />
+                <span className="ml-2 text-sm">読み込み中...</span>
+              </div>
+            ) : myBooks.length === 0 ? (
+              <div className="px-3 py-8 text-center text-sm text-[var(--color-muted)]">
+                単語帳がまだありません
+              </div>
+            ) : (
+              myBooks.map((book) => (
+                <button
+                  key={book.id}
+                  type="button"
+                  disabled={addingToBookId !== null}
+                  onClick={() => void handleAddWordToBook(book)}
+                  className="flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-secondary)] disabled:opacity-60"
+                >
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] font-display text-base font-extrabold text-white"
+                    style={{
+                      background: book.iconImage
+                        ? `center / cover url(${book.iconImage})`
+                        : shareThumbColor(book.id),
+                    }}
+                  >
+                    {!book.iconImage && book.title.charAt(0)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--solid-ink)]">
+                    {book.title}
+                  </span>
+                  {addingToBookId === book.id ? (
+                    <Icon name="progress_activity" size={16} className="animate-spin text-[var(--color-muted)]" />
+                  ) : (
+                    <Icon name="add" size={18} className="text-[var(--color-accent)]" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
@@ -791,6 +965,101 @@ function SharedHeaderBtn({
       className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white px-2 text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
+    </button>
+  );
+}
+
+const SHARE_THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
+
+function shareThumbColor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return SHARE_THUMBS[Math.abs(h) % SHARE_THUMBS.length];
+}
+
+/** 品詞の1文字略記（project/* の WordRow と同じ見た目） */
+function posShort(tag: string): string {
+  return `(${getPartOfSpeechLabel(tag).charAt(0)})`;
+}
+
+/**
+ * project/* の単語一覧と同じ行UI。共有ページ用に保存マーク・語彙モード
+ * （AP）・チェックボックスは持たず、代わりに「…」ボタンだけを置く。
+ */
+function SharedWordRow({
+  word,
+  locked,
+  onMore,
+}: {
+  word: Word;
+  locked: boolean;
+  onMore: () => void;
+}) {
+  const pos = word.partOfSpeechTags?.[0] ?? null;
+  const blurClass = locked ? 'select-none blur-[3.5px]' : '';
+  return (
+    <div className="px-1 py-2.5">
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={locked ? undefined : onMore}
+          disabled={locked}
+          className="min-w-0 flex-1 text-left"
+        >
+          <div className={`truncate font-display text-[15px] font-bold text-[var(--solid-ink)] ${blurClass}`}>
+            {word.english}
+          </div>
+          <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
+            {pos && <span className={`shrink-0 font-mono text-[9px] ${blurClass}`}>{posShort(pos)}</span>}
+            <span className={`truncate ${blurClass}`}>
+              <TranslationDisplay word={word} compact />
+            </span>
+          </div>
+        </button>
+        {locked ? (
+          <span className="inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center text-[var(--color-muted)]">
+            <Icon name="lock" size={14} />
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onMore}
+            aria-label={`${word.english}の操作メニュー`}
+            className="inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-secondary)]"
+          >
+            <Icon name="more_horiz" size={20} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WordActionSheetRow({
+  icon,
+  label,
+  sub,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  sub?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] px-3 py-3.5 text-left transition-colors hover:bg-[var(--color-surface-secondary)]"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)]">
+        <Icon name={icon} size={20} className="text-[var(--color-foreground)]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-[var(--color-foreground)]">{label}</span>
+        {sub && <span className="block text-xs text-[var(--color-secondary-text)]">{sub}</span>}
+      </span>
+      <Icon name="chevron_right" size={18} className="text-[var(--color-muted)]" />
     </button>
   );
 }
