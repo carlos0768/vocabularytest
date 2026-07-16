@@ -187,7 +187,7 @@ function GoalIconSquare({ icon, background = 'var(--color-accent)' }: { icon: st
       className="flex h-full w-full items-center justify-center text-white"
       style={{ background }}
     >
-      <Icon name={icon} size={16} filled />
+      <Icon name={icon} size={20} filled />
     </div>
   );
 }
@@ -195,7 +195,7 @@ function GoalIconSquare({ icon, background = 'var(--color-accent)' }: { icon: st
 function IconSquare({ background, children }: { background: string; children?: React.ReactNode }) {
   return (
     <div
-      className="flex h-full w-full items-center justify-center font-display text-[14px] font-extrabold text-white"
+      className="flex h-full w-full items-center justify-center font-display text-[17px] font-extrabold text-white"
       style={{ background }}
     >
       {children}
@@ -230,16 +230,16 @@ function TileShell({
   sub?: React.ReactNode;
 }) {
   const className =
-    'flex h-[42px] items-center overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-left transition-all duration-100 active:translate-x-px active:translate-y-px';
+    'flex h-[54px] items-center overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-left transition-all duration-100 active:translate-x-px active:translate-y-px';
   const handlePress = () => {
     triggerHaptic();
     onPress?.();
   };
   const inner = (
     <>
-      <div className="h-full w-[38px] shrink-0 border-r-2 border-[var(--solid-ink)]">{iconArea}</div>
+      <div className="h-full w-[50px] shrink-0 border-r-2 border-[var(--solid-ink)]">{iconArea}</div>
       <div className="min-w-0 flex-1 px-2">
-        <div className="truncate text-[11px] font-bold leading-[1.2] text-[var(--solid-ink)]">
+        <div className="line-clamp-2 text-[11px] font-bold leading-[1.25] text-[var(--solid-ink)]">
           {title}
         </div>
         {sub}
