@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks';
 import { useReelFeed } from '@/hooks/use-reel-feed';
 import { getRepository } from '@/lib/db';
@@ -56,7 +56,19 @@ function toWordTranslations(entries: ImportWordTranslation[] | undefined): WordT
 }
 
 export default function ReelsPage() {
+  // useSearchParams は Next.js 16 では Suspense 境界が必須。
+  return (
+    <Suspense fallback={null}>
+      <ReelsPageInner />
+    </Suspense>
+  );
+}
+
+function ReelsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // ホームのリールカードから遷移した場合、その単語をフィード先頭に固定する。
+  const pin = searchParams?.get('pin') ?? null;
   const { user, subscription, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const {
@@ -71,7 +83,7 @@ export default function ReelsPage() {
     markBookImported,
     markWordSaved,
     bumpCommentCount,
-  } = useReelFeed();
+  } = useReelFeed({ pin });
   const [importingBookId, setImportingBookId] = useState<string | null>(null);
   const savingWordIdsRef = useRef<Set<string>>(new Set());
 

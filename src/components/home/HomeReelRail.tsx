@@ -8,6 +8,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { prefetchReelFeed } from '@/hooks/use-reel-feed';
 import { triggerHaptic } from '@/lib/haptics';
 import type { HomeReelPreviewItem } from '@/lib/home/recommendations-types';
 
@@ -62,8 +63,12 @@ function ReelPreviewCard({ item }: { item: HomeReelPreviewItem }) {
   const parts = item.morphology.formula.slice(0, MAX_FORMULA_PARTS);
   return (
     <Link
-      href="/reels"
-      onPointerDown={() => triggerHaptic()}
+      href={`/reels?pin=${encodeURIComponent(item.id)}`}
+      onPointerDown={() => {
+        triggerHaptic();
+        // タップ時点でフィード取得を先行開始（この単語を先頭に固定）。
+        prefetchReelFeed(item.id);
+      }}
       aria-label={`リールで${item.english}を見る`}
       className="relative flex h-[190px] w-[140px] shrink-0 snap-start flex-col overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
       style={{ background: `linear-gradient(165deg, ${thumbColor(item.id)} 0%, #1a1a1a 170%)` }}

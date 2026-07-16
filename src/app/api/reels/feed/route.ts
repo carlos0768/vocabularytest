@@ -42,6 +42,8 @@ export async function handleReelFeedGet(
 
     const limit = clampReelFeedLimit(request.nextUrl.searchParams.get('limit'));
     const cursor = request.nextUrl.searchParams.get('cursor');
+    // pin はカーソル無し（最初のページ）のときだけ意味を持つ。
+    const pin = cursor ? null : request.nextUrl.searchParams.get('pin');
 
     const userClient = await resolved.createRouteHandlerClient(request);
     const page = await resolved.buildReelFeedPage({
@@ -49,6 +51,7 @@ export async function handleReelFeedGet(
       userClient,
       cursor,
       limit,
+      pinKey: pin,
     });
 
     return NextResponse.json(

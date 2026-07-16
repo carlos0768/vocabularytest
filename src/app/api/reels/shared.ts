@@ -107,6 +107,13 @@ export function reelItemKey(source: ReelSource, wordId: string): string {
   return `${source === 'shared' ? 's' : 'o'}:${wordId}`;
 }
 
+/** item key ('s:<id>' | 'o:<id>') → { source, wordId }。不正な形式は null。 */
+export function parseReelItemKey(itemKey: string): { source: ReelSource; wordId: string } | null {
+  const match = /^([so]):(.+)$/.exec(itemKey.trim());
+  if (!match) return null;
+  return { source: match[1] === 's' ? 'shared' : 'official', wordId: match[2] };
+}
+
 // ---------- candidate fetchers ----------
 
 /** Per-request sampling context so each page surfaces different words. */
@@ -315,6 +322,109 @@ async function fetchOfficialCandidates(
   }
 
   return candidates;
+}
+
+/**
+ * ホームのリールカード等から指定された単語（pin）を単体で取得して
+ * ReelCandidate に組み立てる。見つからない・非公開などは null（フィードは
+ * pin なしで通常配信される）。
+ */
+async function fetchPinnedCandidate(
+  admin: SupabaseAdminClient,
+  itemKey: string,
+): Promise<ReelCandidate | null> {
+  const parsed = parseReelItemKey(itemKey);
+  if (!parsed) return null;
+
+  try {
+    if (parsed.source === 'shared') {
+      const { data: word } = await admin
+        .from('shared_wordbook_words')
+        .select('id,shared_wordbook_id,english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags')
+        .eq('id', parsed.wordId)
+        .maybeSingle<SharedWordRow>();
+      if (!word || !word.english?.trim() || !word.japanese?.trim()) return null;
+
+      const { data: book } = await admin
+        .from('shared_wordbooks')
+        .select('id,share_id,user_id,title,icon_image,shared_tags,word_count,like_count,created_at')
+        .eq('id', word.shared_wordbook_id)
+        .maybeSingle<SharedBookRow>();
+      if (!book) return null;
+
+      return {
+        id: reelItemKey('shared', word.id),
+        source: 'shared',
+        wordId: word.id,
+        english: word.english,
+        pronunciation: word.pronunciation,
+        japanese: word.japanese,
+        exampleSentence: word.example_sentence,
+        exampleSentenceJa: word.example_sentence_ja,
+        partOfSpeechTags: toStringArray(word.part_of_speech_tags),
+        cefrLevel: null,
+        book: {
+          type: 'shared',
+          id: book.id,
+          title: book.title,
+          iconImage: book.icon_image,
+          shareId: book.share_id,
+          sharedTags: toStringArray(book.shared_tags),
+          eikenLevel: null,
+          ownerName: null,
+          wordCount: Number(book.word_count ?? 0),
+          likeCount: Number(book.like_count ?? 0),
+          createdAt: book.created_at,
+          importedByMe: false,
+        },
+      };
+    }
+
+    const { data: word } = await admin
+      .from('words')
+      .select('id,project_id,english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,lexicon_entries(cefr_level)')
+      .eq('id', parsed.wordId)
+      .maybeSingle<OfficialWordRow>();
+    if (!word || !word.english?.trim() || !word.japanese?.trim()) return null;
+
+    const { data: project } = await admin
+      .from('projects')
+      .select('id,official_slug,official_title,title,icon_image,official_eiken_level,created_at')
+      .eq('id', word.project_id)
+      .eq('official_is_active', true)
+      .maybeSingle<OfficialProjectRow>();
+    if (!project || !project.official_slug) return null;
+
+    return {
+      id: reelItemKey('official', word.id),
+      source: 'official',
+      wordId: word.id,
+      english: word.english,
+      pronunciation: word.pronunciation,
+      japanese: word.japanese ?? '',
+      exampleSentence: word.example_sentence,
+      exampleSentenceJa: word.example_sentence_ja,
+      partOfSpeechTags: toStringArray(word.part_of_speech_tags),
+      cefrLevel: firstOrNull(word.lexicon_entries)?.cefr_level ?? null,
+      book: {
+        type: 'official',
+        id: project.id,
+        title: project.official_title || project.title,
+        iconImage: project.icon_image,
+        officialSlug: project.official_slug,
+        sharedTags: [],
+        eikenLevel: project.official_eiken_level,
+        ownerName: null,
+        wordCount: 0,
+        likeCount: 0,
+        createdAt: project.created_at,
+        importedByMe: false,
+      },
+    };
+  } catch {
+    // pin は演出であってフィードの生死に関わらせない。
+    return null;
+  }
 }
 
 // ---------- personalization context ----------
@@ -549,6 +659,8 @@ export async function buildReelFeedPage(options: {
   userClient: SupabaseClient;
   cursor: string | null;
   limit: number;
+  /** 最初のページの先頭に固定する item key（ホームのリールカードから遷移時） */
+  pinKey?: string | null;
   admin?: SupabaseAdminClient;
 }): Promise<ReelFeedPage> {
   const admin = options.admin ?? getSupabaseAdmin();
@@ -560,10 +672,13 @@ export async function buildReelFeedPage(options: {
 
   const rankSeed = (seed ^ Math.imul(page + 1, 0x9e3779b1)) >>> 0;
 
-  const [rankingInputs, seenAtByKey, feedback] = await Promise.all([
+  const [rankingInputs, seenAtByKey, feedback, pinnedFetched] = await Promise.all([
     fetchRankingInputs(admin, options.userId),
     fetchSeenAtByKey(admin, options.userId),
     fetchUserFeedback(admin, options.userId),
+    options.pinKey && page === 0
+      ? fetchPinnedCandidate(admin, options.pinKey)
+      : Promise.resolve(null),
   ]);
 
   // Page-scoped sampling: fetchers rotate which words of each book become
@@ -599,8 +714,14 @@ export async function buildReelFeedPage(options: {
       // cefrLevel stays null → neutral level fit.
     }
   }
-  const selections = selectReelCandidates(
-    candidates,
+  // pin された単語（興味なし指定済みは尊重して固定しない）は先頭に置き、
+  // 残り枠を通常ランキングで埋める。
+  const pinnedCandidate =
+    pinnedFetched && !feedback.excludedKeys.has(pinnedFetched.id) ? pinnedFetched : null;
+  const rankedSelections = selectReelCandidates(
+    pinnedCandidate
+      ? candidates.filter((candidate) => candidate.id !== pinnedCandidate.id)
+      : candidates,
     seenAtByKey,
     {
       eikenLevel: rankingInputs.eikenLevel,
@@ -611,8 +732,11 @@ export async function buildReelFeedPage(options: {
       notInterestedBookCounts: feedback.notInterestedBookCounts,
     },
     rankSeed,
-    limit,
+    pinnedCandidate ? Math.max(0, limit - 1) : limit,
   );
+  const selections = pinnedCandidate
+    ? [{ candidate: pinnedCandidate, recycled: false }, ...rankedSelections]
+    : rankedSelections;
 
   // Count the page against the daily limit (batch; must run as the user).
   const { data: usageData, error: usageError } = await options.userClient.rpc(

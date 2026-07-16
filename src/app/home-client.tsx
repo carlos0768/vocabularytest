@@ -12,6 +12,7 @@ import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
 import { HomeReelRail } from '@/components/home/HomeReelRail';
+import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
 import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
@@ -254,6 +255,7 @@ export function HomeClient() {
 
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -543,13 +545,14 @@ export function HomeClient() {
         </div>
         <div className="flex items-center gap-2">
           <CoinBalancePill />
-          <Link
-            href="/shared"
-            aria-label="単語帳を検索"
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="自分の単語帳から検索"
             className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="search" size={16} />
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -563,9 +566,10 @@ export function HomeClient() {
 
       <PwaInstallBanner />
 
-      {/* Spotify風ショートカットグリッド: TODAY'S GOAL + 単語帳/グループ/おすすめ */}
+      {/* Spotify風ショートカットグリッド: TODAY'S GOAL + 保存済み + 単語帳/グループ/おすすめ */}
       <HomeShortcutGrid
         goal={{ state: goalState, count: goalCount }}
+        savedWordsCount={favoriteCount}
         projects={listProjects}
         groups={myGroups}
         recommendations={loading ? [] : recommendedBooks}
@@ -575,35 +579,6 @@ export function HomeClient() {
       {showUpgradeBanner && (
         <div className="px-[18px] pb-3.5">
           <ProUpgradeBanner onDismiss={dismissUpgradeBanner} />
-        </div>
-      )}
-
-      {favoriteCount > 0 && (
-        <div className="px-[18px] pb-3.5">
-          <Link href="/favorites" className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
-                  <Icon name="bookmark" size={17} filled />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                    SAVED WORDS
-                  </div>
-                  <div className="text-sm font-bold text-[var(--solid-ink)]">保存済み単語</div>
-                </div>
-                <div className="flex items-baseline gap-0.5">
-                  <span className="font-display text-lg font-extrabold tabular-nums text-[var(--solid-ink)]">
-                    {favoriteCount}
-                  </span>
-                  <span className="text-[11px] font-bold text-[var(--color-muted)]">語</span>
-                </div>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={14} />
-                </span>
-              </div>
-            </SolidPanel>
-          </Link>
         </div>
       )}
 
@@ -681,6 +656,11 @@ export function HomeClient() {
         isOpen={createSheetOpen}
         onClose={() => setCreateSheetOpen(false)}
       />
+      {/* 自分の単語帳内の単語検索（ヘッダーの検索ボタンから）。
+          開くたびにマウントし直して状態を初期化する */}
+      {searchOpen && (
+        <HomeWordSearchSheet onClose={() => setSearchOpen(false)} userId={user.id} />
+      )}
       <GuidedTour
         run={runOpenProjectTour}
         steps={openProjectTourSteps}
