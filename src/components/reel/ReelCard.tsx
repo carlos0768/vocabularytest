@@ -7,8 +7,8 @@ import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { ReelActionRail } from './ReelActionRail';
 import { ReelBookCard } from './ReelBookCard';
 import { ReelCommentSheet } from './ReelCommentSheet';
+import { ReelEtymologyPanel } from './ReelEtymologyPanel';
 import { ReelMeaningPanel } from './ReelMeaningPanel';
-import { ReelMorphologyPanel } from './ReelMorphologyPanel';
 import { ReelMoreSheet } from './ReelMoreSheet';
 
 type ReelCardProps = {
@@ -36,10 +36,13 @@ function speak(english: string) {
 }
 
 /**
- * One full-height reel card. The front face shows English + IPA only;
- * a horizontal swipe (or tap / ←→ keys on the active card) slides through
- * the faces (meaning → optional morphology), mirroring the flashcard
- * axis-lock gesture. Cards without cached morphology stay 2-faced.
+ * One full-height reel card.
+ *
+ * - Cards WITH cached etymology (語源) show a single consolidated page —
+ *   English + pronunciation, translation and etymology together, no flip.
+ * - Cards WITHOUT etymology keep the 2-face flashcard: the front shows
+ *   English + IPA only, and a horizontal swipe (or tap / ←→ keys on the
+ *   active card) reveals the meaning, mirroring the axis-lock gesture.
  */
 export function ReelCard({
   item,
@@ -64,7 +67,9 @@ export function ReelCard({
   const hasMorphology = Boolean(
     item.morphology && !item.morphology.none && item.morphology.formula.length > 0,
   );
-  const faces = hasMorphology ? 3 : 2;
+  // Etymology cards collapse to a single non-swipeable page; every other
+  // card keeps the 2-face front(English)→back(meaning) flip.
+  const faces = 2;
   const lastPage = faces - 1;
   const faceWidth = 100 / faces;
 
@@ -125,7 +130,7 @@ export function ReelCard({
   };
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || hasMorphology) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -140,7 +145,7 @@ export function ReelCard({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, page, lastPage]);
+  }, [active, page, lastPage, hasMorphology]);
 
   const baseOffset = -faceWidth * page;
   const dragPercent = typeof window !== 'undefined' ? (dragX / window.innerWidth) * faceWidth : 0;
@@ -149,7 +154,13 @@ export function ReelCard({
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden">
-      {/* Swipeable face track */}
+      {hasMorphology ? (
+        /* Etymology card: English + translation + etymology on one page */
+        <div className="min-h-0 flex-1">
+          <ReelEtymologyPanel item={item} />
+        </div>
+      ) : (
+      /* Swipeable face track: front(English) then back(meaning) */
       <div
         className="min-h-0 flex-1"
         style={{ touchAction: 'pan-y' }}
@@ -197,22 +208,12 @@ export function ReelCard({
             </p>
           </div>
           {/* Back: Japanese meaning */}
-          <div className="relative h-full" style={{ width: `${faceWidth}%` }}>
+          <div className="h-full" style={{ width: `${faceWidth}%` }}>
             <ReelMeaningPanel item={item} />
-            {hasMorphology && (
-              <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-xs text-[var(--color-muted)]">
-                ← スワイプで語源を表示
-              </p>
-            )}
           </div>
-          {/* Third face: morphology (only when cached morphology exists) */}
-          {hasMorphology && (
-            <div className="h-full" style={{ width: `${faceWidth}%` }}>
-              <ReelMorphologyPanel item={item} />
-            </div>
-          )}
         </div>
       </div>
+      )}
 
       {/* Right action rail */}
       <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
