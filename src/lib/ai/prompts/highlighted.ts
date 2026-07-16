@@ -1,5 +1,5 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET } from './source-labels';
-import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES } from './japanese-format';
+import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES, POLYSEMOUS_HEADWORD_MERGE_RULES } from './japanese-format';
 import { LEMMA_NORMALIZATION_RULES } from './lemma';
 
 // ============ Highlighted/Marker Word Extraction Prompts ============
@@ -49,6 +49,7 @@ ${SOURCE_LABEL_OUTPUT_SNIPPET}
 日本語訳が画像にあればそれを使って japaneseSource は "scan" を返してください。無ければ japanese は空文字 "" を返し、japaneseSource は付けないでください。推測生成はしないでください。
 ${JAPANESE_PARENTHESIS_RULES}
 ${JAPANESE_TRANSLATION_STRUCTURE_RULES}
+${POLYSEMOUS_HEADWORD_MERGE_RULES}
 ${LEMMA_NORMALIZATION_RULES}
 partOfSpeechTags には noun / verb / adjective / adverb / idiom / phrasal_verb など、最も適切な分類を1つ以上入れてください。${SOURCE_LABEL_NOTES}`;
 

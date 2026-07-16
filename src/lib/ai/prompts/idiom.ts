@@ -1,5 +1,5 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET, SOURCE_LABEL_RULES } from './source-labels';
-import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES } from './japanese-format';
+import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES, POLYSEMOUS_HEADWORD_MERGE_RULES } from './japanese-format';
 import { LEMMA_NORMALIZATION_RULES } from './lemma';
 
 // ============ Idiom/Phrase Extraction Prompts ============
@@ -12,6 +12,7 @@ export const IDIOM_EXTRACTION_SYSTEM_PROMPT = `画像からイディオム・熟
 - partOfSpeechTags は idiom / phrasal_verb のいずれかを入れる
 ${JAPANESE_PARENTHESIS_RULES}
 ${JAPANESE_TRANSLATION_STRUCTURE_RULES}
+${POLYSEMOUS_HEADWORD_MERGE_RULES}
 ${LEMMA_NORMALIZATION_RULES}
 - 句動詞・熟語も先頭の動詞は原形にしてください（例: "gave up" → "give up"、"looked forward to" → "look forward to"）
 ${SOURCE_LABEL_RULES}
