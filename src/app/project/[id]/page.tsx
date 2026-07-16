@@ -97,6 +97,24 @@ type SharedProjectLookupResponse = {
   error?: string;
 };
 
+// A word suggested for an empty wordbook, picked from the user's other books.
+type RecommendedWordSuggestion = {
+  word: Word;
+  sourceProjectTitle: string;
+};
+
+const RECOMMENDATION_SOURCE_PROJECT_LIMIT = 8;
+const RECOMMENDATION_LIMIT = 10;
+
+function shuffleArray<T>(items: T[]): T[] {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+  return arr;
+}
+
 function thumbColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
@@ -169,6 +187,14 @@ export default function ProjectPage() {
   const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
   const [manualWordAddedCount, setManualWordAddedCount] = useState(0);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
+
+  // Spotify-style suggestions for an empty wordbook: words picked from the
+  // user's other books, addable in place with the row's + button. Loaded once
+  // when the book turns out to be empty; the section stays visible while the
+  // user keeps adding from it.
+  const [recommendedWords, setRecommendedWords] = useState<RecommendedWordSuggestion[]>([]);
+  const [recommendationsLoaded, setRecommendationsLoaded] = useState(false);
+  const [addingRecommendationIds, setAddingRecommendationIds] = useState<Set<string>>(new Set());
 
   const wordDetailOpen = selectedWord !== null;
   useEffect(() => {
@@ -252,6 +278,47 @@ export default function ProjectPage() {
   useEffect(() => {
     if (project?.id) markProjectVisited(project.id);
   }, [project?.id]);
+
+  useEffect(() => {
+    if (!wordsLoaded || recommendationsLoaded || !project || words.length > 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const userId = user ? user.id : getGuestUserId();
+        const projects = await repository.getProjects(userId);
+        const sourceProjects = shuffleArray(projects.filter((p) => p.id !== projectId))
+          .slice(0, RECOMMENDATION_SOURCE_PROJECT_LIMIT);
+
+        const seenEnglish = new Set<string>();
+        const pool: RecommendedWordSuggestion[] = [];
+        for (const sourceProject of sourceProjects) {
+          let sourceWords: Word[];
+          try {
+            sourceWords = await repository.getWords(sourceProject.id);
+          } catch {
+            continue;
+          }
+          for (const word of sourceWords) {
+            const key = word.english.trim().toLowerCase();
+            if (!key || seenEnglish.has(key)) continue;
+            seenEnglish.add(key);
+            pool.push({ word, sourceProjectTitle: sourceProject.title });
+          }
+        }
+
+        if (!cancelled) setRecommendedWords(shuffleArray(pool).slice(0, RECOMMENDATION_LIMIT));
+      } catch (recommendationError) {
+        console.warn('Failed to load recommended words:', recommendationError);
+      } finally {
+        if (!cancelled) setRecommendationsLoaded(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wordsLoaded, recommendationsLoaded, project, words.length, repository, user, projectId]);
 
   const counts = useMemo(() => {
     const wordStats = countProjectWordStats(words);
@@ -545,6 +612,59 @@ export default function ProjectPage() {
       showToast({ message: 'インポートに失敗しました', type: 'error' });
     } finally {
       setBulkImportLoading(false);
+    }
+  };
+
+  const handleAddRecommendedWord = async (suggestion: RecommendedWordSuggestion) => {
+    const sourceWord = suggestion.word;
+    if (addingRecommendationIds.has(sourceWord.id)) return;
+
+    const { canAdd, wouldExceed } = canAddWords(1);
+    if (!canAdd || wouldExceed) {
+      setShowWordLimitModal(true);
+      return;
+    }
+
+    setAddingRecommendationIds((prev) => new Set(prev).add(sourceWord.id));
+    try {
+      const created = await mutationRepository.createWords([
+        {
+          projectId,
+          english: sourceWord.english,
+          japanese: sourceWord.japanese,
+          translations: sourceWord.translations,
+          vocabularyType: sourceWord.vocabularyType,
+          japaneseSource: sourceWord.japaneseSource,
+          lexiconEntryId: sourceWord.lexiconEntryId,
+          lexiconSenseId: sourceWord.lexiconSenseId,
+          cefrLevel: sourceWord.cefrLevel,
+          distractors: sourceWord.distractors,
+          exampleSentence: sourceWord.exampleSentence,
+          exampleSentenceJa: sourceWord.exampleSentenceJa,
+          pronunciation: sourceWord.pronunciation,
+          partOfSpeechTags: sourceWord.partOfSpeechTags,
+          relatedWords: sourceWord.relatedWords,
+          usagePatterns: sourceWord.usagePatterns,
+          customSections: sourceWord.customSections,
+          morphology: sourceWord.morphology,
+        },
+      ]);
+      if (created && created.length > 0) {
+        setWords((prev) => [created[0]!, ...prev]);
+      }
+      setRecommendedWords((prev) => prev.filter((item) => item.word.id !== sourceWord.id));
+      invalidateHomeCache();
+      refreshWordCount();
+      showToast({ message: `「${sourceWord.english}」を追加しました`, type: 'success' });
+    } catch (addError) {
+      console.error('Failed to add recommended word:', addError);
+      showToast({ message: '単語の追加に失敗しました', type: 'error' });
+    } finally {
+      setAddingRecommendationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sourceWord.id);
+        return next;
+      });
     }
   };
 
@@ -1144,9 +1264,13 @@ export default function ProjectPage() {
         </div>
       </div>
 
+      {/* The mastery bar and its four status counts are meaningless for an
+          empty book — hide them until the first word is added. */}
+      {(!wordsLoaded || counts.total > 0) && (
       <div className="px-5 pb-3.5">
         <StackedBar total={counts.total} m={counts.mastered} a={counts.active} l={counts.learning} n={counts.newCount} />
       </div>
+      )}
 
       {/* Quiz / card / add row and the search row assume the book has words;
           the 0-word empty state below provides its own add actions instead. */}
@@ -1322,6 +1446,16 @@ export default function ProjectPage() {
               );
             })}
           </div>
+        )}
+
+        {/* Only populated when the book loaded empty; stays visible while the
+            user keeps adding suggestions so multiple + taps flow naturally. */}
+        {wordsLoaded && !selectMode && recommendedWords.length > 0 && (
+          <RecommendedWordsSection
+            suggestions={recommendedWords}
+            addingIds={addingRecommendationIds}
+            onAdd={(suggestion) => void handleAddRecommendedWord(suggestion)}
+          />
         )}
       </div>
 
@@ -1709,6 +1843,73 @@ function EmptyWordbookState({
         ))}
       </div>
     </div>
+  );
+}
+
+function RecommendedWordsSection({
+  suggestions,
+  addingIds,
+  onAdd,
+}: {
+  suggestions: RecommendedWordSuggestion[];
+  addingIds: Set<string>;
+  onAdd: (suggestion: RecommendedWordSuggestion) => void;
+}) {
+  return (
+    <section className="mt-7 px-1">
+      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+        PICKED FOR YOU
+      </div>
+      <h2 className="mt-0.5 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+        おすすめの単語
+      </h2>
+      <p className="mt-0.5 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+        あなたの他の単語帳からピックアップしました
+      </p>
+      <div className="mt-2 divide-y divide-[var(--color-border)]">
+        {suggestions.map((suggestion) => {
+          const { word } = suggestion;
+          const adding = addingIds.has(word.id);
+          const pos = word.partOfSpeechTags?.[0] ?? null;
+          return (
+            <div key={word.id} className="flex items-center gap-2.5 py-2.5">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] font-display text-[16px] font-extrabold text-white"
+                style={{ backgroundColor: thumbColor(word.id) }}
+              >
+                {word.english.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">
+                  {word.english}
+                </div>
+                <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
+                  {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+                  <span className="truncate">
+                    <TranslationDisplay word={word} compact />
+                  </span>
+                  <span className="shrink-0">·</span>
+                  <span className="max-w-[96px] truncate">{suggestion.sourceProjectTitle}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onAdd(suggestion)}
+                disabled={adding}
+                aria-label={`「${word.english}」をこの単語帳に追加`}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              >
+                <Icon
+                  name={adding ? 'progress_activity' : 'add'}
+                  size={16}
+                  className={adding ? 'animate-spin' : undefined}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
