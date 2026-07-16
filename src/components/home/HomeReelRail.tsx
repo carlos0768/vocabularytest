@@ -45,7 +45,9 @@ export function HomeReelRail({ items, loading }: { items: HomeReelPreviewItem[];
         </Link>
       </div>
 
-      <div className="no-scrollbar flex snap-x gap-2.5 overflow-x-auto px-[18px] pb-1">
+      {/* scroll-pl はスナップ位置を左パディング分内側に寄せるため必須
+          （無いと snap-start のカードが画面左端に張り付く）。 */}
+      <div className="no-scrollbar flex snap-x gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
         {loading && items.length === 0
           ? [0, 1, 2].map((slot) => (
               <div

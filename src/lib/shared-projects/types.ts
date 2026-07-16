@@ -50,6 +50,15 @@ export type SharedProjectMetrics = {
 
 export type SharedProjectMetricsMap = Record<string, SharedProjectMetrics>;
 
+/** グループ一覧カードに出す今週のランキング上位者（軽量版） */
+export type StudyGroupTopMember = {
+  userId: string;
+  username: string | null;
+  accountId: string | null;
+  quizCount: number;
+  isViewer: boolean;
+};
+
 export type StudyGroupSummary = {
   id: string;
   name: string;
@@ -61,6 +70,8 @@ export type StudyGroupSummary = {
   createdAt: string;
   ownerUsername?: string | null;
   projectShared?: boolean;
+  /** 今週のランキング上位（最大3人）。一覧APIのみ設定するbest-effort項目 */
+  topMembers?: StudyGroupTopMember[];
 };
 
 export type StudyGroupsPayload = {

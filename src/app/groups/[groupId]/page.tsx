@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,6 +28,7 @@ const GroupInviteShareSheet = dynamic(
 const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
 
 export default function GroupPage() {
+  const router = useRouter();
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
   const { loading: authLoading, isAuthenticated } = useAuth();
@@ -178,6 +179,7 @@ export default function GroupPage() {
             <GroupHeader
               group={group}
               totalQuiz={totalQuiz}
+              onBack={() => router.back()}
               onCopyInvite={() => void copyInvite()}
               onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
               settingsHref={settingsHref}
@@ -244,12 +246,15 @@ function DesktopGroupStat({ icon, label, value, unit }: { icon: string; label: s
 function GroupHeader({
   group,
   totalQuiz,
+  onBack,
   onCopyInvite,
   onShare,
   settingsHref,
 }: {
   group: StudyGroupSummary;
   totalQuiz: number;
+  /** 履歴で1つ戻る（ホーム/共有どちらから来ても元の画面に返す） */
+  onBack: () => void;
   onCopyInvite: () => void;
   onShare: () => void;
   settingsHref: string;
@@ -260,13 +265,14 @@ function GroupHeader({
       style={{ background: `linear-gradient(135deg, ${thumbColor(group.id)} 0%, var(--solid-ink) 160%)` }}
     >
       <div className="mb-3 flex items-center gap-2">
-        <Link
-          href="/shared"
-          aria-label="共有に戻る"
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="戻る"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
-        </Link>
+        </button>
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-white/70">
           STUDY GROUP
         </div>
