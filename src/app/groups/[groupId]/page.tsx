@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
-import { loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
+import { getSeededGroupSummary, loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
 import type {
   SharedProjectCard,
   StudyGroupLeaderboardEntry,
@@ -28,12 +28,17 @@ const GroupInviteShareSheet = dynamic(
 const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
 
 export default function GroupPage() {
+  const router = useRouter();
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
   const { loading: authLoading, isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
-  const [group, setGroup] = useState<StudyGroupSummary | null>(null);
+  // 遷移元（ホームのグループカード等）がシードしたサマリーがあれば、フルの
+  // 概要ペイロードを待たずにヘッダーを即描画する（遷移の体感短縮）。
+  const [group, setGroup] = useState<StudyGroupSummary | null>(() =>
+    groupId ? getSeededGroupSummary(groupId) : null,
+  );
   const [projects, setProjects] = useState<SharedProjectCard[]>([]);
   const [leaderboard, setLeaderboard] = useState<StudyGroupLeaderboardEntry[]>([]);
   const [missedWords, setMissedWords] = useState<StudyGroupMissedWord[]>([]);
@@ -87,7 +92,9 @@ export default function GroupPage() {
 
   const settingsHref = `/groups/${encodeURIComponent(groupId)}/settings`;
 
-  const stateView = authLoading || loading ? (
+  // シード済みサマリーがある間は loading 中でも全画面スピナーにしない
+  //（ヘッダーだけ先に出し、セクション部分にスピナーを出す）。
+  const stateView = authLoading || (loading && !group) ? (
     <LoadingState />
   ) : !isAuthenticated ? (
     <CenteredCard icon="lock" title="ログインが必要です">
@@ -136,17 +143,21 @@ export default function GroupPage() {
                 <DesktopGroupStat icon="menu_book" label="共有単語帳" value={group.projectCount} unit="冊" />
                 <DesktopGroupStat icon="bolt" label="今週の解答" value={totalQuiz} unit="問" />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
-                <div className="flex flex-col gap-5">
-                  <BookshelfSection groupId={groupId} projects={projects} />
-                  <MissedWordsSection
-                    groupId={groupId}
-                    missedWords={missedWords}
-                    totalCount={missedWordsTotalCount}
-                  />
+              {loading ? (
+                <LoadingState />
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
+                  <div className="flex flex-col gap-5">
+                    <BookshelfSection groupId={groupId} projects={projects} />
+                    <MissedWordsSection
+                      groupId={groupId}
+                      missedWords={missedWords}
+                      totalCount={missedWordsTotalCount}
+                    />
+                  </div>
+                  <LeaderboardSection leaderboard={leaderboard} />
                 </div>
-                <LeaderboardSection leaderboard={leaderboard} />
-              </div>
+              )}
             </>
           ))}
         </div>
@@ -168,17 +179,24 @@ export default function GroupPage() {
             <GroupHeader
               group={group}
               totalQuiz={totalQuiz}
+              onBack={() => router.back()}
               onCopyInvite={() => void copyInvite()}
               onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
               settingsHref={settingsHref}
             />
-            <BookshelfSection groupId={groupId} projects={projects} />
-            <LeaderboardSection leaderboard={leaderboard} />
-            <MissedWordsSection
-              groupId={groupId}
-              missedWords={missedWords}
-              totalCount={missedWordsTotalCount}
-            />
+            {loading ? (
+              <LoadingState />
+            ) : (
+              <>
+                <BookshelfSection groupId={groupId} projects={projects} />
+                <LeaderboardSection leaderboard={leaderboard} />
+                <MissedWordsSection
+                  groupId={groupId}
+                  missedWords={missedWords}
+                  totalCount={missedWordsTotalCount}
+                />
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -228,12 +246,15 @@ function DesktopGroupStat({ icon, label, value, unit }: { icon: string; label: s
 function GroupHeader({
   group,
   totalQuiz,
+  onBack,
   onCopyInvite,
   onShare,
   settingsHref,
 }: {
   group: StudyGroupSummary;
   totalQuiz: number;
+  /** 履歴で1つ戻る（ホーム/共有どちらから来ても元の画面に返す） */
+  onBack: () => void;
   onCopyInvite: () => void;
   onShare: () => void;
   settingsHref: string;
@@ -244,13 +265,14 @@ function GroupHeader({
       style={{ background: `linear-gradient(135deg, ${thumbColor(group.id)} 0%, var(--solid-ink) 160%)` }}
     >
       <div className="mb-3 flex items-center gap-2">
-        <Link
-          href="/shared"
-          aria-label="共有に戻る"
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="戻る"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
-        </Link>
+        </button>
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-white/70">
           STUDY GROUP
         </div>

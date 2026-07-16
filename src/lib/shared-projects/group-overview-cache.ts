@@ -36,6 +36,31 @@ const TTL_MS = 30_000;
 const cache = new Map<string, { payload: GroupOverviewPayload; fetchedAt: number }>();
 const inflight = new Map<string, Promise<GroupOverviewPayload>>();
 
+// ホーム等が既に持っている StudyGroupSummary の軽量シード。フルの概要
+// ペイロードが届く前にグループページのヘッダーを即描画するために使う。
+const summarySeed = new Map<string, StudyGroupSummary>();
+
+/** 遷移元（ホームのカード等）でタップ時に呼び、ヘッダー即描画の種を渡す。 */
+export function seedGroupSummary(group: StudyGroupSummary): void {
+  summarySeed.set(group.id, group);
+}
+
+/** フルキャッシュ優先で、無ければシード済みサマリーを返す。 */
+export function getSeededGroupSummary(groupId: string): StudyGroupSummary | null {
+  return cache.get(groupId)?.payload.group ?? summarySeed.get(groupId) ?? null;
+}
+
+/**
+ * 概要のフェッチを先行開始する（fire-and-forget）。ルートチャンクの
+ * ロードとAPI往復を並走させ、グループページへの遷移を体感短縮する。
+ */
+export function prefetchGroupOverview(groupId: string): void {
+  if (cache.has(groupId)) return;
+  void revalidate(groupId).catch(() => {
+    // 先読み失敗は無視。ページ側の本フェッチが改めてエラー処理する。
+  });
+}
+
 async function fetchGroupOverview(groupId: string): Promise<GroupOverviewPayload> {
   const response = await fetch(
     `/api/shared-projects/groups/${encodeURIComponent(groupId)}`,

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
+import { prefetchReelFeed } from '@/hooks/use-reel-feed';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -206,6 +207,9 @@ export function BottomNav() {
               <Link
                 key={tab.k}
                 href={tab.href!}
+                // リールはフィードAPIが重いので、タップした瞬間に初回ページの
+                // 取得を先行開始して表示までの待ちを短縮する。
+                onPointerDown={tab.k === 'reels' ? () => prefetchReelFeed() : undefined}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',

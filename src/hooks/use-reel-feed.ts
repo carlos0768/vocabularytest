@@ -11,7 +11,50 @@ export type ReelFeedItem = ReelItem & { feedKey: string };
 
 type FeedResponse = ReelFeedPage & { success: boolean; error?: string };
 
-export function useReelFeed() {
+function reelFeedUrl(cursor: string | null, pin: string | null): string {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (pin) params.set('pin', pin);
+  return `/api/reels/feed?${params.toString()}`;
+}
+
+// タップ〜画面表示の間にAPI往復を先行させる先読みエントリ。フィードAPIは
+// 無料枠を消費するため、呼ぶのは「ユーザーがリールへ遷移し始めた瞬間」
+// （ナビのタップ / ホームのリールカードのタップ）だけにすること。
+const PREFETCH_TTL_MS = 30_000;
+let prefetchEntry: { key: string; startedAt: number; promise: Promise<Response> } | null = null;
+
+/** リール画面への遷移開始時に呼ぶと、初回ページの取得を先行開始する。 */
+export function prefetchReelFeed(pin: string | null = null): void {
+  const key = pin ?? '';
+  if (
+    prefetchEntry
+    && prefetchEntry.key === key
+    && Date.now() - prefetchEntry.startedAt < PREFETCH_TTL_MS
+  ) {
+    return;
+  }
+  const promise = fetch(reelFeedUrl(null, pin), { cache: 'no-store' });
+  prefetchEntry = { key, startedAt: Date.now(), promise };
+  promise.catch(() => {
+    prefetchEntry = null;
+  });
+}
+
+function consumePrefetchedReelFeed(pin: string | null): Promise<Response> | null {
+  if (!prefetchEntry) return null;
+  if (prefetchEntry.key !== (pin ?? '')) return null;
+  if (Date.now() - prefetchEntry.startedAt >= PREFETCH_TTL_MS) {
+    prefetchEntry = null;
+    return null;
+  }
+  const { promise } = prefetchEntry;
+  // Response body は一度しか読めないので、消費したら必ず破棄する。
+  prefetchEntry = null;
+  return promise;
+}
+
+export function useReelFeed(options: { pin?: string | null } = {}) {
   const [items, setItems] = useState<ReelFeedItem[]>([]);
   const [status, setStatus] = useState<ReelFeedStatus>('loading');
   const [usage, setUsage] = useState<ReelFeedUsage | null>(null);
@@ -20,14 +63,17 @@ export function useReelFeed() {
   const [hasMore, setHasMore] = useState(true);
   const fetchingRef = useRef(false);
   const feedSequenceRef = useRef(0);
+  // pin はマウント時の値で固定（クエリ変化での再フェッチループを避ける）。
+  const pinRef = useRef(options.pin ?? null);
 
   const fetchPage = useCallback(async (cursor: string | null, replace: boolean) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
     try {
-      const params = new URLSearchParams();
-      if (cursor) params.set('cursor', cursor);
-      const response = await fetch(`/api/reels/feed?${params.toString()}`, { cache: 'no-store' });
+      // pin は最初のページにだけ適用する（以降のページは通常ランキング）。
+      const pin = cursor ? null : pinRef.current;
+      const prefetched = cursor ? null : consumePrefetchedReelFeed(pin);
+      const response = await (prefetched ?? fetch(reelFeedUrl(cursor, pin), { cache: 'no-store' }));
       if (!response.ok) {
         throw new Error(`feed_request_failed_${response.status}`);
       }

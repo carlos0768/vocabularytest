@@ -17,6 +17,7 @@ import type {
   StudyGroupStrugglingWordsPayload,
   StudyGroupsPayload,
   StudyGroupSummary,
+  StudyGroupTopMember,
   StudyGroupVisibility,
 } from '@/lib/shared-projects/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../../shared/db';
@@ -131,24 +132,112 @@ export async function listStudyGroupsForUser(
     membershipRows.map((row) => [row.group_id, normalizeStudyGroupRole(row.role)]),
   );
 
-  const [countsByGroupId, ownerUsernameByUserId, sharedGroupIds] = await Promise.all([
+  const [countsByGroupId, ownerUsernameByUserId, sharedGroupIds, topMembersByGroupId] = await Promise.all([
     getStudyGroupCounts(groupIds, admin),
     getUsernamesByUserIds(admin, groupRows.map((row) => row.owner_user_id)),
     getProjectSharedGroupIds(groupIds, options.projectId ?? null, admin),
+    getTopMembersByGroupId(groupIds, userId, admin),
   ]);
 
   return {
     groups: membershipRows
       .map((membership) => groupById.get(membership.group_id))
       .filter((row): row is StudyGroupRow => Boolean(row))
-      .map((row) => mapStudyGroupSummary(
-        row,
-        roleByGroupId.get(row.id) ?? 'member',
-        countsByGroupId,
-        ownerUsernameByUserId,
-        sharedGroupIds,
-      )),
+      .map((row) => ({
+        ...mapStudyGroupSummary(
+          row,
+          roleByGroupId.get(row.id) ?? 'member',
+          countsByGroupId,
+          ownerUsernameByUserId,
+          sharedGroupIds,
+        ),
+        topMembers: topMembersByGroupId.get(row.id) ?? [],
+      })),
   };
+}
+
+/**
+ * グループ一覧カード用の「今週のランキング」上位3人（軽量版）。
+ * 概要APIのフルランキングと同じ週次集計（quiz_sessions）を、一覧の全
+ * グループ分まとめて2クエリで引く。best-effort — 失敗時は空を返して
+ * 一覧そのものは絶対に壊さない。
+ */
+async function getTopMembersByGroupId(
+  groupIds: string[],
+  viewerUserId: string,
+  admin: SupabaseAdminClient,
+): Promise<Map<string, StudyGroupTopMember[]>> {
+  const result = new Map<string, StudyGroupTopMember[]>();
+  if (groupIds.length === 0) return result;
+
+  try {
+    const { data: memberRows, error: memberError } = await admin
+      .from('study_group_members')
+      .select('group_id,user_id')
+      .in('group_id', groupIds);
+    if (memberError) return result;
+
+    const membersByGroup = new Map<string, string[]>();
+    const allUserIds = new Set<string>();
+    for (const row of (memberRows ?? []) as Array<{ group_id: string; user_id: string }>) {
+      if (!row.group_id || !row.user_id) continue;
+      const list = membersByGroup.get(row.group_id) ?? [];
+      list.push(row.user_id);
+      membersByGroup.set(row.group_id, list);
+      allUserIds.add(row.user_id);
+    }
+    if (allUserIds.size === 0) return result;
+
+    const weekStartIso = getCurrentWeekStartUtc().toISOString();
+    const quizCountByUser = new Map<string, number>();
+    const { data: sessionRows, error: sessionsError } = await admin
+      .from('quiz_sessions')
+      .select('user_id,answer_count')
+      .in('user_id', Array.from(allUserIds))
+      .gte('started_at', weekStartIso);
+    if (sessionsError) {
+      // 古い環境に quiz_sessions が無い場合は全員0問として続行する。
+      if (!isMissingRelationError(sessionsError, 'quiz_sessions')) return result;
+    } else {
+      for (const row of (sessionRows ?? []) as Array<{ user_id: string; answer_count: number | string | null }>) {
+        quizCountByUser.set(
+          row.user_id,
+          (quizCountByUser.get(row.user_id) ?? 0) + (Number(row.answer_count ?? 0) || 0),
+        );
+      }
+    }
+
+    // 各グループのトップ3を確定してから、必要なプロフィールだけまとめて引く。
+    const topByGroup = new Map<string, string[]>();
+    const topUserIds = new Set<string>();
+    for (const [groupId, memberIds] of membersByGroup) {
+      const top = [...memberIds]
+        .sort(
+          (a, b) =>
+            (quizCountByUser.get(b) ?? 0) - (quizCountByUser.get(a) ?? 0) || a.localeCompare(b),
+        )
+        .slice(0, 3);
+      topByGroup.set(groupId, top);
+      for (const id of top) topUserIds.add(id);
+    }
+
+    const profiles = await getMemberProfiles(Array.from(topUserIds), admin);
+    for (const [groupId, top] of topByGroup) {
+      result.set(
+        groupId,
+        top.map((id) => ({
+          userId: id,
+          username: profiles.get(id)?.username ?? null,
+          accountId: profiles.get(id)?.accountId ?? null,
+          quizCount: quizCountByUser.get(id) ?? 0,
+          isViewer: id === viewerUserId,
+        })),
+      );
+    }
+    return result;
+  } catch {
+    return result;
+  }
 }
 
 export async function createStudyGroup(
@@ -429,35 +518,34 @@ export async function getStudyGroupOverview(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<StudyGroupOverviewPayload | null> {
-  // membership と roles は独立クエリなので並列化する（membership が null なら
-  // roles の結果は捨てる）。直列だとこの2往復が概要APIの先頭を塞いでいた。
-  const [membership, memberRoles] = await Promise.all([
-    getStudyGroupMembership(groupId, userId, admin),
+  // アクセス検査は listStudyGroupProjects 内の membership チェックに任せ、
+  // 独立クエリ（本棚 / メンバー一覧）を最初から並列で走らせる。旧実装は
+  // membership → 本棚 → 苦戦単語集計 の直列ウォーターフォールで、概要APIの
+  // 応答（＝グループページ遷移の体感）を塞いでいた。
+  const [projectPayload, memberRoles] = await Promise.all([
+    listStudyGroupProjects(groupId, userId, admin),
     getStudyGroupMemberRoles(groupId, admin),
   ]);
-  if (!membership) return null;
-
-  const memberUserIds = Array.from(memberRoles.keys());
-
-  const [projectPayload, leaderboard] = await Promise.all([
-    listStudyGroupProjects(groupId, userId, admin),
-    getStudyGroupLeaderboard(memberUserIds, userId, admin),
-  ]);
-
   if (!projectPayload) return null;
 
-  const members = buildStudyGroupMembers(memberRoles, leaderboard, userId);
+  const memberUserIds = Array.from(memberRoles.keys());
 
   // "Struggling words" are aggregated ONLY from words inside the group's
   // wordbooks: the shared projects themselves plus the copies members imported
   // from them (tracked via projects.imported_from_share_id).
-  const groupProjectIds = await getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin);
-  const missedWordSummary = await getStudyGroupMissedWordSummary(
-    memberUserIds,
-    groupProjectIds,
-    admin,
-    STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT,
-  );
+  const [leaderboard, missedWordSummary] = await Promise.all([
+    getStudyGroupLeaderboard(memberUserIds, userId, admin),
+    getGroupWordbookProjectIds(projectPayload.projects, memberUserIds, admin).then(
+      (groupProjectIds) => getStudyGroupMissedWordSummary(
+        memberUserIds,
+        groupProjectIds,
+        admin,
+        STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT,
+      ),
+    ),
+  ]);
+
+  const members = buildStudyGroupMembers(memberRoles, leaderboard, userId);
 
   return {
     group: projectPayload.group,

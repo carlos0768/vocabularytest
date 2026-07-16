@@ -10,6 +10,9 @@ import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
+import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
+import { HomeReelRail } from '@/components/home/HomeReelRail';
+import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
 import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
@@ -17,6 +20,7 @@ import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { HomeAnnouncementSpotlight } from '@/components/announcements/HomeAnnouncementSpotlight';
 import { JoinedGroupsSection } from '@/components/groups/JoinedGroupsSection';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useHomeRecommendations } from '@/hooks/use-home-recommendations';
 import { useMyGroups } from '@/hooks/use-my-groups';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
@@ -33,10 +37,7 @@ import {
 } from '@/lib/projects/load-helpers';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
-import {
-  calculateHomeCompletionPercent,
-  countHomeWordStatuses,
-} from '@/lib/home/home-page-selectors';
+import { countHomeWordStatuses } from '@/lib/home/home-page-selectors';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import {
   clearHomeGeneratingWordbook,
@@ -254,6 +255,7 @@ export function HomeClient() {
 
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -426,14 +428,9 @@ export function HomeClient() {
     }
   }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
-  const { dueCount, completedToday, streakDays, totalWords, mastered, review, newW, favoriteCount, hasReviewSchedule } = stats;
+  const { dueCount, completedToday, totalWords, mastered, review, newW, favoriteCount, hasReviewSchedule } = stats;
   const unmasteredCount = newW + review;
-  const goalTotal = dueCount + completedToday;
-  const goalProgress = goalTotal > 0 ? Math.round((completedToday / goalTotal) * 100) : 0;
   const dailyLearnTarget = Math.min(unmasteredCount, 10);
-  const learnProgress = dailyLearnTarget > 0
-    ? Math.min(100, Math.round((completedToday / dailyLearnTarget) * 100))
-    : 0;
   // `start`: brand-new account with a default wordbook but no review schedule yet
   // (nothing quizzed). Showing the full unlearned backlog as the goal is
   // demotivating, so surface a small, achievable daily learning target instead.
@@ -447,6 +444,9 @@ export function HomeClient() {
           : unmasteredCount === 0
             ? 'done'
             : 'learn';
+  // ショートカットグリッドの TODAY'S GOAL タイルに出す語数（stateごとに意味が変わる）。
+  const goalCount =
+    goalState === 'review' ? dueCount : goalState === 'start' ? dailyLearnTarget : unmasteredCount;
   // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
   // out of the browsable マイ単語帳 list (its words still count in `stats`).
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
@@ -509,6 +509,12 @@ export function HomeClient() {
   const showUpgradeBanner = isBillingEnabled() && !isPro && !upgradeBannerDismissed;
   // 参加中のグループ（マイ単語帳の下に表示。/shared から移設）
   const { groups: myGroups } = useMyGroups();
+  // ホームのおすすめ（英検級ベースの共有単語帳 + 語源あり単語限定のリール）
+  const {
+    books: recommendedBooks,
+    reels: recommendedReels,
+    loading: recommendationsLoading,
+  } = useHomeRecommendations();
 
   if (authLoading) {
     return <HomeLoadingScreen />;
@@ -539,13 +545,14 @@ export function HomeClient() {
         </div>
         <div className="flex items-center gap-2">
           <CoinBalancePill />
-          <div className="flex items-center gap-[5px] rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5">
-            <span className="inline-flex text-[var(--color-warning)]">
-              <Icon name="local_fire_department" size={13} filled />
-            </span>
-            <span className="font-mono text-xs font-bold text-[var(--solid-ink)]">{streakDays}</span>
-            <span className="text-[10px] font-semibold text-[var(--color-muted)]">日連続</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="自分の単語帳から検索"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="search" size={16} />
+          </button>
         </div>
       </div>
 
@@ -559,172 +566,19 @@ export function HomeClient() {
 
       <PwaInstallBanner />
 
-      <div className="grid grid-cols-2 gap-2.5 px-[18px] pb-3.5">
-        {goalState === 'empty' ? (
-          <button type="button" onClick={() => setVocabScanOpen(true)} className="block text-left">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-2 flex items-center gap-1.5">
-                <span className="inline-flex text-[var(--solid-ink)]">
-                  <Icon name="photo_camera" size={26} />
-                </span>
-                <span className="font-display text-[18px] font-extrabold leading-tight text-[var(--solid-ink)]">
-                  最初のスキャン
-                </span>
-              </div>
-              <div className="mt-3.5 flex items-center gap-[3px] text-[var(--solid-ink)]">
-                <span className="text-[13px] font-bold">スキャンを開始</span>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={12} />
-                </span>
-              </div>
-            </SolidPanel>
-          </button>
-        ) : goalState === 'start' ? (
-          <Link href="/quiz/all?learn=1&from=/" className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-                  {dailyLearnTarget}
-                </span>
-                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
-              </div>
-              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
-                まずはここから
-              </div>
-              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${learnProgress}%` }} />
-              </div>
-              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
-                <span className="text-[13px] font-bold">学習を始める</span>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={12} />
-                </span>
-              </div>
-            </SolidPanel>
-          </Link>
-        ) : goalState === 'done' ? (
-          <div className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-5 flex items-center gap-1.5">
-                <span className="inline-flex text-[var(--color-success)]">
-                  <Icon name="check_circle" size={26} filled />
-                </span>
-                <span className="font-display text-[20px] font-extrabold leading-tight text-[var(--solid-ink)]">
-                  復習完了
-                </span>
-              </div>
-            </SolidPanel>
-          </div>
-        ) : goalState === 'learn' ? (
-          <Link href="/quiz/all?learn=1&from=/" className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-                  {unmasteredCount}
-                </span>
-                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
-              </div>
-              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
-                未習得 ・ 本日 {completedToday} 語学習
-              </div>
-              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${learnProgress}%` }} />
-              </div>
-              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
-                <span className="text-[13px] font-bold">学習を始める</span>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={12} />
-                </span>
-              </div>
-            </SolidPanel>
-          </Link>
-        ) : (
-          <Link href="/quiz/all?review=1&from=/" className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                TODAY&apos;S GOAL
-              </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="font-display text-[30px] font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-                  {dueCount}
-                </span>
-                <span className="text-sm font-bold text-[var(--solid-ink)]">語</span>
-              </div>
-              <div className="mt-0.5 text-[11px] tabular-nums text-[var(--color-muted)]">
-                {completedToday} / {goalTotal} 完了
-              </div>
-              <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                <div className="h-full bg-[var(--color-accent)]" style={{ width: `${goalProgress}%` }} />
-              </div>
-              <div className="mt-3 flex items-center gap-[3px] text-[var(--solid-ink)]">
-                <span className="text-[13px] font-bold">復習を始める</span>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={12} />
-                </span>
-              </div>
-            </SolidPanel>
-          </Link>
-        )}
-
-        <SolidPanel className="!rounded-2xl" faceClassName="!p-3 min-h-[120px]">
-          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-            MASTERY
-          </div>
-          <div className="mt-1.5 flex items-center gap-2.5">
-            <MiniDonut mastered={mastered} review={review} total={totalWords} />
-            <div className="flex flex-1 flex-col gap-[5px]">
-              <LegendItem color="var(--color-success)" label="習得" count={mastered} />
-              <LegendItem color="var(--color-warning)" label="学習中" count={review} />
-              <LegendItem color="rgba(26,26,26,0.15)" label="未学習" count={newW} />
-            </div>
-          </div>
-        </SolidPanel>
-      </div>
+      {/* Spotify風ショートカットグリッド: TODAY'S GOAL + 保存済み + 単語帳/グループ/おすすめ */}
+      <HomeShortcutGrid
+        goal={{ state: goalState, count: goalCount }}
+        savedWordsCount={favoriteCount}
+        projects={listProjects}
+        groups={myGroups}
+        recommendations={loading ? [] : recommendedBooks}
+        onStartScan={() => setVocabScanOpen(true)}
+      />
 
       {showUpgradeBanner && (
         <div className="px-[18px] pb-3.5">
           <ProUpgradeBanner onDismiss={dismissUpgradeBanner} />
-        </div>
-      )}
-
-      {favoriteCount > 0 && (
-        <div className="px-[18px] pb-3.5">
-          <Link href="/favorites" className="block">
-            <SolidPanel className="!rounded-2xl" faceClassName="!p-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
-                  <Icon name="bookmark" size={17} filled />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.02em] text-[var(--color-muted)]">
-                    SAVED WORDS
-                  </div>
-                  <div className="text-sm font-bold text-[var(--solid-ink)]">保存済み単語</div>
-                </div>
-                <div className="flex items-baseline gap-0.5">
-                  <span className="font-display text-lg font-extrabold tabular-nums text-[var(--solid-ink)]">
-                    {favoriteCount}
-                  </span>
-                  <span className="text-[11px] font-bold text-[var(--color-muted)]">語</span>
-                </div>
-                <span className="inline-flex text-[var(--color-accent)]">
-                  <Icon name="chevron_right" size={14} />
-                </span>
-              </div>
-            </SolidPanel>
-          </Link>
         </div>
       )}
 
@@ -788,6 +642,9 @@ export function HomeClient() {
       {/* 参加中のグループ（/shared から移設） */}
       <JoinedGroupsSection groups={myGroups} />
 
+      {/* おすすめのリール（語源がある単語限定・単語帳/グループより下に配置） */}
+      <HomeReelRail items={recommendedReels} loading={recommendationsLoading} />
+
       </div>
       <ScanCaptureModal
         isOpen={vocabScanOpen}
@@ -799,6 +656,11 @@ export function HomeClient() {
         isOpen={createSheetOpen}
         onClose={() => setCreateSheetOpen(false)}
       />
+      {/* 自分の単語帳内の単語検索（ヘッダーの検索ボタンから）。
+          開くたびにマウントし直して状態を初期化する */}
+      {searchOpen && (
+        <HomeWordSearchSheet onClose={() => setSearchOpen(false)} userId={user.id} />
+      )}
       <GuidedTour
         run={runOpenProjectTour}
         steps={openProjectTourSteps}
@@ -821,61 +683,6 @@ function HomeLoadingScreen() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] text-[var(--color-muted)]">
       <Icon name="progress_activity" size={22} className="animate-spin" />
-    </div>
-  );
-}
-
-function MiniDonut({ mastered, review, total }: { mastered: number; review: number; total: number }) {
-  const size = 74;
-  const sw = 11;
-  const r = (size - sw) / 2;
-  const C = 2 * Math.PI * r;
-  const mFrac = total ? mastered / total : 0;
-  const rFrac = total ? review / total : 0;
-  const pct = calculateHomeCompletionPercent(mastered, total);
-
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size}>
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(26,26,26,0.08)" strokeWidth={sw} fill="none" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke="var(--color-success)"
-          strokeWidth={sw}
-          fill="none"
-          strokeDasharray={`${C * mFrac} ${C * (1 - mFrac)}`}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke="var(--color-warning)"
-          strokeWidth={sw}
-          fill="none"
-          strokeDasharray={`${C * rFrac} ${C * (1 - rFrac)}`}
-          strokeDashoffset={-C * mFrac}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-display text-base font-extrabold tabular-nums leading-none text-[var(--solid-ink)]">
-          {pct}<span className="text-[10px]">%</span>
-        </div>
-        <div className="mt-px text-[9px] text-[var(--color-muted)]">習得</div>
-      </div>
-    </div>
-  );
-}
-
-function LegendItem({ color, label, count }: { color: string; label: string; count: number }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: color }} />
-      <span className="flex-1 text-[10px] text-[var(--color-muted)]">{label}</span>
-      <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--solid-ink)]">{count}</span>
     </div>
   );
 }
@@ -937,14 +744,5 @@ function ProjectRow({
         )}
       </div>
     </SolidPanel>
-  );
-}
-
-function DotLabel({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-      <span className="text-[10px] text-[var(--color-muted)]">{label}</span>
-    </span>
   );
 }

@@ -1,4 +1,13 @@
-import type { ReelItem } from './types';
+/**
+ * 共有カード描画に必要な最小限の単語情報。ReelItem はこれを構造的に
+ * 満たすので、リール以外（共有単語帳の単語など）からも使える。
+ */
+export type WordShareCardInput = {
+  english: string;
+  pronunciation?: string | null;
+  japanese: string;
+  book: { title: string };
+};
 
 // Canvas card dimensions (4:5 — feed-friendly on Instagram / LINE).
 const CARD_WIDTH = 1080;
@@ -95,7 +104,7 @@ function wrapText(
  * Always renders the light Merken Solid look regardless of app theme.
  * Returns null when canvas rendering is unavailable.
  */
-export async function generateWordShareImage(item: ReelItem): Promise<Blob | null> {
+export async function generateWordShareImage(item: WordShareCardInput): Promise<Blob | null> {
   if (typeof document === 'undefined') return null;
 
   const displayFont = cssFontFamily('--font-display', 'sans-serif');
