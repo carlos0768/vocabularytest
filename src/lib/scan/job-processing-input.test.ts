@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   buildScanJobNoWordsErrorMessage,
   buildScanJobProcessingInput,
+  SCAN_JOB_NO_WORDS_FALLBACK_MESSAGE,
 } from './job-processing-input';
 
 test('buildScanJobProcessingInput keeps multiple image paths and client_local save mode', () => {
@@ -39,8 +40,20 @@ test('buildScanJobNoWordsErrorMessage prefers the first extraction error', () =>
     buildScanJobNoWordsErrorMessage('画像解析に失敗しました'),
     '画像解析に失敗しました',
   );
+});
+
+test('buildScanJobNoWordsErrorMessage returns a clear Japanese reason when no extraction error is present', () => {
   assert.equal(
     buildScanJobNoWordsErrorMessage(null),
-    'No words found in any image',
+    SCAN_JOB_NO_WORDS_FALLBACK_MESSAGE,
+  );
+  assert.equal(
+    buildScanJobNoWordsErrorMessage(undefined),
+    SCAN_JOB_NO_WORDS_FALLBACK_MESSAGE,
+  );
+  // 空白のみのエラーはフォールバック文言に置き換える（英語の技術メッセージを見せない）
+  assert.equal(
+    buildScanJobNoWordsErrorMessage('   '),
+    SCAN_JOB_NO_WORDS_FALLBACK_MESSAGE,
   );
 });

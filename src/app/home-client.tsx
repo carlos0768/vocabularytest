@@ -93,7 +93,14 @@ type RecentScanJob = {
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   project_title: string;
+  error_message?: string | null;
 };
+
+// バックグラウンドスキャンが失敗したのに error_message が無い場合の予備文言。
+// 「単語帳を撮影しなかった（＝単語が写っていない）」ケースを想定した、
+// 理由が伝わる日本語メッセージを表示する。
+const SCAN_JOB_FAILED_FALLBACK_MESSAGE =
+  '画像から単語を読み取れませんでした。単語帳や英単語がはっきり写るように、もう一度撮影してください。';
 
 function withHomeGeneratingFallbackId(
   payload: HomeGeneratingWordbookPayload,
@@ -263,6 +270,8 @@ export function HomeClient() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const showHomeGeneratingWordbook = useCallback((payload: HomeGeneratingWordbookPayload) => {
+    // 新しいスキャンを開始したら、前回の失敗メッセージが残っていても消す。
+    setError(null);
     setPendingGeneratingWordbook(withHomeGeneratingFallbackId(payload));
   }, []);
 
@@ -425,6 +434,12 @@ export function HomeClient() {
 
     if (linkedJob.status === 'completed') {
       void loadHomeRef.current();
+    }
+
+    // 失敗（単語ゼロなど）した場合、以前は「生成中」カードが理由も出さず
+    // 消えるだけでユーザーが困っていた。サーバーが記録した理由を必ず表示する。
+    if (linkedJob.status === 'failed') {
+      setError(linkedJob.error_message?.trim() || SCAN_JOB_FAILED_FALLBACK_MESSAGE);
     }
   }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
