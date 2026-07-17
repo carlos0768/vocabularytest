@@ -19,6 +19,7 @@ import {
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { triggerHaptic } from '@/lib/haptics';
+import { speakEnglish } from '@/lib/speech';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
   applyWordOrderQuestionsToPendingQuiz,
@@ -1830,12 +1831,7 @@ export default function QuizPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (currentQuestion?.word.english) {
-                      window.speechSynthesis.cancel();
-                      const utt = new SpeechSynthesisUtterance(currentQuestion.word.english);
-                      utt.lang = 'en-US'; utt.rate = 0.9;
-                      window.speechSynthesis.speak(utt);
-                    }
+                    speakEnglish(currentQuestion?.word.english);
                   }}
                   className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
                 >

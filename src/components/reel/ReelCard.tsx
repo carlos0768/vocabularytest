@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReelFeedback, ReelItem } from '@/lib/reels/types';
 import { triggerHaptic } from '@/lib/haptics';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { speakEnglish } from '@/lib/speech';
 import { ReelActionRail } from './ReelActionRail';
 import { ReelBookCard } from './ReelBookCard';
 import { ReelCommentSheet } from './ReelCommentSheet';
@@ -27,12 +28,7 @@ type ReelCardProps = {
 const SWIPE_THRESHOLD = 80;
 
 function speak(english: string) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(english);
-  utterance.lang = 'en-US';
-  utterance.rate = 0.9;
-  window.speechSynthesis.speak(utterance);
+  speakEnglish(english);
 }
 
 /**

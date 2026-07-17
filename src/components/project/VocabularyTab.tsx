@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { speakEnglish } from '@/lib/speech';
 import type { Word, WordRepository } from '@/types';
 
 interface VocabularyTabProps {
@@ -151,13 +152,7 @@ export function VocabularyTab({ words, repository, onWordsUpdate }: VocabularyTa
 
   // Speech synthesis
   const speakWord = () => {
-    if (currentWord?.english && typeof window !== 'undefined') {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(currentWord.english);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
+    speakEnglish(currentWord?.english);
   };
 
   // Dictionary link

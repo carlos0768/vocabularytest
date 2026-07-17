@@ -9,6 +9,7 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
+import { speakEnglish } from '@/lib/speech';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
@@ -346,12 +347,7 @@ export default function FlashcardPage() {
   };
 
   function speakWord() {
-    if (currentWord?.english && typeof window !== 'undefined') {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(currentWord.english);
-      utt.lang = 'en-US'; utt.rate = 0.9;
-      window.speechSynthesis.speak(utt);
-    }
+    speakEnglish(currentWord?.english);
   }
 
   const handleSearchEijiro = () => {

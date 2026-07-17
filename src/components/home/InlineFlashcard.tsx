@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { shuffleArray } from '@/lib/utils';
+import { speakEnglish } from '@/lib/speech';
 import type { Word } from '@/types';
 
 interface InlineFlashcardProps {
@@ -81,12 +82,7 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
   // Text-to-speech
   const speakWord = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (currentWord?.english && typeof window !== 'undefined') {
-      const utterance = new SpeechSynthesisUtterance(currentWord.english);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
+    speakEnglish(currentWord?.english);
   };
 
   // Navigation
