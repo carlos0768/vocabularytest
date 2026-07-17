@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
 import { normalizeWordTranslationPayload } from '../../../shared/word-translations';
-import type { ValidatedAIResponse } from './ai-response';
+import { mergeDuplicateHeadwords, type ValidatedAIResponse } from './ai-response';
 
 // Schema for highlighted word extraction with enhanced detection features
 // Based on research findings for Gemini 2.5 Flash capabilities
@@ -128,7 +128,7 @@ export function filterByConfidence(
 // This ensures compatibility with existing app infrastructure
 export function convertToStandardFormat(highlighted: HighlightedResponse): ValidatedAIResponse {
   return {
-    words: highlighted.words.map((word) => {
+    words: mergeDuplicateHeadwords(highlighted.words.map((word) => {
       const translationPayload = normalizeWordTranslationPayload({
         translations: word.translations,
         japanese: word.japanese,
@@ -154,7 +154,7 @@ export function convertToStandardFormat(highlighted: HighlightedResponse): Valid
           ? { japaneseSource: translationPayload.japaneseSource }
           : {}),
       };
-    }),
+    })),
     sourceLabels: normalizeSourceLabels(highlighted.sourceLabels),
   };
 }
