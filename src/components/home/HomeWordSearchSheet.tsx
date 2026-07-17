@@ -6,17 +6,13 @@
  * データはホームが同期済みの IndexedDB（localRepository）から読む。
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { WordDetailView } from '@/components/word/WordDetailView';
-import { localRepository } from '@/lib/db/local-repository';
+import { useMyWordSearch } from '@/hooks/use-my-word-search';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import type { Word } from '@/types';
-
-const MAX_RESULTS = 50;
-
-type SearchEntry = { word: Word; projectTitle: string };
 
 /**
  * 呼び出し側は開くたびに条件付きレンダリング（`{open && <HomeWordSearchSheet/>}`）
@@ -29,61 +25,15 @@ export function HomeWordSearchSheet({
   onClose: () => void;
   userId: string;
 }) {
-  const [entries, setEntries] = useState<SearchEntry[] | null>(null);
-  const [query, setQuery] = useState('');
+  const { entries, query, setQuery, results, updateEntryWord } = useMyWordSearch(userId);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // オーバーレイ表示直後にキーボードを出す。
     const focusTimer = setTimeout(() => inputRef.current?.focus(), 50);
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const projects = await localRepository.getProjects(userId);
-        const wordsByProject = await localRepository.getAllWordsByProjectIds(
-          projects.map((project) => project.id),
-        );
-        const titleById = new Map(projects.map((project) => [project.id, project.title]));
-        const next: SearchEntry[] = [];
-        for (const [projectId, words] of Object.entries(wordsByProject)) {
-          const projectTitle = titleById.get(projectId) ?? '';
-          for (const word of words) {
-            next.push({ word, projectTitle });
-          }
-        }
-        if (!cancelled) setEntries(next);
-      } catch (loadError) {
-        console.error('Failed to load words for home search:', loadError);
-        if (!cancelled) setEntries([]);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(focusTimer);
-    };
-  }, [userId]);
-
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q || !entries) return [];
-    const matched: SearchEntry[] = [];
-    for (const entry of entries) {
-      const { word } = entry;
-      const haystacks = [
-        word.english,
-        word.japanese,
-        ...(word.translations?.map((t) => t.translationJa) ?? []),
-      ];
-      if (haystacks.some((value) => value?.toLowerCase().includes(q))) {
-        matched.push(entry);
-        if (matched.length >= MAX_RESULTS) break;
-      }
-    }
-    return matched;
-  }, [entries, query]);
+    return () => clearTimeout(focusTimer);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[90] flex flex-col bg-[var(--color-background)]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -195,13 +145,7 @@ export function HomeWordSearchSheet({
                 initialWord={selectedWord}
                 onClose={() => setSelectedWord(null)}
                 onWordUpdated={(updated) => {
-                  setEntries((prev) =>
-                    prev
-                      ? prev.map((entry) =>
-                          entry.word.id === updated.id ? { ...entry, word: updated } : entry,
-                        )
-                      : prev,
-                  );
+                  updateEntryWord(updated);
                   setSelectedWord(updated);
                 }}
               />
