@@ -1279,7 +1279,11 @@ test('server_cloud words insert failure rolls back only the newly created projec
   const failedUpdate = findScanJobUpdate(client, 'failed');
   assert.ok(isRecord(failedUpdate.payload));
   assert.equal(failedUpdate.payload.status, 'failed');
-  assert.equal(failedUpdate.payload.error_message, 'Failed to insert words');
+  // error_message はユーザーにそのまま表示されるため、内部エラーは理由の伝わる日本語文言に変換される
+  assert.equal(
+    failedUpdate.payload.error_message,
+    '単語の抽出はできましたが、単語帳の保存に失敗しました。時間をおいてもう一度お試しください。',
+  );
   assert.equal(typeof failedUpdate.payload.updated_at, 'string');
   assert.deepEqual(pushNotifications, [
     {
@@ -1374,7 +1378,11 @@ test('server_cloud existing project words insert failure does not delete the pro
 
   const failedUpdate = findScanJobUpdate(client, 'failed');
   assert.ok(isRecord(failedUpdate.payload));
-  assert.equal(failedUpdate.payload.error_message, 'Failed to insert words');
+  // error_message はユーザーにそのまま表示されるため、内部エラーは理由の伝わる日本語文言に変換される
+  assert.equal(
+    failedUpdate.payload.error_message,
+    '単語の抽出はできましたが、単語帳の保存に失敗しました。時間をおいてもう一度お試しください。',
+  );
   assert.deepEqual(pushNotifications, [
     {
       userId: USER_ID,
@@ -1406,7 +1414,7 @@ test('process route refunds coins after both total-failure paths', async () => {
 
   for (const anchor of [
     "error_message: errorMessage,",
-    "error_message: processingError instanceof Error ? processingError.message : 'Processing failed',",
+    "error_message: toUserFacingScanErrorMessage(processingError),",
   ]) {
     const anchorIndex = source.indexOf(anchor);
     assert.ok(anchorIndex >= 0, `missing anchor: ${anchor}`);

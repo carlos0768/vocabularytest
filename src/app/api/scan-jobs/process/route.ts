@@ -27,6 +27,7 @@ import {
   buildScanJobProcessingInput,
   type ScanJobProcessSaveMode,
 } from '@/lib/scan/job-processing-input';
+import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
 import {
   buildServerCloudMergedProjectSourceLabels,
   buildServerCloudProjectInsertPayload,
@@ -1878,7 +1879,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           .from('scan_jobs')
           .update({
             status: 'failed',
-            error_message: processingError instanceof Error ? processingError.message : 'Processing failed',
+            // error_message はホーム画面にそのまま表示されるため、内部エラーの
+            // 英語メッセージではなく理由の伝わる日本語文言に変換して書き込む。
+            error_message: toUserFacingScanErrorMessage(processingError),
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
