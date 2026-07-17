@@ -351,7 +351,49 @@ export default function Quiz2Page() {
   if (isComplete) {
     const total = words.length;
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+      <>
+      {/* Desktop completion（DSスタイル） */}
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+        <div className="flex flex-1 items-center justify-center overflow-y-auto" style={{ padding: 32 }}>
+          <div className="ds-card" style={{ width: 'min(100%, 520px)', padding: '28px 32px' }}>
+            <div className="mono muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              クイズ２ · 完了
+            </div>
+            <h1 style={{ fontSize: 28, margin: '10px 0 4px' }}>おつかれさま！</h1>
+            <p className="muted" style={{ fontSize: 13.5, margin: 0 }}>{total}語を1周しました</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 20 }}>
+              <div className="ds-card flat ds-kpi" style={{ padding: '14px 16px' }}>
+                <div className="l">Again</div>
+                <div className="v" style={{ fontSize: 26, color: 'var(--color-error)' }}>{gradeCounts.again}</div>
+              </div>
+              <div className="ds-card flat ds-kpi" style={{ padding: '14px 16px' }}>
+                <div className="l">Hard</div>
+                <div className="v" style={{ fontSize: 26, color: '#92400e' }}>{gradeCounts.hard}</div>
+              </div>
+              <div className="ds-card flat ds-kpi" style={{ padding: '14px 16px' }}>
+                <div className="l">Good</div>
+                <div className="v" style={{ fontSize: 26, color: '#1d4ed8' }}>{gradeCounts.good}</div>
+              </div>
+              <div className="ds-card flat ds-kpi" style={{ padding: '14px 16px' }}>
+                <div className="l">Easy</div>
+                <div className="v" style={{ fontSize: 26, color: 'var(--color-accent-ink)' }}>{gradeCounts.easy}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
+              <button type="button" className="ds-btn accent" onClick={handleRestart}>
+                <Icon name="refresh" />もう一度
+              </button>
+              <button type="button" className="ds-btn dark" onClick={backToOrigin}>
+                <Icon name="check" />終了する
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:hidden">
         <header className="sticky top-0 p-4 flex items-center justify-between max-w-lg mx-auto w-full">
           <button
             onClick={backToOrigin}
@@ -401,6 +443,7 @@ export default function Quiz2Page() {
           </div>
         </main>
       </div>
+      </>
     );
   }
 

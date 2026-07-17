@@ -1373,7 +1373,7 @@ export default function ProjectPage() {
           type="button"
           onClick={() => setWordShowFilterSheet(true)}
           aria-label="フィルタ"
-          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
             wordFilterActive
               ? 'bg-[var(--solid-ink)] text-white'
               : 'bg-white text-[var(--solid-ink)]'
@@ -1385,7 +1385,7 @@ export default function ProjectPage() {
           type="button"
           onClick={() => setWordShowSortSheet(true)}
           aria-label="並べ替え"
-          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
             wordSortOrder !== 'priority'
               ? 'bg-[var(--solid-ink)] text-white'
               : 'bg-white text-[var(--solid-ink)]'
@@ -1397,7 +1397,7 @@ export default function ProjectPage() {
           type="button"
           onClick={() => { if (selectMode) { handleExitSelectMode(); } else { setSelectMode(true); setSelectedWordIds(new Set()); } }}
           aria-label="選択"
-          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
+          className={`inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
             selectMode
               ? 'bg-[var(--solid-ink)] text-white'
               : 'bg-white text-[var(--solid-ink)]'

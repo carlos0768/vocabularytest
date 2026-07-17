@@ -121,7 +121,6 @@ export default function GroupPage() {
               {group?.name ?? 'グループ'}
             </h1>
           </div>
-          <DesktopButton href="/shared" icon="arrow_back" variant="ghost">共有ライブラリ</DesktopButton>
           {group && (
             <>
               <button type="button" className="ds-btn" onClick={() => void copyInvite()} title="招待コードをコピー">
@@ -138,11 +137,6 @@ export default function GroupPage() {
         <div className="ds-scroll">
           {stateView ?? (group && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 20 }}>
-                <DesktopGroupStat icon="group" label="メンバー" value={group.memberCount} unit="人" />
-                <DesktopGroupStat icon="menu_book" label="共有単語帳" value={group.projectCount} unit="冊" />
-                <DesktopGroupStat icon="bolt" label="今週の解答" value={totalQuiz} unit="問" />
-              </div>
               {loading ? (
                 <LoadingState />
               ) : (
@@ -212,36 +206,6 @@ export default function GroupPage() {
   );
 }
 
-function DesktopGroupStat({ icon, label, value, unit }: { icon: string; label: string; value: number; unit: string }) {
-  return (
-    <div className="ds-card flat" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-      <span
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 10,
-          border: '2px solid var(--solid-ink)',
-          background: 'var(--color-surface-secondary)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <Icon name={icon} size={18} />
-      </span>
-      <div style={{ minWidth: 0 }}>
-        <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          {label}
-        </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, lineHeight: 1.2 }}>
-          {value}
-          <span style={{ fontSize: 12, color: 'var(--color-secondary-text)', fontWeight: 700 }}> {unit}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function GroupHeader({
   group,

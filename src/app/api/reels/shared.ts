@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import type {
@@ -525,13 +526,25 @@ async function fetchUserFeedback(
   return empty;
 }
 
+// interestTags が同じ限り結果も同じなので、ウォームなサーバーインスタンス内で
+// 短時間キャッシュする。これが無いとフィードの毎ページで OpenAI 埋め込みAPIの
+// 往復（数百ms）が発生し、リール表示の体感が大きく悪化する。
+const TAG_SIMILARITY_TTL_MS = 10 * 60 * 1000;
+const TAG_SIMILARITY_CACHE_MAX = 100;
+const tagSimilarityCache = new Map<string, { at: number; value: Record<string, number> }>();
+
 async function fetchTagSimilarity(
   admin: SupabaseAdminClient,
   interestTags: string[],
 ): Promise<Record<string, number>> {
   if (interestTags.length === 0) return {};
+  const cacheKey = interestTags.join('、');
+  const cached = tagSimilarityCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < TAG_SIMILARITY_TTL_MS) {
+    return cached.value;
+  }
   try {
-    const embedding = await createSharedSearchEmbedding(interestTags.join('、'));
+    const embedding = await createSharedSearchEmbedding(cacheKey);
     if (!embedding) return {};
     const { data, error } = await admin.rpc('match_shared_wordbooks_by_tag_embedding', {
       query_embedding: embedding,
@@ -542,6 +555,12 @@ async function fetchTagSimilarity(
     const result: Record<string, number> = {};
     for (const row of (data ?? []) as { id: string; similarity: number }[]) {
       result[row.id] = Number(row.similarity) || 0;
+    }
+    // 成功時のみキャッシュ（失敗は次のリクエストで再試行させる）。
+    tagSimilarityCache.set(cacheKey, { at: Date.now(), value: result });
+    if (tagSimilarityCache.size > TAG_SIMILARITY_CACHE_MAX) {
+      const oldestKey = tagSimilarityCache.keys().next().value;
+      if (oldestKey !== undefined) tagSimilarityCache.delete(oldestKey);
     }
     return result;
   } catch {
@@ -754,41 +773,53 @@ export async function buildReelFeedPage(options: {
   if (grantedSelections.length > 0) {
     // Refresh seen_at on every serve so recycled words rotate to the back
     // of the LRU queue instead of repeating immediately.
-    await admin.from('reel_seen_words').upsert(
-      grantedSelections.map((selection) => ({
-        user_id: options.userId,
-        item_key: selection.candidate.id,
-        seen_at: new Date().toISOString(),
-      })),
-      { onConflict: 'user_id,item_key' },
-    );
+    // レスポンスをブロックしない（次ページの取得はユーザーが数枚めくった後
+    // なので、送信後の書き込みで十分間に合う）。
+    const upsertSeen = async () => {
+      const { error } = await admin.from('reel_seen_words').upsert(
+        grantedSelections.map((selection) => ({
+          user_id: options.userId,
+          item_key: selection.candidate.id,
+          seen_at: new Date().toISOString(),
+        })),
+        { onConflict: 'user_id,item_key' },
+      );
+      if (error) console.error('reel seen upsert failed:', error);
+    };
+    try {
+      after(upsertSeen);
+    } catch {
+      // リクエストスコープ外（テスト等）では従来どおり同期実行する。
+      await upsertSeen();
+    }
   }
 
   const recycledByKey = new Map(
     grantedSelections.map((selection) => [selection.candidate.id, selection.recycled]),
   );
 
-  // 語源（morphology）を lexicon キャッシュから1バッチで結合する。
-  // キャッシュ専用（フィード内で生成はしない）。best-effort — フィードは絶対に壊さない。
   const grantedCandidates = grantedSelections.map((s) => s.candidate);
-  try {
-    const morphologyByHeadword = await getCachedMorphologyByHeadword(
+
+  // 語源（morphology, lexicon キャッシュ専用・best effort）といいね/コメント等の
+  // エンリッチは互いに独立なので並走させ、応答の直列往復を1本減らす。
+  const [morphologyByHeadword, enriched] = await Promise.all([
+    getCachedMorphologyByHeadword(
       grantedCandidates.map((candidate) => normalizeHeadword(candidate.english)),
       { supabaseAdmin: admin },
-    );
-    for (const candidate of grantedCandidates) {
-      const morphology = morphologyByHeadword.get(normalizeHeadword(candidate.english));
-      candidate.morphology = morphology && !morphology.none && morphology.formula.length > 0
-        ? morphology
-        : null;
-    }
-  } catch {
-    // morphology は任意情報。失敗時は全カード2面のまま配信する。
-  }
+    ).catch(() => null), // morphology は任意情報。失敗時は全カード2面のまま配信する。
+    enrichItems(admin, options.userId, grantedCandidates),
+  ]);
 
-  const items = (
-    await enrichItems(admin, options.userId, grantedCandidates)
-  ).map((item) => ({ ...item, isRecycled: recycledByKey.get(item.id) ?? false }));
+  const items = enriched.map((item) => {
+    const morphology = morphologyByHeadword?.get(normalizeHeadword(item.english));
+    return {
+      ...item,
+      morphology: morphology && !morphology.none && morphology.formula.length > 0
+        ? morphology
+        : null,
+      isRecycled: recycledByKey.get(item.id) ?? false,
+    };
+  });
 
   const limitReached = usage.limit !== null && usage.current_count >= usage.limit;
   // The feed never runs dry (seen words recycle); nextCursor is null only

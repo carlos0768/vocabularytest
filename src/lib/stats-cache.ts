@@ -19,6 +19,7 @@ import {
 } from '@/lib/utils';
 import { getCachedProjects, getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { isRemoteStatsSyncEnabled } from '@/lib/stats-sync-config';
+import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import type { SubscriptionStatus, Word } from '@/types';
 
@@ -30,6 +31,13 @@ export interface CachedStats {
   reviewWords: number;
   newWords: number;
   favoriteWords: number;
+  /**
+   * 今日の復習対象語数（SM-2 で nextReviewAt が到来している語数）。
+   * ホームの「今日の目標」と同一ロジック（getWordsDueForReview）で算出し、
+   * 統計ページとホームの復習語数を一致させる。完全な単語データを取得できない
+   * 縮退フォールバック時のみ null（表示側は reviewWords に代替）。
+   */
+  dueCount: number | null;
   wrongAnswersCount: number;
   quizStats: {
     todayCount: number;
@@ -420,6 +428,9 @@ async function fetchStatsData(
       favoriteWords: number;
     };
     let allWords: Word[] = [];
+    // ホームの「今日の目標」と同一ロジックの復習対象語数。完全な単語データが
+    // 手に入らない縮退経路では null のまま（表示側で reviewWords に代替）。
+    let dueCount: number | null = null;
 
     if (hasRemoteData) {
       wordStats = await fetchStatsViaRpc(userId);
@@ -430,6 +441,7 @@ async function fetchStatsData(
         const allWordsArrays = await Promise.all(projects.map((project) => repository.getWords(project.id)));
         allWords = allWordsArrays.flat();
         const memorySummary = summarizeWordMemory(allWords);
+        dueCount = getWordsDueForReview(allWords).length;
         wordStats = {
           totalProjects: projects.length,
           totalWords: memorySummary.total,
@@ -466,6 +478,7 @@ async function fetchStatsData(
         const { allWords: words, ...stats } = cached;
         wordStats = stats;
         allWords = words;
+        dueCount = getWordsDueForReview(allWords).length;
       } else {
         // Fallback: home-cache not ready yet, use repository
         const { getRepository } = await import('@/lib/db');
@@ -483,6 +496,7 @@ async function fetchStatsData(
         }
 
         const memorySummary = summarizeWordMemory(allWords);
+        dueCount = getWordsDueForReview(allWords).length;
         wordStats = {
           totalProjects: projects.length,
           totalWords: memorySummary.total,
@@ -545,6 +559,7 @@ async function fetchStatsData(
 
     const stats: CachedStats = {
       ...wordStats,
+      dueCount,
       wrongAnswersCount,
       weeklyStats,
       activityHistory,

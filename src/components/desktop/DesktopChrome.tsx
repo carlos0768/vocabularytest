@@ -2,9 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type InputHTMLAttributes, type ReactNode, useState } from 'react';
+import type { InputHTMLAttributes, ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
-import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
 import { cn } from '@/lib/utils';
@@ -17,7 +16,6 @@ const NAV_ITEMS: { key: NavKey; href: string; icon: string; label: string; count
   { key: 'reels', href: '/reels', icon: 'movie', label: 'リール' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'star', label: 'お気に入り', count: 21 },
-  { key: 'scan', href: '/scan', icon: 'photo_camera', label: 'スキャン' },
   { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
 ];
 
@@ -43,10 +41,8 @@ export function DesktopSidebar({
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
-  const [searchOpen, setSearchOpen] = useState(false);
   const active = activeKeyForPath(pathname);
   const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
-  const isLoggedIn = Boolean(user);
 
   return (
     <aside className={cn('ds-side', collapsed && 'ds-side--collapsed')} aria-label="デスクトップナビゲーション">
@@ -104,23 +100,6 @@ export function DesktopSidebar({
             )}
           </Link>
         )}
-        {isLoggedIn && (
-          <button
-            type="button"
-            className="ds-word-search"
-            onClick={() => setSearchOpen(true)}
-            title={collapsed ? '単語を検索' : undefined}
-            aria-label="自分の単語帳から検索"
-          >
-            <Icon name="search" className="ico" />
-            {!collapsed && (
-              <div>
-                <div className="n">単語を検索</div>
-                <div className="l">自分の単語帳から探す</div>
-              </div>
-            )}
-          </button>
-        )}
         {!collapsed && (
           <div className="ds-user">
             <div className="ds-avatar">{userInitial}</div>
@@ -131,10 +110,6 @@ export function DesktopSidebar({
           </div>
         )}
       </div>
-      {/* 自分の単語帳内の単語検索。開くたびにマウントし直して状態を初期化する */}
-      {searchOpen && user && (
-        <DesktopWordSearchOverlay onClose={() => setSearchOpen(false)} userId={user.id} />
-      )}
     </aside>
   );
 }

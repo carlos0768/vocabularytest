@@ -436,7 +436,8 @@ export default function GroupSettingsPage() {
           </DesktopButton>
         </div>
         <div className="ds-scroll">
-          <div style={{ maxWidth: 720 }}>
+          {/* 中央寄せ（margin auto が無いと左に張り付く） */}
+          <div style={{ width: 'min(100%, 720px)', margin: '0 auto' }}>
             {stateView ?? sections}
           </div>
         </div>

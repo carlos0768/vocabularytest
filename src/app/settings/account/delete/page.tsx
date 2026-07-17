@@ -71,6 +71,60 @@ export default function DeleteAccountPage() {
   };
 
   return (
+    <>
+    {/* デスクトップ表示（設定 > データ > アカウント削除 から遷移） */}
+    <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="ds-top">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="crumb">アカウント / データ</div>
+          <h1>アカウント削除</h1>
+        </div>
+        <button
+          type="button"
+          className="ds-btn"
+          onClick={() => router.push('/settings')}
+        >
+          <Icon name="arrow_back" />
+          設定へ戻る
+        </button>
+      </div>
+      <div className="ds-scroll">
+        <div style={{ width: 'min(100%, 640px)', margin: '0 auto' }}>
+          <div
+            className="ds-card"
+            style={{ padding: 24, borderColor: 'var(--color-error)', boxShadow: '3px 4px 0 var(--color-error)' }}
+          >
+            <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-error)' }}>
+              DANGER ZONE
+            </div>
+            <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.8, color: 'var(--color-secondary-text)' }}>
+              <p style={{ margin: 0 }}>アカウントを削除すると、以下のデータが完全に削除されます：</p>
+              <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                <li>ログイン情報</li>
+                <li>クラウド上の学習データ</li>
+                <li>プロジェクト・単語帳</li>
+              </ul>
+              <p style={{ margin: '8px 0 0' }}>Stripe課金中の場合は、削除時にサブスクリプションも停止します。</p>
+              {isAppStorePro && (
+                <p style={{ margin: '8px 0 0', fontWeight: 700, color: 'var(--color-error)' }}>
+                  App Store課金中の場合は、先にApp Storeでサブスクリプションを解約してください。
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowConfirm(true)}
+              className="ds-btn"
+              style={{ marginTop: 18, width: '100%', color: 'var(--color-error)', borderColor: 'var(--color-error)', boxShadow: '2px 3px 0 var(--color-error)' }}
+            >
+              <Icon name="delete" />
+              アカウントを削除する
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[18px] pb-[14px] pt-1">
         <button
@@ -111,8 +165,10 @@ export default function DeleteAccountPage() {
           </button>
         </div>
       </div>
+    </div>
 
-      <Modal isOpen={showConfirm} onClose={closeModal} showCloseButton={false} closeOnBackdrop={!deleteLoading}>
+    {/* 削除確認モーダル（モバイル・デスクトップ共通） */}
+    <Modal isOpen={showConfirm} onClose={closeModal} showCloseButton={false} closeOnBackdrop={!deleteLoading}>
         <div className="p-5">
           <div className="mb-4 flex items-center gap-3">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(239,68,68,0.1)] text-[var(--color-error)]">
@@ -149,7 +205,7 @@ export default function DeleteAccountPage() {
             </button>
           </div>
         </div>
-      </Modal>
-    </div>
+    </Modal>
+    </>
   );
 }
