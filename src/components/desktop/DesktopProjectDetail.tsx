@@ -218,45 +218,7 @@ export function DesktopProjectDetailView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title={project.title} crumb="単語帳 / 一覧">
-        <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="school" title="クイズ">{''}</DesktopButton>
-        <DesktopButton href={`/flashcard/${projectId}`} icon="style" title="カード">{''}</DesktopButton>
-        <DesktopButton onClick={onRename} icon="edit" title="名称変更">{''}</DesktopButton>
-        <div ref={addMenuRef} style={{ position: 'relative' }}>
-          <DesktopButton onClick={() => setAddMenuOpen((v) => !v)} icon="add" title="単語を追加">{''}</DesktopButton>
-          {addMenuOpen && (
-            <>
-              <button
-                type="button"
-                className="fixed inset-0 z-40 cursor-default bg-transparent"
-                aria-label="メニューを閉じる"
-                onClick={() => setAddMenuOpen(false)}
-              />
-              <div
-                className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
-                style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
-              >
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setAddMenuOpen(false); onScan(); }}
-                >
-                  <Icon name="photo_camera" style={{ fontSize: 18 }} />
-                  スキャンで追加
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
-                >
-                  <Icon name="edit" style={{ fontSize: 18 }} />
-                  手動で追加
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </DesktopTopbar>
+      <DesktopTopbar title={project.title} crumb="単語帳 / 一覧" />
 
       <div className={`ds-scroll ds-project-detail-grid${railCollapsed ? ' ds-project-detail-grid--rail-collapsed' : ''}`}>
         <div style={{ minWidth: 0 }}>
@@ -293,41 +255,45 @@ export function DesktopProjectDetailView({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
+            {/* 旧トップバー右上のアクション（クイズ/カード/名称変更/追加） */}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                className={'ds-btn sm' + (filterActive ? ' dark' : '')}
-                onClick={onOpenFilterSheet}
-                aria-pressed={filterActive}
-              >
-                <Icon name="filter_list" />
-              </button>
-              <button
-                type="button"
-                className={'ds-btn sm' + (sortActive ? ' dark' : '')}
-                onClick={onOpenSortSheet}
-                aria-pressed={sortActive}
-              >
-                <Icon name="swap_vert" />
-              </button>
-              <button
-                type="button"
-                className={'ds-btn sm' + (selectMode ? ' dark' : '')}
-                onClick={onToggleSelectMode}
-                aria-pressed={selectMode}
-              >
-                <Icon name="check_box" />
-              </button>
-              {selectMode && selectedWordIds.size > 0 && (
-                <button
-                  type="button"
-                  className="ds-btn sm"
-                  onClick={onBulkDelete}
-                  style={{ color: 'var(--color-error, #cc4d59)' }}
-                >
-                  <Icon name="delete" />{selectedWordIds.size}語を削除
-                </button>
-              )}
+              <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="school" title="クイズ">{''}</DesktopButton>
+              <DesktopButton href={`/flashcard/${projectId}`} icon="style" title="カード">{''}</DesktopButton>
+              <DesktopButton onClick={onRename} icon="edit" title="名称変更">{''}</DesktopButton>
+              <div ref={addMenuRef} style={{ position: 'relative' }}>
+                <DesktopButton onClick={() => setAddMenuOpen((v) => !v)} icon="add" title="単語を追加">{''}</DesktopButton>
+                {addMenuOpen && (
+                  <>
+                    <button
+                      type="button"
+                      className="fixed inset-0 z-40 cursor-default bg-transparent"
+                      aria-label="メニューを閉じる"
+                      onClick={() => setAddMenuOpen(false)}
+                    />
+                    <div
+                      className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                      style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                        onClick={() => { setAddMenuOpen(false); onScan(); }}
+                      >
+                        <Icon name="photo_camera" style={{ fontSize: 18 }} />
+                        スキャンで追加
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                        onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
+                      >
+                        <Icon name="edit" style={{ fontSize: 18 }} />
+                        手動で追加
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             {hiddenCols.size > 0 && (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -349,6 +315,49 @@ export function DesktopProjectDetailView({
               </span>
             )}
             <div style={{ flex: 1 }} />
+            {/* フィルタ・ソート・選択（正方形）は検索窓の左に配置 */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {selectMode && selectedWordIds.size > 0 && (
+                <button
+                  type="button"
+                  className="ds-btn sm"
+                  onClick={onBulkDelete}
+                  style={{ color: 'var(--color-error, #cc4d59)' }}
+                >
+                  <Icon name="delete" />{selectedWordIds.size}語を削除
+                </button>
+              )}
+              <button
+                type="button"
+                className={'ds-btn sm' + (filterActive ? ' dark' : '')}
+                style={{ width: 36, height: 36, padding: 0 }}
+                onClick={onOpenFilterSheet}
+                aria-pressed={filterActive}
+                aria-label="フィルタ"
+              >
+                <Icon name="filter_list" />
+              </button>
+              <button
+                type="button"
+                className={'ds-btn sm' + (sortActive ? ' dark' : '')}
+                style={{ width: 36, height: 36, padding: 0 }}
+                onClick={onOpenSortSheet}
+                aria-pressed={sortActive}
+                aria-label="並べ替え"
+              >
+                <Icon name="swap_vert" />
+              </button>
+              <button
+                type="button"
+                className={'ds-btn sm' + (selectMode ? ' dark' : '')}
+                style={{ width: 36, height: 36, padding: 0 }}
+                onClick={onToggleSelectMode}
+                aria-pressed={selectMode}
+                aria-label="選択"
+              >
+                <Icon name="check_box" />
+              </button>
+            </div>
             <DesktopSearchBox
               placeholder="英単語・日本語を検索"
               value={query}
