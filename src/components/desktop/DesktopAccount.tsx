@@ -147,9 +147,13 @@ export function DesktopSettingsView({
             )}
           </div>
 
-          <StudyReminderSettings variant="desktop" />
-
-          <ExampleGenreSettings variant="desktop" />
+          {/* モバイルのカスタマイズページと同様、リマインダーと例文ジャンルは
+              同じセクションにまとめる */}
+          <div className="ds-set-group">
+            <div className="gh">カスタマイズ</div>
+            <StudyReminderSettings variant="desktop" embedded />
+            <ExampleGenreSettings variant="desktop" embedded />
+          </div>
 
           <div className="ds-set-group">
             <div className="gh">豆知識</div>

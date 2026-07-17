@@ -18,8 +18,10 @@ import { ReelFeed } from '@/components/reel/ReelFeed';
 import {
   ReelEmptyState,
   ReelErrorState,
+  ReelPinnedPreviewCard,
   ReelSkeleton,
 } from '@/components/reel/ReelStatusCards';
+import { getPinnedReelPreview } from '@/lib/reels/pinned-preview';
 
 type ImportWordTranslation = {
   translationJa: string;
@@ -72,6 +74,9 @@ function ReelsPageInner() {
   const pin = searchParams?.get('pin') ?? null;
   const { user, subscription, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  // ホームのリールカードからの遷移時は、フィード応答を待たずに pin 単語を
+  // 即表示する（タップ時にシードされた表示データを使う）。
+  const [pinnedPreview] = useState(() => (pin ? getPinnedReelPreview(pin) : null));
   const {
     items,
     status,
@@ -361,7 +366,7 @@ function ReelsPageInner() {
       >
         <div className="h-full w-full lg:max-w-[420px] lg:rounded-[var(--solid-radius)] lg:border-2 lg:border-[var(--solid-ink)] lg:bg-[var(--color-surface)] lg:overflow-hidden">
           {status === 'loading' && items.length === 0 ? (
-            <ReelSkeleton />
+            pinnedPreview ? <ReelPinnedPreviewCard item={pinnedPreview} /> : <ReelSkeleton />
           ) : status === 'error' && items.length === 0 ? (
             <ReelErrorState onRetry={retry} />
           ) : items.length === 0 && limitReached ? (

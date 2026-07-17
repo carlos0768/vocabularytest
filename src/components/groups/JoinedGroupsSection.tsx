@@ -157,7 +157,10 @@ export function JoinedGroupCard({ group, className }: { group: StudyGroupSummary
   );
 }
 
-/** デスクトップ向けカードグリッド（元 DesktopShared のローカル実装）。 */
+/**
+ * デスクトップ向けグリッド。モバイルの新UI（JoinedGroupCard: 今週のランキング
+ * 上位3人つきのリッチカード）をそのままグリッドで並べる。
+ */
 export function JoinedGroupGrid({
   groups,
   columns = 3,
@@ -191,38 +194,9 @@ export function JoinedGroupGrid({
           {groups.length}
         </span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 16, alignItems: 'stretch' }}>
         {groups.map((group) => (
-          <Link
-            key={group.id}
-            href={`/groups/${encodeURIComponent(group.id)}`}
-            className="ds-card"
-            style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, color: 'inherit', textDecoration: 'none' }}
-          >
-            <div
-              className="ds-project-icon ds-project-icon--lg"
-              style={{ background: thumbColor(group.id) }}
-            >
-              {group.name.charAt(0)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {group.name}
-                </span>
-                {group.role === 'owner' && <span className="ds-tag plain">owner</span>}
-              </div>
-              <div className="muted" style={{ marginTop: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Icon name="group" style={{ fontSize: 14 }} />{group.memberCount}人
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Icon name="menu_book" style={{ fontSize: 14 }} />{group.projectCount}冊
-                </span>
-              </div>
-            </div>
-            <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />
-          </Link>
+          <JoinedGroupCard key={group.id} group={group} className="h-full [&>div]:h-full" />
         ))}
       </div>
     </section>

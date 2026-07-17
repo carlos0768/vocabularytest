@@ -25,6 +25,7 @@ import {
   seedGroupSummary,
 } from '@/lib/shared-projects/group-overview-cache';
 import { prefetchReelFeed } from '@/hooks/use-reel-feed';
+import { seedPinnedReelPreview } from '@/lib/reels/pinned-preview';
 import type { HomeRecommendedBook, HomeReelPreviewItem } from '@/lib/home/recommendations-types';
 import type { Project } from '@/types';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
@@ -96,6 +97,13 @@ export function DesktopHomeView({
     () => (q ? projects.filter((project) => project.title.toLowerCase().includes(q)) : projects),
     [projects, q],
   );
+  // 上部ショートカットグリッドに載った単語帳は下のシェルフから除外し、
+  // 溢れた分だけを表示する（検索中は全件から検索）。
+  const gridProjectCount = Math.min(
+    projects.length,
+    homeShortcutContentSlots(stats.favoriteCount > 0),
+  );
+  const shelfProjects = q ? filteredProjects : projects.slice(gridProjectCount);
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -137,9 +145,9 @@ export function DesktopHomeView({
             {pendingScans.map((scan) => (
               <DesktopGeneratingMediaCard key={scan.id} scan={scan} />
             ))}
-            {loading && filteredProjects.length === 0 && pendingScans.length === 0
+            {loading && shelfProjects.length === 0 && pendingScans.length === 0
               ? [0, 1, 2, 3].map((slot) => <DesktopMediaCardSkeleton key={slot} />)
-              : filteredProjects.map((project) => (
+              : shelfProjects.map((project) => (
                   <DesktopHomeBookCard key={project.id} project={project} />
                 ))}
             {!q && !loading && <DesktopNewBookCard onClick={onStartScan} />}
@@ -492,8 +500,12 @@ function DesktopReelPreviewCard({ item }: { item: HomeReelPreviewItem }) {
   return (
     <DesktopMediaCard
       href={`/reels?pin=${encodeURIComponent(item.id)}`}
-      // クリック時点でフィード取得を先行開始（この単語を先頭に固定）。
-      onClick={() => prefetchReelFeed(item.id)}
+      // クリック時点でフィード取得を先行開始（この単語を先頭に固定）し、
+      // /reels 側で即時表示できるよう表示データもシードする。
+      onClick={() => {
+        prefetchReelFeed(item.id);
+        seedPinnedReelPreview(item);
+      }}
       artStyle={{ background: `linear-gradient(165deg, ${desktopThumbColor(item.id)} 0%, #1a1a1a 170%)` }}
       artChildren={
         <div

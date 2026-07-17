@@ -391,13 +391,6 @@ function DiscoverFeed({
           ))}
         </div>
       )}
-
-      {feed.nextCursor && (
-        <button type="button" onClick={feed.loadMore} disabled={feed.loadingMore} className="ds-btn" style={{ marginTop: 16 }}>
-          <Icon name={feed.loadingMore ? 'progress_activity' : 'expand_more'} className={feed.loadingMore ? 'animate-spin' : undefined} />
-          {feed.loadingMore ? '読み込み中...' : 'もっと見る'}
-        </button>
-      )}
     </section>
   );
 }

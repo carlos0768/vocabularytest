@@ -12,9 +12,11 @@ import {
 
 type ExampleGenreSettingsProps = {
   variant?: 'mobile' | 'desktop';
+  /** desktop のみ: 親の ds-set-group に組み込む（外枠と見出しを描画しない） */
+  embedded?: boolean;
 };
 
-export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSettingsProps) {
+export function ExampleGenreSettings({ variant = 'mobile', embedded = false }: ExampleGenreSettingsProps) {
   const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const { exampleGenres, loading, saving, setExampleGenres } = useUserPreferences();
@@ -190,9 +192,8 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
   );
 
   if (variant === 'desktop') {
-    return (
-      <div className="ds-set-group">
-        <div className="gh">例文のパーソナライズ</div>
+    const desktopContent = (
+      <>
         <div className="ds-set-row">
           <div className="ic">
             <Icon
@@ -206,6 +207,15 @@ export function ExampleGenreSettings({ variant = 'mobile' }: ExampleGenreSetting
           </div>
         </div>
         {body}
+      </>
+    );
+
+    // embedded: 親側の ds-set-group（例: カスタマイズ）に組み込む
+    if (embedded) return desktopContent;
+    return (
+      <div className="ds-set-group">
+        <div className="gh">例文のパーソナライズ</div>
+        {desktopContent}
       </div>
     );
   }
