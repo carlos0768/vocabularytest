@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
+import { DesktopWordDetailModal } from '@/components/desktop/DesktopWordDetailModal';
 import { desktopPosShort, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { formatJapaneseForDisplay } from '@/lib/words/display';
@@ -27,6 +28,7 @@ export function DesktopFavoritesView({
   returnPath,
   onToggleFavorite,
   onCycleVocabularyType,
+  onDeleteWord,
 }: {
   favorites: FavoriteWord[];
   loading: boolean;
@@ -35,8 +37,10 @@ export function DesktopFavoritesView({
   returnPath: string;
   onToggleFavorite: (word: FavoriteWord) => void;
   onCycleVocabularyType: (word: FavoriteWord) => void;
+  onDeleteWord?: (word: FavoriteWord) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
   const q = query.trim().toLowerCase();
   const rows = useMemo(
     () =>
@@ -51,6 +55,14 @@ export function DesktopFavoritesView({
     review: favorites.filter((word) => word.status === 'review').length,
     newCount: favorites.filter((word) => word.status === 'new').length,
   }), [favorites]);
+
+  // Derive from the favorites array so the modal closes itself when the word
+  // is removed (unfavorited or deleted) by the parent page.
+  const selectedWord = selectedWordId ? favorites.find((word) => word.id === selectedWordId) ?? null : null;
+  const modalWords = useMemo(() => {
+    if (!selectedWord) return rows;
+    return rows.some((word) => word.id === selectedWord.id) ? rows : [selectedWord, ...rows];
+  }, [selectedWord, rows]);
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -103,18 +115,24 @@ export function DesktopFavoritesView({
             </thead>
             <tbody>
               {rows.map((word) => (
-                <tr key={word.id}>
-                  <td className="star" onClick={() => onToggleFavorite(word)}>
+                <tr
+                  key={word.id}
+                  onClick={() => setSelectedWordId(word.id)}
+                  style={selectedWordId === word.id ? { background: 'var(--color-accent-subtle)' } : undefined}
+                >
+                  <td
+                    className="star"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleFavorite(word);
+                    }}
+                  >
                     <Icon name="star" filled style={{ color: 'var(--color-warning)' }} />
                   </td>
-                  <td className="en">
-                    <Link href={`/word/${word.id}?from=${returnPath}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                      {word.english}
-                    </Link>
-                  </td>
+                  <td className="en">{word.english}</td>
                   <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
                   <td className="ja"><TranslationDisplay word={word} compact /></td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td style={{ textAlign: 'center' }} onClick={(event) => event.stopPropagation()}>
                     <DesktopVocabularyTypeBadge
                       vocabularyType={word.vocabularyType}
                       onClick={() => onCycleVocabularyType(word)}
@@ -142,7 +160,28 @@ export function DesktopFavoritesView({
             </div>
           )}
         </div>
+        {rows.length > 0 && (
+          <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>
+            行をクリックで詳細を表示
+          </div>
+        )}
       </div>
+
+      {selectedWord && (
+        <DesktopWordDetailModal
+          word={selectedWord}
+          words={modalWords}
+          onClose={() => setSelectedWordId(null)}
+          onToggleFavorite={() => onToggleFavorite(selectedWord)}
+          onDelete={onDeleteWord ? () => onDeleteWord(selectedWord) : undefined}
+          onNav={(dir) => {
+            const ids = modalWords.map((row) => row.id);
+            const currentIndex = ids.indexOf(selectedWord.id);
+            if (currentIndex < 0 || ids.length === 0) return;
+            setSelectedWordId(ids[(currentIndex + dir + ids.length) % ids.length] ?? selectedWord.id);
+          }}
+        />
+      )}
     </div>
   );
 }

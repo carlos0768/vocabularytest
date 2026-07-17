@@ -301,12 +301,28 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
         <div className="px-[18px] pb-2 pt-1">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-                COMMUNITY
-              </div>
-              <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">
-                共有単語帳
+            <div className="flex min-w-0 items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.history.length > 1) {
+                    router.back();
+                  } else {
+                    router.push('/');
+                  }
+                }}
+                aria-label="戻る"
+                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="chevron_left" size={18} />
+              </button>
+              <div className="min-w-0">
+                <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+                  COMMUNITY
+                </div>
+                <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">
+                  共有単語帳
+                </div>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
