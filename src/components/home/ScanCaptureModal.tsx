@@ -62,23 +62,11 @@ export function ScanCaptureModal({
         onClick={onClose}
       />
 
-      {/* Bottom sheet — centered, max 480px */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
-        <div
-          className="w-full animate-fade-in-up"
-          style={{
-            maxWidth: 480,
-            background: '#faf7f1',
-            border: '2px solid var(--solid-ink)',
-            borderBottomWidth: 0,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
-          }}
-        >
-          {/* Drag handle */}
-          <div className="mb-2.5 flex justify-center">
+      {/* モバイル: ボトムシート / デスクトップ(lg): ホームの新規作成と同じ中央モーダル */}
+      <div className="absolute bottom-0 left-0 right-0 flex justify-center lg:inset-0 lg:items-center lg:p-6">
+        <div className="w-full max-w-[480px] animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:max-h-full lg:animate-fade-in lg:overflow-y-auto lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-ink)]">
+          {/* Drag handle（ボトムシートのみ） */}
+          <div className="mb-2.5 flex justify-center lg:hidden">
             <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
           </div>
 
