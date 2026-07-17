@@ -35,6 +35,7 @@ import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-c
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { normalizeHeadword } from '../../../../shared/lexicon';
+import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
 
 export type { ExtractMode } from '@/lib/scan/mode-provider';
 
@@ -507,8 +508,10 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     if (coinScanRef) {
       await refundScanCoinsForJob(coinScanRef);
     }
+    // タイムアウト・通信障害など原因が分かる場合は理由の伝わる日本語文言を返す
+    // （内部エラーの英語メッセージはそのまま出さない）
     return NextResponse.json(
-      { success: false, error: '予期しないエラーが発生しました' },
+      { success: false, error: toUserFacingScanErrorMessage(error) },
       { status: 500 }
     );
   }
