@@ -879,7 +879,8 @@ button.ds-tile { appearance: none; }
 /* ── Word detail modal (floats over current page) ────────── */
 .ds-app { position: relative; }
 .ds-overlay {
-  position: absolute; inset: 0; z-index: 50;
+  /* fixed: メインカラム内から開いてもサイドバーまで背景の影で覆う */
+  position: fixed; inset: 0; z-index: 50;
   background: rgba(26,26,26,0.32);
   backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center;

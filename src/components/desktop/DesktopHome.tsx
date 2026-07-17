@@ -15,6 +15,8 @@ import {
   DesktopSearchBox,
   DesktopTopbar,
 } from '@/components/desktop/DesktopChrome';
+import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
+import { useAuth } from '@/hooks/use-auth';
 import { DesktopMediaCard, DesktopShelf } from '@/components/desktop/DesktopMediaShelf';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
 import { JoinedGroupGrid } from '@/components/groups/JoinedGroupsSection';
@@ -91,6 +93,9 @@ export function DesktopHomeView({
   showUpgrade?: boolean;
   onDismissUpgrade?: () => void;
 }) {
+  const { user } = useAuth();
+  // 単語検索（旧サイドバー下部のボタンから移設）。開くたびに初期化する。
+  const [wordSearchOpen, setWordSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
   const filteredProjects = useMemo(
@@ -109,14 +114,27 @@ export function DesktopHomeView({
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="ホーム" crumb="HOME / ライブラリ">
         <DesktopSearchBox
-          placeholder="単語・単語帳を検索"
+          placeholder="単語帳を検索"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        {/* 自分の単語帳内の単語検索（サイドバー下部から移設） */}
+        {user && (
+          <DesktopButton
+            icon="manage_search"
+            onClick={() => setWordSearchOpen(true)}
+            title="自分の単語帳から単語を検索"
+          >
+            {''}
+          </DesktopButton>
+        )}
         <DesktopButton variant="accent" icon="add" onClick={onStartScan}>
           新規作成
         </DesktopButton>
       </DesktopTopbar>
+      {wordSearchOpen && user && (
+        <DesktopWordSearchOverlay onClose={() => setWordSearchOpen(false)} userId={user.id} />
+      )}
 
       <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
         <div style={{ minWidth: 0 }}>

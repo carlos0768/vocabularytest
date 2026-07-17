@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
 import { useAuth } from '@/hooks/use-auth';
+import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useToast } from '@/components/ui/toast';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
@@ -118,6 +119,7 @@ export default function SharedDetailPage() {
   const params = useParams();
   const shareId = params.shareId as string;
   const { user, subscription, loading: authLoading } = useAuth();
+  const isMobileViewport = useIsMobileViewport();
   const { showToast } = useToast();
   const billingEnabled = isBillingEnabled();
   const {
@@ -580,13 +582,10 @@ export default function SharedDetailPage() {
         previewClearWordCount={SHARE_PREVIEW_CLEAR_WORD_COUNT}
         lockedCtaHref={loginRedirectHref}
         onToggleLike={() => void handleToggleLike()}
-        onToggleSelectMode={() => {
-          setSelectMode((current) => !current);
-          setSelectedWordIds(new Set());
-        }}
         onToggleWord={handleToggleSelect}
         onImport={() => void handleImport()}
         onClearSelection={() => setSelectedWordIds(new Set())}
+        onWordAction={setActionWord}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-3.5 pb-2 pt-2">
@@ -855,11 +854,11 @@ export default function SharedDetailPage() {
       )}
       </div>
 
-      {/* 単語の「…」メニュー: 単語帳に追加 / 共有 */}
+      {/* 単語の「…」メニュー: 単語帳に追加 / 共有（デスクトップは中央モーダル） */}
       <Modal
         isOpen={actionWord !== null && !bookPickerOpen}
         onClose={() => setActionWord(null)}
-        variant="sheet"
+        variant={isMobileViewport ? 'sheet' : 'center'}
       >
         {actionWord && (
           <div className="px-4 pb-6 pt-5">
@@ -889,13 +888,13 @@ export default function SharedDetailPage() {
         )}
       </Modal>
 
-      {/* 「単語帳に追加」: 自分の単語帳一覧 */}
+      {/* 「単語帳に追加」: 自分の単語帳一覧（デスクトップは中央モーダル） */}
       <Modal
         isOpen={bookPickerOpen}
         onClose={() => {
           if (!addingToBookId) setBookPickerOpen(false);
         }}
-        variant="sheet"
+        variant={isMobileViewport ? 'sheet' : 'center'}
       >
         <div className="px-4 pb-6 pt-5">
           <p className="mb-3 px-3 font-display text-sm font-bold text-[var(--color-secondary-text)]">

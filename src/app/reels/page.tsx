@@ -15,6 +15,10 @@ import { REEL_SAVED_PROJECT_TITLE } from '@/lib/reels/saved-words';
 import { generateWordShareImage } from '@/lib/reels/share-image';
 import type { VocabularyType, WordTranslation } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
+import { ReelActionRail } from '@/components/reel/ReelActionRail';
+import { ReelCommentSheet } from '@/components/reel/ReelCommentSheet';
+import { ReelMoreSheet } from '@/components/reel/ReelMoreSheet';
+import { speakReelWord } from '@/components/reel/ReelCard';
 import {
   ReelEmptyState,
   ReelErrorState,
@@ -22,6 +26,7 @@ import {
   ReelSkeleton,
 } from '@/components/reel/ReelStatusCards';
 import { getPinnedReelPreview } from '@/lib/reels/pinned-preview';
+import type { ReelFeedItem } from '@/hooks/use-reel-feed';
 
 type ImportWordTranslation = {
   translationJa: string;
@@ -92,6 +97,18 @@ function ReelsPageInner() {
   } = useReelFeed({ pin });
   const [importingBookId, setImportingBookId] = useState<string | null>(null);
   const savingWordIdsRef = useRef<Set<string>>(new Set());
+  // デスクトップ: アクションレールはカードの外（右側）に置くため、
+  // アクティブなカードの単語をページ側で追跡する。
+  const [activeReelId, setActiveReelId] = useState<string | null>(null);
+  const [desktopMoreOpen, setDesktopMoreOpen] = useState(false);
+  const [desktopCommentsOpen, setDesktopCommentsOpen] = useState(false);
+  const handleActiveItemChange = useCallback((item: ReelFeedItem | null) => {
+    setActiveReelId(item?.id ?? null);
+  }, []);
+  const activeReel = useMemo(
+    () => items.find((item) => item.id === activeReelId) ?? null,
+    [items, activeReelId],
+  );
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -404,10 +421,50 @@ function ReelsPageInner() {
               onShare={(item) => void handleShare(item)}
               onFeedback={(item, feedback) => void handleFeedback(item, feedback)}
               onCommentCountChange={(item, delta) => bumpCommentCount(item.id, delta)}
+              onActiveItemChange={handleActiveItemChange}
             />
           )}
         </div>
+
+        {/* デスクトップ: アクションレールをカードの外（右側）に配置 */}
+        {activeReel && (
+          <div className="hidden lg:flex lg:items-center lg:pl-4">
+            <ReelActionRail
+              item={activeReel}
+              onLike={() => {
+                triggerHaptic();
+                void likeItem(activeReel);
+              }}
+              onSave={() => void handleSaveWord(activeReel)}
+              onSpeak={() => speakReelWord(activeReel.english)}
+              onComment={() => setDesktopCommentsOpen(true)}
+              onShare={() => void handleShare(activeReel)}
+              onMore={() => setDesktopMoreOpen(true)}
+            />
+          </div>
+        )}
       </div>
+
+      {/* デスクトップ外側レールから開くシート */}
+      {activeReel && (
+        <>
+          <ReelMoreSheet
+            item={activeReel}
+            isOpen={desktopMoreOpen}
+            onClose={() => setDesktopMoreOpen(false)}
+            onFeedback={(feedback) => {
+              setDesktopMoreOpen(false);
+              void handleFeedback(activeReel, feedback);
+            }}
+          />
+          <ReelCommentSheet
+            item={activeReel}
+            isOpen={desktopCommentsOpen}
+            onClose={() => setDesktopCommentsOpen(false)}
+            onCountChange={(delta) => bumpCommentCount(activeReel.id, delta)}
+          />
+        </>
+      )}
     </div>
   );
 }

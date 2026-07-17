@@ -37,7 +37,6 @@ export function DesktopSharedView({
   query,
   payload,
   loading,
-  loadingMore,
   error,
   joinedGroups,
   groupQuery,
@@ -49,7 +48,6 @@ export function DesktopSharedView({
   onQueryChange,
   onCategorySelect,
   onBackToAll,
-  onLoadMore,
   onOpenShareSheet,
   onProjectMissing,
 }: {
@@ -57,7 +55,6 @@ export function DesktopSharedView({
   query: string;
   payload: SharedDiscoverPayload;
   loading: boolean;
-  loadingMore: boolean;
   error: string | null;
   joinedGroups: StudyGroupSummary[];
   groupQuery: string;
@@ -69,7 +66,6 @@ export function DesktopSharedView({
   onQueryChange: (value: string) => void;
   onCategorySelect: (category: DesktopSharedCategory) => void;
   onBackToAll: () => void;
-  onLoadMore: () => void;
   onOpenShareSheet: () => void;
   onProjectMissing: (projectId: string) => void;
 }) {
@@ -205,8 +201,6 @@ export function DesktopSharedView({
                 <CategoryResults
                   category={category as Exclude<SharedDiscoverCategory, 'all'>}
                   payload={payload}
-                  onLoadMore={onLoadMore}
-                  loadingMore={loadingMore}
                   onProjectMissing={onProjectMissing}
                 />
               ) : hasQuery ? (
@@ -843,26 +837,16 @@ function GroupSearchResults({
 function CategoryResults({
   category,
   payload,
-  loadingMore,
-  onLoadMore,
   onProjectMissing,
 }: {
   category: Exclude<SharedDiscoverCategory, 'all'>;
   payload: SharedDiscoverPayload;
-  loadingMore: boolean;
-  onLoadMore: () => void;
   onProjectMissing: (projectId: string) => void;
 }) {
   return (
     <>
       {category === 'users' && <UserGrid users={payload.users} />}
       {category === 'projects' && <ProjectGrid projects={payload.projects} onProjectMissing={onProjectMissing} />}
-      {payload.nextCursor && (
-        <button type="button" onClick={onLoadMore} disabled={loadingMore} className="ds-btn" style={{ marginTop: 18 }}>
-          <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} className={loadingMore ? 'animate-spin' : undefined} />
-          {loadingMore ? '読み込み中...' : 'もっと見る'}
-        </button>
-      )}
     </>
   );
 }

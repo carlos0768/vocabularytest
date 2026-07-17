@@ -218,7 +218,51 @@ export function DesktopProjectDetailView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title={project.title} crumb="単語帳 / 一覧" />
+      <DesktopTopbar title={project.title} crumb="単語帳 / 一覧">
+        {/* 「...」メニュー: 単語の追加 / 名称変更 */}
+        <div ref={addMenuRef} style={{ position: 'relative' }}>
+          <DesktopButton onClick={() => setAddMenuOpen((v) => !v)} icon="more_horiz" title="その他の操作">{''}</DesktopButton>
+          {addMenuOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-40 cursor-default bg-transparent"
+                aria-label="メニューを閉じる"
+                onClick={() => setAddMenuOpen(false)}
+              />
+              <div
+                className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                  onClick={() => { setAddMenuOpen(false); onScan(); }}
+                >
+                  <Icon name="photo_camera" style={{ fontSize: 18 }} />
+                  スキャンで追加
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                  onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
+                >
+                  <Icon name="edit" style={{ fontSize: 18 }} />
+                  手動で追加
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                  onClick={() => { setAddMenuOpen(false); onRename(); }}
+                >
+                  <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
+                  名称変更
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </DesktopTopbar>
 
       <div className={`ds-scroll ds-project-detail-grid${railCollapsed ? ' ds-project-detail-grid--rail-collapsed' : ''}`}>
         <div style={{ minWidth: 0 }}>
@@ -255,45 +299,11 @@ export function DesktopProjectDetailView({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
-            {/* 旧トップバー右上のアクション（クイズ/カード/名称変更/追加） */}
+            {/* クイズ（再生）とフラッシュカード。カードは緑（アクセント）の次に
+                目を引く dark 配色にする */}
             <div style={{ display: 'flex', gap: 8 }}>
-              <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="school" title="クイズ">{''}</DesktopButton>
-              <DesktopButton href={`/flashcard/${projectId}`} icon="style" title="カード">{''}</DesktopButton>
-              <DesktopButton onClick={onRename} icon="edit" title="名称変更">{''}</DesktopButton>
-              <div ref={addMenuRef} style={{ position: 'relative' }}>
-                <DesktopButton onClick={() => setAddMenuOpen((v) => !v)} icon="add" title="単語を追加">{''}</DesktopButton>
-                {addMenuOpen && (
-                  <>
-                    <button
-                      type="button"
-                      className="fixed inset-0 z-40 cursor-default bg-transparent"
-                      aria-label="メニューを閉じる"
-                      onClick={() => setAddMenuOpen(false)}
-                    />
-                    <div
-                      className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
-                      style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
-                    >
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                        onClick={() => { setAddMenuOpen(false); onScan(); }}
-                      >
-                        <Icon name="photo_camera" style={{ fontSize: 18 }} />
-                        スキャンで追加
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                        onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
-                      >
-                        <Icon name="edit" style={{ fontSize: 18 }} />
-                        手動で追加
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+              <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="play_arrow" title="クイズを開始">{''}</DesktopButton>
+              <DesktopButton href={`/flashcard/${projectId}`} variant="dark" icon="style" title="フラッシュカード">{''}</DesktopButton>
             </div>
             {hiddenCols.size > 0 && (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

@@ -31,7 +31,9 @@ export function DesktopStatsView({
   const masteryPercent = totalWords > 0 ? Math.round((mastered / totalWords) * 100) : 0;
   const summaryStats: DesktopStudySummaryStats = stats
     ? {
-        dueCount: stats.reviewWords,
+        // ホームの「今日の目標」と同じ SM-2 due 語数（getWordsDueForReview）。
+        // 縮退時（dueCount=null）のみ従来どおり学習中の語数で代替する。
+        dueCount: stats.dueCount ?? stats.reviewWords,
         completedToday: stats.quizStats.todayCount,
         streakDays: stats.quizStats.streakDays,
         totalWords,

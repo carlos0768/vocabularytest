@@ -103,17 +103,6 @@ function buildDiscoverUrl(category: SharedDiscoverCategory, query: string, curso
   return `/api/shared-projects/discover?${params.toString()}`;
 }
 
-function mergeDiscoverPage(current: SharedDiscoverPayload, incoming: SharedDiscoverPayload): SharedDiscoverPayload {
-  const projectIds = new Set(current.projects.map((item) => item.project.id));
-  const userIds = new Set(current.users.map((item) => item.userId));
-
-  return {
-    ...incoming,
-    users: [...current.users, ...incoming.users.filter((item) => !userIds.has(item.userId))],
-    projects: [...current.projects, ...incoming.projects.filter((item) => !projectIds.has(item.project.id))],
-  };
-}
-
 function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedDiscoverPayload {
   return Boolean(payload && 'category' in payload && Array.isArray(payload.projects));
 }
@@ -140,7 +129,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [userResults, setUserResults] = useState<FollowSearchResult[]>([]);
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce] = useState(0);
   const hasUsedInitialRef = useRef(false);
@@ -185,27 +173,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
     return () => controller.abort();
   }, [category, initialDiscover, query, refreshNonce]);
-
-  async function handleLoadMore() {
-    if (category === 'all' || category === 'groups' || !discover.nextCursor || loadingMore) return;
-
-    setLoadingMore(true);
-    setError(null);
-
-    try {
-      const response = await fetch(buildDiscoverUrl(category, query, discover.nextCursor), { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as DiscoverResponse | null;
-      if (!response.ok || !isDiscoverPayload(payload)) {
-        throw new Error(payload && 'error' in payload ? payload.error : 'shared_discover_more_failed');
-      }
-      startTransition(() => setDiscover((current) => mergeDiscoverPage(current, payload)));
-    } catch (loadError) {
-      console.error('Failed to load more shared results:', loadError);
-      setError('追加の検索結果を読み込めませんでした。');
-    } finally {
-      setLoadingMore(false);
-    }
-  }
 
   function handleOpenShareSheet() {
     setChooserOpen(true);
@@ -281,7 +248,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         query={query}
         payload={discover}
         loading={loading}
-        loadingMore={loadingMore}
         error={error}
         joinedGroups={myGroups}
         groupQuery={groupQuery}
@@ -293,7 +259,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         onQueryChange={setQuery}
         onCategorySelect={handleSelectCategory}
         onBackToAll={handleBackToAll}
-        onLoadMore={() => void handleLoadMore()}
         onOpenShareSheet={handleOpenShareSheet}
         onProjectMissing={handleProjectMissing}
       />
@@ -412,19 +377,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             ) : (
               <>
                 {category === 'projects' && <ProjectSection projects={discover.projects} onProjectMissing={handleProjectMissing} />}
-                {discover.nextCursor && (
-                  <button
-                    type="button"
-                    onClick={() => void handleLoadMore()}
-                    disabled={loadingMore}
-                    className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)] disabled:opacity-60"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} size={18} className={loadingMore ? 'animate-spin' : undefined} />
-                      {loadingMore ? '読み込み中...' : 'もっと見る'}
-                    </span>
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -502,18 +454,22 @@ function BrowseSection({
   );
 }
 
+type GenreResultsState = {
+  genre: WordbookGenre;
+  projects: SharedProjectCard[];
+  error: string | null;
+};
+
 function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () => void }) {
   const { showToast } = useToast();
-  const [projects, setProjects] = useState<SharedProjectCard[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // ジャンルごとの取得結果を1つの state に持つ（loading はジャンル不一致で導出）。
+  const [result, setResult] = useState<GenreResultsState | null>(null);
+  const loading = result?.genre !== genre;
+  const projects = result?.genre === genre ? result.projects : [];
+  const error = result?.genre === genre ? result.error : null;
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
 
     fetch(buildDiscoverUrl('projects', genre.query), { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
@@ -521,46 +477,23 @@ function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () 
         if (!response.ok || !isDiscoverPayload(payload)) {
           throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_failed');
         }
-        setProjects(payload.projects);
-        setNextCursor(payload.nextCursor);
+        setResult({ genre, projects: payload.projects, error: null });
       })
       .catch((loadError) => {
         if (controller.signal.aborted) return;
         console.error('Failed to load genre wordbooks:', loadError);
-        setError('単語帳を読み込めませんでした。');
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        setResult({ genre, projects: [], error: '単語帳を読み込めませんでした。' });
       });
 
     return () => controller.abort();
   }, [genre]);
 
-  async function handleLoadMore() {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true);
-    setError(null);
-    try {
-      const response = await fetch(buildDiscoverUrl('projects', genre.query, nextCursor), { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as DiscoverResponse | null;
-      if (!response.ok || !isDiscoverPayload(payload)) {
-        throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_more_failed');
-      }
-      setProjects((current) => {
-        const known = new Set(current.map((item) => item.project.id));
-        return [...current, ...payload.projects.filter((item) => !known.has(item.project.id))];
-      });
-      setNextCursor(payload.nextCursor);
-    } catch (loadError) {
-      console.error('Failed to load more genre wordbooks:', loadError);
-      setError('追加の検索結果を読み込めませんでした。');
-    } finally {
-      setLoadingMore(false);
-    }
-  }
-
   function handleProjectMissing(projectId: string) {
-    setProjects((current) => current.filter((item) => item.project.id !== projectId));
+    setResult((current) =>
+      current
+        ? { ...current, projects: current.projects.filter((item) => item.project.id !== projectId) }
+        : current,
+    );
     showToast({ message: 'この単語帳は共有が停止されています', type: 'warning' });
   }
 
@@ -594,22 +527,7 @@ function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () 
         ) : projects.length === 0 ? (
           <EmptyBox message="このジャンルの単語帳はまだありません" />
         ) : (
-          <>
-            <ProjectSection projects={projects} onProjectMissing={handleProjectMissing} />
-            {nextCursor && (
-              <button
-                type="button"
-                onClick={() => void handleLoadMore()}
-                disabled={loadingMore}
-                className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-sm font-bold text-[var(--solid-ink)] disabled:opacity-60"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} size={18} className={loadingMore ? 'animate-spin' : undefined} />
-                  {loadingMore ? '読み込み中...' : 'もっと見る'}
-                </span>
-              </button>
-            )}
-          </>
+          <ProjectSection projects={projects} onProjectMissing={handleProjectMissing} />
         )}
       </div>
     </>
