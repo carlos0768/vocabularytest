@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
+import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
 
@@ -36,8 +37,8 @@ export default function CoinsPage() {
   // フラグ状態が未取得の間は購入UIを出さない
   if (enabled === null) {
     return (
-      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)]">
-        <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:h-full">
+        <div className="flex min-h-[60vh] items-center justify-center lg:min-h-0 lg:h-full">
           <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
         </div>
       </div>
@@ -65,7 +66,97 @@ export default function CoinsPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)]">
+    <>
+    {/* Desktop */}
+    <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <DesktopTopbar title="コイン" crumb="アカウント / 残高と購入">
+        {!isPro && !authLoading && (
+          <DesktopButton href="/subscription" variant="accent" icon="auto_awesome">
+            Proプランを見る
+          </DesktopButton>
+        )}
+      </DesktopTopbar>
+
+      <div className="ds-scroll">
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16, marginBottom: 18 }}>
+            {/* 残高 */}
+            <div className="ds-card" style={{ padding: '24px 28px' }}>
+              <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="toll" style={{ fontSize: 15, color: 'var(--color-accent)' }} />残りコイン
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 12 }}>
+                <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 44, lineHeight: 1 }}>
+                  {loading && enabled === null ? '…' : balance.totalRemaining}
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-secondary-text)' }}>枚</span>
+              </div>
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+                今月分 {balance.monthlyRemaining}枚 / 購入分 {balance.purchasedRemaining}枚
+              </div>
+              <p className="muted" style={{ fontSize: 11.5, lineHeight: 1.7, marginTop: 10, marginBottom: 0 }}>
+                Proプランには毎月{monthlyAllowance}枚が自動付与されます（毎月1日リセット・繰り越しなし）。購入したコインに有効期限はありません。
+              </p>
+            </div>
+
+            {/* 消費レート */}
+            <div className="ds-card" style={{ padding: '24px 28px' }}>
+              <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>消費コイン</div>
+              <ul style={{ listStyle: 'none', margin: '14px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {Object.entries(rates.modes).map(([mode, cost]) => (
+                  <li key={mode} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13.5 }}>
+                    <span>{MODE_LABELS[mode] ?? mode}</span>
+                    <span className="mono tnum" style={{ fontWeight: 700 }}>{cost}枚</span>
+                  </li>
+                ))}
+                <li style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13.5, borderTop: '1px dashed var(--color-border)', paddingTop: 9 }}>
+                  <span>2枚目以降の画像（1枚ごと）</span>
+                  <span className="mono tnum" style={{ fontWeight: 700 }}>+{rates.extraImageCost}枚</span>
+                </li>
+              </ul>
+              <p className="muted" style={{ fontSize: 11.5, marginTop: 12, marginBottom: 0 }}>複数モードを同時に選んだ場合は各モードの合計を消費します。</p>
+            </div>
+          </div>
+
+          {/* パック購入 */}
+          <div className="ds-card" style={{ padding: '24px 28px' }}>
+            <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>コインを購入</div>
+            {!authLoading && !isPro && (
+              <p style={{ fontSize: 12.5, color: 'var(--color-error)', margin: '10px 0 0' }}>コインの購入はProプラン限定です。</p>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, marginTop: 16 }}>
+              {packs.map((pack) => (
+                <button
+                  key={pack.id}
+                  type="button"
+                  disabled={!isPro || purchasingPackId !== null}
+                  onClick={() => void handlePurchase(pack.id)}
+                  className="ds-btn"
+                  style={{ flexDirection: 'column', gap: 6, padding: '18px 14px', opacity: !isPro || purchasingPackId !== null ? 0.4 : undefined }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                    <Icon name="toll" style={{ color: 'var(--color-accent)' }} />
+                    <span style={{ fontSize: 14.5 }}>{pack.name}</span>
+                  </span>
+                  <span className="mono tnum" style={{ fontSize: 14 }}>
+                    {purchasingPackId === pack.id ? '処理中...' : `¥${pack.price.toLocaleString()}`}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="muted" style={{ fontSize: 11.5, lineHeight: 1.7, marginTop: 16, marginBottom: 0 }}>
+              クレジットカード・PayPayで支払えます。決済は安全なStripeの決済ページで行われます。
+            </p>
+            {errorMsg && (
+              <p style={{ fontSize: 12.5, color: 'var(--color-error)', marginTop: 10, marginBottom: 0 }}>{errorMsg}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Mobile */}
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[18px] pb-[14px] pt-1">
         <button
           type="button"
@@ -159,5 +250,6 @@ export default function CoinsPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

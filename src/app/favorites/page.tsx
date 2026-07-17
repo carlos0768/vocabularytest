@@ -214,6 +214,7 @@ function FavoritesPageContent() {
           returnPath={returnPath}
           onToggleFavorite={(word) => void handleToggleFavorite(word)}
           onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
+          onDeleteWord={(word) => setDeleteWordTarget(word)}
         />
       )}
       {isWrongMode ? (
