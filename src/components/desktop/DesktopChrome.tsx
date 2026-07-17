@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type InputHTMLAttributes, type ReactNode, useEffect, useState } from 'react';
+import { type InputHTMLAttributes, type ReactNode, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
-import { getStreakDays } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 type NavKey = 'home' | 'books' | 'stats' | 'reels' | 'shared' | 'fav' | 'scan' | 'settings';
@@ -43,15 +43,10 @@ export function DesktopSidebar({
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
-  const [streak, setStreak] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false);
   const active = activeKeyForPath(pathname);
   const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
   const isLoggedIn = Boolean(user);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setStreak(isLoggedIn ? getStreakDays() : 0), 0);
-    return () => window.clearTimeout(id);
-  }, [isLoggedIn]);
 
   return (
     <aside className={cn('ds-side', collapsed && 'ds-side--collapsed')} aria-label="デスクトップナビゲーション">
@@ -109,17 +104,22 @@ export function DesktopSidebar({
             )}
           </Link>
         )}
-        {!collapsed && (
-          <div className="ds-streak">
-            <Icon name="local_fire_department" style={{ color: '#f97316', fontSize: 22 }} />
-            <div>
-              <div className="n">
-                {streak}
-                <span style={{ fontSize: 11, fontWeight: 600 }}> 日連続</span>
+        {isLoggedIn && (
+          <button
+            type="button"
+            className="ds-word-search"
+            onClick={() => setSearchOpen(true)}
+            title={collapsed ? '単語を検索' : undefined}
+            aria-label="自分の単語帳から検索"
+          >
+            <Icon name="search" className="ico" />
+            {!collapsed && (
+              <div>
+                <div className="n">単語を検索</div>
+                <div className="l">自分の単語帳から探す</div>
               </div>
-              <div className="l">今日も学習を継続中</div>
-            </div>
-          </div>
+            )}
+          </button>
         )}
         {!collapsed && (
           <div className="ds-user">
@@ -131,6 +131,10 @@ export function DesktopSidebar({
           </div>
         )}
       </div>
+      {/* 自分の単語帳内の単語検索。開くたびにマウントし直して状態を初期化する */}
+      {searchOpen && user && (
+        <DesktopWordSearchOverlay onClose={() => setSearchOpen(false)} userId={user.id} />
+      )}
     </aside>
   );
 }

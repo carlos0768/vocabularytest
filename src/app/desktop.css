@@ -65,14 +65,18 @@
 }
 
 .ds-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; }
-.ds-streak {
-  display: flex; align-items: center; gap: 10px;
-  padding: 11px 13px; border-radius: 12px;
+.ds-word-search {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 13px; border-radius: 12px; text-align: left; cursor: pointer;
   background: var(--color-surface-secondary); border: 1px solid var(--color-border);
+  color: inherit; font-family: inherit;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
-.ds-streak .flame { color: #f97316; font-size: 20px; }
-.ds-streak .n { font-family: var(--font-display); font-weight: 800; font-size: 16px; }
-.ds-streak .l { font-size: 11px; color: var(--color-secondary-text); }
+.ds-word-search:hover { border-color: var(--solid-ink); }
+.ds-word-search .ico { color: var(--color-muted); font-size: 20px; flex-shrink: 0; }
+.ds-word-search .n { font-family: var(--font-display); font-weight: 800; font-size: 14px; }
+.ds-word-search .l { font-size: 11px; color: var(--color-secondary-text); }
+.ds-side--collapsed .ds-word-search { justify-content: center; padding: 8px; width: auto; }
 .ds-user { display: flex; align-items: center; gap: 10px; padding: 4px 8px; }
 .ds-avatar {
   width: 34px; height: 34px; border-radius: 9px; background: var(--color-ink);
