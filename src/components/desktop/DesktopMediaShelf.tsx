@@ -16,15 +16,15 @@ export function DesktopShelf({
   count,
   seeAllHref,
   onSeeAll,
-  cardWidth,
+  columns,
   children,
 }: {
   title: string;
   count?: number;
   seeAllHref?: string;
   onSeeAll?: () => void;
-  /** 1 カードの幅(px)。省略時は CSS の既定値（190px） */
-  cardWidth?: number;
+  /** 1 行に表示する枚数。省略時は CSS の既定値（4枚） */
+  columns?: number;
   children: ReactNode;
 }) {
   return (
@@ -50,7 +50,7 @@ export function DesktopShelf({
       </div>
       <div
         className="ds-shelf-row"
-        style={cardWidth ? ({ '--shelf-card-w': `${cardWidth}px` } as CSSProperties) : undefined}
+        style={columns ? ({ '--shelf-cols': columns } as CSSProperties) : undefined}
       >
         {children}
       </div>
