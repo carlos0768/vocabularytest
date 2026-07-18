@@ -9,13 +9,9 @@
  */
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
-import {
-  DesktopButton,
-  DesktopSearchBox,
-  DesktopTopbar,
-} from '@/components/desktop/DesktopChrome';
+import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { useAuth } from '@/hooks/use-auth';
 import { DesktopMediaCard, DesktopShelf } from '@/components/desktop/DesktopMediaShelf';
@@ -102,28 +98,17 @@ export function DesktopHomeView({
   // 単語検索（旧サイドバー下部のボタンから移設）。開くたびに初期化する。
   const [wordSearchOpen, setWordSearchOpen] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const [query, setQuery] = useState('');
-  const q = query.trim().toLowerCase();
-  const filteredProjects = useMemo(
-    () => (q ? projects.filter((project) => project.title.toLowerCase().includes(q)) : projects),
-    [projects, q],
-  );
-  // 上部ショートカットグリッドに載った単語帳は下のシェルフから除外し、
-  // 溢れた分だけを表示する（検索中は全件から検索）。
+  // 上部ショートカットグリッドに載った単語帳は下の一覧から除外し、
+  // 溢れた分だけを表示する。
   const gridProjectCount = Math.min(
     projects.length,
     homeShortcutContentSlots(stats.favoriteCount > 0),
   );
-  const shelfProjects = q ? filteredProjects : projects.slice(gridProjectCount);
+  const shelfProjects = projects.slice(gridProjectCount);
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="ホーム" crumb="HOME / ライブラリ">
-        <DesktopSearchBox
-          placeholder="単語帳を検索"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
         {/* 自分の単語帳内の単語検索（サイドバー下部から移設） */}
         {user && (
           <DesktopButton
@@ -236,30 +221,28 @@ export function DesktopHomeView({
                 {shelfProjects.map((project) => (
                   <DesktopBookTile key={project.id} project={project} />
                 ))}
-                {!q && (
-                  <button
-                    type="button"
-                    onClick={onStartScan}
-                    className="ds-book"
-                    style={{
-                      background: '#fff',
-                      color: 'var(--color-muted)',
-                      border: '1.5px dashed var(--solid-ink)',
-                      boxShadow: 'none',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <Icon name="add" style={{ fontSize: 30, color: 'var(--color-ink)' }} />
-                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--color-ink)' }}>
-                      新しい単語帳
-                    </div>
-                    <div className="mono" style={{ fontSize: 10, textAlign: 'center' }}>
-                      写真を撮るだけ
-                    </div>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={onStartScan}
+                  className="ds-book"
+                  style={{
+                    background: '#fff',
+                    color: 'var(--color-muted)',
+                    border: '1.5px dashed var(--solid-ink)',
+                    boxShadow: 'none',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <Icon name="add" style={{ fontSize: 30, color: 'var(--color-ink)' }} />
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--color-ink)' }}>
+                    新しい単語帳
+                  </div>
+                  <div className="mono" style={{ fontSize: 10, textAlign: 'center' }}>
+                    写真を撮るだけ
+                  </div>
+                </button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
