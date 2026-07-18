@@ -49,7 +49,6 @@ export function DesktopSharedDetailView({
   /** 行の「…」から単語単位のアクション（単語帳に追加 / 共有）を開く */
   onWordAction?: (word: Word) => void;
 }) {
-  const [ap, setAp] = useState<'all' | 'active' | 'passive'>('all');
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
   const bg = project.iconImage ? undefined : desktopThumbColor(project.id);
@@ -62,12 +61,11 @@ export function DesktopSharedDetailView({
     () => {
       if (isPreviewLocked) return words;
       return words.filter((word) => {
-        if (ap !== 'all' && (word.vocabularyType || 'none') !== ap) return false;
         if (!q) return true;
         return word.english.toLowerCase().includes(q) || formatJapaneseForDisplay(word).toLowerCase().includes(q);
       });
     },
-    [ap, isPreviewLocked, q, words],
+    [isPreviewLocked, q, words],
   );
 
   return (
@@ -123,18 +121,7 @@ export function DesktopSharedDetailView({
           </div>
           <div style={{ flex: 1 }} />
           {!isPreviewLocked && (
-            <>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {([
-                  ['all', 'すべて'],
-                  ['active', 'アクティブ'],
-                  ['passive', 'パッシブ'],
-                ] as const).map(([value, label]) => (
-                  <button key={value} type="button" className={'ds-chip' + (ap === value ? ' active' : '')} onClick={() => setAp(value)}>{label}</button>
-                ))}
-              </div>
-              <DesktopSearchBox placeholder="単語を検索" value={query} onChange={(event) => setQuery(event.target.value)} style={{ minWidth: 200 }} />
-            </>
+            <DesktopSearchBox placeholder="単語を検索" value={query} onChange={(event) => setQuery(event.target.value)} style={{ minWidth: 200 }} />
           )}
         </div>
 
@@ -144,10 +131,8 @@ export function DesktopSharedDetailView({
               <tr>
                 {selectMode && <th style={{ width: 44 }} />}
                 <th style={{ minWidth: 150 }}>単語</th>
-                <th style={{ width: 56, textAlign: 'center' }}>A/P</th>
                 <th style={{ width: 90 }}>品詞</th>
                 <th>訳</th>
-                <th style={{ width: 70 }}>CEFR</th>
                 {onWordAction && !isPreviewLocked && <th style={{ width: 52 }} />}
               </tr>
             </thead>
@@ -173,10 +158,8 @@ export function DesktopSharedDetailView({
                       <span style={textStyle}>{word.english}</span>
                       {locked && <Icon name="lock" style={{ marginLeft: 6, fontSize: 14, color: 'var(--color-muted)' }} />}
                     </td>
-                    <td style={{ textAlign: 'center' }}><span style={textStyle}><ApBadge value={word.vocabularyType} /></span></td>
                     <td className="pos"><span style={textStyle}>{desktopPosLabel(word.partOfSpeechTags)}</span></td>
                     <td className="ja"><span style={textStyle}><TranslationDisplay word={word} compact /></span></td>
-                    <td className="cefr"><span className="cefr-pill" style={textStyle}>{word.cefrLevel || '-'}</span></td>
                     {onWordAction && !isPreviewLocked && (
                       <td style={{ textAlign: 'center' }}>
                         <button
@@ -238,6 +221,3 @@ export function DesktopSharedDetailView({
   );
 }
 
-function ApBadge({ value }: { value?: Word['vocabularyType'] }) {
-  return <span className={'ds-ap ' + (value || 'none')}>{value === 'active' ? 'A' : value === 'passive' ? 'P' : '-'}</span>;
-}

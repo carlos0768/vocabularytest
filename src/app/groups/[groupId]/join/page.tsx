@@ -243,7 +243,7 @@ export default function GroupJoinPage() {
           <DesktopButton href="/shared" icon="arrow_back" variant="ghost">共有ライブラリ</DesktopButton>
         </div>
         <div className="ds-scroll">
-          <div style={{ maxWidth: 560 }}>
+          <div style={{ maxWidth: 560, width: '100%', margin: '0 auto' }}>
             {stateView ?? joinContent}
           </div>
         </div>

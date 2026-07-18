@@ -1201,7 +1201,6 @@ export default function ProjectPage() {
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
         onDeleteWord={handleOpenDeleteWord}
-        onBulkDelete={() => setBulkDeleteModalOpen(true)}
         onScan={() => setShowScanCaptureModal(true)}
         onManualAdd={openManualWordModal}
       />

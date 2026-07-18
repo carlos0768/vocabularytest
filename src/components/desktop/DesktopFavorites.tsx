@@ -77,7 +77,7 @@ export function DesktopFavoritesView({
 
       <div className="ds-scroll">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <Icon name="star" filled style={{ color: 'var(--color-warning)', fontSize: 22 }} />
+          <Icon name="bookmark" filled style={{ color: 'var(--color-accent)', fontSize: 22 }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>{favorites.length} <span style={{ fontSize: 13 }}>語</span></span>
           <span className="muted" style={{ fontSize: 13 }}>を保存中</span>
           <div style={{ display: 'flex', gap: 12, marginLeft: 8 }}>
@@ -127,7 +127,7 @@ export function DesktopFavoritesView({
                       onToggleFavorite(word);
                     }}
                   >
-                    <Icon name="star" filled style={{ color: 'var(--color-warning)' }} />
+                    <Icon name="bookmark" filled style={{ color: 'var(--color-accent)' }} />
                   </td>
                   <td className="en">{word.english}</td>
                   <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
