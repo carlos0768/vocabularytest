@@ -9,16 +9,24 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
+import { DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
 import { REEL_SAVED_PROJECT_TITLE } from '@/lib/reels/saved-words';
 import { generateWordShareImage } from '@/lib/reels/share-image';
 import type { VocabularyType, WordTranslation } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
+import { ReelActionRail } from '@/components/reel/ReelActionRail';
+import { ReelCommentSheet } from '@/components/reel/ReelCommentSheet';
+import { ReelMoreSheet } from '@/components/reel/ReelMoreSheet';
+import { speakReelWord } from '@/components/reel/ReelCard';
 import {
   ReelEmptyState,
   ReelErrorState,
+  ReelPinnedPreviewCard,
   ReelSkeleton,
 } from '@/components/reel/ReelStatusCards';
+import { getPinnedReelPreview } from '@/lib/reels/pinned-preview';
+import type { ReelFeedItem } from '@/hooks/use-reel-feed';
 
 type ImportWordTranslation = {
   translationJa: string;
@@ -71,6 +79,9 @@ function ReelsPageInner() {
   const pin = searchParams?.get('pin') ?? null;
   const { user, subscription, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  // ホームのリールカードからの遷移時は、フィード応答を待たずに pin 単語を
+  // 即表示する（タップ時にシードされた表示データを使う）。
+  const [pinnedPreview] = useState(() => (pin ? getPinnedReelPreview(pin) : null));
   const {
     items,
     status,
@@ -86,6 +97,18 @@ function ReelsPageInner() {
   } = useReelFeed({ pin });
   const [importingBookId, setImportingBookId] = useState<string | null>(null);
   const savingWordIdsRef = useRef<Set<string>>(new Set());
+  // デスクトップ: アクションレールはカードの外（右側）に置くため、
+  // アクティブなカードの単語をページ側で追跡する。
+  const [activeReelId, setActiveReelId] = useState<string | null>(null);
+  const [desktopMoreOpen, setDesktopMoreOpen] = useState(false);
+  const [desktopCommentsOpen, setDesktopCommentsOpen] = useState(false);
+  const handleActiveItemChange = useCallback((item: ReelFeedItem | null) => {
+    setActiveReelId(item?.id ?? null);
+  }, []);
+  const activeReel = useMemo(
+    () => items.find((item) => item.id === activeReelId) ?? null,
+    [items, activeReelId],
+  );
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -316,10 +339,23 @@ function ReelsPageInner() {
     usage && usage.limit !== null ? `残り${usage.remaining ?? 0}枚` : null;
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)]">
-      {/* Top bar */}
+    // Mobile: full-screen overlay. Desktop (lg): live inside the sidebar shell
+    // instead of covering it, like the other desktop pages.
+    <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)] lg:static lg:inset-auto lg:z-auto lg:h-full lg:min-h-0">
+      {/* Desktop top bar */}
+      <div className="hidden flex-shrink-0 lg:block">
+        <DesktopTopbar title="リール" crumb="学習 / フィード">
+          {remainingLabel && (
+            <span className="rounded-full border border-[var(--color-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-secondary-text)]">
+              {remainingLabel}
+            </span>
+          )}
+        </DesktopTopbar>
+      </div>
+
+      {/* Top bar (mobile) */}
       <div
-        className="flex flex-shrink-0 items-center justify-between px-3 pb-2"
+        className="flex flex-shrink-0 items-center justify-between px-3 pb-2 lg:hidden"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
         <button
@@ -342,12 +378,12 @@ function ReelsPageInner() {
 
       {/* Feed area: full-bleed on mobile, centered column on desktop */}
       <div
-        className="min-h-0 flex-1 lg:flex lg:justify-center"
+        className="min-h-0 flex-1 lg:flex lg:justify-center lg:py-5"
         style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
       >
         <div className="h-full w-full lg:max-w-[420px] lg:rounded-[var(--solid-radius)] lg:border-2 lg:border-[var(--solid-ink)] lg:bg-[var(--color-surface)] lg:overflow-hidden">
           {status === 'loading' && items.length === 0 ? (
-            <ReelSkeleton />
+            pinnedPreview ? <ReelPinnedPreviewCard item={pinnedPreview} /> : <ReelSkeleton />
           ) : status === 'error' && items.length === 0 ? (
             <ReelErrorState onRetry={retry} />
           ) : items.length === 0 && limitReached ? (
@@ -385,10 +421,50 @@ function ReelsPageInner() {
               onShare={(item) => void handleShare(item)}
               onFeedback={(item, feedback) => void handleFeedback(item, feedback)}
               onCommentCountChange={(item, delta) => bumpCommentCount(item.id, delta)}
+              onActiveItemChange={handleActiveItemChange}
             />
           )}
         </div>
+
+        {/* デスクトップ: アクションレールをカードの外（右側）に配置 */}
+        {activeReel && (
+          <div className="hidden lg:flex lg:items-center lg:pl-4">
+            <ReelActionRail
+              item={activeReel}
+              onLike={() => {
+                triggerHaptic();
+                void likeItem(activeReel);
+              }}
+              onSave={() => void handleSaveWord(activeReel)}
+              onSpeak={() => speakReelWord(activeReel.english)}
+              onComment={() => setDesktopCommentsOpen(true)}
+              onShare={() => void handleShare(activeReel)}
+              onMore={() => setDesktopMoreOpen(true)}
+            />
+          </div>
+        )}
       </div>
+
+      {/* デスクトップ外側レールから開くシート */}
+      {activeReel && (
+        <>
+          <ReelMoreSheet
+            item={activeReel}
+            isOpen={desktopMoreOpen}
+            onClose={() => setDesktopMoreOpen(false)}
+            onFeedback={(feedback) => {
+              setDesktopMoreOpen(false);
+              void handleFeedback(activeReel, feedback);
+            }}
+          />
+          <ReelCommentSheet
+            item={activeReel}
+            isOpen={desktopCommentsOpen}
+            onClose={() => setDesktopCommentsOpen(false)}
+            onCountChange={(delta) => bumpCommentCount(activeReel.id, delta)}
+          />
+        </>
+      )}
     </div>
   );
 }

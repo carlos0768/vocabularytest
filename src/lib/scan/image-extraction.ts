@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 
 import { normalizeExtractModes, type ExtractMode } from '@/lib/scan/mode-provider';
+import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
 import { ensureSourceLabels } from '../../../shared/source-labels';
 
 export type ScanImageApiKeys = {
@@ -148,12 +149,13 @@ export async function processScanImage<TWord, TWarningCode extends string = stri
     };
   } catch (error) {
     logError(`Extraction timed out or failed unexpectedly for ${imagePath}:`, error);
-    const errMsg = error instanceof Error ? error.message : '画像解析に失敗しました';
+    // 予期しない例外の生メッセージ（英語）はユーザーに見せず、理由の伝わる日本語文言に変換する
+    const errMsg = toUserFacingScanErrorMessage(error, '画像の解析に失敗しました。もう一度お試しください。');
     return {
       words: [],
       sourceLabels: [],
       error: errMsg,
-      pageWarning: `${pageLabel}: 画像解析に失敗しました`,
+      pageWarning: `${pageLabel}: ${errMsg}`,
     };
   }
 }

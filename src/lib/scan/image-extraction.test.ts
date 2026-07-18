@@ -141,6 +141,36 @@ test('processScanImage returns first error candidate and pageWarning on extracti
   });
 });
 
+test('processScanImage maps unexpected extraction exceptions to a reason-explicit Japanese error', async () => {
+  const result = await processScanImage(
+    createParams(),
+    createDeps({
+      extractImage: async () => {
+        throw new Error('fetch failed');
+      },
+    }),
+  );
+
+  assert.deepEqual(result.words, []);
+  assert.deepEqual(result.sourceLabels, []);
+  assert.match(result.error ?? '', /通信エラー/);
+  assert.equal(result.pageWarning, `ページ1: ${result.error}`);
+});
+
+test('processScanImage passes through Japanese timeout messages from withTimeout', async () => {
+  const result = await processScanImage(
+    createParams(),
+    createDeps({
+      withTimeout: async () => {
+        throw new Error('画像解析がタイムアウトしました（5分）');
+      },
+    }),
+  );
+
+  assert.equal(result.error, '画像解析がタイムアウトしました（5分）');
+  assert.equal(result.pageWarning, 'ページ1: 画像解析がタイムアウトしました（5分）');
+});
+
 test('processScanImage returns parsed words, sourceLabels, and download/extraction timing on success', async () => {
   let capturedBase64Image = '';
   let capturedModes: ExtractMode[] = [];

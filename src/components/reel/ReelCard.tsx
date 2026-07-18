@@ -27,7 +27,8 @@ type ReelCardProps = {
 
 const SWIPE_THRESHOLD = 80;
 
-function speak(english: string) {
+/** リール単語の読み上げ（カード内レールとデスクトップの外側レールで共用）。 */
+export function speakReelWord(english: string) {
   speakEnglish(english);
 }
 
@@ -211,14 +212,14 @@ export function ReelCard({
       </div>
       )}
 
-      {/* Right action rail */}
-      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+      {/* Right action rail（デスクトップはカード外のレールを使うため非表示） */}
+      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center lg:hidden">
         <div className="pointer-events-auto">
           <ReelActionRail
             item={item}
             onLike={onLike}
             onSave={onSave}
-            onSpeak={() => speak(item.english)}
+            onSpeak={() => speakReelWord(item.english)}
             onComment={() => setCommentsOpen(true)}
             onShare={onShare}
             onMore={() => setMoreOpen(true)}

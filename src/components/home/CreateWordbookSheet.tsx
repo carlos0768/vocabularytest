@@ -29,6 +29,11 @@ const METHODS: MethodOption[] = [
 interface CreateWordbookSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * 'sheet'（既定）はモバイル向けボトムシート。'modal' はデスクトップ向けの
+   * 中央モーダル（下から出る UI を使わない）。中身のフローは共通。
+   */
+  variant?: 'sheet' | 'modal';
 }
 
 /**
@@ -38,7 +43,7 @@ interface CreateWordbookSheetProps {
  * modal. The optional name is carried into the scan flow as the new project
  * title, and is required for blank creation.
  */
-export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProps) {
+export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: CreateWordbookSheetProps) {
   const router = useRouter();
   const { user, subscription, isPro } = useAuth();
   const [step, setStep] = useState<'method' | 'scan'>('method');
@@ -123,25 +128,46 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
         onClick={submitting ? undefined : onClose}
       />
 
-      {/* Bottom sheet — centered, max 480px */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+      {/* variant='sheet': ボトムシート / variant='modal': 中央モーダル（デスクトップ） */}
+      <div
+        className={
+          variant === 'modal'
+            ? 'absolute inset-0 flex items-center justify-center p-6'
+            : 'absolute bottom-0 left-0 right-0 flex justify-center'
+        }
+      >
         <div
-          className="w-full animate-fade-in-up"
-          style={{
-            maxWidth: 480,
-            background: '#faf7f1',
-            border: '2px solid var(--solid-ink)',
-            borderBottomWidth: 0,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
-          }}
+          className={variant === 'modal' ? 'w-full animate-fade-in' : 'w-full animate-fade-in-up'}
+          style={
+            variant === 'modal'
+              ? {
+                  maxWidth: 480,
+                  maxHeight: '100%',
+                  overflowY: 'auto',
+                  background: '#faf7f1',
+                  border: '2px solid var(--solid-ink)',
+                  borderRadius: 20,
+                  padding: '18px 20px 22px',
+                  boxShadow: '6px 8px 0 var(--solid-ink)',
+                }
+              : {
+                  maxWidth: 480,
+                  background: '#faf7f1',
+                  border: '2px solid var(--solid-ink)',
+                  borderBottomWidth: 0,
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                  padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
+                  boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+                }
+          }
         >
-          {/* Drag handle */}
-          <div className="mb-2.5 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
-          </div>
+          {/* Drag handle（ボトムシートのみ） */}
+          {variant === 'sheet' && (
+            <div className="mb-2.5 flex justify-center">
+              <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+            </div>
+          )}
 
           {/* Title row */}
           <div className="mb-3.5 flex items-center justify-between">

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DesktopButton, DesktopSearchBox } from '@/components/desktop/DesktopChrome';
+import { DesktopMediaCard } from '@/components/desktop/DesktopMediaShelf';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
@@ -36,7 +37,6 @@ export function DesktopSharedView({
   query,
   payload,
   loading,
-  loadingMore,
   error,
   joinedGroups,
   groupQuery,
@@ -48,7 +48,6 @@ export function DesktopSharedView({
   onQueryChange,
   onCategorySelect,
   onBackToAll,
-  onLoadMore,
   onOpenShareSheet,
   onProjectMissing,
 }: {
@@ -56,7 +55,6 @@ export function DesktopSharedView({
   query: string;
   payload: SharedDiscoverPayload;
   loading: boolean;
-  loadingMore: boolean;
   error: string | null;
   joinedGroups: StudyGroupSummary[];
   groupQuery: string;
@@ -68,7 +66,6 @@ export function DesktopSharedView({
   onQueryChange: (value: string) => void;
   onCategorySelect: (category: DesktopSharedCategory) => void;
   onBackToAll: () => void;
-  onLoadMore: () => void;
   onOpenShareSheet: () => void;
   onProjectMissing: (projectId: string) => void;
 }) {
@@ -146,8 +143,6 @@ export function DesktopSharedView({
               </div>
             )}
 
-            <CategoryChipRow onCategorySelect={onCategorySelect} onQueryChange={onQueryChange} />
-
             <DiscoverFeed
               feed={feed}
               onProjectMissing={handleFeedProjectMissing}
@@ -206,8 +201,6 @@ export function DesktopSharedView({
                 <CategoryResults
                   category={category as Exclude<SharedDiscoverCategory, 'all'>}
                   payload={payload}
-                  onLoadMore={onLoadMore}
-                  loadingMore={loadingMore}
                   onProjectMissing={onProjectMissing}
                 />
               ) : hasQuery ? (
@@ -357,40 +350,6 @@ function usePublicGroupsPreview(enabled: boolean) {
 
 // ============ Dashboard: main column ============
 
-function CategoryChipRow({
-  onCategorySelect,
-  onQueryChange,
-}: {
-  onCategorySelect: (category: DesktopSharedCategory) => void;
-  onQueryChange: (value: string) => void;
-}) {
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
-      {(Object.keys(CATEGORY_META) as DesktopSharedCategory[]).map((key) => (
-        <button
-          key={key}
-          type="button"
-          className="ds-chip"
-          onClick={() => onCategorySelect(key)}
-          title={CATEGORY_META[key].description}
-        >
-          <Icon name={CATEGORY_META[key].icon} style={{ fontSize: 16 }} />
-          {CATEGORY_META[key].label}
-        </button>
-      ))}
-      <button
-        type="button"
-        className="ds-chip"
-        onClick={() => { onCategorySelect('projects'); onQueryChange('英検'); }}
-        title="英検対策の単語帳を探す"
-      >
-        <Icon name="school" style={{ fontSize: 16 }} />
-        英検
-      </button>
-    </div>
-  );
-}
-
 function DiscoverFeed({
   feed,
   onProjectMissing,
@@ -416,9 +375,9 @@ function DiscoverFeed({
       ) : feed.projects.length === 0 && !feed.error ? (
         <EmptyCard label="公開されている単語帳はまだありません" />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="ds-media-grid">
           {feed.projects.map((project) => (
-            <FeedProjectRow
+            <SharedWordbookCard
               key={project.project.id}
               project={project}
               onProjectMissing={onProjectMissing}
@@ -426,81 +385,7 @@ function DiscoverFeed({
           ))}
         </div>
       )}
-
-      {feed.nextCursor && (
-        <button type="button" onClick={feed.loadMore} disabled={feed.loadingMore} className="ds-btn" style={{ marginTop: 16 }}>
-          <Icon name={feed.loadingMore ? 'progress_activity' : 'expand_more'} className={feed.loadingMore ? 'animate-spin' : undefined} />
-          {feed.loadingMore ? '読み込み中...' : 'もっと見る'}
-        </button>
-      )}
     </section>
-  );
-}
-
-function FeedProjectRow({
-  project,
-  onProjectMissing,
-}: {
-  project: SharedProjectCard;
-  onProjectMissing: (projectId: string) => void;
-}) {
-  const router = useRouter();
-  const href = project.project.shareId ? `/share/${project.project.shareId}` : '/shared';
-  const ownerLabel = sharedOwnerLabel(project);
-
-  const handleClick = async (event: MouseEvent<HTMLAnchorElement>) => {
-    const shareId = project.project.shareId;
-    if (!shareId) return;
-
-    event.preventDefault();
-    const exists = await sharedProjectStillExists(shareId);
-    if (exists === false) {
-      onProjectMissing(project.project.id);
-      return;
-    }
-    router.push(href);
-  };
-
-  return (
-    <Link
-      href={href}
-      onClick={(event) => void handleClick(event)}
-      className="ds-card"
-      style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 14, color: 'inherit', textDecoration: 'none' }}
-    >
-      <div
-        className="ds-project-icon ds-project-icon--lg"
-        style={{
-          background: desktopThumbColor(project.project.id),
-          backgroundImage: project.project.iconImage ? `url(${project.project.iconImage})` : undefined,
-          flexShrink: 0,
-        }}
-      >
-        {!project.project.iconImage && project.project.title.charAt(0)}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {project.project.title}
-        </div>
-        <div className="muted" style={{ marginTop: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <span className="mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ownerLabel}</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-            <Icon name="menu_book" style={{ fontSize: 14 }} />{project.wordCount ?? 0} 語
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-            <Icon name="thumb_up" style={{ fontSize: 14 }} />{project.likeCount ?? 0}
-          </span>
-        </div>
-        {(project.project.sharedTags ?? []).length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-            {project.project.sharedTags!.slice(0, 4).map((tag) => (
-              <span key={tag} className="ds-tag accent">{formatSharedTag(tag)}</span>
-            ))}
-          </div>
-        )}
-      </div>
-      <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />
-    </Link>
   );
 }
 
@@ -557,7 +442,7 @@ function PopularWordbooksRail({ projects }: { projects: SharedProjectCard[] }) {
               href={href}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '20px minmax(0, 1fr) auto',
+                gridTemplateColumns: '18px 34px minmax(0, 1fr) auto',
                 alignItems: 'center',
                 gap: 10,
                 padding: '9px 0',
@@ -569,13 +454,17 @@ function PopularWordbooksRail({ projects }: { projects: SharedProjectCard[] }) {
               <span className="mono" style={{ fontSize: 13, fontWeight: 800, color: index < 3 ? 'var(--color-accent-ink)' : 'var(--color-muted)' }}>
                 {index + 1}
               </span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.project.title}
-                </div>
-                <div className="muted" style={{ marginTop: 2, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {sharedOwnerLabel(item)} · {item.wordCount ?? 0} 語
-                </div>
+              <div
+                className="ds-project-icon ds-project-icon--sm"
+                style={{
+                  background: desktopThumbColor(item.project.id),
+                  backgroundImage: item.project.iconImage ? `url(${item.project.iconImage})` : undefined,
+                }}
+              >
+                {!item.project.iconImage && item.project.title.charAt(0)}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.project.title}
               </div>
               <span className="muted" style={{ fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                 <Icon name="thumb_up" style={{ fontSize: 14 }} />{item.likeCount ?? 0}
@@ -948,26 +837,16 @@ function GroupSearchResults({
 function CategoryResults({
   category,
   payload,
-  loadingMore,
-  onLoadMore,
   onProjectMissing,
 }: {
   category: Exclude<SharedDiscoverCategory, 'all'>;
   payload: SharedDiscoverPayload;
-  loadingMore: boolean;
-  onLoadMore: () => void;
   onProjectMissing: (projectId: string) => void;
 }) {
   return (
     <>
       {category === 'users' && <UserGrid users={payload.users} />}
       {category === 'projects' && <ProjectGrid projects={payload.projects} onProjectMissing={onProjectMissing} />}
-      {payload.nextCursor && (
-        <button type="button" onClick={onLoadMore} disabled={loadingMore} className="ds-btn" style={{ marginTop: 18 }}>
-          <Icon name={loadingMore ? 'progress_activity' : 'expand_more'} className={loadingMore ? 'animate-spin' : undefined} />
-          {loadingMore ? '読み込み中...' : 'もっと見る'}
-        </button>
-      )}
     </>
   );
 }
@@ -1060,9 +939,9 @@ function ProjectGrid({
     <section>
       <SectionTitle count={projects.length}>単語帳</SectionTitle>
       {projects.length === 0 ? <EmptyCard label="該当する単語帳はありません" /> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+        <div className="ds-media-grid">
           {projects.map((project) => (
-            <DesktopSharedCard
+            <SharedWordbookCard
               key={project.project.id}
               project={project}
               onProjectMissing={onProjectMissing}
@@ -1074,7 +953,8 @@ function ProjectGrid({
   );
 }
 
-function DesktopSharedCard({
+// 共有単語帳カード。ホームのマイ単語帳と同じ DesktopMediaCard を使う。
+function SharedWordbookCard({
   project,
   onProjectMissing,
 }: {
@@ -1099,37 +979,24 @@ function DesktopSharedCard({
   };
 
   return (
-    <Link href={href} onClick={(event) => void handleClick(event)} className="ds-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'inherit', textDecoration: 'none' }}>
-      <div style={{ display: 'flex', gap: 14 }}>
-        <div
-          className="ds-project-icon ds-project-icon--lg"
-          style={{
-            background: desktopThumbColor(project.project.id),
-            backgroundImage: project.project.iconImage ? `url(${project.project.iconImage})` : undefined,
-          }}
-        >
-          {!project.project.iconImage && project.project.title.charAt(0)}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, lineHeight: 1.25 }}>{project.project.title}</div>
-          <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>{ownerLabel}</div>
-        </div>
-        <span className="ds-tag plain">公開</span>
-      </div>
-      {(project.project.sharedTags ?? []).length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {project.project.sharedTags!.slice(0, 4).map((tag) => <span key={tag} className="ds-tag accent">{formatSharedTag(tag)}</span>)}
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18 }}>
-          {project.wordCount ?? 0}<span style={{ fontSize: 12, color: 'var(--color-secondary-text)' }}> 語</span>
-        </span>
-        <span className="muted" style={{ fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <Icon name="thumb_up" style={{ fontSize: 15 }} />{project.likeCount ?? 0}
-        </span>
-      </div>
-    </Link>
+    <DesktopMediaCard
+      href={href}
+      onClick={(event) => void handleClick(event)}
+      artStyle={{
+        background: desktopThumbColor(project.project.id),
+        backgroundImage: project.project.iconImage ? `url(${project.project.iconImage})` : undefined,
+      }}
+      artChildren={!project.project.iconImage && project.project.title.charAt(0)}
+      title={project.project.title}
+      subtitle={
+        <>
+          <span className="mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{ownerLabel}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+            <Icon name="thumb_up" style={{ fontSize: 13 }} />{project.likeCount ?? 0}
+          </span>
+        </>
+      }
+    />
   );
 }
 

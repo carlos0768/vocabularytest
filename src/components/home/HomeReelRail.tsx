@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { prefetchReelFeed } from '@/hooks/use-reel-feed';
+import { seedPinnedReelPreview } from '@/lib/reels/pinned-preview';
 import { triggerHaptic } from '@/lib/haptics';
 import type { HomeReelPreviewItem } from '@/lib/home/recommendations-types';
 
@@ -68,8 +69,10 @@ function ReelPreviewCard({ item }: { item: HomeReelPreviewItem }) {
       href={`/reels?pin=${encodeURIComponent(item.id)}`}
       onPointerDown={() => {
         triggerHaptic();
-        // タップ時点でフィード取得を先行開始（この単語を先頭に固定）。
+        // タップ時点でフィード取得を先行開始（この単語を先頭に固定）し、
+        // /reels 側で即時表示できるよう表示データもシードする。
         prefetchReelFeed(item.id);
+        seedPinnedReelPreview(item);
       }}
       aria-label={`リールで${item.english}を見る`}
       className="relative flex h-[190px] w-[140px] shrink-0 snap-start flex-col overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white transition-all duration-100 active:translate-x-px active:translate-y-px"

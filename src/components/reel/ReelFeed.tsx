@@ -22,6 +22,8 @@ type ReelFeedProps = {
   onShare: (item: ReelItem) => void;
   onFeedback: (item: ReelItem, feedback: ReelFeedback) => void;
   onCommentCountChange: (item: ReelItem, delta: number) => void;
+  /** アクティブなカードの単語が変わったとき（デスクトップの外側レール用） */
+  onActiveItemChange?: (item: ReelFeedItem | null) => void;
 };
 
 const RENDER_WINDOW = 2;
@@ -46,6 +48,7 @@ export function ReelFeed({
   onShare,
   onFeedback,
   onCommentCountChange,
+  onActiveItemChange,
 }: ReelFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -92,6 +95,12 @@ export function ReelFeed({
       onLoadMore();
     }
   }, [activeIndex, hasMore, entries.length, onLoadMore]);
+
+  useEffect(() => {
+    if (!onActiveItemChange) return;
+    const entry = entries[activeIndex];
+    onActiveItemChange(entry && entry.kind === 'item' ? entry.item : null);
+  }, [activeIndex, entries, onActiveItemChange]);
 
   return (
     <div

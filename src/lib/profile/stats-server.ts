@@ -109,6 +109,9 @@ export async function getPublicUserStats(
       reviewWords: s.review_words ?? 0,
       newWords: s.new_words ?? 0,
       favoriteWords: s.favorite_words ?? 0,
+      // サーバー側集計は単語ごとの nextReviewAt を持たないため算出不可（null）。
+      // 表示側は reviewWords に代替する。
+      dueCount: null,
       wrongAnswersCount: 0,
       quizStats: {
         todayCount: todayRow?.quiz_count ?? 0,

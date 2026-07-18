@@ -147,9 +147,13 @@ export function DesktopSettingsView({
             )}
           </div>
 
-          <StudyReminderSettings variant="desktop" />
-
-          <ExampleGenreSettings variant="desktop" />
+          {/* モバイルのカスタマイズページと同様、リマインダーと例文ジャンルは
+              同じセクションにまとめる */}
+          <div className="ds-set-group">
+            <div className="gh">カスタマイズ</div>
+            <StudyReminderSettings variant="desktop" embedded />
+            <ExampleGenreSettings variant="desktop" embedded />
+          </div>
 
           <div className="ds-set-group">
             <div className="gh">豆知識</div>
@@ -165,6 +169,19 @@ export function DesktopSettingsView({
             <SettingsLink icon="shield" label="プライバシーポリシー" href="/privacy" />
             <SettingsLink icon="storefront" label="特定商取引法に基づく表記" href="/tokusho" />
           </div>
+
+          {email && (
+            <div className="ds-set-group">
+              <div className="gh">データ</div>
+              <SettingsLink
+                icon="delete"
+                label="アカウント削除"
+                description="ログイン情報・クラウド上の学習データを完全に削除します"
+                href="/settings/account/delete"
+                tone="danger"
+              />
+            </div>
+          )}
 
           <div className="mono muted" style={{ fontSize: 11, textAlign: 'center', paddingBottom: 8 }}>Merken for Desktop · バージョン 2.4.0</div>
         </div>
@@ -277,11 +294,29 @@ export function DesktopSubscriptionView({
   );
 }
 
-function SettingsLink({ icon, label, description, href }: { icon: string; label: string; description?: string; href: string }) {
+function SettingsLink({
+  icon,
+  label,
+  description,
+  href,
+  tone = 'default',
+}: {
+  icon: string;
+  label: string;
+  description?: string;
+  href: string;
+  tone?: 'default' | 'danger';
+}) {
+  const danger = tone === 'danger';
   return (
     <Link href={href} className="ds-set-row" style={{ color: 'inherit', textDecoration: 'none' }}>
-      <div className="ic"><Icon name={icon} /></div>
-      <div className="lab"><div className="t">{label}</div>{description && <div className="d">{description}</div>}</div>
+      <div className="ic" style={danger ? { background: 'var(--color-error-light)' } : undefined}>
+        <Icon name={icon} style={danger ? { color: 'var(--color-error)' } : undefined} />
+      </div>
+      <div className="lab">
+        <div className="t" style={danger ? { color: 'var(--color-error)' } : undefined}>{label}</div>
+        {description && <div className="d">{description}</div>}
+      </div>
       <Icon name="chevron_right" style={{ color: 'var(--color-muted)' }} />
     </Link>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { FlashcardTutorialGuide } from '@/components/onboarding/FlashcardTutorialGuide';
 import { getRepository } from '@/lib/db';
@@ -16,6 +17,7 @@ import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -428,36 +430,82 @@ export default function FlashcardPage() {
               {currentPartOfSpeechLabel && <span className="ds-tag accent">{currentPartOfSpeechLabel}</span>}
               <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで意味を表示</div>
             </div>
-            <div className="ds-fc-face back">
-              <div className="ja">{currentWord && <TranslationDisplay word={currentWord} />}</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{getPartOfSpeechLabel(tag)}</span>)}
-              </div>
-              {currentWord?.exampleSentence && (
-                <div
-                  style={{
-                    maxWidth: 460,
-                    width: '100%',
-                    borderRadius: 12,
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-surface)',
-                    padding: '12px 16px',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>例文</div>
-                  <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--color-ink)' }}>{currentWord.exampleSentence}</div>
-                  {currentWord.exampleSentenceJa && (
-                    <div className="muted" style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6 }}>{currentWord.exampleSentenceJa}</div>
-                  )}
+            <div className="ds-fc-face back" style={{ overflowY: 'auto', justifyContent: 'flex-start', padding: '28px 40px 40px' }}>
+              {/* margin:auto で内容が短いときは中央寄せ、長いときは上からスクロール */}
+              <div style={{ margin: 'auto', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                <div className="ja">{currentWord && <TranslationDisplay word={currentWord} />}</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {currentWord?.partOfSpeechTags?.map((tag) => <span key={tag} className="ds-tag accent">{getPartOfSpeechLabel(tag)}</span>)}
                 </div>
-              )}
-              <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで戻る</div>
+                {currentWord?.exampleSentence && (
+                  <div
+                    style={{
+                      maxWidth: 460,
+                      width: '100%',
+                      borderRadius: 12,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>例文</div>
+                    <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--color-ink)' }}>{currentWord.exampleSentence}</div>
+                    {currentWord.exampleSentenceJa && (
+                      <div className="muted" style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6 }}>{currentWord.exampleSentenceJa}</div>
+                    )}
+                  </div>
+                )}
+                {currentWord && hasDisplayableMorphology(currentWord.morphology) && (
+                  <div
+                    style={{
+                      maxWidth: 460,
+                      width: '100%',
+                      borderRadius: 12,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <Icon name="account_tree" style={{ fontSize: 13 }} />語源
+                    </div>
+                    <MorphologyFormulaChips morphology={currentWord.morphology} />
+                    <div className="muted" style={{ fontSize: 13, lineHeight: 1.7, marginTop: 10, whiteSpace: 'pre-line' }}>
+                      {currentWord.morphology.explanation}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-muted)' }}>
+                  <Icon name="touch_app" style={{ fontSize: 14 }} />クリックで戻る
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="ds-fc-controls">
+        {/* モバイルと同じアクションチップ（回転などのナビの上段） */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginTop: 20 }}>
+          <ActionChip icon="search" label="英辞郎" onClick={handleSearchEijiro} />
+          <ActionChip icon="volume_up" label="発音" onClick={speakWord} />
+          <ActionChip
+            icon="task_alt"
+            label={statusLabel(currentWord?.status ?? 'new')}
+            tint={statusColor(currentWord?.status ?? 'new')}
+            onClick={handleCycleStatus}
+          />
+          <ActionChip
+            icon="bookmark"
+            label="お気に入り"
+            tint={currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--solid-ink)'}
+            filled={currentWord?.isFavorite}
+            onClick={handleToggleFavorite}
+          />
+          <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
+        </div>
+
+        <div className="ds-fc-controls" style={{ marginTop: 18 }}>
           <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handlePrev(); }}>
             <Icon name="chevron_left" />前へ
           </button>

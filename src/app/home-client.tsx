@@ -263,6 +263,8 @@ export function HomeClient() {
 
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  // デスクトップの新規作成はページ遷移せず中央モーダルで完結させる
+  const [desktopCreateOpen, setDesktopCreateOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
@@ -558,7 +560,11 @@ export function HomeClient() {
         error={error}
         pendingScans={displayedPendingScans}
         joinedGroups={myGroups}
-        onStartScan={() => router.push('/scan')}
+        goal={{ state: goalState, count: goalCount }}
+        recommendedBooks={loading ? [] : recommendedBooks}
+        recommendedReels={recommendedReels}
+        recommendationsLoading={recommendationsLoading}
+        onStartScan={() => setDesktopCreateOpen(true)}
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
       />
@@ -680,6 +686,12 @@ export function HomeClient() {
       <CreateWordbookSheet
         isOpen={createSheetOpen}
         onClose={() => setCreateSheetOpen(false)}
+      />
+      {/* デスクトップの新規作成（ボトムシートではなく中央モーダル・遷移なし） */}
+      <CreateWordbookSheet
+        isOpen={desktopCreateOpen}
+        onClose={() => setDesktopCreateOpen(false)}
+        variant="modal"
       />
       {/* 自分の単語帳内の単語検索（ヘッダーの検索ボタンから）。
           開くたびにマウントし直して状態を初期化する */}

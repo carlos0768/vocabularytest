@@ -25,6 +25,7 @@ import {
   type HomeGeneratingWordbookPayload,
 } from '@/lib/home/home-session-storage';
 import { readHomeImmediateScanExtractResponse } from '@/lib/home/home-immediate-scan-response';
+import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
 import { createHomeBackgroundScanJob } from '@/lib/home/home-background-scan-upload';
 import { ensureBackgroundScanPushSubscription } from '@/lib/notifications/scan-push-client';
 import {
@@ -163,6 +164,8 @@ export function ScanCapturePanel({
   const extractImagesImmediately = async (files: readonly File[]) => {
     let accumulator = createHomeImmediateScanResultAccumulator();
     const mode = selectedScanModes[0] ?? 'all';
+    // 全画像が失敗したときに「なぜ失敗したか」を出すため、最初の失敗理由を保持する
+    let firstFailure: unknown = null;
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!;
@@ -192,11 +195,16 @@ export function ScanCapturePanel({
           fileName: file.name,
           error,
         });
+        if (firstFailure === null) firstFailure = error;
       }
     }
 
     if (hasNoHomeImmediateScanWords(accumulator)) {
-      throw new Error('画像から単語を読み取れませんでした');
+      throw new Error(
+        firstFailure !== null
+          ? toUserFacingScanErrorMessage(firstFailure, '画像から単語を読み取れませんでした')
+          : '画像から単語を読み取れませんでした',
+      );
     }
 
     saveScanConfirmResultPayload(

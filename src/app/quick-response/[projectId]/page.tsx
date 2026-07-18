@@ -446,9 +446,70 @@ export default function QuickResponsePage() {
 
   if (isComplete) {
     const percentage = results.total > 0 ? Math.round((results.correct / results.total) * 100) : 0;
+    const completionMessage = percentage === 100
+      ? 'パーフェクト! 素晴らしい!'
+      : percentage >= 80
+      ? 'よくできました!'
+      : percentage >= 60
+      ? 'もう少し! 復習しましょう'
+      : '繰り返し練習しましょう!';
 
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
+      <>
+      {/* Desktop completion（DSスタイル） */}
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+        <div className="flex flex-1 items-center justify-center overflow-y-auto" style={{ padding: 32 }}>
+          <div className="ds-card" style={{ width: 'min(100%, 480px)', padding: '28px 32px', textAlign: 'center' }}>
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                margin: '0 auto',
+                borderRadius: 999,
+                border: '1.5px solid var(--solid-ink)',
+                background: 'var(--color-accent-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon name="emoji_events" size={36} className="text-[var(--color-accent-ink)]" />
+            </div>
+            <h1 style={{ fontSize: 26, margin: '16px 0 4px' }}>即答チャレンジ完了!</h1>
+            <div className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 48, lineHeight: 1.1, marginTop: 10 }}>
+              {percentage}<span style={{ fontSize: 20, color: 'var(--color-secondary-text)' }}>%</span>
+            </div>
+            <p className="muted" style={{ fontSize: 13.5, margin: '6px 0 0' }}>
+              {results.total}問中 {results.correct}問正解
+            </p>
+            {results.timeouts > 0 && (
+              <p style={{ margin: '6px 0 0', fontSize: 12.5, fontWeight: 700, color: 'var(--color-error)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <Icon name="timer_off" size={14} />時間切れ {results.timeouts}回
+              </p>
+            )}
+            <p style={{ margin: '14px 0 0', fontSize: 14, fontWeight: 700 }}>{completionMessage}</p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="ds-btn accent"
+                onClick={() => {
+                  setCurrentIndex(0);
+                  setResults({ correct: 0, total: 0, timeouts: 0 });
+                  setIsComplete(false);
+                  startQuestion();
+                }}
+              >
+                <Icon name="refresh" />もう一度
+              </button>
+              <button type="button" className="ds-btn dark" onClick={backToProject}>
+                <Icon name="check" />単語一覧に戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden lg:hidden">
         <header className="sticky top-0 p-4">
           <button
             onClick={backToProject}
@@ -483,15 +544,7 @@ export default function QuickResponsePage() {
               )}
             </div>
 
-            <p className="text-[var(--color-foreground)] mb-8">
-              {percentage === 100
-                ? 'パーフェクト! 素晴らしい!'
-                : percentage >= 80
-                ? 'よくできました!'
-                : percentage >= 60
-                ? 'もう少し! 復習しましょう'
-                : '繰り返し練習しましょう!'}
-            </p>
+            <p className="text-[var(--color-foreground)] mb-8">{completionMessage}</p>
 
             <div className="space-y-3">
               <Button
@@ -519,6 +572,7 @@ export default function QuickResponsePage() {
           </div>
         </main>
       </div>
+      </>
     );
   }
 

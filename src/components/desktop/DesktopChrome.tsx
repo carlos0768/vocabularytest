@@ -2,11 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type InputHTMLAttributes, type ReactNode, useEffect, useState } from 'react';
+import type { InputHTMLAttributes, ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
-import { getStreakDays } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 type NavKey = 'home' | 'books' | 'stats' | 'reels' | 'shared' | 'fav' | 'scan' | 'settings';
@@ -17,7 +16,6 @@ const NAV_ITEMS: { key: NavKey; href: string; icon: string; label: string; count
   { key: 'reels', href: '/reels', icon: 'movie', label: 'リール' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'star', label: 'お気に入り', count: 21 },
-  { key: 'scan', href: '/scan', icon: 'photo_camera', label: 'スキャン' },
   { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
 ];
 
@@ -43,15 +41,8 @@ export function DesktopSidebar({
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
-  const [streak, setStreak] = useState(0);
   const active = activeKeyForPath(pathname);
   const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
-  const isLoggedIn = Boolean(user);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setStreak(isLoggedIn ? getStreakDays() : 0), 0);
-    return () => window.clearTimeout(id);
-  }, [isLoggedIn]);
 
   return (
     <aside className={cn('ds-side', collapsed && 'ds-side--collapsed')} aria-label="デスクトップナビゲーション">
@@ -108,18 +99,6 @@ export function DesktopSidebar({
               </div>
             )}
           </Link>
-        )}
-        {!collapsed && (
-          <div className="ds-streak">
-            <Icon name="local_fire_department" style={{ color: '#f97316', fontSize: 22 }} />
-            <div>
-              <div className="n">
-                {streak}
-                <span style={{ fontSize: 11, fontWeight: 600 }}> 日連続</span>
-              </div>
-              <div className="l">今日も学習を継続中</div>
-            </div>
-          </div>
         )}
         {!collapsed && (
           <div className="ds-user">

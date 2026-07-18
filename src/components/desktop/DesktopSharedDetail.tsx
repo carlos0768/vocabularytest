@@ -23,10 +23,10 @@ export function DesktopSharedDetailView({
   previewClearWordCount = 5,
   lockedCtaHref = '/login',
   onToggleLike,
-  onToggleSelectMode,
   onToggleWord,
   onImport,
   onClearSelection,
+  onWordAction,
 }: {
   project: Project;
   words: Word[];
@@ -43,10 +43,11 @@ export function DesktopSharedDetailView({
   previewClearWordCount?: number;
   lockedCtaHref?: string;
   onToggleLike: () => void;
-  onToggleSelectMode: () => void;
   onToggleWord: (wordId: string) => void;
   onImport: () => void;
   onClearSelection: () => void;
+  /** 行の「…」から単語単位のアクション（単語帳に追加 / 共有）を開く */
+  onWordAction?: (word: Word) => void;
 }) {
   const [ap, setAp] = useState<'all' | 'active' | 'passive'>('all');
   const [query, setQuery] = useState('');
@@ -75,13 +76,9 @@ export function DesktopSharedDetailView({
         <DesktopButton variant="ghost" icon="thumb_up" onClick={onToggleLike}>
           {liked ? 'いいね済み' : 'いいね'} {likeCount > 0 ? likeCount : ''}
         </DesktopButton>
-        {isPreviewLocked ? (
+        {isPreviewLocked && (
           <DesktopButton href={lockedCtaHref} variant="dark" icon="login">
             ログインして単語を見る
-          </DesktopButton>
-        ) : (
-          <DesktopButton variant={selectMode ? 'dark' : undefined} icon="checklist" onClick={onToggleSelectMode}>
-            {selectMode ? '選択を終了' : '選択して追加'}
           </DesktopButton>
         )}
       </DesktopTopbar>
@@ -151,6 +148,7 @@ export function DesktopSharedDetailView({
                 <th style={{ width: 90 }}>品詞</th>
                 <th>訳</th>
                 <th style={{ width: 70 }}>CEFR</th>
+                {onWordAction && !isPreviewLocked && <th style={{ width: 52 }} />}
               </tr>
             </thead>
             <tbody>
@@ -179,6 +177,22 @@ export function DesktopSharedDetailView({
                     <td className="pos"><span style={textStyle}>{desktopPosLabel(word.partOfSpeechTags)}</span></td>
                     <td className="ja"><span style={textStyle}><TranslationDisplay word={word} compact /></span></td>
                     <td className="cefr"><span className="cefr-pill" style={textStyle}>{word.cefrLevel || '-'}</span></td>
+                    {onWordAction && !isPreviewLocked && (
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className="ds-iconbtn"
+                          aria-label={`${word.english}のアクション`}
+                          title="単語帳に追加 / 共有"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onWordAction(word);
+                          }}
+                        >
+                          <Icon name="more_horiz" style={{ fontSize: 18 }} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

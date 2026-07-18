@@ -31,7 +31,9 @@ export function DesktopStatsView({
   const masteryPercent = totalWords > 0 ? Math.round((mastered / totalWords) * 100) : 0;
   const summaryStats: DesktopStudySummaryStats = stats
     ? {
-        dueCount: stats.reviewWords,
+        // ホームの「今日の目標」と同じ SM-2 due 語数（getWordsDueForReview）。
+        // 縮退時（dueCount=null）のみ従来どおり学習中の語数で代替する。
+        dueCount: stats.dueCount ?? stats.reviewWords,
         completedToday: stats.quizStats.todayCount,
         streakDays: stats.quizStats.streakDays,
         totalWords,
@@ -104,7 +106,6 @@ export function DesktopStatsView({
               <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>定着中</div><div className="v" style={{ color: '#1d4ed8' }}>{activeW}</div><div className="mono muted" style={{ fontSize: 11 }}>もう少し</div></div>
               <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>復習中</div><div className="v" style={{ color: '#92400e' }}>{review}</div><div className="mono muted" style={{ fontSize: 11 }}>要レビュー</div></div>
               <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>未学習</div><div className="v muted">{newWords}</div><div className="mono muted" style={{ fontSize: 11 }}>これから</div></div>
-              <div className="ds-card ds-kpi"><div className="l" style={{ marginBottom: 2 }}>間違えた問題</div><div className="v" style={{ color: 'var(--color-error)' }}>{stats.wrongAnswersCount}</div><div className="mono muted" style={{ fontSize: 11 }}>復習推奨</div></div>
             </div>
 
             <div className="ds-card" style={{ marginTop: 18, padding: '22px 26px', display: 'flex', alignItems: 'center', gap: 26 }}>

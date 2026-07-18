@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 
 type StudyReminderSettingsProps = {
   variant?: 'mobile' | 'desktop';
+  /** desktop のみ: 親の ds-set-group に組み込む（外枠と見出しを描画しない） */
+  embedded?: boolean;
 };
 
 const ADD_TIME_CANDIDATES = ['12:00', '21:00', '10:00', '19:00', '07:00', '22:00', '14:00'];
@@ -57,7 +59,7 @@ function getSetupErrorMessage(result: PushSubscriptionSetupResult): string {
   }
 }
 
-export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSettingsProps) {
+export function StudyReminderSettings({ variant = 'mobile', embedded = false }: StudyReminderSettingsProps) {
   const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const {
@@ -210,9 +212,8 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
   };
 
   if (variant === 'desktop') {
-    return (
-      <div className="ds-set-group">
-        <div className="gh">通知</div>
+    const desktopContent = (
+      <>
         <div className="ds-set-row">
           <div className="ic">
             <Icon
@@ -257,6 +258,15 @@ export function StudyReminderSettings({ variant = 'mobile' }: StudyReminderSetti
           </button>
         </div>
         {error && <div className="ds-notif-error">{error}</div>}
+      </>
+    );
+
+    // embedded: 親側の ds-set-group（例: カスタマイズ）に組み込む
+    if (embedded) return desktopContent;
+    return (
+      <div className="ds-set-group">
+        <div className="gh">通知</div>
+        {desktopContent}
       </div>
     );
   }
