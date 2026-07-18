@@ -215,7 +215,7 @@ export function DesktopHomeView({
               </button>
             ) : view === 'grid' ? (
               /* 横スクロールの棚に従来の本棚タイルを並べる */
-              <div className="ds-shelf-row" style={{ '--shelf-card-w': '210px' } as React.CSSProperties}>
+              <div className="ds-shelf-row">
                 {pendingScans.map((scan) => (
                   <DesktopGeneratingBookTile key={scan.id} scan={scan} />
                 ))}
@@ -264,7 +264,7 @@ export function DesktopHomeView({
 
           {/* おすすめの単語帳（マイ単語帳と同じ本棚タイルで表示） */}
           {recommendedBooks.length > 0 && (
-            <DesktopShelf title="おすすめの単語帳" seeAllHref="/shared" cardWidth={210}>
+            <DesktopShelf title="おすすめの単語帳" seeAllHref="/shared" >
               {recommendedBooks.map((book) => (
                 <DesktopRecommendedBookTile key={book.shareId} book={book} />
               ))}
@@ -274,7 +274,7 @@ export function DesktopHomeView({
           {/* おすすめのリール（語源がある単語限定）。デスクトップで小さくなり
               すぎないようカード幅を広めに取る */}
           {(recommendationsLoading || recommendedReels.length > 0) && (
-            <DesktopShelf title="おすすめのリール" seeAllHref="/reels" cardWidth={210}>
+            <DesktopShelf title="おすすめのリール" seeAllHref="/reels" >
               {recommendationsLoading && recommendedReels.length === 0
                 ? [0, 1, 2].map((slot) => <DesktopMediaCardSkeleton key={slot} />)
                 : recommendedReels.map((item) => (

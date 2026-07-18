@@ -287,9 +287,14 @@
   font-family: inherit; font-size: 13px; font-weight: 700; color: var(--color-accent);
   text-decoration: none; background: none; border: none; padding: 0; cursor: pointer;
 }
-/* 横スクロールの棚。カード幅は --shelf-card-w で棚ごとに調整できる。 */
+/* 横スクロールの棚。1行に表示する枚数は --shelf-cols で固定（既定4枚）。
+   カード幅は表示領域から自動算出されるため、画面幅が変わっても枚数は一定。 */
 .ds-shelf-row {
-  display: grid; grid-auto-flow: column; grid-auto-columns: var(--shelf-card-w, 190px); gap: 16px;
+  --shelf-cols: 4;
+  --shelf-gap: 16px;
+  display: grid; grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--shelf-cols) - 1) * var(--shelf-gap)) / var(--shelf-cols));
+  gap: var(--shelf-gap);
   overflow-x: auto; padding: 4px 4px 12px; margin: -4px -4px 0;
   scroll-snap-type: x proximity; scrollbar-width: none;
 }
