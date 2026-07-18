@@ -168,15 +168,46 @@ export default function GroupPage() {
           paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
         }}
       >
+        {/* スクロールしても上部に固定されるヘッダー。top はノッチ下端に合わせ、
+            ノッチ帯は全体共通の StatusBarCover がすりガラスで覆う。 */}
+        <header
+          className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md"
+          style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="戻る"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="arrow_back" size={16} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              STUDY GROUP
+            </div>
+            <div className="truncate font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">
+              {group?.name ?? 'グループ'}
+            </div>
+          </div>
+          {group && (
+            <Link
+              href={settingsHref}
+              aria-label="グループ設定"
+              onClick={() => triggerHaptic()}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="settings" size={16} />
+            </Link>
+          )}
+        </header>
         {stateView ?? (group && (
-          <div className="flex flex-col gap-4 px-[14px]">
+          <div className="flex flex-col gap-4 px-[14px] pt-3">
             <GroupHeader
               group={group}
               totalQuiz={totalQuiz}
-              onBack={() => router.back()}
               onCopyInvite={() => void copyInvite()}
               onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
-              settingsHref={settingsHref}
             />
             {loading ? (
               <LoadingState />
@@ -210,46 +241,19 @@ export default function GroupPage() {
 function GroupHeader({
   group,
   totalQuiz,
-  onBack,
   onCopyInvite,
   onShare,
-  settingsHref,
 }: {
   group: StudyGroupSummary;
   totalQuiz: number;
-  /** 履歴で1つ戻る（ホーム/共有どちらから来ても元の画面に返す） */
-  onBack: () => void;
   onCopyInvite: () => void;
   onShare: () => void;
-  settingsHref: string;
 }) {
   return (
     <section
       className="relative overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4 text-white"
       style={{ background: `linear-gradient(135deg, ${thumbColor(group.id)} 0%, var(--solid-ink) 160%)` }}
     >
-      <div className="mb-3 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="arrow_back" size={16} />
-        </button>
-        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-white/70">
-          STUDY GROUP
-        </div>
-        <Link
-          href={settingsHref}
-          aria-label="グループ設定"
-          onClick={() => triggerHaptic()}
-          className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="settings" size={16} />
-        </Link>
-      </div>
-
       <div className="flex items-start gap-3">
         <div
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-2 border-white/70 bg-white/15 font-display text-[26px] font-extrabold backdrop-blur-sm"
@@ -511,7 +515,7 @@ function BookshelfSection({ groupId, projects }: { groupId: string; projects: Sh
       href={`/groups/${encodeURIComponent(groupId)}/bookshelf`}
       onClick={() => triggerHaptic()}
       aria-label="本棚をひらく"
-      className="relative block overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4 shadow-[4px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
+      className="relative block overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4"
       style={{ background: 'linear-gradient(150deg, #FFF6DE 0%, #FFE7BC 100%)' }}
     >
       <div className="flex items-center gap-2.5">
