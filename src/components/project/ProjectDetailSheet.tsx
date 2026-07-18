@@ -147,7 +147,7 @@ function WordRow({ word, onCycleStatus, onCycleVocabularyType, onToggleFavorite 
             </div>
           </Link>
           <VocabularyTypeButton vocabularyType={word.vocabularyType} onClick={onCycleVocabularyType} className="shrink-0" />
-          <button type="button" onClick={onToggleFavorite} className="inline-flex text-[var(--color-accent)]" aria-label="お気に入りを切り替え">
+          <button type="button" onClick={onToggleFavorite} className="inline-flex text-[var(--color-accent)]" aria-label="保存を切り替え">
             <Icon name="bookmark" size={18} filled={word.isFavorite} />
           </button>
         </div>

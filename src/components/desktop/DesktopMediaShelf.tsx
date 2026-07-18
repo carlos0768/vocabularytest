@@ -2,9 +2,9 @@
 
 /**
  * デスクトップ Spotify 風の共通部品。
- * - DesktopShelf: セクション見出し（タイトル + すべて表示）と 1 行 10 枚で折り返すカードグリッド
+ * - DesktopShelf: セクション見出し（タイトル + すべて表示）と横スクロールのカード列
  * - DesktopMediaCard: 正方形アートワーク + タイトル + サブタイトルのカード。
- *   ホームのマイ単語帳と共有ライブラリの共有単語帳で同じカードを使う。
+ *   共有ライブラリの共有単語帳などで使う。
  */
 
 import Link from 'next/link';
@@ -16,12 +16,15 @@ export function DesktopShelf({
   count,
   seeAllHref,
   onSeeAll,
+  cardWidth,
   children,
 }: {
   title: string;
   count?: number;
   seeAllHref?: string;
   onSeeAll?: () => void;
+  /** 1 カードの幅(px)。省略時は CSS の既定値（190px） */
+  cardWidth?: number;
   children: ReactNode;
 }) {
   return (
@@ -45,7 +48,12 @@ export function DesktopShelf({
           </button>
         ) : null}
       </div>
-      <div className="ds-shelf-row">{children}</div>
+      <div
+        className="ds-shelf-row"
+        style={cardWidth ? ({ '--shelf-card-w': `${cardWidth}px` } as CSSProperties) : undefined}
+      >
+        {children}
+      </div>
     </section>
   );
 }

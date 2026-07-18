@@ -413,7 +413,7 @@ export default function FlashcardPage() {
           <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
         </div>
         <div className="mono muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 4 }}>
-          {favoritesOnly ? 'お気に入り' : collectionId ? 'コレクション' : '単語帳'} · フラッシュカード
+          {favoritesOnly ? '保存済み' : collectionId ? 'コレクション' : '単語帳'} · フラッシュカード
         </div>
 
         <div className="ds-fc-scene">
@@ -422,7 +422,7 @@ export default function FlashcardPage() {
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); handleToggleFavorite(); }}
-                aria-label="お気に入り"
+                aria-label="保存"
                 style={{ position: 'absolute', top: 18, right: 18, color: currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--color-muted)' }}
               >
                 <Icon name="bookmark" filled={currentWord?.isFavorite} />
@@ -501,7 +501,7 @@ export default function FlashcardPage() {
           />
           <ActionChip
             icon="bookmark"
-            label="お気に入り"
+            label="保存"
             tint={currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--solid-ink)'}
             filled={currentWord?.isFavorite}
             onClick={handleToggleFavorite}
@@ -688,7 +688,7 @@ export default function FlashcardPage() {
           onClick={handleCycleStatus}
         />
         <ActionChip
-          icon="bookmark" label="お気に入り"
+          icon="bookmark" label="保存"
           tint={currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--solid-ink)'}
           filled={currentWord?.isFavorite}
           onClick={handleToggleFavorite}

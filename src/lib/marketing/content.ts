@@ -159,7 +159,7 @@ export const progressFeatures: ProgressFeature[] = [
   { icon: 'check_circle', text: '習得済み・復習中・未学習を自動で分類' },
   { icon: 'bar_chart', text: '今日の学習量と正答率をリアルタイム表示' },
   { icon: 'local_fire_department', text: '連続学習日数で継続をサポート' },
-  { icon: 'star', text: '苦手単語をお気に入り登録して重点復習' },
+  { icon: 'star', text: '苦手単語を保存して重点復習' },
 ];
 
 /* ===== Pricing page ===== */

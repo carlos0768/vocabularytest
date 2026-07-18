@@ -15,7 +15,7 @@ const NAV_ITEMS: { key: NavKey; href: string; icon: string; label: string; count
   { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'reels', href: '/reels', icon: 'movie', label: 'リール' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
-  { key: 'fav', href: '/favorites', icon: 'star', label: 'お気に入り', count: 21 },
+  { key: 'fav', href: '/favorites', icon: 'star', label: '保存', count: 21 },
   { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
 ];
 

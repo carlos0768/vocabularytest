@@ -214,7 +214,8 @@ export function DesktopHomeView({
                 </div>
               </button>
             ) : view === 'grid' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 18 }}>
+              /* 横スクロールの棚に従来の本棚タイルを並べる */
+              <div className="ds-shelf-row" style={{ '--shelf-card-w': '210px' } as React.CSSProperties}>
                 {pendingScans.map((scan) => (
                   <DesktopGeneratingBookTile key={scan.id} scan={scan} />
                 ))}
@@ -261,18 +262,19 @@ export function DesktopHomeView({
             <JoinedGroupGrid groups={joinedGroups} columns={3} />
           </div>
 
-          {/* おすすめの単語帳（英検級ベースの共有単語帳） */}
+          {/* おすすめの単語帳（マイ単語帳と同じ本棚タイルで表示） */}
           {recommendedBooks.length > 0 && (
-            <DesktopShelf title="おすすめの単語帳" seeAllHref="/shared">
+            <DesktopShelf title="おすすめの単語帳" seeAllHref="/shared" cardWidth={210}>
               {recommendedBooks.map((book) => (
-                <DesktopRecommendedBookCard key={book.shareId} book={book} />
+                <DesktopRecommendedBookTile key={book.shareId} book={book} />
               ))}
             </DesktopShelf>
           )}
 
-          {/* おすすめのリール（語源がある単語限定） */}
+          {/* おすすめのリール（語源がある単語限定）。デスクトップで小さくなり
+              すぎないようカード幅を広めに取る */}
           {(recommendationsLoading || recommendedReels.length > 0) && (
-            <DesktopShelf title="おすすめのリール" seeAllHref="/reels">
+            <DesktopShelf title="おすすめのリール" seeAllHref="/reels" cardWidth={210}>
               {recommendationsLoading && recommendedReels.length === 0
                 ? [0, 1, 2].map((slot) => <DesktopMediaCardSkeleton key={slot} />)
                 : recommendedReels.map((item) => (
@@ -647,23 +649,35 @@ function DesktopMediaCardSkeleton() {
   );
 }
 
-function DesktopRecommendedBookCard({ book }: { book: HomeRecommendedBook }) {
+// おすすめの共有単語帳。マイ単語帳と同じ本棚タイル（ds-book）で表示する。
+function DesktopRecommendedBookTile({ book }: { book: HomeRecommendedBook }) {
+  const bg = book.iconImage ? undefined : desktopThumbColor(book.shareId);
   return (
-    <DesktopMediaCard
+    <Link
       href={`/share/${book.shareId}`}
-      artStyle={{
-        background: desktopThumbColor(book.shareId),
+      className="ds-book"
+      style={{
+        background: bg,
         backgroundImage: book.iconImage ? `url(${book.iconImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
       }}
-      artChildren={!book.iconImage && book.title.charAt(0)}
-      title={book.title}
-      subtitle={
-        <>
-          <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>おすすめ</span>
-          {book.eikenLevelTag && <span>· {book.eikenLevelTag}</span>}
-        </>
-      }
-    />
+    >
+      <div className="bk-spine" />
+      <div>
+        <div className="bk-title">{book.title}</div>
+        <div className="bk-foot mono">
+          {book.eikenLevelTag ? `おすすめ · ${book.eikenLevelTag}` : 'おすすめ'}
+        </div>
+      </div>
+      <div>
+        <div className="bk-n">{book.wordCount}<span className="u">語</span></div>
+        <div className="bk-foot" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Icon name="thumb_up" style={{ fontSize: 13 }} />
+          {book.likeCount}
+        </div>
+      </div>
+    </Link>
   );
 }
 
