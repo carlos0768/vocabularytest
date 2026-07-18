@@ -2,8 +2,8 @@
 
 /**
  * デスクトップ版フィード（/friends）。
- * 中央寄せの2カラム構成: 左=学習タイムライン、右=申請・フレンド管理。
- * レイアウトとカードのスタイルは desktop.css の .ds-feed-* を参照。
+ * 学習タイムラインを1枚のリストに連結して表示し、フレンド申請があるときだけ
+ * 右カラムに申請パネルを出す。スタイルは desktop.css の .ds-feed-* を参照。
  */
 
 import Link from 'next/link';
@@ -75,19 +75,23 @@ export function DesktopFeed({
                   <button type="button" onClick={onRefresh}>再試行</button>
                 </div>
               )}
-              <div className="ds-feed-grid">
+              <div className={`ds-feed-grid${home.incoming.length > 0 || home.outgoing.length > 0 ? '' : ' single'}`}>
                 <div className="ds-feed-main">
-                  {entries.map((entry) =>
-                    entry.kind === 'quiz' ? (
-                      <QuizEntryCard
-                        key={`quiz-${entry.session.id}`}
-                        session={entry.session}
-                        expanded={expandedSessions.has(entry.session.id)}
-                        onToggle={() => onToggleSession(entry.session.id)}
-                      />
-                    ) : (
-                      <GroupEntryCard key={`group-${entry.event.id}`} event={entry.event} />
-                    ),
+                  {entries.length > 0 && (
+                    <div className="ds-feed-list">
+                      {entries.map((entry) =>
+                        entry.kind === 'quiz' ? (
+                          <QuizEntryCard
+                            key={`quiz-${entry.session.id}`}
+                            session={entry.session}
+                            expanded={expandedSessions.has(entry.session.id)}
+                            onToggle={() => onToggleSession(entry.session.id)}
+                          />
+                        ) : (
+                          <GroupEntryCard key={`group-${entry.event.id}`} event={entry.event} />
+                        ),
+                      )}
+                    </div>
                   )}
                   {timelineLoading && (
                     <div className="ds-feed-loadrow">
@@ -97,8 +101,8 @@ export function DesktopFeed({
                   {!timelineLoading && entries.length === 0 && <FeedEmptyCard />}
                 </div>
 
-                <aside className="ds-feed-side">
-                  {(home.incoming.length > 0 || home.outgoing.length > 0) && (
+                {(home.incoming.length > 0 || home.outgoing.length > 0) && (
+                  <aside className="ds-feed-side">
                     <RequestsPanel
                       incoming={home.incoming}
                       outgoing={home.outgoing}
@@ -106,13 +110,8 @@ export function DesktopFeed({
                       onRespondRequest={onRespondRequest}
                       onRemoveFriend={onRemoveFriend}
                     />
-                  )}
-                  <FriendsPanel
-                    friends={home.friends}
-                    actionLoading={actionLoading}
-                    onRemoveFriend={onRemoveFriend}
-                  />
-                </aside>
+                  </aside>
+                )}
               </div>
             </>
           )}
@@ -295,49 +294,6 @@ function RequestsPanel({
   );
 }
 
-function FriendsPanel({
-  friends,
-  actionLoading,
-  onRemoveFriend,
-}: {
-  friends: FriendshipSummary[];
-  actionLoading: string | null;
-  onRemoveFriend: (friendshipId: string) => void;
-}) {
-  return (
-    <section className="ds-feed-panel">
-      <header className="ph">
-        <Icon name="groups" size={16} />
-        <span className="t">フレンド</span>
-        <span className="ct">{friends.length}</span>
-      </header>
-      {friends.length > 0 ? (
-        <div className="pb">
-          {friends.map((friend) => (
-            <SideRow key={friend.id} profile={friend.profile}>
-              <button
-                type="button"
-                className="ds-feed-act"
-                onClick={() => onRemoveFriend(friend.id)}
-                disabled={Boolean(actionLoading)}
-                aria-label="フレンド解除"
-              >
-                <Icon
-                  name={actionLoading === `delete:${friend.id}` ? 'progress_activity' : 'person_remove'}
-                  className={actionLoading === `delete:${friend.id}` ? 'animate-spin' : ''}
-                  size={15}
-                />
-              </button>
-            </SideRow>
-          ))}
-        </div>
-      ) : (
-        <p className="pe">まだフレンドがいません。プロフィールページから申請を送ってみましょう。</p>
-      )}
-    </section>
-  );
-}
-
 function SideRow({
   profile,
   children,
@@ -406,7 +362,7 @@ function FeedLoginCard() {
 
 function FeedSkeleton() {
   return (
-    <div className="ds-feed-grid" aria-hidden="true">
+    <div className="ds-feed-grid single" aria-hidden="true">
       <div className="ds-feed-main">
         {[0, 1, 2].map((index) => (
           <div key={index} className="ds-feed-skel">
@@ -418,15 +374,6 @@ function FeedSkeleton() {
           </div>
         ))}
       </div>
-      <aside className="ds-feed-side">
-        <div className="ds-feed-skel">
-          <div className="body">
-            <div className="ds-shimmer ln w40" />
-            <div className="ds-shimmer ln w70" />
-            <div className="ds-shimmer ln w70" />
-          </div>
-        </div>
-      </aside>
     </div>
   );
 }

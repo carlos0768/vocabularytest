@@ -164,18 +164,22 @@ export default function FriendsPage() {
 
   const renderFeedEntries = () => (
     <>
-      {feedEntries.map((entry) => (
-        entry.kind === 'quiz'
-          ? (
-            <TimelineItem
-              key={`quiz-${entry.session.id}`}
-              session={entry.session}
-              expanded={expandedSessions.has(entry.session.id)}
-              onToggle={() => toggleSession(entry.session.id)}
-            />
-          )
-          : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
-      ))}
+      {feedEntries.length > 0 && (
+        <div className="divide-y divide-[var(--color-border)]">
+          {feedEntries.map((entry) => (
+            entry.kind === 'quiz'
+              ? (
+                <TimelineItem
+                  key={`quiz-${entry.session.id}`}
+                  session={entry.session}
+                  expanded={expandedSessions.has(entry.session.id)}
+                  onToggle={() => toggleSession(entry.session.id)}
+                />
+              )
+              : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
+          ))}
+        </div>
+      )}
 
       {timelineLoading && (
         <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
@@ -237,16 +241,6 @@ export default function FriendsPage() {
         )}
 
         {renderFeedEntries()}
-
-        {home.friends.length > 0 && (
-          <div className="mx-[18px] mt-6 border-t border-[var(--color-border)] pt-5 pb-4">
-            <FriendsSection
-              friends={home.friends}
-              actionLoading={actionLoading}
-              onRemoveFriend={removeFriend}
-            />
-          </div>
-        )}
       </>
     );
   };
@@ -369,53 +363,6 @@ function RequestsSection({
   );
 }
 
-function FriendRows({
-  friends,
-  actionLoading,
-  onRemoveFriend,
-}: {
-  friends: FriendshipSummary[];
-  actionLoading: string | null;
-  onRemoveFriend: (friendshipId: string) => void;
-}) {
-  return (
-    <>
-      {friends.map((friend) => (
-        <FriendRow key={friend.id} friendship={friend}>
-          <button
-            type="button"
-            onClick={() => onRemoveFriend(friend.id)}
-            disabled={Boolean(actionLoading)}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
-            aria-label="フレンド解除"
-          >
-            <Icon name={actionLoading === `delete:${friend.id}` ? 'progress_activity' : 'person_remove'} className={actionLoading === `delete:${friend.id}` ? 'animate-spin' : ''} size={14} />
-          </button>
-        </FriendRow>
-      ))}
-    </>
-  );
-}
-
-function FriendsSection({
-  friends,
-  actionLoading,
-  onRemoveFriend,
-}: {
-  friends: FriendshipSummary[];
-  actionLoading: string | null;
-  onRemoveFriend: (friendshipId: string) => void;
-}) {
-  return (
-    <>
-      <SectionTitle icon="groups" label="フレンド" count={friends.length} />
-      <div className="mt-2 flex flex-col gap-1.5">
-        <FriendRows friends={friends} actionLoading={actionLoading} onRemoveFriend={onRemoveFriend} />
-      </div>
-    </>
-  );
-}
-
 function TimelineItem({
   session,
   expanded,
@@ -427,7 +374,7 @@ function TimelineItem({
 }) {
   const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
-    <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
+    <article className="transition-colors hover:bg-[var(--color-surface-secondary)]">
       <div className="flex items-start gap-3.5 px-[18px] py-4">
         <Link href={profileHref} aria-label={`${displayName(session.profile)}のプロフィール`} className="shrink-0">
           <Avatar profile={session.profile} />
@@ -485,7 +432,7 @@ function TimelineItem({
 
 function GroupEventItem({ event }: { event: StudyGroupFeedEvent }) {
   return (
-    <article className="border-b border-[var(--color-border)]">
+    <article>
       <Link href={`/groups/${event.groupId}`} className="flex items-start gap-3.5 px-[18px] py-4 transition-colors active:bg-[var(--color-surface-secondary)]">
         <div
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] text-white"

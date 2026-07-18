@@ -55,9 +55,9 @@ export function DesktopWordDetailModal({
               <div className="word-en">{word.english}</div>
               <button type="button" className="ds-btn ghost sm" onClick={onToggleFavorite} aria-label="保存">
                 <Icon
-                  name={word.isFavorite ? 'star' : 'star_border'}
+                  name="bookmark"
                   filled={word.isFavorite}
-                  style={{ color: word.isFavorite ? 'var(--color-warning)' : 'var(--color-muted)' }}
+                  style={{ color: word.isFavorite ? 'var(--color-accent)' : 'var(--color-muted)' }}
                 />
               </button>
             </div>
