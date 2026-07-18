@@ -53,7 +53,7 @@ export function DesktopWordDetailModal({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="word-en">{word.english}</div>
-              <button type="button" className="ds-btn ghost sm" onClick={onToggleFavorite} aria-label="お気に入り">
+              <button type="button" className="ds-btn ghost sm" onClick={onToggleFavorite} aria-label="保存">
                 <Icon
                   name={word.isFavorite ? 'star' : 'star_border'}
                   filled={word.isFavorite}

@@ -66,7 +66,7 @@ export function DesktopFavoritesView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title="お気に入り" crumb="コレクション">
+      <DesktopTopbar title="保存" crumb="コレクション">
         <DesktopButton href={isPro ? `/quiz/all?favorites=1&count=10&from=${returnPath}` : '/subscription'} variant="accent" icon="school">
           クイズ
         </DesktopButton>
@@ -79,7 +79,7 @@ export function DesktopFavoritesView({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <Icon name="star" filled style={{ color: 'var(--color-warning)', fontSize: 22 }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>{favorites.length} <span style={{ fontSize: 13 }}>語</span></span>
-          <span className="muted" style={{ fontSize: 13 }}>をお気に入り登録中</span>
+          <span className="muted" style={{ fontSize: 13 }}>を保存中</span>
           <div style={{ display: 'flex', gap: 12, marginLeft: 8 }}>
             <span className="ds-status mastered"><span className="ds-sdot c-mastered" />習得 {counts.mastered}</span>
             <span className="ds-status active"><span className="ds-sdot c-active" />定着中 {counts.active}</span>
@@ -88,7 +88,7 @@ export function DesktopFavoritesView({
           </div>
           <div style={{ flex: 1 }} />
           <DesktopSearchBox
-            placeholder="お気に入りを検索"
+            placeholder="保存した単語を検索"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             style={{ minWidth: 220 }}

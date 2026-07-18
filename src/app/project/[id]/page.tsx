@@ -508,8 +508,8 @@ export default function ProjectPage() {
       invalidateHomeCache();
       showToast({
         message: nextValue
-          ? `${targets.length}語をお気に入りに追加しました`
-          : `${targets.length}語をお気に入りから外しました`,
+          ? `${targets.length}語を保存しました`
+          : `${targets.length}語の保存を解除しました`,
         type: 'success',
       });
     } catch (favoriteError) {
@@ -518,7 +518,7 @@ export default function ProjectPage() {
         const original = targets.find((t) => t.id === w.id);
         return original ? { ...w, isFavorite: original.isFavorite } : w;
       }));
-      showToast({ message: 'お気に入り更新に失敗しました', type: 'error' });
+      showToast({ message: '保存の更新に失敗しました', type: 'error' });
     } finally {
       setBulkFavoriteLoading(false);
     }
@@ -2327,7 +2327,7 @@ function WordRow({
           type="button"
           onClick={onToggleFavorite}
           className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center text-[var(--color-accent)]"
-          aria-label="お気に入りを切り替え"
+          aria-label="保存を切り替え"
         >
           <Icon name="bookmark" size={22} filled={word.isFavorite} />
         </button>

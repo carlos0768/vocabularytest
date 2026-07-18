@@ -74,7 +74,7 @@ export function DesktopProjectsView({
               すべて <span className="tnum" style={{ opacity: 0.7 }}>{projects.length}</span>
             </button>
             <button type="button" className={'ds-chip' + (filter === 'fav' ? ' active' : '')} onClick={() => setFilter('fav')}>
-              <Icon name="star" filled style={{ fontSize: 15 }} />お気に入り
+              <Icon name="star" filled style={{ fontSize: 15 }} />保存
             </button>
             <button type="button" className={'ds-chip' + (sort === 'newest' ? ' active' : '')} onClick={() => onSortChange('newest')}>
               <Icon name="schedule" style={{ fontSize: 15 }} />新しい順
