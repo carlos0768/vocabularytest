@@ -1423,7 +1423,7 @@ export default function QuizPage() {
         </div>
         {/* Fixed footer buttons */}
         <div style={{ borderTop: '1px solid rgba(26,26,26,0.1)', background: 'var(--color-background)', padding: '14px 0' }}>
-          <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', display: 'flex', gap: 8, justifyContent: 'center' }}>
             <button type="button" className="ds-btn accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart}>
               <Icon name="arrow_forward" />次へ
             </button>
