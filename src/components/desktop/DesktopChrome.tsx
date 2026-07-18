@@ -27,7 +27,7 @@ function activeKeyForPath(pathname: string): NavKey {
   if (pathname === '/shared' || pathname.startsWith('/share/') || pathname.startsWith('/groups/')) return 'shared';
   if (pathname === '/favorites' || pathname.startsWith('/collections')) return 'fav';
   if (pathname.startsWith('/scan')) return 'scan';
-  if (pathname === '/settings' || pathname.startsWith('/subscription')) return 'settings';
+  if (pathname === '/settings' || pathname.startsWith('/settings/') || pathname.startsWith('/subscription')) return 'settings';
   return 'home';
 }
 
