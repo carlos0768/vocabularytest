@@ -9,10 +9,7 @@ import { DesktopMediaCard } from '@/components/desktop/DesktopMediaShelf';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
-import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/components/ui/toast';
 import { formatSharedTag } from '../../../shared/shared-tags';
-import type { FollowSummary } from '@/lib/follows/types';
 import type {
   PublicStudyGroupSummary,
   SharedDiscoverCategory,
@@ -92,38 +89,53 @@ export function DesktopSharedView({
         className="ds-top"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 420px) minmax(0, 1fr)',
+          // 右の 320px は本文右レールの幅と揃える。左カラムは本文メインカラム
+          // （サイドバー右端〜右レール左端）と同じ幅になる。
+          gridTemplateColumns: 'minmax(0, 1fr) 320px',
+          gap: 26,
           alignItems: 'center',
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div className="crumb">{isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}</div>
-          <h1>{isCategory ? activeMeta!.label : '共有ライブラリ'}</h1>
-        </div>
-        {isGroups ? (
-          <form
-            onSubmit={(event) => { event.preventDefault(); onGroupSearch(); }}
-            style={{ display: 'flex', gap: 8, minWidth: 0 }}
-          >
+        {/* 検索窓を左カラム＝サイドバー右端〜右セクション左端の中央に置く */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 420px) minmax(0, 1fr)',
+            alignItems: 'center',
+            gap: 12,
+            minWidth: 0,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div className="crumb">{isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}</div>
+            <h1>{isCategory ? activeMeta!.label : '共有ライブラリ'}</h1>
+          </div>
+          {isGroups ? (
+            <form
+              onSubmit={(event) => { event.preventDefault(); onGroupSearch(); }}
+              style={{ display: 'flex', gap: 8, minWidth: 0 }}
+            >
+              <DesktopSearchBox
+                placeholder="グループ名で検索"
+                value={groupQuery}
+                onChange={(event) => onGroupQueryChange(event.target.value)}
+                style={{ width: '100%', minWidth: 0 }}
+              />
+              <button type="submit" className="ds-btn dark" disabled={groupLoading} aria-label="グループを検索">
+                <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
+              </button>
+            </form>
+          ) : (
             <DesktopSearchBox
-              placeholder="グループ名で検索"
-              value={groupQuery}
-              onChange={(event) => onGroupQueryChange(event.target.value)}
+              placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
               style={{ width: '100%', minWidth: 0 }}
             />
-            <button type="submit" className="ds-btn dark" disabled={groupLoading} aria-label="グループを検索">
-              <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
-            </button>
-          </form>
-        ) : (
-          <DesktopSearchBox
-            placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            style={{ width: '100%', minWidth: 0 }}
-          />
-        )}
-        <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 8 }}>
+          )}
+          <div aria-hidden="true" />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
           <FollowNotificationsButton variant="desktop" />
           <DesktopButton variant="dark" icon="add" onClick={onOpenShareSheet}>
             共有
@@ -151,7 +163,6 @@ export function DesktopSharedView({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
             <PopularWordbooksRail projects={feed.projects.length > 0 ? feed.projects : payload.projects} />
-            <WhoToFollowRail users={payload.users} enabled={dashboardActive} onSeeAll={() => onCategorySelect('users')} />
             <PublicGroupsRail
               groups={publicGroups.groups}
               loading={publicGroups.loading}
@@ -470,179 +481,6 @@ function PopularWordbooksRail({ projects }: { projects: SharedProjectCard[] }) {
                 <Icon name="thumb_up" style={{ fontSize: 14 }} />{item.likeCount ?? 0}
               </span>
             </Link>
-          );
-        })}
-      </div>
-    </RailPanel>
-  );
-}
-
-type FollowsHomeApiResponse = {
-  success?: boolean;
-  following?: FollowSummary[];
-  pendingOutgoing?: FollowSummary[];
-  error?: string;
-};
-
-type FollowMutationResponse = {
-  success?: boolean;
-  follow?: FollowSummary;
-  error?: string;
-};
-
-function WhoToFollowRail({
-  users,
-  enabled,
-  onSeeAll,
-}: {
-  users: SharedUserSummary[];
-  enabled: boolean;
-  onSeeAll: () => void;
-}) {
-  const { isAuthenticated } = useAuth();
-  const { showToast } = useToast();
-  const [followLoading, setFollowLoading] = useState<string | null>(null);
-  const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
-  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
-
-  const visibleUsers = users.slice(0, 5);
-
-  useEffect(() => {
-    if (!enabled || !isAuthenticated || users.length === 0) return;
-
-    const accountIds = new Set(users.map((user) => user.accountId).filter((value): value is string => Boolean(value)));
-    if (accountIds.size === 0) return;
-
-    let cancelled = false;
-    fetch('/api/follows', { cache: 'no-store' })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as FollowsHomeApiResponse | null;
-        if (!response.ok || !payload?.success) throw new Error(payload?.error || 'follows_fetch_failed');
-
-        const nextFollowed = new Set<string>();
-        const nextPending = new Set<string>();
-        for (const item of payload.following ?? []) {
-          const accountId = item.profile.accountId;
-          if (accountId && accountIds.has(accountId)) nextFollowed.add(accountId);
-        }
-        for (const item of payload.pendingOutgoing ?? []) {
-          const accountId = item.profile.accountId;
-          if (accountId && accountIds.has(accountId)) nextPending.add(accountId);
-        }
-
-        if (!cancelled) {
-          setFollowedIds(nextFollowed);
-          setPendingIds(nextPending);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) console.warn('Failed to load follow state for rail:', error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, isAuthenticated, users]);
-
-  const handleFollow = async (accountId: string | null) => {
-    if (!accountId || followLoading) return;
-    setFollowLoading(accountId);
-    try {
-      const response = await fetch('/api/follows', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId }),
-      });
-      const payload = await response.json().catch(() => null) as FollowMutationResponse | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'follow_failed');
-      }
-      if (payload.follow?.status === 'pending') {
-        setPendingIds((prev) => new Set([...prev, accountId]));
-        showToast({ message: 'フォローリクエストを送信しました', type: 'success' });
-      } else {
-        setFollowedIds((prev) => new Set([...prev, accountId]));
-        showToast({ message: 'フォローしました', type: 'success' });
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'フォローに失敗しました。';
-      showToast({ message, type: 'error' });
-    } finally {
-      setFollowLoading(null);
-    }
-  };
-
-  if (visibleUsers.length === 0) return null;
-
-  return (
-    <RailPanel title="おすすめユーザー" icon="person_add" action={<RailSeeAllButton onClick={onSeeAll} />}>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {visibleUsers.map((user, index) => {
-          const accountLabel = user.accountId ? `@${user.accountId}` : user.username ? `@${user.username}` : 'ユーザー';
-          const avatarLabel = (user.accountId ?? user.username ?? 'U').charAt(0).toUpperCase();
-          const profileHref = user.accountId ? `/profile/${encodeURIComponent(user.accountId)}` : null;
-          const isFollowed = followedIds.has(user.accountId ?? '');
-          const isPending = pendingIds.has(user.accountId ?? '');
-          const isLoading = followLoading === user.accountId;
-
-          const identity = (
-            <>
-              <div
-                className="ds-avatar"
-                style={{ width: 36, height: 36, borderRadius: 10, background: desktopThumbColor(user.userId), flexShrink: 0 }}
-              >
-                {avatarLabel}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div className="mono" style={{ fontSize: 12.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {accountLabel}
-                </div>
-                <div className="muted" style={{ marginTop: 2, fontSize: 11 }}>
-                  {user.projectCount} 冊 · {user.wordCount} 語
-                </div>
-              </div>
-            </>
-          );
-
-          return (
-            <div
-              key={user.userId}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '9px 0',
-                borderBottom: index < visibleUsers.length - 1 ? '1px solid var(--color-border)' : 'none',
-              }}
-            >
-              {profileHref ? (
-                <Link href={profileHref} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, color: 'inherit', textDecoration: 'none' }}>
-                  {identity}
-                </Link>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                  {identity}
-                </div>
-              )}
-              {isAuthenticated && user.accountId && (
-                isFollowed ? (
-                  <span className="ds-tag plain" style={{ flexShrink: 0 }}>フォロー中</span>
-                ) : isPending ? (
-                  <span className="ds-tag plain" style={{ flexShrink: 0 }}>申請中</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="ds-btn dark sm"
-                    onClick={() => void handleFollow(user.accountId)}
-                    disabled={Boolean(followLoading)}
-                    style={{ flexShrink: 0, padding: '5px 10px', fontSize: 12 }}
-                  >
-                    <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : undefined} style={{ fontSize: 15 }} />
-                    フォロー
-                  </button>
-                )
-              )}
-            </div>
           );
         })}
       </div>

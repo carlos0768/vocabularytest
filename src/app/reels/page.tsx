@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks';
 import { useReelFeed } from '@/hooks/use-reel-feed';
@@ -10,15 +10,9 @@ import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopTopbar } from '@/components/desktop/DesktopChrome';
-import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
-import { REEL_SAVED_PROJECT_TITLE } from '@/lib/reels/saved-words';
-import { generateWordShareImage } from '@/lib/reels/share-image';
+import type { ReelBook } from '@/lib/reels/types';
 import type { VocabularyType, WordTranslation } from '@/types';
 import { ReelFeed } from '@/components/reel/ReelFeed';
-import { ReelActionRail } from '@/components/reel/ReelActionRail';
-import { ReelCommentSheet } from '@/components/reel/ReelCommentSheet';
-import { ReelMoreSheet } from '@/components/reel/ReelMoreSheet';
-import { speakReelWord } from '@/components/reel/ReelCard';
 import {
   ReelEmptyState,
   ReelErrorState,
@@ -26,7 +20,6 @@ import {
   ReelSkeleton,
 } from '@/components/reel/ReelStatusCards';
 import { getPinnedReelPreview } from '@/lib/reels/pinned-preview';
-import type { ReelFeedItem } from '@/hooks/use-reel-feed';
 
 type ImportWordTranslation = {
   translationJa: string;
@@ -90,25 +83,9 @@ function ReelsPageInner() {
     hasMore,
     loadMore,
     retry,
-    likeItem,
     markBookImported,
-    markWordSaved,
-    bumpCommentCount,
   } = useReelFeed({ pin });
   const [importingBookId, setImportingBookId] = useState<string | null>(null);
-  const savingWordIdsRef = useRef<Set<string>>(new Set());
-  // デスクトップ: アクションレールはカードの外（右側）に置くため、
-  // アクティブなカードの単語をページ側で追跡する。
-  const [activeReelId, setActiveReelId] = useState<string | null>(null);
-  const [desktopMoreOpen, setDesktopMoreOpen] = useState(false);
-  const [desktopCommentsOpen, setDesktopCommentsOpen] = useState(false);
-  const handleActiveItemChange = useCallback((item: ReelFeedItem | null) => {
-    setActiveReelId(item?.id ?? null);
-  }, []);
-  const activeReel = useMemo(
-    () => items.find((item) => item.id === activeReelId) ?? null,
-    [items, activeReelId],
-  );
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -198,138 +175,6 @@ function ReelsPageInner() {
     [user, wasPro, importingBookId, repository, router, showToast, markBookImported],
   );
 
-  const handleSaveWord = useCallback(
-    async (item: ReelItem) => {
-      if (!user) {
-        router.push('/login?redirect=/reels');
-        return;
-      }
-      // Downgraded (ex-Pro) accounts get the read-only remote repository, so
-      // writes would fail — guide them back to Pro instead.
-      if (wasPro) {
-        showToast({ message: '解約後は読み取り専用のため、保存にはProプランへの再登録が必要です。', type: 'warning' });
-        router.push('/subscription');
-        return;
-      }
-      if (item.savedByMe || savingWordIdsRef.current.has(item.id)) return;
-
-      savingWordIdsRef.current.add(item.id);
-      try {
-        const projects = await repository.getProjects(user.id);
-        const savedProject =
-          projects.find((project) => project.title === REEL_SAVED_PROJECT_TITLE)
-          ?? (await repository.createProject({
-            userId: user.id,
-            title: REEL_SAVED_PROJECT_TITLE,
-          }));
-
-        const existingWords = await repository.getWords(savedProject.id);
-        const existing = existingWords.find(
-          (word) => word.english.toLowerCase() === item.english.toLowerCase(),
-        );
-        if (existing) {
-          if (!existing.isFavorite) {
-            await repository.updateWord(existing.id, { isFavorite: true });
-          }
-        } else {
-          const [created] = await repository.createWords([
-            {
-              projectId: savedProject.id,
-              english: item.english,
-              japanese: item.japanese,
-              translations: item.translations,
-              distractors: [],
-              pronunciation: item.pronunciation ?? undefined,
-              exampleSentence: item.exampleSentence ?? undefined,
-              exampleSentenceJa: item.exampleSentenceJa ?? undefined,
-              partOfSpeechTags: item.partOfSpeechTags.length > 0 ? item.partOfSpeechTags : undefined,
-            },
-          ]);
-          // createWords always starts words unfavorited; flip it so the word
-          // shows up in 保存済み (/favorites) right away.
-          await repository.updateWord(created.id, { isFavorite: true });
-        }
-
-        invalidateHomeCache();
-        markWordSaved(item.id);
-        triggerHaptic();
-        showToast({ message: `「${item.english}」を保存済みに追加しました`, type: 'success' });
-      } catch (error) {
-        console.error('Failed to save reel word:', error);
-        showToast({ message: '保存に失敗しました', type: 'error' });
-      } finally {
-        savingWordIdsRef.current.delete(item.id);
-      }
-    },
-    [user, wasPro, repository, router, showToast, markWordSaved],
-  );
-
-  const handleShare = useCallback(
-    async (item: ReelItem) => {
-      const url = item.book.shareId
-        ? `${window.location.origin}/share/${encodeURIComponent(item.book.shareId)}`
-        : `${window.location.origin}/reels`;
-      const text = `この単語知ってた？「${item.english}」${item.japanese ? ` — ${item.japanese}` : ''}\nMerkenのリールで英単語を学ぼう`;
-      try {
-        // Generate the thumbnail card and prefer sharing it as an image.
-        const blob = await generateWordShareImage(item).catch(() => null);
-        const file = blob
-          ? new File([blob], `merken-${item.english.slice(0, 24)}.png`, { type: 'image/png' })
-          : null;
-
-        if (file && navigator.canShare?.({ files: [file] })) {
-          // Some targets drop `url` when files are present — keep it in text.
-          await navigator.share({ files: [file], title: 'Merken Reel', text: `${text}\n${url}` });
-          return;
-        }
-        if (navigator.share) {
-          await navigator.share({ title: 'Merken Reel', text, url });
-          return;
-        }
-        if (blob && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          showToast({ message: 'サムネ画像をコピーしました', type: 'success' });
-          return;
-        }
-        await navigator.clipboard.writeText(`${text}\n${url}`);
-        showToast({ message: 'リンクをコピーしました', type: 'success' });
-      } catch (error) {
-        // AbortError = user cancelled the share sheet; stay silent.
-        if ((error as DOMException)?.name !== 'AbortError') {
-          console.error('Failed to share reel item:', error);
-          showToast({ message: '共有に失敗しました', type: 'error' });
-        }
-      }
-    },
-    [showToast],
-  );
-
-  const handleFeedback = useCallback(
-    async (item: ReelItem, feedback: ReelFeedback) => {
-      triggerHaptic();
-      try {
-        const response = await fetch('/api/reels/feedback', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: item.source, wordId: item.wordId, feedback }),
-        });
-        const payload = (await response.json()) as { success: boolean };
-        if (!response.ok || !payload.success) throw new Error('feedback_failed');
-        showToast({
-          message:
-            feedback === 'interested'
-              ? '似た単語帳のリールを増やします'
-              : 'この単語の表示を減らします',
-          type: 'success',
-        });
-      } catch (error) {
-        console.error('Failed to send reel feedback:', error);
-        showToast({ message: 'フィードバックの送信に失敗しました', type: 'error' });
-      }
-    },
-    [showToast],
-  );
-
   if (!authLoading && !user) {
     router.replace('/login?redirect=/reels');
     return null;
@@ -394,12 +239,7 @@ function ReelsPageInner() {
               usageLimit={usage?.limit ?? null}
               importingBookId={null}
               onLoadMore={() => {}}
-              onLike={() => {}}
-              onSave={() => {}}
               onImport={() => {}}
-              onShare={() => {}}
-              onFeedback={() => {}}
-              onCommentCountChange={() => {}}
             />
           ) : items.length === 0 ? (
             <ReelEmptyState />
@@ -412,59 +252,11 @@ function ReelsPageInner() {
               importingBookId={importingBookId}
               showAds={subscriptionStatus !== 'active'}
               onLoadMore={loadMore}
-              onLike={(item) => {
-                triggerHaptic();
-                void likeItem(item);
-              }}
-              onSave={(item) => void handleSaveWord(item)}
               onImport={(book) => void handleImport(book)}
-              onShare={(item) => void handleShare(item)}
-              onFeedback={(item, feedback) => void handleFeedback(item, feedback)}
-              onCommentCountChange={(item, delta) => bumpCommentCount(item.id, delta)}
-              onActiveItemChange={handleActiveItemChange}
             />
           )}
         </div>
-
-        {/* デスクトップ: アクションレールをカードの外（右側）に配置 */}
-        {activeReel && (
-          <div className="hidden lg:flex lg:items-center lg:pl-4">
-            <ReelActionRail
-              item={activeReel}
-              onLike={() => {
-                triggerHaptic();
-                void likeItem(activeReel);
-              }}
-              onSave={() => void handleSaveWord(activeReel)}
-              onSpeak={() => speakReelWord(activeReel.english)}
-              onComment={() => setDesktopCommentsOpen(true)}
-              onShare={() => void handleShare(activeReel)}
-              onMore={() => setDesktopMoreOpen(true)}
-            />
-          </div>
-        )}
       </div>
-
-      {/* デスクトップ外側レールから開くシート */}
-      {activeReel && (
-        <>
-          <ReelMoreSheet
-            item={activeReel}
-            isOpen={desktopMoreOpen}
-            onClose={() => setDesktopMoreOpen(false)}
-            onFeedback={(feedback) => {
-              setDesktopMoreOpen(false);
-              void handleFeedback(activeReel, feedback);
-            }}
-          />
-          <ReelCommentSheet
-            item={activeReel}
-            isOpen={desktopCommentsOpen}
-            onClose={() => setDesktopCommentsOpen(false)}
-            onCountChange={(delta) => bumpCommentCount(activeReel.id, delta)}
-          />
-        </>
-      )}
     </div>
   );
 }

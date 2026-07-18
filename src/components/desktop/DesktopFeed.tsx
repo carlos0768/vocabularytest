@@ -1,0 +1,432 @@
+'use client';
+
+/**
+ * デスクトップ版フィード（/friends）。
+ * 中央寄せの2カラム構成: 左=学習タイムライン、右=申請・フレンド管理。
+ * レイアウトとカードのスタイルは desktop.css の .ds-feed-* を参照。
+ */
+
+import Link from 'next/link';
+import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { Icon } from '@/components/ui/Icon';
+import {
+  avatarColor,
+  displayName,
+  formatRelativeTime,
+  type FeedEntry,
+} from '@/lib/friends/feed-display';
+import type {
+  FriendProfile,
+  FriendshipSummary,
+  FriendsHomePayload,
+  FriendTimelineSession,
+} from '@/lib/friends/types';
+import type { StudyGroupFeedEvent } from '@/lib/shared-projects/types';
+
+type DesktopFeedProps = {
+  loading: boolean;
+  timelineLoading: boolean;
+  isAuthenticated: boolean;
+  error: string | null;
+  entries: FeedEntry[];
+  home: FriendsHomePayload;
+  actionLoading: string | null;
+  expandedSessions: Set<string>;
+  onToggleSession: (sessionId: string) => void;
+  onRespondRequest: (friendshipId: string, action: 'accept' | 'decline') => void;
+  onRemoveFriend: (friendshipId: string) => void;
+  onRefresh: () => void;
+};
+
+export function DesktopFeed({
+  loading,
+  timelineLoading,
+  isAuthenticated,
+  error,
+  entries,
+  home,
+  actionLoading,
+  expandedSessions,
+  onToggleSession,
+  onRespondRequest,
+  onRemoveFriend,
+  onRefresh,
+}: DesktopFeedProps) {
+  return (
+    <>
+      <DesktopTopbar title="フィード" crumb="学習タイムライン">
+        {isAuthenticated && !loading && (
+          <DesktopButton onClick={onRefresh} icon="refresh" variant="ghost" title="フィードを更新">
+            更新
+          </DesktopButton>
+        )}
+      </DesktopTopbar>
+      <div className="ds-scroll">
+        <div className="ds-feed-wrap">
+          {loading ? (
+            <FeedSkeleton />
+          ) : !isAuthenticated ? (
+            <FeedLoginCard />
+          ) : (
+            <>
+              {error && (
+                <div className="ds-feed-error" role="alert">
+                  <span>{error}</span>
+                  <button type="button" onClick={onRefresh}>再試行</button>
+                </div>
+              )}
+              <div className="ds-feed-grid">
+                <div className="ds-feed-main">
+                  {entries.map((entry) =>
+                    entry.kind === 'quiz' ? (
+                      <QuizEntryCard
+                        key={`quiz-${entry.session.id}`}
+                        session={entry.session}
+                        expanded={expandedSessions.has(entry.session.id)}
+                        onToggle={() => onToggleSession(entry.session.id)}
+                      />
+                    ) : (
+                      <GroupEntryCard key={`group-${entry.event.id}`} event={entry.event} />
+                    ),
+                  )}
+                  {timelineLoading && (
+                    <div className="ds-feed-loadrow">
+                      <Icon name="progress_activity" className="animate-spin" size={20} />
+                    </div>
+                  )}
+                  {!timelineLoading && entries.length === 0 && <FeedEmptyCard />}
+                </div>
+
+                <aside className="ds-feed-side">
+                  {(home.incoming.length > 0 || home.outgoing.length > 0) && (
+                    <RequestsPanel
+                      incoming={home.incoming}
+                      outgoing={home.outgoing}
+                      actionLoading={actionLoading}
+                      onRespondRequest={onRespondRequest}
+                      onRemoveFriend={onRemoveFriend}
+                    />
+                  )}
+                  <FriendsPanel
+                    friends={home.friends}
+                    actionLoading={actionLoading}
+                    onRemoveFriend={onRemoveFriend}
+                  />
+                </aside>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── タイムラインカード ──────────────────────────────────── */
+
+function QuizEntryCard({
+  session,
+  expanded,
+  onToggle,
+}: {
+  session: FriendTimelineSession;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
+  return (
+    <article className="ds-feed-card fade-in">
+      <div className="fc-row">
+        <Link
+          href={profileHref}
+          className="ds-feed-avatar md"
+          style={{ backgroundColor: avatarColor(session.profile.accountId) }}
+          aria-label={`${displayName(session.profile)}のプロフィール`}
+        >
+          {(session.profile.username || session.profile.accountId || '?').charAt(0).toUpperCase()}
+        </Link>
+        <div className="fc-body">
+          <p className="fc-text">
+            <Link href={profileHref}>{displayName(session.profile)}</Link>
+            さんが{session.answerCount}問クイズを解きました
+          </p>
+          <div className="fc-meta">
+            <span className="id">@{session.profile.accountId}</span>
+            <span aria-hidden="true">·</span>
+            <span>{formatRelativeTime(session.lastAnsweredAt)}</span>
+          </div>
+          <div className="fc-chips">
+            <span className="ds-feed-chip quiz">
+              <Icon name="quiz" size={14} />
+              {session.answerCount}問
+            </span>
+            <span className="ds-feed-chip mastered">
+              <Icon name="check_circle" size={14} />
+              {session.masteredCount}語 習得
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="ds-iconbtn"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
+        >
+          <Icon name={expanded ? 'expand_less' : 'expand_more'} size={18} />
+        </button>
+      </div>
+      {expanded && (
+        <div className="fc-words">
+          <div className="lab">
+            <Icon name="school" size={13} />
+            習得した単語
+          </div>
+          {session.words.length > 0 ? (
+            <div className="fc-words-grid">
+              {session.words.map((word) => (
+                <div key={word.id} className="fc-word">
+                  <span className="en">{word.english}</span>
+                  <span className="ja">{word.japanese}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="none">習得済みに変わった単語はありません</p>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function GroupEntryCard({ event }: { event: StudyGroupFeedEvent }) {
+  return (
+    <article className="ds-feed-card fade-in">
+      <Link href={`/groups/${event.groupId}`} className="fc-row fc-link">
+        <div
+          className="ds-feed-avatar md"
+          style={{ backgroundColor: avatarColor(event.groupId) }}
+        >
+          <Icon name="library_add" size={20} />
+        </div>
+        <div className="fc-body">
+          <p className="fc-text">
+            <span className="fc-strong">{event.groupName}</span>
+            に「{event.projectTitle}」が追加されました
+          </p>
+          <div className="fc-meta">
+            {event.actorName && <span>{event.actorName}</span>}
+            {event.actorName && <span aria-hidden="true">·</span>}
+            <span>{formatRelativeTime(event.createdAt)}</span>
+          </div>
+        </div>
+        <Icon name="chevron_right" size={20} className="fc-chev" />
+      </Link>
+    </article>
+  );
+}
+
+/* ── サイドパネル（申請 / フレンド） ─────────────────────── */
+
+function RequestsPanel({
+  incoming,
+  outgoing,
+  actionLoading,
+  onRespondRequest,
+  onRemoveFriend,
+}: {
+  incoming: FriendshipSummary[];
+  outgoing: FriendshipSummary[];
+  actionLoading: string | null;
+  onRespondRequest: (friendshipId: string, action: 'accept' | 'decline') => void;
+  onRemoveFriend: (friendshipId: string) => void;
+}) {
+  return (
+    <section className="ds-feed-panel">
+      <header className="ph">
+        <Icon name="mark_email_unread" size={16} />
+        <span className="t">申請</span>
+        <span className="ct">{incoming.length + outgoing.length}</span>
+      </header>
+      <div className="pb">
+        {incoming.map((item) => (
+          <SideRow key={item.id} profile={item.profile}>
+            <button
+              type="button"
+              className="ds-feed-act ok"
+              onClick={() => onRespondRequest(item.id, 'accept')}
+              disabled={Boolean(actionLoading)}
+              aria-label="承認"
+            >
+              <Icon
+                name={actionLoading === `accept:${item.id}` ? 'progress_activity' : 'check'}
+                className={actionLoading === `accept:${item.id}` ? 'animate-spin' : ''}
+                size={15}
+              />
+            </button>
+            <button
+              type="button"
+              className="ds-feed-act"
+              onClick={() => onRespondRequest(item.id, 'decline')}
+              disabled={Boolean(actionLoading)}
+              aria-label="拒否"
+            >
+              <Icon name="close" size={15} />
+            </button>
+          </SideRow>
+        ))}
+        {outgoing.map((item) => (
+          <SideRow key={item.id} profile={item.profile}>
+            <span className="ds-feed-pending">申請中</span>
+            <button
+              type="button"
+              className="ds-feed-act"
+              onClick={() => onRemoveFriend(item.id)}
+              disabled={Boolean(actionLoading)}
+              aria-label="申請を取り消す"
+            >
+              <Icon name="close" size={15} />
+            </button>
+          </SideRow>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FriendsPanel({
+  friends,
+  actionLoading,
+  onRemoveFriend,
+}: {
+  friends: FriendshipSummary[];
+  actionLoading: string | null;
+  onRemoveFriend: (friendshipId: string) => void;
+}) {
+  return (
+    <section className="ds-feed-panel">
+      <header className="ph">
+        <Icon name="groups" size={16} />
+        <span className="t">フレンド</span>
+        <span className="ct">{friends.length}</span>
+      </header>
+      {friends.length > 0 ? (
+        <div className="pb">
+          {friends.map((friend) => (
+            <SideRow key={friend.id} profile={friend.profile}>
+              <button
+                type="button"
+                className="ds-feed-act"
+                onClick={() => onRemoveFriend(friend.id)}
+                disabled={Boolean(actionLoading)}
+                aria-label="フレンド解除"
+              >
+                <Icon
+                  name={actionLoading === `delete:${friend.id}` ? 'progress_activity' : 'person_remove'}
+                  className={actionLoading === `delete:${friend.id}` ? 'animate-spin' : ''}
+                  size={15}
+                />
+              </button>
+            </SideRow>
+          ))}
+        </div>
+      ) : (
+        <p className="pe">まだフレンドがいません。プロフィールページから申請を送ってみましょう。</p>
+      )}
+    </section>
+  );
+}
+
+function SideRow({
+  profile,
+  children,
+}: {
+  profile: FriendProfile;
+  children: React.ReactNode;
+}) {
+  const profileHref = `/profile/${encodeURIComponent(profile.accountId)}`;
+  return (
+    <div className="ds-feed-frow">
+      <Link
+        href={profileHref}
+        className="ds-feed-avatar sm"
+        style={{ backgroundColor: avatarColor(profile.accountId) }}
+        aria-label={`${displayName(profile)}のプロフィール`}
+      >
+        {(profile.username || profile.accountId || '?').charAt(0).toUpperCase()}
+      </Link>
+      <div className="info">
+        <Link href={profileHref} className="nm">{displayName(profile)}</Link>
+        <div className="id">@{profile.accountId}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ── 状態カード（空 / 未ログイン / スケルトン） ──────────── */
+
+function FeedEmptyCard() {
+  return (
+    <div className="ds-feed-card">
+      <div className="ds-feed-empty">
+        <div className="eic">
+          <Icon name="dynamic_feed" size={28} />
+        </div>
+        <div className="et">まだアクティビティがありません</div>
+        <p className="ed">
+          フレンドがクイズを解いたり、グループに単語帳が追加されると、ここに流れてきます。まずは自分がクイズを解いてみましょう。
+        </p>
+        <Link href="/" className="ds-btn dark" style={{ marginTop: 18 }}>
+          <Icon name="quiz" />
+          クイズを始める
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function FeedLoginCard() {
+  return (
+    <div className="ds-feed-card" style={{ maxWidth: 460, margin: '48px auto 0' }}>
+      <div className="ds-feed-empty">
+        <div className="eic">
+          <Icon name="lock" size={28} />
+        </div>
+        <div className="et">ログインが必要です</div>
+        <p className="ed">フレンドの学習タイムラインを見るにはログインしてください。</p>
+        <Link href="/login" className="ds-btn dark" style={{ marginTop: 18 }}>
+          ログイン
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className="ds-feed-grid" aria-hidden="true">
+      <div className="ds-feed-main">
+        {[0, 1, 2].map((index) => (
+          <div key={index} className="ds-feed-skel">
+            <div className="ds-shimmer av" />
+            <div className="body">
+              <div className="ds-shimmer ln w70" />
+              <div className="ds-shimmer ln w40" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <aside className="ds-feed-side">
+        <div className="ds-feed-skel">
+          <div className="body">
+            <div className="ds-shimmer ln w40" />
+            <div className="ds-shimmer ln w70" />
+            <div className="ds-shimmer ln w70" />
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
