@@ -24,8 +24,8 @@ export function DesktopWordDetailModal({
   onNav: (dir: -1 | 1) => void;
 }) {
   return (
-    <div className="ds-overlay">
-      <div className="ds-modal">
+    <div className="ds-overlay" onClick={onClose}>
+      <div className="ds-modal" onClick={(event) => event.stopPropagation()}>
         <div className="ds-modal-head">
           <div className="lab">単語の詳細</div>
           <div className="nav">

@@ -4,8 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
-import { StudyReminderSettings } from '@/components/settings/StudyReminderSettings';
-import { ExampleGenreSettings } from '@/components/settings/ExampleGenreSettings';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useCoins } from '@/hooks/use-coins';
 
@@ -147,12 +145,9 @@ export function DesktopSettingsView({
             )}
           </div>
 
-          {/* モバイルのカスタマイズページと同様、リマインダーと例文ジャンルは
-              同じセクションにまとめる */}
           <div className="ds-set-group">
             <div className="gh">カスタマイズ</div>
-            <StudyReminderSettings variant="desktop" embedded />
-            <ExampleGenreSettings variant="desktop" embedded />
+            <SettingsLink icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
           </div>
 
           <div className="ds-set-group">
