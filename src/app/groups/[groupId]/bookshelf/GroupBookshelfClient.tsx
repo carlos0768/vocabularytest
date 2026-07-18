@@ -120,19 +120,18 @@ export default function GroupBookshelfClient() {
       {/* Desktop */}
       <div className="hidden h-full min-h-0 flex-col lg:flex">
         <div className="ds-top">
+          <DesktopButton
+            href={`/groups/${encodeURIComponent(groupId)}`}
+            icon="arrow_back"
+            variant="ghost"
+            title="グループに戻る"
+          >{''}</DesktopButton>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="crumb">
               {group ? `共有ライブラリ / ${group.name}` : '共有ライブラリ / グループ'}
             </div>
             <h1>本棚{group ? `・${projects.length}冊` : ''}</h1>
           </div>
-          <DesktopButton
-            href={`/groups/${encodeURIComponent(groupId)}`}
-            icon="arrow_back"
-            variant="ghost"
-          >
-            グループへ戻る
-          </DesktopButton>
           {group && (
             <DesktopButton variant="dark" icon="library_add" onClick={() => setShareSheetOpen(true)}>
               単語帳を共有

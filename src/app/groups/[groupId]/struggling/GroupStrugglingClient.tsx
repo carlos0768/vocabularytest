@@ -104,15 +104,18 @@ export default function GroupStrugglingClient() {
       {/* Desktop */}
       <div className="hidden h-full min-h-0 flex-col lg:flex">
         <div className="ds-top">
+          <DesktopButton
+            href={`/groups/${encodeURIComponent(groupId)}`}
+            icon="arrow_back"
+            variant="ghost"
+            title="グループに戻る"
+          >{''}</DesktopButton>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="crumb">
               {group ? `共有ライブラリ / ${group.name}` : '共有ライブラリ / グループ'}
             </div>
             <h1>みんなが苦戦中の単語</h1>
           </div>
-          <DesktopButton href={`/groups/${encodeURIComponent(groupId)}`} icon="arrow_back" variant="ghost">
-            グループへ戻る
-          </DesktopButton>
         </div>
         <div className="ds-scroll">
           <div style={{ maxWidth: 860 }}>

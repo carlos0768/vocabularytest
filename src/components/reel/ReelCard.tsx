@@ -1,40 +1,22 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { ReelFeedback, ReelItem } from '@/lib/reels/types';
+import type { ReelItem } from '@/lib/reels/types';
 import { triggerHaptic } from '@/lib/haptics';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
-import { ReelActionRail } from './ReelActionRail';
 import { ReelBookCard } from './ReelBookCard';
-import { ReelCommentSheet } from './ReelCommentSheet';
 import { ReelEtymologyPanel } from './ReelEtymologyPanel';
 import { ReelMeaningPanel } from './ReelMeaningPanel';
-import { ReelMoreSheet } from './ReelMoreSheet';
 
 type ReelCardProps = {
   item: ReelItem;
   active: boolean;
   importing: boolean;
-  onLike: () => void;
-  onSave: () => void;
   onImport: () => void;
-  onShare: () => void;
-  onFeedback: (feedback: ReelFeedback) => void;
-  onCommentCountChange: (delta: number) => void;
   onRevealed?: () => void;
 };
 
 const SWIPE_THRESHOLD = 80;
-
-/** リール単語の読み上げ（カード内レールとデスクトップの外側レールで共用）。 */
-export function speakReelWord(english: string) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(english);
-  utterance.lang = 'en-US';
-  utterance.rate = 0.9;
-  window.speechSynthesis.speak(utterance);
-}
 
 /**
  * One full-height reel card.
@@ -49,18 +31,11 @@ export function ReelCard({
   item,
   active,
   importing,
-  onLike,
-  onSave,
   onImport,
-  onShare,
-  onFeedback,
-  onCommentCountChange,
   onRevealed,
 }: ReelCardProps) {
   const [page, setPage] = useState(0);
   const [dragX, setDragX] = useState(0);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
@@ -216,42 +191,10 @@ export function ReelCard({
       </div>
       )}
 
-      {/* Right action rail（デスクトップはカード外のレールを使うため非表示） */}
-      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center lg:hidden">
-        <div className="pointer-events-auto">
-          <ReelActionRail
-            item={item}
-            onLike={onLike}
-            onSave={onSave}
-            onSpeak={() => speakReelWord(item.english)}
-            onComment={() => setCommentsOpen(true)}
-            onShare={onShare}
-            onMore={() => setMoreOpen(true)}
-          />
-        </div>
-      </div>
-
       {/* Bottom attribution + import (Spotify-style) */}
       <div className="flex-shrink-0 px-4 pb-3">
         <ReelBookCard book={item.book} importing={importing} onImport={onImport} />
       </div>
-
-      {/* "..." menu: interested / not-interested feedback */}
-      <ReelMoreSheet
-        item={item}
-        isOpen={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        onFeedback={(feedback) => {
-          setMoreOpen(false);
-          onFeedback(feedback);
-        }}
-      />
-      <ReelCommentSheet
-        item={item}
-        isOpen={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
-        onCountChange={onCommentCountChange}
-      />
     </div>
   );
 }

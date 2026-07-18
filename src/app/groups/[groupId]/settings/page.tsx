@@ -425,15 +425,11 @@ export default function GroupSettingsPage() {
       {/* Desktop */}
       <div className="hidden h-full min-h-0 flex-col lg:flex">
         <div className="ds-top">
+          <DesktopButton href={backHref} icon="arrow_back" variant="ghost" title="グループに戻る">{''}</DesktopButton>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="crumb">
-              {group ? `共有ライブラリ / ${group.name}` : '共有ライブラリ / グループ'}
-            </div>
-            <h1>グループ設定</h1>
+            <div className="crumb">共有ライブラリ / グループ</div>
+            <h1>{group ? group.name : 'グループ'}</h1>
           </div>
-          <DesktopButton href={backHref} icon="arrow_back" variant="ghost">
-            グループへ戻る
-          </DesktopButton>
         </div>
         <div className="ds-scroll">
           {/* 中央寄せ（margin auto が無いと左に張り付く） */}

@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { DesktopFeed } from '@/components/desktop/DesktopFeed';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  avatarColor,
+  displayName,
+  formatSessionTime,
+  type FeedEntry,
+} from '@/lib/friends/feed-display';
 import type {
   FriendProfile,
   FriendshipSummary,
@@ -26,10 +32,6 @@ type TimelineApiResponse = {
   error?: string;
 };
 
-type FeedEntry =
-  | { kind: 'quiz'; sortAt: string; session: FriendTimelineSession }
-  | { kind: 'group_event'; sortAt: string; event: StudyGroupFeedEvent };
-
 type MutationResponse = {
   success?: boolean;
   error?: string;
@@ -41,32 +43,6 @@ const EMPTY_FRIENDS: FriendsHomePayload = {
   incoming: [],
   outgoing: [],
 };
-
-// Site-wide avatar/thumbnail palette (matches home, collections, shared).
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-function avatarColor(identifier: string): string {
-  let hash = 0;
-  for (let i = 0; i < identifier.length; i++) {
-    hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
-  }
-  return THUMBS[Math.abs(hash) % THUMBS.length];
-}
-
-function displayName(profile: FriendProfile): string {
-  return profile.username?.trim() || `@${profile.accountId}`;
-}
-
-function formatSessionTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('ja-JP', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export default function FriendsPage() {
   const { loading: authLoading, isAuthenticated } = useAuth();
@@ -275,92 +251,23 @@ export default function FriendsPage() {
     );
   };
 
-  const renderDesktopContent = () => {
-    if (authLoading || loading) {
-      return (
-        <div className="flex items-center justify-center py-20 text-[var(--color-muted)]">
-          <Icon name="progress_activity" className="animate-spin" />
-          <span className="ml-2 text-sm font-bold">読み込み中...</span>
-        </div>
-      );
-    }
-
-    if (!isAuthenticated) {
-      return (
-        <div className="flex justify-center py-20">
-          <div className="ds-card" style={{ padding: '32px 44px', textAlign: 'center' }}>
-            <Icon name="lock" size={28} className="mx-auto text-[var(--color-muted)]" />
-            <div className="mt-3 font-display text-lg font-bold text-[var(--solid-ink)]">ログインが必要です</div>
-            <Link href="/login" className="ds-btn dark" style={{ marginTop: 16 }}>
-              ログイン
-            </Link>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
-        <div style={{ maxWidth: 760, minWidth: 0 }}>
-          {error && (
-            <div className="mb-4 flex items-center justify-between rounded-[12px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-[13px] font-bold text-[var(--color-error)]">
-              <span>{error}</span>
-              <button type="button" onClick={() => void refreshAll()} className="ml-3 underline">再試行</button>
-            </div>
-          )}
-          <div className="ds-card" style={{ overflow: 'hidden' }}>
-            <div className="[&>article:last-child]:border-b-0">
-              {renderFeedEntries()}
-            </div>
-          </div>
-        </div>
-
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
-          {hasRequests && (
-            <div className="ds-card" style={{ padding: 16 }}>
-              <SectionTitle icon="mark_email_unread" label="申請" count={home.incoming.length + home.outgoing.length} />
-              <div className="mt-2 flex flex-col gap-1.5">
-                <RequestRows
-                  incoming={home.incoming}
-                  outgoing={home.outgoing}
-                  actionLoading={actionLoading}
-                  onRespondRequest={respondRequest}
-                  onRemoveFriend={removeFriend}
-                />
-              </div>
-            </div>
-          )}
-          <div className="ds-card" style={{ padding: 16 }}>
-            <SectionTitle icon="groups" label="フレンド" count={home.friends.length} />
-            {home.friends.length > 0 ? (
-              <div className="mt-2 flex flex-col gap-1.5">
-                <FriendRows
-                  friends={home.friends}
-                  actionLoading={actionLoading}
-                  onRemoveFriend={removeFriend}
-                />
-              </div>
-            ) : (
-              <p className="mt-2 text-[12px] font-bold leading-relaxed text-[var(--color-muted)]">
-                まだフレンドがいません。
-              </p>
-            )}
-          </div>
-        </aside>
-      </div>
-    );
-  };
-
   return (
     <>
       <div className="hidden h-full min-h-0 flex-col lg:flex">
-        <DesktopTopbar title="フィード" crumb="学習タイムライン">
-          <DesktopButton onClick={() => void refreshAll()} icon="refresh" variant="ghost" title="フィードを更新">更新</DesktopButton>
-          <DesktopButton href="/shared" icon="hub" variant="ghost">共有ライブラリ</DesktopButton>
-        </DesktopTopbar>
-        <div className="ds-scroll">
-          {renderDesktopContent()}
-        </div>
+        <DesktopFeed
+          loading={authLoading || loading}
+          timelineLoading={timelineLoading}
+          isAuthenticated={isAuthenticated}
+          error={error}
+          entries={feedEntries}
+          home={home}
+          actionLoading={actionLoading}
+          expandedSessions={expandedSessions}
+          onToggleSession={toggleSession}
+          onRespondRequest={respondRequest}
+          onRemoveFriend={removeFriend}
+          onRefresh={() => void refreshAll()}
+        />
       </div>
 
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
