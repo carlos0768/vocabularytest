@@ -148,6 +148,8 @@
 .ds-search .material-symbols-outlined { font-size: 18px; }
 .ds-scroll { flex: 1; overflow-y: auto; padding: 30px 34px 40px; }
 .ds-scroll.tight { padding: 26px 34px 34px; }
+/* フルブリード表示（フィードなど、コンテンツを本文幅いっぱいに広げるページ用） */
+.ds-scroll.flush { padding: 0; }
 
 /* ── Solid button (desktop) ──────────────────────────────── */
 .ds-btn {
@@ -939,23 +941,27 @@ button.ds-tile { appearance: none; }
 @keyframes dsShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* ── Feed page (friends timeline) ────────────────────────── */
-/* コンテンツ全体を中央寄せにする（左寄り防止）。 */
-.ds-feed-wrap { max-width: 1040px; margin: 0 auto; }
+/* タイムラインは本文幅いっぱいのフルブリード表示（.ds-scroll.flush 前提）。 */
+.ds-feed-wrap { width: 100%; }
 .ds-feed-grid {
   display: grid; grid-template-columns: minmax(0, 1fr) 316px;
-  gap: 24px; align-items: start;
+  align-items: start;
 }
 .ds-feed-grid.single { grid-template-columns: minmax(0, 1fr); }
-.ds-feed-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.ds-feed-side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; min-width: 0; }
+.ds-feed-main { display: flex; flex-direction: column; min-width: 0; }
+.ds-feed-side {
+  display: flex; flex-direction: column; gap: 16px;
+  position: sticky; top: 0; min-width: 0;
+  padding: 26px 34px 26px 24px;
+}
 @media (max-width: 1240px) {
   .ds-feed-grid { grid-template-columns: minmax(0, 1fr); }
-  .ds-feed-side { position: static; }
+  .ds-feed-side { position: static; padding: 26px 34px; }
 }
 
 .ds-feed-error {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-bottom: 16px; padding: 12px 16px; border-radius: 12px;
+  margin: 18px 34px 16px; padding: 12px 16px; border-radius: 12px;
   border: 1.5px solid var(--color-error); background: var(--color-error-light);
   color: var(--color-error); font-size: 13px; font-weight: 700;
 }
@@ -964,21 +970,22 @@ button.ds-tile { appearance: none; }
   color: inherit; font: inherit; text-decoration: underline;
 }
 
-/* timeline card */
+/* timeline card（空状態・ログイン誘導カードで使用） */
 .ds-feed-card {
   background: #fff; border: 1.5px solid var(--solid-ink);
   border-radius: var(--solid-radius); box-shadow: 3px 4px 0 var(--solid-ink);
   overflow: hidden;
 }
-/* タイムラインは単語一覧と同じく1枚のリストに連結し、薄い線で区切る */
+/* リスト外に直接置かれるカード（空状態など）はフルブリードにせず余白を持たせる */
+.ds-feed-main > .ds-feed-card { margin: 26px 34px 0; }
+/* タイムラインは枠なしで本文幅いっぱいに広げ、薄い線で区切る */
 .ds-feed-list {
-  background: #fff; border: 1.5px solid var(--solid-ink);
-  border-radius: var(--solid-radius); box-shadow: 3px 4px 0 var(--solid-ink);
-  overflow: hidden;
+  background: #fff;
+  border-bottom: 1px solid var(--color-border);
 }
-.ds-feed-list .ds-feed-card { border: none; border-radius: 0; box-shadow: none; }
+.ds-feed-list .ds-feed-card { border: none; border-radius: 0; box-shadow: none; margin: 0; }
 .ds-feed-list .ds-feed-card + .ds-feed-card { border-top: 1px solid var(--color-border); }
-.ds-feed-card .fc-row { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; }
+.ds-feed-card .fc-row { display: flex; align-items: flex-start; gap: 14px; padding: 16px 34px; }
 .ds-feed-card .fc-link { color: inherit; text-decoration: none; transition: background var(--dur-fast); }
 .ds-feed-card .fc-link:hover { background: var(--color-surface-secondary); }
 /* クイズエントリは行全体クリックで開閉（展開ボタンなし） */
@@ -997,26 +1004,28 @@ button.ds-tile { appearance: none; }
 .ds-feed-card .fc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
 .ds-feed-card .fc-chev { color: var(--color-muted); align-self: center; flex-shrink: 0; }
 
+/* 解いた数・習得数のチップ。ソリッドスタイル（1.5px枠 + 角丸7px）で統一する */
 .ds-feed-chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 11px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 800; border: 1.5px solid;
+  padding: 4px 10px; border-radius: 7px;
+  font-size: 11px; font-weight: 700; border: 1.5px solid;
 }
-.ds-feed-chip.quiz { background: var(--color-accent-light); border-color: var(--color-accent); color: var(--color-accent-ink); }
-.ds-feed-chip.mastered { background: #fef3c7; border-color: #fbbf24; color: #92400e; }
+.ds-feed-chip .n { font-family: var(--font-display); font-weight: 800; font-size: 13.5px; line-height: 1; }
+.ds-feed-chip.quiz { background: var(--color-accent-light); border-color: var(--color-accent-ink); color: var(--color-accent-ink); }
+.ds-feed-chip.mastered { background: #fff; border-color: var(--solid-ink); color: var(--color-ink); }
 
-/* expanded mastered-word list */
-.ds-feed-card .fc-words { border-top: 1.5px solid var(--solid-ink); background: var(--color-surface-secondary); padding: 14px 18px 16px; }
-.ds-feed-card .fc-words .lab {
+/* session detail modal（ds-modal 内。単語詳細と同じ浮き上がり表示） */
+.ds-feed-detail-head { display: flex; align-items: flex-start; gap: 14px; }
+.ds-feed-detail-lab {
   display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
   font-family: var(--font-mono); font-size: 10px; font-weight: 700;
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-muted);
 }
-.ds-feed-card .fc-words-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
-.ds-feed-card .fc-word { background: #fff; border: 1.5px solid var(--color-border); border-radius: 10px; padding: 9px 12px; min-width: 0; }
-.ds-feed-card .fc-word .en { display: block; font-family: var(--font-display); font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ds-feed-card .fc-word .ja { display: block; margin-top: 1px; font-size: 12px; color: var(--color-secondary-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ds-feed-card .fc-words .none { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--color-muted); }
+.ds-feed-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.ds-feed-detail-word { background: #fff; border: 1.5px solid var(--color-border); border-radius: 10px; padding: 9px 12px; min-width: 0; }
+.ds-feed-detail-word .en { display: block; font-family: var(--font-display); font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-feed-detail-word .ja { display: block; margin-top: 1px; font-size: 12px; color: var(--color-secondary-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-feed-detail-none { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--color-muted); }
 
 /* avatar */
 .ds-feed-avatar {
@@ -1091,10 +1100,10 @@ a.ds-feed-avatar:hover { transform: translateY(-1px); }
 
 .ds-feed-loadrow { display: flex; justify-content: center; padding: 18px 0; color: var(--color-muted); }
 
-/* skeleton */
+/* skeleton（フルブリードのリスト行と同じ見た目） */
 .ds-feed-skel {
-  display: flex; gap: 14px; padding: 16px 18px;
-  background: #fff; border: 1.5px solid var(--color-border); border-radius: var(--solid-radius);
+  display: flex; gap: 14px; padding: 16px 34px;
+  background: #fff; border-bottom: 1px solid var(--color-border);
 }
 .ds-feed-skel .av { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; }
 .ds-feed-skel .body { flex: 1; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
