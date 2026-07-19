@@ -588,10 +588,7 @@ export default function SharedDetailPage() {
         onWordAction={setActionWord}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
-      <div className="flex items-center justify-between px-3.5 pb-2 pt-2">
-        <SharedHeaderBtn onClick={() => router.back()} aria-label="戻る">
-          <Icon name="chevron_left" size={16} />
-        </SharedHeaderBtn>
+      <div className="flex items-center justify-end px-3.5 pb-2 pt-2">
         <div className="flex gap-2">
           <SharedHeaderBtn
             onClick={handleToggleLike}

@@ -138,7 +138,7 @@ export function ReelCard({
       ) : (
       /* Swipeable face track: front(English) then back(meaning) */
       <div
-        className="min-h-0 flex-1"
+        className="relative min-h-0 flex-1"
         style={{ touchAction: 'pan-y' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -179,6 +179,19 @@ export function ReelCard({
           <div className="h-full" style={{ width: `${faceWidth}%` }}>
             <ReelMeaningPanel item={item} />
           </div>
+        </div>
+        {/* ページドット: もう1面あることを示し、スワイプ/タップを誘う */}
+        <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+          {Array.from({ length: faces }, (_, index) => (
+            <span
+              key={index}
+              className={`h-1.5 rounded-full transition-all duration-200 ${
+                index === page
+                  ? 'w-5 bg-[var(--solid-ink)]'
+                  : 'w-1.5 bg-[var(--color-border)]'
+              }`}
+            />
+          ))}
         </div>
       </div>
       )}

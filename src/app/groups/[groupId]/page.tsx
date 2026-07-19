@@ -141,15 +141,15 @@ export default function GroupPage() {
                 <LoadingState />
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
+                  <GroupWordbooksSection groupId={groupId} projects={projects} />
                   <div className="flex flex-col gap-5">
-                    <BookshelfSection groupId={groupId} projects={projects} />
+                    <LeaderboardSection leaderboard={leaderboard} />
                     <MissedWordsSection
                       groupId={groupId}
                       missedWords={missedWords}
                       totalCount={missedWordsTotalCount}
                     />
                   </div>
-                  <LeaderboardSection leaderboard={leaderboard} />
                 </div>
               )}
             </>
@@ -497,6 +497,78 @@ function MissedWordsSection({
         </>
       )}
     </SectionCard>
+  );
+}
+
+// デスクトップ用: 本棚ティザーに格納せず、グループの単語帳をそのまま
+// グリッドで表示する。共有・解除の管理は従来どおり本棚ページで行う。
+function GroupWordbooksSection({ groupId, projects }: { groupId: string; projects: SharedProjectCard[] }) {
+  return (
+    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#F5A623] text-white">
+          <Icon name="auto_stories" size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">単語帳</h2>
+          <div className="text-[11px] font-bold text-[var(--color-muted)]">
+            {projects.length > 0 ? `みんなの単語帳 ${projects.length}冊` : 'みんなの単語帳が並ぶ場所'}
+          </div>
+        </div>
+        <Link
+          href={`/groups/${encodeURIComponent(groupId)}/bookshelf`}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 py-1.5 font-display text-[12px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          共有・管理
+          <Icon name="chevron_right" size={14} />
+        </Link>
+      </div>
+      {projects.length === 0 ? (
+        <EmptyRow message="まだ単語帳がありません。最初の1冊を共有しよう！" />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+          {projects.map((card) => (
+            <GroupBookTile key={card.project.id} card={card} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GroupBookTile({ card }: { card: SharedProjectCard }) {
+  const href = card.project.shareId ? `/share/${card.project.shareId}` : '#';
+  return (
+    <Link
+      href={href}
+      onClick={() => triggerHaptic()}
+      className="block overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white transition-all duration-100 hover:-translate-y-0.5 active:translate-y-0"
+    >
+      <div
+        className="relative flex h-[92px] items-center justify-center bg-cover bg-center"
+        style={{
+          backgroundColor: thumbColor(card.project.id),
+          backgroundImage: card.project.iconImage ? `url(${card.project.iconImage})` : undefined,
+        }}
+      >
+        {!card.project.iconImage && (
+          <span className="font-display text-[30px] font-extrabold text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.25)]">
+            {card.project.title.charAt(0)}
+          </span>
+        )}
+        <span className="absolute bottom-1.5 right-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2 py-0.5 font-mono text-[10px] font-extrabold tabular-nums text-[var(--solid-ink)]">
+          {card.wordCount ?? 0}語
+        </span>
+      </div>
+      <div className="border-t-2 border-[var(--solid-ink)] p-2.5">
+        <div className="line-clamp-2 font-display text-[13px] font-extrabold leading-snug text-[var(--solid-ink)]">
+          {card.project.title}
+        </div>
+        <div className="mt-1 truncate text-[10px] font-bold text-[var(--color-muted)]">
+          {card.ownerUsername ? `@${card.ownerUsername}` : '共有ユーザー'}
+        </div>
+      </div>
+    </Link>
   );
 }
 
