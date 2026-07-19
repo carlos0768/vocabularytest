@@ -495,6 +495,166 @@ test('applyWordOrderQuestionsToPendingQuiz inserts newly generated word-order qu
   assert.deepEqual(nextQuestions[0]?.options, ['take', 'care', 'hold', 'keep', 'watch']);
 });
 
+test('applyWordOrderQuestionsToPendingQuiz never grows the quiz when inserts are disallowed', () => {
+  const answeredQuestion = {
+    word: createWord({
+      id: 'word-1',
+      english: 'take care',
+      japanese: '世話をする',
+      distractors: ['守る', '持つ', '作る'],
+    }),
+    options: ['世話をする', '守る', '持つ', '作る'],
+    correctIndex: 0,
+  };
+
+  const questions = [answeredQuestion];
+  const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
+    questions,
+    [
+      createWord({
+        id: 'word-1',
+        english: 'take care',
+        japanese: '世話をする',
+        wordOrderQuiz: {
+          version: WORD_ORDER_CACHE_VERSION,
+          sourceEnglish: 'take care',
+          sourceJapanese: '世話をする',
+          sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+          answerTokens: ['take', 'care'],
+          decoyTokens: ['hold', 'keep', 'watch'],
+          generatedAt: '2026-05-09T00:00:00.000Z',
+        },
+      }),
+      createWord({
+        id: 'word-2',
+        english: 'look up',
+        japanese: '調べる',
+        wordOrderQuiz: {
+          version: WORD_ORDER_CACHE_VERSION,
+          sourceEnglish: 'look up',
+          sourceJapanese: '調べる',
+          sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+          answerTokens: ['look', 'up'],
+          decoyTokens: ['see', 'find', 'check'],
+          generatedAt: '2026-05-09T00:00:00.000Z',
+        },
+      }),
+    ],
+    0,
+    identityShuffle,
+    { allowInsert: false },
+  );
+
+  assert.equal(nextQuestions, questions);
+  assert.equal(nextQuestions.length, 1);
+});
+
+test('applyWordOrderQuestionsToPendingQuiz still replaces pending questions when inserts are disallowed', () => {
+  const answeredQuestion = {
+    word: createWord({
+      id: 'word-2',
+      english: 'look up',
+      japanese: '調べる',
+      distractors: ['見る', '上げる', '探す'],
+    }),
+    options: ['調べる', '見る', '上げる', '探す'],
+    correctIndex: 0,
+  };
+
+  const pendingQuestion = {
+    word: createWord({
+      id: 'word-1',
+      english: 'take care',
+      japanese: '世話をする',
+      distractors: ['守る', '持つ', '作る'],
+    }),
+    options: ['世話をする', '守る', '持つ', '作る'],
+    correctIndex: 0,
+  };
+
+  const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
+    [answeredQuestion, pendingQuestion],
+    [
+      createWord({
+        id: 'word-1',
+        english: 'take care',
+        japanese: '世話をする',
+        wordOrderQuiz: {
+          version: WORD_ORDER_CACHE_VERSION,
+          sourceEnglish: 'take care',
+          sourceJapanese: '世話をする',
+          sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+          answerTokens: ['take', 'care'],
+          decoyTokens: ['hold', 'keep', 'watch'],
+          generatedAt: '2026-05-09T00:00:00.000Z',
+        },
+      }),
+    ],
+    0,
+    identityShuffle,
+    { allowInsert: false },
+  );
+
+  assert.equal(nextQuestions.length, 2);
+  assert.notEqual(nextQuestions[0]?.type, 'word-order');
+  assert.equal(nextQuestions[1]?.type, 'word-order');
+});
+
+test('applyWordOrderQuestionsToPendingQuiz caps insertions at maxQuestions', () => {
+  const answeredQuestion = {
+    word: createWord({
+      id: 'word-1',
+      english: 'take care',
+      japanese: '世話をする',
+      distractors: ['守る', '持つ', '作る'],
+    }),
+    options: ['世話をする', '守る', '持つ', '作る'],
+    correctIndex: 0,
+  };
+
+  const nextQuestions = applyWordOrderQuestionsToPendingQuiz(
+    [answeredQuestion],
+    [
+      createWord({
+        id: 'word-1',
+        english: 'take care',
+        japanese: '世話をする',
+        wordOrderQuiz: {
+          version: WORD_ORDER_CACHE_VERSION,
+          sourceEnglish: 'take care',
+          sourceJapanese: '世話をする',
+          sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+          answerTokens: ['take', 'care'],
+          decoyTokens: ['hold', 'keep', 'watch'],
+          generatedAt: '2026-05-09T00:00:00.000Z',
+        },
+      }),
+      createWord({
+        id: 'word-2',
+        english: 'look up',
+        japanese: '調べる',
+        wordOrderQuiz: {
+          version: WORD_ORDER_CACHE_VERSION,
+          sourceEnglish: 'look up',
+          sourceJapanese: '調べる',
+          sentenceTokens: [WORD_ORDER_BLANK_TOKEN, WORD_ORDER_BLANK_TOKEN],
+          answerTokens: ['look', 'up'],
+          decoyTokens: ['see', 'find', 'check'],
+          generatedAt: '2026-05-09T00:00:00.000Z',
+        },
+      }),
+    ],
+    0,
+    identityShuffle,
+    { maxQuestions: 2 },
+  );
+
+  assert.equal(nextQuestions.length, 2);
+  assert.notEqual(nextQuestions[0]?.type, 'word-order');
+  assert.equal(nextQuestions[1]?.type, 'word-order');
+  assert.equal(nextQuestions[1]?.word.id, 'word-1');
+});
+
 test('applyWordOrderQuestionsToPendingQuiz does not replace active multi-word questions', () => {
   const currentQuestion = {
     word: createWord({

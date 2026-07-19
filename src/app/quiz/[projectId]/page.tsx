@@ -603,6 +603,10 @@ export default function QuizPage() {
   const vocabularyMergeFromLocalAppliedRef = useRef(false);
   const currentIndexRef = useRef(0);
   const wordOrderGenerationRunRef = useRef(0);
+  // True once the user has answered (or skipped) any question in the current
+  // quiz run. Late-arriving background word-order quizzes must not grow the
+  // question list after this point.
+  const hasAnsweredRef = useRef(false);
   const storageKey = reminderMode
     ? 'quiz_state_reminder'
     : wrongMode
@@ -667,7 +671,10 @@ export default function QuizPage() {
     const cnt = Math.max(1, Math.min(questionCount ?? DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
     const modeParam = learnMode ? 'learn=1' : 'review=1';
     const url = `${pathname}?${modeParam}&count=${cnt}${fromQ}&_rs=${Date.now()}`;
-    window.location.assign(url);
+    // replace() instead of assign(): each round must not add a history entry,
+    // otherwise 終了する (router.back) lands on the previous round's quiz URL
+    // and starts a brand-new quiz instead of leaving.
+    window.location.replace(url);
   }, [clearQuizState, returnPath, questionCount, pathname, learnMode]);
 
   useEffect(() => {
@@ -767,6 +774,8 @@ export default function QuizPage() {
           prev,
           updatedSelected,
           currentIndexRef.current,
+          undefined,
+          { allowInsert: !hasAnsweredRef.current, maxQuestions: count },
         ));
       })();
     }
@@ -845,6 +854,7 @@ export default function QuizPage() {
         setQuestionCount(restoredCount);
         setQuizDirection(state.quizDirection);
         setAllWords(restoredQuestions.map(q => q.word));
+        hasAnsweredRef.current = (state.results?.total ?? 0) > 0 || state.currentIndex > 0;
         restoredFromStorage.current = true;
         setLoading(false);
         return true;
@@ -1092,6 +1102,7 @@ export default function QuizPage() {
   }, [currentIndex, isTypeInMode, isRevealed, focusTypeInField]);
 
   const applyAnswerOutcome = async (word: Word, isCorrect: boolean, marker?: QuizAnswerResult) => {
+    hasAnsweredRef.current = true;
     playAnswerFeedbackSound(isCorrect);
     setResults((prev) => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
     setAnswerResults((prev) => {
@@ -1254,6 +1265,7 @@ export default function QuizPage() {
 
   const handleRestart = async () => {
     clearQuizState();
+    hasAnsweredRef.current = false;
     const targetCount = getQuizTargetCount(allWords, { primaryOnly: !isPro });
     const count = Math.max(1, Math.min(questionCount ?? targetCount ?? DEFAULT_QUESTION_COUNT, targetCount || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
     if (allWords.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count);
@@ -1266,6 +1278,7 @@ export default function QuizPage() {
 
   const handleSelectCount = async (count: number) => {
     setQuestionCount(count);
+    hasAnsweredRef.current = false;
     if (allWords.length > 0) {
       setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null); setIsRevealed(false);
       setTypeInAnswer(''); setTypeInResult(null);
