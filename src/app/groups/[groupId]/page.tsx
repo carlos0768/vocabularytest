@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
 import { getSeededGroupSummary, loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
@@ -29,6 +30,8 @@ const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
 
 export default function GroupPage() {
   const router = useRouter();
+  // ページ上端ではヘッダの下線を出さない（スクロールで表示）
+  const pageScrolled = usePageScrolled();
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
   const { loading: authLoading, isAuthenticated } = useAuth();
@@ -169,9 +172,10 @@ export default function GroupPage() {
         }}
       >
         {/* スクロールしても上部に固定されるヘッダー。top はノッチ下端に合わせ、
-            ノッチ帯は全体共通の StatusBarCover がすりガラスで覆う。 */}
+            ノッチ帯は全体共通の StatusBarCover がすりガラスで覆う。
+            下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
         <header
-          className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md"
+          className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
           style={{ top: 'env(safe-area-inset-top, 0px)' }}
         >
           <button
