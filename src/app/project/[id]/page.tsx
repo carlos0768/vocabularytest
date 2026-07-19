@@ -42,7 +42,7 @@ import {
   type ProjectWordActivenessFilter,
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
-import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus } from '@/types';
+import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus, WordTranslation } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
@@ -1068,6 +1068,7 @@ export default function ProjectPage() {
     setManualWordSavingMessage('情報を生成中...');
 
     let japanese = japaneseInput;
+    let enrichedTranslationTexts: string[] = [];
     let enrichedPronunciation = '';
     let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
     let enrichedExampleSentence = userExample;
@@ -1091,6 +1092,7 @@ export default function ProjectPage() {
           success?: boolean;
           enriched?: {
             japanese?: string;
+            translations?: string[];
             pronunciation?: string;
             partOfSpeechTags?: string[];
             exampleSentence?: string;
@@ -1099,8 +1101,12 @@ export default function ProjectPage() {
           morphology?: Word['morphology'];
         };
         if (data.success && data.enriched) {
-          if (!japanese && data.enriched.japanese) {
-            japanese = data.enriched.japanese.trim();
+          if (!japanese) {
+            // 全訳補完: 訳ごとに word_translations レコードを作るため配列で受ける
+            enrichedTranslationTexts = (data.enriched.translations ?? [])
+              .map((text) => text.trim())
+              .filter(Boolean);
+            japanese = enrichedTranslationTexts[0] ?? data.enriched.japanese?.trim() ?? '';
           }
           enrichedPronunciation = data.enriched.pronunciation ?? '';
           if (data.enriched.partOfSpeechTags && data.enriched.partOfSpeechTags.length > 0) {
@@ -1126,11 +1132,24 @@ export default function ProjectPage() {
       return;
     }
 
+    // 補完された全訳を訳ごとの WordTranslation レコードに展開する
+    const enrichedTranslations: WordTranslation[] | undefined = enrichedTranslationTexts.length > 0
+      ? enrichedTranslationTexts.map((text, index) => ({
+          translationJa: text,
+          normalizedTranslationJa: text,
+          source: 'ai' as const,
+          meaningRank: index + 1,
+          position: index,
+          isPrimary: index === 0,
+        }))
+      : undefined;
+
     const optimisticWord: Word = {
       id: crypto.randomUUID(),
       projectId,
       english,
       japanese,
+      ...(enrichedTranslations ? { translations: enrichedTranslations, japaneseSource: 'ai' as const } : {}),
       distractors: ['選択肢1', '選択肢2', '選択肢3'],
       pronunciation: enrichedPronunciation || undefined,
       partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
@@ -1161,6 +1180,7 @@ export default function ProjectPage() {
           projectId,
           english,
           japanese,
+          ...(enrichedTranslations ? { translations: enrichedTranslations, japaneseSource: 'ai' as const } : {}),
           distractors: ['選択肢1', '選択肢2', '選択肢3'],
           ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
           ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),

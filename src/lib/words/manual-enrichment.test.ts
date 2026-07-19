@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildManualEnrichPrompt,
+  dedupeJapaneseTranslations,
   pickManualMasterEnrichment,
   type ManualEnrichmentMasterRow,
 } from '@/lib/words/manual-enrichment';
@@ -88,6 +89,42 @@ test('pickManualMasterEnrichment supplies a Japanese translation for empty manua
 
   assert.ok(result);
   assert.equal(result.japanese, '経営');
+});
+
+test('pickManualMasterEnrichment gathers all translations from entries and senses', () => {
+  const result = pickManualMasterEnrichment(
+    [
+      row({ id: 'entry-verb', pos: 'verb', translation_ja: '走る' }),
+      row({ id: 'entry-noun', pos: 'noun', translation_ja: '経営', example_sentence: null, example_sentence_ja: null }),
+    ],
+    '',
+    [
+      { lexicon_entry_id: 'entry-verb', translation_ja: '走る' },
+      { lexicon_entry_id: 'entry-verb', translation_ja: '経営する' },
+      { lexicon_entry_id: 'entry-noun', translation_ja: '連続' },
+    ],
+  );
+
+  assert.ok(result);
+  assert.equal(result.japanese, '走る');
+  // 第一訳 → 選ばれたエントリのsense → 他エントリのsense → 他エントリの訳
+  assert.deepEqual(result.japaneseTranslations, ['走る', '経営する', '連続', '経営']);
+});
+
+test('pickManualMasterEnrichment splits multi-meaning master translations into records', () => {
+  const result = pickManualMasterEnrichment([row({ translation_ja: '感覚;分別' })], '');
+
+  assert.ok(result);
+  assert.equal(result.japanese, '感覚;分別');
+  assert.deepEqual(result.japaneseTranslations, ['感覚', '分別']);
+});
+
+test('dedupeJapaneseTranslations removes duplicates, splits joined meanings, and caps the list', () => {
+  assert.deepEqual(
+    dedupeJapaneseTranslations(['走る', '走る', '経営する;立候補する', '']),
+    ['走る', '経営する', '立候補する'],
+  );
+  assert.deepEqual(dedupeJapaneseTranslations(['一', '二', '三'], 2), ['一', '二']);
 });
 
 test('buildManualEnrichPrompt lists only the fields the AI must generate', () => {
