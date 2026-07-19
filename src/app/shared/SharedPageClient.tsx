@@ -8,6 +8,7 @@ import { FollowNotificationsButton } from '@/components/notifications/FollowNoti
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useMyGroups } from '@/hooks/use-my-groups';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { ShareTypeChooser } from './ShareTypeChooser';
 import { triggerHaptic } from '@/lib/haptics';
@@ -124,6 +125,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   // 参加中のグループ。表示はホームへ移設済みだが、グループ検索の
   // 参加済みフィルタ（モバイル/デスクトップ両方）が引き続き使う。
   const { groups: myGroups } = useMyGroups();
+  // ページ上端ではヘッダの下線を出さない（スクロールで表示）
+  const pageScrolled = usePageScrolled();
 
   const [userQuery, setUserQuery] = useState('');
   const [userResults, setUserResults] = useState<FollowSearchResult[]>([]);
@@ -265,25 +268,12 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
         {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
-            top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。 */}
+            top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
+            下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
         <header
-          className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md"
+          className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
           style={{ top: 'env(safe-area-inset-top, 0px)' }}
         >
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined' && window.history.length > 1) {
-                router.back();
-              } else {
-                router.push('/');
-              }
-            }}
-            aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-          >
-            <Icon name="arrow_back" size={16} />
-          </button>
           <div className="min-w-0 flex-1">
             <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
               COMMUNITY

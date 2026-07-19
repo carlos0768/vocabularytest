@@ -16,6 +16,7 @@ import { WordDetailView } from '@/components/word/WordDetailView';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useTourSeen } from '@/hooks/use-tour-seen';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { useWordCount } from '@/hooks/use-word-count';
@@ -136,6 +137,8 @@ export default function ProjectPage() {
   const { shouldRender: projectTourReady, markSeen: markProjectTourSeen } = useTourSeen('project-intro');
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
   const isMobileViewport = useIsMobileViewport();
+  // ページ上端ではヘッダの下線を出さない（スクロールで表示）
+  const pageScrolled = usePageScrolled();
 
   const [project, setProject] = useState<Project | null>(null);
   const [words, setWords] = useState<Word[]>([]);
@@ -1235,9 +1238,10 @@ export default function ProjectPage() {
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
-          top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。 */}
+          top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
+          下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
       <header
-        className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md lg:hidden"
+        className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md lg:hidden ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <HeaderBtn onClick={() => router.replace('/')} aria-label="ホームへ戻る">

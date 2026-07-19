@@ -11,6 +11,7 @@ import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
@@ -120,6 +121,8 @@ export default function SharedDetailPage() {
   const shareId = params.shareId as string;
   const { user, subscription, loading: authLoading } = useAuth();
   const isMobileViewport = useIsMobileViewport();
+  // ページ上端ではヘッダの下線を出さない（スクロールで表示）
+  const pageScrolled = usePageScrolled();
   const { showToast } = useToast();
   const billingEnabled = isBillingEnabled();
   const {
@@ -589,9 +592,10 @@ export default function SharedDetailPage() {
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
-          top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。 */}
+          top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
+          下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
       <header
-        className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md"
+        className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <button
