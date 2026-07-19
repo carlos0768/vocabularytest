@@ -558,7 +558,7 @@ export default function FlashcardPage() {
           }}
         >
           <div
-            className="grid w-full"
+            className="grid w-full grid-cols-[minmax(0,1fr)]"
             style={{
               transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
               transformStyle: 'preserve-3d',
@@ -593,8 +593,11 @@ export default function FlashcardPage() {
 
               {/* Big word */}
               <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-center">
-                <div className="font-mono text-xs text-[var(--color-muted)]">{currentWord?.pronunciation ?? ''}</div>
-                <div className="font-display text-[40px] font-extrabold leading-[1.05] tracking-[-0.02em] text-[var(--solid-ink)]">
+                <div className="max-w-full break-words font-mono text-xs text-[var(--color-muted)]">{currentWord?.pronunciation ?? ''}</div>
+                <div
+                  className="max-w-full break-words font-display text-[40px] font-extrabold leading-[1.05] tracking-[-0.02em] text-[var(--solid-ink)]"
+                  style={{ fontSize: currentWord?.english && currentWord.english.length > 14 ? 30 : undefined }}
+                >
                   {currentWord?.english}
                 </div>
                 <button
@@ -638,12 +641,12 @@ export default function FlashcardPage() {
               }}
             >
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                <h2 className="text-3xl font-bold text-white">
+                <h2 className="max-w-full break-words text-3xl font-bold text-white">
                   {currentWord && <TranslationDisplay word={currentWord} />}
                 </h2>
-                <p className="text-sm text-white/60">{currentWord?.english}</p>
+                <p className="max-w-full break-words text-sm text-white/60">{currentWord?.english}</p>
                 {currentWord?.pronunciation && (
-                  <p className="font-mono text-xs text-white/50">{currentWord.pronunciation}</p>
+                  <p className="max-w-full break-words font-mono text-xs text-white/50">{currentWord.pronunciation}</p>
                 )}
                 {currentWord?.exampleSentence && (
                   <div className="mt-2 w-full rounded-xl bg-white/10 p-3.5 text-left">
