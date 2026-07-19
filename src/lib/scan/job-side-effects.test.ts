@@ -42,6 +42,24 @@ test('buildScanJobFailedNotificationParams fixes failed scan notification params
   );
 });
 
+test('buildScanJobFailedNotificationParams carries the failure reason into the notification', () => {
+  const params = buildScanJobFailedNotificationParams({
+    ...commonParams,
+    errorMessage: ' 画像から単語を読み取れませんでした。 ',
+  });
+
+  assert.equal(params.errorMessage, '画像から単語を読み取れませんでした。');
+});
+
+test('buildScanJobFailedNotificationParams omits errorMessage when the reason is blank', () => {
+  const params = buildScanJobFailedNotificationParams({
+    ...commonParams,
+    errorMessage: '   ',
+  });
+
+  assert.equal('errorMessage' in params, false);
+});
+
 test('buildScanJobCompletedNotificationParams fixes completed scan notification params', () => {
   assert.deepEqual(
     buildScanJobCompletedNotificationParams({

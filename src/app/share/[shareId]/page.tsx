@@ -588,21 +588,40 @@ export default function SharedDetailPage() {
         onWordAction={setActionWord}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
-      <div className="flex items-center justify-end px-3.5 pb-2 pt-2">
-        <div className="flex gap-2">
-          <SharedHeaderBtn
-            onClick={handleToggleLike}
-            aria-label={liked ? 'いいねを取り消す' : 'いいね'}
-          >
-            <div className="flex items-center gap-1">
-              <Icon name="thumb_up" size={14} filled={liked} />
-              {likeCount > 0 && <span className="font-mono text-[9px] font-bold">{likeCount}</span>}
-            </div>
-          </SharedHeaderBtn>
+      {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
+          top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。 */}
+      <header
+        className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md"
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="戻る"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          <Icon name="arrow_back" size={16} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+            SHARED
+          </div>
+          <div className="truncate font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">
+            {project.title}
+          </div>
         </div>
-      </div>
+        <SharedHeaderBtn
+          onClick={handleToggleLike}
+          aria-label={liked ? 'いいねを取り消す' : 'いいね'}
+        >
+          <div className="flex items-center gap-1">
+            <Icon name="thumb_up" size={14} filled={liked} />
+            {likeCount > 0 && <span className="font-mono text-[9px] font-bold">{likeCount}</span>}
+          </div>
+        </SharedHeaderBtn>
+      </header>
 
-      <div className="px-[18px] pb-3.5 pt-1">
+      <div className="px-[18px] pb-3.5 pt-3">
         <SolidPanel
           className="!rounded-[16px] overflow-hidden"
           faceClassName="!p-4 relative [background:linear-gradient(135deg,oklch(0.94_0.04_14),#fff)]"

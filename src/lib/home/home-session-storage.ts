@@ -8,6 +8,7 @@ export const HOME_SESSION_STORAGE_KEYS = {
   selectedProjectId: 'scanvocab_selected_project_id',
   generatingWordbook: 'scanvocab_generating_wordbook',
   legacyProjectId: 'scanvocab_project_id',
+  manualAddProjectId: 'scanvocab_manual_add_project_id',
 } as const;
 
 export interface HomeGeneratingWordbookPayload {
@@ -70,6 +71,22 @@ export function clearHomeGeneratingWordbook(storage: HomeSessionStorage): void {
 
 export function clearLegacyHomeProjectId(storage: HomeSessionStorage): void {
   storage.removeItem(HOME_SESSION_STORAGE_KEYS.legacyProjectId);
+}
+
+/**
+ * 空の単語帳を作成して単語帳ページへ遷移した直後に、手動追加モーダルを
+ * 自動で開くための受け渡し。作成元（CreateWordbookSheet）が projectId を
+ * 保存し、単語帳ページが consume して一致した場合のみモーダルを開く。
+ */
+export function saveManualAddIntent(storage: HomeSessionStorage, projectId: string): void {
+  storage.setItem(HOME_SESSION_STORAGE_KEYS.manualAddProjectId, projectId);
+}
+
+export function consumeManualAddIntent(storage: HomeSessionStorage): string | null {
+  const projectId = storage.getItem(HOME_SESSION_STORAGE_KEYS.manualAddProjectId);
+  if (projectId === null) return null;
+  storage.removeItem(HOME_SESSION_STORAGE_KEYS.manualAddProjectId);
+  return projectId;
 }
 
 function isGeneratingWordbookPayload(

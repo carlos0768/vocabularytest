@@ -49,6 +49,7 @@ const partOfSpeechTagsSchema = z.preprocess((value) => {
 }, z.array(z.string()).default([]));
 
 const aiResponseSchema = z.object({
+  japanese: z.string().optional().default(''),
   pronunciation: z.string().optional().default(''),
   partOfSpeechTags: partOfSpeechTagsSchema,
   exampleSentence: z.string().optional().default(''),
@@ -56,6 +57,7 @@ const aiResponseSchema = z.object({
 });
 
 const SYSTEM_PROMPT = `英単語の補助情報をJSON形式で返せ。
+japanese: 単語帳向けの簡潔な日本語訳(訳語のみ・説明不要)
 pronunciation: IPA発音記号を"/.../"形式で返す
 partOfSpeechTags: [noun/verb/adjective/adverb/idiom/phrasal_verb/other]から1つ
 exampleSentence: 10〜15語の実用的な英文(中高レベル)
@@ -134,14 +136,16 @@ export async function POST(request: NextRequest) {
     const filledExampleJa = input.exampleSentenceJa?.trim() ?? '';
     const filledPosTags = normalizePartOfSpeechTags(input.partOfSpeechTags ?? []);
 
+    const needsJapanese = filledJapanese.length === 0;
     const needsPronunciation = filledPronunciation.length === 0;
     const needsPos = filledPosTags.length === 0;
     const needsExample = filledExample.length === 0 || filledExampleJa.length === 0;
 
-    if (!needsPronunciation && !needsPos && !needsExample) {
+    if (!needsJapanese && !needsPronunciation && !needsPos && !needsExample) {
       return NextResponse.json({
         success: true,
         enriched: {
+          japanese: filledJapanese,
           pronunciation: filledPronunciation,
           partOfSpeechTags: filledPosTags,
           exampleSentence: filledExample,
@@ -173,6 +177,7 @@ export async function POST(request: NextRequest) {
       master = null;
     }
 
+    const masterJapanese = needsJapanese ? (master?.japanese ?? '') : '';
     const masterPronunciation = needsPronunciation ? (master?.pronunciation ?? '') : '';
     const masterPosTags = needsPos
       ? normalizePartOfSpeechTags(master?.partOfSpeechTags ?? [])
@@ -180,10 +185,11 @@ export async function POST(request: NextRequest) {
     const masterExample = needsExample ? (master?.exampleSentence ?? '') : '';
     const masterExampleJa = needsExample ? (master?.exampleSentenceJa ?? '') : '';
 
+    const aiNeedsJapanese = needsJapanese && !masterJapanese;
     const aiNeedsPronunciation = needsPronunciation && !masterPronunciation;
     const aiNeedsPos = needsPos && masterPosTags.length === 0;
     const aiNeedsExample = needsExample && !(masterExample && masterExampleJa);
-    const needsAi = aiNeedsPronunciation || aiNeedsPos || aiNeedsExample;
+    const needsAi = aiNeedsJapanese || aiNeedsPronunciation || aiNeedsPos || aiNeedsExample;
 
     // 2c. マスターで埋まらなかったフィールドのみAI生成を開始 (auth 完了を待たない)
     let aiPromise: Promise<import('@/lib/ai/providers').AIResponse> | null = null;
@@ -191,6 +197,7 @@ export async function POST(request: NextRequest) {
       try {
         const { provider, config } = getEnrichProvider();
         const prompt = buildManualEnrichPrompt(englishTrimmed, filledJapanese, {
+          japanese: aiNeedsJapanese,
           pronunciation: aiNeedsPronunciation,
           pos: aiNeedsPos,
           example: aiNeedsExample,
@@ -224,6 +231,7 @@ export async function POST(request: NextRequest) {
     //    マスターで全フィールドが埋まった場合はAIコール自体が無い。
     const aiStart = Date.now();
     let parsedAi: z.infer<typeof aiResponseSchema> = {
+      japanese: '',
       pronunciation: '',
       partOfSpeechTags: [],
       exampleSentence: '',
@@ -270,6 +278,10 @@ export async function POST(request: NextRequest) {
 
     // 6. ユーザ入力 > マスター > AI の優先順で埋める
     const generatedFields: string[] = [];
+
+    const aiJapanese = (parsedAi.japanese || '').trim();
+    const finalJapanese = needsJapanese ? (masterJapanese || aiJapanese) : filledJapanese;
+    if (needsJapanese && finalJapanese) generatedFields.push('japanese');
 
     const aiPronunciation = (parsedAi.pronunciation || '').trim();
     const finalPronunciation = needsPronunciation
@@ -346,6 +358,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       enriched: {
+        japanese: finalJapanese,
         pronunciation: finalPronunciation,
         partOfSpeechTags: finalPosTags,
         exampleSentence: finalExample,

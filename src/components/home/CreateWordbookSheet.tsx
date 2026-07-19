@@ -7,6 +7,7 @@ import { SolidButton } from '@/components/redesign/SolidPage';
 import { ScanCapturePanel } from '@/components/home/ScanCapturePanel';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
+import { saveManualAddIntent } from '@/lib/home/home-session-storage';
 import { getGuestUserId, FREE_WORDBOOK_LIMIT } from '@/lib/utils';
 import type { SubscriptionStatus } from '@/types';
 
@@ -110,6 +111,12 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
         }
       }
       const project = await repository.createProject({ userId, title: trimmedName });
+      // 空の単語帳は単語ゼロで始まるので、遷移先で手動追加モーダルを自動で開く
+      try {
+        saveManualAddIntent(sessionStorage, project.id);
+      } catch {
+        // sessionStorage が使えない環境では自動オープンだけ諦める
+      }
       onClose();
       router.push(`/project/${project.id}`);
     } catch (error) {

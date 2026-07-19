@@ -21,6 +21,8 @@ export interface ManualEnrichmentMasterRow {
 export interface ManualMasterEnrichment {
   /** 例文・発音の書き戻し先。マスターにエントリが無い場合は null。 */
   entryId: string | null;
+  /** 日本語訳が未入力のときの補完候補。マスターに無ければ空文字。 */
+  japanese: string;
   pronunciation: string;
   partOfSpeechTags: string[];
   exampleSentence: string;
@@ -64,12 +66,15 @@ export function pickManualMasterEnrichment(
 
   const pronunciation = normalizeText(best.pronunciation)
     || normalizeText(rows.find((row) => normalizeText(row.pronunciation))?.pronunciation);
+  const japanese = normalizeText(best.translation_ja)
+    || normalizeText(rows.find((row) => normalizeText(row.translation_ja))?.translation_ja);
   const exampleSentence = normalizeText(best.example_sentence);
   const exampleSentenceJa = normalizeText(best.example_sentence_ja);
   const pos = normalizeText(best.pos);
 
   return {
     entryId: best.id,
+    japanese,
     pronunciation,
     partOfSpeechTags: pos ? [pos] : [],
     // 例文は英日ペアが揃っている場合のみ採用する
@@ -109,6 +114,7 @@ export async function fetchManualEnrichmentFromMaster(
 }
 
 export interface ManualEnrichAiFields {
+  japanese?: boolean;
   pronunciation: boolean;
   pos: boolean;
   example: boolean;
@@ -125,6 +131,7 @@ export function buildManualEnrichPrompt(
   fields: ManualEnrichAiFields,
 ): string {
   const targets: string[] = [];
+  if (fields.japanese) targets.push('japanese');
   if (fields.pronunciation) targets.push('pronunciation');
   if (fields.pos) targets.push('partOfSpeechTags');
   if (fields.example) targets.push('exampleSentence', 'exampleSentenceJa');

@@ -10,6 +10,8 @@ export interface ScanJobNotificationParams {
   projectTitle: string;
   status: ScanJobNotificationStatus;
   wordCount?: number;
+  /** 失敗通知の本文にそのまま載せる、ユーザー向けの失敗理由（日本語） */
+  errorMessage?: string;
 }
 
 interface CommonNotificationParams {
@@ -31,8 +33,9 @@ export function buildScanJobWarningNotificationParams(
 }
 
 export function buildScanJobFailedNotificationParams(
-  params: CommonNotificationParams,
+  params: CommonNotificationParams & { errorMessage?: string },
 ): ScanJobNotificationParams {
+  const errorMessage = params.errorMessage?.trim();
   return {
     userId: params.userId,
     jobId: params.jobId,
@@ -40,6 +43,7 @@ export function buildScanJobFailedNotificationParams(
     projectTitle: params.projectTitle,
     status: 'failed',
     wordCount: 0,
+    ...(errorMessage ? { errorMessage } : {}),
   };
 }
 

@@ -1077,6 +1077,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           userId: job.user_id,
           jobId,
           projectTitle: job.project_title,
+          errorMessage,
         });
         await sendScanJobNotifications({
           supabaseAdmin,
@@ -1875,13 +1876,15 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
         timing.totalMs = Date.now() - processingStartedAt;
 
+        // error_message はホーム画面・プッシュ通知にそのまま表示されるため、
+        // 内部エラーの英語メッセージではなく理由の伝わる日本語文言に変換する。
+        const failureMessage = toUserFacingScanErrorMessage(processingError);
+
         await supabaseAdmin
           .from('scan_jobs')
           .update({
             status: 'failed',
-            // error_message はホーム画面にそのまま表示されるため、内部エラーの
-            // 英語メッセージではなく理由の伝わる日本語文言に変換して書き込む。
-            error_message: toUserFacingScanErrorMessage(processingError),
+            error_message: failureMessage,
             updated_at: new Date().toISOString(),
           })
           .eq('id', jobId);
@@ -1898,6 +1901,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           userId: job.user_id,
           jobId,
           projectTitle: job.project_title,
+          errorMessage: failureMessage,
         });
         await sendScanJobNotifications({
           supabaseAdmin,

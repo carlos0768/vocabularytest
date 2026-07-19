@@ -260,6 +260,12 @@ export function HomeClient() {
   const [pendingScans, setPendingScans] = useState<HomePendingScan[]>([]);
   const [recentScanJobs, setRecentScanJobs] = useState<RecentScanJob[]>([]);
   const [pendingGeneratingWordbook, setPendingGeneratingWordbook] = useState<HomeGeneratingWordbookPayload | null>(null);
+  // スキャン失敗の理由表示。loadHome() が setError(null) するため error とは
+  // 別に持ち、リロードせずポーリング検出の時点で即表示する。
+  const [scanFailureNotice, setScanFailureNotice] = useState<string | null>(null);
+  // 直前のポーリングで実行中(pending/processing)だったジョブID。次のポーリングで
+  // failed に変わったものを検出して失敗理由を即表示するために使う。
+  const watchedActiveJobIdsRef = useRef<Set<string>>(new Set());
 
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
@@ -275,6 +281,7 @@ export function HomeClient() {
   const showHomeGeneratingWordbook = useCallback((payload: HomeGeneratingWordbookPayload) => {
     // 新しいスキャンを開始したら、前回の失敗メッセージが残っていても消す。
     setError(null);
+    setScanFailureNotice(null);
     setPendingGeneratingWordbook(withHomeGeneratingFallbackId(payload));
   }, []);
 
@@ -397,6 +404,19 @@ export function HomeClient() {
         const active = jobs.filter((j) => j.status === 'pending' || j.status === 'processing');
         setRecentScanJobs(jobs);
         setPendingScans(active.map((j) => ({ id: j.id, project_title: j.project_title })));
+
+        // 実行中として見えていたジョブが failed に変わった瞬間に理由を表示する。
+        // （以前は「生成中」カードが理由も出さず消えるだけで、リロードするまで
+        // 失敗に気づけなかった。）
+        const newlyFailed = jobs.find(
+          (j) => j.status === 'failed' && watchedActiveJobIdsRef.current.has(j.id),
+        );
+        if (newlyFailed) {
+          setScanFailureNotice(
+            `「${newlyFailed.project_title}」を作成できませんでした：${newlyFailed.error_message?.trim() || SCAN_JOB_FAILED_FALLBACK_MESSAGE}`,
+          );
+        }
+        watchedActiveJobIdsRef.current = new Set(active.map((j) => j.id));
         if (active.length === 0) {
           if (hadActiveRef.current) {
             hadActiveRef.current = false;
@@ -441,8 +461,11 @@ export function HomeClient() {
 
     // 失敗（単語ゼロなど）した場合、以前は「生成中」カードが理由も出さず
     // 消えるだけでユーザーが困っていた。サーバーが記録した理由を必ず表示する。
+    // （ポーリングで実行中を経ずに最初から failed で見えた高速失敗ケース。）
     if (linkedJob.status === 'failed') {
-      setError(linkedJob.error_message?.trim() || SCAN_JOB_FAILED_FALLBACK_MESSAGE);
+      setScanFailureNotice(
+        `「${linkedJob.project_title}」を作成できませんでした：${linkedJob.error_message?.trim() || SCAN_JOB_FAILED_FALLBACK_MESSAGE}`,
+      );
     }
   }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
@@ -591,6 +614,27 @@ export function HomeClient() {
         <div className="px-[18px] pb-3">
           <SolidPanel className="!rounded-[12px] border-[var(--color-error)]" faceClassName="!p-3 text-xs font-bold text-[var(--color-error)]">
             {error}
+          </SolidPanel>
+        </div>
+      )}
+
+      {/* スキャン失敗の理由。ポーリング検出時に即表示し、リロード不要にする */}
+      {scanFailureNotice && (
+        <div className="px-[18px] pb-3">
+          <SolidPanel className="!rounded-[12px] border-[var(--color-error)]" faceClassName="!p-3">
+            <div className="flex items-start gap-2">
+              <p className="min-w-0 flex-1 text-xs font-bold leading-[1.5] text-[var(--color-error)]">
+                {scanFailureNotice}
+              </p>
+              <button
+                type="button"
+                onClick={() => setScanFailureNotice(null)}
+                aria-label="失敗メッセージを閉じる"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--color-error)]"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
           </SolidPanel>
         </div>
       )}

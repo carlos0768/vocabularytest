@@ -6,9 +6,11 @@ import {
   clearHomeGeneratingWordbook,
   clearLegacyHomeProjectId,
   consumeHomeGeneratingWordbook,
+  consumeManualAddIntent,
   getHomeSelectedProjectId,
   saveHomeGeneratingWordbook,
   saveHomeSelectedProjectId,
+  saveManualAddIntent,
   type HomeSessionStorage,
 } from './home-session-storage';
 
@@ -125,6 +127,23 @@ test('clearHomeGeneratingWordbook removes only the generating wordbook key', () 
     [HOME_SESSION_STORAGE_KEYS.selectedProjectId]: 'project-1',
   });
   assert.deepEqual(storage.removedKeys, [HOME_SESSION_STORAGE_KEYS.generatingWordbook]);
+});
+
+test('consumeManualAddIntent returns the saved project id and removes it', () => {
+  const storage = new MemoryStorage();
+
+  saveManualAddIntent(storage, 'project-1');
+
+  assert.equal(consumeManualAddIntent(storage), 'project-1');
+  assert.equal(storage.getItem(HOME_SESSION_STORAGE_KEYS.manualAddProjectId), null);
+  assert.deepEqual(storage.removedKeys, [HOME_SESSION_STORAGE_KEYS.manualAddProjectId]);
+});
+
+test('consumeManualAddIntent returns null when no intent is stored', () => {
+  const storage = new MemoryStorage();
+
+  assert.equal(consumeManualAddIntent(storage), null);
+  assert.deepEqual(storage.removedKeys, []);
 });
 
 test('clearLegacyHomeProjectId removes only the legacy project id key', () => {

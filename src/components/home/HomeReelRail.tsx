@@ -28,22 +28,13 @@ export function HomeReelRail({ items, loading }: { items: HomeReelPreviewItem[];
 
   return (
     <div className="pb-2 pt-4">
-      <div className="flex items-baseline justify-between px-5 pb-2.5">
-        <div>
-          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
-            REELS
-          </div>
-          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
-            おすすめのリール
-          </h2>
+      <div className="px-5 pb-2.5">
+        <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
+          REELS
         </div>
-        <Link
-          href="/reels"
-          className="flex items-center gap-[3px] text-[13px] font-semibold text-[var(--color-accent)]"
-        >
-          すべて見る
-          <Icon name="chevron_right" size={11} />
-        </Link>
+        <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
+          おすすめのリール
+        </h2>
       </div>
 
       {/* scroll-pl はスナップ位置を左パディング分内側に寄せるため必須

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
@@ -47,6 +48,8 @@ function formatNotificationTime(value: string) {
 export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotificationsButtonProps) {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // モバイルパネルは portal で body 直下に出すため、外側クリック判定に別 ref が要る
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const pushSetupRequestedRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<FollowNotification[]>([]);
@@ -138,7 +141,10 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
     if (!open) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) {
+        setOpen(false);
+      }
     };
 
     document.addEventListener('pointerdown', handlePointerDown);
@@ -227,8 +233,9 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
         )}
       </button>
 
-      {open && (
+      {open && renderPanel(
         <div
+          ref={panelRef}
           className={cn(
             'z-[120] w-[min(340px,calc(100vw-28px))] border-2 border-[var(--solid-ink)] bg-white shadow-[6px_6px_0_var(--solid-ink)]',
             isMobile ? 'fixed rounded-[14px]' : 'absolute right-0 top-[calc(100%+10px)] rounded-[12px]',
@@ -332,8 +339,18 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
               </div>
             )}
           </div>
-        </div>
+        </div>,
       )}
     </div>
   );
+
+  // モバイルの通知パネルは viewport 基準の fixed 配置。backdrop-filter を持つ
+  // 固定ヘッダー内に置かれると fixed の基準がヘッダーになってしまうため、
+  // portal で body 直下に描画して常に viewport 基準にする。
+  function renderPanel(panel: ReactNode) {
+    if (isMobile && typeof document !== 'undefined') {
+      return createPortal(panel, document.body);
+    }
+    return panel;
+  }
 }

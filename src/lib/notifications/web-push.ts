@@ -17,6 +17,7 @@ type ScanJobPushParams = {
   projectTitle: string;
   status: ScanJobPushStatus;
   wordCount?: number;
+  errorMessage?: string;
 };
 
 type SubscriptionRow = {
@@ -74,7 +75,7 @@ function createPayload(params: ScanJobPushParams): string {
     ? 'MERKEN: 文法抽出なし'
     : 'MERKEN: スキャン完了';
   const body = params.status === 'failed'
-    ? `「${params.projectTitle}」のスキャンに失敗しました`
+    ? `「${params.projectTitle}」のスキャンに失敗しました${params.errorMessage ? `：${params.errorMessage}` : ''}`
     : params.status === 'warning'
     ? `「${params.projectTitle}」では文法抽出が見つからなかったため、通常抽出に切り替えました`
     : `「${params.projectTitle}」に${params.wordCount ?? 0}語追加されました`;
