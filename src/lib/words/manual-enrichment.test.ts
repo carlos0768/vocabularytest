@@ -77,6 +77,19 @@ test('pickManualMasterEnrichment falls back to the most complete row without a h
   assert.equal(result.entryId, 'complete');
 });
 
+test('pickManualMasterEnrichment supplies a Japanese translation for empty manual input', () => {
+  const result = pickManualMasterEnrichment(
+    [
+      row({ id: 'entry-a', translation_ja: null, pronunciation: null }),
+      row({ id: 'entry-b', pos: 'noun', translation_ja: '経営', example_sentence: null, example_sentence_ja: null }),
+    ],
+    '',
+  );
+
+  assert.ok(result);
+  assert.equal(result.japanese, '経営');
+});
+
 test('buildManualEnrichPrompt lists only the fields the AI must generate', () => {
   const prompt = buildManualEnrichPrompt('run', '走る', {
     pronunciation: false,
@@ -84,8 +97,21 @@ test('buildManualEnrichPrompt lists only the fields the AI must generate', () =>
     example: true,
   });
 
+  assert.equal(prompt.includes('japanese'), false);
   assert.equal(prompt.includes('pronunciation'), false);
   assert.equal(prompt.includes('partOfSpeechTags'), true);
   assert.equal(prompt.includes('exampleSentence, exampleSentenceJa'), true);
   assert.equal(prompt.includes('"run" (走る)'), true);
+});
+
+test('buildManualEnrichPrompt asks for a Japanese translation when the user left it blank', () => {
+  const prompt = buildManualEnrichPrompt('run', '', {
+    japanese: true,
+    pronunciation: true,
+    pos: false,
+    example: false,
+  });
+
+  assert.equal(prompt.includes('japanese'), true);
+  assert.equal(prompt.includes('"run"\n'), true);
 });

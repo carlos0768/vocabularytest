@@ -263,46 +263,45 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         onProjectMissing={handleProjectMissing}
       />
 
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-        <div className="px-[18px] pb-2 pt-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window !== 'undefined' && window.history.length > 1) {
-                    router.back();
-                  } else {
-                    router.push('/');
-                  }
-                }}
-                aria-label="戻る"
-                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-              >
-                <Icon name="chevron_left" size={18} />
-              </button>
-              <div className="min-w-0">
-                <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-                  COMMUNITY
-                </div>
-                <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] text-[var(--solid-ink)]">
-                  共有単語帳
-                </div>
-              </div>
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+        {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
+            top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。 */}
+        <header
+          className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md"
+          style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push('/');
+              }
+            }}
+            aria-label="戻る"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="arrow_back" size={16} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              COMMUNITY
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <FollowNotificationsButton variant="mobile" />
-              <button
-                type="button"
-                onClick={handleOpenShareSheet}
-                aria-label="単語帳を共有"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-              >
-                <Icon name="add" size={20} />
-              </button>
+            <div className="truncate font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">
+              共有単語帳
             </div>
           </div>
-        </div>
+          <FollowNotificationsButton variant="mobile" />
+          <button
+            type="button"
+            onClick={handleOpenShareSheet}
+            aria-label="単語帳を共有"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="add" size={18} />
+          </button>
+        </header>
 
         {selectedGenre ? (
           <GenreResultsView genre={selectedGenre} onBack={() => setSelectedGenre(null)} />

@@ -22,6 +22,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
+import { consumeManualAddIntent } from '@/lib/home/home-session-storage';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
@@ -278,6 +279,19 @@ export default function ProjectPage() {
   useEffect(() => {
     if (project?.id) markProjectVisited(project.id);
   }, [project?.id]);
+
+  // 空の単語帳を作成して遷移してきた直後は、手動追加モーダルを自動で開く
+  // （CreateWordbookSheet が sessionStorage 経由で projectId を渡してくる）。
+  useEffect(() => {
+    try {
+      if (consumeManualAddIntent(sessionStorage) === projectId) {
+        setManualWordAddedCount(0);
+        setShowManualWordModal(true);
+      }
+    } catch {
+      // sessionStorage が使えない環境では自動オープンだけ諦める
+    }
+  }, [projectId]);
 
   useEffect(() => {
     if (!wordsLoaded || recommendationsLoaded || !project || words.length > 0) return;
@@ -1034,8 +1048,9 @@ export default function ProjectPage() {
 
   const handleSaveManualWord = async () => {
     const english = manualWordEnglish.trim();
-    const japanese = manualWordJapanese.trim();
-    if (!english || !japanese || !project) return;
+    // 日本語訳は任意入力。未入力なら enrich API（マスター/AI）が補完する。
+    const japaneseInput = manualWordJapanese.trim();
+    if (!english || !project) return;
 
     const { canAdd, wouldExceed } = canAddWords(1);
     if (!canAdd || wouldExceed) {
@@ -1049,6 +1064,7 @@ export default function ProjectPage() {
     setManualWordSaving(true);
     setManualWordSavingMessage('情報を生成中...');
 
+    let japanese = japaneseInput;
     let enrichedPronunciation = '';
     let enrichedPartOfSpeechTags: string[] = userPos ? [userPos] : [];
     let enrichedExampleSentence = userExample;
@@ -1061,7 +1077,7 @@ export default function ProjectPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           english,
-          japanese,
+          ...(japaneseInput ? { japanese: japaneseInput } : {}),
           ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
           ...(userExample ? { exampleSentence: userExample } : {}),
         }),
@@ -1071,6 +1087,7 @@ export default function ProjectPage() {
         const data = (await enrichResponse.json()) as {
           success?: boolean;
           enriched?: {
+            japanese?: string;
             pronunciation?: string;
             partOfSpeechTags?: string[];
             exampleSentence?: string;
@@ -1079,6 +1096,9 @@ export default function ProjectPage() {
           morphology?: Word['morphology'];
         };
         if (data.success && data.enriched) {
+          if (!japanese && data.enriched.japanese) {
+            japanese = data.enriched.japanese.trim();
+          }
           enrichedPronunciation = data.enriched.pronunciation ?? '';
           if (data.enriched.partOfSpeechTags && data.enriched.partOfSpeechTags.length > 0) {
             enrichedPartOfSpeechTags = data.enriched.partOfSpeechTags;
@@ -1092,6 +1112,15 @@ export default function ProjectPage() {
       }
     } catch (enrichError) {
       console.warn('[manual-word] enrich error:', enrichError);
+    }
+
+    // 日本語訳が入力されず自動補完もできなかった場合だけ入力をお願いする
+    // （意味が空の単語はクイズ・カードで使いものにならないため保存しない）。
+    if (!japanese) {
+      setManualWordSaving(false);
+      setManualWordSavingMessage(undefined);
+      showToast({ message: '日本語訳を自動生成できませんでした。日本語訳を入力してください', type: 'error' });
+      return;
     }
 
     const optimisticWord: Word = {
@@ -1205,39 +1234,59 @@ export default function ProjectPage() {
         onManualAdd={openManualWordModal}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
-      <div className="sticky top-0 z-10 flex items-center justify-between bg-[var(--color-background)] px-4 pb-2 pt-3 lg:hidden">
+      {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
+          top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。 */}
+      <header
+        className="sticky z-40 flex items-center gap-2.5 border-b-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md lg:hidden"
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
         <HeaderBtn onClick={() => router.replace('/')} aria-label="ホームへ戻る">
-          <Icon name="chevron_left" size={16} />
+          <Icon name="arrow_back" size={16} />
         </HeaderBtn>
-        <div className="relative flex gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+            BOOK
+          </div>
+          <div className="truncate font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">
+            {project.title}
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-2">
           <HeaderBtn aria-label="共有" onClick={handleOpenShareSheet}>
             <Icon name="ios_share" size={16} />
           </HeaderBtn>
           <HeaderBtn aria-label="メニュー" onClick={() => setMenuOpen((open) => !open)}>
             <Icon name="more_horiz" size={16} />
           </HeaderBtn>
-          {menuOpen && (
-            <>
-              <button
-                type="button"
-                className="fixed inset-0 z-20 cursor-default bg-transparent"
-                aria-label="メニューを閉じる"
-                onClick={() => setMenuOpen(false)}
-              />
-              <div className="absolute right-0 top-11 z-30 w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
-                <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
-                <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
-                <MenuButton
-                  icon="delete"
-                  label="削除"
-                  destructive
-                  onClick={() => { setMenuOpen(false); setDeleteModalOpen(true); }}
-                />
-              </div>
-            </>
-          )}
         </div>
-      </div>
+      </header>
+
+      {/* ヘッダの「…」メニュー。ヘッダは backdrop-blur を持ち fixed 配置の基準に
+          なってしまうため、全画面の閉じオーバーレイとポップオーバーはヘッダの
+          外に置き、常にヘッダ直下（右端）へ固定表示する。 */}
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-50 cursor-default bg-transparent"
+            aria-label="メニューを閉じる"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div
+            className="fixed z-[60] w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white lg:hidden"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)', right: 14 }}
+          >
+            <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
+            <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
+            <MenuButton
+              icon="delete"
+              label="削除"
+              destructive
+              onClick={() => { setMenuOpen(false); setDeleteModalOpen(true); }}
+            />
+          </div>
+        </>
+      )}
 
       <div className="flex items-start gap-3.5 px-5 pb-2.5 pt-[18px] lg:pt-8">
         <div
@@ -1957,7 +2006,8 @@ function ManualWordModal({
   }, [loading, open]);
 
   if (!open) return null;
-  const canSubmit = english.trim().length > 0 && japanese.trim().length > 0 && !loading;
+  // 日本語訳は任意（未入力ならマスター/AI が補完する）。英単語だけ必須。
+  const canSubmit = english.trim().length > 0 && !loading;
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -1981,7 +2031,7 @@ function ManualWordModal({
             単語を追加
           </h2>
           <p className="mt-1 text-[11px] leading-[1.5] text-[var(--color-muted)]">
-            続けて何語でも入力できます。品詞・例文・発音記号は AI が自動で補完します。
+            続けて何語でも入力できます。日本語訳・品詞・例文・発音記号は未入力でも AI が自動で補完します。
           </p>
           {addedCount > 0 && (
             <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[var(--solid-ink)] bg-[var(--color-accent-light)] px-2.5 py-1 font-mono text-[10px] font-bold text-[var(--color-accent-ink)]">
@@ -2010,14 +2060,14 @@ function ManualWordModal({
             </div>
             <div>
               <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-                日本語訳
+                日本語訳（任意）
               </label>
               <input
                 type="text"
                 value={japanese}
                 onChange={(e) => onJapaneseChange(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) onConfirm(); }}
-                placeholder="例: 美しい"
+                placeholder="例: 美しい（未入力なら自動補完）"
                 disabled={loading}
                 maxLength={100}
                 className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"

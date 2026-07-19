@@ -15,6 +15,7 @@ type ScanJobApnsParams = {
   projectTitle: string;
   status: 'completed' | 'failed' | 'warning';
   wordCount?: number;
+  errorMessage?: string;
 };
 
 async function getApnsClient(): Promise<InstanceType<typeof import('apns2').ApnsClient> | null> {
@@ -68,7 +69,7 @@ function buildNotificationContent(params: ScanJobApnsParams): {
     : 'スキャン完了';
 
   const body = params.status === 'failed'
-    ? `「${params.projectTitle}」のスキャンに失敗しました`
+    ? `「${params.projectTitle}」のスキャンに失敗しました${params.errorMessage ? `：${params.errorMessage}` : ''}`
     : params.status === 'warning'
     ? `「${params.projectTitle}」では文法抽出が見つかりませんでした`
     : `「${params.projectTitle}」に${params.wordCount ?? 0}語追加されました`;
