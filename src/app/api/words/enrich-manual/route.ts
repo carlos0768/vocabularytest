@@ -5,9 +5,11 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import {
   buildManualEnrichPrompt,
+  dedupeJapaneseTranslations,
   fetchManualEnrichmentFromMaster,
   type ManualMasterEnrichment,
 } from '@/lib/words/manual-enrichment';
+import { upsertAiTranslationSenses } from '@/lib/lexicon/senses';
 import { saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import { saveQuizContentToLexicon } from '@/lib/lexicon/quiz-content-lexicon';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
@@ -25,6 +27,9 @@ import type { WordMorphology } from '../../../../../shared/types';
  * POST /api/words/enrich-manual
  *
  * 手動単語追加時に、未入力の補助フィールドをAIで素早く補完する。
+ * 日本語訳はマスター(lexicon senses)とAIをマージした全訳リスト
+ * (`enriched.translations`) として返し、クライアントが訳ごとに
+ * word_translations レコードを作れるようにする。
  * body パース → AI 呼び出しを即座に開始し、認証チェックと並列実行する。
  * 認証失敗時は AI 結果を破棄して 401 を返す。
  *
@@ -48,8 +53,15 @@ const partOfSpeechTagsSchema = z.preprocess((value) => {
   return [];
 }, z.array(z.string()).default([]));
 
+// AIは訳を配列で返す想定だが、単一文字列で返しても受け付ける
+const japaneseListSchema = z.preprocess((value) => {
+  if (typeof value === 'string') return value ? [value] : [];
+  if (Array.isArray(value)) return value.filter((item) => typeof item === 'string');
+  return [];
+}, z.array(z.string()).default([]));
+
 const aiResponseSchema = z.object({
-  japanese: z.string().optional().default(''),
+  japanese: japaneseListSchema,
   pronunciation: z.string().optional().default(''),
   partOfSpeechTags: partOfSpeechTagsSchema,
   exampleSentence: z.string().optional().default(''),
@@ -57,7 +69,7 @@ const aiResponseSchema = z.object({
 });
 
 const SYSTEM_PROMPT = `英単語の補助情報をJSON形式で返せ。
-japanese: 単語帳向けの簡潔な日本語訳(訳語のみ・説明不要)
+japanese: 単語帳向けの簡潔な日本語訳の配列。意味の異なる主要な訳をすべて挙げる(1〜5個・頻出順・訳語のみ・説明不要)。多義語は必ず複数返す。例: ["走る","経営する","立候補する"]
 pronunciation: IPA発音記号を"/.../"形式で返す
 partOfSpeechTags: [noun/verb/adjective/adverb/idiom/phrasal_verb/other]から1つ
 exampleSentence: 10〜15語の実用的な英文(中高レベル)
@@ -105,7 +117,8 @@ function getEnrichProvider() {
     provider: AI_CONFIG.defaults.gemini.provider,
     model: 'gemini-2.0-flash',
     temperature: 0.3,
-    maxOutputTokens: 256,
+    // 全訳(最大5訳) + 例文ペアが収まるだけの余裕を持たせる
+    maxOutputTokens: 512,
     responseFormat: 'json' as const,
   };
   // GOOGLE_AI_API_KEY があれば直接 Gemini API (Cloud Run バイパス)
@@ -146,6 +159,7 @@ export async function POST(request: NextRequest) {
         success: true,
         enriched: {
           japanese: filledJapanese,
+          translations: [],
           pronunciation: filledPronunciation,
           partOfSpeechTags: filledPosTags,
           exampleSentence: filledExample,
@@ -177,7 +191,9 @@ export async function POST(request: NextRequest) {
       master = null;
     }
 
-    const masterJapanese = needsJapanese ? (master?.japanese ?? '') : '';
+    const masterJapaneseList = needsJapanese
+      ? dedupeJapaneseTranslations(master?.japaneseTranslations ?? [])
+      : [];
     const masterPronunciation = needsPronunciation ? (master?.pronunciation ?? '') : '';
     const masterPosTags = needsPos
       ? normalizePartOfSpeechTags(master?.partOfSpeechTags ?? [])
@@ -185,7 +201,8 @@ export async function POST(request: NextRequest) {
     const masterExample = needsExample ? (master?.exampleSentence ?? '') : '';
     const masterExampleJa = needsExample ? (master?.exampleSentenceJa ?? '') : '';
 
-    const aiNeedsJapanese = needsJapanese && !masterJapanese;
+    // 全訳補完: マスターに訳が1つしか無い場合もAIに全訳を出させてマージする
+    const aiNeedsJapanese = needsJapanese && masterJapaneseList.length < 2;
     const aiNeedsPronunciation = needsPronunciation && !masterPronunciation;
     const aiNeedsPos = needsPos && masterPosTags.length === 0;
     const aiNeedsExample = needsExample && !(masterExample && masterExampleJa);
@@ -231,7 +248,7 @@ export async function POST(request: NextRequest) {
     //    マスターで全フィールドが埋まった場合はAIコール自体が無い。
     const aiStart = Date.now();
     let parsedAi: z.infer<typeof aiResponseSchema> = {
-      japanese: '',
+      japanese: [],
       pronunciation: '',
       partOfSpeechTags: [],
       exampleSentence: '',
@@ -279,8 +296,12 @@ export async function POST(request: NextRequest) {
     // 6. ユーザ入力 > マスター > AI の優先順で埋める
     const generatedFields: string[] = [];
 
-    const aiJapanese = (parsedAi.japanese || '').trim();
-    const finalJapanese = needsJapanese ? (masterJapanese || aiJapanese) : filledJapanese;
+    // マスター訳を先頭に、AI訳をマージして全訳リストを作る（重複除去済み）
+    const aiJapaneseList = dedupeJapaneseTranslations(parsedAi.japanese);
+    const finalJapaneseList = needsJapanese
+      ? dedupeJapaneseTranslations([...masterJapaneseList, ...aiJapaneseList])
+      : [];
+    const finalJapanese = needsJapanese ? (finalJapaneseList[0] ?? '') : filledJapanese;
     if (needsJapanese && finalJapanese) generatedFields.push('japanese');
 
     const aiPronunciation = (parsedAi.pronunciation || '').trim();
@@ -300,7 +321,7 @@ export async function POST(request: NextRequest) {
     const finalExampleJa = filledExampleJa || masterExampleJa || aiExampleJa;
     if (needsExample && finalExample && finalExampleJa) generatedFields.push('exampleSentence');
 
-    // 6b. AI生成した発音・例文をマスターへ書き戻す（fill-if-empty・ベスト
+    // 6b. AI生成した発音・例文・訳をマスターへ書き戻す（fill-if-empty・ベスト
     //     エフォート）。次に同じ単語を追加するユーザーはAIコール不要になる。
     if (master?.entryId) {
       const entryId = master.entryId;
@@ -308,7 +329,11 @@ export async function POST(request: NextRequest) {
       const writeBackExample = aiNeedsExample && aiExample && aiExampleJa
         ? { exampleSentence: aiExample, exampleSentenceJa: aiExampleJa }
         : null;
-      if (writeBackPronunciation || writeBackExample) {
+      // AIが出した訳は insert-only でsenseに追加（既存senseは上書きされない）
+      const writeBackTranslations = aiNeedsJapanese && aiJapaneseList.length > 0
+        ? aiJapaneseList
+        : null;
+      if (writeBackPronunciation || writeBackExample || writeBackTranslations) {
         after(async () => {
           try {
             if (writeBackPronunciation) {
@@ -320,6 +345,17 @@ export async function POST(request: NextRequest) {
               await saveExamplesToLexicon([
                 { lexiconEntryId: entryId, ...writeBackExample },
               ]);
+            }
+            if (writeBackTranslations) {
+              await upsertAiTranslationSenses(
+                getSupabaseAdmin(),
+                entryId,
+                writeBackTranslations.map((japanese, index) => ({
+                  japanese,
+                  meaningSummary: null,
+                  isPrimary: index === 0,
+                })),
+              );
             }
           } catch (writeBackError) {
             console.error('[enrich-manual] Lexicon write-back failed (non-critical):', writeBackError);
@@ -351,6 +387,7 @@ export async function POST(request: NextRequest) {
       totalMs,
       aiWaitMs,
       generatedFields,
+      translationCount: finalJapaneseList.length,
       morphology: Boolean(morphology),
       morphologyCharged: Boolean(coinInfo),
     });
@@ -359,6 +396,7 @@ export async function POST(request: NextRequest) {
       success: true,
       enriched: {
         japanese: finalJapanese,
+        translations: finalJapaneseList,
         pronunciation: finalPronunciation,
         partOfSpeechTags: finalPosTags,
         exampleSentence: finalExample,
