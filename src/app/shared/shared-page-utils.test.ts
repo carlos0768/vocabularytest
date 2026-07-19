@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { SharedProjectCard } from '@/lib/shared-projects/types';
+import type { SharedProjectCard, SharedUserSummary } from '@/lib/shared-projects/types';
 import {
+  appendDiscoverPage,
   collectMetricProjectIds,
   mergeMetricsIntoCards,
   mergeUniqueProjectCards,
@@ -48,6 +49,59 @@ test('mergeMetricsIntoCards replaces placeholder counts', () => {
 
   assert.equal(merged[0]?.wordCount, 12);
   assert.equal(merged[0]?.collaboratorCount, 3);
+});
+
+function makeUser(userId: string): SharedUserSummary {
+  return {
+    userId,
+    username: `${userId}-name`,
+    accountId: `${userId}-account`,
+    projectCount: 1,
+    wordCount: 10,
+    likeCount: 0,
+  };
+}
+
+test('appendDiscoverPage appends unseen items and advances the cursor', () => {
+  const current = {
+    category: 'projects' as const,
+    users: [makeUser('user-1')],
+    projects: [makeCard('project-1')],
+    groups: [],
+    nextCursor: 'cursor-1',
+  };
+  const page = {
+    category: 'projects' as const,
+    users: [makeUser('user-1'), makeUser('user-2')],
+    projects: [makeCard('project-1'), makeCard('project-2')],
+    groups: [],
+    nextCursor: 'cursor-2',
+  };
+
+  const next = appendDiscoverPage(current, page);
+
+  assert.deepEqual(next.projects.map((card) => card.project.id), ['project-1', 'project-2']);
+  assert.deepEqual(next.users.map((user) => user.userId), ['user-1', 'user-2']);
+  assert.equal(next.nextCursor, 'cursor-2');
+});
+
+test('appendDiscoverPage clears the cursor on the last page', () => {
+  const current = {
+    category: 'projects' as const,
+    users: [],
+    projects: [makeCard('project-1')],
+    groups: [],
+    nextCursor: 'cursor-1',
+  };
+  const page = {
+    category: 'projects' as const,
+    users: [],
+    projects: [makeCard('project-2')],
+    groups: [],
+    nextCursor: null,
+  };
+
+  assert.equal(appendDiscoverPage(current, page).nextCursor, null);
 });
 
 test('removeProjectFromDiscover removes stale shared cards', () => {

@@ -7,11 +7,12 @@ import { DesktopSharedView } from '@/components/desktop/DesktopShared';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { useInfiniteScrollSentinel, type LoadMoreState } from '@/hooks/use-infinite-scroll';
 import { useMyGroups } from '@/hooks/use-my-groups';
 import { useToast } from '@/components/ui/toast';
 import { ShareTypeChooser } from './ShareTypeChooser';
 import { triggerHaptic } from '@/lib/haptics';
-import { removeProjectFromDiscover } from './shared-page-utils';
+import { appendDiscoverPage, mergeUniqueProjectCards, removeProjectFromDiscover } from './shared-page-utils';
 import type {
   SharedDiscoverCategory,
   SharedDiscoverPayload,
@@ -132,11 +133,20 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce] = useState(0);
   const hasUsedInitialRef = useRef(false);
+  // 検索条件が変わるたびに増やし、古い追加読み込みの結果を捨てるための世代番号。
+  const discoverSeqRef = useRef(0);
+
+  // 追加読み込みの状態は検索条件キーに紐付けて持ち、条件が変わったら
+  // 自動的に idle へ戻す（effect での明示リセットを不要にする）。
+  const discoverKey = `${category}\n${query}\n${refreshNonce}`;
+  const [loadMore, setLoadMore] = useState<{ key: string; state: LoadMoreState } | null>(null);
+  const loadMoreState: LoadMoreState = loadMore?.key === discoverKey ? loadMore.state : 'idle';
 
   const [chooserOpen, setChooserOpen] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<WordbookGenre | null>(null);
 
   useEffect(() => {
+    discoverSeqRef.current += 1;
     if (category === 'groups') return;
 
     const canUseInitial = !hasUsedInitialRef.current && category === 'all' && !query.trim() && refreshNonce === 0;
@@ -176,6 +186,32 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   function handleOpenShareSheet() {
     setChooserOpen(true);
+  }
+
+  // 一覧の下端に達したら次ページを取得して追記する（カーソルが無ければ何もしない）。
+  function handleLoadMore() {
+    if (category === 'groups' || loading || loadMoreState === 'loading') return;
+    const cursor = discover.nextCursor;
+    if (!cursor) return;
+
+    const seq = discoverSeqRef.current;
+    const key = discoverKey;
+    setLoadMore({ key, state: 'loading' });
+    fetch(buildDiscoverUrl(category, query, cursor), { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as DiscoverResponse | null;
+        if (!response.ok || !isDiscoverPayload(payload)) {
+          throw new Error(payload && 'error' in payload ? payload.error : 'shared_discover_load_more_failed');
+        }
+        if (discoverSeqRef.current !== seq) return;
+        startTransition(() => setDiscover((current) => appendDiscoverPage(current, payload)));
+        setLoadMore({ key, state: 'idle' });
+      })
+      .catch((loadError) => {
+        if (discoverSeqRef.current !== seq) return;
+        console.error('Failed to load more shared projects:', loadError);
+        setLoadMore({ key, state: 'error' });
+      });
   }
 
   function handleProjectMissing(projectId: string) {
@@ -261,6 +297,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         onBackToAll={handleBackToAll}
         onOpenShareSheet={handleOpenShareSheet}
         onProjectMissing={handleProjectMissing}
+        loadMoreState={loadMoreState}
+        onLoadMore={handleLoadMore}
       />
 
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
@@ -379,6 +417,13 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
                 {category === 'projects' && <ProjectSection projects={discover.projects} onProjectMissing={handleProjectMissing} />}
               </>
             )}
+            {!loading && !allEmpty && (
+              <LoadMoreSentinel
+                hasMore={Boolean(discover.nextCursor)}
+                state={loadMoreState}
+                onLoadMore={handleLoadMore}
+              />
+            )}
           </div>
         )}
         </>
@@ -458,15 +503,20 @@ type GenreResultsState = {
   genre: WordbookGenre;
   projects: SharedProjectCard[];
   error: string | null;
+  nextCursor: string | null;
 };
 
 function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () => void }) {
   const { showToast } = useToast();
   // ジャンルごとの取得結果を1つの state に持つ（loading はジャンル不一致で導出）。
   const [result, setResult] = useState<GenreResultsState | null>(null);
+  // 追加読み込み状態もジャンルに紐付けて持ち、切り替え時は自動で idle に戻る。
+  const [loadMore, setLoadMore] = useState<{ genre: WordbookGenre; state: LoadMoreState } | null>(null);
+  const loadMoreState: LoadMoreState = loadMore?.genre === genre ? loadMore.state : 'idle';
   const loading = result?.genre !== genre;
   const projects = result?.genre === genre ? result.projects : [];
   const error = result?.genre === genre ? result.error : null;
+  const nextCursor = result?.genre === genre ? result.nextCursor : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -477,16 +527,43 @@ function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () 
         if (!response.ok || !isDiscoverPayload(payload)) {
           throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_failed');
         }
-        setResult({ genre, projects: payload.projects, error: null });
+        setResult({ genre, projects: payload.projects, error: null, nextCursor: payload.nextCursor });
       })
       .catch((loadError) => {
         if (controller.signal.aborted) return;
         console.error('Failed to load genre wordbooks:', loadError);
-        setResult({ genre, projects: [], error: '単語帳を読み込めませんでした。' });
+        setResult({ genre, projects: [], error: '単語帳を読み込めませんでした。', nextCursor: null });
       });
 
     return () => controller.abort();
   }, [genre]);
+
+  function handleLoadMore() {
+    if (loading || loadMoreState === 'loading' || !nextCursor) return;
+
+    setLoadMore({ genre, state: 'loading' });
+    fetch(buildDiscoverUrl('projects', genre.query, nextCursor), { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as DiscoverResponse | null;
+        if (!response.ok || !isDiscoverPayload(payload)) {
+          throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_load_more_failed');
+        }
+        setResult((current) =>
+          current && current.genre === genre
+            ? {
+              ...current,
+              projects: mergeUniqueProjectCards(current.projects, payload.projects),
+              nextCursor: payload.nextCursor,
+            }
+            : current,
+        );
+        setLoadMore({ genre, state: 'idle' });
+      })
+      .catch((loadError) => {
+        console.error('Failed to load more genre wordbooks:', loadError);
+        setLoadMore({ genre, state: 'error' });
+      });
+  }
 
   function handleProjectMissing(projectId: string) {
     setResult((current) =>
@@ -527,10 +604,58 @@ function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () 
         ) : projects.length === 0 ? (
           <EmptyBox message="このジャンルの単語帳はまだありません" />
         ) : (
-          <ProjectSection projects={projects} onProjectMissing={handleProjectMissing} />
+          <>
+            <ProjectSection projects={projects} onProjectMissing={handleProjectMissing} />
+            <LoadMoreSentinel
+              hasMore={Boolean(nextCursor)}
+              state={loadMoreState}
+              onLoadMore={handleLoadMore}
+            />
+          </>
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * 一覧下端の無限スクロール用センチネル。表示領域に入ると自動で次ページを
+ * 読み込み、失敗したときだけ手動の再読み込みボタンに切り替える。
+ */
+function LoadMoreSentinel({
+  hasMore,
+  state,
+  onLoadMore,
+}: {
+  hasMore: boolean;
+  state: LoadMoreState;
+  onLoadMore: () => void;
+}) {
+  const sentinelRef = useInfiniteScrollSentinel({
+    enabled: hasMore && state === 'idle',
+    onLoadMore,
+  });
+
+  if (!hasMore) return null;
+
+  return (
+    <div ref={sentinelRef} className="flex items-center justify-center py-2">
+      {state === 'error' ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-4 text-[12px] font-extrabold text-[var(--solid-ink)]"
+        >
+          <Icon name="refresh" size={14} />
+          再読み込み
+        </button>
+      ) : (
+        <span className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={16} className="animate-spin" />
+          読み込み中...
+        </span>
+      )}
+    </div>
   );
 }
 
