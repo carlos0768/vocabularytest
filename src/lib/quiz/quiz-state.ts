@@ -187,7 +187,12 @@ export function applyWordOrderQuestionsToPendingQuiz(
   words: Word[],
   currentIndex: number,
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
+  options: { allowInsert?: boolean; maxQuestions?: number } = {},
 ): QuizQuestion[] {
+  // allowInsert=false: the quiz is already underway, so late-arriving word-order
+  // quizzes may only replace pending questions — growing the list mid-session
+  // would move the finish line under the user.
+  const { allowInsert = true, maxQuestions } = options;
   const wordByTargetKey = new Map(
     expandWordsForQuizTargets(words).map((word) => [getQuizTargetKey(word), word]),
   );
@@ -230,7 +235,7 @@ export function applyWordOrderQuestionsToPendingQuiz(
     }
 
     if (index <= currentIndex) {
-      if (!wordOrderQuestionWordIds.has(questionTargetKey)) {
+      if (allowInsert && !wordOrderQuestionWordIds.has(questionTargetKey)) {
         insertAfterCurrent.push(wordOrderQuestion);
         wordOrderQuestionWordIds.add(questionTargetKey);
         questionTargetKeys.add(questionTargetKey);
@@ -245,29 +250,36 @@ export function applyWordOrderQuestionsToPendingQuiz(
     return wordOrderQuestion;
   });
 
-  for (const updatedWord of wordByTargetKey.values()) {
-    const targetKey = getQuizTargetKey(updatedWord);
-    if (questionTargetKeys.has(targetKey)) continue;
-    if (isActiveQuizWord(updatedWord)) continue;
-    if (isTranslationQuizTarget(updatedWord)) continue;
+  if (allowInsert) {
+    for (const updatedWord of wordByTargetKey.values()) {
+      const targetKey = getQuizTargetKey(updatedWord);
+      if (questionTargetKeys.has(targetKey)) continue;
+      if (isActiveQuizWord(updatedWord)) continue;
+      if (isTranslationQuizTarget(updatedWord)) continue;
 
-    const wordOrderQuestion = buildWordOrderQuestion(updatedWord, shuffle);
-    if (!wordOrderQuestion) continue;
+      const wordOrderQuestion = buildWordOrderQuestion(updatedWord, shuffle);
+      if (!wordOrderQuestion) continue;
 
-    insertAfterCurrent.push(wordOrderQuestion);
-    wordOrderQuestionWordIds.add(targetKey);
-    questionTargetKeys.add(targetKey);
-    changed = true;
+      insertAfterCurrent.push(wordOrderQuestion);
+      wordOrderQuestionWordIds.add(targetKey);
+      questionTargetKeys.add(targetKey);
+      changed = true;
+    }
   }
 
-  if (insertAfterCurrent.length === 0) {
+  const insertBudget = maxQuestions === undefined
+    ? insertAfterCurrent.length
+    : Math.max(0, maxQuestions - nextQuestions.length);
+  const insertions = insertAfterCurrent.slice(0, insertBudget);
+
+  if (insertions.length === 0) {
     return changed ? nextQuestions : questions;
   }
 
   const insertAt = Math.min(Math.max(currentIndex + 1, 0), nextQuestions.length);
   return [
     ...nextQuestions.slice(0, insertAt),
-    ...insertAfterCurrent,
+    ...insertions,
     ...nextQuestions.slice(insertAt),
   ];
 }

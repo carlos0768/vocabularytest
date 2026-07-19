@@ -135,18 +135,35 @@ function QuizEntryCard({
   const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
     <article className="ds-feed-card fade-in">
-      <div className="fc-row">
+      {/* 行全体をクリックで学習内容を開閉する（展開ボタンは置かない） */}
+      <div
+        className="fc-row fc-toggle"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
+        onClick={onToggle}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
+      >
         <Link
           href={profileHref}
           className="ds-feed-avatar md"
           style={{ backgroundColor: avatarColor(session.profile.accountId) }}
           aria-label={`${displayName(session.profile)}のプロフィール`}
+          onClick={(event) => event.stopPropagation()}
         >
           {(session.profile.username || session.profile.accountId || '?').charAt(0).toUpperCase()}
         </Link>
         <div className="fc-body">
           <p className="fc-text">
-            <Link href={profileHref}>{displayName(session.profile)}</Link>
+            <Link href={profileHref} onClick={(event) => event.stopPropagation()}>
+              {displayName(session.profile)}
+            </Link>
             さんが{session.answerCount}問クイズを解きました
           </p>
           <div className="fc-meta">
@@ -165,15 +182,6 @@ function QuizEntryCard({
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          className="ds-iconbtn"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
-        >
-          <Icon name={expanded ? 'expand_less' : 'expand_more'} size={18} />
-        </button>
       </div>
       {expanded && (
         <div className="fc-words">
