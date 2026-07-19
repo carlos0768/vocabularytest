@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { extractHighlightedWordsFromImage } from '@/lib/ai/extract-highlighted-words';
+import { HighlightedResponseSchema, convertToStandardFormat } from '@/lib/schemas/highlighted-response';
 import type { AIProvider } from '@/lib/ai/providers';
 
 function createProvider(generate: AIProvider['generate']): AIProvider {
@@ -367,4 +368,48 @@ test('extractHighlightedWordsFromImage uses relaxed fallback when strict candida
     assert.equal(result.data.words.length, 1);
     assert.equal(result.data.words[0].english, 'recoverable-word');
   }
+});
+
+test('convertToStandardFormat merges duplicate polysemous headwords into one word with combined translations', () => {
+  const highlighted = HighlightedResponseSchema.parse({
+    words: [
+      {
+        english: 'spare',
+        japanese: '余分な',
+        japaneseSource: 'scan',
+        partOfSpeechTags: ['adjective'],
+        confidence: 0.95,
+      },
+      {
+        english: 'spare',
+        japanese: '割く',
+        japaneseSource: 'scan',
+        partOfSpeechTags: ['verb'],
+        confidence: 0.9,
+      },
+      {
+        english: 'spare time',
+        japanese: '余暇',
+        japaneseSource: 'scan',
+        partOfSpeechTags: ['idiom'],
+        confidence: 0.9,
+      },
+    ],
+    sourceLabels: [],
+  });
+
+  const standard = convertToStandardFormat(highlighted);
+
+  assert.deepEqual(
+    standard.words.map((word) => word.english),
+    ['spare', 'spare time'],
+  );
+
+  const spare = standard.words[0];
+  assert.equal(spare.japanese, '余分な');
+  assert.deepEqual(spare.partOfSpeechTags, ['adjective', 'verb']);
+  assert.deepEqual(
+    spare.translations?.map((translation) => translation.translationJa),
+    ['余分な', '割く'],
+  );
 });
