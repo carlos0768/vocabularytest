@@ -375,13 +375,36 @@ function TimelineItem({
   const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
     <article className="transition-colors hover:bg-[var(--color-surface-secondary)]">
-      <div className="flex items-start gap-3.5 px-[18px] py-4">
-        <Link href={profileHref} aria-label={`${displayName(session.profile)}のプロフィール`} className="shrink-0">
+      {/* 行全体をタップで学習内容を開閉する（展開ボタンは置かない） */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
+        onClick={onToggle}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
+        className="flex cursor-pointer items-start gap-3.5 px-[18px] py-4"
+      >
+        <Link
+          href={profileHref}
+          aria-label={`${displayName(session.profile)}のプロフィール`}
+          className="shrink-0"
+          onClick={(event) => event.stopPropagation()}
+        >
           <Avatar profile={session.profile} />
         </Link>
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
-            <Link href={profileHref} className="font-display font-extrabold hover:underline">
+            <Link
+              href={profileHref}
+              className="font-display font-extrabold hover:underline"
+              onClick={(event) => event.stopPropagation()}
+            >
               {displayName(session.profile)}
             </Link>
             さんが{session.answerCount}問クイズを解きました！
@@ -396,15 +419,6 @@ function TimelineItem({
             <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
-          className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-muted)]"
-        >
-          <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} />
-        </button>
       </div>
       {expanded && (
         <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
