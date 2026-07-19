@@ -2,6 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
+import {
+  CHUNK_RELOAD_STORAGE_KEY,
+  shouldAutoReloadForChunkError,
+} from '@/lib/errors/chunk-load';
 
 export default function Error({
   error,
@@ -12,6 +16,20 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error('App error boundary caught:', error);
+
+    // デプロイ切替直後は旧HTMLが参照する旧チャンクが404になり、ここに
+    // 落ちる（バージョンスキュー）。再読み込みで新しいHTMLを取得すれば
+    // 直るので、一度だけ自動リロードして自己回復させる。直近にリロード
+    // 済みならループを避けて通常のエラー表示に任せる。
+    try {
+      const lastReloadAt = Number(sessionStorage.getItem(CHUNK_RELOAD_STORAGE_KEY)) || 0;
+      if (shouldAutoReloadForChunkError(error, lastReloadAt, Date.now())) {
+        sessionStorage.setItem(CHUNK_RELOAD_STORAGE_KEY, String(Date.now()));
+        window.location.reload();
+      }
+    } catch {
+      // sessionStorage が使えない環境では自動リロードだけ諦める
+    }
   }, [error]);
 
   return (
