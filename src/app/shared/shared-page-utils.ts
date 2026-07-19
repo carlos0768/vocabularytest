@@ -50,6 +50,23 @@ export function mergeMetricsIntoCards(
   return changed ? nextCards : cards;
 }
 
+/**
+ * 無限スクロールで取得した次ページを現在の一覧に追記する。ユーザー・単語帳
+ * とも既出の項目は落とし、nextCursor はページ側の値で置き換える。
+ */
+export function appendDiscoverPage(
+  current: SharedDiscoverPayload,
+  page: SharedDiscoverPayload,
+): SharedDiscoverPayload {
+  const seenUsers = new Set(current.users.map((user) => user.userId));
+  return {
+    ...current,
+    users: [...current.users, ...page.users.filter((user) => !seenUsers.has(user.userId))],
+    projects: mergeUniqueProjectCards(current.projects, page.projects),
+    nextCursor: page.nextCursor,
+  };
+}
+
 export function removeProjectFromDiscover(
   payload: SharedDiscoverPayload,
   projectId: string,

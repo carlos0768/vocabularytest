@@ -9,6 +9,7 @@ import { DesktopMediaCard } from '@/components/desktop/DesktopMediaShelf';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
+import { useInfiniteScrollSentinel, type LoadMoreState } from '@/hooks/use-infinite-scroll';
 import { formatSharedTag } from '../../../shared/shared-tags';
 import type {
   PublicStudyGroupSummary,
@@ -47,6 +48,8 @@ export function DesktopSharedView({
   onBackToAll,
   onOpenShareSheet,
   onProjectMissing,
+  loadMoreState,
+  onLoadMore,
 }: {
   category: SharedDiscoverCategory | 'groups';
   query: string;
@@ -65,6 +68,8 @@ export function DesktopSharedView({
   onBackToAll: () => void;
   onOpenShareSheet: () => void;
   onProjectMissing: (projectId: string) => void;
+  loadMoreState: LoadMoreState;
+  onLoadMore: () => void;
 }) {
   const isCategory = category !== 'all';
   const isGroups = category === 'groups';
@@ -209,11 +214,18 @@ export function DesktopSharedView({
                   検索中...
                 </div>
               ) : isCategory ? (
-                <CategoryResults
-                  category={category as Exclude<SharedDiscoverCategory, 'all'>}
-                  payload={payload}
-                  onProjectMissing={onProjectMissing}
-                />
+                <>
+                  <CategoryResults
+                    category={category as Exclude<SharedDiscoverCategory, 'all'>}
+                    payload={payload}
+                    onProjectMissing={onProjectMissing}
+                  />
+                  <DesktopLoadMore
+                    hasMore={Boolean(payload.nextCursor)}
+                    state={loadMoreState}
+                    onLoadMore={onLoadMore}
+                  />
+                </>
               ) : hasQuery ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
                   <UserGrid users={payload.users} />
@@ -386,17 +398,61 @@ function DiscoverFeed({
       ) : feed.projects.length === 0 && !feed.error ? (
         <EmptyCard label="公開されている単語帳はまだありません" />
       ) : (
-        <div className="ds-media-grid">
-          {feed.projects.map((project) => (
-            <SharedWordbookCard
-              key={project.project.id}
-              project={project}
-              onProjectMissing={onProjectMissing}
-            />
-          ))}
-        </div>
+        <>
+          <div className="ds-media-grid">
+            {feed.projects.map((project) => (
+              <SharedWordbookCard
+                key={project.project.id}
+                project={project}
+                onProjectMissing={onProjectMissing}
+              />
+            ))}
+          </div>
+          <DesktopLoadMore
+            hasMore={Boolean(feed.nextCursor)}
+            state={feed.loadingMore ? 'loading' : feed.error ? 'error' : 'idle'}
+            onLoadMore={feed.loadMore}
+          />
+        </>
       )}
     </section>
+  );
+}
+
+/**
+ * 一覧下端の無限スクロール用センチネル。表示領域に入ると自動で次ページを
+ * 読み込み、失敗したときだけ手動の再読み込みボタンに切り替える。
+ */
+function DesktopLoadMore({
+  hasMore,
+  state,
+  onLoadMore,
+}: {
+  hasMore: boolean;
+  state: LoadMoreState;
+  onLoadMore: () => void;
+}) {
+  const sentinelRef = useInfiniteScrollSentinel({
+    enabled: hasMore && state === 'idle',
+    onLoadMore,
+  });
+
+  if (!hasMore) return null;
+
+  return (
+    <div ref={sentinelRef} style={{ display: 'flex', justifyContent: 'center', padding: '18px 0' }}>
+      {state === 'error' ? (
+        <button type="button" className="ds-btn ghost sm" onClick={onLoadMore}>
+          <Icon name="refresh" />
+          再読み込み
+        </button>
+      ) : (
+        <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <Icon name="progress_activity" className="animate-spin" />
+          読み込み中...
+        </span>
+      )}
+    </div>
   );
 }
 
