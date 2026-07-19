@@ -2,6 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
+import {
+  CHUNK_RELOAD_STORAGE_KEY,
+  shouldAutoReloadForChunkError,
+} from '@/lib/errors/chunk-load';
 
 export default function QuizError({
   error,
@@ -12,6 +16,18 @@ export default function QuizError({
 }) {
   useEffect(() => {
     console.error('Quiz error:', error);
+
+    // デプロイ切替直後のチャンク404（バージョンスキュー）は再読み込みで
+    // 直るため、一度だけ自動リロードして自己回復させる（app/error.tsx と同じ）。
+    try {
+      const lastReloadAt = Number(sessionStorage.getItem(CHUNK_RELOAD_STORAGE_KEY)) || 0;
+      if (shouldAutoReloadForChunkError(error, lastReloadAt, Date.now())) {
+        sessionStorage.setItem(CHUNK_RELOAD_STORAGE_KEY, String(Date.now()));
+        window.location.reload();
+      }
+    } catch {
+      // sessionStorage が使えない環境では自動リロードだけ諦める
+    }
   }, [error]);
 
   return (
