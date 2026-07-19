@@ -53,7 +53,7 @@ export default function FriendsPage() {
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const [activeSession, setActiveSession] = useState<FriendTimelineSession | null>(null);
 
   const hasRequests = home.incoming.length > 0 || home.outgoing.length > 0;
 
@@ -153,27 +153,17 @@ export default function FriendsPage() {
     method: 'DELETE',
   }));
 
-  const toggleSession = (sessionId: string) => {
-    setExpandedSessions((current) => {
-      const next = new Set(current);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  };
-
   const renderFeedEntries = () => (
     <>
       {feedEntries.length > 0 && (
-        <div className="divide-y divide-[var(--color-border)]">
+        <div className="divide-y divide-[var(--color-border)] border-y border-[var(--color-border)]">
           {feedEntries.map((entry) => (
             entry.kind === 'quiz'
               ? (
                 <TimelineItem
                   key={`quiz-${entry.session.id}`}
                   session={entry.session}
-                  expanded={expandedSessions.has(entry.session.id)}
-                  onToggle={() => toggleSession(entry.session.id)}
+                  onOpen={() => setActiveSession(entry.session)}
                 />
               )
               : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
@@ -256,8 +246,9 @@ export default function FriendsPage() {
           entries={feedEntries}
           home={home}
           actionLoading={actionLoading}
-          expandedSessions={expandedSessions}
-          onToggleSession={toggleSession}
+          activeSession={activeSession}
+          onOpenSession={setActiveSession}
+          onCloseSession={() => setActiveSession(null)}
           onRespondRequest={respondRequest}
           onRemoveFriend={removeFriend}
           onRefresh={() => void refreshAll()}
@@ -275,6 +266,10 @@ export default function FriendsPage() {
         </div>
         {renderContent()}
       </div>
+
+      {activeSession && (
+        <SessionDetailModal session={activeSession} onClose={() => setActiveSession(null)} />
+      )}
     </>
   );
 }
@@ -365,27 +360,25 @@ function RequestsSection({
 
 function TimelineItem({
   session,
-  expanded,
-  onToggle,
+  onOpen,
 }: {
   session: FriendTimelineSession;
-  expanded: boolean;
-  onToggle: () => void;
+  onOpen: () => void;
 }) {
   const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
     <article className="transition-colors hover:bg-[var(--color-surface-secondary)]">
-      {/* 行全体をタップで学習内容を開閉する（展開ボタンは置かない） */}
+      {/* 行全体をタップで学習内容モーダルを開く（下方向への展開はしない） */}
       <div
         role="button"
         tabIndex={0}
-        aria-expanded={expanded}
-        aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
-        onClick={onToggle}
+        aria-haspopup="dialog"
+        aria-label="学習内容を見る"
+        onClick={onOpen}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            onToggle();
+            onOpen();
           }
         }}
         className="flex cursor-pointer items-start gap-3.5 px-[18px] py-4"
@@ -415,32 +408,111 @@ function TimelineItem({
             <span>{formatSessionTime(session.lastAnsweredAt)}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <MetricChip icon="quiz" label={`${session.answerCount}問`} variant="quiz" />
-            <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
+            <MetricChip icon="quiz" value={session.answerCount} unit="問" variant="quiz" />
+            <MetricChip icon="check_circle" value={session.masteredCount} unit="語 習得" variant="mastered" />
+          </div>
+        </div>
+        <Icon name="chevron_right" size={20} className="mt-1 shrink-0 text-[var(--color-muted)]" />
+      </div>
+    </article>
+  );
+}
+
+/** 学習内容の詳細（モバイル）。単語詳細と同じく画面中央に浮き上がるモーダルで表示する。 */
+function SessionDetailModal({
+  session,
+  onClose,
+}: {
+  session: FriendTimelineSession;
+  onClose: () => void;
+}) {
+  const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
+  return (
+    <div className="fixed inset-0 z-[80] lg:hidden" style={{ fontFamily: 'var(--font-body)' }}>
+      <div
+        className="animate-fade-in absolute inset-0"
+        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+        onClick={onClose}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={onClose}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="学習の詳細"
+          className="animate-fade-in-up w-full overflow-y-auto overscroll-contain"
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            maxWidth: 480,
+            maxHeight: '80dvh',
+            background: '#faf7f1',
+            border: '2px solid var(--solid-ink)',
+            borderRadius: 20,
+          }}
+        >
+          <div className="sticky top-0 z-[2] flex items-center justify-between border-b border-[var(--color-border)] bg-[#faf7f1] px-5 py-3.5">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              学習の詳細
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="閉じる"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-white text-[var(--color-muted)]"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+          <div className="px-5 py-4">
+            <div className="flex items-start gap-3.5">
+              <Link
+                href={profileHref}
+                aria-label={`${displayName(session.profile)}のプロフィール`}
+                className="shrink-0"
+              >
+                <Avatar profile={session.profile} />
+              </Link>
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
+                  <Link href={profileHref} className="font-display font-extrabold hover:underline">
+                    {displayName(session.profile)}
+                  </Link>
+                  さんが{session.answerCount}問クイズを解きました！
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-bold text-[var(--color-muted)]">
+                  <span className="font-mono text-[11px]">@{session.profile.accountId}</span>
+                  <span className="text-[var(--color-border)]">·</span>
+                  <span>{formatSessionTime(session.lastAnsweredAt)}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <MetricChip icon="quiz" value={session.answerCount} unit="問" variant="quiz" />
+                  <MetricChip icon="check_circle" value={session.masteredCount} unit="語 習得" variant="mastered" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+              <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                <Icon name="school" size={13} />
+                習得した単語
+              </div>
+              {session.words.length > 0 ? (
+                <div className="mt-2.5 flex flex-col gap-2">
+                  {session.words.map((word) => (
+                    <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
+                      <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
+                      <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
+                  習得済みに変わった単語はありません
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-      {expanded && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
-          <div className="pl-[52px]">
-            {session.words.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
-                    <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
-                    <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="px-4 py-4 text-center text-[13px] font-bold text-[var(--color-muted)]">
-                習得済みに変わった単語はありません
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </article>
+    </div>
   );
 }
 
@@ -538,24 +610,27 @@ function StatusChip({ label }: { label: string }) {
   );
 }
 
+/** 解いた数・習得数のチップ。ソリッドスタイル（インク/アクセントの1.5px枠 + 角丸7px）で統一する。 */
 function MetricChip({
   icon,
-  label,
-  variant = 'default',
+  value,
+  unit,
+  variant,
 }: {
   icon: string;
-  label: string;
-  variant?: 'quiz' | 'mastered' | 'default';
+  value: number;
+  unit: string;
+  variant: 'quiz' | 'mastered';
 }) {
   const styles = {
-    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
-    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
-    default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
+    quiz: 'border-[var(--color-accent-ink)] bg-[var(--color-accent-light)] text-[var(--color-accent-ink)]',
+    mastered: 'border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]',
   };
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${styles[variant]}`}>
+    <span className={`inline-flex items-center gap-1 rounded-[7px] border-[1.5px] px-2 py-[3px] ${styles[variant]}`}>
       <Icon name={icon} size={13} />
-      {label}
+      <span className="font-display text-[13px] font-extrabold leading-none">{value}</span>
+      <span className="text-[10.5px] font-bold leading-none">{unit}</span>
     </span>
   );
 }
