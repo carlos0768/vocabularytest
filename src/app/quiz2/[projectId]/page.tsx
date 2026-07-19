@@ -10,6 +10,7 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
+import { speakEnglish, stopSpeaking } from '@/lib/speech';
 import { calculateNextReviewByQuality, getStatusAfterQuality } from '@/lib/spaced-repetition';
 import {
   getGuestUserId,
@@ -76,14 +77,7 @@ export default function Quiz2Page() {
   const currentWord = words[currentIndex];
 
   const speakCurrentWord = useCallback(() => {
-    if (!currentWord?.english || typeof window === 'undefined') return;
-    if (!('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(currentWord.english);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+    speakEnglish(currentWord?.english);
   }, [currentWord?.english]);
 
   const backToOrigin = useCallback(() => {
@@ -115,9 +109,7 @@ export default function Quiz2Page() {
       if (document.visibilityState === 'hidden') {
         isFrozenByTabLeaveRef.current = true;
         setIsFrozenByTabLeave(true);
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
+        stopSpeaking();
       }
     };
 
@@ -231,9 +223,7 @@ export default function Quiz2Page() {
 
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopSpeaking();
     };
   }, []);
 

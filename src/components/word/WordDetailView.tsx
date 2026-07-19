@@ -10,6 +10,7 @@ import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache
 import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { speakEnglish } from '@/lib/speech';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 
 function formatCustomSectionValue(value: string, type: CustomColumn['type']): string {
@@ -237,10 +238,7 @@ export function WordDetailView({
 
   const handleSpeak = useCallback(() => {
     if (!word) return;
-    const utterance = new SpeechSynthesisUtterance(word.english);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    speechSynthesis.speak(utterance);
+    speakEnglish(word.english);
   }, [word]);
 
   const handleStartEditing = useCallback(() => {
@@ -484,11 +482,7 @@ export function WordDetailView({
                   {highlightWord(word.exampleSentence, word.english)}
                 </p>
                 <button onClick={() => {
-                  if (!word.exampleSentence) return;
-                  const u = new SpeechSynthesisUtterance(word.exampleSentence);
-                  u.lang = 'en-US';
-                  u.rate = 0.85;
-                  speechSynthesis.speak(u);
+                  speakEnglish(word.exampleSentence, { rate: 0.85 });
                 }} className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-white text-[var(--color-ink-muted)]" aria-label="例文を再生">
                   <Icon name="volume_up" size={16} />
                 </button>
