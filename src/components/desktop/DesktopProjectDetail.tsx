@@ -66,7 +66,6 @@ export function DesktopProjectDetailView({
   onToggleFavorite,
   onCycleVocabularyType,
   onDeleteWord,
-  onBulkDelete,
   onScan,
   onManualAdd,
 }: {
@@ -90,7 +89,6 @@ export function DesktopProjectDetailView({
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
   onDeleteWord: (wordId: string) => void;
-  onBulkDelete: () => void;
   onScan: () => void;
   onManualAdd: () => void;
 }) {
@@ -327,16 +325,6 @@ export function DesktopProjectDetailView({
             <div style={{ flex: 1 }} />
             {/* フィルタ・ソート・選択（正方形）は検索窓の左に配置 */}
             <div style={{ display: 'flex', gap: 8 }}>
-              {selectMode && selectedWordIds.size > 0 && (
-                <button
-                  type="button"
-                  className="ds-btn sm"
-                  onClick={onBulkDelete}
-                  style={{ color: 'var(--color-error, #cc4d59)' }}
-                >
-                  <Icon name="delete" />{selectedWordIds.size}語を削除
-                </button>
-              )}
               <button
                 type="button"
                 className={'ds-btn sm' + (filterActive ? ' dark' : '')}
@@ -439,9 +427,9 @@ export function DesktopProjectDetailView({
                         </span>
                       ) : (
                         <Icon
-                          name={word.isFavorite ? 'star' : 'star_border'}
+                          name="bookmark"
                           filled={word.isFavorite}
-                          style={word.isFavorite ? { color: 'var(--color-warning)' } : undefined}
+                          style={word.isFavorite ? { color: 'var(--color-accent)' } : undefined}
                         />
                       )}
                     </td>

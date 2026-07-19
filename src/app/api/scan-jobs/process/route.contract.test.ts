@@ -1293,6 +1293,8 @@ test('server_cloud words insert failure rolls back only the newly created projec
       projectTitle: 'Scan Result',
       status: 'failed',
       wordCount: 0,
+      // 失敗理由は通知本文にも載せる
+      errorMessage: '単語の抽出はできましたが、単語帳の保存に失敗しました。時間をおいてもう一度お試しください。',
     },
   ]);
   assert.deepEqual(apnsNotifications, pushNotifications);
@@ -1391,6 +1393,8 @@ test('server_cloud existing project words insert failure does not delete the pro
       projectTitle: 'Scan Result',
       status: 'failed',
       wordCount: 0,
+      // 失敗理由は通知本文にも載せる
+      errorMessage: '単語の抽出はできましたが、単語帳の保存に失敗しました。時間をおいてもう一度お試しください。',
     },
   ]);
   assert.deepEqual(apnsNotifications, pushNotifications);
@@ -1414,7 +1418,7 @@ test('process route refunds coins after both total-failure paths', async () => {
 
   for (const anchor of [
     "error_message: errorMessage,",
-    "error_message: toUserFacingScanErrorMessage(processingError),",
+    "error_message: failureMessage,",
   ]) {
     const anchorIndex = source.indexOf(anchor);
     assert.ok(anchorIndex >= 0, `missing anchor: ${anchor}`);

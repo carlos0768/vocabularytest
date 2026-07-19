@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReelBook, ReelFeedback, ReelItem } from '@/lib/reels/types';
+import type { ReelBook } from '@/lib/reels/types';
 import type { ReelFeedItem } from '@/hooks/use-reel-feed';
 import { interleaveReelAds } from '@/lib/reels/feed-entries';
 import { ReelAdCard, REEL_AD_CARD_AVAILABLE } from '@/components/ads/ReelAdCard';
@@ -16,14 +16,7 @@ type ReelFeedProps = {
   importingBookId: string | null;
   showAds?: boolean;
   onLoadMore: () => void;
-  onLike: (item: ReelItem) => void;
-  onSave: (item: ReelItem) => void;
   onImport: (book: ReelBook) => void;
-  onShare: (item: ReelItem) => void;
-  onFeedback: (item: ReelItem, feedback: ReelFeedback) => void;
-  onCommentCountChange: (item: ReelItem, delta: number) => void;
-  /** アクティブなカードの単語が変わったとき（デスクトップの外側レール用） */
-  onActiveItemChange?: (item: ReelFeedItem | null) => void;
 };
 
 const RENDER_WINDOW = 2;
@@ -42,13 +35,7 @@ export function ReelFeed({
   importingBookId,
   showAds = false,
   onLoadMore,
-  onLike,
-  onSave,
   onImport,
-  onShare,
-  onFeedback,
-  onCommentCountChange,
-  onActiveItemChange,
 }: ReelFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -96,12 +83,6 @@ export function ReelFeed({
     }
   }, [activeIndex, hasMore, entries.length, onLoadMore]);
 
-  useEffect(() => {
-    if (!onActiveItemChange) return;
-    const entry = entries[activeIndex];
-    onActiveItemChange(entry && entry.kind === 'item' ? entry.item : null);
-  }, [activeIndex, entries, onActiveItemChange]);
-
   return (
     <div
       ref={containerRef}
@@ -120,12 +101,7 @@ export function ReelFeed({
                 item={entry.item}
                 active={index === activeIndex}
                 importing={importingBookId === entry.item.book.id}
-                onLike={() => onLike(entry.item)}
-                onSave={() => onSave(entry.item)}
                 onImport={() => onImport(entry.item.book)}
-                onShare={() => onShare(entry.item)}
-                onFeedback={(feedback) => onFeedback(entry.item, feedback)}
-                onCommentCountChange={(delta) => onCommentCountChange(entry.item, delta)}
               />
             ) : (
               <ReelAdCard />

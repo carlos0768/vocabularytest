@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
 import { getSeededGroupSummary, loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
@@ -29,6 +30,8 @@ const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
 
 export default function GroupPage() {
   const router = useRouter();
+  // ページ上端ではヘッダの下線を出さない（スクロールで表示）
+  const pageScrolled = usePageScrolled();
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
   const { loading: authLoading, isAuthenticated } = useAuth();
@@ -141,15 +144,15 @@ export default function GroupPage() {
                 <LoadingState />
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
+                  <GroupWordbooksSection groupId={groupId} projects={projects} />
                   <div className="flex flex-col gap-5">
-                    <BookshelfSection groupId={groupId} projects={projects} />
+                    <LeaderboardSection leaderboard={leaderboard} />
                     <MissedWordsSection
                       groupId={groupId}
                       missedWords={missedWords}
                       totalCount={missedWordsTotalCount}
                     />
                   </div>
-                  <LeaderboardSection leaderboard={leaderboard} />
                 </div>
               )}
             </>
@@ -168,15 +171,47 @@ export default function GroupPage() {
           paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
         }}
       >
+        {/* スクロールしても上部に固定されるヘッダー。top はノッチ下端に合わせ、
+            ノッチ帯は全体共通の StatusBarCover がすりガラスで覆う。
+            下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
+        <header
+          className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+          style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="戻る"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="arrow_back" size={16} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              STUDY GROUP
+            </div>
+            <div className="truncate font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">
+              {group?.name ?? 'グループ'}
+            </div>
+          </div>
+          {group && (
+            <Link
+              href={settingsHref}
+              aria-label="グループ設定"
+              onClick={() => triggerHaptic()}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="settings" size={16} />
+            </Link>
+          )}
+        </header>
         {stateView ?? (group && (
-          <div className="flex flex-col gap-4 px-[14px]">
+          <div className="flex flex-col gap-4 px-[14px] pt-3">
             <GroupHeader
               group={group}
               totalQuiz={totalQuiz}
-              onBack={() => router.back()}
               onCopyInvite={() => void copyInvite()}
               onShare={() => { triggerHaptic(); setInviteShareOpen(true); }}
-              settingsHref={settingsHref}
             />
             {loading ? (
               <LoadingState />
@@ -210,46 +245,19 @@ export default function GroupPage() {
 function GroupHeader({
   group,
   totalQuiz,
-  onBack,
   onCopyInvite,
   onShare,
-  settingsHref,
 }: {
   group: StudyGroupSummary;
   totalQuiz: number;
-  /** 履歴で1つ戻る（ホーム/共有どちらから来ても元の画面に返す） */
-  onBack: () => void;
   onCopyInvite: () => void;
   onShare: () => void;
-  settingsHref: string;
 }) {
   return (
     <section
       className="relative overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4 text-white"
       style={{ background: `linear-gradient(135deg, ${thumbColor(group.id)} 0%, var(--solid-ink) 160%)` }}
     >
-      <div className="mb-3 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="arrow_back" size={16} />
-        </button>
-        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-white/70">
-          STUDY GROUP
-        </div>
-        <Link
-          href={settingsHref}
-          aria-label="グループ設定"
-          onClick={() => triggerHaptic()}
-          className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/15 text-white backdrop-blur-sm transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="settings" size={16} />
-        </Link>
-      </div>
-
       <div className="flex items-start gap-3">
         <div
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-2 border-white/70 bg-white/15 font-display text-[26px] font-extrabold backdrop-blur-sm"
@@ -496,6 +504,78 @@ function MissedWordsSection({
   );
 }
 
+// デスクトップ用: 本棚ティザーに格納せず、グループの単語帳をそのまま
+// グリッドで表示する。共有・解除の管理は従来どおり本棚ページで行う。
+function GroupWordbooksSection({ groupId, projects }: { groupId: string; projects: SharedProjectCard[] }) {
+  return (
+    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#F5A623] text-white">
+          <Icon name="auto_stories" size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">単語帳</h2>
+          <div className="text-[11px] font-bold text-[var(--color-muted)]">
+            {projects.length > 0 ? `みんなの単語帳 ${projects.length}冊` : 'みんなの単語帳が並ぶ場所'}
+          </div>
+        </div>
+        <Link
+          href={`/groups/${encodeURIComponent(groupId)}/bookshelf`}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 py-1.5 font-display text-[12px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          共有・管理
+          <Icon name="chevron_right" size={14} />
+        </Link>
+      </div>
+      {projects.length === 0 ? (
+        <EmptyRow message="まだ単語帳がありません。最初の1冊を共有しよう！" />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+          {projects.map((card) => (
+            <GroupBookTile key={card.project.id} card={card} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GroupBookTile({ card }: { card: SharedProjectCard }) {
+  const href = card.project.shareId ? `/share/${card.project.shareId}` : '#';
+  return (
+    <Link
+      href={href}
+      onClick={() => triggerHaptic()}
+      className="block overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white transition-all duration-100 hover:-translate-y-0.5 active:translate-y-0"
+    >
+      <div
+        className="relative flex h-[92px] items-center justify-center bg-cover bg-center"
+        style={{
+          backgroundColor: thumbColor(card.project.id),
+          backgroundImage: card.project.iconImage ? `url(${card.project.iconImage})` : undefined,
+        }}
+      >
+        {!card.project.iconImage && (
+          <span className="font-display text-[30px] font-extrabold text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.25)]">
+            {card.project.title.charAt(0)}
+          </span>
+        )}
+        <span className="absolute bottom-1.5 right-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2 py-0.5 font-mono text-[10px] font-extrabold tabular-nums text-[var(--solid-ink)]">
+          {card.wordCount ?? 0}語
+        </span>
+      </div>
+      <div className="border-t-2 border-[var(--solid-ink)] p-2.5">
+        <div className="line-clamp-2 font-display text-[13px] font-extrabold leading-snug text-[var(--solid-ink)]">
+          {card.project.title}
+        </div>
+        <div className="mt-1 truncate text-[10px] font-bold text-[var(--color-muted)]">
+          {card.ownerUsername ? `@${card.ownerUsername}` : '共有ユーザー'}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 // Bookshelf teaser: sits right below the header so members immediately see the
 // group's shared wordbooks. Renders the newest books as colorful spines on a
 // shelf; tapping anywhere opens the full bookshelf page.
@@ -511,7 +591,7 @@ function BookshelfSection({ groupId, projects }: { groupId: string; projects: Sh
       href={`/groups/${encodeURIComponent(groupId)}/bookshelf`}
       onClick={() => triggerHaptic()}
       aria-label="本棚をひらく"
-      className="relative block overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4 shadow-[4px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
+      className="relative block overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-4"
       style={{ background: 'linear-gradient(150deg, #FFF6DE 0%, #FFE7BC 100%)' }}
     >
       <div className="flex items-center gap-2.5">

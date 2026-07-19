@@ -74,7 +74,7 @@ export function DesktopProjectsView({
               すべて <span className="tnum" style={{ opacity: 0.7 }}>{projects.length}</span>
             </button>
             <button type="button" className={'ds-chip' + (filter === 'fav' ? ' active' : '')} onClick={() => setFilter('fav')}>
-              <Icon name="star" filled style={{ fontSize: 15 }} />お気に入り
+              <Icon name="bookmark" filled style={{ fontSize: 15 }} />保存
             </button>
             <button type="button" className={'ds-chip' + (sort === 'newest' ? ' active' : '')} onClick={() => onSortChange('newest')}>
               <Icon name="schedule" style={{ fontSize: 15 }} />新しい順
@@ -140,7 +140,7 @@ function DesktopProjectTableRow({ project }: { project: DesktopProjectRow }) {
   return (
     <tr>
       <td className="star">
-        <Icon name={project.isFavorite ? 'star' : 'star_border'} filled={project.isFavorite} style={project.isFavorite ? { color: 'var(--color-warning)' } : undefined} />
+        <Icon name="bookmark" filled={project.isFavorite} style={project.isFavorite ? { color: 'var(--color-accent)' } : undefined} />
       </td>
       <td>
         <Link href={`/project/${project.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>

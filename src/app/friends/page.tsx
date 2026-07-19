@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { DesktopFeed } from '@/components/desktop/DesktopFeed';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  avatarColor,
+  displayName,
+  formatSessionTime,
+  type FeedEntry,
+} from '@/lib/friends/feed-display';
 import type {
   FriendProfile,
   FriendshipSummary,
@@ -26,10 +32,6 @@ type TimelineApiResponse = {
   error?: string;
 };
 
-type FeedEntry =
-  | { kind: 'quiz'; sortAt: string; session: FriendTimelineSession }
-  | { kind: 'group_event'; sortAt: string; event: StudyGroupFeedEvent };
-
 type MutationResponse = {
   success?: boolean;
   error?: string;
@@ -41,32 +43,6 @@ const EMPTY_FRIENDS: FriendsHomePayload = {
   incoming: [],
   outgoing: [],
 };
-
-// Site-wide avatar/thumbnail palette (matches home, collections, shared).
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-function avatarColor(identifier: string): string {
-  let hash = 0;
-  for (let i = 0; i < identifier.length; i++) {
-    hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
-  }
-  return THUMBS[Math.abs(hash) % THUMBS.length];
-}
-
-function displayName(profile: FriendProfile): string {
-  return profile.username?.trim() || `@${profile.accountId}`;
-}
-
-function formatSessionTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('ja-JP', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export default function FriendsPage() {
   const { loading: authLoading, isAuthenticated } = useAuth();
@@ -186,6 +162,39 @@ export default function FriendsPage() {
     });
   };
 
+  const renderFeedEntries = () => (
+    <>
+      {feedEntries.length > 0 && (
+        <div className="divide-y divide-[var(--color-border)]">
+          {feedEntries.map((entry) => (
+            entry.kind === 'quiz'
+              ? (
+                <TimelineItem
+                  key={`quiz-${entry.session.id}`}
+                  session={entry.session}
+                  expanded={expandedSessions.has(entry.session.id)}
+                  onToggle={() => toggleSession(entry.session.id)}
+                />
+              )
+              : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
+          ))}
+        </div>
+      )}
+
+      {timelineLoading && (
+        <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
+          <Icon name="progress_activity" className="animate-spin" size={20} />
+        </div>
+      )}
+
+      {!timelineLoading && feedEntries.length === 0 && (
+        <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
+          まだ学習セッションがありません。クイズを始めると、ここにフィードが表示されます。
+        </div>
+      )}
+    </>
+  );
+
   const renderContent = () => {
     if (authLoading || loading) {
       return (
@@ -231,40 +240,7 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {feedEntries.map((entry) => (
-          entry.kind === 'quiz'
-            ? (
-              <TimelineItem
-                key={`quiz-${entry.session.id}`}
-                session={entry.session}
-                expanded={expandedSessions.has(entry.session.id)}
-                onToggle={() => toggleSession(entry.session.id)}
-              />
-            )
-            : <GroupEventItem key={`group-${entry.event.id}`} event={entry.event} />
-        ))}
-
-        {timelineLoading && (
-          <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
-            <Icon name="progress_activity" className="animate-spin" size={20} />
-          </div>
-        )}
-
-        {!timelineLoading && feedEntries.length === 0 && (
-          <div className="px-[18px] py-16 text-center text-[13px] font-bold text-[var(--color-muted)]">
-            まだ学習セッションがありません。クイズを始めると、ここにフィードが表示されます。
-          </div>
-        )}
-
-        {home.friends.length > 0 && (
-          <div className="mx-[18px] mt-6 border-t border-[var(--color-border)] pt-5 pb-4">
-            <FriendsSection
-              friends={home.friends}
-              actionLoading={actionLoading}
-              onRemoveFriend={removeFriend}
-            />
-          </div>
-        )}
+        {renderFeedEntries()}
       </>
     );
   };
@@ -272,12 +248,20 @@ export default function FriendsPage() {
   return (
     <>
       <div className="hidden h-full min-h-0 flex-col lg:flex">
-        <DesktopTopbar title="フィード" crumb="学習タイムライン">
-          <DesktopButton href="/shared" icon="hub" variant="ghost">共有ライブラリ</DesktopButton>
-        </DesktopTopbar>
-        <div className="ds-scroll">
-          {renderContent()}
-        </div>
+        <DesktopFeed
+          loading={authLoading || loading}
+          timelineLoading={timelineLoading}
+          isAuthenticated={isAuthenticated}
+          error={error}
+          entries={feedEntries}
+          home={home}
+          actionLoading={actionLoading}
+          expandedSessions={expandedSessions}
+          onToggleSession={toggleSession}
+          onRespondRequest={respondRequest}
+          onRemoveFriend={removeFriend}
+          onRefresh={() => void refreshAll()}
+        />
       </div>
 
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
@@ -291,6 +275,61 @@ export default function FriendsPage() {
         </div>
         {renderContent()}
       </div>
+    </>
+  );
+}
+
+function RequestRows({
+  incoming,
+  outgoing,
+  actionLoading,
+  onRespondRequest,
+  onRemoveFriend,
+}: {
+  incoming: FriendshipSummary[];
+  outgoing: FriendshipSummary[];
+  actionLoading: string | null;
+  onRespondRequest: (friendshipId: string, action: 'accept' | 'decline') => void;
+  onRemoveFriend: (friendshipId: string) => void;
+}) {
+  return (
+    <>
+      {incoming.map((item) => (
+        <FriendRow key={item.id} friendship={item}>
+          <button
+            type="button"
+            onClick={() => onRespondRequest(item.id, 'accept')}
+            disabled={Boolean(actionLoading)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] text-white disabled:opacity-50"
+            aria-label="承認"
+          >
+            <Icon name={actionLoading === `accept:${item.id}` ? 'progress_activity' : 'check'} className={actionLoading === `accept:${item.id}` ? 'animate-spin' : ''} size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRespondRequest(item.id, 'decline')}
+            disabled={Boolean(actionLoading)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
+            aria-label="拒否"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </FriendRow>
+      ))}
+      {outgoing.map((item) => (
+        <FriendRow key={item.id} friendship={item}>
+          <StatusChip label="申請中" />
+          <button
+            type="button"
+            onClick={() => onRemoveFriend(item.id)}
+            disabled={Boolean(actionLoading)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
+            aria-label="申請を取り消す"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </FriendRow>
+      ))}
     </>
   );
 }
@@ -312,75 +351,15 @@ function RequestsSection({
     <SolidPanel className="!rounded-[14px]" faceClassName="!p-3">
       <SectionTitle icon="mark_email_unread" label="申請" count={incoming.length + outgoing.length} />
       <div className="mt-2 flex flex-col gap-1.5">
-        {incoming.map((item) => (
-          <FriendRow key={item.id} friendship={item}>
-            <button
-              type="button"
-              onClick={() => onRespondRequest(item.id, 'accept')}
-              disabled={Boolean(actionLoading)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] text-white disabled:opacity-50"
-              aria-label="承認"
-            >
-              <Icon name={actionLoading === `accept:${item.id}` ? 'progress_activity' : 'check'} className={actionLoading === `accept:${item.id}` ? 'animate-spin' : ''} size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onRespondRequest(item.id, 'decline')}
-              disabled={Boolean(actionLoading)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
-              aria-label="拒否"
-            >
-              <Icon name="close" size={14} />
-            </button>
-          </FriendRow>
-        ))}
-        {outgoing.map((item) => (
-          <FriendRow key={item.id} friendship={item}>
-            <StatusChip label="申請中" />
-            <button
-              type="button"
-              onClick={() => onRemoveFriend(item.id)}
-              disabled={Boolean(actionLoading)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
-              aria-label="申請を取り消す"
-            >
-              <Icon name="close" size={14} />
-            </button>
-          </FriendRow>
-        ))}
+        <RequestRows
+          incoming={incoming}
+          outgoing={outgoing}
+          actionLoading={actionLoading}
+          onRespondRequest={onRespondRequest}
+          onRemoveFriend={onRemoveFriend}
+        />
       </div>
     </SolidPanel>
-  );
-}
-
-function FriendsSection({
-  friends,
-  actionLoading,
-  onRemoveFriend,
-}: {
-  friends: FriendshipSummary[];
-  actionLoading: string | null;
-  onRemoveFriend: (friendshipId: string) => void;
-}) {
-  return (
-    <>
-      <SectionTitle icon="groups" label="フレンド" count={friends.length} />
-      <div className="mt-2 flex flex-col gap-1.5">
-        {friends.map((friend) => (
-          <FriendRow key={friend.id} friendship={friend}>
-            <button
-              type="button"
-              onClick={() => onRemoveFriend(friend.id)}
-              disabled={Boolean(actionLoading)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:opacity-50"
-              aria-label="フレンド解除"
-            >
-              <Icon name={actionLoading === `delete:${friend.id}` ? 'progress_activity' : 'person_remove'} className={actionLoading === `delete:${friend.id}` ? 'animate-spin' : ''} size={14} />
-            </button>
-          </FriendRow>
-        ))}
-      </div>
-    </>
   );
 }
 
@@ -395,14 +374,37 @@ function TimelineItem({
 }) {
   const profileHref = `/profile/${encodeURIComponent(session.profile.accountId)}`;
   return (
-    <article className="border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-secondary)]">
-      <div className="flex items-start gap-3.5 px-[18px] py-4">
-        <Link href={profileHref} aria-label={`${displayName(session.profile)}のプロフィール`} className="shrink-0">
+    <article className="transition-colors hover:bg-[var(--color-surface-secondary)]">
+      {/* 行全体をタップで学習内容を開閉する（展開ボタンは置かない） */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
+        onClick={onToggle}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
+        className="flex cursor-pointer items-start gap-3.5 px-[18px] py-4"
+      >
+        <Link
+          href={profileHref}
+          aria-label={`${displayName(session.profile)}のプロフィール`}
+          className="shrink-0"
+          onClick={(event) => event.stopPropagation()}
+        >
           <Avatar profile={session.profile} />
         </Link>
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-bold leading-snug text-[var(--solid-ink)]">
-            <Link href={profileHref} className="font-display font-extrabold hover:underline">
+            <Link
+              href={profileHref}
+              className="font-display font-extrabold hover:underline"
+              onClick={(event) => event.stopPropagation()}
+            >
               {displayName(session.profile)}
             </Link>
             さんが{session.answerCount}問クイズを解きました！
@@ -417,15 +419,6 @@ function TimelineItem({
             <MetricChip icon="check_circle" label={`${session.masteredCount}語 習得`} variant="mastered" />
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          aria-label={expanded ? '学習内容を閉じる' : '学習内容を開く'}
-          className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-muted)]"
-        >
-          <Icon name={expanded ? 'expand_less' : 'expand_more'} size={20} />
-        </button>
       </div>
       {expanded && (
         <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-[18px] py-4">
@@ -453,7 +446,7 @@ function TimelineItem({
 
 function GroupEventItem({ event }: { event: StudyGroupFeedEvent }) {
   return (
-    <article className="border-b border-[var(--color-border)]">
+    <article>
       <Link href={`/groups/${event.groupId}`} className="flex items-start gap-3.5 px-[18px] py-4 transition-colors active:bg-[var(--color-surface-secondary)]">
         <div
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] text-white"

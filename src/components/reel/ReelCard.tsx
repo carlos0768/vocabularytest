@@ -1,36 +1,22 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { ReelFeedback, ReelItem } from '@/lib/reels/types';
+import type { ReelItem } from '@/lib/reels/types';
 import { triggerHaptic } from '@/lib/haptics';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
-import { speakEnglish } from '@/lib/speech';
-import { ReelActionRail } from './ReelActionRail';
 import { ReelBookCard } from './ReelBookCard';
-import { ReelCommentSheet } from './ReelCommentSheet';
 import { ReelEtymologyPanel } from './ReelEtymologyPanel';
 import { ReelMeaningPanel } from './ReelMeaningPanel';
-import { ReelMoreSheet } from './ReelMoreSheet';
 
 type ReelCardProps = {
   item: ReelItem;
   active: boolean;
   importing: boolean;
-  onLike: () => void;
-  onSave: () => void;
   onImport: () => void;
-  onShare: () => void;
-  onFeedback: (feedback: ReelFeedback) => void;
-  onCommentCountChange: (delta: number) => void;
   onRevealed?: () => void;
 };
 
 const SWIPE_THRESHOLD = 80;
-
-/** リール単語の読み上げ（カード内レールとデスクトップの外側レールで共用）。 */
-export function speakReelWord(english: string) {
-  speakEnglish(english);
-}
 
 /**
  * One full-height reel card.
@@ -45,18 +31,11 @@ export function ReelCard({
   item,
   active,
   importing,
-  onLike,
-  onSave,
   onImport,
-  onShare,
-  onFeedback,
-  onCommentCountChange,
   onRevealed,
 }: ReelCardProps) {
   const [page, setPage] = useState(0);
   const [dragX, setDragX] = useState(0);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
@@ -159,7 +138,7 @@ export function ReelCard({
       ) : (
       /* Swipeable face track: front(English) then back(meaning) */
       <div
-        className="min-h-0 flex-1"
+        className="relative min-h-0 flex-1"
         style={{ touchAction: 'pan-y' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -179,13 +158,8 @@ export function ReelCard({
             className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center"
             style={{ width: `${faceWidth}%` }}
           >
-            {(item.partOfSpeechTags.length > 0 || item.isRecycled) && (
+            {item.partOfSpeechTags.length > 0 && (
               <div className="flex flex-wrap justify-center gap-1.5">
-                {item.isRecycled && (
-                  <span className="rounded-full border border-[var(--color-accent)] bg-[var(--color-accent-light)] px-2.5 py-0.5 text-xs font-bold text-[var(--color-accent-ink)]">
-                    復習
-                  </span>
-                )}
                 {item.partOfSpeechTags.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
@@ -200,54 +174,32 @@ export function ReelCard({
             <p className="font-mono text-base text-[var(--color-secondary-text)]">
               {item.pronunciation || ' '}
             </p>
-            <p className="mt-4 text-xs text-[var(--color-muted)]">
-              ← スワイプ / タップで意味を表示
-            </p>
           </div>
           {/* Back: Japanese meaning */}
           <div className="h-full" style={{ width: `${faceWidth}%` }}>
             <ReelMeaningPanel item={item} />
           </div>
         </div>
-      </div>
-      )}
-
-      {/* Right action rail（デスクトップはカード外のレールを使うため非表示） */}
-      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center lg:hidden">
-        <div className="pointer-events-auto">
-          <ReelActionRail
-            item={item}
-            onLike={onLike}
-            onSave={onSave}
-            onSpeak={() => speakReelWord(item.english)}
-            onComment={() => setCommentsOpen(true)}
-            onShare={onShare}
-            onMore={() => setMoreOpen(true)}
-          />
+        {/* ページドット: もう1面あることを示し、スワイプ/タップを誘う */}
+        <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+          {Array.from({ length: faces }, (_, index) => (
+            <span
+              key={index}
+              className={`h-1.5 rounded-full transition-all duration-200 ${
+                index === page
+                  ? 'w-5 bg-[var(--solid-ink)]'
+                  : 'w-1.5 bg-[var(--color-border)]'
+              }`}
+            />
+          ))}
         </div>
       </div>
+      )}
 
       {/* Bottom attribution + import (Spotify-style) */}
       <div className="flex-shrink-0 px-4 pb-3">
         <ReelBookCard book={item.book} importing={importing} onImport={onImport} />
       </div>
-
-      {/* "..." menu: interested / not-interested feedback */}
-      <ReelMoreSheet
-        item={item}
-        isOpen={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        onFeedback={(feedback) => {
-          setMoreOpen(false);
-          onFeedback(feedback);
-        }}
-      />
-      <ReelCommentSheet
-        item={item}
-        isOpen={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
-        onCountChange={onCommentCountChange}
-      />
     </div>
   );
 }

@@ -371,7 +371,7 @@ export default function Quiz2Page() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'center' }}>
               <button type="button" className="ds-btn accent" onClick={handleRestart}>
                 <Icon name="refresh" />もう一度
               </button>

@@ -16,13 +16,8 @@ export function ReelEtymologyPanel({ item }: { item: ReelItem }) {
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-8 text-center">
-      {(item.partOfSpeechTags.length > 0 || item.isRecycled) && (
+      {item.partOfSpeechTags.length > 0 && (
         <div className="flex flex-wrap justify-center gap-1.5">
-          {item.isRecycled && (
-            <span className="rounded-full border border-[var(--color-accent)] bg-[var(--color-accent-light)] px-2.5 py-0.5 text-xs font-bold text-[var(--color-accent-ink)]">
-              復習
-            </span>
-          )}
           {item.partOfSpeechTags.slice(0, 3).map((tag) => (
             <span
               key={tag}
