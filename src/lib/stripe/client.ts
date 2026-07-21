@@ -138,6 +138,60 @@ export async function getCustomer(
 }
 
 // ============================================
+// Finance Reporting API (/ops/finance)
+// ============================================
+
+// 支払済み請求書(=サブスク売上実績)を作成日時の下限指定で取得する。
+// コインパック等の単発決済は invoice を作らないため含まれない。
+// ページ上限で取得量を抑える(100件×20ページ)。
+const FINANCE_LIST_PAGE_LIMIT = 20;
+
+export async function listPaidInvoicesSince(
+  createdGteUnixSeconds: number
+): Promise<Stripe.Invoice[]> {
+  const stripe = getStripe();
+  const invoices: Stripe.Invoice[] = [];
+  let startingAfter: string | undefined;
+
+  for (let page = 0; page < FINANCE_LIST_PAGE_LIMIT; page++) {
+    const result = await stripe.invoices.list({
+      status: 'paid',
+      created: { gte: createdGteUnixSeconds },
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    invoices.push(...result.data);
+    const last = result.data[result.data.length - 1];
+    if (!result.has_more || !last?.id) break;
+    startingAfter = last.id;
+  }
+
+  return invoices;
+}
+
+export async function listSucceededRefundsSince(
+  createdGteUnixSeconds: number
+): Promise<Stripe.Refund[]> {
+  const stripe = getStripe();
+  const refunds: Stripe.Refund[] = [];
+  let startingAfter: string | undefined;
+
+  for (let page = 0; page < FINANCE_LIST_PAGE_LIMIT; page++) {
+    const result = await stripe.refunds.list({
+      created: { gte: createdGteUnixSeconds },
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    refunds.push(...result.data.filter((refund) => refund.status === 'succeeded'));
+    const last = result.data[result.data.length - 1];
+    if (!result.has_more || !last?.id) break;
+    startingAfter = last.id;
+  }
+
+  return refunds;
+}
+
+// ============================================
 // Webhook Verification
 // ============================================
 
