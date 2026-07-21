@@ -119,7 +119,19 @@ export default function OpsHubPage() {
         </section>
 
         {/* ナビゲーション */}
-        <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Link href="/ops/finance" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-white">
+                <Icon name="account_balance" size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-[var(--color-foreground)]">財務ダッシュボード</div>
+                <div className="text-xs text-[var(--color-muted)]">月次損益・固定費管理・損益分岐点</div>
+              </div>
+              <Icon name="chevron_right" size={18} className="text-[var(--color-muted)]" />
+            </div>
+          </Link>
           <Link href="/ops/announcements" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-white">
