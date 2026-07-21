@@ -297,6 +297,8 @@ export function ManualWordInputModal({
   setPartOfSpeech,
   exampleSentence,
   setExampleSentence,
+  morphologyEnabled,
+  setMorphologyEnabled,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -311,6 +313,9 @@ export function ManualWordInputModal({
   setPartOfSpeech: (value: string) => void;
   exampleSentence: string;
   setExampleSentence: (value: string) => void;
+  /** 語源解析トグル（未指定なら非表示 = 従来挙動） */
+  morphologyEnabled?: boolean;
+  setMorphologyEnabled?: (enabled: boolean) => void;
 }) {
   const englishInputRef = useRef<HTMLInputElement>(null);
   const [showOptional, setShowOptional] = useState(false);
@@ -396,6 +401,37 @@ export function ManualWordInputModal({
                   maxLength={100}
                 />
               </div>
+
+              {morphologyEnabled !== undefined && setMorphologyEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setMorphologyEnabled(!morphologyEnabled)}
+                  disabled={isLoading}
+                  className="w-full flex items-start gap-2.5 px-4 py-3 border rounded-[var(--radius-lg)] bg-[var(--color-surface)] text-left transition-colors disabled:opacity-60"
+                  style={{
+                    borderColor: morphologyEnabled ? 'var(--color-primary)' : 'var(--color-border)',
+                  }}
+                >
+                  <span
+                    className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                    style={{
+                      border: `1.25px solid ${morphologyEnabled ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      background: morphologyEnabled ? 'var(--color-primary)' : 'transparent',
+                    }}
+                  >
+                    {morphologyEnabled && <Icon name="check" size={11} className="text-white" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-foreground)]">
+                      語源解析
+                      <span className="shrink-0 text-[10px] font-bold text-[var(--color-primary)]">+1コイン/語</span>
+                    </span>
+                    <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
+                      接頭語・接尾語・接中語と語根の成り立ちを解説
+                    </span>
+                  </span>
+                </button>
+              )}
 
               <button
                 type="button"

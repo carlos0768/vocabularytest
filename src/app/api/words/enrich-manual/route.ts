@@ -13,7 +13,7 @@ import { upsertAiTranslationSenses } from '@/lib/lexicon/senses';
 import { saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import { saveQuizContentToLexicon } from '@/lib/lexicon/quiz-content-lexicon';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
-import { getProviderFromConfig, getProvider, isCloudRunConfigured } from '@/lib/ai/providers';
+import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
@@ -36,6 +36,8 @@ import type { WordMorphology } from '../../../../../shared/types';
  * あわせて語源解析（morphology）もスキャン経路と同じ resolver で best-effort
  * 生成し、成功時のみ `morphology` としてレスポンスに含める。生成は補完 AI と
  * 並列で走り、失敗・タイムアウトしても手動追加は成功させる。
+ * `includeMorphology: false` を指定すると語源解析（とそのコイン消費）を丸ごと
+ * スキップする（手動追加モーダルのトグルから制御）。
  */
 
 const requestSchema = z.object({
@@ -45,6 +47,8 @@ const requestSchema = z.object({
   exampleSentenceJa: z.string().trim().max(500).optional(),
   pronunciation: z.string().trim().max(120).optional(),
   partOfSpeechTags: z.array(z.string().trim().min(1).max(32)).max(10).optional(),
+  // 語源解析のオン/オフ（省略時はオン=従来挙動）。オフ時は生成もコイン消費もしない。
+  includeMorphology: z.boolean().optional().default(true),
 }).strict();
 
 const partOfSpeechTagsSchema = z.preprocess((value) => {
@@ -121,10 +125,9 @@ function getEnrichProvider() {
     maxOutputTokens: 512,
     responseFormat: 'json' as const,
   };
-  // GOOGLE_AI_API_KEY があれば直接 Gemini API (Cloud Run バイパス)
-  const provider = geminiApiKey && isCloudRunConfigured()
-    ? getProvider('gemini', geminiApiKey)
-    : getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
+  // スキャンと同じ経路: CLOUD_RUN_URL 設定時は Cloud Run ゲートウェイ (Vertex AI)
+  // 経由、未設定時（ローカル開発）のみ直接 API を呼ぶ。
+  const provider = getProviderFromConfig(config, { gemini: geminiApiKey, openai: openaiApiKey });
   return { provider, config };
 }
 
@@ -171,11 +174,10 @@ export async function POST(request: NextRequest) {
 
     // 2a. 語源解析を先に開始 (best-effort, auth 完了を待たない)。
     // resolveManualMorphology は例外を投げず、タイムアウト時は undefined を返す。
-    const morphologyPromise = withTimeout(
-      resolveManualMorphology(englishTrimmed),
-      MORPHOLOGY_TIMEOUT_MS,
-      undefined,
-    );
+    // includeMorphology=false のときは解析自体を行わない（コイン消費もなし）。
+    const morphologyPromise: Promise<WordMorphology | undefined> = input.includeMorphology
+      ? withTimeout(resolveManualMorphology(englishTrimmed), MORPHOLOGY_TIMEOUT_MS, undefined)
+      : Promise.resolve(undefined);
 
     // 2b. lexiconマスターを優先参照（DBクエリ1回・ベストエフォート）。
     // マスターに値がある分はAI生成をスキップし、頻出語のAIコストを
@@ -388,6 +390,7 @@ export async function POST(request: NextRequest) {
       aiWaitMs,
       generatedFields,
       translationCount: finalJapaneseList.length,
+      includeMorphology: input.includeMorphology,
       morphology: Boolean(morphology),
       morphologyCharged: Boolean(coinInfo),
     });

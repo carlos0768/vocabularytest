@@ -6,6 +6,7 @@ import { desktopPosLabel } from '@/components/desktop/desktop-data';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import type { Word } from '@/types';
 
 export function DesktopWordDetailModal({
@@ -23,6 +24,9 @@ export function DesktopWordDetailModal({
   onDelete?: () => void;
   onNav: (dir: -1 | 1) => void;
 }) {
+  // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完する
+  const morphology = useMorphologyBackfill(word);
+
   return (
     <div className="ds-overlay" onClick={onClose}>
       <div className="ds-modal" onClick={(event) => event.stopPropagation()}>
@@ -109,14 +113,14 @@ export function DesktopWordDetailModal({
               )}
             </div>
 
-          {hasDisplayableMorphology(word.morphology) && (
+          {hasDisplayableMorphology(morphology) && (
             <div>
               <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <Icon name="account_tree" style={{ fontSize: 14 }} />語源
               </div>
-              <MorphologyFormulaChips morphology={word.morphology} />
+              <MorphologyFormulaChips morphology={morphology} />
               <div style={{ fontSize: 13, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 12, whiteSpace: 'pre-line' }}>
-                {word.morphology.explanation}
+                {morphology.explanation}
               </div>
             </div>
           )}

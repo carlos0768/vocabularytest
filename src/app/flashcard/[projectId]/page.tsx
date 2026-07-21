@@ -18,6 +18,7 @@ import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -244,6 +245,13 @@ export default function FlashcardPage() {
   }, [authLoading, projectId, favoritesOnly, collectionId, repository, user, backToProject, words.length]);
 
   const currentWord = words[currentIndex];
+  // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完し、
+  // words 状態にも反映して再表示時のフェッチを防ぐ。
+  const currentMorphology = useMorphologyBackfill(currentWord ?? null, {
+    onBackfilled: (updated) => {
+      setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+    },
+  });
 
   const handleNext = useCallback((withAnimation = false) => {
     if (isAnimating) return;
@@ -456,7 +464,7 @@ export default function FlashcardPage() {
                     )}
                   </div>
                 )}
-                {currentWord && hasDisplayableMorphology(currentWord.morphology) && (
+                {currentWord && hasDisplayableMorphology(currentMorphology) && (
                   <div
                     style={{
                       maxWidth: 460,
@@ -471,9 +479,9 @@ export default function FlashcardPage() {
                     <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Icon name="account_tree" style={{ fontSize: 13 }} />語源
                     </div>
-                    <MorphologyFormulaChips morphology={currentWord.morphology} />
+                    <MorphologyFormulaChips morphology={currentMorphology} />
                     <div className="muted" style={{ fontSize: 13, lineHeight: 1.7, marginTop: 10, whiteSpace: 'pre-line' }}>
-                      {currentWord.morphology.explanation}
+                      {currentMorphology.explanation}
                     </div>
                   </div>
                 )}

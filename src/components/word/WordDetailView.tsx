@@ -10,6 +10,7 @@ import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache
 import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { speakEnglish } from '@/lib/speech';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 
@@ -143,6 +144,15 @@ export function WordDetailView({
       cached.map((w) => (w.id === updated.id ? updated : w))
     );
   }, []);
+
+  // 語源のバックフィル: word.morphology を持たない単語は、リールと同じ
+  // lexicon 共有キャッシュから表示時に取得して補う（詳細はフック参照）。
+  const handleMorphologyBackfilled = useCallback((updated: Word) => {
+    setWord((prev) => (prev && prev.id === updated.id ? { ...prev, morphology: updated.morphology } : prev));
+    syncHomeCacheForWord(updated);
+    onWordUpdated?.(updated);
+  }, [syncHomeCacheForWord, onWordUpdated]);
+  const morphology = useMorphologyBackfill(word, { onBackfilled: handleMorphologyBackfilled });
 
   useEffect(() => {
     if (authLoading) return;
@@ -498,7 +508,7 @@ export function WordDetailView({
           )}
         </section>
 
-        {hasDisplayableMorphology(word.morphology) && (
+        {hasDisplayableMorphology(morphology) && (
           <>
             <SectionDivider />
             <section className="py-4">
@@ -507,9 +517,9 @@ export function WordDetailView({
                 <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">語源</span>
               </div>
               {/* 式: un(否定) ＋ anim(心) ＋ ous(形容詞化) */}
-              <MorphologyFormulaChips morphology={word.morphology} />
+              <MorphologyFormulaChips morphology={morphology} />
               <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.6] text-[var(--color-ink-muted)]">
-                {word.morphology.explanation}
+                {morphology.explanation}
               </p>
             </section>
           </>
