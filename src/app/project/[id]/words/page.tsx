@@ -18,6 +18,10 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
+import {
+  readManualMorphologyPref,
+  writeManualMorphologyPref,
+} from '@/lib/preferences/manual-morphology-pref';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 
 export default function WordListPage() {
@@ -48,6 +52,15 @@ export default function WordListPage() {
   const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
   const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
+  // 手動追加時の語源解析トグル。project ページと同じキーで端末に記憶する。
+  const [manualWordMorphologyEnabled, setManualWordMorphologyEnabled] = useState(true);
+  useEffect(() => {
+    setManualWordMorphologyEnabled(readManualMorphologyPref());
+  }, []);
+  const handleManualWordMorphologyChange = (enabled: boolean) => {
+    setManualWordMorphologyEnabled(enabled);
+    writeManualMorphologyPref(enabled);
+  };
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
@@ -236,6 +249,7 @@ export default function WordListPage() {
         body: JSON.stringify({
           english,
           japanese,
+          includeMorphology: manualWordMorphologyEnabled,
           ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
           ...(userExample ? { exampleSentence: userExample } : {}),
         }),
@@ -398,6 +412,8 @@ export default function WordListPage() {
         setPartOfSpeech={setManualWordPartOfSpeech}
         exampleSentence={manualWordExampleSentence}
         setExampleSentence={setManualWordExampleSentence}
+        morphologyEnabled={manualWordMorphologyEnabled}
+        setMorphologyEnabled={handleManualWordMorphologyChange}
       />
 
       <DeleteConfirmModal
