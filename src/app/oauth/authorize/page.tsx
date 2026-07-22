@@ -85,7 +85,7 @@ function AuthorizeForm() {
         ) : (
           <>
             <p className="mt-4 text-sm leading-relaxed text-[var(--solid-ink)]">
-              許可すると、ChatGPTの会話からあなたのMERKENアカウントに対して次の操作ができるようになります。
+              許可すると、ChatGPTにあなたのMERKENアカウントへのアクセス権(ログイン中のあなたと同等)が付与されます。ChatGPTは主に次の操作に利用します。
             </p>
             <ul className="mt-3 space-y-2">
               {PERMISSIONS.map((permission) => (

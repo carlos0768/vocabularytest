@@ -40,10 +40,13 @@ function buildDeps(overrides?: {
     scope: string | null;
   };
   claimedHashes?: string[];
+  unclaimedHashes?: string[];
   refreshResult?: typeof SESSION_TOKENS | null;
   mintResult?: typeof SESSION_TOKENS | null;
+  mintThrows?: boolean;
 }) {
   const claimedHashes = overrides?.claimedHashes ?? [];
+  const unclaimedHashes = overrides?.unclaimedHashes ?? [];
   return {
     getConfig: () => TEST_CONFIG,
     claimAuthorizationCode: async (codeHash: string) => {
@@ -58,8 +61,15 @@ function buildDeps(overrides?: {
         scope: 'words',
       };
     },
-    mintSessionForUser: async () =>
-      overrides && 'mintResult' in overrides ? (overrides.mintResult ?? null) : SESSION_TOKENS,
+    unclaimAuthorizationCode: async (codeHash: string) => {
+      unclaimedHashes.push(codeHash);
+    },
+    mintSessionForUser: async () => {
+      if (overrides?.mintThrows) {
+        throw new Error('supabase auth is down');
+      }
+      return overrides && 'mintResult' in overrides ? (overrides.mintResult ?? null) : SESSION_TOKENS;
+    },
     refreshSession: async () =>
       overrides && 'refreshResult' in overrides ? (overrides.refreshResult ?? null) : SESSION_TOKENS,
   };
@@ -159,7 +169,7 @@ test('token returns invalid_grant when redirect_uri does not match the stored on
   assert.equal(payload.error, 'invalid_grant');
 });
 
-test('token returns invalid_grant when session mint fails', async () => {
+test('token returns invalid_grant when the code user no longer exists', async () => {
   const response = await handleOAuthTokenPost(
     formRequest({
       grant_type: 'authorization_code',
@@ -170,6 +180,26 @@ test('token returns invalid_grant when session mint fails', async () => {
     buildDeps({ mintResult: null }),
   );
   assert.equal(response.status, 400);
+  const payload = await response.json();
+  assert.equal(payload.error, 'invalid_grant');
+});
+
+test('token returns server_error and unclaims the code when session mint hits an infra failure', async () => {
+  const unclaimedHashes: string[] = [];
+  const response = await handleOAuthTokenPost(
+    formRequest({
+      grant_type: 'authorization_code',
+      code: VALID_CODE,
+      client_id: 'merken-chatgpt',
+      client_secret: 'test-secret-value',
+    }),
+    buildDeps({ mintThrows: true, unclaimedHashes }),
+  );
+  assert.equal(response.status, 500);
+  const payload = await response.json();
+  assert.equal(payload.error, 'server_error');
+  // 一時障害ではワンタイムコードを消費したままにしない
+  assert.deepEqual(unclaimedHashes, [hashAuthorizationCode(VALID_CODE)]);
 });
 
 test('token refresh grant returns a new token pair', async () => {

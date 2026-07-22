@@ -42,6 +42,7 @@ type SessionTokens = {
 type TokenDeps = {
   getConfig: () => ChatGptOAuthConfig;
   claimAuthorizationCode: (codeHash: string) => Promise<ClaimedAuthorizationCode | null>;
+  unclaimAuthorizationCode: (codeHash: string) => Promise<void>;
   mintSessionForUser: (userId: string) => Promise<SessionTokens | null>;
   refreshSession: (refreshToken: string) => Promise<SessionTokens | null>;
 };
@@ -81,7 +82,13 @@ const defaultDeps: TokenDeps = {
       .select('user_id, client_id, redirect_uri, scope')
       .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
+      // DB 障害は invalid_grant (= コード失効) と区別して 500 にする
+      throw new Error(`claimAuthorizationCode failed: ${error.message}`);
+    }
+
+    if (!data) {
+      // 期限切れ・使用済み・存在しないコード → invalid_grant
       return null;
     }
 
@@ -92,13 +99,33 @@ const defaultDeps: TokenDeps = {
       scope: (data.scope as string | null) ?? null,
     };
   },
+  async unclaimAuthorizationCode(codeHash: string) {
+    // セッション鋳造がインフラ障害で失敗した場合に、消費済みにした
+    // コードをベストエフォートで元に戻し、ChatGPT 側のリトライを可能にする。
+    const admin = getSupabaseAdmin();
+    const { error } = await admin
+      .from('oauth_authorization_codes')
+      .update({ used_at: null })
+      .eq('code_hash', codeHash)
+      .gt('expires_at', new Date().toISOString());
+
+    if (error) {
+      console.error('[oauth/token] Failed to unclaim authorization code:', error.message);
+    }
+  },
   async mintSessionForUser(userId: string) {
+    // インフラ障害 (Supabase Auth のエラー) は throw して 500 (server_error) に
+    // 乗せる。null を返すのは「ユーザーが実在しない = grant が死んでいる」場合のみ。
     const admin = getSupabaseAdmin();
 
     const { data: userData, error: userError } = await admin.auth.admin.getUserById(userId);
+    if (userError) {
+      throw new Error(`mintSessionForUser getUserById failed: ${userError.message}`);
+    }
+
     const email = userData?.user?.email;
-    if (userError || !email) {
-      console.error('[oauth/token] Failed to load user for session mint:', userError);
+    if (!email) {
+      console.error('[oauth/token] User for authorization code no longer exists:', userId);
       return null;
     }
 
@@ -108,8 +135,7 @@ const defaultDeps: TokenDeps = {
     });
 
     if (linkError || !linkData) {
-      console.error('[oauth/token] Failed to generate magic link:', linkError);
-      return null;
+      throw new Error(`mintSessionForUser generateLink failed: ${linkError?.message ?? 'no link data'}`);
     }
 
     const tokenClient = createTokenExchangeClient();
@@ -119,8 +145,7 @@ const defaultDeps: TokenDeps = {
     });
 
     if (sessionError || !sessionData.session) {
-      console.error('[oauth/token] Failed to mint session:', sessionError);
-      return null;
+      throw new Error(`mintSessionForUser verifyOtp failed: ${sessionError?.message ?? 'no session'}`);
     }
 
     return {
@@ -224,7 +249,8 @@ export async function handleOAuthTokenPost(
         return oauthError('invalid_request', 400);
       }
 
-      const claimed = await deps.claimAuthorizationCode(hashAuthorizationCode(code));
+      const codeHash = hashAuthorizationCode(code);
+      const claimed = await deps.claimAuthorizationCode(codeHash);
       if (!claimed) {
         return oauthError('invalid_grant', 400);
       }
@@ -237,7 +263,16 @@ export async function handleOAuthTokenPost(
         return oauthError('invalid_grant', 400);
       }
 
-      const tokens = await deps.mintSessionForUser(claimed.userId);
+      let tokens: SessionTokens | null;
+      try {
+        tokens = await deps.mintSessionForUser(claimed.userId);
+      } catch (mintError) {
+        // インフラ障害でワンタイムコードを焼き切らないよう、クレームを
+        // ベストエフォートで戻してから 500 (server_error) を返す。
+        await deps.unclaimAuthorizationCode(codeHash);
+        throw mintError;
+      }
+
       if (!tokens) {
         return oauthError('invalid_grant', 400);
       }

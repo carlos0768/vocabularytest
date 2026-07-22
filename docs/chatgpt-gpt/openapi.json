@@ -68,6 +68,7 @@
               "schema": {
                 "type": "object",
                 "required": ["title"],
+                "additionalProperties": false,
                 "properties": {
                   "title": {
                     "type": "string",
@@ -117,6 +118,7 @@
               "schema": {
                 "type": "object",
                 "required": ["words"],
+                "additionalProperties": false,
                 "properties": {
                   "words": {
                     "type": "array",
@@ -125,6 +127,7 @@
                     "items": {
                       "type": "object",
                       "required": ["projectId", "english", "japanese"],
+                      "additionalProperties": false,
                       "properties": {
                         "projectId": {
                           "type": "string",
@@ -161,13 +164,13 @@
                         "partOfSpeechTags": {
                           "type": "array",
                           "maxItems": 10,
-                          "items": { "type": "string" },
+                          "items": { "type": "string", "minLength": 1, "maxLength": 32 },
                           "description": "品詞タグ(noun, verb, adjective, adverb, idiom など英語表記)"
                         },
                         "distractors": {
                           "type": "array",
                           "maxItems": 10,
-                          "items": { "type": "string" },
+                          "items": { "type": "string", "minLength": 1, "maxLength": 300 },
                           "description": "4択クイズ用の誤答選択肢3つ。正解とは別の英単語の日本語訳から作ること。出題語自身の別の意味は使わない"
                         }
                       }
