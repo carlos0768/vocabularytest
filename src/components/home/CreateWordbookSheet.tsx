@@ -11,7 +11,10 @@ import { saveManualAddIntent } from '@/lib/home/home-session-storage';
 import { getGuestUserId, FREE_WORDBOOK_LIMIT } from '@/lib/utils';
 import type { SubscriptionStatus } from '@/types';
 
-type CreateMethod = 'scan' | 'shared' | 'blank';
+type CreateMethod = 'scan' | 'chatgpt' | 'shared' | 'blank';
+
+// MERKEN公式GPT(ChatGPT連携)のURL。未設定ビルドでは /tips/chatgpt に誘導する。
+const CHATGPT_GPT_URL = process.env.NEXT_PUBLIC_CHATGPT_GPT_URL ?? '';
 
 interface MethodOption {
   k: CreateMethod;
@@ -23,6 +26,7 @@ interface MethodOption {
 
 const METHODS: MethodOption[] = [
   { k: 'scan', icon: 'photo_camera', title: '写真でスキャン', description: 'AIが英単語と意味を自動抽出', recommended: true },
+  { k: 'chatgpt', icon: 'smart_toy', title: 'ChatGPTで作成', description: '会話で頼むだけで単語帳に追加' },
   { k: 'shared', icon: 'group', title: '共有ライブラリから', description: '公開単語帳をコピー' },
   { k: 'blank', icon: 'edit_note', title: '空の単語帳を作成', description: 'あとから手動で追加' },
 ];
@@ -76,11 +80,13 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
   const ctaDisabled = submitting || (method === 'blank' && !trimmedName);
   const ctaLabel = method === 'scan'
     ? 'スキャンに進む'
-    : method === 'shared'
-      ? '共有ライブラリを開く'
-      : submitting
-        ? '作成中...'
-        : '単語帳を作成';
+    : method === 'chatgpt'
+      ? 'ChatGPTを開く'
+      : method === 'shared'
+        ? '共有ライブラリを開く'
+        : submitting
+          ? '作成中...'
+          : '単語帳を作成';
 
   const handleSubmit = async () => {
     if (ctaDisabled) return;
@@ -88,6 +94,16 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
 
     if (method === 'scan') {
       setStep('scan');
+      return;
+    }
+
+    if (method === 'chatgpt') {
+      onClose();
+      if (CHATGPT_GPT_URL) {
+        window.open(CHATGPT_GPT_URL, '_blank', 'noopener,noreferrer');
+      } else {
+        router.push('/tips/chatgpt');
+      }
       return;
     }
 
@@ -252,16 +268,20 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                 {method === 'scan' && !trimmedName && (
                   <p className="mt-1 text-[10px] text-[var(--color-muted)]">未入力の場合はスキャン内容から自動で名前が付きます</p>
                 )}
+                {method === 'chatgpt' && (
+                  <p className="mt-1 text-[10px] text-[var(--color-muted)]">単語帳の作成・選択はChatGPTとの会話の中で行います</p>
+                )}
               </div>
 
               {/* Method cards */}
               <div className="flex flex-col gap-2.5">
                 {METHODS.map((m) => {
                   const active = method === m.k;
-                  // Scanning is Pro-only: free users see a PRO badge on scan
-                  // and get the shared library recommended instead.
+                  // Scanning and the ChatGPT integration are Pro-only: free
+                  // users see a PRO badge and get the shared library
+                  // recommended instead.
                   const showRecommended = m.recommended ? isPro : (m.k === 'shared' && !isPro);
-                  const showProBadge = m.k === 'scan' && !isPro;
+                  const showProBadge = (m.k === 'scan' || m.k === 'chatgpt') && !isPro;
                   return (
                     <button
                       key={m.k}
@@ -272,6 +292,12 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                           // where ScanCapturePanel renders the Pro upgrade funnel
                           // instead of the camera UI.
                           setStep('scan');
+                          return;
+                        }
+                        if (m.k === 'chatgpt' && !isPro) {
+                          // ChatGPT連携もPro限定: ガイドページ(Pro導線つき)へ誘導する。
+                          onClose();
+                          router.push('/tips/chatgpt');
                           return;
                         }
                         setMethod(m.k);
