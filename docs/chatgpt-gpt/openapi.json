@@ -1,0 +1,218 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MERKEN Wordbook API for ChatGPT",
+    "description": "ChatGPTの会話からMERKENの単語帳に単語を追加するためのAPI。単語の日本語訳・例文・クイズ誤答選択肢はすべてChatGPT側で生成して送信する(サーバー側ではAI生成を行わない)。",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://www.merken.jp"
+    }
+  ],
+  "paths": {
+    "/api/chatgpt/projects": {
+      "get": {
+        "operationId": "listWordbooks",
+        "summary": "ユーザーの単語帳一覧を取得する",
+        "description": "単語を追加する前に呼び出し、追加先の単語帳(projectId)を決める。",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "単語帳一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "projects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "title": { "type": "string" },
+                          "updatedAt": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWordbook",
+        "x-openai-isConsequential": false,
+        "summary": "新しい単語帳を作成する",
+        "description": "追加先に適した単語帳がない場合に作成する。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "単語帳のタイトル(例: ChatGPTで学んだ単語)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "作成された単語帳",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "title": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chatgpt/words": {
+      "post": {
+        "operationId": "addWords",
+        "x-openai-isConsequential": false,
+        "summary": "単語帳に単語を追加する",
+        "description": "会話に出てきた英単語をユーザーの単語帳に追加する。日本語訳(japanese)は必須。例文・発音・品詞・クイズ用の誤答選択肢(distractors)もChatGPTが生成して必ず含めること。サーバー側では翻訳や例文の自動生成は行われない。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["words"],
+                "properties": {
+                  "words": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "required": ["projectId", "english", "japanese"],
+                      "properties": {
+                        "projectId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "追加先の単語帳ID(listWordbooks / createWordbookで取得)"
+                        },
+                        "english": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "英単語または熟語(辞書形)"
+                        },
+                        "japanese": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300,
+                          "description": "簡潔な日本語訳(必須。会話の文脈に合う訳を選ぶ)"
+                        },
+                        "exampleSentence": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "description": "その単語を使った自然な英語の例文"
+                        },
+                        "exampleSentenceJa": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "description": "例文の日本語訳"
+                        },
+                        "pronunciation": {
+                          "type": "string",
+                          "maxLength": 120,
+                          "description": "IPA発音記号"
+                        },
+                        "partOfSpeechTags": {
+                          "type": "array",
+                          "maxItems": 10,
+                          "items": { "type": "string" },
+                          "description": "品詞タグ(noun, verb, adjective, adverb, idiom など英語表記)"
+                        },
+                        "distractors": {
+                          "type": "array",
+                          "maxItems": 10,
+                          "items": { "type": "string" },
+                          "description": "4択クイズ用の誤答選択肢3つ。正解とは別の英単語の日本語訳から作ること。出題語自身の別の意味は使わない"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "追加結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "addedCount": { "type": "integer" },
+                    "words": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "projectId": { "type": "string" },
+                          "english": { "type": "string" },
+                          "japanese": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Pro限定機能(code: PRO_REQUIRED)または単語帳へのアクセス権なし"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {}
+  }
+}

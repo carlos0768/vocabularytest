@@ -17,6 +17,7 @@ const protectedPaths = [
   '/grammar',
   '/stats',
   '/reels',
+  '/oauth/authorize',
 ];
 const authPaths = ['/login', '/signup'];
 
