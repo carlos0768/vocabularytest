@@ -79,8 +79,8 @@ export function DesktopHomeGrammarBooks({ books }: { books: GrammarBook[] }) {
           <Icon name="chevron_right" style={{ fontSize: 16 }} />
         </Link>
       </div>
-      {/* マイ単語帳と同じ ds-book タイルの横スクロール棚 (1行10冊) */}
-      <div className="ds-shelf-row cols-10">
+      {/* マイ単語帳と同じ ds-book タイルの横スクロール棚 (タイル幅は保ち、横スクロール) */}
+      <div className="ds-shelf-row">
         {books.map((book) => (
           <Link
             key={book.id}

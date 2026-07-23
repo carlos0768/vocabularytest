@@ -33,6 +33,12 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
   const isReview = bookId === 'review';
   const router = useRouter();
 
+  // 戻るは来た画面 (ホーム等) に戻す。直接アクセスなど履歴が無いときのみ一覧へフォールバック。
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push('/grammar');
+  };
+
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -188,9 +194,9 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       <div className="flex items-center gap-2 pb-3 pt-1">
         <button
           type="button"
-          onClick={() => router.push('/grammar')}
+          onClick={handleBack}
           className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-          aria-label="一覧に戻る"
+          aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />
         </button>
