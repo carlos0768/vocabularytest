@@ -98,20 +98,23 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
   const handleSelect = (choiceIndex: number) => {
     if (answered || !question) return;
     setSelected(choiceIndex);
-    if (choiceIndex !== question.correctIndex) {
+    const isCorrect = choiceIndex === question.correctIndex;
+    if (!isCorrect) {
       setWrongQuestions((prev) => [...prev, question]);
-      // 誤答ログを記録する (語法復習・ChatGPTの「間違えた問題」用)。
-      // best-effort: 失敗しても演習は続行する。
-      const missBookId = isReview ? question.bookId : bookId;
-      if (missBookId) {
-        void fetch('/api/chatgpt/grammar-misses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ questionId: question.id, bookId: missBookId }),
-        }).catch(() => {});
-      }
-    } else if (isReview) {
-      // 復習モードで正解できた問題はミスを解消し、次回の復習対象から外す
+    }
+    // 習得度を記録する(不正解時はサーバー側で誤答ログも残すので、
+    // 別途 grammar-misses への直接POSTは不要)。復習モードでは所属問題集ID
+    // (question.bookId) を使う。best-effort: 失敗しても演習は続行する。
+    const effectiveBookId = isReview ? question.bookId : bookId;
+    if (effectiveBookId) {
+      void fetch('/api/grammar/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId: question.id, bookId: effectiveBookId, result: isCorrect ? 'correct' : 'wrong' }),
+      }).catch(() => {});
+    }
+    // 復習モードで正解できた問題はミスを解消し、次回の復習対象から外す
+    if (isCorrect && isReview) {
       void fetch(`/api/chatgpt/grammar-misses?questionId=${encodeURIComponent(question.id)}`, {
         method: 'DELETE',
       }).catch(() => {});
@@ -137,7 +140,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       .catch(() => {});
   };
 
-  // スキップは正解にも不正解にもカウントせず次の問題へ進む (デスクトップのみ)。
+  // スキップは正解にも不正解にもカウントせず次の問題へ進む。
   const handleSkip = () => {
     if (answered || !question) return;
     setSkippedCount((prev) => prev + 1);
@@ -153,8 +156,11 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     setChatGptCopied(false);
   };
 
-  const answeredCount = finished ? questions.length : index + (answered ? 1 : 0);
-  const correctCount = answeredCount - wrongQuestions.length - skippedCount;
+  // 正解数 = 回答済み(スキップを除く)- 不正解数
+  const correctCount = Math.max(
+    0,
+    (finished ? questions.length - skippedCount : index + (answered ? 1 : 0) - skippedCount) - wrongQuestions.length,
+  );
 
   return (
     <>
@@ -244,7 +250,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-6">
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">RESULT</div>
           <div className="mt-2 font-display text-3xl font-extrabold text-[var(--solid-ink)]">
-            {questions.length - wrongQuestions.length} / {questions.length} 問正解
+            {correctCount} / {questions.length} 問正解
           </div>
           {wrongGrammarPoints.length > 0 && (
             <div className="mt-4">
@@ -258,7 +264,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               </div>
             </div>
           )}
-          {wrongQuestions.length === 0 && (
+          {correctCount === questions.length && (
             <p className="m-0 mt-3 text-[12px] text-[var(--solid-ink)]">全問正解です。この調子で次の問題集にも挑戦しましょう 🎉</p>
           )}
           <div className="mt-5 flex flex-col gap-2.5">
@@ -349,15 +355,25 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
             </div>
           )}
 
-          {answered && (
+          {/* ボトムバー: スキップ / 次へ を並列で配置 */}
+          <div className="mt-4 flex gap-2.5">
+            <button
+              type="button"
+              onClick={handleSkip}
+              disabled={answered}
+              className="h-12 flex-1 rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+            >
+              スキップ
+            </button>
             <button
               type="button"
               onClick={handleNext}
-              className="mt-4 h-12 w-full rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+              disabled={!answered}
+              className="h-12 flex-1 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
             >
-              {index + 1 >= questions.length ? '結果を見る' : '次の問題へ'}
+              {index + 1 >= questions.length ? '結果を見る' : '次へ'}
             </button>
-          )}
+          </div>
         </>
       )}
       </div>

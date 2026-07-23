@@ -40,7 +40,10 @@
                         "properties": {
                           "id": { "type": "string", "format": "uuid" },
                           "title": { "type": "string" },
-                          "updatedAt": { "type": "string", "format": "date-time" }
+                          "updatedAt": { "type": "string", "format": "date-time" },
+                          "isFavorite": { "type": "boolean", "description": "保存(お気に入り)状態" },
+                          "questionCount": { "type": "integer", "description": "問題数" },
+                          "masteredCount": { "type": "integer", "description": "習得済み(直近で正解した)問題数" }
                         }
                       }
                     }
