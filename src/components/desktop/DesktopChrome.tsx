@@ -8,9 +8,23 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
 import { cn } from '@/lib/utils';
 
-type NavKey = 'home' | 'books' | 'stats' | 'reels' | 'feed' | 'shared' | 'fav' | 'scan' | 'settings';
+type NavKey = 'home' | 'books' | 'stats' | 'grammar' | 'reels' | 'feed' | 'shared' | 'fav' | 'scan' | 'settings';
 
-const NAV_ITEMS: { key: NavKey; href: string; icon: string; label: string; count?: number }[] = [
+type NavItem = { key: NavKey; href: string; icon: string; label: string; count?: number };
+
+// Pro: 語法問題集入り(リールなし)。Free: 従来のナビ(リール入り)を維持する。
+// モバイルの BottomNav と同じ出し分け。
+const PRO_NAV_ITEMS: NavItem[] = [
+  { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
+  { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
+  { key: 'grammar', href: '/grammar', icon: 'menu_book', label: '語法問題集' },
+  { key: 'feed', href: '/friends', icon: 'dynamic_feed', label: 'フィード' },
+  { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
+  { key: 'fav', href: '/favorites', icon: 'bookmark', label: '保存', count: 21 },
+  { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
+];
+
+const FREE_NAV_ITEMS: NavItem[] = [
   { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
   { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'reels', href: '/reels', icon: 'movie', label: 'リール' },
@@ -24,6 +38,7 @@ function activeKeyForPath(pathname: string): NavKey {
   if (pathname === '/') return 'home';
   if (pathname === '/projects' || pathname.startsWith('/project/') || pathname.startsWith('/word/')) return 'books';
   if (pathname === '/stats') return 'stats';
+  if (pathname === '/grammar' || pathname.startsWith('/grammar/')) return 'grammar';
   if (pathname === '/reels') return 'reels';
   if (pathname === '/friends' || pathname === '/follows' || pathname.startsWith('/profile')) return 'feed';
   if (pathname === '/shared' || pathname.startsWith('/share/') || pathname.startsWith('/groups/')) return 'shared';
@@ -70,7 +85,7 @@ export function DesktopSidebar({
       </div>
 
       <nav className="ds-nav">
-        {NAV_ITEMS.map((item) => {
+        {(isPro ? PRO_NAV_ITEMS : FREE_NAV_ITEMS).map((item) => {
           const isActive = active === item.key;
           return (
             <Link

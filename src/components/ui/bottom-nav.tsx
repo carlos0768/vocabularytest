@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
+import { useAuth } from '@/hooks/use-auth';
+import { prefetchReelFeed } from '@/hooks/use-reel-feed';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -56,6 +58,22 @@ const ScanPlusIcon = () => (
   </svg>
 );
 
+const ReelIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="3"/>
+    <path d="M4 8h16"/>
+    <path d="M10.5 12.2l4 2.3-4 2.3v-4.6z"/>
+  </svg>
+);
+
+const ReelIconFilled = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="3"/>
+    <path d="M4 8h16" stroke="#fff" strokeWidth="1.5"/>
+    <path d="M10.5 12.2l4 2.3-4 2.3v-4.6z" fill="#fff" stroke="#fff"/>
+  </svg>
+);
+
 const GrammarIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M5 4a2 2 0 012-2h12v18H7a2 2 0 00-2 2V4z"/>
@@ -82,15 +100,44 @@ interface TabItem {
   IconActive: React.FC;
 }
 
-const TABS: TabItem[] = [
-  {
-    k: 'home',
-    label: 'ホーム',
-    href: '/',
-    matchPaths: ['/'],
-    IconDefault: HomeIcon,
-    IconActive: HomeIconFilled,
-  },
+const HOME_TAB: TabItem = {
+  k: 'home',
+  label: 'ホーム',
+  href: '/',
+  matchPaths: ['/'],
+  IconDefault: HomeIcon,
+  IconActive: HomeIconFilled,
+};
+
+const CREATE_TAB: TabItem = {
+  k: 'create',
+  label: '作成',
+  primary: true,
+  IconDefault: ScanPlusIcon,
+  IconActive: ScanPlusIcon,
+};
+
+const SHARED_TAB: TabItem = {
+  k: 'shared',
+  label: '共有',
+  href: '/shared',
+  matchPaths: ['/shared', '/groups'],
+  IconDefault: SharedIcon,
+  IconActive: SharedIconFilled,
+};
+
+const ACCOUNT_TAB: TabItem = {
+  k: 'account',
+  label: 'アカウント',
+  href: '/settings',
+  matchPaths: ['/settings', '/subscription'],
+  IconDefault: AccountIcon,
+  IconActive: AccountIconFilled,
+};
+
+// Pro: 語法コーナー入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)を維持。
+const PRO_TABS: TabItem[] = [
+  HOME_TAB,
   {
     k: 'grammar',
     label: '語法',
@@ -99,34 +146,31 @@ const TABS: TabItem[] = [
     IconDefault: GrammarIcon,
     IconActive: GrammarIconFilled,
   },
+  CREATE_TAB,
+  SHARED_TAB,
+  ACCOUNT_TAB,
+];
+
+const FREE_TABS: TabItem[] = [
+  HOME_TAB,
+  SHARED_TAB,
+  CREATE_TAB,
   {
-    k: 'create',
-    label: '作成',
-    primary: true,
-    IconDefault: ScanPlusIcon,
-    IconActive: ScanPlusIcon,
+    k: 'reels',
+    label: 'リール',
+    href: '/reels',
+    matchPaths: ['/reels'],
+    IconDefault: ReelIcon,
+    IconActive: ReelIconFilled,
   },
-  {
-    k: 'shared',
-    label: '共有',
-    href: '/shared',
-    matchPaths: ['/shared', '/groups'],
-    IconDefault: SharedIcon,
-    IconActive: SharedIconFilled,
-  },
-  {
-    k: 'account',
-    label: 'アカウント',
-    href: '/settings',
-    matchPaths: ['/settings', '/subscription'],
-    IconDefault: AccountIcon,
-    IconActive: AccountIconFilled,
-  },
+  ACCOUNT_TAB,
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { isPro } = useAuth();
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const tabs = isPro ? PRO_TABS : FREE_TABS;
 
   const isActive = (tab: TabItem) => {
     if (!tab.matchPaths || !tab.href) return false;
@@ -163,7 +207,7 @@ export function BottomNav() {
             pointerEvents: 'auto',
           }}
         >
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const active = isActive(tab);
             const Icon = active ? tab.IconActive : tab.IconDefault;
 
@@ -206,6 +250,9 @@ export function BottomNav() {
               <Link
                 key={tab.k}
                 href={tab.href!}
+                // リールはフィードAPIが重いので、タップした瞬間に初回ページの
+                // 取得を先行開始して表示までの待ちを短縮する。
+                onPointerDown={tab.k === 'reels' ? () => prefetchReelFeed() : undefined}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
