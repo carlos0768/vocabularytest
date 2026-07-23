@@ -191,7 +191,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       />
 
       {/* 単語帳クイズと同じ固定ビューポート構成: 内容が収まる限りスクロールしない */}
-      <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       <div className="mx-auto flex h-full w-full max-w-[560px] flex-col">
       {/* Header (固定ビューポートの上段。ノッチ帯は全体共通の StatusBarCover が覆う) */}
       <header
