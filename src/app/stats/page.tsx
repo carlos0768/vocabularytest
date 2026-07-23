@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DesktopStatsView } from '@/components/desktop/DesktopStats';
 import { Icon } from '@/components/ui/Icon';
@@ -163,13 +162,6 @@ export default function StatsPage() {
               進歩
             </div>
           </div>
-          <Link
-            href="/friends"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 text-[11px] font-bold text-[var(--solid-ink)]"
-          >
-            <Icon name="group" size={15} />
-            フィード
-          </Link>
         </div>
 
         <AnimatePresence>

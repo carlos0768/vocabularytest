@@ -16,21 +16,19 @@ type NavItem = { key: NavKey; href: string; icon: string; label: string; count?:
 // モバイルの BottomNav と同じ出し分け。
 const PRO_NAV_ITEMS: NavItem[] = [
   { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
-  { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'grammar', href: '/grammar', icon: 'menu_book', label: '語法問題集' },
-  { key: 'feed', href: '/friends', icon: 'dynamic_feed', label: 'フィード' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'bookmark', label: '保存', count: 21 },
+  { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
 ];
 
 const FREE_NAV_ITEMS: NavItem[] = [
   { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
-  { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'reels', href: '/reels', icon: 'movie', label: 'リール' },
-  { key: 'feed', href: '/friends', icon: 'dynamic_feed', label: 'フィード' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'bookmark', label: '保存', count: 21 },
+  { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
   { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
 ];
 
@@ -40,7 +38,7 @@ function activeKeyForPath(pathname: string): NavKey {
   if (pathname === '/stats') return 'stats';
   if (pathname === '/grammar' || pathname.startsWith('/grammar/')) return 'grammar';
   if (pathname === '/reels') return 'reels';
-  if (pathname === '/friends' || pathname === '/follows' || pathname.startsWith('/profile')) return 'feed';
+  if (pathname === '/follows' || pathname.startsWith('/profile')) return 'feed';
   if (pathname === '/shared' || pathname.startsWith('/share/') || pathname.startsWith('/groups/')) return 'shared';
   if (pathname === '/favorites' || pathname.startsWith('/collections')) return 'fav';
   if (pathname.startsWith('/scan')) return 'scan';
@@ -134,14 +132,17 @@ export function DesktopSidebar({
 export function DesktopTopbar({
   title,
   crumb,
+  leading,
   children,
 }: {
   title: string;
   crumb?: string;
+  leading?: ReactNode;
   children?: ReactNode;
 }) {
   return (
     <div className="ds-top">
+      {leading}
       <div style={{ flex: 1, minWidth: 0 }}>
         {crumb && <div className="crumb">{crumb}</div>}
         <h1>{title}</h1>
@@ -172,6 +173,7 @@ export function DesktopButton({
   className,
   onClick,
   title,
+  disabled,
 }: {
   children: ReactNode;
   href?: string;
@@ -180,6 +182,7 @@ export function DesktopButton({
   className?: string;
   onClick?: () => void;
   title?: string;
+  disabled?: boolean;
 }) {
   const iconOnly = children === '' || children === null || children === undefined;
   const content = (
@@ -197,7 +200,7 @@ export function DesktopButton({
     );
   }
   return (
-    <button type="button" className={classes} onClick={onClick} title={title}>
+    <button type="button" className={classes} onClick={onClick} title={title} disabled={disabled}>
       {content}
     </button>
   );

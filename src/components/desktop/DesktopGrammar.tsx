@@ -32,6 +32,36 @@ export type GrammarPracticeQuestion = {
 
 export const GRAMMAR_CHOICE_LABELS = ['A', 'B', 'C', 'D'] as const;
 
+// ChatGPTに貼り付けて質問するための文章を組み立てる (モバイル/デスクトップ共用)。
+// 回答後に使う想定なので正解と (誤答時は) 自分の答えも含める。
+export function buildGrammarChatGptPrompt(
+  question: GrammarPracticeQuestion,
+  selectedIndex: number | null,
+): string {
+  const lines = [
+    '以下の英語の語法問題について解説してください。',
+    '',
+    '【問題】',
+    question.sentence,
+    '',
+    '【選択肢】',
+    ...question.choices.map((choice, index) => `${GRAMMAR_CHOICE_LABELS[index]}. ${choice}`),
+    '',
+    `【正解】${GRAMMAR_CHOICE_LABELS[question.correctIndex]}. ${question.choices[question.correctIndex]}`,
+  ];
+  if (selectedIndex !== null && selectedIndex !== question.correctIndex) {
+    lines.push(`【自分の答え】${GRAMMAR_CHOICE_LABELS[selectedIndex]}. ${question.choices[selectedIndex]}`);
+  }
+  if (question.grammarPoint) {
+    lines.push(`【文法項目】${question.grammarPoint}`);
+  }
+  lines.push(
+    '',
+    '正解になる理由と、他の選択肢が不正解になる理由をわかりやすく教えてください。',
+  );
+  return lines.join('\n');
+}
+
 // 空欄マーカー ___ を強調表示に変換する (モバイル/デスクトップ共用)
 export function renderGrammarSentence(sentence: string) {
   const parts = sentence.split('___');
@@ -52,13 +82,17 @@ export function DesktopGrammarBooksView({
   gptUrl,
   sharingBookId,
   sharedBookId,
+  deletingBookId,
   onShare,
+  onDelete,
 }: {
   state: GrammarBooksLoadState;
   gptUrl: string;
   sharingBookId: string | null;
   sharedBookId: string | null;
+  deletingBookId: string | null;
   onShare: (bookId: string) => void;
+  onDelete: (bookId: string, title: string) => void;
 }) {
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -127,6 +161,7 @@ export function DesktopGrammarBooksView({
                       <th>問題集</th>
                       <th style={{ width: 110 }}>更新</th>
                       <th style={{ width: 90 }}>共有</th>
+                      <th style={{ width: 60 }} />
                       <th style={{ width: 120 }} />
                     </tr>
                   </thead>
@@ -169,6 +204,18 @@ export function DesktopGrammarBooksView({
                           </DesktopButton>
                         </td>
                         <td>
+                          <DesktopButton
+                            variant="ghost"
+                            icon="delete"
+                            onClick={() => onDelete(book.id, book.title)}
+                            disabled={deletingBookId !== null}
+                            title="問題集を削除"
+                            className="text-[#d33]"
+                          >
+                            {''}
+                          </DesktopButton>
+                        </td>
+                        <td>
                           <DesktopButton variant="dark" icon="play_arrow" href={`/grammar/${book.id}`}>
                             演習する
                           </DesktopButton>
@@ -191,7 +238,8 @@ export function DesktopGrammarBooksView({
   );
 }
 
-// 語法演習のデスクトップビュー。左に問題カード、右に進捗サイドバーの2カラム。
+// 語法演習のデスクトップビュー。問題カードを中央1カラムで表示し、
+// スキップ/次へは画面下部の固定バーに置く。
 export function DesktopGrammarPracticeView({
   loadState,
   totalQuestions,
@@ -201,9 +249,12 @@ export function DesktopGrammarPracticeView({
   finished,
   correctCount,
   wrongGrammarPoints,
+  chatGptCopied,
   onSelect,
   onNext,
+  onSkip,
   onRetry,
+  onAskChatGpt,
 }: {
   loadState: { kind: 'loading' } | { kind: 'pro-required' } | { kind: 'error'; message: string } | { kind: 'ready' };
   totalQuestions: number;
@@ -213,32 +264,38 @@ export function DesktopGrammarPracticeView({
   finished: boolean;
   correctCount: number;
   wrongGrammarPoints: string[];
+  chatGptCopied: boolean;
   onSelect: (choiceIndex: number) => void;
   onNext: () => void;
+  onSkip: () => void;
   onRetry: () => void;
+  onAskChatGpt: () => void;
 }) {
   const answered = selected !== null;
   const correct = answered && question ? selected === question.correctIndex : false;
-  const answeredCount = finished ? totalQuestions : index + (answered ? 1 : 0);
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title="語法演習" crumb="文法・語法 / 空欄補充・英語4択">
-        <DesktopButton variant="ghost" icon="arrow_back" href="/grammar">
-          一覧へ戻る
-        </DesktopButton>
-      </DesktopTopbar>
+      <DesktopTopbar
+        title="語法演習"
+        crumb="文法・語法 / 空欄補充・英語4択"
+        leading={
+          <DesktopButton variant="ghost" icon="arrow_back" href="/grammar" title="一覧へ戻る">
+            {''}
+          </DesktopButton>
+        }
+      />
 
       <div className="ds-scroll">
         {loadState.kind === 'loading' && (
-          <div className="ds-card muted" style={{ padding: 50, textAlign: 'center', fontSize: 13, maxWidth: 720 }}>
+          <div className="ds-card muted" style={{ padding: 50, textAlign: 'center', fontSize: 13, maxWidth: 720, margin: '0 auto' }}>
             <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 8 }} />
             読み込み中...
           </div>
         )}
 
         {loadState.kind === 'pro-required' && (
-          <div className="ds-card" style={{ padding: 24, maxWidth: 560 }}>
+          <div className="ds-card" style={{ padding: 24, maxWidth: 560, margin: '0 auto' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16 }}>Pro限定機能です</div>
             <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: '10px 0 16px' }}>
               語法問題集はProプラン限定です。
@@ -250,13 +307,13 @@ export function DesktopGrammarPracticeView({
         )}
 
         {loadState.kind === 'error' && (
-          <div className="ds-card" style={{ padding: 24, maxWidth: 560, color: 'var(--color-error)', borderColor: 'var(--color-error)', fontSize: 13 }}>
+          <div className="ds-card" style={{ padding: 24, maxWidth: 560, margin: '0 auto', color: 'var(--color-error)', borderColor: 'var(--color-error)', fontSize: 13 }}>
             {loadState.message}
           </div>
         )}
 
         {loadState.kind === 'ready' && totalQuestions === 0 && (
-          <div className="ds-card" style={{ padding: 40, textAlign: 'center', maxWidth: 720 }}>
+          <div className="ds-card" style={{ padding: 40, textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
             <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: 0 }}>
               この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。
             </p>
@@ -264,7 +321,7 @@ export function DesktopGrammarPracticeView({
         )}
 
         {loadState.kind === 'ready' && totalQuestions > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start', maxWidth: 1100 }}>
+          <div style={{ maxWidth: 720, margin: '0 auto' }}>
             <div>
               {finished ? (
                 <div className="ds-card" style={{ padding: 32 }}>
@@ -305,6 +362,14 @@ export function DesktopGrammarPracticeView({
                 </div>
               ) : question ? (
                 <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <span className="mono" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em' }}>
+                      Q {index + 1} / {totalQuestions}
+                    </span>
+                    {question.grammarPoint && (
+                      <span className="ds-chip" style={{ cursor: 'default' }}>{question.grammarPoint}</span>
+                    )}
+                  </div>
                   <div className="ds-card" style={{ padding: '26px 30px' }}>
                     <p style={{ margin: 0, fontSize: 19, lineHeight: 2.1 }}>{renderGrammarSentence(question.sentence)}</p>
                     {question.sentenceJa && answered && (
@@ -376,46 +441,56 @@ export function DesktopGrammarPracticeView({
                         </span>
                       </div>
                       <p style={{ margin: '10px 0 0', fontSize: 13.5, lineHeight: 1.9 }}>{question.explanation}</p>
-                    </div>
-                  )}
-
-                  {answered && (
-                    <div style={{ marginTop: 18 }}>
-                      <DesktopButton variant="dark" icon="arrow_forward" onClick={onNext}>
-                        {index + 1 >= totalQuestions ? '結果を見る' : '次の問題へ'}
-                      </DesktopButton>
+                      <div style={{ marginTop: 14 }}>
+                        <DesktopButton
+                          icon={chatGptCopied ? 'check' : 'smart_toy'}
+                          onClick={onAskChatGpt}
+                          title="この問題についてChatGPTに質問する文章をコピー"
+                        >
+                          {chatGptCopied ? 'コピーしました！ChatGPTに貼り付けて質問できます' : 'ChatGPTに質問する'}
+                        </DesktopButton>
+                      </div>
                     </div>
                   )}
                 </>
               ) : null}
             </div>
-
-            <aside className="ds-card" style={{ padding: 20 }}>
-              <div className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em' }}>PROGRESS</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, marginTop: 6 }}>
-                {finished ? totalQuestions : Math.min(index + 1, totalQuestions)} / {totalQuestions}
-              </div>
-              <div className="ds-prog" style={{ marginTop: 10 }}>
-                <div className="fi" style={{ width: `${totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0}%` }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, fontSize: 12.5 }}>
-                <span>正解</span>
-                <span className="tnum" style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{correctCount}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5 }}>
-                <span>不正解</span>
-                <span className="tnum" style={{ fontWeight: 700, color: '#d33' }}>{answeredCount - correctCount}</span>
-              </div>
-              {!finished && question?.grammarPoint && (
-                <div style={{ marginTop: 16 }}>
-                  <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em' }}>GRAMMAR POINT</div>
-                  <span className="ds-chip" style={{ marginTop: 6, cursor: 'default' }}>{question.grammarPoint}</span>
-                </div>
-              )}
-            </aside>
           </div>
         )}
       </div>
+
+      {/* ボトムバー: スキップ / 次へ */}
+      {loadState.kind === 'ready' && totalQuestions > 0 && !finished && question && (
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: '1px solid var(--color-border)',
+            background: 'rgba(246,245,241,0.86)',
+            backdropFilter: 'blur(8px)',
+            padding: '14px 34px',
+          }}
+        >
+          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 12 }}>
+            <DesktopButton
+              icon="skip_next"
+              onClick={onSkip}
+              disabled={answered}
+              className="flex-1"
+            >
+              スキップ
+            </DesktopButton>
+            <DesktopButton
+              variant="dark"
+              icon="arrow_forward"
+              onClick={onNext}
+              disabled={!answered}
+              className="flex-1"
+            >
+              {index + 1 >= totalQuestions ? '結果を見る' : '次の問題へ'}
+            </DesktopButton>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

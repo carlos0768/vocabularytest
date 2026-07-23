@@ -28,6 +28,29 @@ export default function GrammarBooksPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [sharingBookId, setSharingBookId] = useState<string | null>(null);
   const [sharedBookId, setSharedBookId] = useState<string | null>(null);
+  const [deletingBookId, setDeletingBookId] = useState<string | null>(null);
+
+  // 確認のうえ問題集を削除する (問題・誤答ログはDB側のCASCADEで一緒に消える)
+  const handleDelete = async (bookId: string, title: string) => {
+    if (deletingBookId) return;
+    if (!window.confirm(`「${title}」を削除しますか？\n中の問題もすべて削除されます。`)) return;
+    setDeletingBookId(bookId);
+    try {
+      const response = await fetch(`/api/grammar/books/${encodeURIComponent(bookId)}`, { method: 'DELETE' });
+      const payload = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!response.ok || !payload.success) {
+        window.alert(payload.error || '問題集の削除に失敗しました');
+        return;
+      }
+      setState((prev) =>
+        prev.kind === 'ready' ? { kind: 'ready', books: prev.books.filter((book) => book.id !== bookId) } : prev,
+      );
+    } catch {
+      window.alert('通信に失敗しました');
+    } finally {
+      setDeletingBookId(null);
+    }
+  };
 
   // 共有リンクを発行してクリップボードにコピーする
   const handleShare = async (bookId: string) => {
@@ -121,7 +144,9 @@ export default function GrammarBooksPage() {
         gptUrl={GPT_URL}
         sharingBookId={sharingBookId}
         sharedBookId={sharedBookId}
+        deletingBookId={deletingBookId}
         onShare={(bookId) => void handleShare(bookId)}
+        onDelete={(bookId, title) => void handleDelete(bookId, title)}
       />
 
       <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
@@ -217,6 +242,15 @@ export default function GrammarBooksPage() {
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
                 >
                   <Icon name={sharedBookId === book.id ? 'check' : 'ios_share'} size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(book.id, book.title)}
+                  disabled={deletingBookId !== null}
+                  aria-label="問題集を削除"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[#d33] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                >
+                  <Icon name="delete" size={15} />
                 </button>
                 <Link
                   href={`/grammar/${book.id}`}

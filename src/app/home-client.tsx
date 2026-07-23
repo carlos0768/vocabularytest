@@ -19,6 +19,8 @@ import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { HomeAnnouncementSpotlight } from '@/components/announcements/HomeAnnouncementSpotlight';
 import { JoinedGroupsSection } from '@/components/groups/JoinedGroupsSection';
+import { HomeGrammarBooksSection } from '@/components/home/HomeGrammarBooks';
+import { useHomeGrammarBooks } from '@/hooks/use-home-grammar-books';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useHomeRecommendations } from '@/hooks/use-home-recommendations';
 import { useMyGroups } from '@/hooks/use-my-groups';
@@ -565,6 +567,11 @@ export function HomeClient() {
     reels: recommendedReels,
     loading: recommendationsLoading,
   } = useHomeRecommendations();
+  // 語法問題集（Pro限定）。グループ表示の上に出す
+  const { books: grammarBooks } = useHomeGrammarBooks();
+  // おすすめの単語帳は、単語帳がまだ少ない (6冊未満) ユーザーにだけ流す
+  const showRecommendedBooks = listProjects.length < 6;
+  const visibleRecommendedBooks = loading || !showRecommendedBooks ? [] : recommendedBooks;
 
   if (authLoading) {
     return <HomeLoadingScreen />;
@@ -584,7 +591,8 @@ export function HomeClient() {
         pendingScans={displayedPendingScans}
         joinedGroups={myGroups}
         goal={{ state: goalState, count: goalCount }}
-        recommendedBooks={loading ? [] : recommendedBooks}
+        grammarBooks={grammarBooks}
+        recommendedBooks={visibleRecommendedBooks}
         recommendedReels={recommendedReels}
         recommendationsLoading={recommendationsLoading}
         onStartScan={() => setDesktopCreateOpen(true)}
@@ -647,7 +655,7 @@ export function HomeClient() {
         savedWordsCount={favoriteCount}
         projects={listProjects}
         groups={myGroups}
-        recommendations={loading ? [] : recommendedBooks}
+        recommendations={visibleRecommendedBooks}
         onStartScan={() => setVocabScanOpen(true)}
       />
 
@@ -713,6 +721,9 @@ export function HomeClient() {
           )
         )}
       </div>
+
+      {/* 語法問題集（Pro限定・グループ表示の上） */}
+      <HomeGrammarBooksSection books={grammarBooks} />
 
       {/* 参加中のグループ（/shared から移設） */}
       <JoinedGroupsSection groups={myGroups} />
