@@ -9,6 +9,7 @@ import {
   DesktopTopbar,
 } from '@/components/desktop/DesktopChrome';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
+import { ProjectFilterSheet, ProjectSortSheet } from '@/components/desktop/ProjectListSheets';
 import {
   desktopSourceLabel,
   desktopThumbColor,
@@ -53,6 +54,8 @@ export function DesktopProjectsView({
   onSetBinder?: (project: DesktopProjectRow) => void;
 }) {
   const [filter, setFilter] = useState<'all' | 'fav'>('all');
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [showSortSheet, setShowSortSheet] = useState(false);
   const rows = useMemo(() => {
     return filter === 'fav' ? projects.filter((project) => project.isFavorite) : projects;
   }, [filter, projects]);
@@ -95,24 +98,32 @@ export function DesktopProjectsView({
 
       <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <button type="button" className={'ds-chip' + (filter === 'all' ? ' active' : '')} onClick={() => setFilter('all')}>
-              すべて <span className="tnum" style={{ opacity: 0.7 }}>{projects.length}</span>
-            </button>
-            <button type="button" className={'ds-chip' + (filter === 'fav' ? ' active' : '')} onClick={() => setFilter('fav')}>
-              <Icon name="bookmark" filled style={{ fontSize: 15 }} />保存
-            </button>
-            <button type="button" className={'ds-chip' + (sort === 'newest' ? ' active' : '')} onClick={() => onSortChange('newest')}>
-              <Icon name="schedule" style={{ fontSize: 15 }} />新しい順
-            </button>
-            <button type="button" className={'ds-chip' + (sort === 'words' ? ' active' : '')} onClick={() => onSortChange('words')}>
-              <Icon name="sort" style={{ fontSize: 15 }} />単語が多い順
-            </button>
-            <button type="button" className={'ds-chip' + (sort === 'lastUsed' ? ' active' : '')} onClick={() => onSortChange('lastUsed')}>
-              <Icon name="history" style={{ fontSize: 15 }} />最近使った順
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <span className="mono muted tnum" style={{ fontSize: 12 }}>
+              {rows.length} 冊 ・ 合計 {totalWords} 語
+            </span>
             <div style={{ flex: 1 }} />
-            <span className="mono muted" style={{ fontSize: 12 }}>合計 {totalWords} 語</span>
+            {/* フィルタ・並べ替えは /project/* と同じ正方形アイコンボタンにシートを格納 */}
+            <button
+              type="button"
+              className={'ds-btn sm' + (filter === 'fav' ? ' dark' : '')}
+              style={{ width: 36, height: 36, padding: 0 }}
+              onClick={() => setShowFilterSheet(true)}
+              aria-pressed={filter === 'fav'}
+              aria-label="フィルタ"
+            >
+              <Icon name="filter_list" />
+            </button>
+            <button
+              type="button"
+              className={'ds-btn sm' + (sort !== 'newest' ? ' dark' : '')}
+              style={{ width: 36, height: 36, padding: 0 }}
+              onClick={() => setShowSortSheet(true)}
+              aria-pressed={sort !== 'newest'}
+              aria-label="並べ替え"
+            >
+              <Icon name="swap_vert" />
+            </button>
           </div>
 
           {error && (
@@ -171,6 +182,19 @@ export function DesktopProjectsView({
 
         <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} learnHref={learnHref} />
             </div>
+
+      <ProjectFilterSheet
+        open={showFilterSheet}
+        onClose={() => setShowFilterSheet(false)}
+        filter={filter}
+        onFilterChange={setFilter}
+      />
+      <ProjectSortSheet
+        open={showSortSheet}
+        onClose={() => setShowSortSheet(false)}
+        sort={sort}
+        onSortChange={onSortChange}
+      />
     </div>
   );
 }
