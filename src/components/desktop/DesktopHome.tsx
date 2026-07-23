@@ -269,8 +269,8 @@ export function DesktopHomeView({
             <JoinedGroupGrid groups={joinedGroups} columns={3} />
           </div>
 
-          {/* おすすめの単語帳（マイ単語帳と同じ本棚タイル）。
-              タイルの大きさは固定で、1行6冊を超えたら折り返して表示する */}
+          {/* おすすめの単語帳（マイ単語帳の棚と同じ大きさの本棚タイル）。
+              タイルの大きさはマイ単語帳の棚に揃え、1行4冊を超えたら折り返して表示する */}
           {recommendedBooks.length > 0 && (
             <div style={{ marginTop: 28 }}>
               <div className="ds-sec-head" style={{ marginBottom: 14 }}>
@@ -282,9 +282,9 @@ export function DesktopHomeView({
                   <Icon name="chevron_right" style={{ fontSize: 16 }} />
                 </Link>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16 }}>
                 {recommendedBooks.map((book) => (
-                  <DesktopRecommendedBookTile key={book.shareId} book={book} compact />
+                  <DesktopRecommendedBookTile key={book.shareId} book={book} />
                 ))}
               </div>
             </div>

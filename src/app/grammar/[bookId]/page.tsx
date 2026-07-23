@@ -4,6 +4,8 @@ import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
+import { DSQuizOption } from '@/components/quiz/DSQuizOption';
 import {
   DesktopGrammarPracticeView,
   GRAMMAR_CHOICE_LABELS as CHOICE_LABELS,
@@ -38,6 +40,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
     else router.push('/grammar');
   };
+  const pageScrolled = usePageScrolled();
 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [index, setIndex] = useState(0);
@@ -189,9 +192,12 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         onAskChatGpt={handleAskChatGpt}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] lg:hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 pb-3 pt-1">
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 font-[var(--font-body)] lg:hidden">
+      {/* Header: 他ページと同じ固定ヘッダ。ノッチ帯は全体共通の StatusBarCover が覆う */}
+      <header
+        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
         <button
           type="button"
           onClick={handleBack}
@@ -210,12 +216,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
             </div>
           )}
         </div>
-        {question?.grammarPoint && !finished && (
-          <span className="shrink-0 rounded-[4px] border border-[var(--solid-ink)] bg-white px-2 py-[3px] font-mono text-[9px] font-bold text-[var(--solid-ink)]">
-            {question.grammarPoint}
-          </span>
-        )}
-      </div>
+      </header>
 
       {state.kind === 'loading' && (
         <div className="mt-2 h-[300px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-white" />
@@ -301,43 +302,20 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
             )}
           </div>
 
+          {/* 選択肢は単語帳クイズと同じ DSQuizOption を共用 */}
           <div className="mt-3.5 flex flex-col gap-2.5">
-            {question.choices.map((choice, choiceIndex) => {
-              const isSelected = selected === choiceIndex;
-              const isCorrectChoice = choiceIndex === question.correctIndex;
-              const showCorrect = answered && isCorrectChoice;
-              const showWrong = answered && isSelected && !isCorrectChoice;
-              return (
-                <button
-                  key={choiceIndex}
-                  type="button"
-                  onClick={() => handleSelect(choiceIndex)}
-                  disabled={answered}
-                  className="flex items-center gap-3 rounded-xl border-2 bg-white px-4 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px disabled:active:translate-x-0 disabled:active:translate-y-0"
-                  style={{
-                    borderColor: showCorrect
-                      ? 'var(--color-accent)'
-                      : showWrong
-                        ? 'var(--color-error, #d33)'
-                        : 'var(--solid-ink)',
-                    background: showCorrect ? 'var(--color-accent-light, #e8f5ec)' : showWrong ? '#fdeceb' : '#fff',
-                  }}
-                >
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[12px] font-bold"
-                    style={{
-                      borderColor: showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)',
-                      color: showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)',
-                    }}
-                  >
-                    {CHOICE_LABELS[choiceIndex]}
-                  </span>
-                  <span className="min-w-0 flex-1 text-[14px] font-bold text-[var(--solid-ink)]">{choice}</span>
-                  {showCorrect && <Icon name="check_circle" size={18} className="shrink-0 text-[var(--color-accent)]" />}
-                  {showWrong && <Icon name="cancel" size={18} className="shrink-0 text-[#d33]" />}
-                </button>
-              );
-            })}
+            {question.choices.map((choice, choiceIndex) => (
+              <DSQuizOption
+                key={choiceIndex}
+                label={choice}
+                index={choiceIndex}
+                isSelected={selected === choiceIndex}
+                isCorrect={choiceIndex === question.correctIndex}
+                isRevealed={answered}
+                onSelect={() => handleSelect(choiceIndex)}
+                disabled={answered}
+              />
+            ))}
           </div>
 
           {/* 解説 (Vintage風: 答え合わせのたびに必ず表示) */}
