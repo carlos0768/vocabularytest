@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "MERKEN Wordbook API for ChatGPT",
-    "description": "ChatGPTの会話からMERKENの単語帳に単語を追加し、ユーザーの苦手な単語(クイズで間違いが多い単語)を取得するためのAPI。単語の日本語訳・例文・クイズ誤答選択肢はすべてChatGPT側で生成して送信する(サーバー側ではAI生成を行わない)。",
-    "version": "1.1.0"
+    "description": "ChatGPTの会話からMERKENの単語帳に単語を追加し、苦手な単語(クイズで間違いが多い単語)の取得や、文法・語法問題集(Vintage型: 空欄補充・英語4択・解説つき)の作成・出題を行うためのAPI。訳・例文・選択肢・問題・解説はすべてChatGPT側で生成して送信する(サーバー側ではAI生成を行わない)。単語帳(wordbook)と語法問題集(grammar book)は別のフォーマットであり、混合してはならない。",
+    "version": "1.2.0"
   },
   "servers": [
     {
@@ -11,6 +11,238 @@
     }
   ],
   "paths": {
+    "/api/chatgpt/grammar-books": {
+      "get": {
+        "operationId": "listGrammarBooks",
+        "summary": "文法・語法問題集の一覧を取得する",
+        "description": "語法問題を追加する前に呼び出し、追加先の問題集(bookId)を決める。単語帳(listWordbooks)とは別物。",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "問題集一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "books": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "title": { "type": "string" },
+                          "updatedAt": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createGrammarBook",
+        "x-openai-isConsequential": false,
+        "summary": "新しい文法・語法問題集を作成する",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "問題集のタイトル(例: 語法 動詞編)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "作成された問題集",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "book": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "title": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chatgpt/grammar-questions": {
+      "get": {
+        "operationId": "getGrammarQuestions",
+        "summary": "問題集の語法問題を取得する",
+        "description": "保存済みの語法問題を取得する。ChatGPT上で出題・答え合わせ・解説をするときに使う。",
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "問題リスト",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "questions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "sentence": { "type": "string" },
+                          "choices": { "type": "array", "items": { "type": "string" } },
+                          "correctIndex": { "type": "integer" },
+                          "explanation": { "type": "string" },
+                          "grammarPoint": { "type": "string" },
+                          "sentenceJa": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addGrammarQuestions",
+        "x-openai-isConsequential": false,
+        "summary": "問題集に文法・語法問題を追加する",
+        "description": "Vintage型の語法問題を追加する。問題文は空欄マーカー ___ を必ず含み、選択肢は英語4つ(文法・語法の観点で紛らわしいもの)、各問題に解説(explanation)が必須。単語学習用の単語はここに入れず addWords を使うこと。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["bookId", "questions"],
+                "additionalProperties": false,
+                "properties": {
+                  "bookId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "追加先の問題集ID(listGrammarBooks / createGrammarBookで取得)"
+                  },
+                  "questions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "items": {
+                      "type": "object",
+                      "required": ["sentence", "choices", "correctIndex", "explanation"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "sentence": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300,
+                          "description": "空欄マーカー ___ を含む英語の問題文(例: She insisted that he ___ the meeting.)"
+                        },
+                        "choices": {
+                          "type": "array",
+                          "minItems": 4,
+                          "maxItems": 4,
+                          "items": { "type": "string", "minLength": 1, "maxLength": 80 },
+                          "description": "英語の選択肢4つ(重複不可)。文法・語法の観点で紛らわしい動詞の形・関係代名詞・前置詞などを含める。日本語は使わない"
+                        },
+                        "correctIndex": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 3,
+                          "description": "正解のインデックス(0始まり)"
+                        },
+                        "explanation": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000,
+                          "description": "必須。なぜ正解なのか+主要な誤答がなぜ違うのかを日本語で簡潔に解説する(Vintageの解説のイメージ)"
+                        },
+                        "grammarPoint": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "description": "文法項目タグ(例: 仮定法現在, 関係代名詞, 分詞構文)"
+                        },
+                        "sentenceJa": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300,
+                          "description": "問題文の日本語訳(任意)"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "追加結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "addedCount": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Pro限定機能(code: PRO_REQUIRED)または問題集へのアクセス権なし"
+          }
+        }
+      }
+    },
     "/api/chatgpt/struggling-words": {
       "get": {
         "operationId": "getStrugglingWords",
