@@ -183,13 +183,14 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
       )}
 
       {state.kind === 'ready' && questions.length > 0 && (
-        <div className="flex flex-col gap-2.5">
+        /* /project/* の単語一覧と同じ枠 (divide-y の枠なしリスト行) */
+        <div className="divide-y divide-[var(--color-border)]">
           {questions.map((question, questionIndex) => (
             <button
               key={question.id}
               type="button"
               onClick={() => setSelectedIndex(questionIndex)}
-              className="flex items-start gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3.5 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex w-full items-start gap-2.5 px-1 py-2.5 text-left transition-colors active:bg-[rgba(19,127,236,0.06)]"
             >
               <span className="mt-0.5 shrink-0 font-mono text-[11px] font-bold text-[var(--color-muted)]">
                 {String(questionIndex + 1).padStart(2, '0')}

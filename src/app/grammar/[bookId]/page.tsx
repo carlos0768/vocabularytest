@@ -210,11 +210,6 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
             </div>
           )}
         </div>
-        {question?.grammarPoint && !finished && (
-          <span className="shrink-0 rounded-[4px] border border-[var(--solid-ink)] bg-white px-2 py-[3px] font-mono text-[9px] font-bold text-[var(--solid-ink)]">
-            {question.grammarPoint}
-          </span>
-        )}
       </div>
 
       {state.kind === 'loading' && (
