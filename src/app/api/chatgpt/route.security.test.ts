@@ -7,6 +7,7 @@ import {
   handleChatGptProjectsGet,
   handleChatGptProjectsPost,
 } from '@/app/api/chatgpt/projects/route';
+import { handleChatGptStrugglingWordsGet } from '@/app/api/chatgpt/struggling-words/route';
 import type { requireProUser } from '@/lib/api/pro-auth';
 
 const unauthorizedGate = (async () => ({
@@ -83,6 +84,30 @@ test('chatgpt/projects POST rejects non-Pro users with 403', async () => {
 test('chatgpt/projects POST rejects malformed bodies with 400 before touching data', async () => {
   const response = await handleChatGptProjectsPost(
     jsonRequest('http://localhost/api/chatgpt/projects', { title: '' }),
+    { requirePro: authedGate },
+  );
+  assert.equal(response.status, 400);
+});
+
+test('chatgpt/struggling-words rejects unauthenticated requests with 401', async () => {
+  const response = await handleChatGptStrugglingWordsGet(
+    new NextRequest('http://localhost/api/chatgpt/struggling-words', { method: 'GET' }),
+    { requirePro: unauthorizedGate },
+  );
+  assert.equal(response.status, 401);
+});
+
+test('chatgpt/struggling-words rejects non-Pro users with 403', async () => {
+  const response = await handleChatGptStrugglingWordsGet(
+    new NextRequest('http://localhost/api/chatgpt/struggling-words', { method: 'GET' }),
+    { requirePro: proGate },
+  );
+  assert.equal(response.status, 403);
+});
+
+test('chatgpt/struggling-words rejects invalid query params with 400 before touching data', async () => {
+  const response = await handleChatGptStrugglingWordsGet(
+    new NextRequest('http://localhost/api/chatgpt/struggling-words?limit=abc', { method: 'GET' }),
     { requirePro: authedGate },
   );
   assert.equal(response.status, 400);
