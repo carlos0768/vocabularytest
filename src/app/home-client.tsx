@@ -613,7 +613,7 @@ export function HomeClient() {
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
       />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
         <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN
@@ -750,12 +750,14 @@ export function HomeClient() {
               <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">バインダー</h2>
             </div>
           </div>
-          <div className="no-scrollbar -mx-[18px] mb-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-4 scroll-pl-[18px]">
-            {homeBinders.map((binder) => (
-              <div key={binder.name} className="w-[42%] shrink-0 snap-start">
-                <BinderSquareTile name={binder.name} count={binder.count} />
-              </div>
-            ))}
+          <div className="px-[18px] pb-4">
+            <div className="no-scrollbar -mx-[18px] mb-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
+              {homeBinders.map((binder) => (
+                <div key={binder.name} className="w-[42%] shrink-0 snap-start">
+                  <BinderSquareTile name={binder.name} count={binder.count} />
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}
