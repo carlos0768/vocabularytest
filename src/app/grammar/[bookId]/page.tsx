@@ -297,7 +297,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         <>
           <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
             <p className="m-0 text-[15px] leading-[2] text-[var(--solid-ink)]">{renderSentence(question.sentence)}</p>
-            {question.sentenceJa && answered && (
+            {question.sentenceJa && (answered || question.showTranslation) && (
               <p className="m-0 mt-2 text-[11.5px] leading-[1.7] text-[var(--color-muted)]">{question.sentenceJa}</p>
             )}
           </div>

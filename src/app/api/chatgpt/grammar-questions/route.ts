@@ -28,6 +28,8 @@ const questionInputSchema = z.object({
   explanation: z.string().trim().min(1).max(1000),
   grammarPoint: z.string().trim().min(1).max(40).optional(),
   sentenceJa: z.string().trim().min(1).max(300).optional(),
+  // 訳を見せないと正解を選べない問題に true。演習で回答前から訳を表示する。
+  showTranslation: z.boolean().optional(),
 }).strict();
 
 const createSchema = z.object({
@@ -48,6 +50,7 @@ type GrammarQuestionRow = {
   explanation: string;
   grammar_point: string | null;
   sentence_ja: string | null;
+  show_translation: boolean;
 };
 
 type ChatGptGrammarQuestionsDeps = {
@@ -71,6 +74,53 @@ async function findOwnedBook(supabase: SupabaseClient, userId: string, bookId: s
   }
 
   return data;
+}
+
+// 単語帳の間隔反復に相当する出題順。直近で正解して習得済みになった問題を後回しに
+// し、未回答・未習得(誤答)の問題を先に出す。演習ページは no-store で都度取得する
+// ため、正解して習得済みになった問題は次回以降うしろへ回る。
+// grammar_question_progress が無い/取得失敗の環境では元の順序 (作成順) を返す。
+async function orderQuestionsBySpacedRepetition<T extends { id: string }>(
+  supabase: SupabaseClient,
+  userId: string,
+  bookId: string,
+  rows: T[],
+): Promise<T[]> {
+  if (rows.length === 0) return rows;
+
+  const progressResult = await supabase
+    .from('grammar_question_progress')
+    .select('question_id,mastered,last_answered_at')
+    .eq('user_id', userId)
+    .eq('book_id', bookId);
+
+  if (progressResult.error) {
+    console.warn('[chatgpt/grammar-questions] progress order unavailable:', progressResult.error.message);
+    return rows;
+  }
+
+  const progressByQuestion = new Map<string, { mastered: boolean; lastAnsweredAt: number }>();
+  for (const p of (progressResult.data ?? []) as { question_id: string; mastered: boolean; last_answered_at: string | null }[]) {
+    progressByQuestion.set(p.question_id, {
+      mastered: Boolean(p.mastered),
+      lastAnsweredAt: p.last_answered_at ? Date.parse(p.last_answered_at) || 0 : 0,
+    });
+  }
+
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const pa = progressByQuestion.get(a.row.id);
+      const pb = progressByQuestion.get(b.row.id);
+      const masteredA = pa?.mastered ? 1 : 0;
+      const masteredB = pb?.mastered ? 1 : 0;
+      if (masteredA !== masteredB) return masteredA - masteredB; // 習得済みは後ろへ
+      const lastA = pa ? pa.lastAnsweredAt : 0; // 未回答は先頭側
+      const lastB = pb ? pb.lastAnsweredAt : 0;
+      if (lastA !== lastB) return lastA - lastB; // 最後に解いた時刻が古い順
+      return a.index - b.index; // 同点は元の作成順を維持
+    })
+    .map((item) => item.row);
 }
 
 export async function handleChatGptGrammarQuestionsPost(
@@ -105,6 +155,7 @@ export async function handleChatGptGrammarQuestionsPost(
       explanation: question.explanation,
       grammar_point: question.grammarPoint ?? null,
       sentence_ja: question.sentenceJa ?? null,
+      show_translation: question.showTranslation ?? false,
     }));
 
     const { data, error } = await auth.supabase
@@ -150,7 +201,7 @@ export async function handleChatGptGrammarQuestionsGet(
 
     const { data, error } = await auth.supabase
       .from('grammar_questions')
-      .select('id,sentence,choices,correct_index,explanation,grammar_point,sentence_ja')
+      .select('id,sentence,choices,correct_index,explanation,grammar_point,sentence_ja,show_translation')
       .eq('user_id', auth.user.id)
       .eq('book_id', bookId)
       .order('created_at', { ascending: true })
@@ -161,9 +212,17 @@ export async function handleChatGptGrammarQuestionsGet(
       return NextResponse.json({ success: false, error: '問題の取得に失敗しました' }, { status: 500 });
     }
 
+    // 単語帳と同じ発想の間隔反復で出題順を並べ替える (習得済みは後回し)。
+    const orderedRows = await orderQuestionsBySpacedRepetition(
+      auth.supabase,
+      auth.user.id,
+      bookId,
+      (data ?? []) as GrammarQuestionRow[],
+    );
+
     return NextResponse.json({
       success: true,
-      questions: ((data ?? []) as GrammarQuestionRow[]).map((row) => ({
+      questions: orderedRows.map((row) => ({
         id: row.id,
         sentence: row.sentence,
         choices: row.choices,
@@ -171,6 +230,7 @@ export async function handleChatGptGrammarQuestionsGet(
         explanation: row.explanation,
         grammarPoint: row.grammar_point,
         sentenceJa: row.sentence_ja,
+        showTranslation: row.show_translation,
       })),
     });
   } catch (error) {

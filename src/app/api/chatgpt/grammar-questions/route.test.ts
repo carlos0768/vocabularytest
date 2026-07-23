@@ -23,6 +23,7 @@ type FakeState = {
   ownsBook: boolean;
   insertedRows: Record<string, unknown>[][];
   questionRows?: Record<string, unknown>[];
+  progressRows?: Record<string, unknown>[];
 };
 
 function buildFakeSupabase(state: FakeState) {
@@ -57,6 +58,16 @@ function buildFakeSupabase(state: FakeState) {
                   limit: async () => ({ data: state.questionRows ?? [], error: null }),
                 }),
               }),
+            }),
+          }),
+        };
+      }
+      if (table === 'grammar_question_progress') {
+        // GET が出題順の並べ替えに使う: .select(...).eq('user_id').eq('book_id')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({ data: state.progressRows ?? [], error: null }),
             }),
           }),
         };
@@ -195,6 +206,37 @@ test('grammar-questions GET returns questions in camelCase', async () => {
   assert.equal(payload.questions[0].correctIndex, 0);
   assert.equal(payload.questions[0].grammarPoint, '仮定法現在');
   assert.equal(payload.questions[0].explanation, VALID_QUESTION.explanation);
+});
+
+test('grammar-questions GET orders mastered questions last (spaced repetition)', async () => {
+  const mk = (id: string) => ({
+    id,
+    sentence: VALID_QUESTION.sentence,
+    choices: VALID_QUESTION.choices,
+    correct_index: 0,
+    explanation: VALID_QUESTION.explanation,
+    grammar_point: null,
+    sentence_ja: null,
+  });
+  const state: FakeState = {
+    ownsBook: true,
+    insertedRows: [],
+    // 作成順: q1, q2, q3
+    questionRows: [mk('q1'), mk('q2'), mk('q3')],
+    progressRows: [
+      { question_id: 'q1', mastered: true, last_answered_at: '2026-07-23T00:00:00Z' },
+      { question_id: 'q2', mastered: false, last_answered_at: '2026-07-23T01:00:00Z' },
+      // q3 は未回答 (progress 行なし)
+    ],
+  };
+  const response = await handleChatGptGrammarQuestionsGet(
+    getRequest(`?bookId=${BOOK_ID}&limit=10`),
+    buildDeps(state),
+  );
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  // 未回答(q3) → 未習得(q2) → 習得済み(q1) の順に並ぶ
+  assert.deepEqual(payload.questions.map((q: { id: string }) => q.id), ['q3', 'q2', 'q1']);
 });
 
 test('grammar-questions GET requires a bookId', async () => {
