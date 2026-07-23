@@ -7,6 +7,8 @@ import {
   handleGrammarShareGet,
   handleGrammarShareImportPost,
 } from '@/app/api/grammar/share/[shareId]/route';
+import { handleGrammarProgressPost } from '@/app/api/grammar/progress/route';
+import { handleGrammarFavoritePost } from '@/app/api/grammar/favorite/route';
 import type { requireProUser } from '@/lib/api/pro-auth';
 
 const unauthorizedGate = (async () => ({
@@ -54,4 +56,28 @@ test('grammar/share/[shareId] import rejects non-Pro users with 403', async () =
     { resolveUser: async () => ({ id: 'user-1' }), requirePro: proGate, resolveShared: mustNotResolve },
   );
   assert.equal(response.status, 403);
+});
+
+function jsonRequest(url: string, body: unknown) {
+  return new NextRequest(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+test('grammar/progress rejects non-Pro users with 403', async () => {
+  const response = await handleGrammarProgressPost(
+    jsonRequest('http://localhost/api/grammar/progress', { questionId: 'x', bookId: 'y', result: 'correct' }),
+    { requirePro: proGate },
+  );
+  assert.equal(response.status, 403);
+});
+
+test('grammar/favorite rejects unauthenticated requests with 401', async () => {
+  const response = await handleGrammarFavoritePost(
+    jsonRequest('http://localhost/api/grammar/favorite', { bookId: 'x', isFavorite: true }),
+    { requirePro: unauthorizedGate },
+  );
+  assert.equal(response.status, 401);
 });
