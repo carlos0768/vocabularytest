@@ -99,7 +99,7 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
   };
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)]">
+    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:max-w-[720px] lg:px-8 lg:pt-10">
       {/* Header */}
       <div className="flex items-center gap-2 pb-3 pt-1">
         <button
