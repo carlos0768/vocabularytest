@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import {
   DesktopGrammarBooksView,
+  grammarMasteryPercent,
   type GrammarBook,
   type GrammarBooksLoadState,
 } from '@/components/desktop/DesktopGrammar';
@@ -28,6 +29,28 @@ export default function GrammarBooksPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [sharingBookId, setSharingBookId] = useState<string | null>(null);
   const [sharedBookId, setSharedBookId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'fav'>('all');
+
+  // 保存(お気に入り)を楽観的に切り替える
+  const handleToggleFavorite = async (bookId: string, next: boolean) => {
+    setState((prev) => (prev.kind === 'ready'
+      ? { kind: 'ready', books: prev.books.map((book) => (book.id === bookId ? { ...book, isFavorite: next } : book)) }
+      : prev));
+    try {
+      const response = await fetch('/api/grammar/favorite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookId, isFavorite: next }),
+      });
+      if (!response.ok) throw new Error('failed');
+    } catch {
+      // 失敗したら元に戻す
+      setState((prev) => (prev.kind === 'ready'
+        ? { kind: 'ready', books: prev.books.map((book) => (book.id === bookId ? { ...book, isFavorite: !next } : book)) }
+        : prev));
+    }
+  };
 
   // 共有リンクを発行してクリップボードにコピーする
   const handleShare = async (bookId: string) => {
@@ -119,9 +142,14 @@ export default function GrammarBooksPage() {
       <DesktopGrammarBooksView
         state={state}
         gptUrl={GPT_URL}
+        query={query}
+        filter={filter}
         sharingBookId={sharingBookId}
         sharedBookId={sharedBookId}
+        onQueryChange={setQuery}
+        onFilterChange={setFilter}
         onShare={(bookId) => void handleShare(bookId)}
+        onToggleFavorite={(bookId, next) => void handleToggleFavorite(bookId, next)}
       />
 
       <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
@@ -190,43 +218,58 @@ export default function GrammarBooksPage() {
       {state.kind === 'ready' && state.books.length > 0 && (
         <>
           <div className="flex flex-col gap-2.5">
-            {state.books.map((book) => (
-              <div
-                key={book.id}
-                className="flex items-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3.5"
-              >
-                <Link
-                  href={`/grammar/${book.id}`}
-                  className="flex min-w-0 flex-1 items-center gap-3 no-underline"
+            {state.books.map((book) => {
+              const pct = grammarMasteryPercent(book);
+              return (
+                <div
+                  key={book.id}
+                  className="flex items-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3.5"
                 >
-                  <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
-                    <Icon name="menu_book" size={20} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{book.title}</span>
-                    <span className="mt-0.5 block font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
-                      更新 {formatDate(book.updatedAt)}
+                  <button
+                    type="button"
+                    onClick={() => void handleToggleFavorite(book.id, !book.isFavorite)}
+                    aria-label={book.isFavorite ? '保存を解除' : '保存する'}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center"
+                  >
+                    <Icon
+                      name="bookmark"
+                      filled={book.isFavorite}
+                      size={18}
+                      className={book.isFavorite ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}
+                    />
+                  </button>
+                  <Link
+                    href={`/grammar/${book.id}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 no-underline"
+                  >
+                    <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+                      <Icon name="menu_book" size={20} />
                     </span>
-                  </span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => void handleShare(book.id)}
-                  disabled={sharingBookId !== null}
-                  aria-label="共有リンクをコピー"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
-                >
-                  <Icon name={sharedBookId === book.id ? 'check' : 'ios_share'} size={15} />
-                </button>
-                <Link
-                  href={`/grammar/${book.id}`}
-                  aria-label="演習を開く"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--color-muted)]"
-                >
-                  <Icon name="chevron_right" size={16} />
-                </Link>
-              </div>
-            ))}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{book.title}</span>
+                      <span className="mt-1 flex items-center gap-2">
+                        <span className="h-[6px] flex-1 overflow-hidden rounded-full bg-[var(--color-border-light,#eee)]">
+                          <span className="block h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${pct}%` }} />
+                        </span>
+                        <span className="font-mono text-[9px] font-bold tabular-nums text-[var(--color-muted)]">{pct}%</span>
+                      </span>
+                      <span className="mt-0.5 block font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
+                        {book.questionCount}問 · 更新 {formatDate(book.updatedAt)}
+                      </span>
+                    </span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void handleShare(book.id)}
+                    disabled={sharingBookId !== null}
+                    aria-label="共有リンクをコピー"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                  >
+                    <Icon name={sharedBookId === book.id ? 'check' : 'ios_share'} size={15} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
           {sharedBookId && (
             <p className="mt-2 text-center text-[11px] font-bold text-[var(--color-accent)]">共有リンクをコピーしました</p>

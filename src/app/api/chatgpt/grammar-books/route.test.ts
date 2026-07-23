@@ -9,33 +9,53 @@ import {
 import type { requireProUser } from '@/lib/api/pro-auth';
 
 type FakeState = {
-  rows?: { id: string; title: string; updated_at: string }[];
+  rows?: { id: string; title: string; updated_at: string; is_favorite?: boolean }[];
   createdTitles?: string[];
+  questionRows?: { book_id: string }[];
+  masteredRows?: { book_id: string }[];
 };
 
 function buildFakeSupabase(state: FakeState) {
   return {
     from(table: string) {
-      if (table !== 'grammar_books') {
-        throw new Error(`unexpected table: ${table}`);
-      }
-      return {
-        select: () => ({
-          eq: () => ({
-            order: () => ({
-              limit: async () => ({ data: state.rows ?? [], error: null }),
+      if (table === 'grammar_books') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: async () => ({ data: state.rows ?? [], error: null }),
+              }),
             }),
           }),
-        }),
-        insert: (row: { title: string }) => ({
-          select: () => ({
-            single: async () => {
-              state.createdTitles?.push(row.title);
-              return { data: { id: 'book-1', title: row.title }, error: null };
-            },
+          insert: (row: { title: string }) => ({
+            select: () => ({
+              single: async () => {
+                state.createdTitles?.push(row.title);
+                return { data: { id: 'book-1', title: row.title }, error: null };
+              },
+            }),
           }),
-        }),
-      };
+        };
+      }
+      if (table === 'grammar_questions') {
+        // GET が問題数集計に使う: .select('book_id').eq('user_id', ...)
+        return {
+          select: () => ({
+            eq: async () => ({ data: state.questionRows ?? [], error: null }),
+          }),
+        };
+      }
+      if (table === 'grammar_question_progress') {
+        // GET が習得数集計に使う: .select('book_id').eq('user_id').eq('mastered', true)
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({ data: state.masteredRows ?? [], error: null }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`unexpected table: ${table}`);
     },
   };
 }
@@ -77,17 +97,26 @@ test('grammar-books GET returns the pro-gate response for non-Pro users', async 
   assert.equal(response.status, 403);
 });
 
-test('grammar-books GET lists books in camelCase', async () => {
+test('grammar-books GET lists books with favorite + mastery stats', async () => {
   const response = await handleChatGptGrammarBooksGet(
     getRequest('?limit=5'),
     buildDeps({
-      rows: [{ id: 'b1', title: '語法問題集', updated_at: '2026-07-23T00:00:00Z' }],
+      rows: [{ id: 'b1', title: '語法問題集', updated_at: '2026-07-23T00:00:00Z', is_favorite: true }],
+      questionRows: [{ book_id: 'b1' }, { book_id: 'b1' }, { book_id: 'b1' }],
+      masteredRows: [{ book_id: 'b1' }, { book_id: 'b1' }],
     }),
   );
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.deepEqual(payload.books, [
-    { id: 'b1', title: '語法問題集', updatedAt: '2026-07-23T00:00:00Z' },
+    {
+      id: 'b1',
+      title: '語法問題集',
+      updatedAt: '2026-07-23T00:00:00Z',
+      isFavorite: true,
+      questionCount: 3,
+      masteredCount: 2,
+    },
   ]);
 });
 

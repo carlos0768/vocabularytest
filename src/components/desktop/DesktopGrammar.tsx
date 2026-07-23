@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
-import { DesktopButton, DesktopDonut, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { DesktopButton, DesktopDonut, DesktopSearchBox, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { desktopUpdatedLabel } from '@/components/desktop/desktop-data';
 
 // 語法問題集(Vintage型)一覧のデスクトップビュー。
@@ -12,7 +12,15 @@ export type GrammarBook = {
   id: string;
   title: string;
   updatedAt: string;
+  isFavorite: boolean;
+  questionCount: number;
+  masteredCount: number;
 };
+
+// 習得度(%): 習得済み問題 / 全問題
+export function grammarMasteryPercent(book: Pick<GrammarBook, 'questionCount' | 'masteredCount'>): number {
+  return book.questionCount > 0 ? Math.round((book.masteredCount / book.questionCount) * 100) : 0;
+}
 
 export type GrammarBooksLoadState =
   | { kind: 'loading' }
@@ -47,22 +55,47 @@ export function renderGrammarSentence(sentence: string) {
   ));
 }
 
+// 単語帳一覧(DesktopProjectsView)と同じ ds-table + 右サマリーの2カラム構成。
 export function DesktopGrammarBooksView({
   state,
   gptUrl,
+  query,
+  filter,
   sharingBookId,
   sharedBookId,
+  onQueryChange,
+  onFilterChange,
   onShare,
+  onToggleFavorite,
 }: {
   state: GrammarBooksLoadState;
   gptUrl: string;
+  query: string;
+  filter: 'all' | 'fav';
   sharingBookId: string | null;
   sharedBookId: string | null;
+  onQueryChange: (value: string) => void;
+  onFilterChange: (value: 'all' | 'fav') => void;
   onShare: (bookId: string) => void;
+  onToggleFavorite: (bookId: string, next: boolean) => void;
 }) {
+  const allBooks = state.kind === 'ready' ? state.books : [];
+  const normalizedQuery = query.trim().toLowerCase();
+  const rows = allBooks
+    .filter((book) => (filter === 'fav' ? book.isFavorite : true))
+    .filter((book) => (normalizedQuery ? book.title.toLowerCase().includes(normalizedQuery) : true));
+  const totalQuestions = allBooks.reduce((sum, book) => sum + book.questionCount, 0);
+  const totalMastered = allBooks.reduce((sum, book) => sum + book.masteredCount, 0);
+  const overallPct = totalQuestions > 0 ? Math.round((totalMastered / totalQuestions) * 100) : 0;
+
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="語法問題集" crumb="文法・語法 / 空欄補充・英語4択">
+        <DesktopSearchBox
+          placeholder="問題集を検索"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
         {gptUrl ? (
           <DesktopButton
             variant="accent"
@@ -78,11 +111,18 @@ export function DesktopGrammarBooksView({
         )}
       </DesktopTopbar>
 
-      <div className="ds-scroll">
-        <div style={{ maxWidth: 980 }}>
-          <p className="muted" style={{ fontSize: 12.5, margin: '0 0 16px' }}>
-            空欄補充・英語4択・解説つきの語法問題集。問題はChatGPTとの会話で作成し、ここで演習できます。
-          </p>
+      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <button type="button" className={'ds-chip' + (filter === 'all' ? ' active' : '')} onClick={() => onFilterChange('all')}>
+              すべて <span className="tnum" style={{ opacity: 0.7 }}>{allBooks.length}</span>
+            </button>
+            <button type="button" className={'ds-chip' + (filter === 'fav' ? ' active' : '')} onClick={() => onFilterChange('fav')}>
+              <Icon name="bookmark" filled style={{ fontSize: 15 }} />保存
+            </button>
+            <div style={{ flex: 1 }} />
+            <span className="mono muted" style={{ fontSize: 12 }}>合計 {totalQuestions} 問</span>
+          </div>
 
           {state.kind === 'loading' && (
             <div className="ds-card muted" style={{ padding: 50, textAlign: 'center', fontSize: 13 }}>
@@ -92,7 +132,7 @@ export function DesktopGrammarBooksView({
           )}
 
           {state.kind === 'pro-required' && (
-            <div className="ds-card" style={{ padding: 24, maxWidth: 560 }}>
+            <div className="ds-card" style={{ padding: 24 }}>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16 }}>Pro限定機能です</div>
               <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: '10px 0 16px' }}>
                 語法問題集はProプラン限定です。アップグレードすると、ChatGPTとの会話でVintage風の語法問題を作成・演習できます。
@@ -109,35 +149,41 @@ export function DesktopGrammarBooksView({
             </div>
           )}
 
-          {state.kind === 'ready' && state.books.length === 0 && (
-            <div className="ds-card" style={{ padding: 40, textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15 }}>まだ問題集がありません</div>
-              <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: '10px 0 0' }}>
-                ChatGPTのMERKEN GPTに「仮定法の語法問題を10問作って」のように頼むと、ここに問題集が保存されます。
-              </p>
-            </div>
-          )}
-
-          {state.kind === 'ready' && state.books.length > 0 && (
-            <>
-              <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table className="ds-table">
-                  <thead>
-                    <tr>
-                      <th>問題集</th>
-                      <th style={{ width: 110 }}>更新</th>
-                      <th style={{ width: 90 }}>共有</th>
-                      <th style={{ width: 120 }} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.books.map((book) => (
+          {state.kind === 'ready' && (
+            <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="ds-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 42 }} />
+                    <th>問題集</th>
+                    <th style={{ width: 80 }}>問題数</th>
+                    <th style={{ width: 200 }}>習得度</th>
+                    <th style={{ width: 90 }}>更新</th>
+                    <th style={{ width: 90 }}>共有</th>
+                    <th style={{ width: 110 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((book) => {
+                    const pct = grammarMasteryPercent(book);
+                    return (
                       <tr key={book.id}>
-                        <td>
-                          <Link
-                            href={`/grammar/${book.id}`}
-                            style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}
+                        <td className="star">
+                          <button
+                            type="button"
+                            onClick={() => onToggleFavorite(book.id, !book.isFavorite)}
+                            aria-label={book.isFavorite ? '保存を解除' : '保存する'}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 0 }}
                           >
+                            <Icon
+                              name="bookmark"
+                              filled={book.isFavorite}
+                              style={book.isFavorite ? { color: 'var(--color-accent)' } : { color: 'var(--color-muted)' }}
+                            />
+                          </button>
+                        </td>
+                        <td>
+                          <Link href={`/grammar/${book.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
                             <span
                               style={{
                                 display: 'flex',
@@ -154,6 +200,15 @@ export function DesktopGrammarBooksView({
                             </span>
                             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{book.title}</span>
                           </Link>
+                        </td>
+                        <td className="tnum" style={{ fontWeight: 700 }}>{book.questionCount}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                            <div className="ds-prog" style={{ flex: 1 }}>
+                              <div className="fi" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="mono tnum" style={{ fontSize: 11, fontWeight: 700, width: 30 }}>{pct}%</span>
+                          </div>
                         </td>
                         <td className="mono" style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>
                           {desktopUpdatedLabel(book.updatedAt)}
@@ -174,24 +229,53 @@ export function DesktopGrammarBooksView({
                           </DesktopButton>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {sharedBookId && (
-                <p className="mono" style={{ fontSize: 11.5, color: 'var(--color-accent)', fontWeight: 700, marginTop: 10 }}>
-                  共有リンクをコピーしました
-                </p>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {rows.length === 0 && (
+                <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>
+                  {allBooks.length === 0
+                    ? 'ChatGPTで「仮定法の語法問題を10問作って」のように頼むと、ここに問題集が保存されます。'
+                    : filter === 'fav'
+                      ? '保存した問題集はありません'
+                      : '一致する問題集がありません'}
+                </div>
               )}
-            </>
+            </div>
+          )}
+          {sharedBookId && (
+            <p className="mono" style={{ fontSize: 11.5, color: 'var(--color-accent)', fontWeight: 700, marginTop: 10 }}>
+              共有リンクをコピーしました
+            </p>
           )}
         </div>
+
+        <aside className="ds-card" style={{ padding: 20 }}>
+          <div className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em' }}>MASTERY</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 12 }}>
+            <DesktopDonut mastered={totalMastered} review={totalQuestions - totalMastered} total={totalQuestions} percent={overallPct} size={92} stroke={13} />
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>{totalMastered} / {totalQuestions}</div>
+              <div className="muted" style={{ fontSize: 12 }}>習得済み問題</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontSize: 12.5 }}>
+            <span>問題集</span>
+            <span className="tnum" style={{ fontWeight: 700 }}>{allBooks.length}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5 }}>
+            <span>保存</span>
+            <span className="tnum" style={{ fontWeight: 700 }}>{allBooks.filter((book) => book.isFavorite).length}</span>
+          </div>
+        </aside>
       </div>
     </div>
   );
 }
 
-// 語法演習のデスクトップビュー。左に問題カード、右に進捗サイドバーの2カラム。
+// 語法演習のデスクトップビュー。問題は中央1カラム、下部にスキップ/次への
+// ボトムバー。ヘッダ左端に戻る(左矢印のみ)を置く。
 export function DesktopGrammarPracticeView({
   loadState,
   totalQuestions,
@@ -203,6 +287,7 @@ export function DesktopGrammarPracticeView({
   wrongGrammarPoints,
   onSelect,
   onNext,
+  onSkip,
   onRetry,
 }: {
   loadState: { kind: 'loading' } | { kind: 'pro-required' } | { kind: 'error'; message: string } | { kind: 'ready' };
@@ -215,207 +300,215 @@ export function DesktopGrammarPracticeView({
   wrongGrammarPoints: string[];
   onSelect: (choiceIndex: number) => void;
   onNext: () => void;
+  onSkip: () => void;
   onRetry: () => void;
 }) {
   const answered = selected !== null;
   const correct = answered && question ? selected === question.correctIndex : false;
-  const answeredCount = finished ? totalQuestions : index + (answered ? 1 : 0);
+  const showBottomBar = loadState.kind === 'ready' && totalQuestions > 0 && !finished && !!question;
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title="語法演習" crumb="文法・語法 / 空欄補充・英語4択">
-        <DesktopButton variant="ghost" icon="arrow_back" href="/grammar">
-          一覧へ戻る
-        </DesktopButton>
-      </DesktopTopbar>
-
-      <div className="ds-scroll">
-        {loadState.kind === 'loading' && (
-          <div className="ds-card muted" style={{ padding: 50, textAlign: 'center', fontSize: 13, maxWidth: 720 }}>
-            <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 8 }} />
-            読み込み中...
+      {/* ヘッダ: 左端に戻る(左矢印のみ)、中央にタイトルと進捗 */}
+      <div className="ds-top">
+        <Link href="/grammar" className="ds-btn ghost ds-btn--icon" title="一覧へ戻る" aria-label="一覧へ戻る">
+          <Icon name="arrow_back" />
+        </Link>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="crumb">
+            語法演習{totalQuestions > 0 && !finished ? ` / ${Math.min(index + 1, totalQuestions)} of ${totalQuestions}` : ''}
           </div>
-        )}
+          <h1>{question?.grammarPoint && !finished ? question.grammarPoint : '語法演習'}</h1>
+        </div>
+      </div>
 
-        {loadState.kind === 'pro-required' && (
-          <div className="ds-card" style={{ padding: 24, maxWidth: 560 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16 }}>Pro限定機能です</div>
-            <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: '10px 0 16px' }}>
-              語法問題集はProプラン限定です。
-            </p>
-            <DesktopButton variant="dark" href="/subscription" icon="workspace_premium">
-              Proプランを見る
-            </DesktopButton>
-          </div>
-        )}
-
-        {loadState.kind === 'error' && (
-          <div className="ds-card" style={{ padding: 24, maxWidth: 560, color: 'var(--color-error)', borderColor: 'var(--color-error)', fontSize: 13 }}>
-            {loadState.message}
-          </div>
-        )}
-
-        {loadState.kind === 'ready' && totalQuestions === 0 && (
-          <div className="ds-card" style={{ padding: 40, textAlign: 'center', maxWidth: 720 }}>
-            <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: 0 }}>
-              この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。
-            </p>
-          </div>
-        )}
-
-        {loadState.kind === 'ready' && totalQuestions > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start', maxWidth: 1100 }}>
-            <div>
-              {finished ? (
-                <div className="ds-card" style={{ padding: 32 }}>
-                  <div className="mono muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em' }}>RESULT</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 18 }}>
-                    <DesktopDonut
-                      mastered={correctCount}
-                      review={totalQuestions - correctCount}
-                      total={totalQuestions}
-                      percent={Math.round((correctCount / totalQuestions) * 100)}
-                    />
-                    <div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28 }}>
-                        {correctCount} / {totalQuestions} 問正解
-                      </div>
-                      {wrongGrammarPoints.length > 0 ? (
-                        <div style={{ marginTop: 12 }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 700 }}>復習したい文法項目</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                            {wrongGrammarPoints.map((point) => (
-                              <span key={point} className="ds-chip" style={{ cursor: 'default' }}>{point}</span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="muted" style={{ fontSize: 13, margin: '10px 0 0' }}>全問正解です 🎉</p>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                    <DesktopButton variant="dark" icon="replay" onClick={onRetry}>
-                      もう一度解く
-                    </DesktopButton>
-                    <DesktopButton variant="ghost" icon="list" href="/grammar">
-                      問題集一覧へ
-                    </DesktopButton>
-                  </div>
-                </div>
-              ) : question ? (
-                <>
-                  <div className="ds-card" style={{ padding: '26px 30px' }}>
-                    <p style={{ margin: 0, fontSize: 19, lineHeight: 2.1 }}>{renderGrammarSentence(question.sentence)}</p>
-                    {question.sentenceJa && answered && (
-                      <p className="muted" style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.8 }}>{question.sentenceJa}</p>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
-                    {question.choices.map((choice, choiceIndex) => {
-                      const isSelected = selected === choiceIndex;
-                      const isCorrectChoice = choiceIndex === question.correctIndex;
-                      const showCorrect = answered && isCorrectChoice;
-                      const showWrong = answered && isSelected && !isCorrectChoice;
-                      return (
-                        <button
-                          key={choiceIndex}
-                          type="button"
-                          onClick={() => onSelect(choiceIndex)}
-                          disabled={answered}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 12,
-                            padding: '14px 18px',
-                            borderRadius: 14,
-                            border: `2px solid ${showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)'}`,
-                            background: showCorrect ? 'var(--color-accent-light, #e8f5ec)' : showWrong ? '#fdeceb' : '#fff',
-                            cursor: answered ? 'default' : 'pointer',
-                            textAlign: 'left',
-                          }}
-                        >
-                          <span
-                            className="mono"
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 30,
-                              height: 30,
-                              flexShrink: 0,
-                              borderRadius: '50%',
-                              fontWeight: 700,
-                              fontSize: 13,
-                              border: `2px solid ${showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)'}`,
-                              color: showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)',
-                            }}
-                          >
-                            {GRAMMAR_CHOICE_LABELS[choiceIndex]}
-                          </span>
-                          <span style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{choice}</span>
-                          {showCorrect && <Icon name="check_circle" style={{ marginLeft: 'auto', color: 'var(--color-accent)' }} />}
-                          {showWrong && <Icon name="cancel" style={{ marginLeft: 'auto', color: '#d33' }} />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {answered && (
-                    <div className="ds-card" style={{ padding: '18px 22px', marginTop: 16, background: '#faf7f1' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Icon
-                          name={correct ? 'check_circle' : 'school'}
-                          style={{ color: correct ? 'var(--color-accent)' : 'var(--solid-ink)' }}
-                        />
-                        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14.5 }}>
-                          {correct
-                            ? '正解！'
-                            : `正解は ${GRAMMAR_CHOICE_LABELS[question.correctIndex]} 「${question.choices[question.correctIndex]}」`}
-                        </span>
-                      </div>
-                      <p style={{ margin: '10px 0 0', fontSize: 13.5, lineHeight: 1.9 }}>{question.explanation}</p>
-                    </div>
-                  )}
-
-                  {answered && (
-                    <div style={{ marginTop: 18 }}>
-                      <DesktopButton variant="dark" icon="arrow_forward" onClick={onNext}>
-                        {index + 1 >= totalQuestions ? '結果を見る' : '次の問題へ'}
-                      </DesktopButton>
-                    </div>
-                  )}
-                </>
-              ) : null}
+      <div className="ds-scroll" style={{ flex: 1, minHeight: 0 }}>
+        <div style={{ maxWidth: 680, margin: '0 auto' }}>
+          {loadState.kind === 'loading' && (
+            <div className="ds-card muted" style={{ padding: 50, textAlign: 'center', fontSize: 13 }}>
+              <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 8 }} />
+              読み込み中...
             </div>
+          )}
 
-            <aside className="ds-card" style={{ padding: 20 }}>
-              <div className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em' }}>PROGRESS</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, marginTop: 6 }}>
-                {finished ? totalQuestions : Math.min(index + 1, totalQuestions)} / {totalQuestions}
+          {loadState.kind === 'pro-required' && (
+            <div className="ds-card" style={{ padding: 24 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16 }}>Pro限定機能です</div>
+              <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: '10px 0 16px' }}>
+                語法問題集はProプラン限定です。
+              </p>
+              <DesktopButton variant="dark" href="/subscription" icon="workspace_premium">
+                Proプランを見る
+              </DesktopButton>
+            </div>
+          )}
+
+          {loadState.kind === 'error' && (
+            <div className="ds-card" style={{ padding: 24, color: 'var(--color-error)', borderColor: 'var(--color-error)', fontSize: 13 }}>
+              {loadState.message}
+            </div>
+          )}
+
+          {loadState.kind === 'ready' && totalQuestions === 0 && (
+            <div className="ds-card" style={{ padding: 40, textAlign: 'center' }}>
+              <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: 0 }}>
+                この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。
+              </p>
+            </div>
+          )}
+
+          {loadState.kind === 'ready' && finished && (
+            <div className="ds-card" style={{ padding: 32 }}>
+              <div className="mono muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em' }}>RESULT</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 18 }}>
+                <DesktopDonut
+                  mastered={correctCount}
+                  review={totalQuestions - correctCount}
+                  total={totalQuestions}
+                  percent={Math.round((correctCount / totalQuestions) * 100)}
+                />
+                <div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28 }}>
+                    {correctCount} / {totalQuestions} 問正解
+                  </div>
+                  {wrongGrammarPoints.length > 0 ? (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700 }}>復習したい文法項目</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                        {wrongGrammarPoints.map((point) => (
+                          <span key={point} className="ds-chip" style={{ cursor: 'default' }}>{point}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ fontSize: 13, margin: '10px 0 0' }}>全問正解です 🎉</p>
+                  )}
+                </div>
               </div>
-              <div className="ds-prog" style={{ marginTop: 10 }}>
-                <div className="fi" style={{ width: `${totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0}%` }} />
+              <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                <DesktopButton variant="dark" icon="replay" onClick={onRetry}>
+                  もう一度解く
+                </DesktopButton>
+                <DesktopButton variant="ghost" icon="list" href="/grammar">
+                  問題集一覧へ
+                </DesktopButton>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, fontSize: 12.5 }}>
-                <span>正解</span>
-                <span className="tnum" style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{correctCount}</span>
+            </div>
+          )}
+
+          {loadState.kind === 'ready' && !finished && question && (
+            <>
+              <div className="ds-card" style={{ padding: '26px 30px' }}>
+                <p style={{ margin: 0, fontSize: 19, lineHeight: 2.1, textAlign: 'center' }}>{renderGrammarSentence(question.sentence)}</p>
+                {question.sentenceJa && answered && (
+                  <p className="muted" style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.8, textAlign: 'center' }}>{question.sentenceJa}</p>
+                )}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5 }}>
-                <span>不正解</span>
-                <span className="tnum" style={{ fontWeight: 700, color: '#d33' }}>{answeredCount - correctCount}</span>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
+                {question.choices.map((choice, choiceIndex) => {
+                  const isSelected = selected === choiceIndex;
+                  const isCorrectChoice = choiceIndex === question.correctIndex;
+                  const showCorrect = answered && isCorrectChoice;
+                  const showWrong = answered && isSelected && !isCorrectChoice;
+                  return (
+                    <button
+                      key={choiceIndex}
+                      type="button"
+                      onClick={() => onSelect(choiceIndex)}
+                      disabled={answered}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '14px 18px',
+                        borderRadius: 14,
+                        border: `2px solid ${showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)'}`,
+                        background: showCorrect ? 'var(--color-accent-light, #e8f5ec)' : showWrong ? '#fdeceb' : '#fff',
+                        cursor: answered ? 'default' : 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span
+                        className="mono"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 30,
+                          height: 30,
+                          flexShrink: 0,
+                          borderRadius: '50%',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          border: `2px solid ${showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)'}`,
+                          color: showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)',
+                        }}
+                      >
+                        {GRAMMAR_CHOICE_LABELS[choiceIndex]}
+                      </span>
+                      <span style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{choice}</span>
+                      {showCorrect && <Icon name="check_circle" style={{ marginLeft: 'auto', color: 'var(--color-accent)' }} />}
+                      {showWrong && <Icon name="cancel" style={{ marginLeft: 'auto', color: '#d33' }} />}
+                    </button>
+                  );
+                })}
               </div>
-              {!finished && question?.grammarPoint && (
-                <div style={{ marginTop: 16 }}>
-                  <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em' }}>GRAMMAR POINT</div>
-                  <span className="ds-chip" style={{ marginTop: 6, cursor: 'default' }}>{question.grammarPoint}</span>
+
+              {answered && (
+                <div className="ds-card" style={{ padding: '18px 22px', marginTop: 16, background: '#faf7f1' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon
+                      name={correct ? 'check_circle' : 'school'}
+                      style={{ color: correct ? 'var(--color-accent)' : 'var(--solid-ink)' }}
+                    />
+                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14.5 }}>
+                      {correct
+                        ? '正解！'
+                        : `正解は ${GRAMMAR_CHOICE_LABELS[question.correctIndex]} 「${question.choices[question.correctIndex]}」`}
+                    </span>
+                  </div>
+                  <p style={{ margin: '10px 0 0', fontSize: 13.5, lineHeight: 1.9 }}>{question.explanation}</p>
                 </div>
               )}
-            </aside>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
+
+      {/* ボトムバー: スキップ / 次へ を並列で配置 */}
+      {showBottomBar && (
+        <div
+          style={{
+            borderTop: '1px solid var(--color-border)',
+            background: 'var(--color-surface, #fff)',
+            padding: '14px 24px',
+          }}
+        >
+          <div style={{ display: 'flex', gap: 12, maxWidth: 680, margin: '0 auto' }}>
+            <button
+              type="button"
+              className="ds-btn ghost"
+              onClick={onSkip}
+              disabled={answered}
+              style={{ flex: 1, justifyContent: 'center', opacity: answered ? 0.4 : 1, cursor: answered ? 'not-allowed' : 'pointer' }}
+            >
+              <Icon name="skip_next" />
+              スキップ
+            </button>
+            <button
+              type="button"
+              className="ds-btn dark"
+              onClick={onNext}
+              disabled={!answered}
+              style={{ flex: 1, justifyContent: 'center', opacity: answered ? 1 : 0.4, cursor: answered ? 'pointer' : 'not-allowed' }}
+            >
+              {index + 1 >= totalQuestions ? '結果を見る' : '次へ'}
+              <Icon name="arrow_forward" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

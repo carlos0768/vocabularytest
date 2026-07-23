@@ -24,7 +24,17 @@ type GrammarBookRow = {
   id: string;
   title: string;
   updated_at: string;
+  is_favorite: boolean;
 };
+
+// book_id -> 件数 に集計する
+function countByBook(rows: { book_id: string }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    counts.set(row.book_id, (counts.get(row.book_id) ?? 0) + 1);
+  }
+  return counts;
+}
 
 type ChatGptGrammarBooksDeps = {
   requirePro: typeof requireProUser;
@@ -51,7 +61,7 @@ export async function handleChatGptGrammarBooksGet(
 
     const { data, error } = await auth.supabase
       .from('grammar_books')
-      .select('id,title,updated_at')
+      .select('id,title,updated_at,is_favorite')
       .eq('user_id', auth.user.id)
       .order('updated_at', { ascending: false })
       .limit(parsed.data.limit);
@@ -61,12 +71,41 @@ export async function handleChatGptGrammarBooksGet(
       return NextResponse.json({ success: false, error: '問題集の取得に失敗しました' }, { status: 500 });
     }
 
+    const books = (data ?? []) as GrammarBookRow[];
+
+    // 習得度表示のため、問題数と習得済み数を本人スコープで集計する。
+    const [questionsResult, masteredResult] = await Promise.all([
+      auth.supabase
+        .from('grammar_questions')
+        .select('book_id')
+        .eq('user_id', auth.user.id),
+      auth.supabase
+        .from('grammar_question_progress')
+        .select('book_id')
+        .eq('user_id', auth.user.id)
+        .eq('mastered', true),
+    ]);
+
+    if (questionsResult.error || masteredResult.error) {
+      console.error(
+        '[chatgpt/grammar-books] stats fetch failed:',
+        questionsResult.error?.message ?? masteredResult.error?.message,
+      );
+      return NextResponse.json({ success: false, error: '問題集の取得に失敗しました' }, { status: 500 });
+    }
+
+    const questionCounts = countByBook((questionsResult.data ?? []) as { book_id: string }[]);
+    const masteredCounts = countByBook((masteredResult.data ?? []) as { book_id: string }[]);
+
     return NextResponse.json({
       success: true,
-      books: ((data ?? []) as GrammarBookRow[]).map((row) => ({
+      books: books.map((row) => ({
         id: row.id,
         title: row.title,
         updatedAt: row.updated_at,
+        isFavorite: row.is_favorite ?? false,
+        questionCount: questionCounts.get(row.id) ?? 0,
+        masteredCount: masteredCounts.get(row.id) ?? 0,
       })),
     });
   } catch (error) {
