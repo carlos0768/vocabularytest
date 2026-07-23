@@ -507,6 +507,19 @@ export function HomeClient() {
   const myBooksProjects = overflowProjects.length > 0 ? overflowProjects : listProjects;
   const visibleProjects = myBooksProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
+  // ホームに出すバインダー (フォルダ) 一覧。listProjects を binder 名で集計する
+  const homeBinders = useMemo(() => {
+    const byBinder = new Map<string, number>();
+    for (const project of listProjects) {
+      const name = project.binder?.trim();
+      if (!name) continue;
+      byBinder.set(name, (byBinder.get(name) ?? 0) + 1);
+    }
+    return [...byBinder.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+      .map(([name, count]) => ({ name, count }));
+  }, [listProjects]);
+
   // The guided flow starts for any user who hasn't studied yet. Word status only
   // advances past 'new' via quiz/study, so any progress means they've quizzed.
   const hasStudiedBefore = completedToday > 0 || mastered > 0 || review > 0 || stats.activeW > 0;
@@ -728,6 +741,25 @@ export function HomeClient() {
         )}
       </div>
 
+      {/* バインダー (フォルダ): 単語帳タイルと同じ配色でホームに表示 */}
+      {homeBinders.length > 0 && (
+        <>
+          <div className="flex items-baseline justify-between px-5 pb-2.5 pt-1">
+            <div>
+              <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">BINDERS</div>
+              <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">バインダー</h2>
+            </div>
+          </div>
+          <div className="no-scrollbar -mx-[18px] mb-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-4 scroll-pl-[18px]">
+            {homeBinders.map((binder) => (
+              <div key={binder.name} className="w-[42%] shrink-0 snap-start">
+                <BinderSquareTile name={binder.name} count={binder.count} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* 語法問題集（Pro限定・グループ表示の上） */}
       <HomeGrammarBooksSection books={grammarBooks} />
 
@@ -782,6 +814,31 @@ function HomeLoadingScreen() {
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] text-[var(--color-muted)]">
       <Icon name="progress_activity" size={22} className="animate-spin" />
     </div>
+  );
+}
+
+// バインダー (フォルダ) タイル。ProjectSquareTile と同じシェル・配色 (thumbColor) で、
+// キーは binder 名。単語帳タイルと見た目を揃える。
+function BinderSquareTile({ name, count }: { name: string; count: number }) {
+  const bg = thumbColor(name);
+  return (
+    <Link
+      href={`/binder/${encodeURIComponent(name)}`}
+      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+      style={{ backgroundColor: bg }}
+    >
+      <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />
+      <div className="flex items-center gap-1 pl-1.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+        <Icon name="folder" size={15} filled />
+        <span className="font-mono text-[9.5px] font-bold tracking-[0.04em]">BINDER</span>
+      </div>
+      <div className="pl-1.5">
+        <div className="line-clamp-2 font-display text-[13.5px] font-bold leading-snug drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+          {name}
+        </div>
+        <div className="mt-1 font-mono text-[9px] tracking-[0.04em] opacity-90">{count}冊</div>
+      </div>
+    </Link>
   );
 }
 

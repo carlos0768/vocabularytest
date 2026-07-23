@@ -110,6 +110,19 @@ export function DesktopHomeView({
   );
   const shelfProjects = projects.slice(gridProjectCount);
 
+  // バインダー (フォルダ) 一覧を binder 名で集計する
+  const homeBinders = (() => {
+    const byBinder = new Map<string, number>();
+    for (const project of projects) {
+      const name = project.binder?.trim();
+      if (!name) continue;
+      byBinder.set(name, (byBinder.get(name) ?? 0) + 1);
+    }
+    return [...byBinder.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+      .map(([name, count]) => ({ name, count }));
+  })();
+
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="ホーム" crumb="HOME / ライブラリ">
@@ -260,6 +273,23 @@ export function DesktopHomeView({
               </div>
             )}
           </div>
+
+          {/* バインダー (フォルダ): マイ単語帳と同じ配色のタイルで表示 */}
+          {homeBinders.length > 0 && (
+            <div style={{ marginTop: 28 }}>
+              <div className="ds-sec-head" style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                  <h2>バインダー</h2>
+                  <span className="mono muted" style={{ fontSize: 12 }}>{homeBinders.length}</span>
+                </div>
+              </div>
+              <div className="ds-shelf-row">
+                {homeBinders.map((binder) => (
+                  <DesktopBinderTile key={binder.name} name={binder.name} count={binder.count} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 語法問題集（グループ表示の上） */}
           <DesktopHomeGrammarBooks books={grammarBooks} />
@@ -553,6 +583,24 @@ function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// バインダー (フォルダ) タイル。DesktopBookTile と同じ ds-book シェル・配色
+// (desktopThumbColor) で、キーは binder 名。単語帳タイルと見た目を揃える。
+function DesktopBinderTile({ name, count }: { name: string; count: number }) {
+  return (
+    <Link href={`/binder/${encodeURIComponent(name)}`} className="ds-book" style={{ background: desktopThumbColor(name) }}>
+      <div className="bk-spine" />
+      <div>
+        <div className="bk-title">{name}</div>
+        <div className="bk-foot mono">BINDER</div>
+      </div>
+      <div>
+        <Icon name="folder" filled style={{ fontSize: 20 }} />
+        <div className="bk-foot">{count}冊</div>
+      </div>
+    </Link>
   );
 }
 
