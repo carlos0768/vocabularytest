@@ -110,6 +110,13 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     setSelected(choiceIndex);
     if (choiceIndex !== question.correctIndex) {
       setWrongQuestions((prev) => [...prev, question]);
+      // 誤答ログを記録する (ChatGPTの「間違えた問題」復習用)。
+      // best-effort: 失敗しても演習は続行する。
+      void fetch('/api/chatgpt/grammar-misses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId: question.id, bookId }),
+      }).catch(() => {});
     }
   };
 
