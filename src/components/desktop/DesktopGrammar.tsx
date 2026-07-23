@@ -36,6 +36,8 @@ export type GrammarPracticeQuestion = {
   explanation: string;
   grammarPoint: string | null;
   sentenceJa: string | null;
+  /** 訳を見せないと選べない問題。true のとき回答前から sentenceJa を表示する */
+  showTranslation?: boolean;
   /** 復習モード (grammar-misses 由来) のときのみ入る所属問題集ID */
   bookId?: string;
 };
@@ -446,7 +448,7 @@ export function DesktopGrammarPracticeView({
             <>
               <div className="ds-card" style={{ padding: '26px 30px' }}>
                 <p style={{ margin: 0, fontSize: 19, lineHeight: 2.1, textAlign: 'center' }}>{renderGrammarSentence(question.sentence)}</p>
-                {question.sentenceJa && answered && (
+                {question.sentenceJa && (answered || question.showTranslation) && (
                   <p className="muted" style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.8, textAlign: 'center' }}>{question.sentenceJa}</p>
                 )}
               </div>

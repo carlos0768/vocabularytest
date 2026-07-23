@@ -216,6 +216,10 @@
                           "minLength": 1,
                           "maxLength": 300,
                           "description": "問題文の日本語訳(任意)"
+                        },
+                        "showTranslation": {
+                          "type": "boolean",
+                          "description": "訳を見せないと正解を選べない問題(文の意味が分からないと4択を絞れない、文脈依存の語法など)のとき true。演習で回答前から sentenceJa を表示する。true にする場合は sentenceJa を必ず含めること。通常の問題では省略(false)。"
                         }
                       }
                     }
