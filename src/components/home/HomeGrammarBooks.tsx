@@ -2,14 +2,15 @@
 
 /**
  * ホームの語法問題集セクション（グループ表示の上に配置）。
- * - HomeGrammarBooksSection: モバイル向け。横スライドのカードレール
- * - DesktopHomeGrammarBooks: デスクトップ向けカードグリッド
+ * 単語帳と同じ正方形の本棚タイルを横スクロールで並べる。
+ * - HomeGrammarBooksSection: モバイル向け。横スライドの正方形タイル
+ * - DesktopHomeGrammarBooks: デスクトップ向け。マイ単語帳と同じ ds-book 棚
  * 語法問題集はPro限定のため、問題集が0件（Free含む）のときは何も表示しない。
  */
 
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
-import { desktopUpdatedLabel } from '@/components/desktop/desktop-data';
+import { desktopThumbColor, desktopUpdatedLabel } from '@/components/desktop/desktop-data';
 import type { GrammarBook } from '@/components/desktop/DesktopGrammar';
 
 function formatUpdated(iso: string): string {
@@ -21,11 +22,9 @@ function formatUpdated(iso: string): string {
 export function HomeGrammarBooksSection({ books }: { books: GrammarBook[] }) {
   if (books.length === 0) return null;
 
-  const multiple = books.length > 1;
-
   return (
     <div className="pb-1 pt-3">
-      <div className="mb-2.5 flex items-center gap-2 px-[14px]">
+      <div className="mb-2.5 flex items-center gap-2 px-[18px]">
         <Icon name="menu_book" size={20} className="text-[var(--solid-ink)]" />
         <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">語法問題集</h2>
         <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-white">
@@ -36,33 +35,28 @@ export function HomeGrammarBooksSection({ books }: { books: GrammarBook[] }) {
           <Icon name="chevron_right" size={11} />
         </Link>
       </div>
-      <div
-        className={
-          multiple
-            ? 'no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[14px] pb-1 scroll-pl-[14px]'
-            : 'px-[14px]'
-        }
-      >
+      {/* マイ単語帳と同じ正方形タイルの横スクロール棚 */}
+      <div className="no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
         {books.map((book) => (
           <Link
             key={book.id}
-            href={`/grammar/${book.id}`}
-            className={`flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3 no-underline transition-all duration-100 active:translate-x-px active:translate-y-px ${
-              multiple ? 'w-[82%] shrink-0 snap-start' : 'w-full'
-            }`}
+            href={`/grammar/${book.id}/list`}
+            className="relative flex aspect-square w-[42%] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+            style={{ backgroundColor: desktopThumbColor(book.id) }}
           >
-            <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
-              <Icon name="menu_book" size={20} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{book.title}</span>
-              <span className="mt-0.5 block font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
+            <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />
+            <div className="line-clamp-2 pl-1.5 font-display text-[13.5px] font-bold leading-snug drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+              {book.title}
+            </div>
+            <div className="pl-1.5">
+              <div className="flex items-center gap-1 drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+                <Icon name="menu_book" size={14} />
+                <span className="font-mono text-[9.5px] font-bold tracking-[0.04em]">GRAMMAR</span>
+              </div>
+              <div className="mt-1 font-mono text-[9px] tracking-[0.04em] opacity-90">
                 更新 {formatUpdated(book.updatedAt)}
-              </span>
-            </span>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--color-muted)]">
-              <Icon name="chevron_right" size={16} />
-            </span>
+              </div>
+            </div>
           </Link>
         ))}
       </div>
@@ -85,47 +79,24 @@ export function DesktopHomeGrammarBooks({ books }: { books: GrammarBook[] }) {
           <Icon name="chevron_right" style={{ fontSize: 16 }} />
         </Link>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-        {books.slice(0, 6).map((book) => (
+      {/* マイ単語帳と同じ ds-book タイルの横スクロール棚 (1行10冊) */}
+      <div className="ds-shelf-row cols-10">
+        {books.map((book) => (
           <Link
             key={book.id}
-            href={`/grammar/${book.id}`}
-            className="ds-card"
-            style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}
+            href={`/grammar/${book.id}/list`}
+            className="ds-book"
+            style={{ background: desktopThumbColor(book.id) }}
           >
-            <span
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 34,
-                height: 34,
-                flexShrink: 0,
-                borderRadius: 9,
-                border: '2px solid var(--solid-ink)',
-                background: '#faf7f1',
-              }}
-            >
-              <Icon name="menu_book" style={{ fontSize: 18 }} />
-            </span>
-            <span style={{ minWidth: 0 }}>
-              <span
-                style={{
-                  display: 'block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontFamily: 'var(--font-display)',
-                  fontWeight: 700,
-                  fontSize: 14,
-                }}
-              >
-                {book.title}
-              </span>
-              <span className="mono" style={{ display: 'block', marginTop: 2, fontSize: 10.5, color: 'var(--color-muted)' }}>
-                更新 {desktopUpdatedLabel(book.updatedAt)}
-              </span>
-            </span>
+            <div className="bk-spine" />
+            <div>
+              <div className="bk-title">{book.title}</div>
+              <div className="bk-foot mono">GRAMMAR</div>
+            </div>
+            <div>
+              <Icon name="menu_book" style={{ fontSize: 20 }} />
+              <div className="bk-foot">更新 {desktopUpdatedLabel(book.updatedAt)}</div>
+            </div>
           </Link>
         ))}
       </div>
