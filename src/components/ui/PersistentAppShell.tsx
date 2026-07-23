@@ -15,6 +15,9 @@ const NO_SHELL_PATHS = [
   '/offline', '/share-target', '/admin',
   '/level-test', '/ops',
   '/tips',
+  // 共有(公開)ページは自前で ds-app シェル(サイドバー付き)を描画するため、
+  // 共通シェルを重ねるとサイドバーが二重表示になる。共通シェルを外す。
+  '/shared/share-wordbook',
 ];
 
 const HIDE_BOTTOM_NAV_PATHS = [
@@ -56,22 +59,38 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let touchStartX = 0;
     let touchStartY = 0;
     let hasMoved = false;
     let scrollTimeout: ReturnType<typeof setTimeout>;
 
     const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       hasMoved = false;
     };
     const handleTouchMove = (e: TouchEvent) => {
-      if (Math.abs(e.touches[0].clientY - touchStartY) > 8) hasMoved = true;
+      // 縦・横どちらの移動もスクロールとみなす。横スクロール(本棚など)が縦しか
+      // 見ていなかったため検知できず、iPad等で指を離した瞬間に下の単語帳が誤タップ
+      // される不具合があった。動きを検知した時点でスクロール中から遮蔽オーバーレイを
+      // 出しておき、指を離した瞬間の誤タップを確実に飲み込む。
+      if (hasMoved) return;
+      const dx = Math.abs(e.touches[0].clientX - touchStartX);
+      const dy = Math.abs(e.touches[0].clientY - touchStartY);
+      if (dx > 8 || dy > 8) {
+        hasMoved = true;
+        setScrollEnding(true);
+      }
     };
     const handleTouchEnd = () => {
-      if (!hasMoved) return;
-      setScrollEnding(true);
       clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => setScrollEnding(false), 160);
+      if (hasMoved) {
+        // スクロール直後の誤タップを飲み込むため、少し遮蔽を残してから解除する
+        scrollTimeout = setTimeout(() => setScrollEnding(false), 200);
+      } else {
+        // 実際のタップは通す
+        setScrollEnding(false);
+      }
     };
 
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
