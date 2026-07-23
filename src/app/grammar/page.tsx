@@ -253,6 +253,13 @@ export default function GrammarBooksPage() {
                   <Icon name="delete" size={15} />
                 </button>
                 <Link
+                  href={`/grammar/${book.id}/list`}
+                  aria-label="問題の一覧を見る"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+                >
+                  <Icon name="list" size={15} />
+                </Link>
+                <Link
                   href={`/grammar/${book.id}`}
                   aria-label="演習を開く"
                   className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--color-muted)]"
