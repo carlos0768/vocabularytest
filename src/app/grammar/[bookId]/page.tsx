@@ -4,44 +4,24 @@ import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import {
+  DesktopGrammarPracticeView,
+  GRAMMAR_CHOICE_LABELS as CHOICE_LABELS,
+  renderGrammarSentence as renderSentence,
+  type GrammarPracticeQuestion as GrammarQuestion,
+} from '@/components/desktop/DesktopGrammar';
 
 // 語法問題集の演習画面 (Vintage型)。
 // 1問ずつ出題 → 選択 → 正誤 + 解説表示 → 次へ、最後に正答率と
 // 間違えた文法項目のまとめを表示する。
 // 問題取得は Pro ゲート付き /api/chatgpt/grammar-questions を cookie セッションで利用。
-
-const CHOICE_LABELS = ['A', 'B', 'C', 'D'] as const;
-
-type GrammarQuestion = {
-  id: string;
-  sentence: string;
-  choices: string[];
-  correctIndex: number;
-  explanation: string;
-  grammarPoint: string | null;
-  sentenceJa: string | null;
-};
+// デスクトップは DesktopGrammarPracticeView、モバイルは本ファイル内のUIを使う。
 
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'ready'; questions: GrammarQuestion[] }
   | { kind: 'pro-required' }
   | { kind: 'error'; message: string };
-
-// 空欄マーカーを含む問題文を、空欄を強調したJSXに分解する
-function renderSentence(sentence: string) {
-  const parts = sentence.split('___');
-  return parts.map((part, index) => (
-    <span key={index}>
-      {part}
-      {index < parts.length - 1 && (
-        <span className="mx-1 inline-block min-w-[64px] border-b-2 border-[var(--color-accent)] text-center font-bold text-[var(--color-accent)]">
-          ___
-        </span>
-      )}
-    </span>
-  ));
-}
 
 export default function GrammarPracticePage({ params }: { params: Promise<{ bookId: string }> }) {
   const { bookId } = use(params);
@@ -136,8 +116,26 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     setFinished(false);
   };
 
+  const answeredCount = finished ? questions.length : index + (answered ? 1 : 0);
+  const correctCount = answeredCount - wrongQuestions.length;
+
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:max-w-[720px] lg:px-8 lg:pt-10">
+    <>
+      <DesktopGrammarPracticeView
+        loadState={state.kind === 'ready' ? { kind: 'ready' } : state}
+        totalQuestions={questions.length}
+        index={index}
+        question={question}
+        selected={selected}
+        finished={finished}
+        correctCount={correctCount}
+        wrongGrammarPoints={wrongGrammarPoints}
+        onSelect={handleSelect}
+        onNext={handleNext}
+        onRetry={handleRetry}
+      />
+
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="flex items-center gap-2 pb-3 pt-1">
         <button
@@ -308,6 +306,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
           )}
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
