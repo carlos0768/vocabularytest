@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Icon } from '@/components/ui/Icon';
 import { ProfileView, profileAvatarColor, type ProfileCounts } from '@/components/profile/ProfileView';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
@@ -98,15 +96,6 @@ export default function ProfilePage() {
       followingHref="/follows?tab=following"
       followersHref="/follows?tab=followers"
       friendsHref="/follows?tab=following"
-      actions={
-        <Link
-          href="/shared"
-          className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white font-display text-[14px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="hub" size={18} />
-          共有ライブラリ
-        </Link>
-      }
       stats={stats}
       statsLoading={statsLoading}
     />
