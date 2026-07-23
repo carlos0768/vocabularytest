@@ -969,6 +969,23 @@ export default function ProjectPage() {
     }
   };
 
+  // バインダー (フォルダ) 名を設定する。空欄で解除
+  const handleSetBinder = async () => {
+    if (!project) return;
+    setMenuOpen(false);
+    const input = window.prompt('バインダー名を入力してください (空欄で解除)', project.binder ?? '');
+    if (input === null) return;
+    const binder = input.trim().slice(0, 40) || null;
+    try {
+      await mutationRepository.updateProject(project.id, { binder });
+      setProject((p) => (p ? { ...p, binder } : p));
+      invalidateHomeCache();
+      showToast({ message: binder ? `バインダー「${binder}」に入れました` : 'バインダーから外しました', type: 'success' });
+    } catch {
+      showToast({ message: 'バインダーの設定に失敗しました', type: 'error' });
+    }
+  };
+
   const handleOpenImagePicker = () => {
     if (!project) return;
     setMenuOpen(false);
@@ -1265,6 +1282,7 @@ export default function ProjectPage() {
         }}
         onToggleSelectWord={handleToggleSelectWord}
         onRename={handleOpenRename}
+        onSetBinder={() => void handleSetBinder()}
         onDeleteProject={() => setDeleteModalOpen(true)}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
@@ -1317,6 +1335,7 @@ export default function ProjectPage() {
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)', right: 14 }}
           >
             <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
+            <MenuButton icon="folder" label="バインダー設定" onClick={() => void handleSetBinder()} />
             <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
             <MenuButton
               icon="delete"

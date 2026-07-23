@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import {
   DesktopButton,
@@ -53,6 +53,28 @@ export function DesktopProjectsView({
     return filter === 'fav' ? projects.filter((project) => project.isFavorite) : projects;
   }, [filter, projects]);
   const totalWords = rows.reduce((sum, project) => sum + project.totalWords, 0);
+
+  // バインダー (フォルダ) ごとにグループ化。バインダー名順 → 未分類の順
+  const binderGroups = useMemo(() => {
+    const byBinder = new Map<string, DesktopProjectRow[]>();
+    const unfiled: DesktopProjectRow[] = [];
+    for (const project of rows) {
+      const name = project.binder?.trim();
+      if (!name) {
+        unfiled.push(project);
+        continue;
+      }
+      const items = byBinder.get(name) ?? [];
+      items.push(project);
+      byBinder.set(name, items);
+    }
+    const groups: { binder: string | null; items: DesktopProjectRow[] }[] = Array.from(byBinder.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+      .map(([binder, items]) => ({ binder, items }));
+    if (unfiled.length > 0) groups.push({ binder: null, items: unfiled });
+    return groups;
+  }, [rows]);
+  const hasBinders = binderGroups.some((group) => group.binder !== null);
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -109,8 +131,23 @@ export function DesktopProjectsView({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((project) => (
-                  <DesktopProjectTableRow key={project.id} project={project} />
+                {binderGroups.map((group) => (
+                  <Fragment key={group.binder ?? '__unfiled__'}>
+                    {hasBinders && (
+                      <tr>
+                        <td colSpan={7} style={{ background: '#faf7f1', padding: '8px 16px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 12.5 }}>
+                            <Icon name={group.binder ? 'folder' : 'folder_open'} style={{ fontSize: 16 }} />
+                            {group.binder ?? '未分類'}
+                            <span className="mono muted" style={{ fontSize: 11, fontWeight: 700 }}>{group.items.length}</span>
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                    {group.items.map((project) => (
+                      <DesktopProjectTableRow key={project.id} project={project} />
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

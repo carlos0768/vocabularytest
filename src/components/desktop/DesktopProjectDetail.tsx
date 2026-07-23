@@ -63,6 +63,7 @@ export function DesktopProjectDetailView({
   onToggleSelectMode,
   onToggleSelectWord,
   onRename,
+  onSetBinder,
   onDeleteProject,
   onToggleFavorite,
   onCycleVocabularyType,
@@ -87,6 +88,7 @@ export function DesktopProjectDetailView({
   onToggleSelectMode: () => void;
   onToggleSelectWord: (word: Word) => void;
   onRename: () => void;
+  onSetBinder: () => void;
   onDeleteProject: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
@@ -257,6 +259,14 @@ export function DesktopProjectDetailView({
                 >
                   <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
                   名称変更
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                  onClick={() => { setAddMenuOpen(false); onSetBinder(); }}
+                >
+                  <Icon name="folder" style={{ fontSize: 18 }} />
+                  バインダー設定
                 </button>
                 <button
                   type="button"
