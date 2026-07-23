@@ -527,7 +527,7 @@ export default function FlashcardPage() {
       </div>
     </div>
 
-    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       {/* Header: HeaderBtn close | progress | HeaderBtn details */}
       <div
         className="flex shrink-0 items-center justify-between px-4 pb-2.5"

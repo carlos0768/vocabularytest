@@ -1374,7 +1374,7 @@ export default function QuizPage() {
         </div>
       </div>
       {/* Mobile completion */}
-      <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))' }}>
           <div className="mx-auto w-full max-w-sm px-5 pb-4">
             {/* Score card */}
@@ -1692,7 +1692,7 @@ export default function QuizPage() {
       </div>
     </div>
 
-    <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       {/* Header: close + progress dots + flag */}
       <div
         className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5"

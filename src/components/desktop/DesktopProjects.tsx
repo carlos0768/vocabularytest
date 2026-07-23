@@ -9,6 +9,7 @@ import {
   DesktopTopbar,
 } from '@/components/desktop/DesktopChrome';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
+import { ProjectFilterSheet, ProjectSortSheet } from '@/components/desktop/ProjectListSheets';
 import {
   desktopSourceLabel,
   desktopThumbColor,
@@ -36,6 +37,8 @@ export function DesktopProjectsView({
   learnHref,
   onQueryChange,
   onSortChange,
+  onDeleteProject,
+  onSetBinder,
 }: {
   projects: DesktopProjectRow[];
   loading: boolean;
@@ -47,8 +50,12 @@ export function DesktopProjectsView({
   learnHref?: string;
   onQueryChange: (value: string) => void;
   onSortChange: (value: 'newest' | 'words' | 'lastUsed') => void;
+  onDeleteProject?: (project: DesktopProjectRow) => void;
+  onSetBinder?: (project: DesktopProjectRow) => void;
 }) {
   const [filter, setFilter] = useState<'all' | 'fav'>('all');
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [showSortSheet, setShowSortSheet] = useState(false);
   const rows = useMemo(() => {
     return filter === 'fav' ? projects.filter((project) => project.isFavorite) : projects;
   }, [filter, projects]);
@@ -91,24 +98,32 @@ export function DesktopProjectsView({
 
       <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <button type="button" className={'ds-chip' + (filter === 'all' ? ' active' : '')} onClick={() => setFilter('all')}>
-              すべて <span className="tnum" style={{ opacity: 0.7 }}>{projects.length}</span>
-            </button>
-            <button type="button" className={'ds-chip' + (filter === 'fav' ? ' active' : '')} onClick={() => setFilter('fav')}>
-              <Icon name="bookmark" filled style={{ fontSize: 15 }} />保存
-            </button>
-            <button type="button" className={'ds-chip' + (sort === 'newest' ? ' active' : '')} onClick={() => onSortChange('newest')}>
-              <Icon name="schedule" style={{ fontSize: 15 }} />新しい順
-            </button>
-            <button type="button" className={'ds-chip' + (sort === 'words' ? ' active' : '')} onClick={() => onSortChange('words')}>
-              <Icon name="sort" style={{ fontSize: 15 }} />単語が多い順
-            </button>
-            <button type="button" className={'ds-chip' + (sort === 'lastUsed' ? ' active' : '')} onClick={() => onSortChange('lastUsed')}>
-              <Icon name="history" style={{ fontSize: 15 }} />最近使った順
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <span className="mono muted tnum" style={{ fontSize: 12 }}>
+              {rows.length} 冊 ・ 合計 {totalWords} 語
+            </span>
             <div style={{ flex: 1 }} />
-            <span className="mono muted" style={{ fontSize: 12 }}>合計 {totalWords} 語</span>
+            {/* フィルタ・並べ替えは /project/* と同じ正方形アイコンボタンにシートを格納 */}
+            <button
+              type="button"
+              className={'ds-btn sm' + (filter === 'fav' ? ' dark' : '')}
+              style={{ width: 36, height: 36, padding: 0 }}
+              onClick={() => setShowFilterSheet(true)}
+              aria-pressed={filter === 'fav'}
+              aria-label="フィルタ"
+            >
+              <Icon name="filter_list" />
+            </button>
+            <button
+              type="button"
+              className={'ds-btn sm' + (sort !== 'newest' ? ' dark' : '')}
+              style={{ width: 36, height: 36, padding: 0 }}
+              onClick={() => setShowSortSheet(true)}
+              aria-pressed={sort !== 'newest'}
+              aria-label="並べ替え"
+            >
+              <Icon name="swap_vert" />
+            </button>
           </div>
 
           {error && (
@@ -145,7 +160,7 @@ export function DesktopProjectsView({
                       </tr>
                     )}
                     {group.items.map((project) => (
-                      <DesktopProjectTableRow key={project.id} project={project} />
+                      <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onSetBinder={onSetBinder} />
                     ))}
                   </Fragment>
                 ))}
@@ -167,12 +182,37 @@ export function DesktopProjectsView({
 
         <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} learnHref={learnHref} />
             </div>
+
+      <ProjectFilterSheet
+        open={showFilterSheet}
+        onClose={() => setShowFilterSheet(false)}
+        filter={filter}
+        onFilterChange={setFilter}
+      />
+      <ProjectSortSheet
+        open={showSortSheet}
+        onClose={() => setShowSortSheet(false)}
+        sort={sort}
+        onSortChange={onSortChange}
+      />
     </div>
   );
 }
 
-function DesktopProjectTableRow({ project }: { project: DesktopProjectRow }) {
+function DesktopProjectTableRow({
+  project,
+  onDelete,
+  onSetBinder,
+}: {
+  project: DesktopProjectRow;
+  onDelete?: (project: DesktopProjectRow) => void;
+  onSetBinder?: (project: DesktopProjectRow) => void;
+}) {
   const pct = project.totalWords > 0 ? Math.round((project.masteredWords / project.totalWords) * 100) : 0;
+  // メニューはテーブルの overflow:hidden で切れないよう fixed で描画し、
+  // ボタン位置に合わせて配置する。
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const hasMenu = Boolean(onDelete || onSetBinder);
 
   return (
     <tr>
@@ -204,7 +244,69 @@ function DesktopProjectTableRow({ project }: { project: DesktopProjectRow }) {
         </div>
       </td>
       <td className="mono" style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>{desktopUpdatedLabel(project.lastUsedAt ?? project.createdAt)}</td>
-      <td><Icon name="more_horiz" style={{ color: 'var(--color-muted)', cursor: 'pointer' }} /></td>
+      <td>
+        {hasMenu ? (
+          <button
+            type="button"
+            aria-label="メニュー"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setMenuPos({ top: rect.bottom + 6, right: Math.max(12, window.innerWidth - rect.right) });
+            }}
+            style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--color-muted)', lineHeight: 0 }}
+          >
+            <Icon name="more_horiz" />
+          </button>
+        ) : (
+          <Icon name="more_horiz" style={{ color: 'var(--color-muted)' }} />
+        )}
+        {menuPos && (
+          <>
+            <button
+              type="button"
+              aria-label="閉じる"
+              onClick={() => setMenuPos(null)}
+              style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'transparent', border: 'none', cursor: 'default' }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: menuPos.top,
+                right: menuPos.right,
+                zIndex: 61,
+                width: 190,
+                overflow: 'hidden',
+                borderRadius: 12,
+                border: '2px solid var(--solid-ink)',
+                background: '#fff',
+                boxShadow: '2px 3px 0 var(--solid-ink)',
+              }}
+            >
+              {onSetBinder && (
+                <button
+                  type="button"
+                  onClick={() => { setMenuPos(null); onSetBinder(project); }}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold text-[var(--solid-ink)] hover:bg-[var(--color-surface-secondary)]"
+                >
+                  <Icon name="folder" size={16} />
+                  バインダーに追加
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => { setMenuPos(null); onDelete(project); }}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold hover:bg-[var(--color-surface-secondary)]"
+                  style={{ color: 'var(--color-error)' }}
+                >
+                  <Icon name="delete" size={16} />
+                  単語帳を削除
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </td>
     </tr>
   );
 }

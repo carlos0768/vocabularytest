@@ -379,6 +379,20 @@ export default function ProjectPage() {
       partOfSpeech: wordFilterPos,
     });
   }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
+
+  // モバイル専用: 20語を超える単語帳は10語ずつページ送りする (フロントのみで完結)
+  const MOBILE_WORDS_PER_PAGE = 10;
+  const paginateWords = filteredWords.length > 20;
+  const wordPageCount = paginateWords ? Math.ceil(filteredWords.length / MOBILE_WORDS_PER_PAGE) : 1;
+  const [wordPage, setWordPage] = useState(0);
+  useEffect(() => {
+    // フィルタ/検索でページ数が減ったら範囲内に戻す
+    setWordPage((prev) => (prev > wordPageCount - 1 ? 0 : prev));
+  }, [wordPageCount]);
+  const pagedMobileWords = paginateWords
+    ? filteredWords.slice(wordPage * MOBILE_WORDS_PER_PAGE, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)
+    : filteredWords;
+
   const selectedDisplayedWordCount = useMemo(
     () => filteredWords.filter((word) => selectedWordIds.has(word.id)).length,
     [filteredWords, selectedWordIds],
@@ -1515,7 +1529,7 @@ export default function ProjectPage() {
       </div>
       )}
 
-      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
+      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : paginateWords ? 'pb-[104px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
         {!wordsLoaded ? (
           <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -1535,7 +1549,7 @@ export default function ProjectPage() {
           )
         ) : (
           <div className="divide-y divide-[var(--color-border)]">
-            {filteredWords.map((word, index) => {
+            {pagedMobileWords.map((word, index) => {
               const selected = selectedWordIds.has(word.id);
               return (
               <WordRow
@@ -1543,7 +1557,7 @@ export default function ProjectPage() {
                 word={word}
                 selectMode={selectMode}
                 selected={selected}
-                tourAnchor={index === 0}
+                tourAnchor={index === 0 && wordPage === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
                 onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
                 onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
@@ -1565,6 +1579,38 @@ export default function ProjectPage() {
           />
         )}
       </div>
+
+      {/* モバイル: 20語を超える単語帳は10語ずつページ送り。下部固定バーの左右矢印で移動 */}
+      {paginateWords && !selectMode && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md lg:hidden"
+          style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+        >
+          <div className="mx-auto flex w-full max-w-[560px] items-center justify-between gap-2.5 px-[18px] pt-3">
+            <button
+              type="button"
+              onClick={() => setWordPage((p) => Math.max(0, p - 1))}
+              disabled={wordPage === 0}
+              aria-label="前の10語"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+            >
+              <Icon name="chevron_left" size={20} />
+            </button>
+            <span className="font-mono text-[12px] font-bold tabular-nums text-[var(--solid-ink)]">
+              {wordPage * MOBILE_WORDS_PER_PAGE + 1}–{Math.min(filteredWords.length, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)} / {filteredWords.length}語
+            </span>
+            <button
+              type="button"
+              onClick={() => setWordPage((p) => Math.min(wordPageCount - 1, p + 1))}
+              disabled={wordPage >= wordPageCount - 1}
+              aria-label="次の10語"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+            >
+              <Icon name="chevron_right" size={20} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <ProjectShareSheet
         open={showShareSheet}

@@ -30,7 +30,7 @@ type BottomSheetShellProps = {
   footer?: React.ReactNode;
 };
 
-function BottomSheetShell({ open, onClose, title, children, footer }: BottomSheetShellProps) {
+export function BottomSheetShell({ open, onClose, title, children, footer }: BottomSheetShellProps) {
   if (!open) return null;
   return (
     <div

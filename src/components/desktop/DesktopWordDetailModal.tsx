@@ -7,6 +7,7 @@ import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
+import { speakEnglish } from '@/lib/speech';
 import type { Word } from '@/types';
 
 export function DesktopWordDetailModal({
@@ -57,6 +58,14 @@ export function DesktopWordDetailModal({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="word-en">{word.english}</div>
+              <button
+                type="button"
+                className="ds-btn ghost sm"
+                onClick={() => speakEnglish(word.english)}
+                aria-label="発音を再生"
+              >
+                <Icon name="volume_up" style={{ color: 'var(--color-muted)' }} />
+              </button>
               <button type="button" className="ds-btn ghost sm" onClick={onToggleFavorite} aria-label="保存">
                 <Icon
                   name="bookmark"
@@ -87,8 +96,19 @@ export function DesktopWordDetailModal({
               </div>
               {word.exampleSentence ? (
                 <>
-                  <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
-                    {renderExample(word.exampleSentence, word.english)}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ flex: 1, fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
+                      {renderExample(word.exampleSentence, word.english)}
+                    </div>
+                    <button
+                      type="button"
+                      className="ds-btn ghost sm"
+                      onClick={() => speakEnglish(word.exampleSentence, { rate: 0.85 })}
+                      aria-label="例文を再生"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <Icon name="volume_up" style={{ color: 'var(--color-muted)' }} />
+                    </button>
                   </div>
                   {word.exampleSentenceJa && (
                     <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>

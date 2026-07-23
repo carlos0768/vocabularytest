@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -19,6 +19,14 @@ import { ShareToGroupSheet } from '../share-to-group-sheet';
 export default function GroupBookshelfClient() {
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
+  const router = useRouter();
+  // 本棚→グループの戻るは履歴を1つ戻す。グループを push で積むと、グループ側の
+  // 戻る(router.back)で再び本棚に戻ってしまう無限ループになるため。
+  const handleBack = () => {
+    triggerHaptic();
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push(`/groups/${encodeURIComponent(groupId)}`);
+  };
   const { user, isPro, loading: authLoading, isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
@@ -121,7 +129,7 @@ export default function GroupBookshelfClient() {
       <div className="hidden h-full min-h-0 flex-col lg:flex">
         <div className="ds-top">
           <DesktopButton
-            href={`/groups/${encodeURIComponent(groupId)}`}
+            onClick={handleBack}
             icon="arrow_back"
             variant="ghost"
             title="グループに戻る"
@@ -159,7 +167,7 @@ export default function GroupBookshelfClient() {
       >
         {stateView ?? (group && (
           <div className="flex flex-col gap-4 px-[14px]">
-            <BookshelfHeader groupId={groupId} groupName={group.name} bookCount={projects.length} />
+            <BookshelfHeader onBack={handleBack} groupName={group.name} bookCount={projects.length} />
 
             {projects.length === 0 ? emptyShelf : (
               <div className="grid grid-cols-2 gap-3">
@@ -193,21 +201,21 @@ export default function GroupBookshelfClient() {
   );
 }
 
-function BookshelfHeader({ groupId, groupName, bookCount }: { groupId: string; groupName: string; bookCount: number }) {
+function BookshelfHeader({ onBack, groupName, bookCount }: { onBack: () => void; groupName: string; bookCount: number }) {
   return (
     <section
       className="rounded-[18px] border-2 border-[var(--solid-ink)] p-4"
       style={{ background: 'linear-gradient(150deg, #FFF6DE 0%, #FFE7BC 100%)' }}
     >
       <div className="flex items-center gap-2">
-        <Link
-          href={`/groups/${encodeURIComponent(groupId)}`}
+        <button
+          type="button"
+          onClick={onBack}
           aria-label="グループに戻る"
-          onClick={() => triggerHaptic()}
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
-        </Link>
+        </button>
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
           GROUP BOOKSHELF
         </div>
