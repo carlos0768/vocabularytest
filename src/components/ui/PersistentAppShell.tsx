@@ -22,6 +22,8 @@ const HIDE_BOTTOM_NAV_PATHS = [
   '/quick-response/', '/scan/confirm', '/shared/share-wordbook',
   '/subscription', '/collections/new', '/word/', '/favorites', '/profile', '/follows',
   '/groups/', '/reels',
+  // 語法演習画面(/grammar/<bookId>)はナビ非表示。一覧(/grammar)は表示する。
+  '/grammar/',
 ];
 
 function shouldHideShell(pathname: string): boolean {
