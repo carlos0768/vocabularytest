@@ -81,6 +81,7 @@ export default function ProjectListPage() {
   const [error, setError] = useState<string | null>(null);
   const [summaryStats, setSummaryStats] = useState<DesktopStudySummaryStats>(EMPTY_DESKTOP_STUDY_SUMMARY);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [desktopCreateOpen, setDesktopCreateOpen] = useState(false);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -227,7 +228,6 @@ export default function ProjectListPage() {
     }
     return groups;
   }, [filtered]);
-  const hasBinders = binderGroups.some((group) => group.binder !== null);
 
   return (
     <>
@@ -244,6 +244,7 @@ export default function ProjectListPage() {
         onSortChange={setSort}
         onDeleteProject={(project) => void handleDeleteProject(project)}
         onSetBinder={handleSetBinder}
+        onCreateNew={() => setDesktopCreateOpen(true)}
       />
       <BinderPickerSheet
         key={binderTarget?.id ?? 'closed'}
@@ -324,22 +325,20 @@ export default function ProjectListPage() {
             }
           />
         ) : (
-          binderGroups.map((group) => (
-            <div key={group.binder ?? '__unfiled__'} className="flex flex-col gap-2.5">
-              {hasBinders && (
-                <div className="mt-1 flex items-center gap-1.5 px-1">
-                  <Icon name={group.binder ? 'folder' : 'folder_open'} size={14} className="text-[var(--color-muted)]" />
-                  <span className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">
-                    {group.binder ?? '未分類'}
-                  </span>
-                  <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">{group.items.length}</span>
-                </div>
-              )}
-              {group.items.map((project) => (
+          <>
+            {/* バインダーは単体行で表示。中の単語帳はタップして /binder/[name] で見る */}
+            {binderGroups
+              .filter((group) => group.binder !== null)
+              .map((group) => (
+                <BinderRow key={group.binder} name={group.binder as string} count={group.items.length} />
+              ))}
+            {binderGroups
+              .filter((group) => group.binder === null)
+              .flatMap((group) => group.items)
+              .map((project) => (
                 <BookRow key={project.id} project={project} />
               ))}
-            </div>
-          ))
+          </>
         )}
       </div>
 
@@ -347,6 +346,12 @@ export default function ProjectListPage() {
       <CreateWordbookSheet
         isOpen={createSheetOpen}
         onClose={() => setCreateSheetOpen(false)}
+      />
+      {/* デスクトップの新規作成: ホームと同じく中央モーダルで作成方法を選ばせる（/scan直行にしない） */}
+      <CreateWordbookSheet
+        isOpen={desktopCreateOpen}
+        onClose={() => setDesktopCreateOpen(false)}
+        variant="modal"
       />
     </>
   );
@@ -383,6 +388,37 @@ function BookRow({ project }: { project: ProjectRowStats }) {
             )}
           </div>
 
+          <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
+            <Icon name="chevron_right" size={14} />
+          </span>
+        </div>
+      </SolidPanel>
+    </Link>
+  );
+}
+
+// バインダー(フォルダ)行。単語帳一覧では中身を展開せず、この単体行から
+// /binder/[name] に入って中の単語帳を見せる。配色は単語帳タイルと同じ thumbColor。
+function BinderRow({ name, count }: { name: string; count: number }) {
+  const bg = thumbColor(name);
+  return (
+    <Link href={`/binder/${encodeURIComponent(name)}`}>
+      <SolidPanel
+        className="!rounded-[14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        faceClassName="!p-[13px]"
+      >
+        <div className="flex items-center gap-[13px]">
+          <div
+            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"
+            style={{ backgroundColor: bg }}
+          >
+            <Icon name="folder" size={22} filled />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">BINDER</div>
+            <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{name}</div>
+            <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">{count}冊</div>
+          </div>
           <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
             <Icon name="chevron_right" size={14} />
           </span>

@@ -496,15 +496,21 @@ export function HomeClient() {
   // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
   // out of the browsable マイ単語帳 list (its words still count in `stats`).
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
+  // バインダー(フォルダ)に入っている単語帳は単体では表示しない。バインダーは1つの
+  // タイルとして表示し、中の単語帳はタップして /binder/[name] に入ってから見せる。
+  const unfiledProjects = useMemo(
+    () => listProjects.filter((project) => !project.binder?.trim()),
+    [listProjects],
+  );
   // ショートカットグリッドに載り切らなかった単語帳だけを下のマイ単語帳リストに
   // 出す（重複表示を避ける）。全部グリッドに収まる場合は従来どおり全件を出す
   // （新規ユーザーのチュートリアルが最初の ProjectRow をアンカーにしているため）。
   const gridProjectCount = Math.min(
-    listProjects.length,
+    unfiledProjects.length,
     homeShortcutContentSlots(favoriteCount > 0),
   );
-  const overflowProjects = listProjects.slice(gridProjectCount);
-  const myBooksProjects = overflowProjects.length > 0 ? overflowProjects : listProjects;
+  const overflowProjects = unfiledProjects.slice(gridProjectCount);
+  const myBooksProjects = overflowProjects.length > 0 ? overflowProjects : unfiledProjects;
   const visibleProjects = myBooksProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
   // ホームに出すバインダー (フォルダ) 一覧。listProjects を binder 名で集計する
@@ -613,7 +619,7 @@ export function HomeClient() {
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
       />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
         <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN
@@ -667,7 +673,7 @@ export function HomeClient() {
       <HomeShortcutGrid
         goal={{ state: goalState, count: goalCount }}
         savedWordsCount={favoriteCount}
-        projects={listProjects}
+        projects={unfiledProjects}
         groups={myGroups}
         recommendations={visibleRecommendedBooks}
         onStartScan={() => setVocabScanOpen(true)}
@@ -750,12 +756,14 @@ export function HomeClient() {
               <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">バインダー</h2>
             </div>
           </div>
-          <div className="no-scrollbar -mx-[18px] mb-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-4 scroll-pl-[18px]">
-            {homeBinders.map((binder) => (
-              <div key={binder.name} className="w-[42%] shrink-0 snap-start">
-                <BinderSquareTile name={binder.name} count={binder.count} />
-              </div>
-            ))}
+          <div className="px-[18px] pb-4">
+            <div className="no-scrollbar -mx-[18px] mb-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
+              {homeBinders.map((binder) => (
+                <div key={binder.name} className="w-[42%] shrink-0 snap-start">
+                  <BinderSquareTile name={binder.name} count={binder.count} />
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}
