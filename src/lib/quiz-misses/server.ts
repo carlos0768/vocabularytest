@@ -59,3 +59,49 @@ export async function recordQuizWordMiss(
 
   return { recorded: true };
 }
+
+export type UserMissedWordRow = {
+  english_key: string;
+  english: string;
+  japanese: string;
+  created_at: string;
+};
+
+export type UserMostMissedWord = {
+  english: string;
+  japanese: string;
+  missCount: number;
+  lastMissedAt: string;
+};
+
+/**
+ * Aggregates a user's raw miss log into per-word totals, ordered by miss
+ * count (then recency). Expects rows sorted newest-first (as queried with
+ * ORDER BY created_at DESC): the first row seen for a key supplies the
+ * displayed english/japanese surface form and lastMissedAt.
+ */
+export function aggregateUserMissedWords(rows: UserMissedWordRow[]): UserMostMissedWord[] {
+  const aggregated = new Map<string, UserMostMissedWord>();
+
+  for (const row of rows) {
+    const key = normalizeMissKey(row.english_key || row.english);
+    if (!key) continue;
+
+    const existing = aggregated.get(key);
+    if (existing) {
+      existing.missCount += 1;
+    } else {
+      aggregated.set(key, {
+        english: row.english,
+        japanese: row.japanese,
+        missCount: 1,
+        lastMissedAt: row.created_at,
+      });
+    }
+  }
+
+  return Array.from(aggregated.values()).sort((a, b) => {
+    if (b.missCount !== a.missCount) return b.missCount - a.missCount;
+    return b.lastMissedAt.localeCompare(a.lastMissedAt);
+  });
+}
