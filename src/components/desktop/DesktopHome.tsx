@@ -218,8 +218,8 @@ export function DesktopHomeView({
                 </div>
               </button>
             ) : view === 'grid' ? (
-              /* 横スクロールの棚に従来の本棚タイルを並べる */
-              <div className="ds-shelf-row">
+              /* 横スクロールの棚に従来の本棚タイルを並べる (1行10冊の高密度表示) */
+              <div className="ds-shelf-row cols-10">
                 {pendingScans.map((scan) => (
                   <DesktopGeneratingBookTile key={scan.id} scan={scan} />
                 ))}

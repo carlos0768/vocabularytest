@@ -220,8 +220,9 @@ export default function GrammarBooksPage() {
                 key={book.id}
                 className="flex items-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3.5"
               >
+                {/* カード本体のタップは問題一覧へ (演習は右のボタンから) */}
                 <Link
-                  href={`/grammar/${book.id}`}
+                  href={`/grammar/${book.id}/list`}
                   className="flex min-w-0 flex-1 items-center gap-3 no-underline"
                 >
                   <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
@@ -253,18 +254,11 @@ export default function GrammarBooksPage() {
                   <Icon name="delete" size={15} />
                 </button>
                 <Link
-                  href={`/grammar/${book.id}/list`}
-                  aria-label="問題の一覧を見る"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-                >
-                  <Icon name="list" size={15} />
-                </Link>
-                <Link
                   href={`/grammar/${book.id}`}
                   aria-label="演習を開く"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--color-muted)]"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
                 >
-                  <Icon name="chevron_right" size={16} />
+                  <Icon name="play_arrow" size={16} />
                 </Link>
               </div>
             ))}

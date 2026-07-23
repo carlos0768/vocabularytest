@@ -63,6 +63,7 @@ export function DesktopProjectDetailView({
   onToggleSelectMode,
   onToggleSelectWord,
   onRename,
+  onDeleteProject,
   onToggleFavorite,
   onCycleVocabularyType,
   onDeleteWord,
@@ -86,6 +87,7 @@ export function DesktopProjectDetailView({
   onToggleSelectMode: () => void;
   onToggleSelectWord: (word: Word) => void;
   onRename: () => void;
+  onDeleteProject: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleVocabularyType: (word: Word) => void;
   onDeleteWord: (wordId: string) => void;
@@ -255,6 +257,15 @@ export function DesktopProjectDetailView({
                 >
                   <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
                   名称変更
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                  style={{ color: 'var(--color-error, #cc4d59)' }}
+                  onClick={() => { setAddMenuOpen(false); onDeleteProject(); }}
+                >
+                  <Icon name="delete" style={{ fontSize: 18 }} />
+                  単語帳を削除
                 </button>
               </div>
             </>

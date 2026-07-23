@@ -1265,6 +1265,7 @@ export default function ProjectPage() {
         }}
         onToggleSelectWord={handleToggleSelectWord}
         onRename={handleOpenRename}
+        onDeleteProject={() => setDeleteModalOpen(true)}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
         onDeleteWord={handleOpenDeleteWord}
@@ -1568,14 +1569,6 @@ export default function ProjectPage() {
         onToggleGroupShare={(group) => void handleToggleGroupShare(group)}
       />
 
-      <DeleteProjectModal
-        open={deleteModalOpen}
-        loading={deleteLoading}
-        title={project.title}
-        onCancel={() => { if (!deleteLoading) setDeleteModalOpen(false); }}
-        onConfirm={() => void handleConfirmDelete()}
-      />
-
       {selectedWord && (
         <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
           <div
@@ -1615,6 +1608,14 @@ export default function ProjectPage() {
 
       {/* Shared overlays: rendered outside the lg:hidden wrapper so the
           desktop view's filter / sort / select / add buttons can use them too */}
+      <DeleteProjectModal
+        open={deleteModalOpen}
+        loading={deleteLoading}
+        title={project.title}
+        onCancel={() => { if (!deleteLoading) setDeleteModalOpen(false); }}
+        onConfirm={() => void handleConfirmDelete()}
+      />
+
       <ManualWordModal
         open={showManualWordModal}
         loading={manualWordSaving}

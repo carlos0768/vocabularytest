@@ -306,6 +306,16 @@
 }
 .ds-shelf-row::-webkit-scrollbar { display: none; }
 .ds-shelf-row > * { scroll-snap-align: start; }
+/* 高密度の本棚 (マイ単語帳): 1行10冊。タイルが小さくなるぶん文字も縮める */
+.ds-shelf-row.cols-10 { --shelf-cols: 10; --shelf-gap: 10px; }
+.ds-shelf-row.cols-10 .ds-book { padding: 9px; border-radius: 12px; box-shadow: 2px 3px 0 var(--solid-ink); }
+.ds-shelf-row.cols-10 .ds-book .bk-spine { width: 4px; }
+.ds-shelf-row.cols-10 .ds-book .bk-title { font-size: 11px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ds-shelf-row.cols-10 .ds-book .bk-n { font-size: 15px; }
+.ds-shelf-row.cols-10 .ds-book .bk-n .u { font-size: 9.5px; }
+.ds-shelf-row.cols-10 .ds-book .bk-bar { height: 4px; margin-top: 5px; }
+.ds-shelf-row.cols-10 .ds-book .bk-foot { font-size: 8.5px; margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ds-shelf-row.cols-10 .ds-book .material-symbols-outlined { font-size: 20px !important; }
 
 /* Media card: square artwork on top, title + subtitle below.
    ホームのマイ単語帳と共有ライブラリの共有単語帳で共用する。 */
