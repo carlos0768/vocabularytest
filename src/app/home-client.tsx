@@ -572,9 +572,7 @@ export function HomeClient() {
   } = useHomeRecommendations();
   // 語法問題集（Pro限定）。グループ表示の上に出す
   const { books: grammarBooks } = useHomeGrammarBooks();
-  // おすすめの単語帳は、単語帳がまだ少ない (6冊未満) ユーザーにだけ流す
-  const showRecommendedBooks = listProjects.length < 6;
-  const visibleRecommendedBooks = loading || !showRecommendedBooks ? [] : recommendedBooks;
+  const visibleRecommendedBooks = loading ? [] : recommendedBooks;
 
   if (authLoading) {
     return <HomeLoadingScreen />;
