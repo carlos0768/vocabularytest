@@ -3,24 +3,20 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import {
+  DesktopGrammarBooksView,
+  type GrammarBook,
+  type GrammarBooksLoadState,
+} from '@/components/desktop/DesktopGrammar';
 
 // 語法コーナー: ChatGPT連携で作成した文法・語法問題集(Vintage型)の一覧。
 // データ取得は Pro ゲート付きの /api/chatgpt/grammar-books を cookie セッションで
 // そのまま利用する(このアプリからの fetch は同一オリジンで cookie が付く)。
+// デスクトップは DesktopGrammarBooksView、モバイルは本ファイル内のUIを使う。
 
 const GPT_URL = process.env.NEXT_PUBLIC_CHATGPT_GPT_URL ?? '';
 
-type GrammarBook = {
-  id: string;
-  title: string;
-  updatedAt: string;
-};
-
-type LoadState =
-  | { kind: 'loading' }
-  | { kind: 'ready'; books: GrammarBook[] }
-  | { kind: 'pro-required' }
-  | { kind: 'error'; message: string };
+type LoadState = GrammarBooksLoadState;
 
 function formatDate(iso: string): string {
   const date = new Date(iso);
@@ -119,7 +115,16 @@ export default function GrammarBooksPage() {
   );
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)]">
+    <>
+      <DesktopGrammarBooksView
+        state={state}
+        gptUrl={GPT_URL}
+        sharingBookId={sharingBookId}
+        sharedBookId={sharedBookId}
+        onShare={(bookId) => void handleShare(bookId)}
+      />
+
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="pb-3.5 pt-1">
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">GRAMMAR / USAGE</div>
@@ -229,6 +234,7 @@ export default function GrammarBooksPage() {
           <div className="mt-5">{gptCta}</div>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
