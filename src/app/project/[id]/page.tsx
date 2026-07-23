@@ -1312,7 +1312,14 @@ export default function ProjectPage() {
         className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md lg:hidden ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
-        <HeaderBtn onClick={() => router.replace('/')} aria-label="ホームへ戻る">
+        <HeaderBtn
+          onClick={() => {
+            // 直前の画面（バインダー・単語帳一覧など）に戻す。履歴が無い場合のみホーム。
+            if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+            else router.replace('/');
+          }}
+          aria-label="戻る"
+        >
           <Icon name="arrow_back" size={16} />
         </HeaderBtn>
         <div className="min-w-0 flex-1">

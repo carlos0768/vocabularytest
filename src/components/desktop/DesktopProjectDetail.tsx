@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import {
   DesktopButton,
@@ -96,6 +97,7 @@ export function DesktopProjectDetailView({
   onScan: () => void;
   onManualAdd: () => void;
 }) {
+  const router = useRouter();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [sortKey, setSortKey] = useState<SortKey>('order');
@@ -220,7 +222,21 @@ export function DesktopProjectDetailView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title={project.title} crumb="単語帳 / 一覧">
+      <DesktopTopbar
+        title={project.title}
+        crumb="単語帳 / 一覧"
+        leading={
+          <DesktopButton
+            onClick={() => {
+              // 直前の画面（単語帳一覧・バインダーなど）へ戻す。履歴が無ければ一覧へ。
+              if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+              else router.push('/projects');
+            }}
+            icon="arrow_back"
+            title="戻る"
+          >{''}</DesktopButton>
+        }
+      >
         {/* 「...」メニュー: 単語の追加 / 名称変更 */}
         <div ref={addMenuRef} style={{ position: 'relative' }}>
           <DesktopButton onClick={() => setAddMenuOpen((v) => !v)} icon="more_horiz" title="その他の操作">{''}</DesktopButton>

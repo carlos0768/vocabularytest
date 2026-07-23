@@ -34,6 +34,8 @@ export default function GrammarBooksPage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'fav'>('all');
   const [creatingBook, setCreatingBook] = useState(false);
+  // 作成メニュー(右上「+」): ChatGPT / 手動 の2択を格納する
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   // 保存(お気に入り)を楽観的に切り替える
   const handleToggleFavorite = async (bookId: string, next: boolean) => {
@@ -149,38 +151,6 @@ export default function GrammarBooksPage() {
     };
   }, []);
 
-  const manualCta = (
-    <button
-      type="button"
-      onClick={() => void handleCreateManual()}
-      disabled={creatingBook}
-      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-60"
-    >
-      <Icon name="edit" size={18} />
-      手動で問題集を作る
-    </button>
-  );
-
-  const gptCta = GPT_URL ? (
-    <a
-      href={GPT_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-    >
-      <Icon name="smart_toy" size={18} />
-      ChatGPTで問題を作る
-    </a>
-  ) : (
-    <Link
-      href="/tips/chatgpt"
-      className="flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-    >
-      <Icon name="smart_toy" size={18} />
-      ChatGPT連携の使い方を見る
-    </Link>
-  );
-
   return (
     <>
       <DesktopGrammarBooksView
@@ -199,23 +169,82 @@ export default function GrammarBooksPage() {
 
       <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
-      <div className="pb-3.5 pt-1">
-        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">GRAMMAR / USAGE</div>
-        <div className="mt-1.5 font-display text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-[var(--solid-ink)]">
-          語法問題集
+      <div className="flex items-start justify-between gap-3 pb-3.5 pt-1">
+        <div className="min-w-0">
+          <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">GRAMMAR / USAGE</div>
+          <div className="mt-1.5 font-display text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-[var(--solid-ink)]">
+            語法問題集
+          </div>
+          <div className="mt-1.5 text-[12px] font-medium text-[var(--color-muted)]">
+            空欄補充・英語4択・解説つき。問題はChatGPTとの会話で作成します
+          </div>
         </div>
-        <div className="mt-1.5 text-[12px] font-medium text-[var(--color-muted)]">
-          空欄補充・英語4択・解説つき。問題はChatGPTとの会話で作成します
-        </div>
-      </div>
 
-      {/* 作成CTA: デスクトップのトップバーと同じく上部に常時表示する */}
-      {state.kind === 'ready' && (
-        <div className="mb-3.5 flex flex-col gap-2.5">
-          {gptCta}
-          {manualCta}
-        </div>
-      )}
+        {/* 作成メニュー: 右上「+」に ChatGPT / 手動 の2択を格納する */}
+        {state.kind === 'ready' && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setCreateMenuOpen((open) => !open)}
+              aria-label="問題集を作成"
+              aria-haspopup="menu"
+              aria-expanded={createMenuOpen}
+              className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+            >
+              <Icon name={createMenuOpen ? 'close' : 'add'} size={22} />
+            </button>
+            {createMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="閉じる"
+                  onClick={() => setCreateMenuOpen(false)}
+                  className="fixed inset-0 z-40 cursor-default bg-transparent"
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[52px] z-50 w-[230px] overflow-hidden rounded-xl border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)]"
+                >
+                  {GPT_URL ? (
+                    <a
+                      href={GPT_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      role="menuitem"
+                      onClick={() => setCreateMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-3.5 text-[13.5px] font-bold text-[var(--solid-ink)] no-underline hover:bg-[var(--color-surface-secondary)]"
+                    >
+                      <Icon name="smart_toy" size={18} />
+                      ChatGPTで問題を作る
+                    </a>
+                  ) : (
+                    <Link
+                      href="/tips/chatgpt"
+                      role="menuitem"
+                      onClick={() => setCreateMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-3.5 text-[13.5px] font-bold text-[var(--solid-ink)] no-underline hover:bg-[var(--color-surface-secondary)]"
+                    >
+                      <Icon name="smart_toy" size={18} />
+                      ChatGPT連携の使い方を見る
+                    </Link>
+                  )}
+                  <div className="h-px bg-[var(--color-border)]" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setCreateMenuOpen(false); void handleCreateManual(); }}
+                    disabled={creatingBook}
+                    className="flex w-full items-center gap-2.5 px-4 py-3.5 text-left text-[13.5px] font-bold text-[var(--solid-ink)] hover:bg-[var(--color-surface-secondary)] disabled:opacity-60"
+                  >
+                    <Icon name="edit" size={18} />
+                    手動で問題集を作る
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {state.kind === 'loading' && (
         <div className="flex flex-col gap-2.5">

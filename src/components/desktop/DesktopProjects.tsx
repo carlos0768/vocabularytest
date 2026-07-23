@@ -39,6 +39,7 @@ export function DesktopProjectsView({
   onSortChange,
   onDeleteProject,
   onSetBinder,
+  onCreateNew,
 }: {
   projects: DesktopProjectRow[];
   loading: boolean;
@@ -52,6 +53,7 @@ export function DesktopProjectsView({
   onSortChange: (value: 'newest' | 'words' | 'lastUsed') => void;
   onDeleteProject?: (project: DesktopProjectRow) => void;
   onSetBinder?: (project: DesktopProjectRow) => void;
+  onCreateNew?: () => void;
 }) {
   const [filter, setFilter] = useState<'all' | 'fav'>('all');
   const [showFilterSheet, setShowFilterSheet] = useState(false);
@@ -81,7 +83,6 @@ export function DesktopProjectsView({
     if (unfiled.length > 0) groups.push({ binder: null, items: unfiled });
     return groups;
   }, [rows]);
-  const hasBinders = binderGroups.some((group) => group.binder !== null);
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -91,7 +92,7 @@ export function DesktopProjectsView({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
         />
-        <DesktopButton href="/scan" variant="accent" icon="add">
+        <DesktopButton onClick={onCreateNew} variant="accent" icon="add">
           新規作成
         </DesktopButton>
       </DesktopTopbar>
@@ -147,22 +148,16 @@ export function DesktopProjectsView({
               </thead>
               <tbody>
                 {binderGroups.map((group) => (
-                  <Fragment key={group.binder ?? '__unfiled__'}>
-                    {hasBinders && (
-                      <tr>
-                        <td colSpan={7} style={{ background: '#faf7f1', padding: '8px 16px' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 12.5 }}>
-                            <Icon name={group.binder ? 'folder' : 'folder_open'} style={{ fontSize: 16 }} />
-                            {group.binder ?? '未分類'}
-                            <span className="mono muted" style={{ fontSize: 11, fontWeight: 700 }}>{group.items.length}</span>
-                          </span>
-                        </td>
-                      </tr>
-                    )}
-                    {group.items.map((project) => (
-                      <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onSetBinder={onSetBinder} />
-                    ))}
-                  </Fragment>
+                  group.binder !== null ? (
+                    // バインダーは単体行で表示。中身はタップして /binder/[name] で見せる
+                    <DesktopBinderTableRow key={group.binder} name={group.binder} count={group.items.length} />
+                  ) : (
+                    <Fragment key="__unfiled__">
+                      {group.items.map((project) => (
+                        <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onSetBinder={onSetBinder} />
+                      ))}
+                    </Fragment>
+                  )
                 ))}
               </tbody>
             </table>
@@ -196,6 +191,38 @@ export function DesktopProjectsView({
         onSortChange={onSortChange}
       />
     </div>
+  );
+}
+
+// バインダー(フォルダ)を単体行として表示する。行タップで /binder/[name] に入り、
+// 中の単語帳はそこで見せる（一覧では展開しない）。
+function DesktopBinderTableRow({ name, count }: { name: string; count: number }) {
+  return (
+    <tr>
+      <td className="star">
+        <Icon name="folder" filled style={{ color: 'var(--color-muted)' }} />
+      </td>
+      <td>
+        <Link href={`/binder/${encodeURIComponent(name)}`} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
+          <span
+            className="ds-project-icon ds-project-icon--sm"
+            style={{ background: desktopThumbColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="folder" size={18} filled style={{ color: '#fff' }} />
+          </span>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{name}</span>
+        </Link>
+      </td>
+      <td className="mono" style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>バインダー</td>
+      <td className="tnum" style={{ fontWeight: 700 }}>{count}冊</td>
+      <td />
+      <td className="mono" style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>—</td>
+      <td>
+        <Link href={`/binder/${encodeURIComponent(name)}`} aria-label="バインダーを開く" style={{ color: 'var(--color-muted)', lineHeight: 0 }}>
+          <Icon name="chevron_right" />
+        </Link>
+      </td>
+    </tr>
   );
 }
 
