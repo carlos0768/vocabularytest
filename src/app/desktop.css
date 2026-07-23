@@ -171,6 +171,7 @@
 .ds-btn.ghost:hover { background: rgba(26,26,26,0.05); transform: none; }
 .ds-btn.sm { padding: 7px 12px; font-size: 13px; }
 .ds-btn.ds-btn--icon { padding: 10px; }
+.ds-btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 
 /* ── Solid card (face + plate via box-shadow, hard) ──────── */
 .ds-card {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { ProfileView, profileAvatarColor, type ProfileCounts } from '@/components/profile/ProfileView';
@@ -85,12 +86,12 @@ export default function FriendProfilePage() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--color-background)] px-6 text-center">
         <Icon name="person_off" size={32} className="text-[var(--color-muted)]" />
         <div className="font-display text-lg font-bold text-[var(--solid-ink)]">ユーザーが見つかりません</div>
-        <a
-          href="/friends"
+        <Link
+          href="/"
           className="inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white"
         >
-          フィードに戻る
-        </a>
+          ホームに戻る
+        </Link>
       </div>
     );
   }
@@ -104,7 +105,7 @@ export default function FriendProfilePage() {
   return (
     <ProfileView
       title="プロフィール"
-      backHref="/friends"
+      backHref="/"
       name={name}
       accountId={profile.accountId}
       initial={initial}

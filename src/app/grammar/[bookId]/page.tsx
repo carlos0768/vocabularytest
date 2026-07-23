@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import {
   DesktopGrammarPracticeView,
   GRAMMAR_CHOICE_LABELS as CHOICE_LABELS,
+  buildGrammarChatGptPrompt,
   renderGrammarSentence as renderSentence,
   type GrammarPracticeQuestion as GrammarQuestion,
 } from '@/components/desktop/DesktopGrammar';
@@ -31,7 +32,9 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [wrongQuestions, setWrongQuestions] = useState<GrammarQuestion[]>([]);
+  const [skippedCount, setSkippedCount] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [chatGptCopied, setChatGptCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +104,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
   };
 
   const handleNext = () => {
+    setChatGptCopied(false);
     if (index + 1 >= questions.length) {
       setFinished(true);
       return;
@@ -109,15 +113,33 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     setSelected(null);
   };
 
+  // 問題・選択肢・正解 (誤答時は自分の答えも) を含むChatGPT向けの質問文をコピーする
+  const handleAskChatGpt = () => {
+    if (!question) return;
+    void navigator.clipboard
+      .writeText(buildGrammarChatGptPrompt(question, selected))
+      .then(() => setChatGptCopied(true))
+      .catch(() => {});
+  };
+
+  // スキップは正解にも不正解にもカウントせず次の問題へ進む (デスクトップのみ)。
+  const handleSkip = () => {
+    if (answered || !question) return;
+    setSkippedCount((prev) => prev + 1);
+    handleNext();
+  };
+
   const handleRetry = () => {
     setIndex(0);
     setSelected(null);
     setWrongQuestions([]);
+    setSkippedCount(0);
     setFinished(false);
+    setChatGptCopied(false);
   };
 
   const answeredCount = finished ? questions.length : index + (answered ? 1 : 0);
-  const correctCount = answeredCount - wrongQuestions.length;
+  const correctCount = answeredCount - wrongQuestions.length - skippedCount;
 
   return (
     <>
@@ -130,9 +152,12 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         finished={finished}
         correctCount={correctCount}
         wrongGrammarPoints={wrongGrammarPoints}
+        chatGptCopied={chatGptCopied}
         onSelect={handleSelect}
         onNext={handleNext}
+        onSkip={handleSkip}
         onRetry={handleRetry}
+        onAskChatGpt={handleAskChatGpt}
       />
 
       <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
@@ -292,6 +317,14 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
                 </span>
               </div>
               <p className="m-0 mt-2 text-[12.5px] leading-[1.9] text-[var(--solid-ink)]">{question.explanation}</p>
+              <button
+                type="button"
+                onClick={handleAskChatGpt}
+                className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name={chatGptCopied ? 'check' : 'smart_toy'} size={16} />
+                {chatGptCopied ? 'コピーしました！ChatGPTに貼り付けて質問できます' : 'ChatGPTに質問する'}
+              </button>
             </div>
           )}
 

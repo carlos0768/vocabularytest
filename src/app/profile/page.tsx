@@ -97,24 +97,15 @@ export default function ProfilePage() {
       counts={counts}
       followingHref="/follows?tab=following"
       followersHref="/follows?tab=followers"
-      friendsHref="/friends"
+      friendsHref="/follows?tab=following"
       actions={
-        <>
-          <Link
-            href="/friends"
-            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[14px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
-          >
-            <Icon name="group_add" size={18} />
-            フレンドを追加
-          </Link>
-          <Link
-            href="/shared"
-            aria-label="共有ライブラリ"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-          >
-            <Icon name="hub" size={20} />
-          </Link>
-        </>
+        <Link
+          href="/shared"
+          className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white font-display text-[14px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          <Icon name="hub" size={18} />
+          共有ライブラリ
+        </Link>
       }
       stats={stats}
       statsLoading={statsLoading}

@@ -17,6 +17,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { DesktopMediaCard, DesktopShelf } from '@/components/desktop/DesktopMediaShelf';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
 import { JoinedGroupGrid } from '@/components/groups/JoinedGroupsSection';
+import { DesktopHomeGrammarBooks } from '@/components/home/HomeGrammarBooks';
+import type { GrammarBook } from '@/components/desktop/DesktopGrammar';
 import {
   desktopSourceLabel,
   desktopThumbColor,
@@ -73,6 +75,7 @@ export function DesktopHomeView({
   pendingScans,
   joinedGroups = [],
   goal,
+  grammarBooks = [],
   recommendedBooks = [],
   recommendedReels = [],
   recommendationsLoading = false,
@@ -87,6 +90,7 @@ export function DesktopHomeView({
   pendingScans: DesktopPendingScan[];
   joinedGroups?: StudyGroupSummary[];
   goal: DesktopHomeGoal;
+  grammarBooks?: GrammarBook[];
   recommendedBooks?: HomeRecommendedBook[];
   recommendedReels?: HomeReelPreviewItem[];
   recommendationsLoading?: boolean;
@@ -256,6 +260,9 @@ export function DesktopHomeView({
               </div>
             )}
           </div>
+
+          {/* 語法問題集（グループ表示の上） */}
+          <DesktopHomeGrammarBooks books={grammarBooks} />
 
           {/* 参加中のグループ */}
           <div style={{ marginTop: 28 }}>
