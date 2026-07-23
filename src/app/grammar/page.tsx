@@ -194,7 +194,7 @@ export default function GrammarBooksPage() {
         onCreateManual={() => void handleCreateManual()}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="pb-3.5 pt-1">
         <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">GRAMMAR / USAGE</div>
@@ -262,14 +262,6 @@ export default function GrammarBooksPage() {
 
       {state.kind === 'ready' && state.books.length > 0 && (
         <>
-          {/* 間違えた語法問題の復習導線 */}
-          <Link
-            href="/grammar/review"
-            className="mb-3 flex h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-          >
-            <Icon name="restart_alt" size={16} />
-            間違えた問題を復習
-          </Link>
           <div className="flex flex-col gap-2.5">
             {state.books.map((book) => (
               <div

@@ -101,9 +101,6 @@ export function DesktopGrammarBooksView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="語法問題集" crumb="文法・語法 / 空欄補充・英語4択">
-        <DesktopButton variant="ghost" icon="restart_alt" href="/grammar/review" title="間違えた問題を復習">
-          間違いを復習
-        </DesktopButton>
         <DesktopButton icon="edit" onClick={onCreateManual} title="手動で問題集を作る">
           手動で作成
         </DesktopButton>
