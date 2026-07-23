@@ -16,6 +16,10 @@ import {
   handleChatGptGrammarQuestionsGet,
   handleChatGptGrammarQuestionsPost,
 } from '@/app/api/chatgpt/grammar-questions/route';
+import {
+  handleChatGptGrammarMissesGet,
+  handleChatGptGrammarMissesPost,
+} from '@/app/api/chatgpt/grammar-misses/route';
 import type { requireProUser } from '@/lib/api/pro-auth';
 
 const unauthorizedGate = (async () => ({
@@ -167,4 +171,28 @@ test('chatgpt/grammar-questions GET rejects non-Pro users with 403', async () =>
     { requirePro: proGate },
   );
   assert.equal(response.status, 403);
+});
+
+test('chatgpt/grammar-misses GET rejects unauthenticated requests with 401', async () => {
+  const response = await handleChatGptGrammarMissesGet(
+    new NextRequest('http://localhost/api/chatgpt/grammar-misses', { method: 'GET' }),
+    { requirePro: unauthorizedGate },
+  );
+  assert.equal(response.status, 401);
+});
+
+test('chatgpt/grammar-misses POST rejects non-Pro users with 403', async () => {
+  const response = await handleChatGptGrammarMissesPost(
+    jsonRequest('http://localhost/api/chatgpt/grammar-misses', { questionId: 'x', bookId: 'y' }),
+    { requirePro: proGate },
+  );
+  assert.equal(response.status, 403);
+});
+
+test('chatgpt/grammar-misses POST rejects malformed bodies with 400 before touching data', async () => {
+  const response = await handleChatGptGrammarMissesPost(
+    jsonRequest('http://localhost/api/chatgpt/grammar-misses', { questionId: 'not-a-uuid', bookId: 'not-a-uuid' }),
+    { requirePro: authedGate },
+  );
+  assert.equal(response.status, 400);
 });
