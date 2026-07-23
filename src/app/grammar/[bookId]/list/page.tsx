@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import {
   DesktopGrammarQuestionListView,
   GrammarQuestionDetailBody,
@@ -32,6 +33,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
     else router.push('/grammar');
   };
+  const pageScrolled = usePageScrolled();
 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -114,9 +116,12 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
         }}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-3 font-[var(--font-body)] lg:hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 pb-3 pt-1">
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 font-[var(--font-body)] lg:hidden">
+      {/* Header: 他ページ (単語帳詳細など) と同じ固定ヘッダ。ノッチ帯は全体共通の StatusBarCover が覆う */}
+      <header
+        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
         <button
           type="button"
           onClick={handleBack}
@@ -144,7 +149,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
           <Icon name="play_arrow" size={15} />
           演習する
         </Link>
-      </div>
+      </header>
 
       {state.kind === 'loading' && (
         <div className="flex flex-col gap-2.5">
