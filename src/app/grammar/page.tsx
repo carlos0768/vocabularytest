@@ -30,6 +30,36 @@ function formatDate(iso: string): string {
 
 export default function GrammarBooksPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [sharingBookId, setSharingBookId] = useState<string | null>(null);
+  const [sharedBookId, setSharedBookId] = useState<string | null>(null);
+
+  // 共有リンクを発行してクリップボードにコピーする
+  const handleShare = async (bookId: string) => {
+    if (sharingBookId) return;
+    setSharingBookId(bookId);
+    try {
+      const response = await fetch('/api/grammar/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookId }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        sharePath?: string;
+      };
+      if (!response.ok || !payload.success || !payload.sharePath) {
+        setSharedBookId(null);
+        return;
+      }
+      await navigator.clipboard.writeText(`${window.location.origin}${payload.sharePath}`);
+      setSharedBookId(bookId);
+      window.setTimeout(() => setSharedBookId((prev) => (prev === bookId ? null : prev)), 2000);
+    } catch {
+      setSharedBookId(null);
+    } finally {
+      setSharingBookId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -156,24 +186,46 @@ export default function GrammarBooksPage() {
         <>
           <div className="flex flex-col gap-2.5">
             {state.books.map((book) => (
-              <Link
+              <div
                 key={book.id}
-                href={`/grammar/${book.id}`}
-                className="flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3.5 no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
+                className="flex items-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3.5"
               >
-                <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
-                  <Icon name="menu_book" size={20} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{book.title}</span>
-                  <span className="mt-0.5 block font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
-                    更新 {formatDate(book.updatedAt)}
+                <Link
+                  href={`/grammar/${book.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 no-underline"
+                >
+                  <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+                    <Icon name="menu_book" size={20} />
                   </span>
-                </span>
-                <Icon name="chevron_right" size={16} className="shrink-0 text-[var(--color-muted)]" />
-              </Link>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{book.title}</span>
+                    <span className="mt-0.5 block font-mono text-[9px] tracking-[0.04em] text-[var(--color-muted)]">
+                      更新 {formatDate(book.updatedAt)}
+                    </span>
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void handleShare(book.id)}
+                  disabled={sharingBookId !== null}
+                  aria-label="共有リンクをコピー"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                >
+                  <Icon name={sharedBookId === book.id ? 'check' : 'ios_share'} size={15} />
+                </button>
+                <Link
+                  href={`/grammar/${book.id}`}
+                  aria-label="演習を開く"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--color-muted)]"
+                >
+                  <Icon name="chevron_right" size={16} />
+                </Link>
+              </div>
             ))}
           </div>
+          {sharedBookId && (
+            <p className="mt-2 text-center text-[11px] font-bold text-[var(--color-accent)]">共有リンクをコピーしました</p>
+          )}
           <div className="mt-5">{gptCta}</div>
         </>
       )}
