@@ -11,7 +11,7 @@ import { saveManualAddIntent } from '@/lib/home/home-session-storage';
 import { getGuestUserId, FREE_WORDBOOK_LIMIT } from '@/lib/utils';
 import type { SubscriptionStatus } from '@/types';
 
-type CreateMethod = 'scan' | 'chatgpt' | 'shared' | 'blank';
+type CreateMethod = 'scan' | 'chatgpt' | 'blank';
 
 // MERKEN公式GPT(ChatGPT連携)のURL。未設定ビルドでは /tips/chatgpt に誘導する。
 const CHATGPT_GPT_URL = process.env.NEXT_PUBLIC_CHATGPT_GPT_URL ?? '';
@@ -27,7 +27,6 @@ interface MethodOption {
 const METHODS: MethodOption[] = [
   { k: 'scan', icon: 'photo_camera', title: '写真でスキャン', description: 'AIが英単語と意味を自動抽出', recommended: true },
   { k: 'chatgpt', icon: 'smart_toy', title: 'ChatGPTで作成', description: '会話で頼むだけで単語帳に追加' },
-  { k: 'shared', icon: 'group', title: '共有ライブラリから', description: '公開単語帳をコピー' },
   { k: 'blank', icon: 'edit_note', title: '空の単語帳を作成', description: 'あとから手動で追加' },
 ];
 
@@ -42,17 +41,17 @@ interface CreateWordbookSheetProps {
 }
 
 /**
- * "新しい単語帳" creation-method sheet: scan (recommended) / copy from the
- * shared library / blank word book. Choosing scan switches the SAME sheet
- * to the scan options step (ScanCapturePanel) instead of opening a separate
- * modal. The optional name is carried into the scan flow as the new project
+ * "新しい単語帳" creation-method sheet: scan (recommended) / ChatGPT /
+ * blank word book. Choosing scan switches the SAME sheet to the scan
+ * options step (ScanCapturePanel) instead of opening a separate modal.
+ * The optional name is carried into the scan flow as the new project
  * title, and is required for blank creation.
  */
 export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: CreateWordbookSheetProps) {
   const router = useRouter();
   const { user, subscription, isPro } = useAuth();
   const [step, setStep] = useState<'method' | 'scan'>('method');
-  const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'shared');
+  const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'blank');
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -66,7 +65,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
     if (!isOpen) return;
     const timer = window.setTimeout(() => {
       setStep('method');
-      setMethod(isPro ? 'scan' : 'shared');
+      setMethod(isPro ? 'scan' : 'blank');
       setName('');
       setSubmitting(false);
       setErrorMsg(null);
@@ -82,11 +81,9 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
     ? 'スキャンに進む'
     : method === 'chatgpt'
       ? 'ChatGPTを開く'
-      : method === 'shared'
-        ? '共有ライブラリを開く'
-        : submitting
-          ? '作成中...'
-          : '単語帳を作成';
+      : submitting
+        ? '作成中...'
+        : '単語帳を作成';
 
   const handleSubmit = async () => {
     if (ctaDisabled) return;
@@ -104,12 +101,6 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
       } else {
         router.push('/tips/chatgpt');
       }
-      return;
-    }
-
-    if (method === 'shared') {
-      onClose();
-      router.push('/shared');
       return;
     }
 
@@ -278,9 +269,9 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                 {METHODS.map((m) => {
                   const active = method === m.k;
                   // Scanning and the ChatGPT integration are Pro-only: free
-                  // users see a PRO badge and get the shared library
+                  // users see a PRO badge and get the blank wordbook
                   // recommended instead.
-                  const showRecommended = m.recommended ? isPro : (m.k === 'shared' && !isPro);
+                  const showRecommended = m.recommended ? isPro : (m.k === 'blank' && !isPro);
                   const showProBadge = (m.k === 'scan' || m.k === 'chatgpt') && !isPro;
                   return (
                     <button
