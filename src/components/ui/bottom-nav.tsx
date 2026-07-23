@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
-import { prefetchReelFeed } from '@/hooks/use-reel-feed';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -57,19 +56,19 @@ const ScanPlusIcon = () => (
   </svg>
 );
 
-const ReelIcon = () => (
+const GrammarIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="4" y="3" width="16" height="18" rx="3"/>
-    <path d="M4 8h16"/>
-    <path d="M10.5 12.2l4 2.3-4 2.3v-4.6z"/>
+    <path d="M5 4a2 2 0 012-2h12v18H7a2 2 0 00-2 2V4z"/>
+    <path d="M5 20a2 2 0 012-2h12"/>
+    <path d="M9.5 7.5h6M9.5 11h4"/>
   </svg>
 );
 
-const ReelIconFilled = () => (
+const GrammarIconFilled = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="4" y="3" width="16" height="18" rx="3"/>
-    <path d="M4 8h16" stroke="#fff" strokeWidth="1.5"/>
-    <path d="M10.5 12.2l4 2.3-4 2.3v-4.6z" fill="#fff" stroke="#fff"/>
+    <path d="M5 4a2 2 0 012-2h12v18H7a2 2 0 00-2 2V4z"/>
+    <path d="M5 20a2 2 0 012-2h12" stroke="#fff" strokeWidth="1.5"/>
+    <path d="M9.5 7.5h6M9.5 11h4" stroke="#fff" strokeWidth="1.5"/>
   </svg>
 );
 
@@ -93,12 +92,12 @@ const TABS: TabItem[] = [
     IconActive: HomeIconFilled,
   },
   {
-    k: 'shared',
-    label: '共有',
-    href: '/shared',
-    matchPaths: ['/shared', '/groups'],
-    IconDefault: SharedIcon,
-    IconActive: SharedIconFilled,
+    k: 'grammar',
+    label: '語法',
+    href: '/grammar',
+    matchPaths: ['/grammar'],
+    IconDefault: GrammarIcon,
+    IconActive: GrammarIconFilled,
   },
   {
     k: 'create',
@@ -108,12 +107,12 @@ const TABS: TabItem[] = [
     IconActive: ScanPlusIcon,
   },
   {
-    k: 'reels',
-    label: 'リール',
-    href: '/reels',
-    matchPaths: ['/reels'],
-    IconDefault: ReelIcon,
-    IconActive: ReelIconFilled,
+    k: 'shared',
+    label: '共有',
+    href: '/shared',
+    matchPaths: ['/shared', '/groups'],
+    IconDefault: SharedIcon,
+    IconActive: SharedIconFilled,
   },
   {
     k: 'account',
@@ -207,9 +206,6 @@ export function BottomNav() {
               <Link
                 key={tab.k}
                 href={tab.href!}
-                // リールはフィードAPIが重いので、タップした瞬間に初回ページの
-                // 取得を先行開始して表示までの待ちを短縮する。
-                onPointerDown={tab.k === 'reels' ? () => prefetchReelFeed() : undefined}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
