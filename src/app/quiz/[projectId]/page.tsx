@@ -18,6 +18,8 @@ import {
   type WrongAnswer,
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
+import { selectDailyReviewWords } from '@/lib/quiz/daily-review-selection';
+import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
 import { triggerHaptic } from '@/lib/haptics';
 import { speakEnglish } from '@/lib/speech';
 import { loadCollectionWords } from '@/lib/collection-words';
@@ -979,10 +981,16 @@ export default function QuizPage() {
               priorityIds: parseReminderPriorityIds(reminderPriorityParam),
               wrongAnswers: getWrongAnswers(),
             });
+          } else if (reviewMode) {
+            // 復習対象は設定の1日上限まで絞り込む
+            // (何回も間違えている単語 → CEFRが高い単語 の順で選ぶ)
+            sourceWords = selectDailyReviewWords(
+              allFlat.filter((w) => hasDueQuizTarget(w, { primaryOnly: !isPro })),
+              getWrongAnswers(),
+              getDailyReviewLimit(),
+            );
           } else {
-            sourceWords = reviewMode
-              ? allFlat.filter((w) => hasDueQuizTarget(w, { primaryOnly: !isPro }))
-              : allFlat.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
+            sourceWords = allFlat.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
           }
         } else if (collectionId) {
           sourceWords = await loadCollectionWords(collectionId);

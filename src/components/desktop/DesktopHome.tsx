@@ -218,8 +218,8 @@ export function DesktopHomeView({
                 </div>
               </button>
             ) : view === 'grid' ? (
-              /* 横スクロールの棚に従来の本棚タイルを並べる */
-              <div className="ds-shelf-row">
+              /* 横スクロールの棚に従来の本棚タイルを並べる (1行10冊の高密度表示) */
+              <div className="ds-shelf-row cols-10">
                 {pendingScans.map((scan) => (
                   <DesktopGeneratingBookTile key={scan.id} scan={scan} />
                 ))}
@@ -269,13 +269,25 @@ export function DesktopHomeView({
             <JoinedGroupGrid groups={joinedGroups} columns={3} />
           </div>
 
-          {/* おすすめの単語帳（マイ単語帳と同じ本棚タイルで表示） */}
+          {/* おすすめの単語帳（マイ単語帳と同じ本棚タイル）。
+              タイルの大きさは固定で、1行6冊を超えたら折り返して表示する */}
           {recommendedBooks.length > 0 && (
-            <DesktopShelf title="おすすめの単語帳" seeAllHref="/shared" >
-              {recommendedBooks.map((book) => (
-                <DesktopRecommendedBookTile key={book.shareId} book={book} />
-              ))}
-            </DesktopShelf>
+            <div style={{ marginTop: 28 }}>
+              <div className="ds-sec-head" style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                  <h2>おすすめの単語帳</h2>
+                </div>
+                <Link href="/shared" className="ds-btn ghost sm" style={{ textDecoration: 'none', fontSize: 13 }}>
+                  すべて表示
+                  <Icon name="chevron_right" style={{ fontSize: 16 }} />
+                </Link>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12 }}>
+                {recommendedBooks.map((book) => (
+                  <DesktopRecommendedBookTile key={book.shareId} book={book} compact />
+                ))}
+              </div>
+            </div>
           )}
 
           {/* おすすめのリール（語源がある単語限定）。デスクトップで小さくなり
@@ -657,12 +669,12 @@ function DesktopMediaCardSkeleton() {
 }
 
 // おすすめの共有単語帳。マイ単語帳と同じ本棚タイル（ds-book）で表示する。
-function DesktopRecommendedBookTile({ book }: { book: HomeRecommendedBook }) {
+function DesktopRecommendedBookTile({ book, compact = false }: { book: HomeRecommendedBook; compact?: boolean }) {
   const bg = book.iconImage ? undefined : desktopThumbColor(book.shareId);
   return (
     <Link
       href={`/share/${book.shareId}`}
-      className="ds-book"
+      className={compact ? 'ds-book ds-book--compact' : 'ds-book'}
       style={{
         background: bg,
         backgroundImage: book.iconImage ? `url(${book.iconImage})` : undefined,

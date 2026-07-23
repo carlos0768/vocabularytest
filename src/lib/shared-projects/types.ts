@@ -11,6 +11,8 @@ export type SharedProjectCard = {
   wordCount?: number;
   collaboratorCount?: number;
   likeCount?: number;
+  /** 共有単語帳がインポートされた回数 (人気ランキングに使用) */
+  importCount?: number;
   ownerUsername?: string | null;
   ownerAccountId?: string | null;
   sharedGroupId?: string;

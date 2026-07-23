@@ -18,7 +18,7 @@ import { computeEikenLevelTagForWords, mergeEikenLevelTag } from '@/lib/shared-p
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
-const SHARED_WORDBOOK_SELECT = 'id,share_id,source_project_id,user_id,title,description,icon_image,source_labels,shared_tags,word_count,like_count,created_at';
+const SHARED_WORDBOOK_SELECT = 'id,share_id,source_project_id,user_id,title,description,icon_image,source_labels,shared_tags,word_count,like_count,import_count,created_at';
 const SHARED_WORDBOOK_WORD_SELECT = 'id,position,english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,created_at';
 const SHARED_WORDBOOK_WORD_SELECT_WITH_TRANSLATIONS = `${SHARED_WORDBOOK_WORD_SELECT},translations`;
 const SOURCE_WORD_SELECT = 'english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,created_at';
@@ -41,6 +41,7 @@ export type SharedWordbookRow = {
   shared_tags?: unknown[] | null;
   word_count?: number | null;
   like_count?: number | null;
+  import_count?: number | null;
   created_at: string;
 };
 
@@ -137,6 +138,7 @@ function mapSharedWordbookCard(
     wordCount: Number(row.word_count ?? 0),
     collaboratorCount: 1,
     likeCount: Number(row.like_count ?? 0),
+    importCount: Number(row.import_count ?? 0),
     ownerUsername: profile?.username ?? null,
     ownerAccountId: profile?.accountId ?? null,
   };

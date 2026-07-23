@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
@@ -10,6 +10,7 @@ import {
   renderGrammarSentence as renderSentence,
   type GrammarPracticeQuestion as GrammarQuestion,
 } from '@/components/desktop/DesktopGrammar';
+import { GrammarQuestionFormModal } from '@/components/grammar/GrammarQuestionFormModal';
 
 // 語法問題集の問題一覧。演習前に問題と文法項目をざっと確認する用途。
 // 項目をタップすると /project/* の単語詳細と同じフローティング表示で
@@ -28,6 +29,10 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  // 問題追加後に一覧を再取得するためのキー
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((prev) => prev + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +72,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
     return () => {
       cancelled = true;
     };
-  }, [bookId]);
+  }, [bookId, reloadKey]);
 
   const questions = state.kind === 'ready' ? state.questions : [];
   const selectedQuestion = selectedIndex !== null ? questions[selectedIndex] : undefined;
@@ -89,6 +94,18 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
         onSelectQuestion={setSelectedIndex}
         onCloseDetail={() => setSelectedIndex(null)}
         onNavDetail={handleNavDetail}
+        onAddQuestion={() => setFormOpen(true)}
+      />
+
+      {/* 手動で問題を追加 (モバイル/デスクトップ共用) */}
+      <GrammarQuestionFormModal
+        open={formOpen}
+        bookId={bookId}
+        onClose={() => setFormOpen(false)}
+        onCreated={() => {
+          setFormOpen(false);
+          reload();
+        }}
       />
 
       <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
@@ -106,6 +123,14 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">QUESTION LIST</div>
           <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">問題一覧</div>
         </div>
+        <button
+          type="button"
+          onClick={() => setFormOpen(true)}
+          aria-label="問題を手動で追加"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          <Icon name="add" size={16} />
+        </button>
         <Link
           href={`/grammar/${bookId}`}
           className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"

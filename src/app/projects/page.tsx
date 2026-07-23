@@ -161,6 +161,30 @@ export default function ProjectListPage() {
     });
   }, [projects, query, sort]);
 
+  // バインダー (フォルダ) ごとにグループ化。バインダー名順 → 未分類の順
+  const binderGroups = useMemo(() => {
+    const byBinder = new Map<string, typeof filtered>();
+    const unfiled: typeof filtered = [];
+    for (const project of filtered) {
+      const name = project.binder?.trim();
+      if (!name) {
+        unfiled.push(project);
+        continue;
+      }
+      const items = byBinder.get(name) ?? [];
+      items.push(project);
+      byBinder.set(name, items);
+    }
+    const groups: { binder: string | null; items: typeof filtered }[] = Array.from(byBinder.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+      .map(([binder, items]) => ({ binder, items }));
+    if (unfiled.length > 0) {
+      groups.push({ binder: null, items: unfiled });
+    }
+    return groups;
+  }, [filtered]);
+  const hasBinders = binderGroups.some((group) => group.binder !== null);
+
   return (
     <>
       <DesktopProjectsView
@@ -246,7 +270,22 @@ export default function ProjectListPage() {
             }
           />
         ) : (
-          filtered.map((project) => <BookRow key={project.id} project={project} />)
+          binderGroups.map((group) => (
+            <div key={group.binder ?? '__unfiled__'} className="flex flex-col gap-2.5">
+              {hasBinders && (
+                <div className="mt-1 flex items-center gap-1.5 px-1">
+                  <Icon name={group.binder ? 'folder' : 'folder_open'} size={14} className="text-[var(--color-muted)]" />
+                  <span className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">
+                    {group.binder ?? '未分類'}
+                  </span>
+                  <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">{group.items.length}</span>
+                </div>
+              )}
+              {group.items.map((project) => (
+                <BookRow key={project.id} project={project} />
+              ))}
+            </div>
+          ))
         )}
       </div>
 

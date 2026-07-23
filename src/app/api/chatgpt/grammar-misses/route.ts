@@ -208,10 +208,56 @@ export async function handleChatGptGrammarMissesGet(
   }
 }
 
+const deleteQuerySchema = z.object({
+  questionId: z.string().uuid(),
+}).strict();
+
+/**
+ * DELETE: 指定した問題の誤答ログをすべて消す。
+ * アプリの語法復習 (/grammar/review) で正解したときに呼ばれ、
+ * その問題を復習対象から外す。
+ */
+export async function handleChatGptGrammarMissesDelete(
+  request: NextRequest,
+  deps: ChatGptGrammarMissesDeps = defaultDeps,
+) {
+  try {
+    const auth = await deps.requirePro(request);
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const parsed = deleteQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams.entries()));
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: 'パラメータが不正です' }, { status: 400 });
+    }
+
+    const { error } = await auth.supabase
+      .from('grammar_question_misses')
+      .delete()
+      .eq('user_id', auth.user.id)
+      .eq('question_id', parsed.data.questionId);
+
+    if (error) {
+      console.error('[chatgpt/grammar-misses] delete failed:', error.message);
+      return NextResponse.json({ success: false, error: '誤答の削除に失敗しました' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[chatgpt/grammar-misses] error:', error);
+    return NextResponse.json({ success: false, error: '誤答の削除に失敗しました' }, { status: 500 });
+  }
+}
+
 export async function GET(request: NextRequest) {
   return handleChatGptGrammarMissesGet(request);
 }
 
 export async function POST(request: NextRequest) {
   return handleChatGptGrammarMissesPost(request);
+}
+
+export async function DELETE(request: NextRequest) {
+  return handleChatGptGrammarMissesDelete(request);
 }

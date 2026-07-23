@@ -492,8 +492,14 @@ function RailSeeAllButton({ label = 'すべて見る', onClick }: { label?: stri
 }
 
 function PopularWordbooksRail({ projects }: { projects: SharedProjectCard[] }) {
+  // 人気 = インポートされた数。同数のときはいいね数 → 語数で並べる
   const ranked = [...projects]
-    .sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0) || (b.wordCount ?? 0) - (a.wordCount ?? 0))
+    .sort(
+      (a, b) =>
+        (b.importCount ?? 0) - (a.importCount ?? 0) ||
+        (b.likeCount ?? 0) - (a.likeCount ?? 0) ||
+        (b.wordCount ?? 0) - (a.wordCount ?? 0),
+    )
     .slice(0, 5);
 
   if (ranked.length === 0) return null;
@@ -533,8 +539,8 @@ function PopularWordbooksRail({ projects }: { projects: SharedProjectCard[] }) {
               <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {item.project.title}
               </div>
-              <span className="muted" style={{ fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                <Icon name="thumb_up" style={{ fontSize: 14 }} />{item.likeCount ?? 0}
+              <span className="muted" style={{ fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }} title="インポート数">
+                <Icon name="download" style={{ fontSize: 14 }} />{item.importCount ?? 0}
               </span>
             </Link>
           );

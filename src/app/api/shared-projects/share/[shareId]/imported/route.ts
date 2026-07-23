@@ -45,6 +45,23 @@ export async function handleSharedProjectImportedPost(request: NextRequest, { pa
     const importerUserId = auth.user.id;
 
     after(async () => {
+      // インポート数を加算 (人気の単語帳ランキング用)。ベストエフォート。
+      try {
+        const admin = getSupabaseAdmin();
+        const wordbook = await getSharedWordbookByShareId(shareCode, admin);
+        if (wordbook) {
+          const { error: countError } = await admin
+            .from('shared_wordbooks')
+            .update({ import_count: Number(wordbook.import_count ?? 0) + 1 })
+            .eq('id', wordbook.id);
+          if (countError) {
+            console.error('Failed to increment shared wordbook import_count:', countError.message);
+          }
+        }
+      } catch (countError) {
+        console.error('Failed to increment shared wordbook import_count:', countError);
+      }
+
       try {
         const owner = await resolveShareOwner(shareCode);
         if (!owner || owner.ownerUserId === importerUserId) return;

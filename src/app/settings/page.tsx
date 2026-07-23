@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui';
 import { SolidPanel } from '@/components/redesign/SolidPage';
+import { ReviewLimitPicker } from '@/components/settings/ReviewLimitPicker';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -158,6 +159,23 @@ export default function SettingsPage() {
         <SettingsRow icon="text_fields" label="接頭語（プレフィックス）" description="un- / re- / pre- など、頭に付くパーツの意味と例" href="/tips/prefixes" />
         <SettingsRow icon="text_fields" label="接尾語（サフィックス）" description="-tion / -ous / -able など、品詞を決めるパーツ" href="/tips/suffixes" />
         <SettingsRow icon="text_fields" label="接中語（インフィックス）" description="therm-o-meter の -o- など、語根をつなぐパーツ" href="/tips/infixes" />
+      </SettingsGroup>
+
+      <SettingsGroup label="学習">
+        <div className="px-3 py-[11px]">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
+              <Icon name="event_repeat" size={16} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <span className="text-[13px] font-bold text-[var(--solid-ink)]">1日の復習上限</span>
+              <p className="mt-px text-[10px] leading-4 text-[var(--color-muted)]">
+                復習クイズに出す問題数の上限。間違いが多い単語・CEFRが高い単語から優先して選ばれます
+              </p>
+            </div>
+          </div>
+          <ReviewLimitPicker className="mt-2.5 pl-[36.5px]" />
+        </div>
       </SettingsGroup>
 
       <SettingsGroup label="カスタマイズ">

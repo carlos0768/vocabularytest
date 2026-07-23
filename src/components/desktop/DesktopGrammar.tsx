@@ -28,6 +28,8 @@ export type GrammarPracticeQuestion = {
   explanation: string;
   grammarPoint: string | null;
   sentenceJa: string | null;
+  /** 復習モード (grammar-misses 由来) のときのみ入る所属問題集ID */
+  bookId?: string;
 };
 
 export const GRAMMAR_CHOICE_LABELS = ['A', 'B', 'C', 'D'] as const;
@@ -85,6 +87,7 @@ export function DesktopGrammarBooksView({
   deletingBookId,
   onShare,
   onDelete,
+  onCreateManual,
 }: {
   state: GrammarBooksLoadState;
   gptUrl: string;
@@ -93,10 +96,17 @@ export function DesktopGrammarBooksView({
   deletingBookId: string | null;
   onShare: (bookId: string) => void;
   onDelete: (bookId: string, title: string) => void;
+  onCreateManual: () => void;
 }) {
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="語法問題集" crumb="文法・語法 / 空欄補充・英語4択">
+        <DesktopButton variant="ghost" icon="restart_alt" href="/grammar/review" title="間違えた問題を復習">
+          間違いを復習
+        </DesktopButton>
+        <DesktopButton icon="edit" onClick={onCreateManual} title="手動で問題集を作る">
+          手動で作成
+        </DesktopButton>
         {gptUrl ? (
           <DesktopButton
             variant="accent"
@@ -162,15 +172,16 @@ export function DesktopGrammarBooksView({
                       <th style={{ width: 110 }}>更新</th>
                       <th style={{ width: 90 }}>共有</th>
                       <th style={{ width: 60 }} />
-                      <th style={{ width: 180 }} />
+                      <th style={{ width: 130 }} />
                     </tr>
                   </thead>
                   <tbody>
                     {state.books.map((book) => (
                       <tr key={book.id}>
                         <td>
+                          {/* 行タップは問題一覧へ (演習は右の「演習する」から) */}
                           <Link
-                            href={`/grammar/${book.id}`}
+                            href={`/grammar/${book.id}/list`}
                             style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}
                           >
                             <span
@@ -216,19 +227,9 @@ export function DesktopGrammarBooksView({
                           </DesktopButton>
                         </td>
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <DesktopButton
-                              variant="ghost"
-                              icon="list"
-                              href={`/grammar/${book.id}/list`}
-                              title="問題の一覧を見る"
-                            >
-                              {''}
-                            </DesktopButton>
-                            <DesktopButton variant="dark" icon="play_arrow" href={`/grammar/${book.id}`}>
-                              演習する
-                            </DesktopButton>
-                          </div>
+                          <DesktopButton variant="dark" icon="play_arrow" href={`/grammar/${book.id}`}>
+                            演習する
+                          </DesktopButton>
                         </td>
                       </tr>
                     ))}
@@ -260,6 +261,8 @@ export function DesktopGrammarPracticeView({
   correctCount,
   wrongGrammarPoints,
   chatGptCopied,
+  title = '語法演習',
+  emptyMessage,
   onSelect,
   onNext,
   onSkip,
@@ -267,6 +270,8 @@ export function DesktopGrammarPracticeView({
   onAskChatGpt,
 }: {
   loadState: { kind: 'loading' } | { kind: 'pro-required' } | { kind: 'error'; message: string } | { kind: 'ready' };
+  title?: string;
+  emptyMessage?: string;
   totalQuestions: number;
   index: number;
   question: GrammarPracticeQuestion | undefined;
@@ -287,7 +292,7 @@ export function DesktopGrammarPracticeView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar
-        title="語法演習"
+        title={title}
         crumb="文法・語法 / 空欄補充・英語4択"
         leading={
           <DesktopButton variant="ghost" icon="arrow_back" href="/grammar" title="一覧へ戻る">
@@ -325,7 +330,7 @@ export function DesktopGrammarPracticeView({
         {loadState.kind === 'ready' && totalQuestions === 0 && (
           <div className="ds-card" style={{ padding: 40, textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
             <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: 0 }}>
-              この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。
+              {emptyMessage ?? 'この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。'}
             </p>
           </div>
         )}
@@ -515,6 +520,7 @@ export function DesktopGrammarQuestionListView({
   onSelectQuestion,
   onCloseDetail,
   onNavDetail,
+  onAddQuestion,
 }: {
   loadState: { kind: 'loading' } | { kind: 'pro-required' } | { kind: 'error'; message: string } | { kind: 'ready' };
   bookId: string;
@@ -523,6 +529,7 @@ export function DesktopGrammarQuestionListView({
   onSelectQuestion: (index: number) => void;
   onCloseDetail: () => void;
   onNavDetail: (dir: -1 | 1) => void;
+  onAddQuestion?: () => void;
 }) {
   const selectedQuestion = selectedIndex !== null ? questions[selectedIndex] : undefined;
 
@@ -537,6 +544,11 @@ export function DesktopGrammarQuestionListView({
           </DesktopButton>
         }
       >
+        {onAddQuestion && (
+          <DesktopButton icon="add" onClick={onAddQuestion} title="問題を手動で追加">
+            問題を追加
+          </DesktopButton>
+        )}
         <DesktopButton variant="dark" icon="play_arrow" href={`/grammar/${bookId}`}>
           演習する
         </DesktopButton>
@@ -660,47 +672,25 @@ export function GrammarQuestionDetailBody({ question }: { question: GrammarPract
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {question.choices.map((choice, choiceIndex) => {
-          const isCorrect = choiceIndex === question.correctIndex;
-          return (
-            <div
-              key={choiceIndex}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                borderRadius: 12,
-                border: `2px solid ${isCorrect ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                background: isCorrect ? 'var(--color-accent-light, #e8f5ec)' : '#fff',
-              }}
-            >
-              <span
-                className="mono"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 26,
-                  height: 26,
-                  flexShrink: 0,
-                  borderRadius: '50%',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  border: `2px solid ${isCorrect ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                  color: isCorrect ? 'var(--color-accent)' : 'var(--color-muted)',
-                }}
-              >
-                {GRAMMAR_CHOICE_LABELS[choiceIndex]}
-              </span>
-              <span style={{ fontWeight: 700, fontSize: 14, minWidth: 0, color: isCorrect ? 'var(--solid-ink)' : 'var(--color-secondary-text)' }}>
-                {choice}
-              </span>
-              {isCorrect && <Icon name="check_circle" style={{ marginLeft: 'auto', color: 'var(--color-accent)' }} />}
-            </div>
-          );
-        })}
+      {/* 4択は出さず正解だけ表示する (一覧は答えの確認用) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '12px 14px',
+          borderRadius: 12,
+          border: '2px solid var(--color-accent)',
+          background: 'var(--color-accent-light, #e8f5ec)',
+        }}
+      >
+        <span className="mono" style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--color-accent)' }}>
+          正解
+        </span>
+        <span style={{ fontWeight: 700, fontSize: 15, minWidth: 0, color: 'var(--solid-ink)' }}>
+          {question.choices[question.correctIndex]}
+        </span>
+        <Icon name="check_circle" style={{ marginLeft: 'auto', color: 'var(--color-accent)' }} />
       </div>
 
       <div style={{ borderRadius: 12, border: '2px solid var(--solid-ink)', background: '#faf7f1', padding: '14px 16px' }}>
