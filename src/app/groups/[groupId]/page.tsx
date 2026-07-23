@@ -507,8 +507,9 @@ function MissedWordsSection({
 // デスクトップ用: 本棚ティザーに格納せず、グループの単語帳をそのまま
 // グリッドで表示する。共有・解除の管理は従来どおり本棚ページで行う。
 function GroupWordbooksSection({ groupId, projects }: { groupId: string; projects: SharedProjectCard[] }) {
+  // 単語帳タイルは囲みのカード枠に入れず、そのままページに並べる
   return (
-    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+    <section>
       <div className="mb-3 flex items-center gap-2.5">
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#F5A623] text-white">
           <Icon name="auto_stories" size={18} />

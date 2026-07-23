@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { ReviewLimitPicker } from '@/components/settings/ReviewLimitPicker';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useCoins } from '@/hooks/use-coins';
 
@@ -143,6 +144,17 @@ export function DesktopSettingsView({
                 <div className="lab"><div className="t" style={{ color: 'var(--color-error)' }}>ログアウト</div></div>
               </button>
             )}
+          </div>
+
+          <div className="ds-set-group">
+            <div className="gh">学習</div>
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>1日の復習上限</div>
+              <p className="muted" style={{ fontSize: 11.5, lineHeight: 1.7, margin: '4px 0 10px' }}>
+                復習クイズに出す問題数の上限。間違いが多い単語・CEFRが高い単語から優先して選ばれます
+              </p>
+              <ReviewLimitPicker />
+            </div>
           </div>
 
           <div className="ds-set-group">

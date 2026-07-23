@@ -116,13 +116,13 @@ export function DesktopSidebar({
           </Link>
         )}
         {!collapsed && (
-          <div className="ds-user">
+          <Link href="/profile" className="ds-user" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }} title="プロフィールを開く">
             <div className="ds-avatar">{userInitial}</div>
             <div>
               <div className="nm">{user?.email?.split('@')[0] ?? 'ゲスト'}</div>
               <div className="pl">{isPro ? 'Pro メンバー' : 'Free メンバー'}</div>
             </div>
-          </div>
+          </Link>
         )}
       </div>
     </aside>

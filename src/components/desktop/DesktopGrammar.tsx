@@ -28,6 +28,8 @@ export type GrammarPracticeQuestion = {
   explanation: string;
   grammarPoint: string | null;
   sentenceJa: string | null;
+  /** 復習モード (grammar-misses 由来) のときのみ入る所属問題集ID */
+  bookId?: string;
 };
 
 export const GRAMMAR_CHOICE_LABELS = ['A', 'B', 'C', 'D'] as const;
@@ -85,6 +87,7 @@ export function DesktopGrammarBooksView({
   deletingBookId,
   onShare,
   onDelete,
+  onCreateManual,
 }: {
   state: GrammarBooksLoadState;
   gptUrl: string;
@@ -93,10 +96,17 @@ export function DesktopGrammarBooksView({
   deletingBookId: string | null;
   onShare: (bookId: string) => void;
   onDelete: (bookId: string, title: string) => void;
+  onCreateManual: () => void;
 }) {
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="語法問題集" crumb="文法・語法 / 空欄補充・英語4択">
+        <DesktopButton variant="ghost" icon="restart_alt" href="/grammar/review" title="間違えた問題を復習">
+          間違いを復習
+        </DesktopButton>
+        <DesktopButton icon="edit" onClick={onCreateManual} title="手動で問題集を作る">
+          手動で作成
+        </DesktopButton>
         {gptUrl ? (
           <DesktopButton
             variant="accent"
@@ -251,6 +261,8 @@ export function DesktopGrammarPracticeView({
   correctCount,
   wrongGrammarPoints,
   chatGptCopied,
+  title = '語法演習',
+  emptyMessage,
   onSelect,
   onNext,
   onSkip,
@@ -258,6 +270,8 @@ export function DesktopGrammarPracticeView({
   onAskChatGpt,
 }: {
   loadState: { kind: 'loading' } | { kind: 'pro-required' } | { kind: 'error'; message: string } | { kind: 'ready' };
+  title?: string;
+  emptyMessage?: string;
   totalQuestions: number;
   index: number;
   question: GrammarPracticeQuestion | undefined;
@@ -278,7 +292,7 @@ export function DesktopGrammarPracticeView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar
-        title="語法演習"
+        title={title}
         crumb="文法・語法 / 空欄補充・英語4択"
         leading={
           <DesktopButton variant="ghost" icon="arrow_back" href="/grammar" title="一覧へ戻る">
@@ -316,7 +330,7 @@ export function DesktopGrammarPracticeView({
         {loadState.kind === 'ready' && totalQuestions === 0 && (
           <div className="ds-card" style={{ padding: 40, textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
             <p className="muted" style={{ fontSize: 13, lineHeight: 1.8, margin: 0 }}>
-              この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。
+              {emptyMessage ?? 'この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。'}
             </p>
           </div>
         )}
@@ -506,6 +520,7 @@ export function DesktopGrammarQuestionListView({
   onSelectQuestion,
   onCloseDetail,
   onNavDetail,
+  onAddQuestion,
 }: {
   loadState: { kind: 'loading' } | { kind: 'pro-required' } | { kind: 'error'; message: string } | { kind: 'ready' };
   bookId: string;
@@ -514,6 +529,7 @@ export function DesktopGrammarQuestionListView({
   onSelectQuestion: (index: number) => void;
   onCloseDetail: () => void;
   onNavDetail: (dir: -1 | 1) => void;
+  onAddQuestion?: () => void;
 }) {
   const selectedQuestion = selectedIndex !== null ? questions[selectedIndex] : undefined;
 
@@ -528,6 +544,11 @@ export function DesktopGrammarQuestionListView({
           </DesktopButton>
         }
       >
+        {onAddQuestion && (
+          <DesktopButton icon="add" onClick={onAddQuestion} title="問題を手動で追加">
+            問題を追加
+          </DesktopButton>
+        )}
         <DesktopButton variant="dark" icon="play_arrow" href={`/grammar/${bookId}`}>
           演習する
         </DesktopButton>

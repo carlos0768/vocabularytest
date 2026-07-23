@@ -21,6 +21,7 @@ import { HomeAnnouncementSpotlight } from '@/components/announcements/HomeAnnoun
 import { JoinedGroupsSection } from '@/components/groups/JoinedGroupsSection';
 import { HomeGrammarBooksSection } from '@/components/home/HomeGrammarBooks';
 import { useHomeGrammarBooks } from '@/hooks/use-home-grammar-books';
+import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { useHomeRecommendations } from '@/hooks/use-home-recommendations';
 import { useMyGroups } from '@/hooks/use-my-groups';
@@ -147,8 +148,10 @@ function buildHomeStats(allWords: Word[]): HomeStats {
   const dueWords = getWordsDueForReview(allWords);
   const statusCounts = countHomeWordStatuses(allWords);
   const memorySummary = summarizeWordMemory(allWords);
+  // 復習カウントは設定の1日上限 (0=無制限) を超えて表示しない
+  const reviewLimit = getDailyReviewLimit();
   return {
-    dueCount: dueWords.length,
+    dueCount: reviewLimit > 0 ? Math.min(dueWords.length, reviewLimit) : dueWords.length,
     completedToday: daily.todayCount,
     streakDays: getStreakDays(),
     totalWords: memorySummary.total,
@@ -706,19 +709,24 @@ export function HomeClient() {
               }
             />
         ) : (
-          visibleProjects.map((project, i) =>
-            i === 0 ? (
-              <div key={project.id} data-tour="wordbook-row">
-                <ProjectRow
-                  project={project}
-                  tourAnchor
-                  onCardOpen={runOpenProjectTour ? () => setTutorialStage('open-flashcard') : undefined}
-                />
-              </div>
-            ) : (
-              <ProjectRow key={project.id} project={project} />
-            ),
-          )
+          /* 正方形タイルの横スクロール棚 (デスクトップの本棚と同じ趣) */
+          <div className="no-scrollbar -mx-[18px] flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
+            {visibleProjects.map((project, i) =>
+              i === 0 ? (
+                <div key={project.id} data-tour="wordbook-row" className="w-[42%] shrink-0 snap-start">
+                  <ProjectSquareTile
+                    project={project}
+                    tourAnchor
+                    onCardOpen={runOpenProjectTour ? () => setTutorialStage('open-flashcard') : undefined}
+                  />
+                </div>
+              ) : (
+                <div key={project.id} className="w-[42%] shrink-0 snap-start">
+                  <ProjectSquareTile project={project} />
+                </div>
+              ),
+            )}
+          </div>
         )}
       </div>
 
@@ -779,7 +787,7 @@ function HomeLoadingScreen() {
   );
 }
 
-function ProjectRow({
+function ProjectSquareTile({
   project,
   tourAnchor = false,
   onCardOpen,
@@ -791,50 +799,44 @@ function ProjectRow({
 }) {
   const bg = thumbColor(project.id);
   const hasWords = project.totalWords > 0;
+  const masteredPct = hasWords ? Math.round((project.masteredWords / project.totalWords) * 100) : 0;
   return (
-    <SolidPanel
-      className="!rounded-[14px]"
-      faceClassName="!p-[13px]"
-    >
-      <div className="flex items-center gap-[13px]">
-        <Link
-          href={`/project/${project.id}`}
-          onClick={onCardOpen}
-          className="flex min-w-0 flex-1 items-center gap-[13px] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-xl font-extrabold text-white"
-            style={{ background: project.iconImage ? `center / cover url(${project.iconImage})` : bg }}
-          >
-            {!project.iconImage && project.title.charAt(0)}
+    <div className="relative">
+      <Link
+        href={`/project/${project.id}`}
+        onClick={onCardOpen}
+        className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 text-white shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+        style={{
+          backgroundColor: bg,
+          backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
+        }}
+      >
+        <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />
+        <div className="line-clamp-2 pl-1.5 font-display text-[13.5px] font-bold leading-snug drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+          {project.title}
+        </div>
+        <div className="pl-1.5">
+          <div className="flex items-baseline gap-0.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+            <span className="font-display text-[19px] font-extrabold leading-none tabular-nums">{project.totalWords}</span>
+            <span className="text-[10px] font-bold opacity-90">語</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
-            <div className="mt-px flex items-baseline gap-0.5">
-              <span className="font-display text-lg font-extrabold tabular-nums text-[var(--solid-ink)]">{project.totalWords}</span>
-              <span className="ml-px text-[11px] font-bold text-[var(--color-muted)]">語</span>
+          {hasWords && (
+            <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-[rgba(0,0,0,0.22)]">
+              <div className="h-full bg-[rgba(255,255,255,0.92)]" style={{ width: `${masteredPct}%` }} />
             </div>
-            {project.totalWords > 0 && (
-              <div className="mt-[5px] flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
-                {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
-                {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
-                {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
-              </div>
-            )}
-          </div>
+          )}
+        </div>
+      </Link>
+      {hasWords && (
+        <Link
+          href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
+          aria-label={`${project.title}のクイズを開始`}
+          data-tour={tourAnchor ? 'quiz-start' : undefined}
+          className="absolute bottom-2 right-2 flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+        >
+          <Icon name="play_arrow" size={18} filled />
         </Link>
-        {hasWords && (
-          <Link
-            href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
-            aria-label={`${project.title}のクイズを開始`}
-            data-tour={tourAnchor ? 'quiz-start' : undefined}
-            className="flex h-[37px] w-[37px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
-          >
-            <Icon name="play_arrow" size={20} filled />
-          </Link>
-        )}
-      </div>
-    </SolidPanel>
+      )}
+    </div>
   );
 }
