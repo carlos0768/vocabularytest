@@ -209,6 +209,14 @@ export default function GrammarBooksPage() {
         </div>
       </div>
 
+      {/* 作成CTA: デスクトップのトップバーと同じく上部に常時表示する */}
+      {state.kind === 'ready' && (
+        <div className="mb-3.5 flex flex-col gap-2.5">
+          {gptCta}
+          {manualCta}
+        </div>
+      )}
+
       {state.kind === 'loading' && (
         <div className="flex flex-col gap-2.5">
           {[0, 1, 2].map((i) => (
@@ -256,10 +264,6 @@ export default function GrammarBooksPage() {
           <p className="m-0 mt-2 text-[12px] leading-[1.8] text-[var(--solid-ink)]">
             ChatGPTのMERKEN GPTに「仮定法の語法問題を10問作って」のように頼むと、ここに問題集が保存されます。
           </p>
-          <div className="mt-4 flex flex-col gap-2.5">
-            {gptCta}
-            {manualCta}
-          </div>
         </div>
       )}
 
@@ -330,10 +334,6 @@ export default function GrammarBooksPage() {
           {sharedBookId && (
             <p className="mt-2 text-center text-[11px] font-bold text-[var(--color-accent)]">共有リンクをコピーしました</p>
           )}
-          <div className="mt-5 flex flex-col gap-2.5">
-            {gptCta}
-            {manualCta}
-          </div>
         </>
       )}
       </div>
