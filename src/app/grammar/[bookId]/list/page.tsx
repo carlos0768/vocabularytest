@@ -108,7 +108,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
         }}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="flex items-center gap-2 pb-3 pt-1">
         <button

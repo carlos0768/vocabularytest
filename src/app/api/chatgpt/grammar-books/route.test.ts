@@ -13,6 +13,9 @@ type FakeState = {
   createdTitles?: string[];
   questionRows?: { book_id: string }[];
   masteredRows?: { book_id: string }[];
+  // マイグレーション未適用をシミュレートするフラグ
+  favoriteColumnMissing?: boolean;
+  progressTableMissing?: boolean;
 };
 
 function buildFakeSupabase(state: FakeState) {
@@ -20,10 +23,22 @@ function buildFakeSupabase(state: FakeState) {
     from(table: string) {
       if (table === 'grammar_books') {
         return {
-          select: () => ({
+          select: (columns: string) => ({
             eq: () => ({
               order: () => ({
-                limit: async () => ({ data: state.rows ?? [], error: null }),
+                limit: async () => {
+                  // is_favorite 列が未マイグレーションの環境: その列を含む取得は失敗し、
+                  // 列を外した再取得(フォールバック)だけが成功する。
+                  if (state.favoriteColumnMissing && columns.includes('is_favorite')) {
+                    return { data: null, error: { message: 'column grammar_books.is_favorite does not exist' } };
+                  }
+                  const rows = (state.rows ?? []).map((row) =>
+                    columns.includes('is_favorite')
+                      ? row
+                      : { id: row.id, title: row.title, updated_at: row.updated_at },
+                  );
+                  return { data: rows, error: null };
+                },
               }),
             }),
           }),
@@ -50,7 +65,13 @@ function buildFakeSupabase(state: FakeState) {
         return {
           select: () => ({
             eq: () => ({
-              eq: async () => ({ data: state.masteredRows ?? [], error: null }),
+              eq: async () => {
+                // テーブルが未マイグレーションの環境をシミュレート
+                if (state.progressTableMissing) {
+                  return { data: null, error: { message: 'relation "grammar_question_progress" does not exist' } };
+                }
+                return { data: state.masteredRows ?? [], error: null };
+              },
             }),
           }),
         };
@@ -118,6 +139,42 @@ test('grammar-books GET lists books with favorite + mastery stats', async () => 
       masteredCount: 2,
     },
   ]);
+});
+
+test('grammar-books GET falls back and still lists books when is_favorite column is missing', async () => {
+  // 20260723070000 マイグレーション未適用でも一覧が読めること (問題集が読み込めない回帰の防止)
+  const response = await handleChatGptGrammarBooksGet(
+    getRequest('?limit=5'),
+    buildDeps({
+      rows: [{ id: 'b1', title: '語法問題集', updated_at: '2026-07-23T00:00:00Z', is_favorite: true }],
+      questionRows: [{ book_id: 'b1' }, { book_id: 'b1' }],
+      favoriteColumnMissing: true,
+    }),
+  );
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.success, true);
+  assert.equal(payload.books.length, 1);
+  assert.equal(payload.books[0].isFavorite, false);
+  assert.equal(payload.books[0].questionCount, 2);
+  assert.equal(payload.books[0].masteredCount, 0);
+});
+
+test('grammar-books GET still lists books when progress table is missing', async () => {
+  const response = await handleChatGptGrammarBooksGet(
+    getRequest('?limit=5'),
+    buildDeps({
+      rows: [{ id: 'b1', title: '語法問題集', updated_at: '2026-07-23T00:00:00Z', is_favorite: true }],
+      questionRows: [{ book_id: 'b1' }, { book_id: 'b1' }, { book_id: 'b1' }],
+      progressTableMissing: true,
+    }),
+  );
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.success, true);
+  assert.equal(payload.books[0].isFavorite, true);
+  assert.equal(payload.books[0].questionCount, 3);
+  assert.equal(payload.books[0].masteredCount, 0);
 });
 
 test('grammar-books POST returns 400 for a missing title', async () => {

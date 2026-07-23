@@ -95,12 +95,10 @@ export function DesktopGrammarBooksView({
   filter,
   sharingBookId,
   sharedBookId,
-  deletingBookId,
   onQueryChange,
   onFilterChange,
   onShare,
   onToggleFavorite,
-  onDelete,
   onCreateManual,
 }: {
   state: GrammarBooksLoadState;
@@ -109,12 +107,10 @@ export function DesktopGrammarBooksView({
   filter: 'all' | 'fav';
   sharingBookId: string | null;
   sharedBookId: string | null;
-  deletingBookId: string | null;
   onQueryChange: (value: string) => void;
   onFilterChange: (value: 'all' | 'fav') => void;
   onShare: (bookId: string) => void;
   onToggleFavorite: (bookId: string, next: boolean) => void;
-  onDelete: (bookId: string, title: string) => void;
   onCreateManual: () => void;
 }) {
   const allBooks = state.kind === 'ready' ? state.books : [];
@@ -134,9 +130,6 @@ export function DesktopGrammarBooksView({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
         />
-        <DesktopButton variant="ghost" icon="restart_alt" href="/grammar/review" title="間違えた問題を復習">
-          間違いを復習
-        </DesktopButton>
         <DesktopButton icon="edit" onClick={onCreateManual} title="手動で問題集を作る">
           手動で作成
         </DesktopButton>
@@ -204,7 +197,6 @@ export function DesktopGrammarBooksView({
                     <th style={{ width: 200 }}>習得度</th>
                     <th style={{ width: 90 }}>更新</th>
                     <th style={{ width: 90 }}>共有</th>
-                    <th style={{ width: 60 }} />
                     <th style={{ width: 110 }} />
                   </tr>
                 </thead>
@@ -265,18 +257,6 @@ export function DesktopGrammarBooksView({
                             icon={sharedBookId === book.id ? 'check' : 'ios_share'}
                             onClick={() => (sharingBookId ? undefined : onShare(book.id))}
                             title="共有リンクをコピー"
-                          >
-                            {''}
-                          </DesktopButton>
-                        </td>
-                        <td>
-                          <DesktopButton
-                            variant="ghost"
-                            icon="delete"
-                            onClick={() => onDelete(book.id, book.title)}
-                            disabled={deletingBookId !== null}
-                            title="問題集を削除"
-                            className="text-[#d33]"
                           >
                             {''}
                           </DesktopButton>

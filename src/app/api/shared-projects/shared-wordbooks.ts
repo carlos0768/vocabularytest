@@ -19,6 +19,10 @@ import { computeEikenLevelTagForWords, mergeEikenLevelTag } from '@/lib/shared-p
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
 const SHARED_WORDBOOK_SELECT = 'id,share_id,source_project_id,user_id,title,description,icon_image,source_labels,shared_tags,word_count,like_count,import_count,created_at';
+// import_count は 20260723130000 マイグレーション由来。まだ適用されていない環境でも
+// 共有単語帳を閲覧できるよう、列が無いときのフォールバック用に import_count を除いた
+// SELECT を用意する (translations 列で selectSnapshotWords がやっているのと同じ方式)。
+const SHARED_WORDBOOK_SELECT_WITHOUT_IMPORT_COUNT = 'id,share_id,source_project_id,user_id,title,description,icon_image,source_labels,shared_tags,word_count,like_count,created_at';
 const SHARED_WORDBOOK_WORD_SELECT = 'id,position,english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,created_at';
 const SHARED_WORDBOOK_WORD_SELECT_WITH_TRANSLATIONS = `${SHARED_WORDBOOK_WORD_SELECT},translations`;
 const SOURCE_WORD_SELECT = 'english,japanese,pronunciation,example_sentence,example_sentence_ja,part_of_speech_tags,vocabulary_type,distractors,created_at';
@@ -356,16 +360,25 @@ export async function getSharedWordbookByShareId(
   shareId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<SharedWordbookRow | null> {
-  const { data, error } = await admin
-    .from('shared_wordbooks')
-    .select(SHARED_WORDBOOK_SELECT)
-    .eq('share_id', shareId)
-    .maybeSingle<SharedWordbookRow>();
+  // import_count 列が未マイグレーションの環境でも閲覧できるよう、列が無くて失敗したら
+  // import_count なしで再取得する (selectSnapshotWords の translations と同じ方式)。
+  // import_count はプレビュー描画では使わないので、欠けても閲覧に影響しない。
+  const runQuery = (columns: string) =>
+    admin
+      .from('shared_wordbooks')
+      .select(columns)
+      .eq('share_id', shareId)
+      .maybeSingle<SharedWordbookRow>();
 
-  if (error) {
-    throw new Error(error.message || 'shared_wordbook_lookup_failed');
+  const primary = await runQuery(SHARED_WORDBOOK_SELECT);
+  if (!primary.error) return primary.data ?? null;
+
+  console.warn('[shared-wordbooks] share lookup fallback (dropping import_count):', primary.error.message);
+  const fallback = await runQuery(SHARED_WORDBOOK_SELECT_WITHOUT_IMPORT_COUNT);
+  if (fallback.error) {
+    throw new Error(fallback.error.message || 'shared_wordbook_lookup_failed');
   }
-  return data ?? null;
+  return fallback.data ?? null;
 }
 
 /**

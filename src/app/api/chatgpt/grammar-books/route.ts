@@ -59,19 +59,37 @@ export async function handleChatGptGrammarBooksGet(
       return NextResponse.json({ success: false, error: 'パラメータが不正です' }, { status: 400 });
     }
 
-    const { data, error } = await auth.supabase
+    // grammar_books.is_favorite は新しめのマイグレーション(20260723070000)由来。
+    // まだ適用されていない環境でも一覧を返せるよう、列が無くて失敗したら
+    // is_favorite なしで再取得してフォールバックする(習得度も同様に扱う)。
+    let books: GrammarBookRow[];
+    const booksWithFavorite = await auth.supabase
       .from('grammar_books')
       .select('id,title,updated_at,is_favorite')
       .eq('user_id', auth.user.id)
       .order('updated_at', { ascending: false })
       .limit(parsed.data.limit);
 
-    if (error) {
-      console.error('[chatgpt/grammar-books] fetch failed:', error.message);
-      return NextResponse.json({ success: false, error: '問題集の取得に失敗しました' }, { status: 500 });
-    }
+    if (booksWithFavorite.error) {
+      const booksFallback = await auth.supabase
+        .from('grammar_books')
+        .select('id,title,updated_at')
+        .eq('user_id', auth.user.id)
+        .order('updated_at', { ascending: false })
+        .limit(parsed.data.limit);
 
-    const books = (data ?? []) as GrammarBookRow[];
+      if (booksFallback.error) {
+        console.error('[chatgpt/grammar-books] fetch failed:', booksFallback.error.message);
+        return NextResponse.json({ success: false, error: '問題集の取得に失敗しました' }, { status: 500 });
+      }
+
+      books = ((booksFallback.data ?? []) as { id: string; title: string; updated_at: string }[]).map((row) => ({
+        ...row,
+        is_favorite: false,
+      }));
+    } else {
+      books = (booksWithFavorite.data ?? []) as GrammarBookRow[];
+    }
 
     // 習得度表示のため、問題数と習得済み数を本人スコープで集計する。
     const [questionsResult, masteredResult] = await Promise.all([
@@ -86,16 +104,21 @@ export async function handleChatGptGrammarBooksGet(
         .eq('mastered', true),
     ]);
 
-    if (questionsResult.error || masteredResult.error) {
-      console.error(
-        '[chatgpt/grammar-books] stats fetch failed:',
-        questionsResult.error?.message ?? masteredResult.error?.message,
-      );
+    if (questionsResult.error) {
+      console.error('[chatgpt/grammar-books] stats fetch failed:', questionsResult.error.message);
       return NextResponse.json({ success: false, error: '問題集の取得に失敗しました' }, { status: 500 });
     }
 
+    // grammar_question_progress テーブルも同じマイグレーション由来。未適用でも
+    // 一覧は返す(その場合の習得度は0扱い)。
+    if (masteredResult.error) {
+      console.warn('[chatgpt/grammar-books] mastered stats unavailable:', masteredResult.error.message);
+    }
+
     const questionCounts = countByBook((questionsResult.data ?? []) as { book_id: string }[]);
-    const masteredCounts = countByBook((masteredResult.data ?? []) as { book_id: string }[]);
+    const masteredCounts = masteredResult.error
+      ? new Map<string, number>()
+      : countByBook((masteredResult.data ?? []) as { book_id: string }[]);
 
     return NextResponse.json({
       success: true,

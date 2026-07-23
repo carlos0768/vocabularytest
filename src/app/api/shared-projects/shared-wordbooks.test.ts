@@ -350,6 +350,70 @@ test('getSharedWordbookPreview returns mapped project and words', async () => {
   assert.equal(preview!.totalWordCount, 1);
 });
 
+test('getSharedWordbookPreview falls back and still loads when import_count column is missing', async () => {
+  // 20260723130000 (import_count) マイグレーション未適用の環境でも共有単語帳を閲覧できること。
+  // これがないと共有単語帳ページが500になり「共有単語帳が見れない」回帰になる。
+  const row = {
+    id: 'sw-imp',
+    share_id: 'abc',
+    source_project_id: 'p1',
+    user_id: 'u1',
+    title: 'マイグレーション前でも見える単語帳',
+    description: null,
+    icon_image: null,
+    source_labels: [],
+    shared_tags: [],
+    word_count: 1,
+    like_count: 0,
+    created_at: '2026-07-23T00:00:00Z',
+  };
+
+  let importCountAttempted = false;
+  const fakeAdmin = {
+    from(table: string) {
+      if (table === 'shared_wordbooks') {
+        return {
+          select: (cols: string) => ({
+            eq: () => ({
+              maybeSingle: async () => {
+                if (cols.includes('import_count')) {
+                  importCountAttempted = true;
+                  return { data: null, error: { message: 'column shared_wordbooks.import_count does not exist' } };
+                }
+                return { data: row, error: null };
+              },
+            }),
+          }),
+        };
+      }
+      if (table === 'shared_wordbook_words') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            in: async () => ({ data: [], error: null }),
+          }),
+        };
+      }
+      throw new Error(`unexpected table: ${table}`);
+    },
+  };
+
+  const preview = await getSharedWordbookPreview('abc', 5, fakeAdmin as never);
+  assert.equal(importCountAttempted, true, 'primary select with import_count is attempted first');
+  assert.ok(preview, 'preview is returned via the import_count-less fallback');
+  assert.equal(preview!.project.title, 'マイグレーション前でも見える単語帳');
+});
+
 test('rename and unpublish enforce ownership', async () => {
   const store = makeStore({
     shared_wordbooks: [

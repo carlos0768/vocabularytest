@@ -140,7 +140,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       .catch(() => {});
   };
 
-  // スキップは正解にも不正解にもカウントせず次の問題へ進む。
+  // スキップは正解にも不正解にもカウントせず次の問題へ進む (モバイル/デスクトップ共用)。
   const handleSkip = () => {
     if (answered || !question) return;
     setSkippedCount((prev) => prev + 1);
@@ -183,7 +183,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         onAskChatGpt={handleAskChatGpt}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] lg:hidden">
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="flex items-center gap-2 pb-3 pt-1">
         <button
@@ -354,29 +354,39 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               </button>
             </div>
           )}
+        </>
+      )}
+      </div>
 
-          {/* ボトムバー: スキップ / 次へ を並列で配置 */}
-          <div className="mt-4 flex gap-2.5">
+      {/* ボトムバー: スキップ / 次へ (モバイル)。デスクトップのボトムバーと同じ操作を
+          画面下部に固定表示する。回答前はスキップ、回答後は次へが有効になる。 */}
+      {state.kind === 'ready' && question && !finished && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md lg:hidden"
+          style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+        >
+          <div className="mx-auto flex w-full max-w-[560px] gap-2.5 px-[18px] pt-3">
             <button
               type="button"
               onClick={handleSkip}
               disabled={answered}
-              className="h-12 flex-1 rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+              className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 disabled:active:translate-x-0 disabled:active:translate-y-0"
             >
+              <Icon name="skip_next" size={18} />
               スキップ
             </button>
             <button
               type="button"
               onClick={handleNext}
               disabled={!answered}
-              className="h-12 flex-1 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+              className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 disabled:active:translate-x-0 disabled:active:translate-y-0"
             >
-              {index + 1 >= questions.length ? '結果を見る' : '次へ'}
+              {index + 1 >= questions.length ? '結果を見る' : '次の問題へ'}
+              <Icon name="arrow_forward" size={18} />
             </button>
           </div>
-        </>
+        </div>
       )}
-      </div>
     </>
   );
 }
