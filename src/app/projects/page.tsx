@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { DesktopProjectsView } from '@/components/desktop/DesktopProjects';
+import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
 import { Icon } from '@/components/ui/Icon';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
@@ -157,18 +158,35 @@ export default function ProjectListPage() {
     }
   }, [repository]);
 
-  const handleSetBinder = useCallback(async (project: Project) => {
-    const input = window.prompt('バインダー名を入力してください (空欄で解除)', project.binder ?? '');
-    if (input === null) return;
-    const binder = input.trim().slice(0, 40) || null;
+  // 「バインダーに追加」は window.prompt ではなくピッカーシートで選ばせる
+  const [binderTarget, setBinderTarget] = useState<Project | null>(null);
+  const handleSetBinder = useCallback((project: Project) => {
+    setBinderTarget(project);
+  }, []);
+
+  const applyBinder = useCallback(async (binder: string | null) => {
+    const target = binderTarget;
+    setBinderTarget(null);
+    if (!target) return;
+    const next = binder?.trim().slice(0, 40) || null;
     try {
-      await repository.updateProject(project.id, { binder });
-      setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, binder } : p)));
+      await repository.updateProject(target.id, { binder: next });
+      setProjects((prev) => prev.map((p) => (p.id === target.id ? { ...p, binder: next } : p)));
       invalidateHomeCache();
     } catch {
       window.alert('バインダーの更新に失敗しました');
     }
-  }, [repository]);
+  }, [binderTarget, repository]);
+
+  // 既存のバインダー名一覧 (重複排除・日本語順)
+  const existingBinders = useMemo(() => {
+    const set = new Set<string>();
+    for (const project of projects) {
+      const name = project.binder?.trim();
+      if (name) set.add(name);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+  }, [projects]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -225,7 +243,15 @@ export default function ProjectListPage() {
         onQueryChange={setQuery}
         onSortChange={setSort}
         onDeleteProject={(project) => void handleDeleteProject(project)}
-        onSetBinder={(project) => void handleSetBinder(project)}
+        onSetBinder={handleSetBinder}
+      />
+      <BinderPickerSheet
+        key={binderTarget?.id ?? 'closed'}
+        open={binderTarget !== null}
+        onClose={() => setBinderTarget(null)}
+        project={binderTarget}
+        binders={existingBinders}
+        onApply={(binder) => void applyBinder(binder)}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-5 pb-3.5 pt-2.5">

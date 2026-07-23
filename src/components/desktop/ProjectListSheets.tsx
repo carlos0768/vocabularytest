@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { Icon } from '@/components/ui';
 import { BottomSheetShell } from '@/components/project/WordListSheets';
+import type { Project } from '@/types';
 
 export type ProjectSort = 'newest' | 'words' | 'lastUsed';
 export type ProjectFilter = 'all' | 'fav';
@@ -133,6 +135,131 @@ export function ProjectFilterSheet({ open, onClose, filter, onFilterChange }: Pr
             className="sr-only"
           />
         </label>
+      </div>
+    </BottomSheetShell>
+  );
+}
+
+type BinderPickerSheetProps = {
+  open: boolean;
+  onClose: () => void;
+  /** 対象の単語帳 (未選択時は null) */
+  project: Project | null;
+  /** 既存のバインダー名一覧 */
+  binders: string[];
+  /** バインダーを適用 (null = バインダーから外す)。適用後にシートは閉じる。 */
+  onApply: (binder: string | null) => void;
+};
+
+/**
+ * 「...」メニューの「バインダーに追加」で開くピッカー。
+ * 既存バインダーからの選択・解除・新規作成をまとめて行える (window.prompt を置き換え)。
+ */
+export function BinderPickerSheet({ open, onClose, project, binders, onApply }: BinderPickerSheetProps) {
+  // 新規作成フォームの状態は、親が key={project.id} で開くたびにマウントし直して初期化する
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const current = project?.binder?.trim() || null;
+
+  const submitNew = () => {
+    const name = newName.trim().slice(0, 40);
+    if (!name) return;
+    onApply(name);
+  };
+
+  return (
+    <BottomSheetShell open={open} onClose={onClose} title="バインダーに追加">
+      <div className="flex flex-col gap-[7px]">
+        {project && (
+          <p className="mb-1 truncate font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+            {project.title}
+          </p>
+        )}
+
+        {binders.map((name) => {
+          const selected = current === name;
+          return (
+            <button
+              key={name}
+              type="button"
+              onClick={() => onApply(name)}
+              className="flex items-center gap-[11px] rounded-[10px] border-2 border-[var(--solid-ink)] px-3 py-[11px] text-left transition-all"
+              style={{
+                background: selected ? 'var(--solid-ink)' : '#fff',
+                color: selected ? '#fff' : 'var(--solid-ink)',
+                boxShadow: selected ? '2px 2px 0 var(--solid-ink)' : 'none',
+              }}
+            >
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
+                style={{
+                  background: selected ? 'rgba(255,255,255,0.12)' : 'var(--color-surface-secondary)',
+                  border: selected ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--color-border)',
+                }}
+              >
+                <Icon name="folder" size={16} filled={selected} />
+              </div>
+              <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{name}</span>
+              {selected && <Icon name="check" size={16} className="shrink-0" />}
+            </button>
+          );
+        })}
+
+        {current && (
+          <button
+            type="button"
+            onClick={() => onApply(null)}
+            className="flex items-center gap-[11px] rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px] text-left text-[var(--color-error)] transition-all"
+          >
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
+              style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <Icon name="folder_off" size={16} />
+            </div>
+            <span className="min-w-0 flex-1 text-[14px] font-bold">バインダーから外す</span>
+          </button>
+        )}
+
+        {creating ? (
+          <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-2">
+            <Icon name="create_new_folder" size={16} className="shrink-0 text-[var(--color-muted)]" />
+            <input
+              autoFocus
+              type="text"
+              value={newName}
+              maxLength={40}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitNew();
+              }}
+              placeholder="新しいバインダー名"
+              className="min-w-0 flex-1 bg-transparent text-[14px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-normal placeholder:text-[var(--color-muted)]"
+            />
+            <button
+              type="button"
+              onClick={submitNew}
+              disabled={!newName.trim()}
+              className="shrink-0 rounded-[8px] bg-[var(--solid-ink)] px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-40"
+            >
+              作成
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-[11px] rounded-[10px] border-2 border-dashed border-[var(--solid-ink)] bg-white px-3 py-[11px] text-left transition-all"
+          >
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
+              style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <Icon name="add" size={16} />
+            </div>
+            <span className="min-w-0 flex-1 text-[14px] font-bold text-[var(--solid-ink)]">新しいバインダーを作成</span>
+          </button>
+        )}
       </div>
     </BottomSheetShell>
   );
