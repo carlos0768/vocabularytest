@@ -36,6 +36,8 @@ export function DesktopProjectsView({
   learnHref,
   onQueryChange,
   onSortChange,
+  onDeleteProject,
+  onSetBinder,
 }: {
   projects: DesktopProjectRow[];
   loading: boolean;
@@ -47,6 +49,8 @@ export function DesktopProjectsView({
   learnHref?: string;
   onQueryChange: (value: string) => void;
   onSortChange: (value: 'newest' | 'words' | 'lastUsed') => void;
+  onDeleteProject?: (project: DesktopProjectRow) => void;
+  onSetBinder?: (project: DesktopProjectRow) => void;
 }) {
   const [filter, setFilter] = useState<'all' | 'fav'>('all');
   const rows = useMemo(() => {
@@ -145,7 +149,7 @@ export function DesktopProjectsView({
                       </tr>
                     )}
                     {group.items.map((project) => (
-                      <DesktopProjectTableRow key={project.id} project={project} />
+                      <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onSetBinder={onSetBinder} />
                     ))}
                   </Fragment>
                 ))}
@@ -171,8 +175,20 @@ export function DesktopProjectsView({
   );
 }
 
-function DesktopProjectTableRow({ project }: { project: DesktopProjectRow }) {
+function DesktopProjectTableRow({
+  project,
+  onDelete,
+  onSetBinder,
+}: {
+  project: DesktopProjectRow;
+  onDelete?: (project: DesktopProjectRow) => void;
+  onSetBinder?: (project: DesktopProjectRow) => void;
+}) {
   const pct = project.totalWords > 0 ? Math.round((project.masteredWords / project.totalWords) * 100) : 0;
+  // メニューはテーブルの overflow:hidden で切れないよう fixed で描画し、
+  // ボタン位置に合わせて配置する。
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const hasMenu = Boolean(onDelete || onSetBinder);
 
   return (
     <tr>
@@ -204,7 +220,69 @@ function DesktopProjectTableRow({ project }: { project: DesktopProjectRow }) {
         </div>
       </td>
       <td className="mono" style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>{desktopUpdatedLabel(project.lastUsedAt ?? project.createdAt)}</td>
-      <td><Icon name="more_horiz" style={{ color: 'var(--color-muted)', cursor: 'pointer' }} /></td>
+      <td>
+        {hasMenu ? (
+          <button
+            type="button"
+            aria-label="メニュー"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setMenuPos({ top: rect.bottom + 6, right: Math.max(12, window.innerWidth - rect.right) });
+            }}
+            style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--color-muted)', lineHeight: 0 }}
+          >
+            <Icon name="more_horiz" />
+          </button>
+        ) : (
+          <Icon name="more_horiz" style={{ color: 'var(--color-muted)' }} />
+        )}
+        {menuPos && (
+          <>
+            <button
+              type="button"
+              aria-label="閉じる"
+              onClick={() => setMenuPos(null)}
+              style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'transparent', border: 'none', cursor: 'default' }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: menuPos.top,
+                right: menuPos.right,
+                zIndex: 61,
+                width: 190,
+                overflow: 'hidden',
+                borderRadius: 12,
+                border: '2px solid var(--solid-ink)',
+                background: '#fff',
+                boxShadow: '2px 3px 0 var(--solid-ink)',
+              }}
+            >
+              {onSetBinder && (
+                <button
+                  type="button"
+                  onClick={() => { setMenuPos(null); onSetBinder(project); }}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold text-[var(--solid-ink)] hover:bg-[var(--color-surface-secondary)]"
+                >
+                  <Icon name="folder" size={16} />
+                  バインダーに追加
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => { setMenuPos(null); onDelete(project); }}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold hover:bg-[var(--color-surface-secondary)]"
+                  style={{ color: 'var(--color-error)' }}
+                >
+                  <Icon name="delete" size={16} />
+                  単語帳を削除
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </td>
     </tr>
   );
 }

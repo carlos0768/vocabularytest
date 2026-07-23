@@ -24,6 +24,7 @@ import {
 import { summarizeWordMemory } from '@/lib/words/memory';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getGuestUserId } from '@/lib/utils';
+import { invalidateHomeCache } from '@/lib/home-cache';
 import type { Project, SubscriptionStatus } from '@/types';
 
 const SORTS = [
@@ -144,6 +145,31 @@ export default function ProjectListPage() {
     void loadProjects();
   }, [loadProjects]);
 
+  // 「...」メニュー: 削除 / バインダー追加。書き込みは同じ repository を使う。
+  const handleDeleteProject = useCallback(async (project: Project) => {
+    if (!window.confirm(`「${project.title}」を削除しますか？この操作は取り消せません。`)) return;
+    try {
+      await repository.deleteProject(project.id);
+      setProjects((prev) => prev.filter((p) => p.id !== project.id));
+      invalidateHomeCache();
+    } catch {
+      window.alert('削除に失敗しました');
+    }
+  }, [repository]);
+
+  const handleSetBinder = useCallback(async (project: Project) => {
+    const input = window.prompt('バインダー名を入力してください (空欄で解除)', project.binder ?? '');
+    if (input === null) return;
+    const binder = input.trim().slice(0, 40) || null;
+    try {
+      await repository.updateProject(project.id, { binder });
+      setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, binder } : p)));
+      invalidateHomeCache();
+    } catch {
+      window.alert('バインダーの更新に失敗しました');
+    }
+  }, [repository]);
+
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const base = normalizedQuery
@@ -198,6 +224,8 @@ export default function ProjectListPage() {
         learnHref={summaryStats.totalWords > 0 ? '/quiz/all?learn=1&from=/projects' : '/projects'}
         onQueryChange={setQuery}
         onSortChange={setSort}
+        onDeleteProject={(project) => void handleDeleteProject(project)}
+        onSetBinder={(project) => void handleSetBinder(project)}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-5 pb-3.5 pt-2.5">
