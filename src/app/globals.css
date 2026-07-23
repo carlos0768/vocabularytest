@@ -27,7 +27,8 @@
   --color-warning-light: #fef3c7;
 
   /* Neutral Colors */
-  --color-background: #FFFFFF;
+  /* デスクトップ (.ds-app) と同じ薄茶色。モバイルも共通の背景にする */
+  --color-background: #f6f5f1;
   --color-surface: #FFFFFF;
   --color-surface-secondary: #f5f5f5;
   --color-surface-alt: #f7f7f7;

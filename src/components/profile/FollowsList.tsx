@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MouseEvent } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { FriendProfile } from '@/lib/friends/types';
 
@@ -44,7 +45,89 @@ export function FollowsList({
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[max(24px,env(safe-area-inset-bottom))] pt-3 font-[var(--font-body)]">
+    <>
+    {/* デスクトップ用フォロー欄 */}
+    <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <DesktopTopbar
+        title={title}
+        crumb="フォロー / フォロワー"
+        leading={
+          <DesktopButton variant="ghost" icon="arrow_back" href={backHref} title="戻る">
+            {''}
+          </DesktopButton>
+        }
+      />
+      <div className="ds-scroll">
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <TabButton active={tab === 'following'} onClick={() => setTab('following')} label="フォロー中" count={following.length} />
+            <TabButton active={tab === 'followers'} onClick={() => setTab('followers')} label="フォロワー" count={followers.length} />
+          </div>
+
+          {loading ? (
+            <div className="ds-card muted" style={{ padding: 50, textAlign: 'center', fontSize: 13 }}>
+              <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 8 }} />
+              読み込み中...
+            </div>
+          ) : list.length === 0 ? (
+            <div className="ds-card" style={{ padding: 40, textAlign: 'center' }}>
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+                {tab === 'following' ? 'まだ誰もフォローしていません' : 'まだフォロワーがいません'}
+              </p>
+            </div>
+          ) : (
+            <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
+              {list.map((profile, profileIndex) => (
+                <Link
+                  key={profile.userId}
+                  href={`/profile/${encodeURIComponent(profile.accountId)}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: '13px 18px',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    borderTop: profileIndex > 0 ? '1px solid var(--color-border)' : 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 40,
+                      height: 40,
+                      flexShrink: 0,
+                      borderRadius: 11,
+                      border: '2px solid var(--solid-ink)',
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 800,
+                      fontSize: 15,
+                      color: '#fff',
+                      backgroundColor: profileAvatarColor(profile.accountId),
+                    }}
+                  >
+                    {(profile.username || profile.accountId || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {displayName(profile)}
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      @{profile.accountId}
+                    </div>
+                  </div>
+                  <Icon name="chevron_right" style={{ fontSize: 18, color: 'var(--color-muted)', flexShrink: 0 }} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[max(24px,env(safe-area-inset-bottom))] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="mx-auto w-full max-w-xl">
         {/* Top bar */}
         <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
@@ -103,6 +186,7 @@ export function FollowsList({
         </div>
       </div>
     </div>
+    </>
   );
 }
 

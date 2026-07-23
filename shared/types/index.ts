@@ -245,6 +245,8 @@ export interface Project {
   /** Set when this project was created by importing an official wordbook (reel import) */
   importedFromOfficialSlug?: string;
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
+  /** バインダー (フォルダ) 名。null/undefined = 未分類。一覧でグループ表示に使う */
+  binder?: string | null;
   /** User-defined extra columns shown in the project word list table. */
   customColumns?: CustomColumn[];
   /** Notion-like block layout. When undefined, treat as a single implicit wordList block. */

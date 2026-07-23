@@ -55,6 +55,7 @@ export interface ProjectRow {
   imported_from_share_id?: string | null;
   imported_from_official_slug?: string | null;
   is_favorite?: boolean | null;
+  binder?: string | null;
 }
 
 export function mapProjectFromRow(row: ProjectRow): Project {
@@ -76,6 +77,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
       ? row.imported_from_official_slug.trim()
       : undefined,
     isFavorite: row.is_favorite ?? false,
+    binder: row.binder?.trim() ? row.binder.trim() : null,
   };
 }
 
@@ -138,6 +140,7 @@ export function mapProjectToInsertWithId(project: Project): {
       imported_from_official_slug: project.importedFromOfficialSlug,
     }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
+    ...(project.binder !== undefined && { binder: project.binder?.trim() ? project.binder.trim() : null }),
   };
 }
 
@@ -157,6 +160,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
     updateData.imported_from_official_slug = updates.importedFromOfficialSlug;
   }
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+  if (updates.binder !== undefined) updateData.binder = updates.binder?.trim() ? updates.binder.trim() : null;
   return updateData;
 }
 
