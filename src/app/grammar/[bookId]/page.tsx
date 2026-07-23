@@ -4,7 +4,6 @@ import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
 import {
   DesktopGrammarPracticeView,
@@ -40,7 +39,6 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
     else router.push('/grammar');
   };
-  const pageScrolled = usePageScrolled();
 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [index, setIndex] = useState(0);
@@ -192,11 +190,13 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         onAskChatGpt={handleAskChatGpt}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 font-[var(--font-body)] lg:hidden">
-      {/* Header: 他ページと同じ固定ヘッダ。ノッチ帯は全体共通の StatusBarCover が覆う */}
+      {/* 単語帳クイズと同じ固定ビューポート構成: 内容が収まる限りスクロールしない */}
+      <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="mx-auto flex h-full w-full max-w-[560px] flex-col">
+      {/* Header (固定ビューポートの上段。ノッチ帯は全体共通の StatusBarCover が覆う) */}
       <header
-        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
-        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        className="flex shrink-0 items-center gap-2 border-b-2 border-[var(--color-border)] px-[18px] pb-2.5"
+        style={{ paddingTop: 'max(10px, calc(env(safe-area-inset-top) + 10px))' }}
       >
         <button
           type="button"
@@ -217,6 +217,9 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
           )}
         </div>
       </header>
+
+      {/* body: 内容が収まる限りスクロールしない。例文などで溢れるときだけ縦スクロール */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-[18px] py-3.5">
 
       {state.kind === 'loading' && (
         <div className="mt-2 h-[300px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-white" />
@@ -342,14 +345,13 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       )}
       </div>
 
-      {/* ボトムバー: スキップ / 次へ (モバイル)。デスクトップのボトムバーと同じ操作を
-          画面下部に固定表示する。回答前はスキップ、回答後は次へが有効になる。 */}
+      {/* ボトムバー: スキップ / 次へ。固定ビューポートの最下段に配置 (回答前はスキップ、回答後は次へ) */}
       {state.kind === 'ready' && question && !finished && (
         <div
-          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md lg:hidden"
+          className="shrink-0 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)] px-[18px] pt-3"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
-          <div className="mx-auto flex w-full max-w-[560px] gap-2.5 px-[18px] pt-3">
+          <div className="flex gap-2.5">
             <button
               type="button"
               onClick={handleSkip}
@@ -371,6 +373,8 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
           </div>
         </div>
       )}
+      </div>
+      </div>
     </>
   );
 }
