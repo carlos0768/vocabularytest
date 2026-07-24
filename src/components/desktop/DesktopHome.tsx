@@ -9,7 +9,7 @@
  */
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
@@ -34,6 +34,32 @@ import { seedPinnedReelPreview } from '@/lib/reels/pinned-preview';
 import type { HomeRecommendedBook, HomeReelPreviewItem } from '@/lib/home/recommendations-types';
 import type { Project } from '@/types';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
+
+// 右サイドバーの格納状態を localStorage に保存する外部ストア。
+// useSyncExternalStore から購読し、effect 内 setState / ハイドレーション不整合を避ける。
+const SIDEBAR_STORAGE_KEY = 'home-sidebar-collapsed';
+const sidebarStoreListeners = new Set<() => void>();
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeSidebarCollapsed(next: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? '1' : '0');
+  } catch {
+    // 保存できなくても購読者へは通知する
+  }
+  sidebarStoreListeners.forEach((listener) => listener());
+}
+function subscribeSidebarStore(listener: () => void): () => void {
+  sidebarStoreListeners.add(listener);
+  return () => {
+    sidebarStoreListeners.delete(listener);
+  };
+}
 
 type DesktopHomeProject = Project & {
   totalWords: number;
@@ -102,6 +128,14 @@ export function DesktopHomeView({
   // 単語検索（旧サイドバー下部のボタンから移設）。開くたびに初期化する。
   const [wordSearchOpen, setWordSearchOpen] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
+  // 右サイドバー（学習サマリー）の格納状態。localStorage に保存して次回も維持する。
+  // useSyncExternalStore で SSR/ハイドレーション不整合と effect 内 setState を避ける。
+  const sidebarCollapsed = useSyncExternalStore(
+    subscribeSidebarStore,
+    readSidebarCollapsed,
+    () => false,
+  );
+  const toggleSidebar = () => writeSidebarCollapsed(!sidebarCollapsed);
   // 上部ショートカットグリッドに載った単語帳は下の一覧から除外し、
   // 溢れた分だけを表示する。
   const gridProjectCount = Math.min(
@@ -139,12 +173,20 @@ export function DesktopHomeView({
         <DesktopButton variant="accent" icon="add" onClick={onStartScan}>
           新規作成
         </DesktopButton>
+        {/* 右サイドバーの表示/格納トグル（格納中でも常にここから戻せる） */}
+        <DesktopButton
+          icon={sidebarCollapsed ? 'chevron_left' : 'chevron_right'}
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? '学習サマリーを表示' : '学習サマリーを隠す'}
+        >
+          {''}
+        </DesktopButton>
       </DesktopTopbar>
       {wordSearchOpen && user && (
         <DesktopWordSearchOverlay onClose={() => setWordSearchOpen(false)} userId={user.id} />
       )}
 
-      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: sidebarCollapsed ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
         <div style={{ minWidth: 0 }}>
           {error && (
             <div className="ds-card" style={{ padding: 14, marginBottom: 18, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
@@ -333,15 +375,28 @@ export function DesktopHomeView({
           )}
         </div>
 
-        {/* 右サイド（モバイルと違い維持） */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
-          {showUpgrade && <DesktopUpgradeCard onDismiss={onDismissUpgrade} />}
-          <DesktopStudySidebar
-            stats={stats}
-            reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'}
-            learnHref={stats.totalWords > 0 ? '/quiz/all?learn=1&from=/' : '/projects'}
-          />
-        </div>
+        {/* 右サイド（モバイルと違い維持）。トグルで格納できる。 */}
+        {!sidebarCollapsed && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                aria-label="学習サマリーを隠す"
+                title="学習サマリーを隠す"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--color-muted)', cursor: 'pointer', boxShadow: '2px 2px 0 var(--solid-ink)' }}
+              >
+                <Icon name="chevron_right" style={{ fontSize: 18 }} />
+              </button>
+            </div>
+            {showUpgrade && <DesktopUpgradeCard onDismiss={onDismissUpgrade} />}
+            <DesktopStudySidebar
+              stats={stats}
+              reviewHref={stats.totalWords > 0 ? '/quiz/all?review=1&from=/' : '/projects'}
+              learnHref={stats.totalWords > 0 ? '/quiz/all?learn=1&from=/' : '/projects'}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

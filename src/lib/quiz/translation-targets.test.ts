@@ -92,7 +92,9 @@ test('generateQuizQuestions produces a separate question per distinct translatio
   });
 
   // one question for the primary meaning and one for the distinct meaning
-  const correctAnswers = questions.map((question) => question.options[question.correctIndex]);
+  const correctAnswers = questions.map((question) =>
+    question.type === 'word-order' ? undefined : question.options[question.correctIndex],
+  );
   assert.ok(correctAnswers.includes('感覚'), 'primary meaning is quizzed');
   assert.ok(correctAnswers.includes('分別'), 'distinct meaning is quizzed');
   assert.equal(questions.length, 2);
