@@ -256,8 +256,14 @@
 .ds-book .bk-foot { font-size: 11px; opacity: 0.9; margin-top: 7px; font-weight: 500; }
 
 /* ── Spotify-style home: shortcut tiles ──────────────────── */
+/* 幅が足りないときはタイルを潰さず列数を減らす。列の最小幅は 180px で、
+   広い画面では 4 列に収まり（max() 第2項 25% - gap分ぶんが 180px を上回る）、
+   狭くなって 180px を割り込むぶんだけ自動で 3→2→1 列へ折り返す。
+   これで画面幅が変わってもタイルの見た目（縦横比）を保てる。 */
 .ds-shortcut-grid {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(180px, 25% - 7.5px), 1fr));
+  gap: 10px;
 }
 .ds-shortcut {
   display: flex; align-items: center; overflow: hidden; height: 56px;
@@ -293,21 +299,28 @@
   font-family: inherit; font-size: 13px; font-weight: 700; color: var(--color-accent);
   text-decoration: none; background: none; border: none; padding: 0; cursor: pointer;
 }
-/* 横スクロールの棚。1行に表示する枚数は --shelf-cols で固定（既定4枚）。
-   カード幅は表示領域から自動算出されるため、画面幅が変わっても枚数は一定。 */
+/* 横スクロールの棚。1行に表示する枚数の目安は --shelf-cols（既定4枚）。
+   カード幅は表示領域から算出するが、--shelf-min を下回る場合はタイルを
+   潰さず min 幅で固定し、そのぶん1画面に見える枚数を減らす（残りは横スクロール）。
+   → 画面が狭くてもカードの見た目（縦横比）を保てる。 */
 .ds-shelf-row {
   --shelf-cols: 4;
   --shelf-gap: 16px;
+  --shelf-min: 150px;
   display: grid; grid-auto-flow: column;
-  grid-auto-columns: calc((100% - (var(--shelf-cols) - 1) * var(--shelf-gap)) / var(--shelf-cols));
+  grid-auto-columns: max(
+    var(--shelf-min),
+    calc((100% - (var(--shelf-cols) - 1) * var(--shelf-gap)) / var(--shelf-cols))
+  );
   gap: var(--shelf-gap);
   overflow-x: auto; padding: 4px 4px 12px; margin: -4px -4px 0;
   scroll-snap-type: x proximity; scrollbar-width: none;
 }
 .ds-shelf-row::-webkit-scrollbar { display: none; }
 .ds-shelf-row > * { scroll-snap-align: start; }
-/* 高密度の本棚 (マイ単語帳): 1行10冊。タイルが小さくなるぶん文字も縮める */
-.ds-shelf-row.cols-10 { --shelf-cols: 10; --shelf-gap: 10px; }
+/* 高密度の本棚 (マイ単語帳): 1行10冊。タイルが小さくなるぶん文字も縮める。
+   密度を活かすため min 幅も小さめにする。 */
+.ds-shelf-row.cols-10 { --shelf-cols: 10; --shelf-gap: 10px; --shelf-min: 92px; }
 .ds-shelf-row.cols-10 .ds-book,
 .ds-book.ds-book--compact { padding: 9px; border-radius: 12px; box-shadow: 2px 3px 0 var(--solid-ink); }
 .ds-shelf-row.cols-10 .ds-book .bk-spine,
