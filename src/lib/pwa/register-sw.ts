@@ -47,7 +47,7 @@ export async function clearServiceWorkerCaches() {
     const cacheNames = await caches.keys();
     await Promise.all(
       cacheNames
-        .filter((name) => name.startsWith('scanvocab-'))
+        .filter((name) => name.startsWith('scanvocab-') || name.startsWith('merken-'))
         .map((name) => caches.delete(name))
     );
     console.log('[PWA] Cleared service worker caches');
