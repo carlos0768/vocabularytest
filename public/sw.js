@@ -16,32 +16,67 @@
 //     so entries never go stale and old/new builds never collide.
 //   - Other static assets
 //     (icons, manifest, images, fonts) -> stale-while-revalidate.
+//   - Google Fonts (Material Symbols icon font, text fonts) -> cache-first, even
+//     though cross-origin, so icons don't render as raw ligature text offline.
+//   - Public shared-wordbook reads (/api/shared-projects/share/**) -> network-first,
+//     so a wordbook the user merely viewed (never imported) still opens offline.
 //   - RSC payloads & other GETs      -> network-first with cache fallback.
-//   - API / auth / cross-origin / non-GET -> never touched (always network).
+//   - Other API / auth / cross-origin / non-GET -> never touched (always network).
 // Net effect: caching only ADDS an offline fallback on top of today's online
 // behavior; it never changes what an online launch loads.
 //
-// The activate handler also deletes every legacy `scanvocab-` cache so installs
-// poisoned by the previous caching worker recover automatically on next launch.
+// Caching is DISABLED on localhost/dev (see CACHING_ENABLED): Next.js dev chunks
+// live at stable URLs whose bytes change every rebuild, so caching them would serve
+// stale JS and break `npm run dev`. Production /_next/static/ is content-hashed and
+// safe. Web Push still works in dev — only the fetch/caching path is gated.
+//
+// The activate handler deletes every legacy `scanvocab-` cache so installs poisoned
+// by the previous caching worker recover automatically on next launch.
 
 const SW_VERSION = 'v1';
 const CACHE_PREFIX = 'merken-';
 const STATIC_CACHE = `${CACHE_PREFIX}static-${SW_VERSION}`; // immutable hashed build assets
 const ASSET_CACHE = `${CACHE_PREFIX}assets-${SW_VERSION}`; // icons, manifest, images (SWR)
 const PAGE_CACHE = `${CACHE_PREFIX}pages-${SW_VERSION}`; // navigations / RSC / misc GET
-const CURRENT_CACHES = [STATIC_CACHE, ASSET_CACHE, PAGE_CACHE];
+const FONT_CACHE = `${CACHE_PREFIX}fonts-${SW_VERSION}`; // Google Fonts CSS + font files (icons)
+const SHARED_CACHE = `${CACHE_PREFIX}shared-${SW_VERSION}`; // viewed shared-wordbook API responses
+const CURRENT_CACHES = [STATIC_CACHE, ASSET_CACHE, PAGE_CACHE, FONT_CACHE, SHARED_CACHE];
 const LEGACY_CACHE_PREFIX = 'scanvocab-'; // poisoned caches from a prior worker
 const OFFLINE_URL = '/offline.html';
 const DEFAULT_NOTIFICATION_URL = '/';
 
+// Cross-origin Google Fonts hosts that serve the Material Symbols icon font and the
+// text fonts. Handled explicitly (before the cross-origin bypass) so icons keep
+// rendering offline instead of falling back to raw ligature text like "wifi_off".
+const GOOGLE_FONTS_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+
+// Public shared-wordbook read endpoints. Caching their GET responses lets a wordbook
+// the user merely *viewed* (never imported/saved) still open offline.
+const SHARED_WORDBOOK_API_PREFIX = '/api/shared-projects/share/';
+
+// Runtime caching is enabled everywhere EXCEPT localhost/dev. Next.js dev serves its
+// chunks at stable URLs whose bytes change on every rebuild, so cache-first would
+// pin stale JS and break `npm run dev`; production /_next/static/ is content-hashed
+// and safe. Only the fetch/caching path is gated — Web Push registration is not.
+const CACHING_ENABLED =
+  self.location.hostname !== 'localhost' &&
+  self.location.hostname !== '127.0.0.1' &&
+  self.location.hostname !== '[::1]' &&
+  !self.location.hostname.endsWith('.local');
+
 // --- Lifecycle -------------------------------------------------------------
+
+async function precacheOffline() {
+  const cache = await caches.open(PAGE_CACHE);
+  await cache.add(new Request(OFFLINE_URL, { cache: 'reload' }));
+}
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil((async () => {
+    if (!CACHING_ENABLED) return;
     try {
-      const cache = await caches.open(PAGE_CACHE);
-      await cache.add(new Request(OFFLINE_URL, { cache: 'reload' }));
+      await precacheOffline();
     } catch {
       // Precaching the fallback is best-effort; never block activation on it.
     }
@@ -54,10 +89,23 @@ self.addEventListener('activate', (event) => {
     await Promise.all(
       cacheNames.map((name) => {
         const isLegacy = name.startsWith(LEGACY_CACHE_PREFIX);
-        const isStaleOwn = name.startsWith(CACHE_PREFIX) && !CURRENT_CACHES.includes(name);
+        // Off localhost: drop only stale (non-current) own caches. On localhost:
+        // drop ALL own caches so a dev machine poisoned by an earlier build with
+        // caching enabled recovers immediately.
+        const isStaleOwn =
+          name.startsWith(CACHE_PREFIX) && (!CACHING_ENABLED || !CURRENT_CACHES.includes(name));
         return isLegacy || isStaleOwn ? caches.delete(name) : undefined;
       })
     );
+    // Re-assert the offline fallback so a single failed install precache does not
+    // leave the branded offline page missing for the whole SW version.
+    if (CACHING_ENABLED) {
+      try {
+        await precacheOffline();
+      } catch {
+        // best-effort
+      }
+    }
     await self.clients.claim();
   })());
 });
@@ -76,6 +124,9 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET; let the browser deal with POST/PUT/etc. directly.
   if (request.method !== 'GET') return;
 
+  // On localhost/dev, never cache (see CACHING_ENABLED) — pass through to network.
+  if (!CACHING_ENABLED) return;
+
   let url;
   try {
     url = new URL(request.url);
@@ -83,8 +134,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Google Fonts (Material Symbols icon font + text fonts) are cross-origin but must
+  // survive offline, or icons render as raw ligature text. Cache-first, allowing the
+  // opaque stylesheet response. Handled before the generic cross-origin bypass.
+  if (GOOGLE_FONTS_HOSTS.includes(url.hostname)) {
+    event.respondWith(cacheFirstAllowingOpaque(request, FONT_CACHE));
+    return;
+  }
+
   // Cross-origin (AI APIs, Supabase, Stripe, analytics): never intercept.
   if (url.origin !== self.location.origin) return;
+
+  // Public shared-wordbook reads: cache so a viewed-but-unsaved shared wordbook opens
+  // offline. Network-first keeps it fresh online. Handled before the /api/ bypass.
+  if (url.pathname.startsWith(SHARED_WORDBOOK_API_PREFIX)) {
+    event.respondWith(networkFirst(request, SHARED_CACHE));
+    return;
+  }
 
   // Dynamic / server endpoints must always hit the network.
   if (
@@ -142,6 +208,25 @@ async function cacheFirst(request, cacheName) {
   try {
     const response = await fetch(request);
     if (isCacheable(response)) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return cached || Response.error();
+  }
+}
+
+// Cache-first variant for Google Fonts. The stylesheet from fonts.googleapis.com is
+// requested no-cors (an opaque, status-0 response); the font files from
+// fonts.gstatic.com come back CORS (status 200). Both are effectively immutable per
+// URL, so cache-first is correct and lets icons render offline.
+async function cacheFirstAllowingOpaque(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response && (response.status === 200 || response.type === 'opaque')) {
       cache.put(request, response.clone());
     }
     return response;

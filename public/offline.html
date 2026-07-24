@@ -113,17 +113,24 @@
   <script>
     (function () {
       var status = document.getElementById('status');
-      function update() {
-        if (navigator.onLine) {
-          if (status) status.textContent = '接続を確認しました。読み込み中…';
-          location.reload();
-        }
-      }
-      window.addEventListener('online', update);
-      // In case connectivity returned before this page finished loading.
-      if (navigator.onLine) {
-        setTimeout(update, 1500);
-      }
+      // navigator.onLine only reports whether a network interface is up, NOT whether
+      // the server is actually reachable. It stays true on captive-portal Wi-Fi, an
+      // ISP outage with the router still up, or weak cellular. Reloading purely on
+      // that flag would loop forever: the reload re-requests the same route, the
+      // service worker re-serves this page, and the script reloads again.
+      //
+      // So we react only to the 'online' TRANSITION event, which fires at most once
+      // per reconnect. Even if the origin is still unreachable right after it fires,
+      // the resulting reload just shows this page again and then stops (no further
+      // 'online' events while the OS considers us online) — never a loop. Manual
+      // retries go through the button.
+      var reloaded = false;
+      window.addEventListener('online', function () {
+        if (reloaded) return;
+        reloaded = true;
+        if (status) status.textContent = '接続を確認しました。読み込み中…';
+        location.reload();
+      });
     })();
   </script>
 </body>
