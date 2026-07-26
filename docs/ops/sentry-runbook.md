@@ -83,6 +83,14 @@ Environment Variables に **Production / Preview 限定** で登録し、
   `stripe-signature`, `x-internal-worker-token` など
 - クエリ文字列とURLのクエリ部分: `token`, `otp`, `code`(OAuth), `email` など
 - リクエストbodyと `extra`: ネストしたオブジェクトも再帰的に走査
+- `contexts` と `breadcrumbs`: 同じく再帰的に走査
+- **キーが無害でも値がクエリ付きURLならクエリ部分を伏せる**
+  (`referer` ヘッダ、breadcrumbのfetch URLなど)
+
+`contexts` の走査は必須。実機の疎通確認で、Sentryのnextjs integrationが付ける
+`contexts.nextjs.request_path` に**生のクエリ文字列がそのまま載る**ことが分かっている
+(`request.url` 側だけ伏せても `/auth/callback?code=xxx` が漏れる)。
+`src/lib/observability/sentry-config.test.ts` に回帰テストがある。
 
 判定は `isSensitiveKey()` が担当し、`-` `_` を除去して小文字化してから
 部分一致を見るので `serviceRoleKey` と `SUPABASE_SERVICE_ROLE_KEY` を同じルールで拾える。

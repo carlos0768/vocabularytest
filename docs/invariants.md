@@ -153,7 +153,9 @@ The ordering logic must remain frontend-only: it recomputes on every load from l
 
 ### INV-17: Sentry events are scrubbed before leaving the process
 
-Every Sentry client is initialized with `sendDefaultPii: false` and the `beforeSend` built by `createBeforeSend()` in `src/lib/observability/sentry-config.ts`. That handler must keep redacting sensitive request headers, cookies, query parameters, request bodies, and `extra` values via `isSensitiveKey()` — the same rule that catches `SUPABASE_SERVICE_ROLE_KEY`, `serviceRoleKey`, `authorization`, `stripe-signature`, and `x-internal-worker-token`.
+Every Sentry client is initialized with `sendDefaultPii: false` and the `beforeSend` built by `createBeforeSend()` in `src/lib/observability/sentry-config.ts`. That handler must keep redacting sensitive request headers, cookies, query parameters, request bodies, `extra`, `contexts`, and `breadcrumbs` via `isSensitiveKey()` — the same rule that catches `SUPABASE_SERVICE_ROLE_KEY`, `serviceRoleKey`, `authorization`, `stripe-signature`, and `x-internal-worker-token`.
+
+`contexts` must stay in scope: Sentry's Next.js integration puts the raw query string in `contexts.nextjs.request_path`, so scrubbing `request.url` alone still leaks `/auth/callback?code=...`. String values that contain a query are redacted regardless of how harmless their key looks.
 
 Sentry is also a no-op when no DSN is configured: `Sentry.init()` must stay behind `isSentryEnabled()`.
 

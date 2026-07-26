@@ -211,6 +211,52 @@ describe('scrubSentryEvent', () => {
     const event = scrubSentryEvent(makeEvent());
     assert.equal(event.request, undefined);
   });
+
+  // 実機の疎通確認で見つかった取りこぼし。nextjs integrationが付ける
+  // contexts.nextjs.request_path には生のクエリ文字列が載る。
+  it('contexts.nextjs.request_path のクエリを伏せる', () => {
+    const event = scrubSentryEvent(
+      makeEvent({
+        contexts: {
+          nextjs: {
+            request_path: '/auth/callback?code=LEAK&next=/home',
+            router_kind: 'App Router',
+          },
+          trace: { trace_id: 'abc123', span_id: 'def456' },
+        },
+      }),
+    );
+
+    const nextjs = event.contexts?.nextjs as Record<string, unknown>;
+    assert.equal(nextjs.request_path, `/auth/callback?code=${REDACTED}&next=/home`);
+    // 無害な情報とtrace情報は壊さない
+    assert.equal(nextjs.router_kind, 'App Router');
+    assert.equal((event.contexts?.trace as Record<string, unknown>).trace_id, 'abc123');
+  });
+
+  it('キーが無害でも値がクエリ付きURLならクエリを伏せる', () => {
+    const event = scrubSentryEvent(
+      makeEvent({
+        request: { headers: { referer: 'https://www.merken.jp/x?otp=LEAK&a=1' } },
+      }),
+    );
+    assert.equal(
+      event.request?.headers?.referer,
+      `https://www.merken.jp/x?otp=${REDACTED}&a=1`,
+    );
+  });
+
+  it('breadcrumbsのURLも伏せる', () => {
+    const event = scrubSentryEvent(
+      makeEvent({
+        breadcrumbs: [
+          { category: 'fetch', data: { url: 'https://www.merken.jp/api/x?token=LEAK' } },
+        ],
+      }),
+    );
+    const data = event.breadcrumbs?.[0].data as Record<string, unknown>;
+    assert.equal(data.url, `https://www.merken.jp/api/x?token=${REDACTED}`);
+  });
 });
 
 describe('shouldDropSentryEvent', () => {
