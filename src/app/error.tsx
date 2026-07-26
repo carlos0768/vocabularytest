@@ -1,11 +1,14 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import {
   CHUNK_RELOAD_STORAGE_KEY,
+  isChunkLoadError,
   shouldAutoReloadForChunkError,
 } from '@/lib/errors/chunk-load';
+import { PERSISTENT_CHUNK_ERROR_TAG } from '@/lib/observability/sentry-config';
 
 export default function Error({
   error,
@@ -21,15 +24,28 @@ export default function Error({
     // 落ちる（バージョンスキュー）。再読み込みで新しいHTMLを取得すれば
     // 直るので、一度だけ自動リロードして自己回復させる。直近にリロード
     // 済みならループを避けて通常のエラー表示に任せる。
+    let willAutoReload = false;
     try {
       const lastReloadAt = Number(sessionStorage.getItem(CHUNK_RELOAD_STORAGE_KEY)) || 0;
       if (shouldAutoReloadForChunkError(error, lastReloadAt, Date.now())) {
         sessionStorage.setItem(CHUNK_RELOAD_STORAGE_KEY, String(Date.now()));
+        willAutoReload = true;
         window.location.reload();
       }
     } catch {
       // sessionStorage が使えない環境では自動リロードだけ諦める
     }
+
+    // 自動リロードで直る見込みのバージョンスキューは通知しない。
+    // リロード後も再発したChunkLoadErrorは自己回復に失敗した本物の障害なので、
+    // タグを付けてSentry側のフィルタを通す。
+    if (willAutoReload) return;
+    Sentry.captureException(
+      error,
+      isChunkLoadError(error)
+        ? { tags: { [PERSISTENT_CHUNK_ERROR_TAG]: 'true' } }
+        : undefined,
+    );
   }, [error]);
 
   return (

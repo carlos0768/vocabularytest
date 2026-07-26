@@ -173,3 +173,27 @@
 
 - 日本語の上に発音記号が表示されることで、学習フローの視認性が低下していた。
 - 発音記号はAI生成されるが、クイズ画面での表示は不要と判断。
+
+## 2026-07-26: Sentryを導入し、既定はエラー監視のみにする
+
+判断:
+
+- `@sentry/nextjs` を導入し、`src/instrumentation.ts` / `src/instrumentation-client.ts` のno-opを実装へ戻す。
+- 初期化コードは `src/lib/observability/` にまとめ、純粋関数 (`sentry-config.ts`) を単体テストで固定する。
+- DSN未設定の環境では `Sentry.init()` を呼ばず、完全なno-opにする。
+- `tracesSampleRate` の既定は `0`(エラー監視のみ)。Session Replayは無効のままにする。
+- 送信前に `beforeSend` でヘッダ・Cookie・クエリ・body・extraの秘匿値を `[Filtered]` に置換する。
+- 運用手順は `docs/ops/sentry-runbook.md` に置く。
+
+これは 2026-05-06「Sentry env例はno-op実装に合わせて外す」を上書きする。
+
+理由:
+
+- `/health` とVercel logsだけでは、ユーザー端末で起きたクライアント側の失敗を検知できない。
+  `production-readiness-audit-2026-06-13.md` でも監視強化が公開後の宿題として挙がっていた。
+- 従量課金サービスは既定を最小にしてguardrailで上げる、という本プロジェクトの方針
+  (AI cost cap, GCP budget guard) をSentryにも適用し、トレースは既定オフにした。
+- 本リポジトリは `SUPABASE_SERVICE_ROLE_KEY` の扱いを最重要invariantにしているため、
+  `sendDefaultPii: false` だけに頼らず、キー名ベースのスクラブを多層防御として入れた。
+- ChunkLoadErrorはデプロイ毎に必ず出て自動リロードで自己回復するので既定では送らないが、
+  リロード後も再発したものは本物の障害シグナルとしてタグ付きで送る。
