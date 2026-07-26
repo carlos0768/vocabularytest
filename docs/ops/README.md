@@ -18,6 +18,7 @@
 | [`supabase-incident-runbook.md`](supabase-incident-runbook.md) | Supabase接続障害 / migration事故の初動対応 |
 | [`word-schema-cache-incident-2026-06-24.md`](word-schema-cache-incident-2026-06-24.md) | word schema rollout時のmigration drift / PostgREST schema cache事故レポート |
 | [`ai-cost-spike-runbook.md`](ai-cost-spike-runbook.md) | AIコスト急増の初動対応 |
+| [`sentry-runbook.md`](sentry-runbook.md) | Sentryエラー監視のセットアップ・設定・調査手順 |
 | [`production-env-checklist.md`](production-env-checklist.md) | 本番環境変数の公開前 / 障害時チェックリスト |
 | [`scan-gemini-cloudrun-runbook.md`](scan-gemini-cloudrun-runbook.md) | Cloud Run経由のGeminiスキャン抽出の運用 |
 | [`scan-example-sentences-runbook.md`](scan-example-sentences-runbook.md) | スキャン後の例文生成トラブルシュート |
@@ -32,5 +33,5 @@
 - 初版公開前は [`release-acceptance-criteria.md`](release-acceptance-criteria.md) を正とし、実メール、代表scan、Supabase、Resend、Cloud Run、AI costの確認漏れを分ける。v1.0 は課金導線を公開しないため、Stripe live確認は課金公開リリース時に行う。
 - 課金、認証、スキャン、同期、DBを触る前に [`../boundaries.md`](../boundaries.md) と [`../invariants.md`](../invariants.md) を読む。
 - 古いKOMOJU資料は履歴として有用だが、課金公開時のWeb課金実装はStripe中心で確認する。
-- Sentryは現在未使用。`src/instrumentation.ts` と `src/instrumentation-client.ts` はno-opで、`@sentry/nextjs` は未導入。
+- Sentryを導入済み。詳細と運用は [`sentry-runbook.md`](sentry-runbook.md) を見る。DSN未設定の環境では初期化されずno-opになる。
 - 障害対応で新しい知見が出たら、該当runbookへ追記する。恒久化前のメモは `../maintenance/` に残す。

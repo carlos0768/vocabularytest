@@ -151,6 +151,14 @@ The ordering logic must remain frontend-only: it recomputes on every load from l
 
 **Consequence of violation**: The flashcard sequence drifts from the quiz question order, or stale persisted state hides newly added words / pins an outdated order that a PWA update cannot easily correct.
 
+### INV-17: Sentry events are scrubbed before leaving the process
+
+Every Sentry client is initialized with `sendDefaultPii: false` and the `beforeSend` built by `createBeforeSend()` in `src/lib/observability/sentry-config.ts`. That handler must keep redacting sensitive request headers, cookies, query parameters, request bodies, and `extra` values via `isSensitiveKey()` — the same rule that catches `SUPABASE_SERVICE_ROLE_KEY`, `serviceRoleKey`, `authorization`, `stripe-signature`, and `x-internal-worker-token`.
+
+Sentry is also a no-op when no DSN is configured: `Sentry.init()` must stay behind `isSentryEnabled()`.
+
+**Consequence of violation**: Service role keys, Stripe webhook signatures, session cookies, or user email addresses get shipped to a third-party SaaS and retained in its issue history.
+
 ---
 
 ## Candidate Invariants

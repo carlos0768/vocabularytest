@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { useEffect } from 'react';
 
@@ -16,6 +17,8 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error('Global error boundary caught:', error);
+    // rootレイアウトごと落ちている＝最も重い障害なので必ずSentryへ送る
+    Sentry.captureException(error);
   }, [error]);
 
   return (

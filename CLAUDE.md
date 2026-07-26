@@ -63,6 +63,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 - **AI - Embeddings**: OpenAI text-embedding-3-small
 - **Validation**: Zod for API response validation
 - **Animations**: Framer Motion
+- **Error monitoring**: Sentry (`@sentry/nextjs`) — no-op unless a DSN is set. See `docs/ops/sentry-runbook.md`
 
 ## Architecture
 
@@ -81,6 +82,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 | `src/lib/supabase/` | Supabase clients: browser singleton, server, middleware |
 | `src/lib/subscription/` | Subscription status computation, billing activation |
 | `src/lib/schemas/` | Zod validation schemas for AI responses |
+| `src/lib/observability/` | Sentry init (server/edge/client) + shared event scrubbing |
 | `src/types/` | Re-exports from `shared/types/` + web-specific types |
 | `shared/types/` | **Source of truth** for domain types (Word, Project, Subscription) |
 | `shared/db/` | DB row to domain object mappers |
