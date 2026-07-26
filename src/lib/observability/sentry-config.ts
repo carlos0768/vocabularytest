@@ -86,7 +86,8 @@ function redactStringMap(
   if (!map) return map;
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(map)) {
-    result[key] = isSensitiveKey(key) ? REDACTED : value;
+    // refererのように、キーは無害でも値にクエリ付きURLが入るものがある
+    result[key] = isSensitiveKey(key) ? REDACTED : redactStringValue(value);
   }
   return result;
 }
@@ -125,9 +126,21 @@ export function redactUrl(url: string): string {
   return `${path}?${redactQueryString(query)}`;
 }
 
-/** リクエストbody / extra のようなオブジェクトを再帰的に伏せる。 */
+/**
+ * 文字列値そのものにクエリ付きURL/パスが埋まっているケースを伏せる。
+ *
+ * キー名が無害でも値がURLなら秘匿パラメータが載る。実例として
+ * Sentryのnextjs integrationが付ける `contexts.nextjs.request_path` は
+ * `/auth/callback?code=xxx` のような生パスをそのまま持つ。
+ */
+function redactStringValue(value: string): string {
+  return value.includes('?') ? redactUrl(value) : value;
+}
+
+/** リクエストbody / extra / contexts のようなオブジェクトを再帰的に伏せる。 */
 function redactDeep(value: unknown, depth = 0): unknown {
   if (depth > 5) return value;
+  if (typeof value === 'string') return redactStringValue(value);
   if (Array.isArray(value)) {
     return value.map((item) => redactDeep(item, depth + 1));
   }
@@ -169,6 +182,18 @@ export function scrubSentryEvent<E extends ErrorEvent>(event: E): E {
 
   if (event.extra) {
     event.extra = redactDeep(event.extra) as Record<string, unknown>;
+  }
+
+  // contextsもスクラブする。Sentryのnextjs integrationは
+  // `contexts.nextjs.request_path` に生のクエリ文字列を載せるため、
+  // request側だけ伏せても取りこぼす。
+  if (event.contexts) {
+    event.contexts = redactDeep(event.contexts) as E['contexts'];
+  }
+
+  // breadcrumbsにもfetch/navigationのURLが載る
+  if (event.breadcrumbs) {
+    event.breadcrumbs = redactDeep(event.breadcrumbs) as E['breadcrumbs'];
   }
 
   return event;
