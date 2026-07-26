@@ -119,7 +119,19 @@ export default function OpsHubPage() {
         </section>
 
         {/* ナビゲーション */}
-        <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <section className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Link href="/ops/official-wordbooks" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-white">
+                <Icon name="menu_book" size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-[var(--color-foreground)]">公式単語帳エディター</div>
+                <div className="text-xs text-[var(--color-muted)]">公式単語帳の作成・編集・公開</div>
+              </div>
+              <Icon name="chevron_right" size={18} className="text-[var(--color-muted)]" />
+            </div>
+          </Link>
           <Link href="/ops/finance" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-white">
