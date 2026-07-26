@@ -93,6 +93,15 @@ function feedbackBias(candidate: ReelCandidate, ctx: ReelRankingContext): number
   return bias;
 }
 
+/**
+ * 表示できる語源解説を持っているか（`none` や空の分解式はカード上で
+ * 語源面が出ないので「無し」扱いにする）。
+ */
+export function hasDisplayableMorphology(candidate: Pick<ReelCandidate, 'morphology'>): boolean {
+  const morphology = candidate.morphology;
+  return Boolean(morphology && !morphology.none && morphology.formula.length > 0);
+}
+
 function popularity(candidate: ReelCandidate): number {
   const likes = Math.max(0, candidate.book.likeCount);
   return Math.min(1, Math.log10(likes + 1) / 2);
@@ -127,6 +136,13 @@ export function scoreReelCandidate(
  * Rank candidates and pick up to `limit` items with book diversity:
  * never two consecutive items from the same book (unless nothing else
  * remains) and at most MAX_ITEMS_PER_BOOK_PER_PAGE per book.
+ *
+ * 語源（morphology）を持つ単語は上位ティアとして先に並べる — リールは語源
+ * カードを流すのが主目的なので、スコアの重み付けでは popularity や level fit に
+ * competed out されうる。ティア内は通常スコア順なので、語源つきの中でも
+ * レベル適合・興味タグ・新着は効き続ける。語源つきが尽きたら通常の単語で
+ * 埋まる（フィードは枯れない）。
+ *
  * Pure and deterministic for a given (candidates, ctx, seed).
  */
 export function rankReelCandidates(
@@ -138,8 +154,15 @@ export function rankReelCandidates(
   if (limit <= 0 || candidates.length === 0) return [];
 
   const scored = candidates
-    .map((candidate) => ({ candidate, score: scoreReelCandidate(candidate, ctx, seed) }))
-    .sort((a, b) => b.score - a.score || a.candidate.id.localeCompare(b.candidate.id));
+    .map((candidate) => ({
+      candidate,
+      tier: hasDisplayableMorphology(candidate) ? 1 : 0,
+      score: scoreReelCandidate(candidate, ctx, seed),
+    }))
+    .sort(
+      (a, b) =>
+        b.tier - a.tier || b.score - a.score || a.candidate.id.localeCompare(b.candidate.id),
+    );
 
   const picked: ReelCandidate[] = [];
   const perBook = new Map<string, number>();
