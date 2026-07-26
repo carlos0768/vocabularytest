@@ -215,8 +215,21 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 ### 2. EIKEN level filtering -- Done
 - ScanModeModal mode: `eiken` with level selection (5-1)
 
-### 3. Grammar learning feature -- Not implemented
-- Routes (`/grammar/`, `/api/grammar/`) do not currently exist in the codebase
-- `vercel.json` references `src/app/api/grammar/route.ts` (stale config)
-- AI config has grammar extraction settings in `src/lib/ai/config.ts`
-- Feature was planned but routes were removed or never created
+### 3. Grammar learning feature (語法問題集) -- Done
+- Vintage-style fill-in-the-blank questions (4 English choices + per-question explanation), Pro-only.
+  Questions are authored via the ChatGPT Custom GPT (`/api/chatgpt/grammar-*`); there is no server-side AI generation.
+- Tables: `grammar_books`, `grammar_questions`, `grammar_question_progress`, `grammar_question_misses`
+- Pages: `/grammar` (list), `/grammar/[bookId]` (practice), `/grammar/[bookId]/list`, `/grammar/share/[shareId]`
+- `vercel.json` references `src/app/api/grammar/route.ts` (stale config -- that exact file still does not exist)
+
+### 4. Grammar map (文法マップ) -- Done
+- `/grammar/map` shows a fixed grammar taxonomy tree with the user's mastery layered on top,
+  so untouched areas stay visible instead of only what they happen to have questions for.
+- Taxonomy + classifier live in `src/lib/grammar/` and are pure/DB-free:
+  `taxonomy.ts` (tree constant), `classify.ts` (free-text `grammar_point` tag -> node), `map.ts` (roll-up + filtering)
+- `grammar_point` is free text from ChatGPT, so classification is normalize -> exact alias -> longest-keyword match,
+  with anything unmatched collected into an `uncategorized` bucket. **No schema change is needed to add tree nodes**
+  -- editing `taxonomy.ts` reclassifies existing questions on the next request.
+- APIs: `GET /api/grammar/map` (tree + summary), `GET /api/grammar/map/questions?nodeId=` (practice across books)
+- Practice by node reuses `/grammar/[bookId]` with the special `point-<nodeId>` value (same pattern as `review`).
+  Both cross-book modes record progress against `question.bookId`, not the route param.

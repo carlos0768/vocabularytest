@@ -22,6 +22,13 @@ import {
 // bookId が "review" のときは語法復習モード: 間違えた問題
 // (/api/chatgpt/grammar-misses) を出題し、正解したらミスを解消して
 // 復習対象から外す。
+//
+// bookId が "point-<nodeId>" のときは文法マップの項目別演習モード:
+// その文法事項に属する問題を問題集をまたいで (/api/grammar/map/questions)
+// 出題する。どちらのモードも問題は複数の問題集にまたがるため、習得度の記録には
+// 問題行が持つ所属問題集ID (question.bookId) を使う。
+
+const POINT_PREFIX = 'point-';
 
 type LoadState =
   | { kind: 'loading' }
@@ -32,12 +39,17 @@ type LoadState =
 export default function GrammarPracticePage({ params }: { params: Promise<{ bookId: string }> }) {
   const { bookId } = use(params);
   const isReview = bookId === 'review';
+  const isPoint = bookId.startsWith(POINT_PREFIX);
+  const nodeId = isPoint ? bookId.slice(POINT_PREFIX.length) : null;
+  // 問題が複数の問題集にまたがるモード (所属IDは問題行から取る)
+  const isCrossBook = isReview || isPoint;
   const router = useRouter();
 
   // 戻るは来た画面 (ホーム等) に戻す。直接アクセスなど履歴が無いときのみ一覧へフォールバック。
+  const backHref = isPoint ? '/grammar/map' : '/grammar';
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
-    else router.push('/grammar');
+    else router.push(backHref);
   };
 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -47,21 +59,25 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
   const [skippedCount, setSkippedCount] = useState(0);
   const [finished, setFinished] = useState(false);
   const [chatGptCopied, setChatGptCopied] = useState(false);
+  // 項目別演習で見出しに出す文法事項名 (APIが返すラベル)
+  const [nodeLabel, setNodeLabel] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
+    const requestUrl = () => {
+      if (isReview) return '/api/chatgpt/grammar-misses?limit=50';
+      if (isPoint) return `/api/grammar/map/questions?nodeId=${encodeURIComponent(nodeId ?? '')}&limit=50`;
+      return `/api/chatgpt/grammar-questions?bookId=${encodeURIComponent(bookId)}&limit=100`;
+    };
+
     const load = async () => {
       try {
-        const response = await fetch(
-          isReview
-            ? '/api/chatgpt/grammar-misses?limit=50'
-            : `/api/chatgpt/grammar-questions?bookId=${encodeURIComponent(bookId)}&limit=100`,
-          { cache: 'no-store' },
-        );
+        const response = await fetch(requestUrl(), { cache: 'no-store' });
         const payload = (await response.json().catch(() => ({}))) as {
           success?: boolean;
           questions?: GrammarQuestion[];
+          nodeLabel?: string;
           error?: string;
           code?: string;
         };
@@ -76,6 +92,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
           setState({ kind: 'error', message: payload.error || '問題の取得に失敗しました' });
           return;
         }
+        if (payload.nodeLabel) setNodeLabel(payload.nodeLabel);
         setState({ kind: 'ready', questions: payload.questions ?? [] });
       } catch {
         if (!cancelled) {
@@ -88,7 +105,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     return () => {
       cancelled = true;
     };
-  }, [bookId, isReview]);
+  }, [bookId, isReview, isPoint, nodeId]);
 
   const questions = state.kind === 'ready' ? state.questions : [];
   const question = questions[index];
@@ -110,9 +127,10 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       setWrongQuestions((prev) => [...prev, question]);
     }
     // 習得度を記録する(不正解時はサーバー側で誤答ログも残すので、
-    // 別途 grammar-misses への直接POSTは不要)。復習モードでは所属問題集ID
-    // (question.bookId) を使う。best-effort: 失敗しても演習は続行する。
-    const effectiveBookId = isReview ? question.bookId : bookId;
+    // 別途 grammar-misses への直接POSTは不要)。復習・項目別演習では
+    // 問題行が持つ所属問題集ID (question.bookId) を使う。
+    // best-effort: 失敗しても演習は続行する。
+    const effectiveBookId = isCrossBook ? question.bookId : bookId;
     if (effectiveBookId) {
       void fetch('/api/grammar/progress', {
         method: 'POST',
@@ -163,6 +181,15 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     setChatGptCopied(false);
   };
 
+  // モードごとの見出し・空表示 (モバイル/デスクトップ共用)
+  const headerLabel = isReview ? 'GRAMMAR REVIEW' : isPoint ? 'GRAMMAR MAP' : 'GRAMMAR PRACTICE';
+  const practiceTitle = isReview ? '語法復習' : isPoint ? nodeLabel ?? '項目別演習' : '語法演習';
+  const emptyMessage = isReview
+    ? '復習する問題はありません。間違えた問題がここに溜まります。'
+    : isPoint
+      ? 'この文法項目の問題はまだありません。ChatGPTで問題を追加すると、ここで演習できます。'
+      : 'この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。';
+
   // 正解数 = 回答済み(スキップを除く)- 不正解数
   const correctCount = Math.max(
     0,
@@ -181,8 +208,8 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         correctCount={correctCount}
         wrongGrammarPoints={wrongGrammarPoints}
         chatGptCopied={chatGptCopied}
-        title={isReview ? '語法復習' : '語法演習'}
-        emptyMessage={isReview ? '復習する問題はありません。間違えた問題がここに溜まります。' : undefined}
+        title={practiceTitle}
+        emptyMessage={isReview || isPoint ? emptyMessage : undefined}
         onSelect={handleSelect}
         onNext={handleNext}
         onSkip={handleSkip}
@@ -208,8 +235,11 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         </button>
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-            {isReview ? 'GRAMMAR REVIEW' : 'GRAMMAR PRACTICE'}
+            {headerLabel}
           </div>
+          {isPoint && nodeLabel && (
+            <div className="truncate font-display text-[13px] font-extrabold text-[var(--solid-ink)]">{nodeLabel}</div>
+          )}
           {state.kind === 'ready' && questions.length > 0 && !finished && (
             <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">
               {index + 1} / {questions.length}
@@ -247,11 +277,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
 
       {state.kind === 'ready' && questions.length === 0 && (
         <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
-          <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
-            {isReview
-              ? '復習する問題はありません。間違えた問題がここに溜まります。'
-              : 'この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。'}
-          </p>
+          <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">{emptyMessage}</p>
         </div>
       )}
 
@@ -286,10 +312,10 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               もう一度解く
             </button>
             <Link
-              href="/grammar"
+              href={backHref}
               className="flex h-12 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
-              問題集一覧へ
+              {isPoint ? '文法マップへ' : '問題集一覧へ'}
             </Link>
           </div>
         </div>
