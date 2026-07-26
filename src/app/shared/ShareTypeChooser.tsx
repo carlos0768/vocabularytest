@@ -52,6 +52,15 @@ export function ShareTypeChooser({
     router.push('/shared/share-wordbook');
   };
 
+  const handleShareGrammar = () => {
+    if (!isLoggedIn) {
+      onLogin();
+      return;
+    }
+    handleClose();
+    router.push('/shared/share-grammar');
+  };
+
   const handleStartGroup = () => {
     if (!isLoggedIn) {
       onLogin();
@@ -133,6 +142,12 @@ export function ShareTypeChooser({
               title="単語帳を共有"
               description="自分の単語帳を選んでみんなに公開"
               onClick={handleShareWordbook}
+            />
+            <ChooserButton
+              icon="rule"
+              title="語法問題集を共有"
+              description="作った語法問題集をみんなに公開"
+              onClick={handleShareGrammar}
             />
             <ChooserButton
               icon="groups"
