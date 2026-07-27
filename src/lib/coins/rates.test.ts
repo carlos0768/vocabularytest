@@ -17,6 +17,7 @@ test('computeScanCoinCost prices single modes', () => {
   assert.equal(computeScanCoinCost(['all'], 1), 3);
   assert.equal(computeScanCoinCost(['eiken'], 1), 3);
   assert.equal(computeScanCoinCost(['idiom'], 1), 3);
+  assert.equal(computeScanCoinCost(['custom'], 1), 3);
 });
 
 test('computeScanCoinCost sums composite modes and dedupes repeats', () => {
@@ -104,6 +105,39 @@ test('morphology surcharge in SQL migration matches the TS mirror', () => {
   // PostgRESTのオーバーロード曖昧化防止: 旧シグネチャのDROPが必須
   assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.consume_scan_coins(TEXT[], INTEGER, UUID);'));
   assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.scan_coin_cost(TEXT[], INTEGER);'));
+});
+
+// カスタム抽出モード（ユーザ定義プロンプト）のTS/SQLリテラル一致。
+// レート変更時は src/lib/coins/rates.ts と
+// supabase/migrations/20260726090100_custom_scan_mode_coin_cost.sql を同時に更新すること。
+test('custom scan mode rate in SQL migration matches the TS mirror', () => {
+  const migrationSource = readFileSync(
+    fileURLToPath(
+      new URL(
+        '../../../supabase/migrations/20260726090100_custom_scan_mode_coin_cost.sql',
+        import.meta.url,
+      ),
+    ),
+    'utf8',
+  );
+
+  assert.ok(migrationSource.includes(`WHEN 'custom'  THEN ${SCAN_MODE_COIN_RATES.custom}`));
+
+  // 既存モード・追加画像・語源解析サーチャージを維持したまま再定義していること
+  assert.ok(migrationSource.includes(`WHEN 'circled' THEN ${SCAN_MODE_COIN_RATES.circled}`));
+  assert.ok(migrationSource.includes(`WHEN 'all'     THEN ${SCAN_MODE_COIN_RATES.all}`));
+  assert.ok(migrationSource.includes(`WHEN 'eiken'   THEN ${SCAN_MODE_COIN_RATES.eiken}`));
+  assert.ok(migrationSource.includes(`WHEN 'idiom'   THEN ${SCAN_MODE_COIN_RATES.idiom}`));
+  assert.ok(migrationSource.includes('RETURN v_cost + (p_image_count - 1)'));
+  assert.ok(
+    migrationSource.includes(
+      `CASE WHEN COALESCE(p_include_morphology, FALSE) THEN ${MORPHOLOGY_COIN_COST} ELSE 0 END`,
+    ),
+  );
+
+  // シグネチャ据え置き = DROPしない（PostgRESTのRPCオーバーロード曖昧化を避ける）
+  assert.ok(migrationSource.includes('CREATE OR REPLACE FUNCTION public.scan_coin_cost('));
+  assert.ok(!migrationSource.includes('DROP FUNCTION'));
 });
 
 // 手動追加の語源解析コスト（1語あたり）のTS/SQLリテラル一致。

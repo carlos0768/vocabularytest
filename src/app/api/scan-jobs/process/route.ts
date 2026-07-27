@@ -6,6 +6,7 @@ import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
 import { extractEikenWordsFromImage } from '@/lib/ai/extract-eiken-words';
 import { extractIdiomsFromImage } from '@/lib/ai/extract-idioms';
 import { extractCompositeWordsFromImage } from '@/lib/ai/extract-composite-words';
+import { extractCustomWordsFromImage } from '@/lib/ai/extract-custom-words';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
@@ -21,6 +22,7 @@ import {
   normalizeExtractModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
+import { normalizeCustomScanModePrompt } from '@/lib/scan/custom-modes';
 import { buildClientLocalScanJobResultPayload } from '@/lib/scan/job-result-payload';
 import {
   buildScanJobNoWordsErrorMessage,
@@ -345,6 +347,7 @@ interface ExtractionHandlers {
   extractEikenWordsFromImage: typeof extractEikenWordsFromImage;
   extractIdiomsFromImage: typeof extractIdiomsFromImage;
   extractCompositeWordsFromImage: typeof extractCompositeWordsFromImage;
+  extractCustomWordsFromImage: typeof extractCustomWordsFromImage;
 }
 
 const defaultExtractionHandlers: ExtractionHandlers = {
@@ -353,6 +356,7 @@ const defaultExtractionHandlers: ExtractionHandlers = {
   extractEikenWordsFromImage,
   extractIdiomsFromImage,
   extractCompositeWordsFromImage,
+  extractCustomWordsFromImage,
 };
 
 function normalizeEikenLevel(rawLevel: string | null): EikenLevel {
@@ -793,9 +797,28 @@ async function extractFromImage(
   modesOrMode: ExtractMode[] | ExtractMode,
   eikenLevel: string | null,
   apiKeys: { gemini?: string; openai?: string },
+  options: { customPrompt?: string | null } = {},
   handlers: ExtractionHandlers = defaultExtractionHandlers
 ): Promise<{ result: ExtractionLikeResult; warningCode?: ExtractionWarningCode }> {
   const modes = normalizeExtractModes(modesOrMode);
+
+  // カスタムモードはジョブ作成時に解決済みのプロンプトで抽出する。
+  // 何らかの理由でプロンプトが失われた場合は 'all' 相当にフォールバックし、
+  // 消費済みのスキャンを無駄にしない。
+  const customPrompt = normalizeCustomScanModePrompt(options.customPrompt);
+  if (modes.includes('custom')) {
+    if (!customPrompt) {
+      console.warn('Custom scan mode without a prompt. Falling back to all-word extraction.');
+      const result = await handlers.extractWordsFromImage(base64Image, apiKeys, { includeExamples: false }) as ExtractionLikeResult;
+      return { result: applySourceModesToExtractionResult(result, modes) };
+    }
+
+    const result = await handlers.extractCustomWordsFromImage(base64Image, apiKeys, {
+      customPrompt,
+    }) as ExtractionLikeResult;
+    return { result: applySourceModesToExtractionResult(result, modes) };
+  }
+
   if (modes.length > 1) {
     const result = await handlers.extractCompositeWordsFromImage(base64Image, apiKeys, {
       modes,
@@ -931,6 +954,11 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           ),
         );
         const primaryMode = modes[0] ?? 'all';
+        // カスタムモードの抽出条件はジョブ作成時にコピー済み（保存済みモードを
+        // 後から編集・削除しても処理中ジョブの条件は変わらない）
+        const jobCustomPrompt = normalizeCustomScanModePrompt(
+          (job as { custom_prompt?: unknown }).custom_prompt,
+        );
         timing.scanMode = modes.join(',');
         updateApiCostScanContext({ modes });
 
@@ -974,6 +1002,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
             modes,
             eikenLevel: job.eiken_level,
             apiKeys,
+            customPrompt: jobCustomPrompt,
             timeoutMs: EXTRACTION_TIMEOUT_MS,
             timeoutMessage: `画像解析がタイムアウトしました（${EXTRACTION_TIMEOUT_MINUTES}分）`,
           },

@@ -22,11 +22,14 @@ export interface CompositeExtractionOptions {
   eikenLevel?: string | null;
 }
 
+// 'custom' は単独専用モード（他モードとの組み合わせ不可）だが、
+// Record の網羅性のためラベルは持たせておく。
 const MODE_LABELS: Record<ExtractMode, string> = {
   all: '単語帳取込',
   circled: '丸囲み',
   eiken: '英検',
   idiom: '熟語・イディオム',
+  custom: 'カスタム',
 };
 
 function buildModeInstructions(modes: ExtractMode[], eikenLevel: string | null): string {

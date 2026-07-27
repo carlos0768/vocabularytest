@@ -6,14 +6,15 @@ import { isCloudRunConfigured } from '@/lib/ai/providers';
 // - 'circled': Extract hand-circled words only
 // - 'eiken': Extract words filtered by EIKEN level
 // - 'idiom': Extract idioms and phrases only
-export type ExtractMode = 'all' | 'circled' | 'eiken' | 'idiom';
+// - 'custom': Extract using the user's own prompt (saved as a custom mode)
+export type ExtractMode = 'all' | 'circled' | 'eiken' | 'idiom' | 'custom';
 
 export type ProviderApiKeys = {
   gemini?: string;
   openai?: string;
 };
 
-export const EXTRACT_MODES = ['all', 'circled', 'eiken', 'idiom'] as const;
+export const EXTRACT_MODES = ['all', 'circled', 'eiken', 'idiom', 'custom'] as const;
 
 const EXTRACT_MODE_SET = new Set<string>(EXTRACT_MODES);
 
@@ -89,6 +90,17 @@ export function getPrimaryExtractMode(modes: Iterable<ExtractMode>): ExtractMode
 export function requiresProForModes(modes: Iterable<ExtractMode>): boolean {
   void modes;
   return true;
+}
+
+// カスタムモードはユーザ定義プロンプトで抽出条件が決まるため、他モードとの
+// 併用（積集合）を許さない。UI・APIの両方でこの判定を使って弾く。
+export function isCustomModeSelection(modes: Iterable<ExtractMode>): boolean {
+  return Array.from(modes).includes('custom');
+}
+
+export function isValidModeCombination(modes: Iterable<ExtractMode>): boolean {
+  const normalized = normalizeExtractModes(Array.from(modes));
+  return !normalized.includes('custom') || normalized.length === 1;
 }
 
 export function getProvidersForMode(mode: ExtractMode): AIProvider[] {

@@ -6,6 +6,7 @@ import {
   extractEikenWordsFromImage,
   extractIdiomsFromImage,
   extractCompositeWordsFromImage,
+  extractCustomWordsFromImage,
 } from '@/lib/ai';
 import { getAPIKeys } from '@/lib/ai/config';
 import {
@@ -15,9 +16,14 @@ import {
   getMissingProviderKeyForModes,
   getProvidersForMode,
   getProvidersForModes,
+  isValidModeCombination,
   normalizeExtractModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
+import {
+  MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH,
+  resolveCustomExtractionPrompt,
+} from '@/lib/scan/custom-modes';
 import { randomUUID } from 'crypto';
 import { consumeScanGate } from '@/lib/coins/scan-gate';
 import { refundScanCoinsForJob } from '@/lib/coins/refund';
@@ -48,6 +54,9 @@ const requestSchema = z.object({
   scanModes: z.array(z.enum(EXTRACT_MODES)).min(1).max(EXTRACT_MODES.length).optional(),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
   includeMorphology: z.boolean().optional().default(false),
+  // カスタム抽出モード: 保存済みモードのID（優先）か、その場限りの指示文
+  customModeId: z.string().uuid().nullable().optional().default(null),
+  customPrompt: z.string().max(MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH).nullable().optional().default(null),
 }).strict();
 
 export const __internal = {
@@ -70,6 +79,7 @@ export type ExtractRouteDeps = {
   extractEikenWords?: typeof extractEikenWordsFromImage;
   extractIdioms?: typeof extractIdiomsFromImage;
   extractCompositeWords?: typeof extractCompositeWordsFromImage;
+  extractCustomWords?: typeof extractCustomWordsFromImage;
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
@@ -91,6 +101,7 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     extractEikenWords: deps?.extractEikenWords ?? extractEikenWordsFromImage,
     extractIdioms: deps?.extractIdioms ?? extractIdiomsFromImage,
     extractCompositeWords: deps?.extractCompositeWords ?? extractCompositeWordsFromImage,
+    extractCustomWords: deps?.extractCustomWords ?? extractCustomWordsFromImage,
     resolveImmediateWords: deps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst,
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
@@ -124,6 +135,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     extractEikenWords,
     extractIdioms,
     extractCompositeWords,
+    extractCustomWords,
     resolveImmediateWords,
     backfillWords,
     generateExamples,
@@ -162,12 +174,22 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     if (!parsed.ok) {
       return parsed.response;
     }
-    const { image, mode, scanModes: requestedScanModes, eikenLevel, includeMorphology } = parsed.data as {
+    const {
+      image,
+      mode,
+      scanModes: requestedScanModes,
+      eikenLevel,
+      includeMorphology,
+      customModeId,
+      customPrompt,
+    } = parsed.data as {
       image: string;
       mode: ExtractMode;
       scanModes?: ExtractMode[];
       eikenLevel: EikenLevel;
       includeMorphology: boolean;
+      customModeId: string | null;
+      customPrompt: string | null;
     };
     const modes = normalizeExtractModes(requestedScanModes, [mode]);
     const primaryMode = modes[0] ?? 'all';
@@ -231,6 +253,27 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       );
     }
 
+    // カスタムモードは抽出条件がユーザ定義のため他モードと併用できない
+    if (!isValidModeCombination(modes)) {
+      return NextResponse.json(
+        { success: false, error: 'カスタム抽出モードは他のモードと同時に使えません' },
+        { status: 400 }
+      );
+    }
+
+    // プロンプトはサーバー側で解決する（保存済みモードIDはクライアントを信用しない）
+    const resolvedCustomPrompt = await resolveCustomExtractionPrompt(supabase, user.id, {
+      isCustomMode: modes.includes('custom'),
+      customModeId,
+      customPrompt,
+    });
+    if (!resolvedCustomPrompt.ok) {
+      return NextResponse.json(
+        { success: false, error: resolvedCustomPrompt.error },
+        { status: 400 }
+      );
+    }
+
     const apiKeys = getApiKeys();
     const missingProviderKey = resolveMissingProviderKeyForModes(modes, apiKeys);
     if (missingProviderKey) {
@@ -286,6 +329,11 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       result = await extractCompositeWords(image, apiKeys, {
         modes,
         eikenLevel,
+      });
+    } else if (primaryMode === 'custom' && resolvedCustomPrompt.prompt) {
+      // ユーザ定義プロンプトによる抽出
+      result = await extractCustomWords(image, apiKeys, {
+        customPrompt: resolvedCustomPrompt.prompt,
       });
     } else if (primaryMode === 'idiom') {
       result = await extractIdioms(image, apiKeys);

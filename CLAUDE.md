@@ -108,11 +108,11 @@ getRepository(subscriptionStatus, wasPro)
 | Feature | Free | Pro (300 JPY/month) |
 |---------|------|---------------------|
 | Scanning | Not available (Pro-only, server-enforced) | Coin-based: 300 coins/month (JST calendar month, no rollover) when `COIN_SYSTEM_ENABLED=true`; unlimited when the flag is off |
-| Coin costs | — | Scan: circled=2, all/eiken/idiom=3, composite=sum, +1 per extra image, +2 morphology surcharge. Manual add: 1/word morphology (語源解析), success-gated & skipped (not blocked) when out of coins |
+| Coin costs | — | Scan: circled=2, all/eiken/idiom/custom=3, composite=sum, +1 per extra image, +2 morphology surcharge. Manual add: 1/word morphology (語源解析), success-gated & skipped (not blocked) when out of coins |
 | Coin packs | — | Web-only Stripe one-time checkout (card + PayPay): 100/¥150, 300/¥400, 1000/¥1,200. Purchased coins never expire |
 | Wordbooks (単語帳) | 50 (server-enforced) | Unlimited |
 | Words per wordbook | Unlimited | Unlimited |
-| Scan modes | — | all, circled, eiken, idiom |
+| Scan modes | — | all, circled, eiken, idiom, custom (ユーザ定義プロンプト・単独指定のみ) |
 | Shared wordbook view/import | Yes (login required) | Yes |
 | Shared wordbook publishing | No (Pro-only) | Yes |
 | Shared 語法問題集 view | Yes (login required) | Yes |
@@ -217,7 +217,14 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 ### 2. EIKEN level filtering -- Done
 - ScanModeModal mode: `eiken` with level selection (5-1)
 
-### 3. Grammar learning feature (語法問題集) -- Done
+### 3. Custom extraction prompt (カスタム抽出モード) -- Done
+- ScanModeMode: `custom`. ユーザが「どの単語を抽出するか」を自由記述で指定できる
+- 書いたプロンプトは `custom_scan_modes` テーブルに名前付きで保存（1ユーザ20個まで）
+- 出力フォーマット（JSON契約・品詞タグ・訳ルール）は `src/lib/ai/prompts/custom.ts` が常に付与し、ユーザ指示では上書きできない
+- プロンプトはサーバー側で解決（保存済みモードIDはクライアントを信用しない）。バックグラウンドスキャンでは `scan_jobs.custom_prompt` にコピーして固定する
+- 他モードとの併用は不可（`isValidModeCombination`）
+
+### 4. Grammar learning feature (語法問題集) -- Done
 - Vintage型の問題集 (空欄補充・英語4択・解説つき)。問題の作成は ChatGPT 連携 (`/api/chatgpt/grammar-*`) と手動追加のみで、サーバー側でのAI生成は行わない
 - Routes: `/grammar/**`, `/api/grammar/**` (books, questions, progress, favorite, share, public)
 - Tables: `grammar_books` / `grammar_questions` ほか (`supabase/migrations/2026072*_*grammar*.sql`)。RLSは本人限定のままで、他人の公開分は service-role のAPIルート経由でのみ読む

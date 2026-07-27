@@ -4,6 +4,7 @@ export { extractCircledWordsFromImage, type CircledExtractionResult } from './ex
 export { extractHighlightedWordsFromImage, type HighlightedExtractionResult } from './extract-highlighted-words';
 export { extractIdiomsFromImage, type IdiomExtractionResult } from './extract-idioms';
 export { extractCompositeWordsFromImage, type CompositeExtractionResult } from './extract-composite-words';
+export { extractCustomWordsFromImage, type CustomExtractionResult } from './extract-custom-words';
 export {
   extractTextForEiken,
   analyzeWordsForEiken,

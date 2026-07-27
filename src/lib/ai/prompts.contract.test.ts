@@ -58,9 +58,12 @@ const expectedPromptExports = [
   'WRONG_ANSWER_ANALYSIS_USER_PROMPT',
   'WRONG_ANSWER_OCR_SYSTEM_PROMPT',
   'WRONG_ANSWER_OCR_USER_PROMPT',
+  'buildCustomExtractionSystemPrompt',
+  'buildCustomExtractionUserPrompt',
   'getEikenFilterInstruction',
   'getEikenLevelsAbove',
   'getGrammarLevelFilterInstruction',
+  'sanitizeCustomExtractionInstruction',
 ];
 
 function assertIncludesAll(name: string, prompt: string, snippets: string[]): void {

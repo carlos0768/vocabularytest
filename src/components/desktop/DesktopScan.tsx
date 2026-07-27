@@ -27,6 +27,7 @@ import { useCoins, refreshCoins } from '@/hooks/use-coins';
 import { deriveScanCoinState } from '@/lib/coins/scan-cost';
 import { InsufficientCoinsError, type InsufficientCoinsInfo } from '@/lib/coins/errors';
 import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModal';
+import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
 import type { EikenLevel } from '@/app/api/extract/route';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
@@ -39,7 +40,7 @@ type EditableScanWord = AIWordExtraction & {
 };
 
 type DesktopScanProject = Pick<Project, 'id' | 'title' | 'createdAt' | 'iconImage'>;
-type ScanOptionKey = 'all' | 'circled' | 'idiom' | 'eiken';
+type ScanOptionKey = 'all' | 'circled' | 'idiom' | 'eiken' | 'custom';
 
 const SCAN_OPTIONS: {
   key: ScanOptionKey;
@@ -52,6 +53,7 @@ const SCAN_OPTIONS: {
   { key: 'circled', label: '丸囲み', description: 'マークした単語を優先', icon: 'gesture' },
   { key: 'idiom', label: '熟語・イディオム', description: '複数語の表現も候補化', icon: 'link' },
   { key: 'eiken', label: '英検', description: '級別の頻出語を優先', icon: 'filter_alt', pro: true },
+  { key: 'custom', label: 'カスタム', description: '抽出条件を自分で指示', icon: 'edit_note' },
 ];
 
 // 英検の級（nullなし）。モバイルの ScanCapturePanel と同一の順序・ラベル。
@@ -105,6 +107,10 @@ export function DesktopScanView({
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
+  const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
+    modeId: null,
+    prompt: '',
+  });
   const [processing, setProcessing] = useState(false);
   const [processingLabel, setProcessingLabel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -127,6 +133,14 @@ export function DesktopScanView({
   const scanModes = selectedOptions;
   // 英検モード時のみ級を送る。未選択(null)ならスキャン前にガードする。
   const selectedEikenLevel = scanModes.includes('eiken') ? eikenLevel : null;
+  const isCustomMode = scanModes.includes('custom');
+  // 保存済みモードを選んでいればID、その場入力ならプロンプト本文を送る
+  const customPayload = isCustomMode
+    ? {
+        customModeId: customSelection.modeId,
+        customPrompt: customSelection.modeId ? null : customSelection.prompt.trim() || null,
+      }
+    : { customModeId: null, customPrompt: null };
 
   // コイン制オン時のコスト見積り（モバイルと同一の純粋関数）。
   // デスクトップは事前に枚数が分からないため1枚基準で表示する。
@@ -192,6 +206,8 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
+          ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
+          ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
           targetProjectId: destinationProjectId || undefined,
           clientPlatform: 'web',
         }),
@@ -243,6 +259,8 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
+          ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
+          ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
         }),
       });
       const result = await res.json().catch(() => ({})) as {
@@ -290,6 +308,12 @@ export function DesktopScanView({
     if (scanModes.includes('eiken') && !eikenLevel) {
       setSuccessMsg(null);
       setErrorMsg('英検レベル（級）を選択してください');
+      return;
+    }
+    // カスタムモードは抽出プロンプトが必須。
+    if (isCustomMode && !customPayload.customModeId && !customPayload.customPrompt) {
+      setSuccessMsg(null);
+      setErrorMsg('抽出プロンプトを入力するか、保存したモードを選択してください');
       return;
     }
 
@@ -639,6 +663,13 @@ export function DesktopScanView({
                     級を選んでからスキャンを開始してください
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* カスタム抽出プロンプト（カスタムモード選択時のみ表示） */}
+            {isCustomMode && (
+              <div className="ds-card" style={{ marginTop: 14, padding: '4px 18px 16px' }}>
+                <CustomScanModePanel selection={customSelection} onChange={setCustomSelection} />
               </div>
             )}
 

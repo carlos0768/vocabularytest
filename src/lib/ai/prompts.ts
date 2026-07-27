@@ -38,6 +38,12 @@ export {
 } from './prompts/idiom';
 
 export {
+  buildCustomExtractionSystemPrompt,
+  buildCustomExtractionUserPrompt,
+  sanitizeCustomExtractionInstruction,
+} from './prompts/custom';
+
+export {
   HIGHLIGHTED_WORD_EXTRACTION_SYSTEM_PROMPT,
   HIGHLIGHTED_WORD_USER_PROMPT,
   HIGHLIGHTED_WORD_VERIFICATION_SYSTEM_PROMPT,

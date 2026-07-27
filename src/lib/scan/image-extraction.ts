@@ -37,6 +37,7 @@ export interface ScanImageExtractionDeps<TWord, TWarningCode extends string = st
     modes: ExtractMode[],
     eikenLevel: string | null,
     apiKeys: ScanImageApiKeys,
+    options?: { customPrompt?: string | null },
   ) => Promise<{
     result: ScanImageExtractionLikeResult;
     warningCode?: TWarningCode;
@@ -57,6 +58,8 @@ export interface ProcessScanImageParams {
   apiKeys: ScanImageApiKeys;
   timeoutMs: number;
   timeoutMessage: string;
+  /** 'custom' モードでジョブに保存されたユーザ定義の抽出プロンプト */
+  customPrompt?: string | null;
 }
 
 export function getScanImageMimeType(imagePath: string): string {
@@ -79,6 +82,7 @@ export async function processScanImage<TWord, TWarningCode extends string = stri
     apiKeys,
     timeoutMs,
     timeoutMessage,
+    customPrompt = null,
   } = params;
   const normalizedModes = normalizeExtractModes(modes);
   const pageLabel = `ページ${pageIndex + 1}`;
@@ -109,7 +113,7 @@ export async function processScanImage<TWord, TWarningCode extends string = stri
     const exStart = now();
     const extractionResult = await deps.withTimeout(
       deps.withTimingPhase('aiExtraction', () =>
-        deps.extractImage(base64Image, normalizedModes, eikenLevel, apiKeys)
+        deps.extractImage(base64Image, normalizedModes, eikenLevel, apiKeys, { customPrompt })
       ),
       timeoutMs,
       timeoutMessage,
