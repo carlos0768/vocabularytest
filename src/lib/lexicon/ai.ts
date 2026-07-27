@@ -21,6 +21,11 @@ const TRANSLATION_PROMPT = `あなたは英和辞典です。与えられた英�
 - 一般的な意味が1つしかない語は senses を1件だけ返す（無理に増やさない）
 - isPrimary は最も一般的な意味1件だけ true にする
 - meaningSummary はその意味の短い説明（10文字程度）。不要なら null
+- distinctKey はその意味を識別する英語スラッグ（半角英小文字とアンダースコアのみ・例: "right_direction", "right_entitlement"）
+- cefrLevel はその意味「単体」の難易度をCEFR（A1/A2/B1/B2/C1/C2）で判定する
+  - 見出し語全体の難易度ではなく、その語義がどのレベルの学習者向けかで判定する
+  - 例: right の「右」は A1、「権利」は B1、「正当な」は B2
+  - 判定できない場合のみ null
 - 動詞の場合は「〜する」の形を優先する
 - 不要な説明や引用符は付けない
 ${JAPANESE_PARENTHESIS_RULES}
@@ -28,8 +33,8 @@ ${JAPANESE_PARENTHESIS_RULES}
 出力形式:
 {
   "senses": [
-    { "japanese": "走る", "meaningSummary": "移動する", "isPrimary": true },
-    { "japanese": "経営する", "meaningSummary": "組織を運営する", "isPrimary": false }
+    { "japanese": "走る", "meaningSummary": "移動する", "distinctKey": "run_move", "cefrLevel": "A1", "isPrimary": true },
+    { "japanese": "経営する", "meaningSummary": "組織を運営する", "distinctKey": "run_manage", "cefrLevel": "B2", "isPrimary": false }
   ]
 }`;
 
@@ -101,6 +106,8 @@ const PART_OF_SPEECH_CLASSIFICATION_PROMPT = `あなたは英和辞典の品詞�
 const translatedSenseSchema = z.object({
   japanese: z.string().trim().min(1),
   meaningSummary: z.string().trim().nullable().optional(),
+  distinctKey: z.string().trim().nullable().optional(),
+  cefrLevel: z.string().trim().nullable().optional(),
   isPrimary: z.boolean().optional(),
 });
 
@@ -129,8 +136,38 @@ const batchTranslationResponseSchema = z.object({
  * - 件数を MAX_TRANSLATED_SENSES に制限
  * - isPrimary をちょうど1件にする（無ければ先頭を primary に昇格）
  */
+const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+
+/** 語義のCEFRレベル。A1〜C2以外は不明扱い（null）。 */
+export function normalizeSenseCefrLevel(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toUpperCase();
+  return (CEFR_LEVELS as readonly string[]).includes(normalized) ? normalized : null;
+}
+
+/**
+ * 語義識別キー。AIが返したスラッグを半角英小文字＋アンダースコアに正規化する。
+ * 使える文字が残らない場合は日本語訳をそのままキーにする（DB側の一意性は
+ * (lexicon_entry_id, normalized_translation_ja) で担保されている）。
+ */
+export function normalizeSenseDistinctKey(
+  value: string | null | undefined,
+  fallbackJapanese: string,
+): string {
+  const slug = typeof value === 'string'
+    ? value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+    : '';
+  return slug.length > 0 ? slug.slice(0, 80) : fallbackJapanese;
+}
+
 export function normalizeTranslatedSenses(
-  senses: Array<{ japanese: string; meaningSummary?: string | null; isPrimary?: boolean }>,
+  senses: Array<{
+    japanese: string;
+    meaningSummary?: string | null;
+    distinctKey?: string | null;
+    cefrLevel?: string | null;
+    isPrimary?: boolean;
+  }>,
 ): TranslatedSense[] {
   const seen = new Set<string>();
   const normalized: TranslatedSense[] = [];
@@ -142,6 +179,8 @@ export function normalizeTranslatedSenses(
     normalized.push({
       japanese,
       meaningSummary: normalizeLexiconTranslation(sense.meaningSummary) ?? null,
+      distinctKey: normalizeSenseDistinctKey(sense.distinctKey, japanese),
+      cefrLevel: normalizeSenseCefrLevel(sense.cefrLevel),
       isPrimary: sense.isPrimary === true,
     });
     if (normalized.length >= MAX_TRANSLATED_SENSES) break;
@@ -356,6 +395,8 @@ export async function translateWordsSensesWithAI(
 - 一般的な意味が1つしかない語は senses を1件だけ返す（無理に増やさない）
 - 各語の isPrimary は最も一般的な意味1件だけ true にする
 - meaningSummary はその意味の短い説明（10文字程度）。不要なら null
+- distinctKey はその意味を識別する英語スラッグ（半角英小文字とアンダースコアのみ）
+- cefrLevel はその意味「単体」の難易度（A1/A2/B1/B2/C1/C2）。見出し語全体ではなく語義ごとに判定し、不明なら null
 - 動詞は「〜する」の形を優先する
 - 不明な場合は senses を null にする
 - 説明文や前置きは禁止
@@ -368,8 +409,8 @@ ${JAPANESE_PARENTHESIS_RULES}
       "english": "run",
       "pos": "verb",
       "senses": [
-        { "japanese": "走る", "meaningSummary": "移動する", "isPrimary": true },
-        { "japanese": "経営する", "meaningSummary": "組織を運営する", "isPrimary": false }
+        { "japanese": "走る", "meaningSummary": "移動する", "distinctKey": "run_move", "cefrLevel": "A1", "isPrimary": true },
+        { "japanese": "経営する", "meaningSummary": "組織を運営する", "distinctKey": "run_manage", "cefrLevel": "B2", "isPrimary": false }
       ]
     }
   ]

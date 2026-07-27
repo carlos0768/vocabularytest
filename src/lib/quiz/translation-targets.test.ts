@@ -97,3 +97,87 @@ test('generateQuizQuestions produces a separate question per distinct translatio
   assert.ok(correctAnswers.includes('分別'), 'distinct meaning is quizzed');
   assert.equal(questions.length, 2);
 });
+
+test('sense targets use their own distractors instead of the primary meaning ones', () => {
+  const word = createWord({
+    id: 'word-4',
+    english: 'right',
+    japanese: '右',
+    distractors: ['左', '上', '下'],
+    translations: [
+      createTranslation({ translationJa: '右', isPrimary: true, lexiconSenseIsPrimary: true }),
+      createTranslation({
+        translationJa: '権利',
+        distinctKey: '権利',
+        isPrimary: false,
+        distractors: ['義務', '責任', '規則'],
+      }),
+    ],
+  });
+
+  const targets = expandWordForQuizTargets(word);
+  const distinct = targets.find((target) => isTranslationQuizTarget(target));
+
+  assert.deepEqual(distinct?.distractors, ['義務', '責任', '規則']);
+  // 単語行の例文は主要語義向けなので、語義単位の出題には流用しない
+  assert.equal(distinct?.exampleSentence, undefined);
+});
+
+test('eikenLevel drops senses that are far below the learner level', () => {
+  const word = createWord({
+    id: 'word-5',
+    english: 'right',
+    japanese: '右',
+    cefrLevel: 'A1',
+    translations: [
+      createTranslation({ translationJa: '右', isPrimary: true, lexiconSenseIsPrimary: true, cefrLevel: 'A1' }),
+      createTranslation({ translationJa: '権利', distinctKey: '権利', isPrimary: false, cefrLevel: 'B1' }),
+    ],
+  });
+
+  const targets = expandWordForQuizTargets(word, { eikenLevel: 'pre1' });
+  assert.deepEqual(targets.map((target) => target.japanese), ['権利']);
+
+  // 級を指定しない/低い級なら両方の語義を出題する
+  assert.equal(expandWordForQuizTargets(word).length, 2);
+  assert.equal(expandWordForQuizTargets(word, { eikenLevel: '3' }).length, 2);
+});
+
+test('a sense with an unknown level is not judged by the headword level', () => {
+  // right（見出し語はA1）の「権利」にCEFRが付いていない場合、見出し語レベルへ
+  // フォールバックすると準1級で全語義が落ちてしまう。語義不明は残す。
+  const word = createWord({
+    id: 'word-6',
+    english: 'right',
+    japanese: '右',
+    cefrLevel: 'A1',
+    translations: [
+      createTranslation({ translationJa: '右', isPrimary: true, lexiconSenseIsPrimary: true }),
+      createTranslation({ translationJa: '権利', distinctKey: '権利', isPrimary: false }),
+    ],
+  });
+
+  const targets = expandWordForQuizTargets(word, { eikenLevel: 'pre1' });
+  assert.deepEqual(targets.map((target) => target.japanese), ['権利']);
+});
+
+test('generateQuizQuestions honours the learner eiken level', () => {
+  const word = createWord({
+    id: 'word-7',
+    english: 'right',
+    japanese: '右',
+    cefrLevel: 'A1',
+    translations: [
+      createTranslation({ translationJa: '右', isPrimary: true, lexiconSenseIsPrimary: true, cefrLevel: 'A1' }),
+      createTranslation({ translationJa: '権利', distinctKey: '権利', isPrimary: false, cefrLevel: 'B1' }),
+    ],
+  });
+
+  const questions = generateQuizQuestions([word], 10, 'en-to-ja', identityShuffle, {
+    preserveOrder: true,
+    eikenLevel: 'pre1',
+  });
+
+  assert.equal(questions.length, 1);
+  assert.equal(questions[0].options[questions[0].correctIndex ?? -1], '権利');
+});

@@ -4,7 +4,7 @@ export const LEXICON_ENTRY_SELECT_COLUMNS =
   'id, headword, normalized_headword, pos, cefr_level, dataset_sources, translation_ja, translation_source, created_at, updated_at' as const;
 
 export const LEXICON_SENSE_SELECT_COLUMNS =
-  'id, lexicon_entry_id, translation_ja, normalized_translation_ja, distinct_key, meaning_summary, usage_notes, example_sentence, example_sentence_ja, translation_source, is_primary, created_at, updated_at' as const;
+  'id, lexicon_entry_id, translation_ja, normalized_translation_ja, distinct_key, cefr_level, distractors, meaning_summary, usage_notes, example_sentence, example_sentence_ja, translation_source, is_primary, created_at, updated_at' as const;
 
 export const WORD_TRANSLATION_SELECT_COLUMNS =
   'id, word_id, lexicon_sense_id, translation_ja, normalized_translation_ja, source, meaning_rank, position, is_primary, status, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, created_at, updated_at' as const;

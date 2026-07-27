@@ -1,8 +1,14 @@
 import type { Word, WordStatus, WordTranslation } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
+import { filterSensesByEikenLevel } from '@/lib/quiz/sense-eiken-level';
 
 type QuizTargetOptions = {
   primaryOnly?: boolean;
+  /**
+   * 学習者の英検級（'5'〜'1'）。指定すると、その級から見て易しすぎる語義を
+   * 出題対象から外す（準1級に "right = 右" を出さない）。
+   */
+  eikenLevel?: string | null;
 };
 
 const DEFAULT_SR = getDefaultSpacedRepetitionFields();
@@ -34,13 +40,32 @@ export function isDistinctQuizTranslation(translation: WordTranslation): boolean
   return Boolean(normalizeKeyPart(translation.distinctKey)) && !translation.isPrimary;
 }
 
+/**
+ * 出題対象の「その語義自体」のCEFRレベル。
+ *
+ * 語義単位の出題（多義語の非主要語義）では、見出し語のCEFR（word.cefrLevel）へ
+ * フォールバックしてはいけない。見出し語レベルは主要語義の難易度なので、
+ * 例えば right（A1）の「権利」を A1 とみなして落としてしまう。
+ * 主要語義の出題では見出し語レベルを難易度の代用として使える。
+ */
+export function getQuizTargetSenseCefrLevel(word: Word): string | undefined {
+  if (isTranslationQuizTarget(word)) return word.lexiconSenseCefrLevel;
+  return word.lexiconSenseCefrLevel ?? word.cefrLevel;
+}
+
 function buildTranslationQuizWord(word: Word, translation: WordTranslation): Word {
   const key = getTranslationTargetKey(word, translation);
   return {
     ...word,
     japanese: translation.translationJa,
+    // 誤答選択肢・例文は正解訳に紐づくので、語義固有の値があればそれを使う。
+    // 単語行の値は主要語義向けに生成されているため流用しない。
+    distractors: translation.distractors ?? [],
+    exampleSentence: undefined,
+    exampleSentenceJa: undefined,
     lexiconSenseId: translation.lexiconSenseId ?? word.lexiconSenseId,
     lexiconDistinctKey: translation.distinctKey,
+    lexiconSenseCefrLevel: translation.cefrLevel,
     lexiconSenseIsPrimary: translation.lexiconSenseIsPrimary ?? false,
     status: getTranslationStatus(translation),
     lastReviewedAt: translation.lastReviewedAt,
@@ -97,7 +122,20 @@ export function expandWordForQuizTargets(
     targets.push(target);
   }
 
-  return targets;
+  if (targets.length === 1 || !options.eikenLevel) {
+    return targets;
+  }
+
+  // 学習者の英検級から見て易しすぎる語義を落とす。全語義が落ちる場合は
+  // フィルタ側が最も難しい語義を1つ残すので、出題が消えることはない。
+  return filterSensesByEikenLevel(
+    targets.map((target) => ({
+      target,
+      cefrLevel: getQuizTargetSenseCefrLevel(target),
+      isPrimary: !isTranslationQuizTarget(target),
+    })),
+    options.eikenLevel,
+  ).map((candidate) => candidate.target);
 }
 
 export function expandWordsForQuizTargets(

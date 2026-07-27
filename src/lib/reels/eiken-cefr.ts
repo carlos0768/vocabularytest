@@ -18,8 +18,19 @@ export const EIKEN_TO_CEFR_BAND: Record<string, CefrLevel[]> = {
   '1': ['C1'],
 };
 
-function cefrIndex(level: string): number {
+export function cefrIndex(level: string): number {
   return CEFR_LEVEL_ORDER.indexOf(level.toUpperCase() as CefrLevel);
+}
+
+/**
+ * 指定英検級の「これ未満は除外」しきい値。バンドの下限CEFRレベルを返す。
+ * 例: 準1級 -> B2(B1以下の単語は除外対象)。
+ */
+export function getEikenCefrThreshold(eikenLevel: string | null | undefined): CefrLevel | null {
+  if (!eikenLevel) return null;
+  const band = EIKEN_TO_CEFR_BAND[eikenLevel];
+  if (!band || band.length === 0) return null;
+  return band.reduce((easiest, level) => (cefrIndex(level) < cefrIndex(easiest) ? level : easiest));
 }
 
 /**

@@ -176,6 +176,18 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - Correct -> green highlight, Wrong -> red highlight with correct answer shown
    - SM-2 spaced repetition: tracks easeFactor, intervalDays, repetition, nextReviewAt
    - Daily stats recorded: todayCount, correctCount, streakDays
+   - **Polysemy (多義語) quizzes**: a word is quizzed once per distinct meaning. Meanings live in
+     `lexicon_senses` (`distinct_key` marks a sense as its own quiz target, `cefr_level` is the
+     difficulty of that meaning) and are materialized per word as `word_translations` rows by
+     `POST /api/words/senses` at quiz start, which is what lets each meaning carry its own SM-2
+     progress. Expansion into per-sense targets happens in
+     `src/lib/quiz/translation-targets.ts:expandWordForQuizTargets`. Pro-only — free users are
+     capped to primary meanings via `primaryOnly`.
+   - **EIKEN sense filter**: senses more than one CEFR step below the learner's EIKEN band
+     (`profiles.eiken_level`, read client-side by `useEikenLevel`) are not quizzed — a pre-1 learner
+     gets `right = 権利` but not `right = 右`. Pure logic in `src/lib/quiz/sense-eiken-level.ts`;
+     senses with unknown CEFR are always kept, and a word never loses all of its senses (the hardest
+     one survives).
 4. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync.
 5. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
 6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
