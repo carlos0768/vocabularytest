@@ -1,0 +1,22 @@
+{
+  "entries": [
+    {
+      "package": "postcss",
+      "advisory": "GHSA-qx2v-qp2m-jg93",
+      "reason": "next が同梱する postcss の脆弱性。修正版 postcss は未リリースで、npm audit の fixAvailable は next のメジャーダウングレードのみ。postcss はビルド時に自分たちの CSS のみを処理し、攻撃者が制御する CSS 入力は扱わない。postcss の修正版が出たら bump して本エントリを削除する。",
+      "expires_on": "2026-10-31"
+    },
+    {
+      "package": "postcss",
+      "advisory": "GHSA-6g55-p6wh-862q",
+      "reason": "同上（next 同梱 postcss / 修正版未リリース / ビルド時に自分たちの CSS のみ処理）。",
+      "expires_on": "2026-10-31"
+    },
+    {
+      "package": "postcss",
+      "advisory": "GHSA-r28c-9q8g-f849",
+      "reason": "同上（next 同梱 postcss / 修正版未リリース / ビルド時に自分たちの CSS のみ処理）。",
+      "expires_on": "2026-10-31"
+    }
+  ]
+}

@@ -14,8 +14,10 @@ import { decodeReelCursor, encodeReelCursor } from '@/lib/reels/cursor';
 import { eikenLevelsAround } from '@/lib/reels/eiken-cefr';
 import { selectReelCandidates } from '@/lib/reels/ranking';
 import {
+  candidateHeadwords,
   sampleBookWords,
   sharedCefrLookupHeadwords,
+  withCandidateMorphology,
   withSharedCefrLevels,
 } from '@/lib/reels/sampling';
 import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
@@ -26,7 +28,6 @@ import {
   snapshotTranslationsFromWordTranslationRows,
   type SnapshotTranslation,
 } from '@/lib/shared-projects/snapshot-translations';
-import { normalizeHeadword } from '../../../../shared/lexicon';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -720,23 +721,39 @@ export async function buildReelFeedPage(options: {
     (candidate) => !feedback.excludedKeys.has(candidate.id),
   );
 
-  if (rankingInputs.eikenLevel) {
-    // Shared words carry no CEFR level; fill it from the lexicon so levelFit
-    // can personalize them too. Best-effort — never break the feed on it.
-    try {
-      const headwords = sharedCefrLookupHeadwords(candidates);
-      if (headwords.length > 0) {
-        const levels = await lookupLexiconCefrLevels(headwords, { supabaseAdmin: admin });
-        candidates = withSharedCefrLevels(candidates, levels);
-      }
-    } catch {
-      // cefrLevel stays null → neutral level fit.
-    }
-  }
   // pin された単語（興味なし指定済みは尊重して固定しない）は先頭に置き、
   // 残り枠を通常ランキングで埋める。
-  const pinnedCandidate =
+  const pinnedFiltered =
     pinnedFetched && !feedback.excludedKeys.has(pinnedFetched.id) ? pinnedFetched : null;
+
+  // 語源（morphology）はランキングの優先材料なので、配信枚数分ではなく候補
+  // 全件ぶん先に引く（lexicon キャッシュのみ・生成はしない）。CEFR の補完とは
+  // 独立なので並走させる。どちらも best effort で、失敗してもフィードは出す。
+  const [sharedCefrLevels, morphologyByHeadword] = await Promise.all([
+    rankingInputs.eikenLevel
+      ? // Shared words carry no CEFR level; fill it from the lexicon so levelFit
+        // can personalize them too.
+        lookupLexiconCefrLevels(sharedCefrLookupHeadwords(candidates), {
+          supabaseAdmin: admin,
+        }).catch(() => null) // cefrLevel stays null → neutral level fit.
+      : Promise.resolve(null),
+    getCachedMorphologyByHeadword(
+      candidateHeadwords(pinnedFiltered ? [...candidates, pinnedFiltered] : candidates),
+      { supabaseAdmin: admin },
+    ).catch(() => null), // 語源は任意情報。失敗時は全カード2面のまま配信する。
+  ]);
+
+  if (sharedCefrLevels) {
+    candidates = withSharedCefrLevels(candidates, sharedCefrLevels);
+  }
+  if (morphologyByHeadword) {
+    candidates = withCandidateMorphology(candidates, morphologyByHeadword);
+  }
+  const pinnedCandidate =
+    pinnedFiltered && morphologyByHeadword
+      ? withCandidateMorphology([pinnedFiltered], morphologyByHeadword)[0]
+      : pinnedFiltered;
+
   const rankedSelections = selectReelCandidates(
     pinnedCandidate
       ? candidates.filter((candidate) => candidate.id !== pinnedCandidate.id)
@@ -800,26 +817,14 @@ export async function buildReelFeedPage(options: {
 
   const grantedCandidates = grantedSelections.map((s) => s.candidate);
 
-  // 語源（morphology, lexicon キャッシュ専用・best effort）といいね/コメント等の
-  // エンリッチは互いに独立なので並走させ、応答の直列往復を1本減らす。
-  const [morphologyByHeadword, enriched] = await Promise.all([
-    getCachedMorphologyByHeadword(
-      grantedCandidates.map((candidate) => normalizeHeadword(candidate.english)),
-      { supabaseAdmin: admin },
-    ).catch(() => null), // morphology は任意情報。失敗時は全カード2面のまま配信する。
-    enrichItems(admin, options.userId, grantedCandidates),
-  ]);
+  // 語源は候補段階で貼り済み（ランキングで使うため）。ここでは残りのエンリッチだけ。
+  const enriched = await enrichItems(admin, options.userId, grantedCandidates);
 
-  const items = enriched.map((item) => {
-    const morphology = morphologyByHeadword?.get(normalizeHeadword(item.english));
-    return {
-      ...item,
-      morphology: morphology && !morphology.none && morphology.formula.length > 0
-        ? morphology
-        : null,
-      isRecycled: recycledByKey.get(item.id) ?? false,
-    };
-  });
+  const items = enriched.map((item) => ({
+    ...item,
+    morphology: item.morphology ?? null,
+    isRecycled: recycledByKey.get(item.id) ?? false,
+  }));
 
   const limitReached = usage.limit !== null && usage.current_count >= usage.limit;
   // The feed never runs dry (seen words recycle); nextCursor is null only

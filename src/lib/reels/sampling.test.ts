@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import type { WordMorphology } from '@/types';
 import type { ReelBook, ReelCandidate } from './types';
 import {
+  candidateHeadwords,
   sampleBookWords,
   sharedCefrLookupHeadwords,
+  withCandidateMorphology,
   withSharedCefrLevels,
   type WordSamplingOptions,
 } from './sampling';
@@ -148,6 +151,48 @@ test('withSharedCefrLevels fills shared words via normalized headwords', () => {
 test('withSharedCefrLevels is a no-op for an empty map', () => {
   const candidates = [makeCandidate('a')];
   assert.equal(withSharedCefrLevels(candidates, new Map()), candidates);
+});
+
+// ---------- withCandidateMorphology ----------
+
+const MORPHOLOGY: WordMorphology = {
+  formula: [{ text: 'un', kind: 'prefix', meaningJa: '否定' }],
+  explanation: '否定の un。',
+  version: 1,
+};
+
+test('withCandidateMorphology attaches cached morphology by normalized headword', () => {
+  const candidates = [
+    makeCandidate('a', { english: ' Unhappy ' }),
+    makeCandidate('b', { english: 'banana' }),
+  ];
+  const enriched = withCandidateMorphology(candidates, new Map([['unhappy', MORPHOLOGY]]));
+  assert.deepEqual(enriched[0].morphology, MORPHOLOGY);
+  assert.equal(enriched[1].morphology, null, 'cache miss becomes an explicit null');
+});
+
+test('withCandidateMorphology drops morphology that cannot be displayed', () => {
+  const candidates = [
+    makeCandidate('a', { english: 'none-word' }),
+    makeCandidate('b', { english: 'empty-word' }),
+  ];
+  const enriched = withCandidateMorphology(
+    candidates,
+    new Map([
+      ['none-word', { formula: [], explanation: '', version: 1, none: true } as WordMorphology],
+      ['empty-word', { formula: [], explanation: '解説だけ', version: 1 } as WordMorphology],
+    ]),
+  );
+  assert.equal(enriched[0].morphology, null);
+  assert.equal(enriched[1].morphology, null);
+});
+
+test('candidateHeadwords normalizes every candidate', () => {
+  const candidates = [
+    makeCandidate('a', { english: ' Apple  Pie ' }),
+    makeCandidate('b', { english: 'Banana', cefrLevel: 'A1' }),
+  ];
+  assert.deepEqual(candidateHeadwords(candidates), ['apple pie', 'banana']);
 });
 
 test('sharedCefrLookupHeadwords collects only shared words missing a level', () => {
