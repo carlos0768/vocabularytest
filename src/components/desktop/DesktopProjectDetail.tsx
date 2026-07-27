@@ -40,6 +40,8 @@ type UpcomingReviewRailItem = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const DESKTOP_WORDS_PER_PAGE = 10;
+
 function vocabularyTypeSortRank(value: Word['vocabularyType']): number {
   if (value === 'active') return 0;
   if (value === 'passive') return 1;
@@ -189,7 +191,25 @@ export function DesktopProjectDetailView({
       .slice(0, 5);
   }, [nowMs, words]);
 
+  // モバイルと同じ規則: 20語を超える単語帳は10語ずつページ送りする (フロントのみで完結)
+  const paginateRows = rows.length > DESKTOP_WORDS_PER_PAGE * 2;
+  const pageCount = paginateRows ? Math.ceil(rows.length / DESKTOP_WORDS_PER_PAGE) : 1;
+  const [storedWordPage, setWordPage] = useState(0);
+  // 検索語や並べ替えを変えたら先頭ページから見せる (レンダー中に前回値と比べて直す React 公式パターン)
+  const pageResetKey = `${query}|${sortKey}|${sortDir}`;
+  const [prevPageResetKey, setPrevPageResetKey] = useState(pageResetKey);
+  if (prevPageResetKey !== pageResetKey) {
+    setPrevPageResetKey(pageResetKey);
+    setWordPage(0);
+  }
+  // フィルタでページ数が減ったときは末尾ページに丸める
+  const wordPage = Math.min(storedWordPage, pageCount - 1);
+  const pagedRows = paginateRows
+    ? rows.slice(wordPage * DESKTOP_WORDS_PER_PAGE, (wordPage + 1) * DESKTOP_WORDS_PER_PAGE)
+    : rows;
+
   const selectedWord = selectedWordId ? words.find((word) => word.id === selectedWordId) ?? null : null;
+  // 詳細モーダルの前後移動は絞り込み後の全単語を辿る (ページ境界で止めない)
   const modalWords = useMemo(() => {
     if (!selectedWord) return rows;
     return rows.some((word) => word.id === selectedWord.id)
@@ -463,7 +483,7 @@ export function DesktopProjectDetailView({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((word) => {
+                {pagedRows.map((word) => {
                   const isChecked = selectedWordIds.has(word.id);
                   const displayStatus = word.status;
                   return (
@@ -555,8 +575,49 @@ export function DesktopProjectDetailView({
               )
             )}
           </div>
-          <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>
-            {rows.length} / {counts.total} 語を表示・行をクリックで詳細を表示
+          {/* 20語を超えるときは10語ずつページ送り。件数表示の右に前後ボタンを置く */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginTop: 10,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div className="mono muted" style={{ fontSize: 11 }}>
+              {paginateRows
+                ? `${wordPage * DESKTOP_WORDS_PER_PAGE + 1}–${Math.min(rows.length, (wordPage + 1) * DESKTOP_WORDS_PER_PAGE)} / ${rows.length} 語を表示・行をクリックで詳細を表示`
+                : `${rows.length} / ${counts.total} 語を表示・行をクリックで詳細を表示`}
+            </div>
+            {paginateRows && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  className="ds-btn sm"
+                  style={{ width: 32, height: 32, padding: 0 }}
+                  onClick={() => setWordPage(Math.max(0, wordPage - 1))}
+                  disabled={wordPage === 0}
+                  aria-label="前の10語"
+                >
+                  <Icon name="chevron_left" />
+                </button>
+                <span className="mono" style={{ fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                  {wordPage + 1} / {pageCount}
+                </span>
+                <button
+                  type="button"
+                  className="ds-btn sm"
+                  style={{ width: 32, height: 32, padding: 0 }}
+                  onClick={() => setWordPage(Math.min(pageCount - 1, wordPage + 1))}
+                  disabled={wordPage >= pageCount - 1}
+                  aria-label="次の10語"
+                >
+                  <Icon name="chevron_right" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -589,7 +650,13 @@ export function DesktopProjectDetailView({
             const ids = modalWords.map((row) => row.id);
             const currentIndex = ids.indexOf(selectedWord.id);
             if (currentIndex < 0 || ids.length === 0) return;
-            setSelectedWordId(ids[(currentIndex + dir + ids.length) % ids.length] ?? selectedWord.id);
+            const nextId = ids[(currentIndex + dir + ids.length) % ids.length] ?? selectedWord.id;
+            setSelectedWordId(nextId);
+            // 背後の表も、移動先の単語が載っているページに合わせる
+            if (paginateRows) {
+              const rowIndex = rows.findIndex((row) => row.id === nextId);
+              if (rowIndex >= 0) setWordPage(Math.floor(rowIndex / DESKTOP_WORDS_PER_PAGE));
+            }
           }}
         />
       )}

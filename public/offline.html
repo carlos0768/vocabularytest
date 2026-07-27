@@ -37,6 +37,12 @@
       padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
       -webkit-font-smoothing: antialiased;
     }
+    /* The offline wordbook viewer takes over the whole page when it can render
+       something, so the centred single-card layout must not apply to it. */
+    body.ov-active {
+      display: block;
+      padding: 0;
+    }
     .card {
       width: 100%;
       max-width: 360px;
@@ -86,10 +92,278 @@
       color: var(--muted);
       min-height: 16px;
     }
+
+    /* ---- offline wordbook viewer (public/offline-viewer.js) ---- */
+    #offline-viewer {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: max(16px, env(safe-area-inset-top)) 18px
+        calc(40px + env(safe-area-inset-bottom));
+    }
+    .ov-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0 14px;
+    }
+    .ov-header-titles { min-width: 0; flex: 1; }
+    .ov-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    .ov-title {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin: 2px 0 0;
+      overflow-wrap: anywhere;
+    }
+    .ov-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ov-icon-button {
+      flex: 0 0 auto;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      text-decoration: none;
+    }
+    .ov-notice {
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin: 0 0 14px;
+    }
+    .ov-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 20px;
+      border-radius: 999px;
+      text-decoration: none;
+    }
+    .ov-button-ghost {
+      margin-top: 12px;
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+    .ov-list { display: flex; flex-direction: column; gap: 10px; }
+    .ov-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      text-decoration: none;
+      color: inherit;
+    }
+    .ov-row:active { opacity: 0.75; }
+    .ov-thumb {
+      flex: 0 0 auto;
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background-color: var(--primary);
+      background-size: cover;
+      background-position: center;
+      color: #ffffff;
+      font-size: 17px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+    }
+    .ov-row-body { min-width: 0; flex: 1; }
+    .ov-row-title {
+      font-size: 14px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ov-row-meta {
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ov-chevron { color: var(--muted); font-size: 18px; }
+    .ov-tabs {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 14px;
+    }
+    .ov-tab {
+      width: auto;
+      max-width: none;
+      flex: 1;
+      background: var(--card);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 12px;
+    }
+    .ov-tab-active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .ov-word-list { display: flex; flex-direction: column; gap: 8px; }
+    .ov-word {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 11px 12px;
+    }
+    .ov-word-head { display: flex; gap: 10px; align-items: baseline; }
+    .ov-word-index {
+      flex: 0 0 auto;
+      min-width: 22px;
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ov-word-terms { min-width: 0; flex: 1; }
+    .ov-word-en {
+      font-size: 15px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .ov-word-pron { font-size: 11px; color: var(--muted); }
+    .ov-word-ja {
+      margin-top: 2px;
+      font-size: 13px;
+      color: var(--fg);
+      overflow-wrap: anywhere;
+    }
+    .ov-word-example {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .ov-example-en { color: var(--fg); }
+    .ov-example-ja { color: var(--muted); }
+    .ov-card {
+      width: 100%;
+      max-width: none;
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-align: center;
+      padding: 24px 18px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--card);
+      color: var(--fg);
+    }
+    .ov-card-en {
+      font-size: 26px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    .ov-card-ja {
+      font-size: 20px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .ov-card-pron { font-size: 13px; color: var(--muted); }
+    .ov-card-hint { font-size: 11px; color: var(--muted); }
+    .ov-card-example { font-size: 13px; line-height: 1.7; }
+    .ov-card-example-ja { font-size: 12px; color: var(--muted); line-height: 1.7; }
+    .ov-card-progress {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ov-card-controls { display: flex; gap: 8px; margin-top: 12px; }
+    .ov-control {
+      flex: 1;
+      width: auto;
+      max-width: none;
+      background: var(--card);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 11px 10px;
+    }
+    .ov-control:disabled { opacity: 0.4; cursor: default; }
+    .ov-control-primary {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .ov-control-ghost {
+      margin-top: 8px;
+      max-width: none;
+      color: var(--muted);
+    }
+    .ov-control-active {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+    .ov-reconnect {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .ov-reconnect-button {
+      width: auto;
+      max-width: none;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
-  <main class="card">
+  <main class="card" id="offline-fallback">
     <div class="badge" aria-hidden="true">
       <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -107,9 +381,16 @@
       インターネットに接続されていません。<br />
       保存済みの単語帳やクイズはオフラインでも利用できます。接続が回復すると自動的に同期されます。
     </p>
-    <button type="button" onclick="location.reload()">再読み込み</button>
+    <div id="offline-fallback-actions">
+      <button type="button" onclick="location.reload()">再読み込み</button>
+    </div>
     <div class="status" id="status" role="status" aria-live="polite"></div>
   </main>
+
+  <!-- Filled in by /offline-viewer.js with the requested wordbook, read straight out
+       of IndexedDB. Stays hidden when there is nothing cached to show. -->
+  <div id="offline-viewer" hidden></div>
+
   <script>
     (function () {
       var status = document.getElementById('status');
@@ -126,6 +407,9 @@
       // retries go through the button.
       var reloaded = false;
       window.addEventListener('online', function () {
+        // When the offline wordbook viewer is on screen the user may be mid-study;
+        // it shows its own explicit "再読み込み" banner instead of yanking the page.
+        if (window.__merkenOfflineViewerActive) return;
         if (reloaded) return;
         reloaded = true;
         if (status) status.textContent = '接続を確認しました。読み込み中…';
@@ -133,5 +417,6 @@
       });
     })();
   </script>
+  <script src="/offline-viewer.js" defer></script>
 </body>
 </html>

@@ -11,6 +11,7 @@ import { clearAllUserStats } from '@/lib/utils';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription, wasProUser } from '@/lib/subscription/status';
 import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-offline';
 import { getCachedSupabaseSessionSnapshot, isCachedSupabaseSessionValid } from '@/lib/supabase/session-cache';
+import { resolveOfflineFallbackAuth } from '@/lib/auth/offline-session';
 import {
   buildOAuthCallbackUrl,
   buildExpiredOAuthOnboardingCookie,
@@ -85,18 +86,39 @@ interface SubCache {
   timestamp: number;
 }
 
-function getCachedSubscription(userId: string): Subscription | null {
+function getCachedSubscription(userId: string, ignoreAge = false): Subscription | null {
   try {
     const raw = localStorage.getItem(SUB_CACHE_KEY);
     if (!raw) return null;
     const cache: SubCache = JSON.parse(raw);
     // Must match user and be < 1 hour old (extended from 10 min for faster startup)
     if (cache.userId !== userId) return null;
-    if (Date.now() - cache.timestamp > 60 * 60 * 1000) return null;
+    // Offline we cannot re-verify, and expiring the cache would silently downgrade a
+    // Pro user to Free gating mid-session — so the offline path opts out of the TTL.
+    if (!ignoreAge && Date.now() - cache.timestamp > 60 * 60 * 1000) return null;
     return cache.subscription;
   } catch {
     return null;
   }
+}
+
+function isOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+/**
+ * Signed-in identity to keep while offline, when Supabase can no longer confirm the
+ * session because refreshing the access token needs the network. See
+ * `resolveOfflineFallbackAuth` for why this is safe.
+ */
+function getOfflineFallbackAuth() {
+  const snapshot = getCachedSupabaseSessionSnapshot();
+  const userId = snapshot?.user?.id ?? null;
+  return resolveOfflineFallbackAuth({
+    offline: isOffline(),
+    snapshot,
+    cachedSubscription: userId ? getCachedSubscription(userId, true) : null,
+  });
 }
 
 function setCachedSubscription(userId: string, subscription: Subscription | null) {
@@ -181,10 +203,12 @@ function tryOptimisticLoad(): boolean {
   hasOptimisticLoad = true;
   
   const snapshot = getCachedSupabaseSessionSnapshot();
-  if (isCachedSupabaseSessionValid(snapshot)) {
+  // Offline an expired snapshot is still the best identity we have (the token cannot
+  // be refreshed without a connection), so accept it instead of painting as a guest.
+  if (isCachedSupabaseSessionValid(snapshot) || (isOffline() && snapshot?.user)) {
     const cachedUser = snapshot?.user ?? null;
-    const cachedSub = cachedUser ? getCachedSubscription(cachedUser.id) : null;
-    
+    const cachedSub = cachedUser ? getCachedSubscription(cachedUser.id, isOffline()) : null;
+
     if (cachedUser) {
       globalAuthState = {
         user: cachedUser,
@@ -289,12 +313,18 @@ export function useAuth() {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError) {
+      // Offline, a failed token refresh is expected — keep the cached identity so
+      // locally synced wordbooks stay open instead of falling back to guest.
+      const offlineFallback = getOfflineFallbackAuth();
+      if (offlineFallback) return offlineFallback;
       throw sessionError;
     }
 
     const user = session?.user ?? null;
 
     if (!user) {
+      const offlineFallback = getOfflineFallbackAuth();
+      if (offlineFallback) return offlineFallback;
       clearCachedSubscription();
       return { user: null, subscription: null };
     }
@@ -431,6 +461,20 @@ export function useAuth() {
         }
       }
     } catch (error) {
+      // Same offline reasoning as in loadUserCore: a timeout or a network-bound auth
+      // failure while offline must not log the user out of their local data.
+      const offlineFallback = getOfflineFallbackAuth();
+      if (offlineFallback) {
+        notifyListeners({
+          user: offlineFallback.user,
+          subscription: offlineFallback.subscription,
+          loading: false,
+          error: null,
+          sessionExpired: false,
+        });
+        return;
+      }
+
       const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
       const isSessionMissing = error instanceof Error && error.name === 'AuthSessionMissingError';
 

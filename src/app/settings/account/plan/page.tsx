@@ -92,8 +92,14 @@ export default function PlanSettingsPage() {
       <div className="px-[18px] pb-[14px] pt-1">
         <button
           type="button"
-          onClick={() => router.push('/settings/account')}
-          aria-label="アカウントへ戻る"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+              return;
+            }
+            router.push('/settings/account');
+          }}
+          aria-label="戻る"
           className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="chevron_left" size={20} />
