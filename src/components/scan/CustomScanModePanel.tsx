@@ -31,14 +31,28 @@ export function CustomScanModePanel({
   onChange: (selection: CustomScanModeSelection) => void;
 }) {
   const { modes, loading, error, canSaveMore, limit, createMode, deleteMode } = useCustomScanModes();
+  // 入力欄は折りたたみ。保存済みモードがあるユーザはチップを1タップするだけで
+  // 済むので既定は閉じ、保存が1つも無いうちは開いた状態から始める。
+  const [promptOpenOverride, setPromptOpenOverride] = useState<boolean | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const promptOpen = promptOpenOverride ?? (!loading && modes.length === 0);
   const promptLength = selection.prompt.length;
+  const selectedModeName = selection.modeId
+    ? modes.find((mode) => mode.id === selection.modeId)?.name ?? null
+    : null;
+  const promptSummary = selectedModeName
+    ? `保存モード: ${selectedModeName}`
+    : selection.prompt.trim().length > 0
+      ? selection.prompt.trim()
+      : 'タップして抽出条件を書く';
   const promptTooLong = promptLength > MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH;
   const canSave = selection.prompt.trim().length > 0 && !promptTooLong;
+
+  const openPromptEditor = () => setPromptOpenOverride(true);
 
   const handlePromptChange = (value: string) => {
     // 保存済みモードの文面を編集したら「その場限りの入力」に切り替える
@@ -47,10 +61,14 @@ export function CustomScanModePanel({
 
   const handleSelectSaved = (id: string, prompt: string) => {
     if (selection.modeId === id) {
+      // 選択解除したら書ける状態に戻す（何も選ばれていないとスキャンできないため）
       onChange({ modeId: null, prompt: '' });
+      openPromptEditor();
       return;
     }
     onChange({ modeId: id, prompt });
+    // 選択したモードが抽出条件になるので入力欄は畳む
+    setPromptOpenOverride(false);
   };
 
   const handleSave = async () => {
@@ -61,6 +79,8 @@ export function CustomScanModePanel({
       onChange({ modeId: created.id, prompt: created.prompt });
       setSaveOpen(false);
       setSaveName('');
+      // 保存した内容はチップとして残るので入力欄は畳む
+      setPromptOpenOverride(false);
     } catch (saveError) {
       setActionError(saveError instanceof Error ? saveError.message : '保存に失敗しました');
     } finally {
@@ -129,93 +149,120 @@ export function CustomScanModePanel({
         </>
       )}
 
-      {/* プロンプト入力 */}
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          抽出プロンプト
+      {/* プロンプト入力（トグルで開閉） */}
+      <button
+        type="button"
+        onClick={() => setPromptOpenOverride(!promptOpen)}
+        aria-expanded={promptOpen}
+        className="flex w-full items-center gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all"
+        style={{
+          borderColor: promptOpen ? 'var(--solid-ink)' : 'var(--color-border)',
+          boxShadow: promptOpen ? '2px 2px 0 var(--solid-ink)' : 'none',
+        }}
+      >
+        <Icon name="edit_note" size={16} className="shrink-0 text-[var(--color-accent)]" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[12px] font-bold text-[var(--solid-ink)]">抽出プロンプト</span>
+          <span className="mt-0.5 block truncate text-[10px] font-medium text-[var(--color-muted)]">
+            {promptSummary}
+          </span>
         </span>
-        <span
-          className="font-mono text-[9px] font-bold"
-          style={{ color: promptTooLong ? 'var(--color-error)' : 'var(--color-muted)' }}
-        >
-          {promptLength}/{MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH}
-        </span>
-      </div>
-      <textarea
-        value={selection.prompt}
-        onChange={(event) => handlePromptChange(event.target.value)}
-        rows={4}
-        placeholder="例: 赤ペンで書かれた単語だけを抽出してください。黒字の単語は抽出しないでください。"
-        className="w-full rounded-[10px] border-2 bg-white px-3 py-2.5 text-[12px] leading-[1.6] text-[var(--solid-ink)] outline-none"
-        style={{ borderColor: promptTooLong ? 'var(--color-error)' : 'var(--color-border)' }}
-      />
-      <p className="mt-1 text-[10px] leading-[1.5] text-[var(--color-muted)]">
-        「どの単語を抽出するか」を書いてください。訳・品詞・例文の形式はアプリ側で自動的に整えます。
-      </p>
+        <Icon
+          name={promptOpen ? 'expand_less' : 'expand_more'}
+          size={18}
+          className="shrink-0 text-[var(--color-muted)]"
+        />
+      </button>
+
+      {promptOpen && (
+        <div className="mt-2">
+          <div className="mb-1.5 flex items-center justify-end">
+            <span
+              className="font-mono text-[9px] font-bold"
+              style={{ color: promptTooLong ? 'var(--color-error)' : 'var(--color-muted)' }}
+            >
+              {promptLength}/{MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH}
+            </span>
+          </div>
+          <textarea
+            value={selection.prompt}
+            onChange={(event) => handlePromptChange(event.target.value)}
+            rows={4}
+            placeholder="例: 赤ペンで書かれた単語だけを抽出してください。黒字の単語は抽出しないでください。"
+            className="w-full rounded-[10px] border-2 bg-white px-3 py-2.5 text-[12px] leading-[1.6] text-[var(--solid-ink)] outline-none"
+            style={{ borderColor: promptTooLong ? 'var(--color-error)' : 'var(--color-border)' }}
+          />
+          <p className="mt-1 text-[10px] leading-[1.5] text-[var(--color-muted)]">
+            「どの単語を抽出するか」を書いてください。訳・品詞・例文の形式はアプリ側で自動的に整えます。
+          </p>
+
+          {/* 入力例 */}
+          {selection.prompt.trim().length === 0 && (
+            <div className="mt-2 flex flex-wrap gap-[6px]">
+              {CUSTOM_SCAN_MODE_EXAMPLES.map((example) => (
+                <button
+                  key={example.name}
+                  type="button"
+                  onClick={() => onChange({ modeId: null, prompt: example.prompt })}
+                  className="rounded-[8px] border border-dashed border-[var(--color-border)] bg-white px-2.5 py-1.5 text-[10px] font-bold text-[var(--color-muted)]"
+                >
+                  {example.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* モードとして保存 */}
+          {selection.modeId === null && canSave && (
+            saveOpen ? (
+              <div className="mt-2.5 rounded-[10px] border-2 border-[var(--color-border)] bg-white p-2.5">
+                <input
+                  value={saveName}
+                  onChange={(event) => setSaveName(event.target.value)}
+                  maxLength={MAX_CUSTOM_SCAN_MODE_NAME_LENGTH}
+                  placeholder="モード名（例: 赤ペンの単語だけ）"
+                  className="w-full rounded-[8px] border-2 border-[var(--color-border)] px-2.5 py-2 text-[12px] text-[var(--solid-ink)] outline-none"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setSaveOpen(false); setActionError(null); }}
+                    className="flex-1 rounded-[8px] border-2 border-[var(--color-border)] py-2 text-[11px] font-bold text-[var(--color-muted)]"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSave()}
+                    disabled={saving || saveName.trim().length === 0}
+                    className="flex-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-2 text-[11px] font-bold text-white disabled:opacity-40"
+                  >
+                    {saving ? '保存中...' : '保存する'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSaveOpen(true)}
+                disabled={!canSaveMore}
+                className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-dashed border-[var(--solid-ink)] bg-white py-2.5 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+              >
+                <Icon name="bookmark_add" size={14} />
+                {canSaveMore ? 'このプロンプトをモードとして保存' : `保存できるのは${limit}個までです`}
+              </button>
+            )
+          )}
+        </div>
+      )}
+
+      {/* 折りたたみ中でもスキャンできない理由が分かるようにする */}
       {!canSave && selection.modeId === null && (
-        <p className="mt-1 text-[10px] font-bold text-[var(--color-muted)]">
+        <p className="mt-1.5 text-[10px] font-bold text-[var(--color-muted)]">
           {promptTooLong
             ? `プロンプトは${MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH}文字以内にしてください`
             : 'プロンプトを入力するか、保存したモードを選ぶとスキャンできます'}
         </p>
-      )}
-
-      {/* 入力例 */}
-      {selection.prompt.trim().length === 0 && (
-        <div className="mt-2 flex flex-wrap gap-[6px]">
-          {CUSTOM_SCAN_MODE_EXAMPLES.map((example) => (
-            <button
-              key={example.name}
-              type="button"
-              onClick={() => onChange({ modeId: null, prompt: example.prompt })}
-              className="rounded-[8px] border border-dashed border-[var(--color-border)] bg-white px-2.5 py-1.5 text-[10px] font-bold text-[var(--color-muted)]"
-            >
-              {example.name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* モードとして保存 */}
-      {selection.modeId === null && canSave && (
-        saveOpen ? (
-          <div className="mt-2.5 rounded-[10px] border-2 border-[var(--color-border)] bg-white p-2.5">
-            <input
-              value={saveName}
-              onChange={(event) => setSaveName(event.target.value)}
-              maxLength={MAX_CUSTOM_SCAN_MODE_NAME_LENGTH}
-              placeholder="モード名（例: 赤ペンの単語だけ）"
-              className="w-full rounded-[8px] border-2 border-[var(--color-border)] px-2.5 py-2 text-[12px] text-[var(--solid-ink)] outline-none"
-            />
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => { setSaveOpen(false); setActionError(null); }}
-                className="flex-1 rounded-[8px] border-2 border-[var(--color-border)] py-2 text-[11px] font-bold text-[var(--color-muted)]"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={saving || saveName.trim().length === 0}
-                className="flex-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-2 text-[11px] font-bold text-white disabled:opacity-40"
-              >
-                {saving ? '保存中...' : '保存する'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setSaveOpen(true)}
-            disabled={!canSaveMore}
-            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-dashed border-[var(--solid-ink)] bg-white py-2.5 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
-          >
-            <Icon name="bookmark_add" size={14} />
-            {canSaveMore ? 'このプロンプトをモードとして保存' : `保存できるのは${limit}個までです`}
-          </button>
-        )
       )}
 
       {(actionError || error) && (
