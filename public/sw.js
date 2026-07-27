@@ -43,6 +43,13 @@ const SHARED_CACHE = `${CACHE_PREFIX}shared-${SW_VERSION}`; // viewed shared-wor
 const CURRENT_CACHES = [STATIC_CACHE, ASSET_CACHE, PAGE_CACHE, FONT_CACHE, SHARED_CACHE];
 const LEGACY_CACHE_PREFIX = 'scanvocab-'; // poisoned caches from a prior worker
 const OFFLINE_URL = '/offline.html';
+// Progressive enhancement for OFFLINE_URL: renders the requested wordbook straight
+// from IndexedDB (see the header comment in public/offline-viewer.js). Precached with
+// the fallback page so a wordbook the user never opened online still opens offline.
+// It is a plain script with no build-hashed chunks, so it can never strand the PWA;
+// if it is missing, offline.html degrades to its static notice.
+const OFFLINE_VIEWER_URL = '/offline-viewer.js';
+const PRECACHE_URLS = [OFFLINE_URL, OFFLINE_VIEWER_URL];
 const DEFAULT_NOTIFICATION_URL = '/';
 
 // Cross-origin Google Fonts hosts that serve the Material Symbols icon font and the
@@ -68,7 +75,9 @@ const CACHING_ENABLED =
 
 async function precacheOffline() {
   const cache = await caches.open(PAGE_CACHE);
-  await cache.add(new Request(OFFLINE_URL, { cache: 'reload' }));
+  await Promise.all(
+    PRECACHE_URLS.map((url) => cache.add(new Request(url, { cache: 'reload' })))
+  );
 }
 
 self.addEventListener('install', (event) => {
