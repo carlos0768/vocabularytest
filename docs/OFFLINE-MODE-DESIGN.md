@@ -1,5 +1,42 @@
 # オフラインモード設計書
 
+> **実装済みの現状（2026-07）は下記「実装状況: オフラインで単語帳を開く」を参照。**
+> この文書の以降のセクションは Phase 1〜4 の当初計画です。
+
+## 実装状況: オフラインで単語帳を開く
+
+オフラインで単語帳が開けるかどうかは、次の 3 レイヤーがすべて揃って初めて成立する。
+
+| レイヤー | 実装 | 備考 |
+|---|---|---|
+| データ | `HybridWordRepository.fullSync()` が全単語帳・全単語を IndexedDB (Dexie `WordSnapDB`) に複製 | 読み取りは常にローカル。Free / Pro 共通 |
+| 認証 | `resolveOfflineFallbackAuth()` (`src/lib/auth/offline-session.ts`) | アクセストークンは約1時間で失効し、オフラインでは更新できない。従来はここでゲスト扱いになり、ローカルにデータがあるのに「単語帳が見つかりません」になっていた。オフライン時のみ保存済みセッションを**身元確認のみ**に使う |
+| 画面 | `public/offline.html` + `public/offline-viewer.js` | Service Worker はナビゲーションを network-first で処理し、オフライン時はそのURLのキャッシュ済みドキュメント → なければ `offline.html` を返す。`/project/<id>` は動的ルートなので、オンライン中に一度も開いていない単語帳はキャッシュが無い |
+
+### オフライン単語帳ビューア (`public/offline-viewer.js`)
+
+`offline.html` は要求された URL のまま表示されるため、`location.pathname` から
+「ユーザーがどの単語帳を開こうとしたか」が分かる。ビューアはそれを見て IndexedDB を
+直接読み、単語帳を描画する。
+
+- `/project/<id>` (`/words`, `/insights` も同じ) → 単語リスト + フラッシュカード
+- `/flashcard/<id>` / `/quiz/<id>` → その単語帳のフラッシュカードを直接開く
+  (`/quiz/all` など単語帳横断のIDは対象外)
+- `/`, `/projects`, `/binder/<name>` → 保存済み単語帳の一覧
+- それ以外 → 従来のオフライン通知のまま（データがあれば一覧への導線を追加）
+
+制約（意図的なもの）:
+
+1. **依存ゼロの単一ファイル**。ハッシュ付きチャンクを必要とする Next.js ドキュメントを
+   フォールバックにすると、チャンク未キャッシュ時に PWA が起動不能になる（過去に発生）。
+   プレーンな HTML/JS なのでその事故は起こり得ない。
+2. **読み取り専用**。学習結果 (SM-2) は書き戻さない。Sync Queue と競合させない。
+3. **プログレッシブエンハンスメント**。`offline-viewer.js` がキャッシュに無ければ
+   `offline.html` は従来の静的な通知として動作する。
+
+Service Worker 側は `PRECACHE_URLS` で `offline.html` と `offline-viewer.js` の両方を
+install / activate 時にプリキャッシュする。
+
 ## 現状アーキテクチャ
 
 ```

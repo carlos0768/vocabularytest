@@ -84,8 +84,8 @@ export default function ProfilePage() {
   return (
     <ProfileView
       title="プロフィール"
-      backHref="/settings"
       editHref="/settings/account/profile"
+      settingsHref="/settings"
       name={name}
       accountId={accountId}
       initial={initial}

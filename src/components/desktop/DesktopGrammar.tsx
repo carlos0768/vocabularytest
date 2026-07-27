@@ -132,9 +132,6 @@ export function DesktopGrammarBooksView({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
         />
-        <DesktopButton icon="account_tree" href="/grammar/map" title="文法事項ごとの習得度を見る">
-          文法マップ
-        </DesktopButton>
         <DesktopButton icon="edit" onClick={onCreateManual} title="手動で問題集を作る">
           手動で作成
         </DesktopButton>
