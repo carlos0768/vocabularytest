@@ -52,6 +52,7 @@ export function ProfileView({
   actions,
   stats,
   statsLoading,
+  withBottomNav = false,
 }: {
   title: string;
   backHref: string;
@@ -69,6 +70,8 @@ export function ProfileView({
   actions?: ReactNode;
   stats: CachedStats | null;
   statsLoading: boolean;
+  /** ボトムナビが表示される画面ではナビに隠れないよう下部余白を広げる */
+  withBottomNav?: boolean;
 }) {
   const router = useRouter();
 
@@ -118,7 +121,11 @@ export function ProfileView({
       statsLoading={statsLoading}
       derived={{ recentWeek, weekTotal, maxWeekValue, heat, totalDays, avgPerDay, totalWords, mastered, review, newWords, masteryPercent }}
     />
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[max(24px,env(safe-area-inset-bottom))] pt-3 font-[var(--font-body)] lg:hidden">
+    <div
+      className={`relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden ${
+        withBottomNav ? 'pb-[110px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'
+      }`}
+    >
       <div className="mx-auto w-full max-w-xl">
         {/* Top bar */}
         <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
