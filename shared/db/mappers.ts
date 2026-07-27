@@ -247,6 +247,8 @@ export interface LexiconSenseRow {
   translation_ja: string;
   normalized_translation_ja: string;
   distinct_key?: string | null;
+  cefr_level?: string | null;
+  distractors?: unknown;
   meaning_summary?: string | null;
   usage_notes?: string | null;
   example_sentence?: string | null;
@@ -266,6 +268,26 @@ function toNonEmptyString(value: unknown): string | null {
 function normalizeDistractors(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string');
+}
+
+const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+function normalizeCefrLevelValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toUpperCase();
+  return CEFR_LEVELS.includes(normalized) ? normalized : undefined;
+}
+
+/** 語義固有の誤答選択肢。3件未満やプレースホルダは使い回せないので落とす。 */
+function normalizeSenseDistractors(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  const unique = [...new Set(normalized)];
+  if (unique.length < 3 || unique[0] === '選択肢1') return undefined;
+  return unique;
 }
 
 function normalizeWordStatus(value: unknown): Word['status'] | undefined {
@@ -337,6 +359,9 @@ function normalizeWordTranslationRows(value: unknown): WordTranslation[] {
       lexiconSenseIsPrimary: sense?.is_primary ?? undefined,
       translationJa,
       normalizedTranslationJa,
+      cefrLevel: normalizeCefrLevelValue(sense?.cefr_level),
+      distractors: normalizeSenseDistractors(sense?.distractors),
+      meaningSummary: toNonEmptyString(sense?.meaning_summary) ?? undefined,
       source: row.source === 'scan' || row.source === 'ai' || row.source === 'user' ? row.source : undefined,
       meaningRank: typeof row.meaning_rank === 'number' && row.meaning_rank > 0 ? row.meaning_rank : translations.length + 1,
       position: typeof row.position === 'number' ? row.position : translations.length,
@@ -383,6 +408,8 @@ function resolveWordTranslations(row: WordRow): WordTranslation[] {
     ...translation,
     distinctKey: toNonEmptyString(sense?.distinct_key) ?? undefined,
     lexiconSenseIsPrimary: sense?.is_primary ?? undefined,
+    cefrLevel: normalizeCefrLevelValue(sense?.cefr_level),
+    distractors: normalizeSenseDistractors(sense?.distractors),
   }));
 }
 
@@ -424,6 +451,8 @@ export function mapLexiconSenseFromRow(row: LexiconSenseRow): LexiconSense {
     exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
     exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
     translationSource: toNonEmptyString(row.translation_source) ?? undefined,
+    distractors: normalizeSenseDistractors(row.distractors),
+    cefrLevel: normalizeCefrLevelValue(row.cefr_level),
     isPrimary: row.is_primary ?? false,
     createdAt: row.created_at ?? new Date(0).toISOString(),
     updatedAt: row.updated_at ?? new Date(0).toISOString(),
@@ -615,6 +644,7 @@ export function mapWordFromRow(row: WordRow): Word {
     lexiconDistinctKey: toNonEmptyString(linkedSense?.distinct_key) ?? undefined,
     lexiconSenseIsPrimary: linkedSense?.is_primary ?? undefined,
     cefrLevel: resolveWordCefrLevel(row),
+    lexiconSenseCefrLevel: normalizeCefrLevelValue(linkedSense?.cefr_level),
     distractors: normalizeDistractors(row.distractors),
     exampleSentence: resolveWordExampleSentence(row),
     exampleSentenceJa: resolveWordExampleSentenceJa(row),

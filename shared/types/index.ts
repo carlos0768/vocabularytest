@@ -43,6 +43,8 @@ export interface LexiconSense {
   exampleSentenceJa?: string;
   translationSource?: string;
   distractors?: string[]; // Reusable quiz wrong answers for this sense
+  /** CEFR level of this specific meaning (A1-C2). Drives the EIKEN sense filter. */
+  cefrLevel?: string;
   isPrimary: boolean;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +60,11 @@ export interface WordTranslation {
   lexiconSenseIsPrimary?: boolean;
   translationJa: string;
   normalizedTranslationJa: string;
+  /** CEFR level of this meaning, copied from the linked lexicon sense. */
+  cefrLevel?: string;
+  /** Quiz wrong answers generated for this meaning (not for the word's primary meaning). */
+  distractors?: string[];
+  meaningSummary?: string;
   source?: WordTranslationSource;
   meaningRank: number;
   position: number;
@@ -193,6 +200,8 @@ export interface Word {
   lexiconDistinctKey?: string;
   lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
+  /** CEFR level of the linked sense (this word's own meaning), when known. */
+  lexiconSenseCefrLevel?: string;
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
   exampleSentenceJa?: string; // Japanese translation of example sentence

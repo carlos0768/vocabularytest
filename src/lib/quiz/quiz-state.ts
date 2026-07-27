@@ -74,11 +74,14 @@ export function generateQuizQuestions(
   count: number,
   direction: QuizDirection = 'en-to-ja',
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
-  settings: { preserveOrder?: boolean; primaryOnly?: boolean } = {},
+  settings: { preserveOrder?: boolean; primaryOnly?: boolean; eikenLevel?: string | null } = {},
 ): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
   const sourceWords = settings.primaryOnly ? selectPrimaryMeaningWords(words) : words;
-  const quizWords = expandWordsForQuizTargets(sourceWords, { primaryOnly: settings.primaryOnly });
+  const quizWords = expandWordsForQuizTargets(sourceWords, {
+    primaryOnly: settings.primaryOnly,
+    eikenLevel: settings.eikenLevel,
+  });
 
   for (const word of settings.preserveOrder ? quizWords : sortWordsByPriority(quizWords)) {
     if (questions.length >= count) break;

@@ -7,6 +7,7 @@ import { SolidButton } from '@/components/redesign/SolidPage';
 import { TypeInQuizField, ReviewProjectFilterSheet, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
+import { useEikenLevel } from '@/hooks/use-eiken-level';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { createBrowserClient } from '@/lib/supabase';
@@ -55,6 +56,7 @@ import {
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { attachPolysemySenses } from '@/lib/quiz/polysemy-client';
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
 import { mapTranslationProgressUpdatesToRow } from '@/lib/quiz/translation-progress';
 import {
@@ -439,6 +441,8 @@ export default function QuizPage() {
   const pathname = usePathname();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user, isPro } = useAuth();
+  // 多義語の語義フィルタ用。未設定なら null（全語義を出題）。
+  const { eikenLevel, loading: eikenLevelLoading } = useEikenLevel();
   const billingEnabled = isBillingEnabled();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
@@ -673,8 +677,9 @@ export default function QuizPage() {
     return generateQuizQuestions(words, count, direction, undefined, {
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
+      eikenLevel,
     });
-  }, [isPro, reminderMode]);
+  }, [isPro, reminderMode, eikenLevel]);
 
   const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
     const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
@@ -747,7 +752,7 @@ export default function QuizPage() {
   }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository, reminderMode]);
 
   useEffect(() => {
-    if (authLoading || userPreferencesLoading) return;
+    if (authLoading || userPreferencesLoading || eikenLevelLoading) return;
     if (aiEnabled === false) { setLoading(false); return; }
 
     const tryRestoreState = (): boolean => {
@@ -903,12 +908,12 @@ export default function QuizPage() {
             // 復習対象は設定の1日上限まで絞り込む
             // (何回も間違えている単語 → CEFRが高い単語 の順で選ぶ)
             sourceWords = selectDailyReviewWords(
-              allFlat.filter((w) => hasDueQuizTarget(w, { primaryOnly: !isPro })),
+              allFlat.filter((w) => hasDueQuizTarget(w, { primaryOnly: !isPro, eikenLevel })),
               getWrongAnswers(),
               getDailyReviewLimit(),
             );
           } else {
-            sourceWords = allFlat.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
+            sourceWords = allFlat.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro, eikenLevel }));
           }
         } else if (collectionId) {
           sourceWords = await loadCollectionWords(collectionId);
@@ -927,7 +932,7 @@ export default function QuizPage() {
         }
 
         if (!reviewMode && !learnMode && !wrongMode && !favoritesMode && !reminderMode) {
-          const nonMastered = sourceWords.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
+          const nonMastered = sourceWords.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro, eikenLevel }));
           if (nonMastered.length > 0) sourceWords = nonMastered;
         }
 
@@ -937,10 +942,13 @@ export default function QuizPage() {
         }
 
         // Reminder words are already ordered (notification words first).
-        const prioritized = reminderMode ? sourceWords : sortWordsByPriority(sourceWords);
+        const sorted = reminderMode ? sourceWords : sortWordsByPriority(sourceWords);
+        // 多義語は語義ごとに出題する。単語行に紐づいていない語義を出題対象として
+        // 取り込む（Proのみ。Freeは主要語義だけなので展開しても使われない）。
+        const prioritized = isPro ? await attachPolysemySenses(sorted) : sorted;
         setAllWords(prioritized);
 
-        const targetCount = getQuizTargetCount(prioritized, { primaryOnly: !isPro });
+        const targetCount = getQuizTargetCount(prioritized, { primaryOnly: !isPro, eikenLevel });
         const resolvedCount = Math.max(1, Math.min(questionCount ?? targetCount, targetCount, MAX_NORMAL_QUIZ_QUESTION_COUNT));
         if (questionCount !== resolvedCount) setQuestionCount(resolvedCount);
 
@@ -960,19 +968,19 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, eikenLevelLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, eikenLevel, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
 
   useEffect(() => {
     if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
-        const pending = remoteWords.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro }));
+        const pending = remoteWords.filter((w) => hasUnmasteredQuizTarget(w, { primaryOnly: !isPro, eikenLevel }));
         if (pending.length > 0) setAllWords((prev) => pending.length > prev.length ? sortWordsByPriority(pending) : prev);
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, isPro]);
+  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, isPro, eikenLevel]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
@@ -1193,7 +1201,7 @@ export default function QuizPage() {
   const handleRestart = async () => {
     clearQuizState();
     hasAnsweredRef.current = false;
-    const targetCount = getQuizTargetCount(allWords, { primaryOnly: !isPro });
+    const targetCount = getQuizTargetCount(allWords, { primaryOnly: !isPro, eikenLevel });
     const count = Math.max(1, Math.min(questionCount ?? targetCount ?? DEFAULT_QUESTION_COUNT, targetCount || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
     if (allWords.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count);
     else setQuestions(generateQuestions(allWords, count, quizDirection));
@@ -1254,7 +1262,7 @@ export default function QuizPage() {
 
   /* ---------- Question count selection ---------- */
   if (!questionCount) {
-    const maxQ = Math.min(getQuizTargetCount(allWords, { primaryOnly: !isPro }), MAX_NORMAL_QUIZ_QUESTION_COUNT);
+    const maxQ = Math.min(getQuizTargetCount(allWords, { primaryOnly: !isPro, eikenLevel }), MAX_NORMAL_QUIZ_QUESTION_COUNT);
     const { parsedInput: parsed, isValidInput: isValid } = parseQuizQuestionCountInput(inputCount, maxQ);
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3">

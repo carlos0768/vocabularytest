@@ -49,13 +49,18 @@ export async function upsertAiTranslationSenses(
       if (!translation) return null;
       const normalizedKey = normalizeLexiconSenseKey(translation);
       if (!normalizedKey) return null;
+      const isPrimary = hasExistingSenses ? false : sense.isPrimary;
       return {
         lexicon_entry_id: lexiconEntryId,
         translation_ja: translation,
         normalized_translation_ja: normalizedKey,
         meaning_summary: sense.meaningSummary,
+        // distinct_key は「この語義を個別に出題する」印。主要語義は単語行そのもの
+        // として既に出題されるので付けない（付けると primary 判定が崩れる）。
+        distinct_key: isPrimary ? null : (sense.distinctKey ?? normalizedKey),
+        cefr_level: sense.cefrLevel ?? null,
         translation_source: 'ai',
-        is_primary: hasExistingSenses ? false : sense.isPrimary,
+        is_primary: isPrimary,
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
@@ -76,5 +81,24 @@ export async function upsertAiTranslationSenses(
   }
 
   result.inserted = rows.length;
+
+  // 既存senseは上書きしない方針だが、CEFRレベルだけは「まだ空の行を埋める」
+  // 更新を掛ける。英検レベルでの語義フィルタはこの値が無いと効かないため。
+  await Promise.all(
+    rows
+      .filter((row) => row.cefr_level !== null)
+      .map(async (row) => {
+        const { error: levelError } = await supabaseAdmin
+          .from('lexicon_senses')
+          .update({ cefr_level: row.cefr_level })
+          .eq('lexicon_entry_id', row.lexicon_entry_id)
+          .eq('normalized_translation_ja', row.normalized_translation_ja)
+          .is('cefr_level', null);
+        if (levelError) {
+          console.warn('[lexicon-senses] Sense CEFR fill failed (non-critical):', levelError.message);
+        }
+      }),
+  );
+
   return result;
 }
