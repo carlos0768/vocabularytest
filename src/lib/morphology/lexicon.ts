@@ -37,14 +37,25 @@ export async function getCachedMorphologyByHeadword(
 
   const supabaseAdmin = deps.supabaseAdmin ?? getSupabaseAdmin();
 
+  const chunks: string[][] = [];
   for (let index = 0; index < unique.length; index += LOOKUP_CHUNK_SIZE) {
-    const chunk = unique.slice(index, index + LOOKUP_CHUNK_SIZE);
-    const { data, error } = await supabaseAdmin
-      .from('lexicon_entries')
-      .select('normalized_headword, morphology')
-      .in('normalized_headword', chunk)
-      .not('morphology', 'is', null);
+    chunks.push(unique.slice(index, index + LOOKUP_CHUNK_SIZE));
+  }
 
+  // チャンクは互いに素な見出し語の集合なので並列に引ける（リールのように
+  // 数百語を一度に引く呼び出しで直列の往復が積み上がるのを避ける）。
+  // 結果はチャンク順に畳み込むので、行の採用順は直列時と変わらない。
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabaseAdmin
+        .from('lexicon_entries')
+        .select('normalized_headword, morphology')
+        .in('normalized_headword', chunk)
+        .not('morphology', 'is', null),
+    ),
+  );
+
+  for (const { data, error } of results) {
     if (error) {
       throw new Error(`Failed to look up lexicon morphology: ${error.message}`);
     }

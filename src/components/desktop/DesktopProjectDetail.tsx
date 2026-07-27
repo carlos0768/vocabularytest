@@ -100,6 +100,8 @@ export function DesktopProjectDetailView({
   const router = useRouter();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState(1);
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
@@ -237,16 +239,17 @@ export function DesktopProjectDetailView({
           >{''}</DesktopButton>
         }
       >
-        {/* 「...」メニュー: 単語の追加 / 名称変更 */}
-        <div ref={addMenuRef} style={{ position: 'relative' }}>
-          <DesktopButton onClick={() => setAddMenuOpen((v) => !v)} icon="more_horiz" title="その他の操作">{''}</DesktopButton>
-          {addMenuOpen && (
+        {/* 「...」メニュー: 名称変更 / バインダー設定 / 削除。
+            単語の追加はフラッシュカードの右隣の専用ボタンに移動済み */}
+        <div ref={moreMenuRef} style={{ position: 'relative' }}>
+          <DesktopButton onClick={() => setMoreMenuOpen((v) => !v)} icon="more_horiz" title="その他の操作">{''}</DesktopButton>
+          {moreMenuOpen && (
             <>
               <button
                 type="button"
                 className="fixed inset-0 z-40 cursor-default bg-transparent"
                 aria-label="メニューを閉じる"
-                onClick={() => setAddMenuOpen(false)}
+                onClick={() => setMoreMenuOpen(false)}
               />
               <div
                 className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
@@ -255,23 +258,7 @@ export function DesktopProjectDetailView({
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setAddMenuOpen(false); onScan(); }}
-                >
-                  <Icon name="photo_camera" style={{ fontSize: 18 }} />
-                  スキャンで追加
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
-                >
-                  <Icon name="edit" style={{ fontSize: 18 }} />
-                  手動で追加
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setAddMenuOpen(false); onRename(); }}
+                  onClick={() => { setMoreMenuOpen(false); onRename(); }}
                 >
                   <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
                   名称変更
@@ -279,7 +266,7 @@ export function DesktopProjectDetailView({
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setAddMenuOpen(false); onSetBinder(); }}
+                  onClick={() => { setMoreMenuOpen(false); onSetBinder(); }}
                 >
                   <Icon name="folder" style={{ fontSize: 18 }} />
                   バインダー設定
@@ -288,7 +275,7 @@ export function DesktopProjectDetailView({
                   type="button"
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
                   style={{ color: 'var(--color-error, #cc4d59)' }}
-                  onClick={() => { setAddMenuOpen(false); onDeleteProject(); }}
+                  onClick={() => { setMoreMenuOpen(false); onDeleteProject(); }}
                 >
                   <Icon name="delete" style={{ fontSize: 18 }} />
                   単語帳を削除
@@ -335,10 +322,48 @@ export function DesktopProjectDetailView({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
             {/* クイズ（再生）とフラッシュカード。カードは緑（アクセント）の次に
-                目を引く dark 配色にする */}
+                目を引く dark 配色にする。単語追加はフラッシュカードの右隣 */}
             <div style={{ display: 'flex', gap: 8 }}>
               <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="play_arrow" title="クイズを開始">{''}</DesktopButton>
               <DesktopButton href={`/flashcard/${projectId}`} variant="dark" icon="style" title="フラッシュカード">{''}</DesktopButton>
+              <div ref={addMenuRef} style={{ position: 'relative' }}>
+                <DesktopButton
+                  onClick={() => setAddMenuOpen((v) => !v)}
+                  icon="add"
+                  title="単語を追加"
+                >{''}</DesktopButton>
+                {addMenuOpen && (
+                  <>
+                    <button
+                      type="button"
+                      className="fixed inset-0 z-40 cursor-default bg-transparent"
+                      aria-label="メニューを閉じる"
+                      onClick={() => setAddMenuOpen(false)}
+                    />
+                    <div
+                      className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                      style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                        onClick={() => { setAddMenuOpen(false); onScan(); }}
+                      >
+                        <Icon name="photo_camera" style={{ fontSize: 18 }} />
+                        スキャンで追加
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
+                        onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
+                      >
+                        <Icon name="edit" style={{ fontSize: 18 }} />
+                        手動で追加
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             {hiddenCols.size > 0 && (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
