@@ -223,13 +223,23 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - `vercel.json` references `src/app/api/grammar/route.ts` (stale config -- that exact file still does not exist)
 
 ### 4. Grammar map (文法マップ) -- Done
-- `/grammar/map` shows a fixed grammar taxonomy tree with the user's mastery layered on top,
-  so untouched areas stay visible instead of only what they happen to have questions for.
-- Taxonomy + classifier live in `src/lib/grammar/` and are pure/DB-free:
-  `taxonomy.ts` (tree constant), `classify.ts` (free-text `grammar_point` tag -> node), `map.ts` (roll-up + filtering)
-- `grammar_point` is free text from ChatGPT, so classification is normalize -> exact alias -> longest-keyword match,
-  with anything unmatched collected into an `uncategorized` bucket. **No schema change is needed to add tree nodes**
-  -- editing `taxonomy.ts` reclassifies existing questions on the next request.
-- APIs: `GET /api/grammar/map` (tree + summary), `GET /api/grammar/map/questions?nodeId=` (practice across books)
+- `/grammar/map` is a **node graph** (Polytopia-style tech tree): a hub at the center, 26 大単元 around it,
+  and 76 小単元 on an outer ring, with the user's mastery layered on as node colors.
+  Pan by drag, zoom by wheel/pinch, tap a node for its detail sheet + practice button.
+- **Built entirely from public data — never from the user's own `grammar_questions`.** That separation is
+  the point of the feature; do not feed user-authored questions into this map.
+  - `taxonomy.ts` -- 26大単元/76小単元 with grade, exam weights (共通/私大/二次) and target counts (total 1120).
+    Derived from MEXT 学習指導要領 付録9, 大学入試センター, and 河合塾 Kei-Net public analyses.
+  - `public-bank/` -- the questions. Items are newly written for MERKEN, with項目 sequencing referenced from
+    public-domain / CC BY sources; each item carries a `sourceId`.
+  - `sources.ts` -- the license ledger. **Only `public-domain` and `cc-by-4.0` are allowed** (CC BY-SA is
+    excluded because ShareAlike would propagate to the app; NC/ND are excluded outright).
+    CC BY requires attribution, so the map surfaces 出典・ライセンス in the UI and the API returns `sources`.
+  - `layout.ts` / `map.ts` -- pure, DB-free: graph positions and mastery roll-up. Both are unit-tested.
+- Progress lives in its own table `grammar_map_progress` (question_id is the bank's TEXT id, **not** a FK to
+  `grammar_questions`), keeping map mastery fully separate from 問題集 mastery.
+- APIs: `GET /api/grammar/map` (nodes + summary + attribution), `GET /api/grammar/map/questions?nodeId=`,
+  `POST /api/grammar/map/progress`. `node_id` is resolved from the bank server-side, never from the client.
 - Practice by node reuses `/grammar/[bookId]` with the special `point-<nodeId>` value (same pattern as `review`).
-  Both cross-book modes record progress against `question.bookId`, not the route param.
+- Adding nodes or questions needs **no migration** -- edit `taxonomy.ts` / `public-bank/`.
+  The bank currently ships a starter set (~2 per 小単元); the 1120 target in the taxonomy is the growth goal.

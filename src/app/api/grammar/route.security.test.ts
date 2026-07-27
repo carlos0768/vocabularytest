@@ -11,6 +11,7 @@ import { handleGrammarProgressPost } from '@/app/api/grammar/progress/route';
 import { handleGrammarFavoritePost } from '@/app/api/grammar/favorite/route';
 import { handleGrammarMapGet } from '@/app/api/grammar/map/route';
 import { handleGrammarMapQuestionsGet } from '@/app/api/grammar/map/questions/route';
+import { handleGrammarMapProgressPost } from '@/app/api/grammar/map/progress/route';
 import type { requireProUser } from '@/lib/api/pro-auth';
 
 const unauthorizedGate = (async () => ({
@@ -111,6 +112,22 @@ test('grammar/map/questions rejects unauthenticated requests with 401', async ()
 test('grammar/map/questions rejects non-Pro users with 403', async () => {
   const response = await handleGrammarMapQuestionsGet(
     new NextRequest('http://localhost/api/grammar/map/questions?nodeId=subjunctive', { method: 'GET' }),
+    { requirePro: proGate },
+  );
+  assert.equal(response.status, 403);
+});
+
+test('grammar/map/progress rejects unauthenticated requests with 401', async () => {
+  const response = await handleGrammarMapProgressPost(
+    jsonRequest('http://localhost/api/grammar/map/progress', { questionId: 'x', result: 'correct' }),
+    { requirePro: unauthorizedGate },
+  );
+  assert.equal(response.status, 401);
+});
+
+test('grammar/map/progress rejects non-Pro users with 403', async () => {
+  const response = await handleGrammarMapProgressPost(
+    jsonRequest('http://localhost/api/grammar/map/progress', { questionId: 'x', result: 'correct' }),
     { requirePro: proGate },
   );
   assert.equal(response.status, 403);

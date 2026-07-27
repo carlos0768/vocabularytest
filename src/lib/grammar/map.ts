@@ -1,22 +1,18 @@
 // 文法マップの集計。
-// 「自分の語法問題 (grammar_questions)」と「習得度 (grammar_question_progress)」を
-// 文法事項ツリー (taxonomy.ts) に流し込み、ノードごとの習得状況を組み立てる。
 //
-// DB非依存の純粋関数にしてあるので、API側は行を取ってきて渡すだけでよい。
+// マップの土台は公開データだけで構成される:
+//   - ノード構成 = taxonomy.ts の26大単元・76小単元 (公開資料にもとづく固定の体系)
+//   - 問題        = public-bank/ の公開ソース由来の問題
+// ユーザーが自分で作った語法問題集 (grammar_questions) は、この集計に一切入れない。
+// ユーザー由来のデータは「公開問題をどこまで解いたか」という進捗だけである。
 
-import { classifyGrammarPoint } from './classify';
+import { PUBLIC_GRAMMAR_BANK, publicQuestionsForSubUnit } from './public-bank';
 import {
   GRAMMAR_TAXONOMY,
-  GRAMMAR_UNCATEGORIZED_ID,
-  GRAMMAR_UNCATEGORIZED_LABEL,
-  grammarNodeSubtreeIds,
-  type GrammarTaxonomyNode,
+  grammarNodeSubUnitIds,
+  type GrammarSubUnit,
+  type GrammarUnit,
 } from './taxonomy';
-
-export type GrammarMapQuestionInput = {
-  id: string;
-  grammarPoint: string | null;
-};
 
 export type GrammarMapProgressInput = {
   questionId: string;
@@ -25,7 +21,7 @@ export type GrammarMapProgressInput = {
 
 /**
  * ノードの状態。
- * - empty: まだ問題が1問もない (これから作る領域)
+ * - empty: バンクにまだ問題がない (体系上は存在する領域)
  * - untouched: 問題はあるが未着手
  * - learning: 解いたが習得しきっていない
  * - mastered: 配下の問題をすべて習得済み
@@ -36,18 +32,20 @@ export type GrammarMapNode = {
   id: string;
   label: string;
   labelEn: string;
-  depth: number;
-  /** 配下を含む問題数 */
+  kind: 'unit' | 'sub';
+  /** 配下を含む収録問題数 */
   total: number;
-  /** 配下を含む習得済み問題数 */
   mastered: number;
-  /** 配下を含む「1回以上解いた」問題数 */
   attempted: number;
-  /** mastered / total (%) */
   masteryPercent: number;
   status: GrammarMapStatus;
-  /** 未分類ノードで、元タグの例を表示するために使う */
-  samplePoints?: string[];
+  /** 体系上の目標問数 (公開分析にもとづく設計値) */
+  targetQuestions: number;
+  /** 大単元のみ: 学年と入試重要度 */
+  grade?: GrammarUnit['grade'];
+  exam?: GrammarUnit['exam'];
+  /** 小単元のみ: 代表的な grammar point */
+  points?: string;
   children: GrammarMapNode[];
 };
 
@@ -56,14 +54,14 @@ export type GrammarMapSummary = {
   masteredQuestions: number;
   attemptedQuestions: number;
   masteryPercent: number;
-  /** ツリーの葉のうち問題が1問以上あるもの */
-  coveredLeaves: number;
-  /** ツリーの葉のうちすべて習得済みのもの */
-  masteredLeaves: number;
-  /** ツリーの葉の総数 */
-  totalLeaves: number;
-  /** ツリーに当てはめられなかった問題数 */
-  uncategorizedQuestions: number;
+  /** 問題が1問以上ある小単元の数 */
+  coveredSubUnits: number;
+  /** すべて習得済みの小単元の数 */
+  masteredSubUnits: number;
+  /** 小単元の総数 (76) */
+  totalSubUnits: number;
+  /** 体系上の目標問数の合計 (1120) */
+  targetQuestions: number;
 };
 
 export type GrammarMap = {
@@ -72,12 +70,6 @@ export type GrammarMap = {
 };
 
 type Tally = { total: number; mastered: number; attempted: number };
-
-const UNCATEGORIZED_SAMPLE_LIMIT = 6;
-
-function emptyTally(): Tally {
-  return { total: 0, mastered: 0, attempted: 0 };
-}
 
 function resolveStatus(tally: Tally): GrammarMapStatus {
   if (tally.total === 0) return 'empty';
@@ -91,110 +83,94 @@ function percent(mastered: number, total: number): number {
 }
 
 /**
- * 問題と習得度から文法マップを組み立てる。
- * 問題が0問のノードもツリーに残す (「まだ手をつけていない領域」を見せるのが目的のため)。
+ * 公開問題バンクとユーザーの進捗から文法マップを組み立てる。
+ * 問題が0問の小単元もツリーに残す (体系全体を見せるのがマップの目的のため)。
  */
-export function buildGrammarMap(
-  questions: GrammarMapQuestionInput[],
-  progress: GrammarMapProgressInput[],
-): GrammarMap {
+export function buildGrammarMap(progress: GrammarMapProgressInput[]): GrammarMap {
   const masteredByQuestion = new Map<string, boolean>();
   for (const row of progress) {
     // 同じ問題の行が複数来た場合は「習得済み」を優先する
-    masteredByQuestion.set(row.questionId, Boolean(row.mastered) || Boolean(masteredByQuestion.get(row.questionId)));
+    masteredByQuestion.set(
+      row.questionId,
+      Boolean(row.mastered) || Boolean(masteredByQuestion.get(row.questionId)),
+    );
   }
 
-  // ノードID -> 直接ぶら下がる問題の集計
-  const directTallies = new Map<string, Tally>();
-  const uncategorizedSamples = new Set<string>();
-  let uncategorizedQuestions = 0;
-
-  for (const question of questions) {
-    const nodeId = classifyGrammarPoint(question.grammarPoint) ?? GRAMMAR_UNCATEGORIZED_ID;
-    if (nodeId === GRAMMAR_UNCATEGORIZED_ID) {
-      uncategorizedQuestions += 1;
-      const raw = question.grammarPoint?.trim();
-      if (raw && uncategorizedSamples.size < UNCATEGORIZED_SAMPLE_LIMIT) {
-        uncategorizedSamples.add(raw);
-      }
+  const tallyForSubUnit = (sub: GrammarSubUnit): Tally => {
+    const questions = publicQuestionsForSubUnit(sub.id);
+    let mastered = 0;
+    let attempted = 0;
+    for (const question of questions) {
+      const state = masteredByQuestion.get(question.id);
+      if (state === undefined) continue;
+      attempted += 1;
+      if (state) mastered += 1;
     }
+    return { total: questions.length, mastered, attempted };
+  };
 
-    const tally = directTallies.get(nodeId) ?? emptyTally();
-    tally.total += 1;
-    const mastered = masteredByQuestion.get(question.id);
-    if (mastered !== undefined) {
-      tally.attempted += 1;
-      if (mastered) tally.mastered += 1;
-    }
-    directTallies.set(nodeId, tally);
-  }
+  let coveredSubUnits = 0;
+  let masteredSubUnits = 0;
+  let totalSubUnits = 0;
 
-  let totalLeaves = 0;
-  let coveredLeaves = 0;
-  let masteredLeaves = 0;
+  const nodes: GrammarMapNode[] = GRAMMAR_TAXONOMY.map((unit) => {
+    const children: GrammarMapNode[] = unit.children.map((sub) => {
+      const tally = tallyForSubUnit(sub);
+      totalSubUnits += 1;
+      if (tally.total > 0) coveredSubUnits += 1;
+      if (tally.total > 0 && tally.mastered >= tally.total) masteredSubUnits += 1;
 
-  const buildNode = (source: GrammarTaxonomyNode, depth: number): GrammarMapNode => {
-    const children = (source.children ?? []).map((child) => buildNode(child, depth + 1));
-    const direct = directTallies.get(source.id) ?? emptyTally();
+      return {
+        id: sub.id,
+        label: sub.label,
+        labelEn: sub.labelEn,
+        kind: 'sub' as const,
+        total: tally.total,
+        mastered: tally.mastered,
+        attempted: tally.attempted,
+        masteryPercent: percent(tally.mastered, tally.total),
+        status: resolveStatus(tally),
+        targetQuestions: sub.targetQuestions,
+        points: sub.points,
+        children: [],
+      };
+    });
 
-    const rolled: Tally = children.reduce<Tally>(
+    const rolled = children.reduce<Tally>(
       (acc, child) => ({
         total: acc.total + child.total,
         mastered: acc.mastered + child.mastered,
         attempted: acc.attempted + child.attempted,
       }),
-      { ...direct },
+      { total: 0, mastered: 0, attempted: 0 },
     );
 
-    if (children.length === 0) {
-      totalLeaves += 1;
-      if (rolled.total > 0) coveredLeaves += 1;
-      if (rolled.total > 0 && rolled.mastered >= rolled.total) masteredLeaves += 1;
-    }
-
     return {
-      id: source.id,
-      label: source.label,
-      labelEn: source.labelEn,
-      depth,
+      id: unit.id,
+      label: unit.label,
+      labelEn: unit.labelEn,
+      kind: 'unit' as const,
       total: rolled.total,
       mastered: rolled.mastered,
       attempted: rolled.attempted,
       masteryPercent: percent(rolled.mastered, rolled.total),
       status: resolveStatus(rolled),
+      targetQuestions: children.reduce((sum, child) => sum + child.targetQuestions, 0),
+      grade: unit.grade,
+      exam: unit.exam,
       children,
     };
-  };
+  });
 
-  const nodes = GRAMMAR_TAXONOMY.map((category) => buildNode(category, 0));
-
-  // 未分類は問題があるときだけ末尾に出す (普段はツリーを汚さない)
-  const uncategorized = directTallies.get(GRAMMAR_UNCATEGORIZED_ID);
-  if (uncategorized && uncategorized.total > 0) {
-    nodes.push({
-      id: GRAMMAR_UNCATEGORIZED_ID,
-      label: GRAMMAR_UNCATEGORIZED_LABEL,
-      labelEn: 'Uncategorized',
-      depth: 0,
-      total: uncategorized.total,
-      mastered: uncategorized.mastered,
-      attempted: uncategorized.attempted,
-      masteryPercent: percent(uncategorized.mastered, uncategorized.total),
-      status: resolveStatus(uncategorized),
-      samplePoints: Array.from(uncategorizedSamples),
-      children: [],
-    });
+  const totalQuestions = PUBLIC_GRAMMAR_BANK.length;
+  let masteredQuestions = 0;
+  let attemptedQuestions = 0;
+  for (const question of PUBLIC_GRAMMAR_BANK) {
+    const state = masteredByQuestion.get(question.id);
+    if (state === undefined) continue;
+    attemptedQuestions += 1;
+    if (state) masteredQuestions += 1;
   }
-
-  const totalQuestions = questions.length;
-  const masteredQuestions = questions.reduce(
-    (count, question) => count + (masteredByQuestion.get(question.id) === true ? 1 : 0),
-    0,
-  );
-  const attemptedQuestions = questions.reduce(
-    (count, question) => count + (masteredByQuestion.has(question.id) ? 1 : 0),
-    0,
-  );
 
   return {
     summary: {
@@ -202,31 +178,20 @@ export function buildGrammarMap(
       masteredQuestions,
       attemptedQuestions,
       masteryPercent: percent(masteredQuestions, totalQuestions),
-      coveredLeaves,
-      masteredLeaves,
-      totalLeaves,
-      uncategorizedQuestions,
+      coveredSubUnits,
+      masteredSubUnits,
+      totalSubUnits,
+      targetQuestions: nodes.reduce((sum, node) => sum + node.targetQuestions, 0),
     },
     nodes,
   };
 }
 
 /**
- * 指定ノード (カテゴリなら配下すべて) に属する問題だけを残す。
- * マップから「この文法項目だけ演習する」ときの絞り込みに使う。
- * 存在しないノードIDには何も一致させない (空配列)。
+ * 指定ノード (大単元なら配下の小単元すべて) に属する公開問題を返す。
+ * 存在しないノードIDには空配列を返す。
  */
-export function filterQuestionsByGrammarNode<T extends { grammarPoint: string | null }>(
-  rows: T[],
-  nodeId: string,
-): T[] {
-  if (nodeId === GRAMMAR_UNCATEGORIZED_ID) {
-    return rows.filter((row) => classifyGrammarPoint(row.grammarPoint) === null);
-  }
-  const subtree = new Set(grammarNodeSubtreeIds(nodeId));
-  if (subtree.size === 0) return [];
-  return rows.filter((row) => {
-    const classified = classifyGrammarPoint(row.grammarPoint);
-    return classified !== null && subtree.has(classified);
-  });
+export function publicQuestionsForNode(nodeId: string) {
+  const subUnitIds = grammarNodeSubUnitIds(nodeId);
+  return subUnitIds.flatMap((id) => publicQuestionsForSubUnit(id));
 }

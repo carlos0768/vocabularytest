@@ -258,7 +258,7 @@ export default function GrammarBooksPage() {
           <span className="min-w-0 flex-1">
             <span className="block font-display text-[14.5px] font-bold text-[var(--solid-ink)]">文法マップ</span>
             <span className="mt-0.5 block text-[11px] leading-[1.6] text-[var(--color-muted)]">
-              文法事項をツリーで表示。どこまで習得できたかが一目でわかります
+              26大単元・76小単元の文法体系をノードマップで攻略します
             </span>
           </span>
           <Icon name="chevron_right" size={18} className="shrink-0 text-[var(--color-muted)]" />

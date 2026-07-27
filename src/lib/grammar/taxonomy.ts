@@ -1,569 +1,427 @@
-// 文法マップの土台になる文法事項のツリー (大分類 → 文法項目)。
+// 文法マップの分類体系: 26大単元 / 76小単元。
 //
-// grammar_questions.grammar_point は ChatGPT が付ける自由入力のタグ (最大40字)
-// なので、そのまま集計すると表記ゆれで無数のバラバラな項目になってしまう。
-// ここで学習者向けの固定ツリーを定義し、自由入力タグを classify.ts で
-// このツリーのノードに寄せることで「どこまで習得できているか」を俯瞰できる形にする。
+// この分類はユーザーが持っている問題から作ったものではなく、公開情報にもとづく
+// 固定の体系である。骨格は次の公開ソースの突き合わせから決めている:
+//   - 文部科学省 高等学校学習指導要領解説 外国語編 付録9 (高校段階で扱う言語材料)
+//     https://www.mext.go.jp/a_menu/shotou/new-cs/1407074.htm
+//   - 大学入試センター 共通テスト 問題作成方針・試作問題
+//     https://www.dnc.ac.jp/kyotsu/
+//   - 河合塾 Kei-Net 共通テスト分析・大学別出題分析
+//     https://www.keinet.ne.jp/
+// 各単元の学年配当・入試重要度・目標問数もこれらの公開分析に由来する設計値で、
+// ユーザーの学習データからは一切算出していない。
 //
-// ツリー自体はユーザーデータではなく定数なので、DBには持たせない
-// (項目を足しても既存の問題は再分類されるだけで、マイグレーション不要)。
+// 重要: このファイルは分類の定義だけを持つ (問題そのものは public-bank/ 側)。
+// 単元を足しても DB のマイグレーションは不要。
 
-export type GrammarTaxonomyNode = {
-  /** URLに載るのでスラッグ (英小文字 + ハイフン) に限定する */
-  id: string;
-  /** 画面に出す日本語ラベル */
-  label: string;
-  /** 一覧の補助表示に使う英語ラベル */
-  labelEn: string;
-  /** 完全一致で寄せたい別名 (正規化して比較する) */
-  aliases?: string[];
-  /** 部分一致で寄せたいキーワード。長いものが優先される */
-  keywords?: string[];
-  children?: GrammarTaxonomyNode[];
+/** 主に扱う学年 */
+export type GrammarGrade = 'h1' | 'h1-h2' | 'h2' | 'h2-h3' | 'h3';
+
+/** 入試での重要度。high=◎ / mid=○ / low=△ (公開分析にもとづく設計値) */
+export type ExamWeight = 'high' | 'mid' | 'low';
+
+export type GrammarExamWeights = {
+  /** 共通テスト: 独立小問頻度ではなく、読解・推敲・要約での必要度 */
+  common: ExamWeight;
+  /** 私大 */
+  priv: ExamWeight;
+  /** 国公立二次 */
+  national: ExamWeight;
 };
 
-/**
- * 分類できなかった問題 (タグなし・ツリー外のタグ) を入れる擬似ノードのID。
- * ツリー定数には含めず、集計時に末尾へ足す。
- */
-export const GRAMMAR_UNCATEGORIZED_ID = 'uncategorized';
-export const GRAMMAR_UNCATEGORIZED_LABEL = '未分類';
+export type GrammarSubUnit = {
+  /** URLに載るのでスラッグ (英小文字 + 数字 + ハイフン) に限定する */
+  id: string;
+  label: string;
+  labelEn: string;
+  /** 代表的な grammar point (表示用) */
+  points: string;
+  /** 体系上の目標問数 (公開分析にもとづく設計値) */
+  targetQuestions: number;
+};
 
-export const GRAMMAR_TAXONOMY: GrammarTaxonomyNode[] = [
+export type GrammarUnit = {
+  id: string;
+  label: string;
+  labelEn: string;
+  grade: GrammarGrade;
+  exam: GrammarExamWeights;
+  children: GrammarSubUnit[];
+};
+
+export const GRAMMAR_GRADE_LABEL: Record<GrammarGrade, string> = {
+  h1: '高1',
+  'h1-h2': '高1〜高2',
+  h2: '高2',
+  'h2-h3': '高2〜高3',
+  h3: '高3',
+};
+
+export const EXAM_WEIGHT_MARK: Record<ExamWeight, string> = {
+  high: '◎',
+  mid: '○',
+  low: '△',
+};
+
+export const GRAMMAR_TAXONOMY: GrammarUnit[] = [
+  {
+    id: 'sentence',
+    label: '文の種類と語順',
+    labelEn: 'Sentence types & word order',
+    grade: 'h1',
+    exam: { common: 'mid', priv: 'high', national: 'mid' },
+    children: [
+      { id: 'sentence-kinds', label: '文の種類', labelEn: 'Sentence kinds', points: '平叙・疑問・命令・感嘆', targetQuestions: 24 },
+      { id: 'sentence-order', label: '語順の原則', labelEn: 'Word order', points: '修飾語の位置、there is', targetQuestions: 18 },
+      { id: 'sentence-patterns', label: '基本文型', labelEn: 'Sentence patterns', points: 'SV〜SVOC、it ~ to/that', targetQuestions: 20 },
+    ],
+  },
   {
     id: 'tense',
-    label: '時制',
-    labelEn: 'Tense',
-    keywords: ['時制'],
+    label: '動詞と時制',
+    labelEn: 'Verbs & tense',
+    grade: 'h1',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'tense-basic',
-        label: '基本時制（現在・過去・未来）',
-        labelEn: 'Basic tenses',
-        aliases: ['現在形', '過去形', '未来形', '未来表現', '基本時制'],
-        keywords: ['現在形', '過去形', '未来形', '未来表現', 'be going to'],
-      },
-      {
-        id: 'tense-progressive',
-        label: '進行形',
-        labelEn: 'Progressive',
-        aliases: ['進行形', '現在進行形', '過去進行形', '未来進行形'],
-        keywords: ['進行形'],
-      },
-      {
-        id: 'tense-perfect',
-        label: '完了形',
-        labelEn: 'Perfect',
-        aliases: ['完了形', '現在完了', '過去完了', '未来完了', '完了進行形'],
-        keywords: ['完了形', '現在完了', '過去完了', '未来完了'],
-      },
-      {
-        id: 'tense-special',
-        label: '時制の一致・特殊用法',
-        labelEn: 'Sequence of tenses',
-        aliases: ['時制の一致', '歴史的現在'],
-        keywords: ['時制の一致', '歴史的現在', '時・条件の副詞節', '時と条件の副詞節'],
-      },
+      { id: 'tense-basic', label: '現在・過去・進行', labelEn: 'Present, past & progressive', points: '現在形と現在進行形、過去形', targetQuestions: 24 },
+      { id: 'tense-future', label: '未来表現', labelEn: 'Future forms', points: 'will、be going to', targetQuestions: 18 },
+      { id: 'tense-agreement', label: '時や条件の現在形・時制の一致', labelEn: 'Time clauses & sequence of tenses', points: '時・条件節、時制の一致', targetQuestions: 12 },
+    ],
+  },
+  {
+    id: 'perfect',
+    label: '完了形',
+    labelEn: 'Perfect tenses',
+    grade: 'h1-h2',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
+    children: [
+      { id: 'perfect-present', label: '現在完了', labelEn: 'Present perfect', points: '継続・経験・完了・結果', targetQuestions: 24 },
+      { id: 'perfect-past', label: '過去完了', labelEn: 'Past perfect', points: 'had p.p.、大過去', targetQuestions: 16 },
+      { id: 'perfect-future', label: '未来完了・完了進行', labelEn: 'Future & progressive perfect', points: 'will have p.p.、have been doing', targetQuestions: 12 },
     ],
   },
   {
     id: 'modal',
     label: '助動詞',
     labelEn: 'Modals',
-    keywords: ['助動詞'],
+    grade: 'h1-h2',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'modal-basic',
-        label: '助動詞の基本',
-        labelEn: 'Basic modals',
-        aliases: ['助動詞', '助動詞の基本', 'can', 'may', 'must', 'should', 'will', 'would', 'used to'],
-        keywords: ['助動詞の基本', 'used to'],
-      },
-      {
-        id: 'modal-perfect',
-        label: '助動詞 + have done',
-        labelEn: 'Modal + perfect',
-        aliases: ['助動詞+have done', '助動詞の完了形'],
-        keywords: ['助動詞+have', '助動詞 + have', '助動詞の完了', 'must have', 'should have', 'cannot have', 'need not have', 'might have'],
-      },
-      {
-        id: 'modal-idiom',
-        label: '助動詞の慣用表現',
-        labelEn: 'Modal idioms',
-        aliases: ['助動詞の慣用表現', 'had better', 'would rather', 'may well', 'may as well'],
-        keywords: ['助動詞の慣用', 'had better', 'would rather', 'may well', 'may as well', 'need not', 'dare'],
-      },
+      { id: 'modal-basic', label: '基本意味', labelEn: 'Core meanings', points: 'can, may, must, should', targetQuestions: 18 },
+      { id: 'modal-will', label: 'will・would・shall・used to 等', labelEn: 'will / would / used to', points: 'would, used to, shall', targetQuestions: 18 },
+      { id: 'modal-perfect', label: '助動詞 + have p.p.', labelEn: 'Modal + perfect', points: 'must have p.p., cannot have p.p.', targetQuestions: 16 },
+      { id: 'modal-idiom', label: '慣用表現・that節 should', labelEn: 'Modal idioms', points: 'had better, may well, should 省略', targetQuestions: 10 },
     ],
   },
   {
     id: 'voice',
-    label: '受動態',
-    labelEn: 'Passive voice',
-    keywords: ['受動態', '受け身', '態'],
+    label: '態',
+    labelEn: 'Voice',
+    grade: 'h1',
+    exam: { common: 'mid', priv: 'high', national: 'mid' },
     children: [
-      {
-        id: 'voice-basic',
-        label: '受動態の基本',
-        labelEn: 'Basic passive',
-        aliases: ['受動態', '受け身', '受動態の基本'],
-        keywords: ['受動態の基本', '受け身の基本'],
-      },
-      {
-        id: 'voice-advanced',
-        label: '受動態の応用（群動詞・by以外）',
-        labelEn: 'Advanced passive',
-        aliases: ['群動詞の受動態', '句動詞の受動態'],
-        keywords: ['群動詞の受動態', '句動詞の受動態', 'by以外', '受動態の応用', '知覚動詞の受動態', '使役動詞の受動態'],
-      },
+      { id: 'voice-basic', label: '受動態の基本', labelEn: 'Basic passive', points: 'be + p.p.、by 句', targetQuestions: 18 },
+      { id: 'voice-various', label: 'さまざまな受動態', labelEn: 'Passive variations', points: '完了・進行・助動詞の受動態', targetQuestions: 12 },
+      { id: 'voice-order', label: '語順注意受動態', labelEn: 'Passive word order', points: 'SVOO・SVOC・群動詞の受動態', targetQuestions: 10 },
     ],
   },
   {
     id: 'infinitive',
     label: '不定詞',
     labelEn: 'Infinitives',
-    keywords: ['不定詞'],
+    grade: 'h1-h2',
+    exam: { common: 'high', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'infinitive-usage',
-        label: '名詞・形容詞・副詞用法',
-        labelEn: 'Infinitive usage',
-        aliases: ['不定詞', '不定詞の基本', '名詞的用法', '形容詞的用法', '副詞的用法'],
-        keywords: ['不定詞の名詞', '不定詞の形容詞', '不定詞の副詞', '名詞的用法', '形容詞的用法', '副詞的用法'],
-      },
-      {
-        id: 'infinitive-bare',
-        label: '原形不定詞（使役・知覚動詞）',
-        labelEn: 'Bare infinitive',
-        aliases: ['原形不定詞', '使役動詞', '知覚動詞'],
-        keywords: ['原形不定詞', '使役動詞', '知覚動詞'],
-      },
-      {
-        id: 'infinitive-form',
-        label: '完了不定詞・意味上の主語',
-        labelEn: 'Infinitive forms',
-        aliases: ['完了不定詞', '不定詞の意味上の主語', '不定詞の否定'],
-        keywords: ['完了不定詞', '不定詞の意味上の主語', '不定詞の否定', '代不定詞'],
-      },
-      {
-        id: 'infinitive-idiom',
-        label: '不定詞の慣用表現',
-        labelEn: 'Infinitive idioms',
-        aliases: ['独立不定詞', '不定詞の慣用表現', 'too to', 'enough to'],
-        keywords: ['独立不定詞', '不定詞の慣用', 'too ~ to', 'enough to', 'so as to', 'in order to'],
-      },
+      { id: 'infinitive-three', label: '3用法', labelEn: 'Three uses', points: '名詞・形容詞・副詞用法', targetQuestions: 26 },
+      { id: 'infinitive-subject', label: '意味上の主語・否定・完了', labelEn: 'Subject, negation & perfect', points: 'for/of 人 to do、not to do、to have p.p.', targetQuestions: 18 },
+      { id: 'infinitive-bare', label: '原形不定詞', labelEn: 'Bare infinitive', points: '使役動詞、知覚動詞', targetQuestions: 12 },
+      { id: 'infinitive-construction', label: '構文別不定詞', labelEn: 'Infinitive constructions', points: 'too...to, enough to, seem to', targetQuestions: 16 },
     ],
   },
   {
     id: 'gerund',
     label: '動名詞',
     labelEn: 'Gerunds',
-    keywords: ['動名詞'],
+    grade: 'h1-h2',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'gerund-basic',
-        label: '動名詞の基本',
-        labelEn: 'Basic gerund',
-        aliases: ['動名詞', '動名詞の基本', '動名詞の意味上の主語'],
-        keywords: ['動名詞の基本', '動名詞の意味上の主語', '完了動名詞'],
-      },
-      {
-        id: 'gerund-vs-infinitive',
-        label: '動名詞と不定詞の使い分け',
-        labelEn: 'Gerund vs infinitive',
-        aliases: ['動名詞と不定詞', '動名詞と不定詞の使い分け'],
-        keywords: ['動名詞と不定詞', '不定詞と動名詞', 'remember to', 'stop doing'],
-      },
-      {
-        id: 'gerund-idiom',
-        label: '動名詞の慣用表現',
-        labelEn: 'Gerund idioms',
-        aliases: ['動名詞の慣用表現'],
-        keywords: ['動名詞の慣用', 'there is no', 'it is no use', 'cannot help', 'worth', 'look forward to', 'be used to'],
-      },
+      { id: 'gerund-basic', label: '基本用法', labelEn: 'Basic use', points: '主語・目的語・補語の doing', targetQuestions: 18 },
+      { id: 'gerund-subject', label: '意味上の主語・完了形', labelEn: 'Subject & perfect gerund', points: 'his doing、having p.p.', targetQuestions: 12 },
+      { id: 'gerund-vs-infinitive', label: '動名詞と不定詞', labelEn: 'Gerund vs infinitive', points: 'stop doing / to do、remember', targetQuestions: 18 },
     ],
   },
   {
     id: 'participle',
     label: '分詞',
     labelEn: 'Participles',
-    keywords: ['分詞'],
+    grade: 'h1-h2',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'participle-adjective',
-        label: '分詞の形容詞用法',
-        labelEn: 'Participial adjectives',
-        aliases: ['分詞', '分詞の形容詞用法', '現在分詞', '過去分詞'],
-        keywords: ['分詞の形容詞', '現在分詞', '過去分詞', '感情を表す分詞'],
-      },
-      {
-        id: 'participle-construction',
-        label: '分詞構文',
-        labelEn: 'Participial construction',
-        aliases: ['分詞構文', '独立分詞構文', '完了分詞構文'],
-        keywords: ['分詞構文'],
-      },
-      {
-        id: 'participle-with',
-        label: '付帯状況のwith',
-        labelEn: 'With + participle',
-        aliases: ['付帯状況', '付帯状況のwith'],
-        keywords: ['付帯状況'],
-      },
-    ],
-  },
-  {
-    id: 'relative',
-    label: '関係詞',
-    labelEn: 'Relatives',
-    keywords: ['関係詞'],
-    children: [
-      {
-        id: 'relative-pronoun',
-        label: '関係代名詞',
-        labelEn: 'Relative pronouns',
-        aliases: ['関係代名詞', '関係代名詞what', '関係代名詞whose'],
-        keywords: ['関係代名詞'],
-      },
-      {
-        id: 'relative-adverb',
-        label: '関係副詞',
-        labelEn: 'Relative adverbs',
-        aliases: ['関係副詞'],
-        keywords: ['関係副詞'],
-      },
-      {
-        id: 'relative-preposition',
-        label: '前置詞＋関係代名詞・非制限用法',
-        labelEn: 'Prepositional / non-restrictive',
-        aliases: ['前置詞+関係代名詞', '非制限用法', '継続用法'],
-        keywords: ['前置詞+関係', '前置詞＋関係', '非制限用法', '継続用法', 'in which', 'to whom'],
-      },
-      {
-        id: 'relative-compound',
-        label: '複合関係詞',
-        labelEn: 'Compound relatives',
-        aliases: ['複合関係詞', '複合関係代名詞', '複合関係副詞'],
-        keywords: ['複合関係', 'whatever', 'whoever', 'however', 'whichever', 'wherever'],
-      },
-      {
-        id: 'relative-pseudo',
-        label: '擬似関係代名詞',
-        labelEn: 'Pseudo-relatives',
-        aliases: ['擬似関係代名詞', '疑似関係代名詞'],
-        keywords: ['擬似関係', '疑似関係'],
-      },
-    ],
-  },
-  {
-    id: 'subjunctive',
-    label: '仮定法',
-    labelEn: 'Subjunctive',
-    keywords: ['仮定法'],
-    children: [
-      {
-        id: 'subjunctive-past',
-        label: '仮定法過去',
-        labelEn: 'Past subjunctive',
-        aliases: ['仮定法過去', '仮定法', '仮定法の基本'],
-        keywords: ['仮定法過去'],
-      },
-      {
-        id: 'subjunctive-past-perfect',
-        label: '仮定法過去完了・混合仮定法',
-        labelEn: 'Past perfect / mixed',
-        aliases: ['仮定法過去完了', '混合仮定法'],
-        keywords: ['仮定法過去完了', '混合仮定法'],
-      },
-      {
-        id: 'subjunctive-inversion',
-        label: 'ifの省略と倒置',
-        labelEn: 'If-omission inversion',
-        aliases: ['ifの省略', 'ifの省略と倒置', '仮定法の倒置'],
-        keywords: ['ifの省略', '仮定法の倒置', 'had i known', 'were i to', 'should you'],
-      },
-      {
-        id: 'subjunctive-present',
-        label: '仮定法現在（要求・提案のthat節）',
-        labelEn: 'Present subjunctive',
-        aliases: ['仮定法現在', '要求提案の仮定法'],
-        keywords: ['仮定法現在', '要求・提案', 'suggest that', 'demand that', 'insist that'],
-      },
-      {
-        id: 'subjunctive-future',
-        label: '仮定法未来',
-        labelEn: 'Future subjunctive',
-        aliases: ['仮定法未来'],
-        keywords: ['仮定法未来', 'if s should', 'were to'],
-      },
-      {
-        id: 'subjunctive-idiom',
-        label: '仮定法の慣用表現',
-        labelEn: 'Subjunctive idioms',
-        aliases: ['仮定法の慣用表現', 'i wish', 'as if', 'but for', 'if it were not for'],
-        keywords: ['仮定法の慣用', 'i wish', 'as if', 'as though', 'but for', 'if it were not for', 'it is time'],
-      },
+      { id: 'participle-use', label: '限定・叙述用法', labelEn: 'Attributive & predicative', points: 'interesting / interested', targetQuestions: 18 },
+      { id: 'participle-construction', label: '分詞構文', labelEn: 'Participial construction', points: 'Having p.p.、独立分詞構文', targetQuestions: 18 },
+      { id: 'participle-with', label: '付帯状況・with・O+分詞', labelEn: 'With + participle', points: 'with O doing、keep O doing', targetQuestions: 12 },
     ],
   },
   {
     id: 'comparison',
     label: '比較',
     labelEn: 'Comparison',
-    keywords: ['比較'],
+    grade: 'h1-h2',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'comparison-equal',
-        label: '原級比較',
-        labelEn: 'Positive degree',
-        aliases: ['原級', '原級比較', 'as as'],
-        keywords: ['原級', 'as ~ as', '倍数表現'],
-      },
-      {
-        id: 'comparison-comparative',
-        label: '比較級',
-        labelEn: 'Comparative',
-        aliases: ['比較級', '比較級の強調'],
-        keywords: ['比較級', 'the 比較級'],
-      },
-      {
-        id: 'comparison-superlative',
-        label: '最上級',
-        labelEn: 'Superlative',
-        aliases: ['最上級', '最上級相当表現'],
-        keywords: ['最上級'],
-      },
-      {
-        id: 'comparison-idiom',
-        label: '比較の慣用表現',
-        labelEn: 'Comparison idioms',
-        aliases: ['比較の慣用表現', 'no more than', 'not less than'],
-        keywords: ['比較の慣用', 'no more than', 'no less than', 'not more than', 'know better than', 'much less'],
-      },
+      { id: 'comparison-positive', label: '原級', labelEn: 'Positive degree', points: 'as ~ as、not so ~ as', targetQuestions: 18 },
+      { id: 'comparison-comparative', label: '比較級・最上級', labelEn: 'Comparative & superlative', points: 'the 比較級、by far', targetQuestions: 16 },
+      { id: 'comparison-idiom', label: '倍数・慣用比較', labelEn: 'Multiples & idioms', points: 'twice as ~ as、no more than', targetQuestions: 12 },
     ],
   },
   {
-    id: 'conjunction',
-    label: '接続詞・節',
-    labelEn: 'Conjunctions & clauses',
-    keywords: ['接続詞'],
+    id: 'relative',
+    label: '関係詞',
+    labelEn: 'Relatives',
+    grade: 'h1-h2',
+    exam: { common: 'high', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'conjunction-coordinate',
-        label: '等位接続詞・相関接続詞',
-        labelEn: 'Coordinating conjunctions',
-        aliases: ['等位接続詞', '相関接続詞'],
-        keywords: ['等位接続詞', '相関接続詞', 'not only but also', 'either or', 'neither nor', 'both and'],
-      },
-      {
-        id: 'conjunction-subordinate',
-        label: '従位接続詞（時・条件・譲歩・理由）',
-        labelEn: 'Subordinating conjunctions',
-        aliases: ['従位接続詞', '従属接続詞', '譲歩', '譲歩構文'],
-        keywords: ['従位接続詞', '従属接続詞', '譲歩', '条件節', 'as soon as', 'unless', 'although', 'lest', 'in case'],
-      },
-      {
-        id: 'noun-clause',
-        label: '名詞節（that / whether / 同格）',
-        labelEn: 'Noun clauses',
-        aliases: ['名詞節', '同格のthat', '同格', '間接疑問'],
-        keywords: ['名詞節', '同格', '間接疑問', 'that節', 'whether節'],
-      },
+      { id: 'relative-pronoun', label: '関係代名詞の基本', labelEn: 'Relative pronouns', points: 'who / which / that / whose', targetQuestions: 24 },
+      { id: 'relative-preposition', label: '継続・前置詞＋関係詞', labelEn: 'Non-restrictive & prepositional', points: ', which、in which', targetQuestions: 16 },
+      { id: 'relative-adverb', label: '関係副詞', labelEn: 'Relative adverbs', points: 'where / when / why / how', targetQuestions: 14 },
+      { id: 'relative-compound', label: '複合関係詞・what・as/than 等', labelEn: 'Compound relatives & what', points: 'whatever、what、擬似関係代名詞', targetQuestions: 16 },
+    ],
+  },
+  {
+    id: 'subjunctive',
+    label: '仮定法',
+    labelEn: 'Subjunctive',
+    grade: 'h2',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
+    children: [
+      { id: 'subjunctive-if', label: 'if 仮定法', labelEn: 'If-clauses', points: 'if S were、if S had p.p.', targetQuestions: 24 },
+      { id: 'subjunctive-wish', label: 'wish・as if', labelEn: 'wish & as if', points: 'I wish、as if S were', targetQuestions: 14 },
+      { id: 'subjunctive-inversion', label: '倒置・but for 等', labelEn: 'Inversion & but for', points: 'Had I known、but for、without', targetQuestions: 12 },
+    ],
+  },
+  {
+    id: 'interrogative',
+    label: '疑問詞・疑問文',
+    labelEn: 'Questions',
+    grade: 'h2',
+    exam: { common: 'mid', priv: 'mid', national: 'mid' },
+    children: [
+      { id: 'interrogative-basic', label: '疑問詞基礎', labelEn: 'Question words', points: 'what / which / how、what to do', targetQuestions: 14 },
+      { id: 'interrogative-indirect', label: '間接疑問・付加疑問等', labelEn: 'Indirect & tag questions', points: 'do you think、付加疑問', targetQuestions: 12 },
+      { id: 'interrogative-idiom', label: '慣用疑問表現', labelEn: 'Idiomatic questions', points: 'How come、What if', targetQuestions: 10 },
+    ],
+  },
+  {
+    id: 'negation',
+    label: '否定',
+    labelEn: 'Negation',
+    grade: 'h2',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
+    children: [
+      { id: 'negation-scope', label: '否定の範囲', labelEn: 'Scope of negation', points: '否定語の作用域、not ~ because', targetQuestions: 14 },
+      { id: 'negation-partial', label: '部分否定・二重否定', labelEn: 'Partial & double negation', points: 'not always、never ~ without', targetQuestions: 12 },
+      { id: 'negation-quasi', label: '準否定・慣用否定', labelEn: 'Quasi-negatives', points: 'hardly, seldom, far from', targetQuestions: 10 },
+    ],
+  },
+  {
+    id: 'reported',
+    label: '話法',
+    labelEn: 'Reported speech',
+    grade: 'h2',
+    exam: { common: 'low', priv: 'mid', national: 'mid' },
+    children: [
+      { id: 'reported-basic', label: '直接・間接話法', labelEn: 'Direct & indirect', points: 'say / tell、時制と代名詞の転換', targetQuestions: 12 },
+      { id: 'reported-types', label: '命令・疑問・依頼の話法', labelEn: 'Commands & questions', points: 'ask O to do、if / whether', targetQuestions: 12 },
+    ],
+  },
+  {
+    id: 'nominal',
+    label: '名詞構文と無生物主語',
+    labelEn: 'Nominal & inanimate subjects',
+    grade: 'h2-h3',
+    exam: { common: 'low', priv: 'mid', national: 'high' },
+    children: [
+      { id: 'nominal-noun', label: '名詞構文', labelEn: 'Nominal constructions', points: 'take a walk → walk', targetQuestions: 10 },
+      { id: 'nominal-inanimate', label: '無生物主語', labelEn: 'Inanimate subjects', points: 'The news surprised me、enable O to do', targetQuestions: 10 },
+    ],
+  },
+  {
+    id: 'emphasis',
+    label: '強調・倒置・省略・同格',
+    labelEn: 'Emphasis, inversion & ellipsis',
+    grade: 'h2-h3',
+    exam: { common: 'low', priv: 'mid', national: 'high' },
+    children: [
+      { id: 'emphasis-cleft', label: '強調構文', labelEn: 'Cleft sentences', points: 'It is ~ that...、強調の do', targetQuestions: 12 },
+      { id: 'emphasis-inversion', label: '倒置・省略', labelEn: 'Inversion & ellipsis', points: '否定語句頭の倒置、so / neither', targetQuestions: 12 },
+      { id: 'emphasis-apposition', label: '同格・挿入', labelEn: 'Apposition & parenthesis', points: '同格の that、挿入節', targetQuestions: 8 },
+    ],
+  },
+  {
+    id: 'noun',
+    label: '名詞',
+    labelEn: 'Nouns',
+    grade: 'h1-h2',
+    exam: { common: 'mid', priv: 'mid', national: 'mid' },
+    children: [
+      { id: 'noun-count', label: '可算・不可算', labelEn: 'Countability', points: 'advice, information, furniture', targetQuestions: 12 },
+      { id: 'noun-plural', label: '複数形・所有格・名詞の語法', labelEn: 'Plurals & possessives', points: 'custom / customs、所有格', targetQuestions: 10 },
+    ],
+  },
+  {
+    id: 'article',
+    label: '冠詞・限定詞',
+    labelEn: 'Articles & determiners',
+    grade: 'h1-h2',
+    exam: { common: 'mid', priv: 'high', national: 'mid' },
+    children: [
+      { id: 'article-basic', label: '冠詞基礎', labelEn: 'Basic articles', points: 'a / the / 無冠詞', targetQuestions: 16 },
+      { id: 'article-meaning', label: '冠詞の意味差', labelEn: 'Article nuances', points: 'go to school / the school', targetQuestions: 10 },
+      { id: 'article-determiner', label: '限定詞群', labelEn: 'Determiners', points: 'all / both / each / every / either', targetQuestions: 12 },
+    ],
+  },
+  {
+    id: 'pronoun',
+    label: '代名詞',
+    labelEn: 'Pronouns',
+    grade: 'h2-h3',
+    exam: { common: 'mid', priv: 'high', national: 'mid' },
+    children: [
+      { id: 'pronoun-person', label: '人称・所有・再帰', labelEn: 'Personal & reflexive', points: 'oneself、所有代名詞', targetQuestions: 14 },
+      { id: 'pronoun-it', label: 'it の用法', labelEn: 'Uses of it', points: 'it that ~、it to do、形式主語', targetQuestions: 12 },
+      { id: 'pronoun-other', label: 'one・other 系', labelEn: 'one & other', points: 'another / the other / others', targetQuestions: 12 },
+    ],
+  },
+  {
+    id: 'adjective',
+    label: '形容詞',
+    labelEn: 'Adjectives',
+    grade: 'h2-h3',
+    exam: { common: 'mid', priv: 'mid', national: 'mid' },
+    children: [
+      { id: 'adjective-use', label: '限定・叙述', labelEn: 'Attributive & predicative', points: 'alive, asleep, afraid of', targetQuestions: 12 },
+      { id: 'adjective-usage', label: '数量・-ed/-ing・語法', labelEn: 'Quantity & -ed/-ing', points: 'many / much / few / little', targetQuestions: 12 },
+    ],
+  },
+  {
+    id: 'adverb',
+    label: '副詞',
+    labelEn: 'Adverbs',
+    grade: 'h2-h3',
+    exam: { common: 'mid', priv: 'mid', national: 'mid' },
+    children: [
+      { id: 'adverb-position', label: '位置と修飾範囲', labelEn: 'Position & scope', points: 'only, even, almost', targetQuestions: 12 },
+      { id: 'adverb-connective', label: '接続副詞・文修飾副詞', labelEn: 'Connective & sentence adverbs', points: 'however, therefore, fortunately', targetQuestions: 10 },
     ],
   },
   {
     id: 'preposition',
     label: '前置詞',
     labelEn: 'Prepositions',
-    keywords: ['前置詞'],
+    grade: 'h2-h3',
+    exam: { common: 'mid', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'preposition-basic',
-        label: '前置詞の基本用法',
-        labelEn: 'Basic prepositions',
-        aliases: ['前置詞', '前置詞の基本'],
-        keywords: ['前置詞の基本', '前置詞の用法'],
-      },
-      {
-        id: 'preposition-idiom',
-        label: '群前置詞・前置詞を含む熟語',
-        labelEn: 'Prepositional phrases',
-        aliases: ['群前置詞', '前置詞を含む熟語', '前置詞の慣用表現'],
-        keywords: ['群前置詞', '前置詞の慣用', '前置詞を含む'],
-      },
+      { id: 'preposition-basic', label: '基本前置詞', labelEn: 'Basic prepositions', points: 'in / on / at、by / with', targetQuestions: 16 },
+      { id: 'preposition-phrase', label: '結合前置詞・群前置詞', labelEn: 'Phrasal prepositions', points: 'in terms of、according to', targetQuestions: 12 },
     ],
   },
   {
-    id: 'noun',
-    label: '名詞・冠詞・代名詞',
-    labelEn: 'Nouns, articles & pronouns',
-    keywords: ['名詞', '代名詞', '冠詞'],
+    id: 'conjunction',
+    label: '接続詞',
+    labelEn: 'Conjunctions',
+    grade: 'h2-h3',
+    exam: { common: 'high', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'noun-countability',
-        label: '名詞と可算・不可算',
-        labelEn: 'Countability',
-        aliases: ['名詞', '可算名詞', '不可算名詞', '名詞の数'],
-        keywords: ['可算', '不可算', '名詞の数', '集合名詞'],
-      },
-      {
-        id: 'article',
-        label: '冠詞',
-        labelEn: 'Articles',
-        aliases: ['冠詞', '定冠詞', '不定冠詞', '無冠詞'],
-        keywords: ['冠詞'],
-      },
-      {
-        id: 'pronoun',
-        label: '代名詞',
-        labelEn: 'Pronouns',
-        aliases: ['代名詞', '不定代名詞', '再帰代名詞', '人称代名詞'],
-        keywords: ['代名詞', 'it の用法', 'one another', 'each other'],
-      },
-      {
-        id: 'agreement',
-        label: '主語と動詞の一致',
-        labelEn: 'Subject-verb agreement',
-        aliases: ['主語と動詞の一致', '数の一致', '一致'],
-        keywords: ['主語と動詞の一致', '数の一致', '主述の一致'],
-      },
+      { id: 'conjunction-coordinate', label: '等位接続詞・相関構文', labelEn: 'Coordinating & correlative', points: 'and / but / or、not only ~ but also', targetQuestions: 12 },
+      { id: 'conjunction-clause', label: '名詞節・副詞節', labelEn: 'Noun & adverb clauses', points: 'that / whether、although / unless', targetQuestions: 16 },
     ],
   },
   {
-    id: 'modifier',
-    label: '形容詞・副詞',
-    labelEn: 'Adjectives & adverbs',
-    keywords: ['形容詞', '副詞'],
+    id: 'usage',
+    label: '語法',
+    labelEn: 'Usage',
+    grade: 'h2-h3',
+    exam: { common: 'high', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'adjective',
-        label: '形容詞',
-        labelEn: 'Adjectives',
-        aliases: ['形容詞', '数量形容詞', '限定用法', '叙述用法'],
-        keywords: ['形容詞', '数量形容詞'],
-      },
-      {
-        id: 'adverb',
-        label: '副詞',
-        labelEn: 'Adverbs',
-        aliases: ['副詞', '頻度の副詞', '副詞の位置'],
-        keywords: ['副詞', 'already yet still'],
-      },
+      { id: 'usage-verb', label: '動詞語法', labelEn: 'Verb usage', points: 'SVO / SVOC、自動詞と他動詞', targetQuestions: 18 },
+      { id: 'usage-verbal', label: '準動詞語法', labelEn: 'Verbal usage', points: 'enable O to do、be worth doing', targetQuestions: 18 },
+      { id: 'usage-adjective', label: '形容詞・名詞語法', labelEn: 'Adjective & noun usage', points: 'be capable of、混同しやすい名詞', targetQuestions: 14 },
+      { id: 'usage-agreement', label: '主述一致・呼応・代用', labelEn: 'Agreement', points: '主語と動詞の一致、代動詞 do', targetQuestions: 10 },
     ],
   },
   {
-    id: 'emphasis',
-    label: '否定・倒置・強調・省略',
-    labelEn: 'Negation, inversion & emphasis',
+    id: 'idiom',
+    label: 'イディオムと会話表現',
+    labelEn: 'Idioms & expressions',
+    grade: 'h2-h3',
+    exam: { common: 'low', priv: 'high', national: 'mid' },
     children: [
-      {
-        id: 'negation',
-        label: '否定（部分否定・二重否定）',
-        labelEn: 'Negation',
-        aliases: ['否定', '部分否定', '二重否定', '準否定'],
-        keywords: ['部分否定', '二重否定', '準否定', '否定の慣用', '否定表現', 'not all', 'hardly', 'seldom'],
-      },
-      {
-        id: 'inversion',
-        label: '倒置',
-        labelEn: 'Inversion',
-        aliases: ['倒置', '倒置構文', '否定語句頭の倒置'],
-        keywords: ['倒置'],
-      },
-      {
-        id: 'cleft',
-        label: '強調構文・強調',
-        labelEn: 'Cleft sentences & emphasis',
-        aliases: ['強調構文', '強調', '強調のdo'],
-        keywords: ['強調構文', '強調', 'it is that', 'not until'],
-      },
-      {
-        id: 'ellipsis',
-        label: '省略・挿入',
-        labelEn: 'Ellipsis & parenthesis',
-        aliases: ['省略', '挿入', '省略構文', '挿入構文'],
-        keywords: ['省略構文', '挿入構文', '省略', '挿入', 'so to speak', 'what is called', 'if any'],
-      },
+      { id: 'idiom-verb', label: '動詞句イディオム', labelEn: 'Phrasal verbs', points: 'take care of、put up with', targetQuestions: 16 },
+      { id: 'idiom-conversation', label: '会話表現', labelEn: 'Conversational', points: "Why don't you...?、How about", targetQuestions: 16 },
+      { id: 'idiom-construction', label: '構文熟語', labelEn: 'Set constructions', points: 'be likely to、had better', targetQuestions: 12 },
     ],
   },
   {
-    id: 'syntax',
-    label: '文型・語法',
-    labelEn: 'Sentence patterns & usage',
-    keywords: ['語法', '文型'],
+    id: 'reading',
+    label: '読解・英作文直結文法',
+    labelEn: 'Grammar for reading & writing',
+    grade: 'h3',
+    exam: { common: 'high', priv: 'high', national: 'high' },
     children: [
-      {
-        id: 'sentence-pattern',
-        label: '文型（SV〜SVOC）',
-        labelEn: 'Sentence patterns',
-        aliases: ['文型', '5文型', '五文型', 'svoc', 'svoo'],
-        keywords: ['文型'],
-      },
-      {
-        id: 'verb-usage',
-        label: '動詞の語法',
-        labelEn: 'Verb usage',
-        aliases: ['動詞の語法', '自動詞と他動詞', '自動詞', '他動詞'],
-        keywords: ['動詞の語法', '自動詞', '他動詞', 'rise raise', 'lie lay'],
-      },
-      {
-        id: 'inanimate-subject',
-        label: '無生物主語・名詞構文',
-        labelEn: 'Inanimate subjects',
-        aliases: ['無生物主語', '名詞構文'],
-        keywords: ['無生物主語', '名詞構文'],
-      },
-      {
-        id: 'question',
-        label: '疑問文・付加疑問',
-        labelEn: 'Questions',
-        aliases: ['疑問文', '付加疑問', '疑問詞'],
-        keywords: ['疑問文', '付加疑問', '疑問詞'],
-      },
+      { id: 'reading-structure', label: '句と節・文構造把握', labelEn: 'Phrases, clauses & structure', points: '節の圧縮、修飾関係の把握', targetQuestions: 18 },
+      { id: 'reading-paraphrase', label: '書き換え・パラフレーズ', labelEn: 'Rewriting & paraphrase', points: '同義書き換え、節⇔句', targetQuestions: 18 },
+      { id: 'reading-translation', label: '和文英訳頻出変換', labelEn: 'JP→EN conversion', points: '名詞→動詞転換、無生物主語化', targetQuestions: 14 },
+      { id: 'reading-mixed', label: '融合型', labelEn: 'Mixed format', points: '整序、誤文訂正、推敲', targetQuestions: 14 },
     ],
   },
 ];
 
-/** カテゴリ(第1階層)のIDをそのまま返す */
-export function grammarCategoryIds(): string[] {
-  return GRAMMAR_TAXONOMY.map((category) => category.id);
-}
+// ---- 参照ヘルパー ----
 
-/** ツリーを深さ優先で走査する (親→子の順) */
-export function walkGrammarTaxonomy(
-  visit: (node: GrammarTaxonomyNode, parent: GrammarTaxonomyNode | null, depth: number) => void,
-): void {
-  const walk = (nodes: GrammarTaxonomyNode[], parent: GrammarTaxonomyNode | null, depth: number) => {
-    for (const node of nodes) {
-      visit(node, parent, depth);
-      if (node.children) walk(node.children, node, depth + 1);
+const unitById = new Map<string, GrammarUnit>();
+const subUnitById = new Map<string, { sub: GrammarSubUnit; unit: GrammarUnit }>();
+
+for (const unit of GRAMMAR_TAXONOMY) {
+  if (unitById.has(unit.id)) throw new Error(`duplicate grammar unit id: ${unit.id}`);
+  unitById.set(unit.id, unit);
+  for (const sub of unit.children) {
+    if (subUnitById.has(sub.id) || unitById.has(sub.id)) {
+      throw new Error(`duplicate grammar sub-unit id: ${sub.id}`);
     }
-  };
-  walk(GRAMMAR_TAXONOMY, null, 0);
+    subUnitById.set(sub.id, { sub, unit });
+  }
 }
 
-const nodeById = new Map<string, GrammarTaxonomyNode>();
-walkGrammarTaxonomy((node) => {
-  if (nodeById.has(node.id)) {
-    throw new Error(`duplicate grammar taxonomy id: ${node.id}`);
-  }
-  nodeById.set(node.id, node);
-});
+export function findGrammarUnit(id: string): GrammarUnit | null {
+  return unitById.get(id) ?? null;
+}
 
-export function findGrammarNode(id: string): GrammarTaxonomyNode | null {
-  return nodeById.get(id) ?? null;
+export function findGrammarSubUnit(id: string): { sub: GrammarSubUnit; unit: GrammarUnit } | null {
+  return subUnitById.get(id) ?? null;
+}
+
+/** 全76小単元をツリー順に返す */
+export function allGrammarSubUnits(): { sub: GrammarSubUnit; unit: GrammarUnit }[] {
+  return GRAMMAR_TAXONOMY.flatMap((unit) => unit.children.map((sub) => ({ sub, unit })));
 }
 
 /**
- * 指定ノードとその子孫のIDを返す。
- * カテゴリを指定して配下すべての問題を演習するときに使う。
+ * 指定ノード (大単元なら配下の小単元すべて) に対応する小単元IDを返す。
+ * 存在しないIDには空配列を返す。
  */
-export function grammarNodeSubtreeIds(id: string): string[] {
-  const root = nodeById.get(id);
-  if (!root) return [];
-  const ids: string[] = [];
-  const collect = (node: GrammarTaxonomyNode) => {
-    ids.push(node.id);
-    for (const child of node.children ?? []) collect(child);
-  };
-  collect(root);
-  return ids;
+export function grammarNodeSubUnitIds(id: string): string[] {
+  const unit = unitById.get(id);
+  if (unit) return unit.children.map((child) => child.id);
+  const found = subUnitById.get(id);
+  return found ? [found.sub.id] : [];
 }
+
+/** 大単元・小単元をまたいだ表示名の解決 */
+export function grammarNodeLabel(id: string): string | null {
+  return unitById.get(id)?.label ?? subUnitById.get(id)?.sub.label ?? null;
+}
+
+export const GRAMMAR_TAXONOMY_TOTAL_TARGET = GRAMMAR_TAXONOMY.reduce(
+  (total, unit) => total + unit.children.reduce((sum, sub) => sum + sub.targetQuestions, 0),
+  0,
+);

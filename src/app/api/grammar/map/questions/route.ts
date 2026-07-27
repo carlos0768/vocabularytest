@@ -2,44 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireProUser } from '@/lib/api/pro-auth';
-import { filterQuestionsByGrammarNode } from '@/lib/grammar/map';
-import {
-  GRAMMAR_UNCATEGORIZED_ID,
-  GRAMMAR_UNCATEGORIZED_LABEL,
-  findGrammarNode,
-} from '@/lib/grammar/taxonomy';
+import { publicQuestionsForNode } from '@/lib/grammar/map';
+import { findGrammarSource } from '@/lib/grammar/sources';
+import { findGrammarSubUnit, findGrammarUnit } from '@/lib/grammar/taxonomy';
 
 /**
  * GET /api/grammar/map/questions?nodeId=... (Pro限定)
  *
- * 文法マップのノード (カテゴリなら配下すべて) に属する問題を、問題集をまたいで返す。
- * 「仮定法だけ集中的に演習する」ための出題エンドポイント。
- *
- * 分類は自由入力タグからの推定なので、問題の所属は grammar_questions を
- * 全件読んでから src/lib/grammar/classify.ts で絞り込む (DB側にタグの正規化列は持たない)。
- * 習得度の記録に使うので、復習モードと同様に所属問題集ID (bookId) も返す。
+ * 文法マップのノード (大単元なら配下の小単元すべて) に属する公開問題を返す。
+ * 問題は公開ソース由来のアプリ内バンクなので、DBの問題テーブルは読まない。
+ * 並べ替えのためだけに本人の習得度 (grammar_map_progress) を参照する。
  */
 
 const querySchema = z.object({
-  // ツリーのIDはスラッグ (英小文字+ハイフン) のみ
+  // ノードIDはスラッグ (英小文字+数字+ハイフン) のみ
   nodeId: z.string().trim().min(1).max(60).regex(/^[a-z][a-z0-9-]*$/),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(30),
 }).strict();
-
-// 分類のために全問題を読むが、際限なく読まないよう上限を置く
-const QUESTION_FETCH_LIMIT = 3000;
-
-type GrammarQuestionRow = {
-  id: string;
-  book_id: string;
-  sentence: string;
-  choices: string[];
-  correct_index: number;
-  explanation: string;
-  grammar_point: string | null;
-  sentence_ja: string | null;
-  show_translation: boolean;
-};
 
 type GrammarMapQuestionsDeps = {
   requirePro: typeof requireProUser;
@@ -65,47 +44,35 @@ export async function handleGrammarMapQuestionsGet(
     }
 
     const { nodeId, limit } = parsed.data;
-    const node = findGrammarNode(nodeId);
-    const nodeLabel = nodeId === GRAMMAR_UNCATEGORIZED_ID ? GRAMMAR_UNCATEGORIZED_LABEL : node?.label;
+    const nodeLabel = findGrammarUnit(nodeId)?.label ?? findGrammarSubUnit(nodeId)?.sub.label;
     if (!nodeLabel) {
       return NextResponse.json({ success: false, error: '指定した文法項目が見つかりません' }, { status: 404 });
     }
 
-    const { data, error } = await auth.supabase
-      .from('grammar_questions')
-      .select('id,book_id,sentence,choices,correct_index,explanation,grammar_point,sentence_ja,show_translation')
-      .eq('user_id', auth.user.id)
-      .order('created_at', { ascending: true })
-      .limit(QUESTION_FETCH_LIMIT);
+    const questions = publicQuestionsForNode(nodeId);
+    const ordered = await orderByProgress(auth.supabase, auth.user.id, questions);
+    const selected = ordered.slice(0, limit);
 
-    if (error) {
-      console.error('[grammar/map/questions] fetch failed:', error.message);
-      return NextResponse.json({ success: false, error: '問題の取得に失敗しました' }, { status: 500 });
-    }
-
-    const rows = (data ?? []) as GrammarQuestionRow[];
-    const matched = filterQuestionsByGrammarNode(
-      rows.map((row) => ({ row, grammarPoint: row.grammar_point })),
-      nodeId,
-    ).map((entry) => entry.row);
-
-    const ordered = await orderByProgress(auth.supabase, auth.user.id, matched);
+    // CC BY は帰属表示が必要なので、出題した問題のソースを併せて返す
+    const sources = Array.from(new Set(selected.map((question) => question.sourceId)))
+      .map((id) => findGrammarSource(id))
+      .filter((source): source is NonNullable<typeof source> => source !== null)
+      .map((source) => ({ title: source.title, license: source.licenseLabel, url: source.url }));
 
     return NextResponse.json({
       success: true,
       nodeId,
       nodeLabel,
-      totalMatched: matched.length,
-      questions: ordered.slice(0, limit).map((row) => ({
-        id: row.id,
-        bookId: row.book_id,
-        sentence: row.sentence,
-        choices: row.choices,
-        correctIndex: row.correct_index,
-        explanation: row.explanation,
-        grammarPoint: row.grammar_point,
-        sentenceJa: row.sentence_ja,
-        showTranslation: row.show_translation,
+      totalMatched: questions.length,
+      sources,
+      questions: selected.map((question) => ({
+        id: question.id,
+        nodeId: question.nodeId,
+        sentence: question.sentence,
+        choices: question.choices,
+        correctIndex: question.correctIndex,
+        explanation: question.explanation,
+        sentenceJa: question.sentenceJa,
       })),
     });
   } catch (error) {
@@ -115,8 +82,8 @@ export async function handleGrammarMapQuestionsGet(
 }
 
 /**
- * 未回答 → 苦手 → 習得済み の順に並べ替える (問題集単位の演習と同じ考え方)。
- * 習得度が読めない環境では元の作成順のまま返す。
+ * 未回答 → 苦手 → 習得済み の順に並べ替える。
+ * 習得度が読めない環境では元の収録順のまま返す。
  */
 async function orderByProgress<T extends { id: string }>(
   supabase: SupabaseClient,
@@ -126,7 +93,7 @@ async function orderByProgress<T extends { id: string }>(
   if (rows.length === 0) return rows;
 
   const progressResult = await supabase
-    .from('grammar_question_progress')
+    .from('grammar_map_progress')
     .select('question_id,mastered,last_answered_at')
     .eq('user_id', userId);
 
@@ -142,10 +109,10 @@ async function orderByProgress<T extends { id: string }>(
   }[];
 
   const progressByQuestion = new Map<string, { mastered: boolean; lastAnsweredAt: number }>();
-  for (const p of progressRows) {
-    progressByQuestion.set(p.question_id, {
-      mastered: Boolean(p.mastered),
-      lastAnsweredAt: p.last_answered_at ? Date.parse(p.last_answered_at) || 0 : 0,
+  for (const row of progressRows) {
+    progressByQuestion.set(row.question_id, {
+      mastered: Boolean(row.mastered),
+      lastAnsweredAt: row.last_answered_at ? Date.parse(row.last_answered_at) || 0 : 0,
     });
   }
 

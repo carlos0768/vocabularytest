@@ -24,9 +24,9 @@ import {
 // 復習対象から外す。
 //
 // bookId が "point-<nodeId>" のときは文法マップの項目別演習モード:
-// その文法事項に属する問題を問題集をまたいで (/api/grammar/map/questions)
-// 出題する。どちらのモードも問題は複数の問題集にまたがるため、習得度の記録には
-// 問題行が持つ所属問題集ID (question.bookId) を使う。
+// 公開ソース由来の問題バンク (/api/grammar/map/questions) から、その文法事項の
+// 問題を出題する。ユーザーの問題集とは別データなので、習得度も専用の
+// /api/grammar/map/progress に記録する。
 
 const POINT_PREFIX = 'point-';
 
@@ -41,8 +41,6 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
   const isReview = bookId === 'review';
   const isPoint = bookId.startsWith(POINT_PREFIX);
   const nodeId = isPoint ? bookId.slice(POINT_PREFIX.length) : null;
-  // 問題が複数の問題集にまたがるモード (所属IDは問題行から取る)
-  const isCrossBook = isReview || isPoint;
   const router = useRouter();
 
   // 戻るは来た画面 (ホーム等) に戻す。直接アクセスなど履歴が無いときのみ一覧へフォールバック。
@@ -126,17 +124,27 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
     if (!isCorrect) {
       setWrongQuestions((prev) => [...prev, question]);
     }
-    // 習得度を記録する(不正解時はサーバー側で誤答ログも残すので、
-    // 別途 grammar-misses への直接POSTは不要)。復習・項目別演習では
-    // 問題行が持つ所属問題集ID (question.bookId) を使う。
-    // best-effort: 失敗しても演習は続行する。
-    const effectiveBookId = isCrossBook ? question.bookId : bookId;
-    if (effectiveBookId) {
-      void fetch('/api/grammar/progress', {
+    // 習得度を記録する。best-effort: 失敗しても演習は続行する。
+    // 文法マップの項目別演習は公開問題バンクなので、専用の記録先に送る
+    // (ユーザーの問題集の習得度 grammar_question_progress とは分離する)。
+    if (isPoint) {
+      void fetch('/api/grammar/map/progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId: question.id, bookId: effectiveBookId, result: isCorrect ? 'correct' : 'wrong' }),
+        body: JSON.stringify({ questionId: question.id, result: isCorrect ? 'correct' : 'wrong' }),
       }).catch(() => {});
+    } else {
+      // 問題集の演習。不正解時はサーバー側で誤答ログも残すので、
+      // 別途 grammar-misses への直接POSTは不要。復習モードでは問題行が持つ
+      // 所属問題集ID (question.bookId) を使う。
+      const effectiveBookId = isReview ? question.bookId : bookId;
+      if (effectiveBookId) {
+        void fetch('/api/grammar/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ questionId: question.id, bookId: effectiveBookId, result: isCorrect ? 'correct' : 'wrong' }),
+        }).catch(() => {});
+      }
     }
     // 復習モードで正解できた問題はミスを解消し、次回の復習対象から外す
     if (isCorrect && isReview) {
