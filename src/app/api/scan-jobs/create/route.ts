@@ -11,9 +11,14 @@ import { resolveScanJobSaveMode } from '@/lib/scan/job-create-contract';
 import {
   EXTRACT_MODES,
   getPrimaryExtractMode,
+  isValidModeCombination,
   normalizeExtractModes,
   type ExtractMode,
 } from '@/lib/scan/mode-provider';
+import {
+  MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH,
+  resolveCustomExtractionPrompt,
+} from '@/lib/scan/custom-modes';
 import { randomUUID } from 'crypto';
 import { processJobById } from '../process/route';
 
@@ -56,6 +61,9 @@ const requestSchema = z.object({
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
   aiEnabled: z.boolean().nullable().optional(),
   includeMorphology: z.boolean().optional().default(false),
+  // カスタム抽出モード: 保存済みモードのID（優先）か、その場限りの指示文
+  customModeId: z.string().uuid().nullable().optional(),
+  customPrompt: z.string().max(MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH).nullable().optional(),
   targetProjectId: z.string().uuid().optional(),
   clientPlatform: z.enum(['android', 'ios', 'web']).optional().default('web'),
 }).strict().superRefine((value, ctx) => {
@@ -106,6 +114,8 @@ export async function POST(request: NextRequest) {
       imagePath,
       imagePaths: multiplePaths,
       includeMorphology,
+      customModeId,
+      customPrompt,
       targetProjectId,
       clientPlatform,
     } = parsed.data;
@@ -119,6 +129,27 @@ export async function POST(request: NextRequest) {
 
     const scanModes = normalizeExtractModes(requestedScanModes, [scanMode]);
     const primaryScanMode = getPrimaryExtractMode(scanModes);
+
+    // カスタムモードは抽出条件がユーザ定義のため他モードと併用できない
+    if (!isValidModeCombination(scanModes)) {
+      return NextResponse.json(
+        { error: 'カスタム抽出モードは他のモードと同時に使えません' },
+        { status: 400 },
+      );
+    }
+
+    // プロンプトはサーバー側で解決する（保存済みモードIDはクライアントを信用しない）。
+    // 解決結果をジョブ行にコピーして持つので、後からモードを編集・削除しても
+    // 処理中ジョブの抽出条件は変わらない。
+    const resolvedCustomPrompt = await resolveCustomExtractionPrompt(supabase, user.id, {
+      isCustomMode: scanModes.includes('custom'),
+      customModeId: customModeId ?? null,
+      customPrompt: customPrompt ?? null,
+    });
+    if (!resolvedCustomPrompt.ok) {
+      return NextResponse.json({ error: resolvedCustomPrompt.error }, { status: 400 });
+    }
+
     // コイン消費(consume)がジョブINSERTより先に走るため、ジョブIDを事前生成して
     // 消費台帳とジョブ行を同じIDで紐づける（失敗時の返還キーになる）。
     const jobId = randomUUID();
@@ -195,6 +226,8 @@ export async function POST(request: NextRequest) {
         scan_modes: scanModes,
         eiken_level: eikenLevel,
         include_morphology: includeMorphology,
+        custom_prompt: resolvedCustomPrompt.prompt,
+        custom_scan_mode_id: scanModes.includes('custom') ? customModeId ?? null : null,
         image_path: imagePaths[0], // Primary image (backward compat)
         image_paths: imagePaths,   // All images
         save_mode: saveMode,

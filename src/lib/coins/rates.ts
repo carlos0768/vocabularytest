@@ -5,11 +5,14 @@ import type { ExtractMode } from '@/lib/scan/mode-provider';
 // scan_coin_cost() / consume_scan_coins()。両者のリテラル一致は
 // src/lib/coins/rates.test.ts のコントラクトテストで担保している。
 // 変更時は必ず両方を同時に更新すること。
+// custom（ユーザ定義プロンプト）のSQL実体は
+// supabase/migrations/20260726090100_custom_scan_mode_coin_cost.sql。
 export const SCAN_MODE_COIN_RATES: Record<ExtractMode, number> = {
   circled: 2,
   all: 3,
   eiken: 3,
   idiom: 3,
+  custom: 3,
 };
 
 export const EXTRA_IMAGE_COIN_COST = 1;

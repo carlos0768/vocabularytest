@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   applySourceModesFromScanModes,
+  isValidModeCombination,
   getMissingProviderKey,
   getMissingProviderKeyForModes,
   getProvidersForMode,
@@ -40,6 +41,8 @@ test('scan mode maps to configured extraction provider', () => {
     ['circled', AI_CONFIG.extraction.circled.provider],
     ['eiken', AI_CONFIG.extraction.eiken.provider],
     ['idiom', AI_CONFIG.extraction.idioms.provider],
+    // カスタムモードは通常の単語抽出と同じプロバイダで、プロンプトだけが違う
+    ['custom', AI_CONFIG.extraction.words.provider],
   ];
 
   for (const [mode, provider] of cases) {
@@ -52,6 +55,20 @@ test('normalizeExtractModes accepts arrays, JSON strings, and comma strings', ()
   assert.deepEqual(normalizeExtractModes('["circled","eiken"]'), ['circled', 'eiken']);
   assert.deepEqual(normalizeExtractModes('all,idiom,unknown'), ['all', 'idiom']);
   assert.deepEqual(normalizeExtractModes('unknown', ['all']), ['all']);
+});
+
+test('custom mode is exclusive and cannot be combined with other modes', () => {
+  assert.equal(isValidModeCombination(['custom']), true);
+  assert.equal(isValidModeCombination(['all', 'idiom']), true);
+  assert.equal(isValidModeCombination(['custom', 'idiom']), false);
+  assert.equal(isValidModeCombination(['all', 'custom']), false);
+  // 重複は正規化で1件に畳まれるので単独扱いのまま
+  assert.equal(isValidModeCombination(['custom', 'custom']), true);
+});
+
+test('normalizeExtractModes accepts the custom mode', () => {
+  assert.deepEqual(normalizeExtractModes(['custom']), ['custom']);
+  assert.deepEqual(normalizeExtractModes('custom'), ['custom']);
 });
 
 test('applySourceModesFromScanModes overwrites AI-provided source modes', () => {

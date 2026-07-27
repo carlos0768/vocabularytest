@@ -34,6 +34,7 @@ import {
   saveScanConfirmResultPayload,
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
+import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 export const MAX_SCAN_IMAGE_COUNT = 20;
@@ -55,6 +56,7 @@ const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[
   { k: 'eiken',  label: '英検',             hint: '級別頻出語を優先', pro: true },
   { k: 'idiom',  label: '熟語・イディオム', hint: '複合語・熟語を抽出' },
   { k: 'all',    label: '単語帳取込',       hint: '単語帳形式の単語を抽出' },
+  { k: 'custom', label: 'カスタム',         hint: '抽出条件を自分で指示' },
 ];
 
 interface HeldShot {
@@ -99,6 +101,10 @@ export function ScanCapturePanel({
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
+  const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
+    modeId: null,
+    prompt: '',
+  });
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [insufficientCoinInfo, setInsufficientCoinInfo] = useState<InsufficientCoinsInfo | null>(null);
@@ -127,6 +133,15 @@ export function ScanCapturePanel({
 
   const selectedScanModes = activeSubs;
   const selectedEikenLevel = selectedScanModes.includes('eiken') ? eikenLevel : null;
+  const isCustomMode = selectedScanModes.includes('custom');
+  // 保存済みモードを選んでいればID、その場入力ならプロンプト本文を送る
+  const customPayload = isCustomMode
+    ? {
+        customModeId: customSelection.modeId,
+        customPrompt: customSelection.modeId ? null : customSelection.prompt.trim() || null,
+      }
+    : { customModeId: null, customPrompt: null };
+  const customPromptMissing = isCustomMode && !customPayload.customModeId && !customPayload.customPrompt;
 
   // Single-select: exactly one extraction option is active at a time
   // (the scanModes API payload stays an array with one entry).
@@ -155,6 +170,8 @@ export function ScanCapturePanel({
       scanModes: selectedScanModes,
       eikenLevel: selectedEikenLevel,
       includeMorphology: morphologyOn,
+      customModeId: customPayload.customModeId,
+      customPrompt: customPayload.customPrompt,
       targetProjectId,
       projectTitle: targetProjectTitle ?? newProjectTitle,
       onProgress: setProcessingLabel,
@@ -181,6 +198,8 @@ export function ScanCapturePanel({
             scanModes: selectedScanModes,
             eikenLevel: selectedEikenLevel,
             includeMorphology: morphologyOn,
+            ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
+            ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
           }),
         });
         const parsed = await readHomeImmediateScanExtractResponse(res, { imageIndex: index });
@@ -366,7 +385,8 @@ export function ScanCapturePanel({
   const estimatedCoinCost = coinState.cost;
   const insufficientBalance = coinState.insufficient;
 
-  const scanDisabled = (activeSubs.includes('eiken') && !eikenLevel) || insufficientBalance;
+  const scanDisabled =
+    (activeSubs.includes('eiken') && !eikenLevel) || customPromptMissing || insufficientBalance;
 
   // Scanning is Pro-only: free users see an upgrade prompt instead of the
   // capture UI (the server rejects free scans too — this is UX, not the gate).
@@ -509,6 +529,11 @@ export function ScanCapturePanel({
               <p className="mt-1.5 text-[10px] text-[var(--color-muted)]">級を選んでからスキャンを開始してください</p>
             )}
           </div>
+        )}
+
+        {/* Custom extraction prompt (ユーザ定義の抽出条件) */}
+        {isCustomMode && (
+          <CustomScanModePanel selection={customSelection} onChange={setCustomSelection} />
         )}
 
         {/* Morphology (語源解析) toggle */}

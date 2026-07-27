@@ -9,6 +9,8 @@ export interface HomeBackgroundScanJobCreatePayload {
   scanModes?: ExtractMode[];
   eikenLevel: HomeBackgroundScanEikenLevel;
   includeMorphology?: boolean;
+  customModeId?: string;
+  customPrompt?: string;
   targetProjectId?: string;
   clientPlatform: 'web';
 }
@@ -19,6 +21,8 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
   scanModes?: readonly ExtractMode[];
   eikenLevel?: HomeBackgroundScanEikenLevel;
   includeMorphology?: boolean;
+  customModeId?: string | null;
+  customPrompt?: string | null;
   projectTitle?: string | null;
   targetProjectId?: string | null;
   now?: Date;
@@ -27,6 +31,7 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
     month: 'numeric',
     day: 'numeric',
   });
+  const isCustomScan = params.scanMode === 'custom' || Boolean(params.scanModes?.includes('custom'));
 
   return {
     imagePaths: [...params.imagePaths],
@@ -37,6 +42,11 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
       ? params.eikenLevel ?? null
       : null,
     ...(params.includeMorphology ? { includeMorphology: true } : {}),
+    // カスタムモード以外では抽出プロンプトを送らない（サーバー側でも無視される）
+    ...(isCustomScan && params.customModeId ? { customModeId: params.customModeId } : {}),
+    ...(isCustomScan && !params.customModeId && params.customPrompt
+      ? { customPrompt: params.customPrompt }
+      : {}),
     targetProjectId: params.targetProjectId || undefined,
     clientPlatform: 'web',
   };

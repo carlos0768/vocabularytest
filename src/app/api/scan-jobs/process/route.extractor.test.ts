@@ -25,7 +25,7 @@ const successWords = {
 };
 
 test('extractFromImage succeeds for all scan modes with mocked handlers', async () => {
-  type Handlers = Parameters<typeof __internal.extractFromImage>[4];
+  type Handlers = Parameters<typeof __internal.extractFromImage>[5];
 
   const handlers: Handlers = {
     extractWordsFromImage: async () => successWords,
@@ -37,9 +37,10 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
     }),
     extractIdiomsFromImage: async () => successWords,
     extractCompositeWordsFromImage: async () => successWords,
+    extractCustomWordsFromImage: async () => successWords,
   };
 
-  const modes: ExtractMode[] = ['all', 'circled', 'eiken', 'idiom'];
+  const modes: ExtractMode[] = ['all', 'circled', 'eiken', 'idiom', 'custom'];
 
   for (const mode of modes) {
     const eikenLevel = mode === 'eiken' ? '3' : null;
@@ -48,6 +49,7 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
       mode,
       eikenLevel,
       { gemini: 'test-key' },
+      { customPrompt: mode === 'custom' ? '赤字の単語だけ抽出' : null },
       handlers
     );
 
@@ -61,7 +63,7 @@ test('extractFromImage succeeds for all scan modes with mocked handlers', async 
 });
 
 test('extractFromImage uses one composite extraction call for multiple modes', async () => {
-  type Handlers = Parameters<typeof __internal.extractFromImage>[4];
+  type Handlers = Parameters<typeof __internal.extractFromImage>[5];
   const calls: string[] = [];
 
   const handlers: Handlers = {
@@ -83,6 +85,10 @@ test('extractFromImage uses one composite extraction call for multiple modes', a
     },
     extractIdiomsFromImage: async () => {
       calls.push('extractIdiomsFromImage');
+      return successWords;
+    },
+    extractCustomWordsFromImage: async () => {
+      calls.push('extractCustomWordsFromImage');
       return successWords;
     },
     extractCompositeWordsFromImage: async (_image, _apiKeys, options) => {
@@ -111,6 +117,7 @@ test('extractFromImage uses one composite extraction call for multiple modes', a
     ['all', 'idiom', 'eiken'],
     '2',
     { gemini: 'test-key' },
+    {},
     handlers,
   );
 

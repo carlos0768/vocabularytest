@@ -106,6 +106,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // カスタム抽出モードはプロンプトを伴う JSON エンドポイント
+    // (/api/scan-jobs/create) 専用。無言でallに落として課金しない。
+    if (scanModes.includes('custom')) {
+      return NextResponse.json(
+        { error: 'カスタム抽出モードはこのエンドポイントでは利用できません' },
+        { status: 400 },
+      );
+    }
+
     // 消費台帳とジョブ行を同じIDで紐づけるため事前生成（失敗時の返還キー）
     const jobId = randomUUID();
     const gate = await consumeScanGate(supabase, {

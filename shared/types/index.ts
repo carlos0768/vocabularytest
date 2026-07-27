@@ -279,7 +279,7 @@ export interface AIWordExtraction {
   rawJapanese?: string;
   translations?: WordTranslation[];
   japaneseSource?: 'scan' | 'ai';
-  sourceModes?: Array<'all' | 'circled' | 'eiken' | 'idiom'>;
+  sourceModes?: Array<'all' | 'circled' | 'eiken' | 'idiom' | 'custom'>;
   lexiconEntryId?: string;
   lexiconSenseId?: string;
   lexiconDistinctKey?: string;

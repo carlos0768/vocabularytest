@@ -73,7 +73,7 @@ All AI extraction responses are validated with Zod schemas before use. Malformed
 
 ### INV-09: Pro-only extraction modes
 
-Every extraction mode (`all`, `circled`, `eiken`, `idiom`) requires a Pro subscription. This is enforced server-side in all scan routes via `consumeScanGate` (`src/lib/coins/scan-gate.ts`): with `COIN_SYSTEM_ENABLED` off it delegates to `check_and_increment_scan_batch` with `p_require_pro=true`; with it on, `consume_scan_coins` rejects non-Pro users before touching balances.
+Every extraction mode (`all`, `circled`, `eiken`, `idiom`, `custom`) requires a Pro subscription. This is enforced server-side in all scan routes via `consumeScanGate` (`src/lib/coins/scan-gate.ts`): with `COIN_SYSTEM_ENABLED` off it delegates to `check_and_increment_scan_batch` with `p_require_pro=true`; with it on, `consume_scan_coins` rejects non-Pro users before touching balances.
 
 **Consequence of violation**: Free users access Pro-only features.
 
