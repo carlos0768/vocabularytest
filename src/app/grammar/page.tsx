@@ -246,6 +246,25 @@ export default function GrammarBooksPage() {
         )}
       </div>
 
+      {/* 文法マップ: 問題集をまたいで文法事項ごとの習得度をツリーで見る導線 */}
+      {state.kind === 'ready' && (
+        <Link
+          href="/grammar/map"
+          className="mb-3 flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3 no-underline shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+        >
+          <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+            <Icon name="account_tree" size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-[14.5px] font-bold text-[var(--solid-ink)]">文法マップ</span>
+            <span className="mt-0.5 block text-[11px] leading-[1.6] text-[var(--color-muted)]">
+              26大単元・76小単元の文法体系をノードマップで攻略します
+            </span>
+          </span>
+          <Icon name="chevron_right" size={18} className="shrink-0 text-[var(--color-muted)]" />
+        </Link>
+      )}
+
       {state.kind === 'loading' && (
         <div className="flex flex-col gap-2.5">
           {[0, 1, 2].map((i) => (
