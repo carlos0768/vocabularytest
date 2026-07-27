@@ -36,14 +36,17 @@ export type GrammarMapLayout = {
 
 export const GRAMMAR_HUB_ID = 'hub';
 
-// 配置パラメータ。小単元は76個あるので、重ならない外周半径を確保する。
-const UNIT_RADIUS = 430;
-const SUB_RADIUS = 900;
-const HUB_SIZE = 46;
-const UNIT_SIZE = 40;
-const SUB_SIZE = 30;
-/** 図全体の余白 (ラベルがはみ出す分) */
-const PADDING = 150;
+// 配置パラメータ。
+// ノードは指で押せて文字が読める大きさが要るので、まずノード半径を決め、
+// それが重ならない周長になるよう外周半径を逆算している
+// (小単元は76個: 2π*1050/76 = 86.8px 間隔 > 直径80px)。
+const UNIT_RADIUS = 500;
+const SUB_RADIUS = 1050;
+const HUB_SIZE = 62;
+const UNIT_SIZE = 52;
+const SUB_SIZE = 40;
+/** 図全体の余白 (外周ノードのラベルが外側へはみ出す分) */
+const PADDING = 260;
 
 export function buildGrammarMapLayout(): GrammarMapLayout {
   const nodes: GrammarLayoutNode[] = [

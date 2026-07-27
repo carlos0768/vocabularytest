@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
@@ -9,6 +9,7 @@ import {
   GrammarMapLegend,
   GRAMMAR_STATUS_LABEL,
   grammarNodePracticeHref,
+  type GrammarMapHandle,
 } from '@/components/grammar/GrammarMapGraph';
 import type { GrammarMapNode, GrammarMapSummary } from '@/lib/grammar/map';
 import { EXAM_WEIGHT_MARK, GRAMMAR_GRADE_LABEL } from '@/lib/grammar/taxonomy';
@@ -49,6 +50,13 @@ export default function GrammarMapPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [licensesOpen, setLicensesOpen] = useState(false);
+  const graphRef = useRef<GrammarMapHandle | null>(null);
+
+  // 詳細パネルから選んだノードは、地図側も中心に寄せる
+  const selectAndFocus = (nodeId: string) => {
+    setSelectedId(nodeId);
+    graphRef.current?.focusNode(nodeId);
+  };
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
@@ -190,7 +198,12 @@ export default function GrammarMapPage() {
             <span className="font-mono text-[11px] tracking-[0.08em] text-white/50">LOADING MAP...</span>
           </div>
         ) : (
-          <GrammarMapGraph nodes={state.nodes} selectedId={selectedId} onSelect={setSelectedId} />
+          <GrammarMapGraph
+            ref={graphRef}
+            nodes={state.nodes}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
         )}
 
         {/* 凡例 */}
@@ -263,6 +276,54 @@ export default function GrammarMapPage() {
                   style={{ width: `${selected.node.masteryPercent}%` }}
                 />
               </div>
+
+              {/* 大単元は配下の小単元へ辿れるようにする
+                  (外周ノードは初期表示だと画面外にあり、指で探しにくいため) */}
+              {selected.node.children.length > 0 && (
+                <div className="mt-3">
+                  <div className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-white/40">
+                    小単元
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {selected.node.children.map((child) => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        onClick={() => selectAndFocus(child.id)}
+                        className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-2.5 py-1.5 text-[11.5px] font-bold text-white"
+                      >
+                        <span
+                          className="h-[7px] w-[7px] rounded-full"
+                          style={{
+                            backgroundColor: child.status === 'mastered'
+                              ? '#2fbf4e'
+                              : child.status === 'learning'
+                                ? '#2f86e0'
+                                : child.status === 'untouched'
+                                  ? '#4a6ea8'
+                                  : '#3b4256',
+                          }}
+                        />
+                        {child.label}
+                        <span className="font-mono text-[9.5px] tabular-nums text-white/45">
+                          {child.mastered}/{child.total}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selected.parent && (
+                <button
+                  type="button"
+                  onClick={() => selectAndFocus(selected.parent!.id)}
+                  className="mt-3 flex items-center gap-1 font-mono text-[10px] text-white/45"
+                >
+                  <Icon name="chevron_left" size={13} />
+                  {selected.parent.label}へ戻る
+                </button>
+              )}
 
               {selected.node.total > 0 ? (
                 <Link
