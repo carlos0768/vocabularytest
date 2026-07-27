@@ -27,6 +27,10 @@ export function DesktopSharedDetailView({
   onImport,
   onClearSelection,
   onWordAction,
+  onEnterSelectMode,
+  onExitSelectMode,
+  onToggleSelectAll,
+  onAddSelectedToBook,
 }: {
   project: Project;
   words: Word[];
@@ -48,11 +52,17 @@ export function DesktopSharedDetailView({
   onClearSelection: () => void;
   /** 行の「…」から単語単位のアクション（単語帳に追加 / 共有）を開く */
   onWordAction?: (word: Word) => void;
+  onEnterSelectMode?: () => void;
+  onExitSelectMode?: () => void;
+  onToggleSelectAll?: () => void;
+  /** 選択した単語を自分の既存単語帳へ追加する（追加先ピッカーを開く） */
+  onAddSelectedToBook?: () => void;
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
   const bg = project.iconImage ? undefined : desktopThumbColor(project.id);
   const selectedCount = selectedWordIds.size;
+  const allSelected = words.length > 0 && words.every((word) => selectedWordIds.has(word.id));
   const hiddenWordCount = isPreviewLocked
     ? Math.max(0, totalWordCount - Math.min(previewClearWordCount, totalWordCount))
     : Math.max(0, totalWordCount - words.length);
@@ -122,6 +132,15 @@ export function DesktopSharedDetailView({
           <div style={{ flex: 1 }} />
           {!isPreviewLocked && (
             <DesktopSearchBox placeholder="単語を検索" value={query} onChange={(event) => setQuery(event.target.value)} style={{ minWidth: 200 }} />
+          )}
+          {!isPreviewLocked && words.length > 0 && (onEnterSelectMode || onExitSelectMode) && (
+            <DesktopButton
+              variant={selectMode ? 'dark' : 'ghost'}
+              icon="check_box"
+              onClick={() => (selectMode ? onExitSelectMode?.() : onEnterSelectMode?.())}
+            >
+              {selectMode ? '選択を終了' : '単語を選択'}
+            </DesktopButton>
           )}
         </div>
 
@@ -197,12 +216,29 @@ export function DesktopSharedDetailView({
             </>
           ) : selectMode ? (
             <>
-              <span className="muted" style={{ fontSize: 13 }}>{selectedCount} 語を選択中</span>
+              <span className="muted" style={{ fontSize: 13 }}>{selectedCount} / {words.length} 語を選択中</span>
               <div className="grow" />
+              {onToggleSelectAll && (
+                <button type="button" className="ds-btn ghost" onClick={onToggleSelectAll}>
+                  {allSelected ? '全選択を解除' : '全選択'}
+                </button>
+              )}
               <button type="button" className="ds-btn ghost" onClick={onClearSelection}>選択をクリア</button>
+              {onAddSelectedToBook && (
+                <button
+                  type="button"
+                  className="ds-btn"
+                  disabled={selectedCount === 0 || importing}
+                  style={selectedCount === 0 || importing ? { opacity: 0.5 } : undefined}
+                  onClick={onAddSelectedToBook}
+                >
+                  <Icon name="bookmark_add" />
+                  既存の単語帳に追加
+                </button>
+              )}
               <button type="button" className="ds-btn accent" disabled={selectedCount === 0 || importing} style={selectedCount === 0 || importing ? { opacity: 0.5 } : undefined} onClick={onImport}>
                 {importing ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="download" />}
-                選択した {selectedCount} 語を追加
+                新しい単語帳として追加
               </button>
             </>
           ) : (

@@ -98,6 +98,7 @@ export default function ProfilePage() {
       friendsHref="/follows?tab=following"
       stats={stats}
       statsLoading={statsLoading}
+      withBottomNav
     />
   );
 }

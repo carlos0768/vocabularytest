@@ -155,6 +155,8 @@ export default function SharedDetailPage() {
   const [bookPickerOpen, setBookPickerOpen] = useState(false);
   const [myBooks, setMyBooks] = useState<Project[] | null>(null);
   const [addingToBookId, setAddingToBookId] = useState<string | null>(null);
+  // ピッカーで追加する対象語。単語単体（…メニュー）と選択モードの複数語で共用する。
+  const [bookPickerWords, setBookPickerWords] = useState<Word[]>([]);
 
   const subscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -244,6 +246,10 @@ export default function SharedDetailPage() {
     () => words.filter((word) => selectedWordIds.has(word.id)),
     [selectedWordIds, words],
   );
+  // ログアウト中はぼかしプレビューなので選択できない。
+  const selectableWords = isPreviewLocked ? [] : words;
+  const allSelected = selectableWords.length > 0
+    && selectableWords.every((word) => selectedWordIds.has(word.id));
   const importTargetWords = user ? (selectMode ? selectedWords : words) : [];
   const importBusy = importing || preparingRewardedDownloadAd;
   const ownerLabel = ownerAccountId ? `@${ownerAccountId}` : ownerUsername ? `@${ownerUsername}` : '共有ユーザー';
@@ -260,6 +266,29 @@ export default function SharedDetailPage() {
       ...createBlurredPreviewWords(project.id, placeholderCount),
     ];
   }, [isPreviewLocked, project?.id, totalWordCount, words]);
+
+  // 元の所有者に「インポートされた」ことを伝える。失敗してもインポート自体は成功扱い。
+  const notifyImported = () => {
+    fetch(`/api/shared-projects/share/${encodeURIComponent(shareId)}/imported`, { method: 'POST' })
+      .catch(() => { /* ignore */ });
+  };
+
+  /**
+   * 単語帳まるごと／複数語のダウンロードはリワード広告のあとに実行する。
+   * 広告が未設定・配信不可のときはそのまま通す（従来のインポートと同じ挙動）。
+   */
+  const runWithDownloadAd = async (action: () => Promise<void>) => {
+    if (!rewardedDownloadConfigured) {
+      await action();
+      return;
+    }
+    const outcome = await showRewardedDownloadAd();
+    if (outcome === 'granted' || outcome === 'unavailable') {
+      await action();
+      return;
+    }
+    showToast({ message: '動画広告を最後まで視聴すると追加できます', type: 'warning' });
+  };
 
   const performImport = async (targetWords: Word[]) => {
     if (!user || !project || targetWords.length === 0) return;
@@ -294,13 +323,15 @@ export default function SharedDetailPage() {
       setImportedProjectId(newProject.id);
       setSelectMode(false);
       setSelectedWordIds(new Set());
+      setBookPickerOpen(false);
+      setBookPickerWords([]);
+      setActionWord(null);
       invalidateHomeCache();
       showToast({ message: `${targetWords.length}語を追加しました`, type: 'success' });
 
       // Best-effort: let the original owner know their wordbook was imported.
       // Failure here must not affect the import itself.
-      fetch(`/api/shared-projects/share/${encodeURIComponent(shareId)}/imported`, { method: 'POST' })
-        .catch(() => { /* ignore */ });
+      notifyImported();
     } catch (importError) {
       console.error('Failed to import shared project:', importError);
       showToast({ message: 'インポートに失敗しました', type: 'error' });
@@ -325,18 +356,7 @@ export default function SharedDetailPage() {
     }
     if (!project || importTargetWords.length === 0 || importBusy) return;
 
-    if (!rewardedDownloadConfigured) {
-      await performImport(importTargetWords);
-      return;
-    }
-
-    const outcome = await showRewardedDownloadAd();
-    if (outcome === 'granted' || outcome === 'unavailable') {
-      await performImport(importTargetWords);
-      return;
-    }
-
-    showToast({ message: '動画広告を最後まで視聴すると追加できます', type: 'warning' });
+    await runWithDownloadAd(() => performImport(importTargetWords));
   };
 
   const handleToggleLike = async () => {
@@ -369,6 +389,26 @@ export default function SharedDetailPage() {
       else next.add(wordId);
       return next;
     });
+  };
+
+  // 選択モードの開始はログイン必須（未ログインはぼかしプレビューのため入口を出さない）。
+  const handleEnterSelectMode = () => {
+    if (!user) {
+      router.push(loginRedirectHref);
+      return;
+    }
+    setSelectMode(true);
+    setSelectedWordIds(new Set());
+  };
+
+  const handleExitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedWordIds(new Set());
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectableWords.length === 0) return;
+    setSelectedWordIds(allSelected ? new Set() : new Set(selectableWords.map((word) => word.id)));
   };
 
   // 単語単体の共有。リールの共有と同じ挙動（共有カード画像を生成して
@@ -413,8 +453,8 @@ export default function SharedDetailPage() {
     }
   };
 
-  // 「単語帳に追加」: 自分の単語帳一覧を開く
-  const handleOpenBookPicker = async () => {
+  // 「単語帳に追加」: 追加する単語を決めて自分の単語帳一覧を開く
+  const handleOpenBookPicker = async (targetWords: Word[]) => {
     if (!user) {
       router.push(loginRedirectHref);
       return;
@@ -423,6 +463,11 @@ export default function SharedDetailPage() {
       showToast({ message: '解約後は読み取り専用のため、追加にはProプランへの再登録が必要です。', type: 'warning' });
       return;
     }
+    if (targetWords.length === 0) {
+      showToast({ message: '追加する単語を選択してください', type: 'warning' });
+      return;
+    }
+    setBookPickerWords(targetWords);
     setBookPickerOpen(true);
     if (myBooks !== null) return;
     try {
@@ -436,36 +481,77 @@ export default function SharedDetailPage() {
     }
   };
 
-  const handleAddWordToBook = async (target: Project) => {
-    if (!user || !actionWord || addingToBookId) return;
+  const performAddWordsToBook = async (target: Project, targetWords: Word[]) => {
     setAddingToBookId(target.id);
     try {
       const repo = getRepository(subscriptionStatus, wasPro);
-      await repo.createWords([
-        {
+      // 追加先に同じ英単語が既にあるものは飛ばす（同じ単語帳を何度も開いて
+      // 追加したときに重複が積み上がらないようにする）。
+      const existing = await repo.getWords(target.id).catch(() => [] as Word[]);
+      const existingKeys = new Set(existing.map((word) => word.english.trim().toLowerCase()));
+      const newWords = targetWords.filter((word) => !existingKeys.has(word.english.trim().toLowerCase()));
+      const skipped = targetWords.length - newWords.length;
+
+      if (newWords.length === 0) {
+        showToast({ message: `「${target.title}」には既に登録済みです`, type: 'warning' });
+        return;
+      }
+
+      await repo.createWords(
+        newWords.map((word) => ({
           projectId: target.id,
-          english: actionWord.english,
-          japanese: actionWord.japanese,
-          translations: actionWord.translations,
-          distractors: actionWord.distractors ?? [],
-          exampleSentence: actionWord.exampleSentence ?? undefined,
-          exampleSentenceJa: actionWord.exampleSentenceJa ?? undefined,
-          pronunciation: actionWord.pronunciation ?? undefined,
-          partOfSpeechTags: actionWord.partOfSpeechTags ?? undefined,
-          vocabularyType: actionWord.vocabularyType ?? undefined,
-          wordOrderQuiz: actionWord.wordOrderQuiz ?? undefined,
-        },
-      ]);
+          english: word.english,
+          japanese: word.japanese,
+          translations: word.translations,
+          distractors: word.distractors ?? [],
+          exampleSentence: word.exampleSentence ?? undefined,
+          exampleSentenceJa: word.exampleSentenceJa ?? undefined,
+          pronunciation: word.pronunciation ?? undefined,
+          partOfSpeechTags: word.partOfSpeechTags ?? undefined,
+          vocabularyType: word.vocabularyType ?? undefined,
+          wordOrderQuiz: word.wordOrderQuiz ?? undefined,
+        })),
+      );
       invalidateHomeCache();
-      showToast({ message: `「${target.title}」に追加しました`, type: 'success' });
+      showToast({
+        message: skipped > 0
+          ? `「${target.title}」に${newWords.length}語を追加しました（${skipped}語は登録済み）`
+          : `「${target.title}」に${newWords.length}語を追加しました`,
+        type: 'success',
+      });
       setBookPickerOpen(false);
+      setBookPickerWords([]);
       setActionWord(null);
+      handleExitSelectMode();
+      notifyImported();
     } catch (addError) {
-      console.error('Failed to add word to wordbook:', addError);
+      console.error('Failed to add words to wordbook:', addError);
       showToast({ message: '追加に失敗しました', type: 'error' });
     } finally {
       setAddingToBookId(null);
     }
+  };
+
+  const handleAddWordsToBook = async (target: Project) => {
+    if (!user || addingToBookId || importing) return;
+    const targetWords = bookPickerWords;
+    if (targetWords.length === 0) return;
+
+    // 複数語のまとめ追加は単語帳ダウンロードと同じ扱いでリワード広告を挟む。
+    // 「…」メニューからの1語追加は従来どおり広告なし。
+    if (targetWords.length > 1) {
+      await runWithDownloadAd(() => performAddWordsToBook(target, targetWords));
+      return;
+    }
+    await performAddWordsToBook(target, targetWords);
+  };
+
+  // ピッカーから新しい単語帳として追加する（追加先の単語帳がまだ無い人向け）。
+  const handleCreateBookFromPicker = async () => {
+    if (!user || addingToBookId || importing) return;
+    const targetWords = bookPickerWords;
+    if (targetWords.length === 0) return;
+    await runWithDownloadAd(() => performImport(targetWords));
   };
 
   const handleOpenRename = () => {
@@ -589,6 +675,10 @@ export default function SharedDetailPage() {
         onImport={() => void handleImport()}
         onClearSelection={() => setSelectedWordIds(new Set())}
         onWordAction={setActionWord}
+        onEnterSelectMode={handleEnterSelectMode}
+        onExitSelectMode={handleExitSelectMode}
+        onToggleSelectAll={handleToggleSelectAll}
+        onAddSelectedToBook={() => void handleOpenBookPicker(selectedWords)}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
@@ -688,13 +778,27 @@ export default function SharedDetailPage() {
         </SolidPanel>
       </div>
 
-      <div className="flex items-center justify-between px-[18px] pb-2.5">
-        <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+      <div className="flex items-center justify-between gap-2 px-[18px] pb-2.5">
+        <div className="min-w-0 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {isPreviewLocked ? `単語プレビュー · ${SHARE_PREVIEW_CLEAR_WORD_COUNT}語まで表示` : `単語プレビュー · 全 ${totalWordCount} 語`}
         </div>
+        {!isPreviewLocked && words.length > 0 && (
+          <button
+            type="button"
+            onClick={() => (selectMode ? handleExitSelectMode() : handleEnterSelectMode())}
+            aria-label={selectMode ? '選択を終了' : '単語を選択'}
+            aria-pressed={selectMode}
+            className={`inline-flex h-[30px] shrink-0 items-center gap-1 rounded-[9px] border-2 border-[var(--solid-ink)] px-2.5 text-[11px] font-extrabold transition-all duration-100 active:translate-x-px active:translate-y-px ${
+              selectMode ? 'bg-[var(--solid-ink)] text-white' : 'bg-white text-[var(--solid-ink)]'
+            }`}
+          >
+            <Icon name="check_box" size={14} />
+            {selectMode ? '選択中' : '選択'}
+          </button>
+        )}
       </div>
 
-      <div className="flex flex-col px-4 pb-[130px]">
+      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : 'pb-[130px]'}`}>
         <div className="divide-y divide-[var(--color-border)]">
           {displayWords.map((word, i) => {
             const locked = isPreviewLocked && i >= SHARE_PREVIEW_CLEAR_WORD_COUNT;
@@ -703,6 +807,9 @@ export default function SharedDetailPage() {
                 key={word.id}
                 word={word}
                 locked={locked}
+                selectMode={selectMode}
+                selected={selectedWordIds.has(word.id)}
+                onToggleSelect={() => handleToggleSelect(word.id)}
                 onMore={() => setActionWord(word)}
               />
             );
@@ -719,7 +826,56 @@ export default function SharedDetailPage() {
         className="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3"
         style={{ background: 'linear-gradient(to top, var(--color-background) 70%, transparent)', paddingBottom: 'max(1.625rem, env(safe-area-inset-bottom))' }}
       >
-        {isOwner ? (
+        {selectMode ? (
+          <>
+            <div className="flex items-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-2.5">
+              <button
+                type="button"
+                onClick={handleExitSelectMode}
+                aria-label="選択を終了"
+                className="inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="close" size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                disabled={selectableWords.length === 0}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px] text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              >
+                <SharedSelectCheckbox checked={allSelected} size={16} />
+                {allSelected ? '解除' : '全選択'}
+              </button>
+              <div className="min-w-0 flex-1 px-1 text-center">
+                <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                  SELECTED
+                </div>
+                <div className="font-display text-[14px] font-extrabold leading-none text-[var(--solid-ink)]">
+                  {selectedWords.length}
+                  <span className="ml-1 font-mono text-[10px] font-semibold text-[var(--color-muted)]">
+                    / {selectableWords.length}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleOpenBookPicker(selectedWords)}
+                disabled={selectedWords.length === 0 || importBusy || addingToBookId !== null}
+                className="inline-flex h-[36px] shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[12px] font-extrabold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+              >
+                <Icon
+                  name={importBusy || addingToBookId !== null ? 'progress_activity' : 'bookmark_add'}
+                  size={15}
+                  className={importBusy || addingToBookId !== null ? 'animate-spin' : undefined}
+                />
+                単語帳に追加
+              </button>
+            </div>
+            <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
+              選択した単語を自分の単語帳に追加します
+            </p>
+          </>
+        ) : isOwner ? (
           <>
             <div className="flex gap-2.5">
               <button
@@ -766,7 +922,7 @@ export default function SharedDetailPage() {
             {importBusy ? (preparingRewardedDownloadAd ? '広告を準備中...' : '追加中...') : `${importTargetWords.length}語をインポート`}
           </SolidButton>
         )}
-        {!isOwner && (
+        {!isOwner && !selectMode && (
           <p className="mt-2 text-center font-mono text-[10px] font-semibold text-[var(--color-muted)]">
             {isPreviewLocked ? '一部だけプレビューしています' : 'オリジナルは変更されません'}
           </p>
@@ -892,7 +1048,7 @@ export default function SharedDetailPage() {
               icon="bookmark_add"
               label="単語帳に追加"
               sub="自分の単語帳を選んで追加します"
-              onClick={() => void handleOpenBookPicker()}
+              onClick={() => void handleOpenBookPicker([actionWord])}
             />
             <WordActionSheetRow
               icon="ios_share"
@@ -912,15 +1068,40 @@ export default function SharedDetailPage() {
       <Modal
         isOpen={bookPickerOpen}
         onClose={() => {
-          if (!addingToBookId) setBookPickerOpen(false);
+          if (addingToBookId || importing) return;
+          setBookPickerOpen(false);
+          setBookPickerWords([]);
         }}
         variant={isMobileViewport ? 'sheet' : 'center'}
       >
         <div className="px-4 pb-6 pt-5">
-          <p className="mb-3 px-3 font-display text-sm font-bold text-[var(--color-secondary-text)]">
+          <p className="mb-1 px-3 font-display text-sm font-bold text-[var(--color-secondary-text)]">
             追加先の単語帳を選択
           </p>
+          <p className="mb-3 px-3 text-xs font-semibold text-[var(--color-muted)]">
+            {bookPickerWords.length === 1
+              ? `「${bookPickerWords[0]?.english}」を追加します`
+              : `選択した${bookPickerWords.length}語を追加します`}
+          </p>
           <div className="max-h-[52dvh] overflow-y-auto overscroll-contain">
+            <button
+              type="button"
+              disabled={addingToBookId !== null || importing}
+              onClick={() => void handleCreateBookFromPicker()}
+              className="flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-secondary)] disabled:opacity-60"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] border-2 border-dashed border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+                <Icon name={importing ? 'progress_activity' : 'add'} size={18} className={importing ? 'animate-spin' : undefined} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-[var(--solid-ink)]">
+                  新しい単語帳として追加
+                </span>
+                <span className="block truncate text-xs text-[var(--color-muted)]">
+                  「{project.title}」という名前で作成します
+                </span>
+              </span>
+            </button>
             {myBooks === null ? (
               <div className="flex items-center justify-center py-8 text-[var(--color-muted)]">
                 <Icon name="progress_activity" size={18} className="animate-spin" />
@@ -935,8 +1116,8 @@ export default function SharedDetailPage() {
                 <button
                   key={book.id}
                   type="button"
-                  disabled={addingToBookId !== null}
-                  onClick={() => void handleAddWordToBook(book)}
+                  disabled={addingToBookId !== null || importing}
+                  onClick={() => void handleAddWordsToBook(book)}
                   className="flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-secondary)] disabled:opacity-60"
                 >
                   <span
@@ -1001,27 +1182,63 @@ function posShort(tag: string): string {
   return `(${getPartOfSpeechLabel(tag).charAt(0)})`;
 }
 
+function SharedSelectCheckbox({ checked, size = 20 }: { checked: boolean; size?: number }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center border-2 transition-colors ${
+        checked
+          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+          : 'border-[var(--solid-ink)] bg-white text-transparent'
+      }`}
+      style={{ width: size, height: size, borderRadius: size * 0.25 }}
+      aria-hidden
+    >
+      {checked && <Icon name="check" size={Math.round(size * 0.65)} />}
+    </span>
+  );
+}
+
 /**
  * project/* の単語一覧と同じ行UI。共有ページ用に保存マーク・語彙モード
- * （AP）・チェックボックスは持たず、代わりに「…」ボタンだけを置く。
+ * （AP）は持たず、「…」ボタンだけを置く。選択モードのときは行タップで
+ * 選択をトグルし、左端にチェックボックスを出す。
  */
 function SharedWordRow({
   word,
   locked,
+  selectMode,
+  selected,
+  onToggleSelect,
   onMore,
 }: {
   word: Word;
   locked: boolean;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
   onMore: () => void;
 }) {
   const pos = word.partOfSpeechTags?.[0] ?? null;
   const blurClass = locked ? 'select-none blur-[3.5px]' : '';
+  const selectable = selectMode && !locked;
   return (
-    <div className="px-1 py-2.5">
+    <div className={`px-1 py-2.5 ${selectable && selected ? 'bg-[var(--color-accent-subtle)]' : ''}`}>
       <div className="flex items-center gap-2.5">
+        {selectMode && (
+          <button
+            type="button"
+            onClick={selectable ? onToggleSelect : undefined}
+            disabled={!selectable}
+            aria-label={`${word.english}を${selected ? '選択解除' : '選択'}`}
+            aria-pressed={selected}
+            className="inline-flex h-[32px] w-[24px] shrink-0 items-center justify-center disabled:opacity-40"
+          >
+            <SharedSelectCheckbox checked={selected} size={18} />
+          </button>
+        )}
         <button
           type="button"
-          onClick={locked ? undefined : onMore}
+          onClick={locked ? undefined : selectMode ? onToggleSelect : onMore}
           disabled={locked}
           className="min-w-0 flex-1 text-left"
         >
@@ -1039,7 +1256,7 @@ function SharedWordRow({
           <span className="inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center text-[var(--color-muted)]">
             <Icon name="lock" size={14} />
           </span>
-        ) : (
+        ) : selectMode ? null : (
           <button
             type="button"
             onClick={onMore}

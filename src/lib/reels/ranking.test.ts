@@ -1,8 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import type { WordMorphology } from '@/types';
 import type { ReelBook, ReelCandidate, ReelRankingContext } from './types';
-import { rankReelCandidates, scoreReelCandidate, selectReelCandidates } from './ranking';
+import {
+  hasDisplayableMorphology,
+  rankReelCandidates,
+  scoreReelCandidate,
+  selectReelCandidates,
+} from './ranking';
+
+const MORPHOLOGY: WordMorphology = {
+  formula: [
+    { text: 'in', kind: 'prefix', meaningJa: '中へ' },
+    { text: 'spect', kind: 'root', meaningJa: '見る' },
+  ],
+  explanation: '中を見る → 検査する。',
+  version: 1,
+};
 
 const NOW = '2026-07-03T00:00:00.000Z';
 
@@ -168,6 +183,76 @@ test('interested feedback boosts the book, not-interested penalizes it', () => {
   const neutral = scoreReelCandidate(candidate, neutralCtx, 9);
   assert.ok(scoreReelCandidate(candidate, interestedCtx, 9) > neutral);
   assert.ok(scoreReelCandidate(candidate, notInterestedCtx, 9) < neutral);
+});
+
+// ---------- morphology (語源) priority ----------
+
+test('hasDisplayableMorphology matches the card-side condition', () => {
+  assert.equal(hasDisplayableMorphology({ morphology: MORPHOLOGY }), true);
+  assert.equal(hasDisplayableMorphology({ morphology: null }), false);
+  assert.equal(hasDisplayableMorphology({ morphology: undefined }), false);
+  assert.equal(
+    hasDisplayableMorphology({ morphology: { ...MORPHOLOGY, none: true } }),
+    false,
+    'none:true has no etymology face',
+  );
+  assert.equal(
+    hasDisplayableMorphology({ morphology: { ...MORPHOLOGY, formula: [] } }),
+    false,
+    'an empty formula has no etymology face',
+  );
+});
+
+test('a word with etymology is ranked ahead of one without', () => {
+  const ctx = makeContext();
+  const candidates = [
+    makeCandidate('plain', { book: makeBook({ id: 'book-p' }) }),
+    makeCandidate('etym', { morphology: MORPHOLOGY, book: makeBook({ id: 'book-e' }) }),
+  ];
+  for (const seed of [1, 42, 999, 123456]) {
+    assert.equal(rankReelCandidates(candidates, ctx, seed, 2)[0].id, 'etym');
+  }
+});
+
+test('etymology words fill the page first, off-level ones included', () => {
+  const ctx = makeContext({ eikenLevel: 'pre2' });
+  const candidates = [
+    // Perfectly on-level, popular, fresh — but no etymology.
+    ...Array.from({ length: 20 }, (_, i) =>
+      makeCandidate(`plain${i}`, {
+        source: 'official',
+        cefrLevel: 'A2',
+        book: makeBook({ type: 'official', id: `plain-book-${i}`, likeCount: 5000 }),
+      }),
+    ),
+    // Off-level and unpopular, but they carry a 語源 breakdown.
+    ...Array.from({ length: 8 }, (_, i) =>
+      makeCandidate(`etym${i}`, {
+        source: 'official',
+        cefrLevel: 'C1',
+        morphology: MORPHOLOGY,
+        book: makeBook({ type: 'official', id: `etym-book-${i}`, likeCount: 0 }),
+      }),
+    ),
+  ];
+  const picked = rankReelCandidates(candidates, ctx, 42, 8);
+  assert.ok(
+    picked.every((candidate) => candidate.morphology),
+    `expected an all-etymology page, got ${picked.map((c) => c.id).join(',')}`,
+  );
+});
+
+test('etymology preference never starves the feed', () => {
+  const ctx = makeContext();
+  const candidates = [
+    makeCandidate('etym', { morphology: MORPHOLOGY, book: makeBook({ id: 'book-e' }) }),
+    ...Array.from({ length: 10 }, (_, i) =>
+      makeCandidate(`plain${i}`, { book: makeBook({ id: `book-${i}` }) }),
+    ),
+  ];
+  const picked = rankReelCandidates(candidates, ctx, 5, 8);
+  assert.equal(picked.length, 8, 'plain words still fill the page once etymology runs out');
+  assert.equal(picked[0].id, 'etym', 'the etymology word leads the page');
 });
 
 // ---------- selectReelCandidates (infinite feed / seen recycling) ----------
