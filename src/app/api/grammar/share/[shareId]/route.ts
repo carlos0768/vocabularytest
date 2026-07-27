@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { requireProUser } from '@/lib/api/pro-auth';
+import { incrementGrammarBookImportCount } from '../../shared-grammar-books';
 
 /**
  * GET  /api/grammar/share/[shareId] — 共有された語法問題集の閲覧 (ログイン必須)
@@ -75,16 +76,27 @@ async function resolveAuthenticatedUser(request: NextRequest): Promise<{ id: str
   return { id: user.id };
 }
 
+/** 取り込み回数の加算。共有ページの人気順に使うだけなので失敗は無視する。 */
+async function countImport(bookId: string): Promise<void> {
+  try {
+    await incrementGrammarBookImportCount(bookId);
+  } catch (error) {
+    console.warn('[grammar/share/[shareId]] import count skipped:', error);
+  }
+}
+
 type ShareViewDeps = {
   resolveUser: typeof resolveAuthenticatedUser;
   requirePro: typeof requireProUser;
   resolveShared: typeof resolveSharedBook;
+  countImport: typeof countImport;
 };
 
 const defaultDeps: ShareViewDeps = {
   resolveUser: resolveAuthenticatedUser,
   requirePro: requireProUser,
   resolveShared: resolveSharedBook,
+  countImport,
 };
 
 export async function handleGrammarShareGet(
@@ -186,6 +198,8 @@ export async function handleGrammarShareImportPost(
         return NextResponse.json({ success: false, error: '取り込みに失敗しました' }, { status: 500 });
       }
     }
+
+    await deps.countImport(shared.book.id);
 
     return NextResponse.json({
       success: true,

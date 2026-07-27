@@ -11,6 +11,7 @@ import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { Icon } from '@/components/ui/Icon';
 import { useInfiniteScrollSentinel, type LoadMoreState } from '@/hooks/use-infinite-scroll';
 import { formatSharedTag } from '../../../shared/shared-tags';
+import type { PublicGrammarBookCard } from '@/lib/grammar/types';
 import type {
   PublicStudyGroupSummary,
   SharedDiscoverCategory,
@@ -20,11 +21,12 @@ import type {
   StudyGroupSummary,
 } from '@/lib/shared-projects/types';
 
-type DesktopSharedCategory = Exclude<SharedDiscoverCategory, 'all'> | 'groups';
+type DesktopSharedCategory = Exclude<SharedDiscoverCategory, 'all'> | 'groups' | 'grammar';
 
 const CATEGORY_META: Record<DesktopSharedCategory, { label: string; icon: string; description: string }> = {
   users: { label: 'ユーザー', icon: 'person', description: '学習者アカウント' },
   projects: { label: '単語帳', icon: 'menu_book', description: 'みんなが公開している単語帳' },
+  grammar: { label: '語法', icon: 'rule', description: 'みんなが公開している語法問題集' },
   groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探して参加' },
 };
 
@@ -43,6 +45,15 @@ export function DesktopSharedView({
   groupError,
   onGroupQueryChange,
   onGroupSearch,
+  grammarQuery,
+  grammarBooks,
+  grammarLoading,
+  grammarError,
+  grammarLoadMoreState,
+  grammarHasMore,
+  onGrammarQueryChange,
+  onGrammarSearch,
+  onGrammarLoadMore,
   onQueryChange,
   onCategorySelect,
   onBackToAll,
@@ -51,7 +62,7 @@ export function DesktopSharedView({
   loadMoreState,
   onLoadMore,
 }: {
-  category: SharedDiscoverCategory | 'groups';
+  category: SharedDiscoverCategory | 'groups' | 'grammar';
   query: string;
   payload: SharedDiscoverPayload;
   loading: boolean;
@@ -63,6 +74,15 @@ export function DesktopSharedView({
   groupError: string | null;
   onGroupQueryChange: (value: string) => void;
   onGroupSearch: () => void;
+  grammarQuery: string;
+  grammarBooks: PublicGrammarBookCard[];
+  grammarLoading: boolean;
+  grammarError: string | null;
+  grammarLoadMoreState: LoadMoreState;
+  grammarHasMore: boolean;
+  onGrammarQueryChange: (value: string) => void;
+  onGrammarSearch: () => void;
+  onGrammarLoadMore: () => void;
   onQueryChange: (value: string) => void;
   onCategorySelect: (category: DesktopSharedCategory) => void;
   onBackToAll: () => void;
@@ -73,15 +93,17 @@ export function DesktopSharedView({
 }) {
   const isCategory = category !== 'all';
   const isGroups = category === 'groups';
+  const isGrammar = category === 'grammar';
   const activeMeta = isCategory ? CATEGORY_META[category] : null;
   const hasQuery = query.trim().length > 0;
-  const shouldShowResults = !isGroups && (isCategory || hasQuery || loading || Boolean(error));
+  const shouldShowResults = !isGroups && !isGrammar && (isCategory || hasQuery || loading || Boolean(error));
   const showDashboard = category === 'all' && !hasQuery;
 
   const isDesktop = useIsDesktop();
   const dashboardActive = isDesktop && showDashboard;
   const feed = useDiscoverFeed(dashboardActive);
   const publicGroups = usePublicGroupsPreview(dashboardActive);
+  const publicGrammar = usePublicGrammarPreview(dashboardActive);
 
   const handleFeedProjectMissing = (projectId: string) => {
     feed.remove(projectId);
@@ -130,6 +152,21 @@ export function DesktopSharedView({
                 <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
               </button>
             </form>
+          ) : isGrammar ? (
+            <form
+              onSubmit={(event) => { event.preventDefault(); onGrammarSearch(); }}
+              style={{ display: 'flex', gap: 8, minWidth: 0 }}
+            >
+              <DesktopSearchBox
+                placeholder="問題集名・ユーザーで検索"
+                value={grammarQuery}
+                onChange={(event) => onGrammarQueryChange(event.target.value)}
+                style={{ width: '100%', minWidth: 0 }}
+              />
+              <button type="submit" className="ds-btn dark" disabled={grammarLoading} aria-label="語法問題集を検索">
+                <Icon name={grammarLoading ? 'progress_activity' : 'arrow_forward'} className={grammarLoading ? 'animate-spin' : undefined} />
+              </button>
+            </form>
           ) : (
             <DesktopSearchBox
               placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
@@ -168,6 +205,11 @@ export function DesktopSharedView({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
             <PopularWordbooksRail projects={feed.projects.length > 0 ? feed.projects : payload.projects} />
+            <PublicGrammarRail
+              books={publicGrammar.books}
+              loading={publicGrammar.loading}
+              onSeeAll={() => onCategorySelect('grammar')}
+            />
             <PublicGroupsRail
               groups={publicGroups.groups}
               loading={publicGroups.loading}
@@ -198,6 +240,21 @@ export function DesktopSharedView({
               groupLoading={groupLoading}
               groupError={groupError}
             />
+          )}
+
+          {isGrammar && (
+            <>
+              <GrammarBookGrid
+                books={grammarBooks}
+                loading={grammarLoading}
+                error={grammarError}
+              />
+              <DesktopLoadMore
+                hasMore={grammarHasMore}
+                state={grammarLoadMoreState}
+                onLoadMore={onGrammarLoadMore}
+              />
+            </>
           )}
 
           {shouldShowResults && (
@@ -369,6 +426,42 @@ function usePublicGroupsPreview(enabled: boolean) {
   }, [enabled]);
 
   return { groups, loading };
+}
+
+type PublicGrammarResponse = {
+  success?: boolean;
+  items?: PublicGrammarBookCard[];
+};
+
+// ダッシュボード右レール用の公開語法問題集プレビュー。
+function usePublicGrammarPreview(enabled: boolean) {
+  const [books, setBooks] = useState<PublicGrammarBookCard[]>([]);
+  const [settled, setSettled] = useState(false);
+  const startedRef = useRef(false);
+  const loading = enabled && !settled;
+
+  useEffect(() => {
+    if (!enabled || startedRef.current) return;
+    startedRef.current = true;
+
+    const controller = new AbortController();
+    fetch('/api/grammar/public?limit=5', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as PublicGrammarResponse | null;
+        if (!response.ok || !payload?.success) throw new Error('public_grammar_failed');
+        setBooks(payload.items ?? []);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) console.warn('Failed to load public grammar books preview:', error);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSettled(true);
+      });
+
+    return () => controller.abort();
+  }, [enabled]);
+
+  return { books, loading };
 }
 
 // ============ Dashboard: main column ============
@@ -546,6 +639,71 @@ function PopularWordbooksRail({ projects }: { projects: SharedProjectCard[] }) {
           );
         })}
       </div>
+    </RailPanel>
+  );
+}
+
+function grammarOwnerLabel(book: PublicGrammarBookCard): string {
+  return book.ownerAccountId
+    ? `@${book.ownerAccountId}`
+    : book.ownerUsername
+      ? `@${book.ownerUsername}`
+      : '共有ユーザー';
+}
+
+function PublicGrammarRail({
+  books,
+  loading,
+  onSeeAll,
+}: {
+  books: PublicGrammarBookCard[];
+  loading: boolean;
+  onSeeAll: () => void;
+}) {
+  if (!loading && books.length === 0) return null;
+
+  return (
+    <RailPanel title="公開中の語法問題集" icon="rule" action={<RailSeeAllButton onClick={onSeeAll} />}>
+      {loading && books.length === 0 ? (
+        <div className="muted" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0' }}>
+          <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 16 }} />
+          読み込み中...
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {books.map((book, index) => (
+            <Link
+              key={book.id}
+              href={`/grammar/share/${encodeURIComponent(book.shareId)}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '9px 0',
+                borderBottom: index < books.length - 1 ? '1px solid var(--color-border)' : 'none',
+                color: 'inherit',
+                textDecoration: 'none',
+              }}
+            >
+              <div
+                className="ds-project-icon ds-project-icon--sm"
+                style={{ background: desktopThumbColor(book.id) }}
+              >
+                <Icon name="rule" style={{ fontSize: 16 }} />
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {book.title}
+                </div>
+                <div className="muted" style={{ marginTop: 2, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {book.questionCount}問 · {grammarOwnerLabel(book)}
+                </div>
+              </div>
+              <Icon name="chevron_right" style={{ fontSize: 18, color: 'var(--color-muted)', flexShrink: 0 }} />
+            </Link>
+          ))}
+        </div>
+      )}
     </RailPanel>
   );
 }
@@ -731,6 +889,77 @@ function GroupSearchResults({
         </Link>
       ))}
     </div>
+  );
+}
+
+function GrammarBookGrid({
+  books,
+  loading,
+  error,
+}: {
+  books: PublicGrammarBookCard[];
+  loading: boolean;
+  error: string | null;
+}) {
+  if (error) {
+    return (
+      <div className="ds-card" style={{ padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
+        {error}
+      </div>
+    );
+  }
+  if (loading && books.length === 0) {
+    return (
+      <div className="ds-card" style={{ padding: 34, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Icon name="progress_activity" className="animate-spin" />
+        検索中...
+      </div>
+    );
+  }
+  if (books.length === 0) {
+    return <EmptyCard label="公開されている語法問題集はまだありません" />;
+  }
+
+  return (
+    <section>
+      <SectionTitle count={books.length}>語法問題集</SectionTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16 }}>
+        {books.map((book) => (
+          <Link
+            key={book.id}
+            href={`/grammar/share/${encodeURIComponent(book.shareId)}`}
+            className="ds-card"
+            style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, color: 'inherit', textDecoration: 'none' }}
+          >
+            <div
+              className="ds-project-icon ds-project-icon--lg"
+              style={{ background: desktopThumbColor(book.id) }}
+            >
+              <Icon name="rule" style={{ fontSize: 22 }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {book.title}
+              </div>
+              <div className="muted" style={{ marginTop: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Icon name="quiz" style={{ fontSize: 14 }} />{book.questionCount}問
+                </span>
+                {book.importCount > 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <Icon name="download" style={{ fontSize: 14 }} />{book.importCount}
+                  </span>
+                )}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {grammarOwnerLabel(book)}
+                </span>
+              </div>
+            </div>
+            <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 

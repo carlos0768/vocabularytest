@@ -18,6 +18,7 @@ type LoadState =
   | { kind: 'loading' }
   | { kind: 'ready'; book: SharedBook }
   | { kind: 'not-found' }
+  | { kind: 'login-required' }
   | { kind: 'error'; message: string };
 
 export default function GrammarSharePage({ params }: { params: Promise<{ shareId: string }> }) {
@@ -45,6 +46,12 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
 
         if (response.status === 404) {
           setState({ kind: 'not-found' });
+          return;
+        }
+        // 共有ページの一覧からは未ログインでも辿り着ける。中身の閲覧は
+        // ログイン必須なので、エラーではなくログイン導線を出す。
+        if (response.status === 401) {
+          setState({ kind: 'login-required' });
           return;
         }
         if (!response.ok || !payload.success || !payload.book) {
@@ -122,6 +129,20 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             共有された問題集が見つかりません。リンクが無効になっている可能性があります。
           </p>
+        </div>
+      )}
+
+      {state.kind === 'login-required' && (
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+          <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
+            共有された語法問題集を見るにはログインが必要です。
+          </p>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(`/grammar/share/${shareId}`)}`}
+            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white"
+          >
+            ログイン
+          </Link>
         </div>
       )}
 

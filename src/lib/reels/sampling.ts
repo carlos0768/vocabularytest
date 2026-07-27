@@ -1,6 +1,7 @@
 import { normalizeHeadword } from '../../../shared/lexicon';
+import type { WordMorphology } from '@/types';
 import type { CefrLevel } from './eiken-cefr';
-import { hashString, mulberry32 } from './ranking';
+import { hasDisplayableMorphology, hashString, mulberry32 } from './ranking';
 import type { ReelCandidate } from './types';
 
 export type WordSamplingOptions = {
@@ -68,6 +69,26 @@ export function sharedCefrLookupHeadwords(candidates: ReelCandidate[]): string[]
   return candidates
     .filter((candidate) => candidate.source === 'shared' && candidate.cefrLevel === null)
     .map((candidate) => normalizeHeadword(candidate.english));
+}
+
+/** Normalized headwords of every candidate (for the morphology cache lookup). */
+export function candidateHeadwords(candidates: ReelCandidate[]): string[] {
+  return candidates.map((candidate) => normalizeHeadword(candidate.english));
+}
+
+/**
+ * 候補に語源（lexicon キャッシュ）を貼り付ける。ランキングが語源つきを
+ * 優先できるよう、配信対象を絞り込む前の候補全件に対して呼ぶ。表示できない
+ * 語源（none / 分解式なし）は null に潰し、カード側と判定を揃える。
+ */
+export function withCandidateMorphology(
+  candidates: ReelCandidate[],
+  morphologyByHeadword: ReadonlyMap<string, WordMorphology>,
+): ReelCandidate[] {
+  return candidates.map((candidate) => {
+    const morphology = morphologyByHeadword.get(normalizeHeadword(candidate.english)) ?? null;
+    return { ...candidate, morphology: hasDisplayableMorphology({ morphology }) ? morphology : null };
+  });
 }
 
 /**

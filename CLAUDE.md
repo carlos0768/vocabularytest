@@ -115,6 +115,8 @@ getRepository(subscriptionStatus, wasPro)
 | Scan modes | — | all, circled, eiken, idiom |
 | Shared wordbook view/import | Yes (login required) | Yes |
 | Shared wordbook publishing | No (Pro-only) | Yes |
+| Shared 語法問題集 view | Yes (login required) | Yes |
+| Shared 語法問題集 import / publishing | No (Pro-only) | Yes |
 | Data storage | Cloud (Supabase) + IndexedDB cache (login required) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | Yes (login required; capped at 50 wordbooks server-side) | Yes |
 
@@ -216,11 +218,10 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - ScanModeModal mode: `eiken` with level selection (5-1)
 
 ### 3. Grammar learning feature (語法問題集) -- Done
-- Vintage-style fill-in-the-blank questions (4 English choices + per-question explanation), Pro-only.
-  Questions are authored via the ChatGPT Custom GPT (`/api/chatgpt/grammar-*`); there is no server-side AI generation.
-- Tables: `grammar_books`, `grammar_questions`, `grammar_question_progress`, `grammar_question_misses`
-- Pages: `/grammar` (list), `/grammar/[bookId]` (practice), `/grammar/[bookId]/list`, `/grammar/share/[shareId]`
-- `vercel.json` references `src/app/api/grammar/route.ts` (stale config -- that exact file still does not exist)
+- Vintage型の問題集 (空欄補充・英語4択・解説つき)。問題の作成は ChatGPT 連携 (`/api/chatgpt/grammar-*`) と手動追加のみで、サーバー側でのAI生成は行わない
+- Routes: `/grammar/**`, `/api/grammar/**` (books, questions, progress, favorite, share, public)
+- Tables: `grammar_books` / `grammar_questions` ほか (`supabase/migrations/2026072*_*grammar*.sql`)。RLSは本人限定のままで、他人の公開分は service-role のAPIルート経由でのみ読む
+- 共有: `share_id` によるリンク共有に加えて、`is_public` を立てると共有ページ (`/shared` の「語法」) の一覧に載る。公開・取り込みはPro限定、閲覧はログインのみ
 
 ### 4. Grammar map (文法マップ) -- Done
 - `/grammar/map` is a **node graph** (Polytopia-style tech tree): a hub at the center, 26 大単元 around it,
