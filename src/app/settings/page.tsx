@@ -27,6 +27,14 @@ export default function SettingsPage() {
 
   const billingEnabled = isBillingEnabled();
 
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/profile');
+  };
+
   const handleSignOut = async () => {
     if (!window.confirm('ログアウトしますか？')) return;
     await signOut();
@@ -45,6 +53,15 @@ export default function SettingsPage() {
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="px-[18px] pb-[14px] pt-1">
+        {/* 設定はプロフィール内の導線から開くので、戻り先はプロフィール */}
+        <button
+          type="button"
+          onClick={handleBack}
+          aria-label="戻る"
+          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          <Icon name="chevron_left" size={20} />
+        </button>
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT</div>
         <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">設定</div>
       </div>

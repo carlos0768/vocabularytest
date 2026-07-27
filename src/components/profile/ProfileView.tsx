@@ -39,6 +39,7 @@ export function ProfileView({
   title,
   backHref,
   editHref,
+  settingsHref,
   name,
   accountId,
   initial,
@@ -55,8 +56,11 @@ export function ProfileView({
   withBottomNav = false,
 }: {
   title: string;
-  backHref: string;
+  /** 未指定なら戻るボタンを出さない(ボトムナビ直下のタブ画面用) */
+  backHref?: string;
   editHref?: string;
+  /** 自分のプロフィールからのみ渡す。設定ページへの導線を表示する */
+  settingsHref?: string;
   name: string;
   accountId: string | null;
   initial: string;
@@ -106,6 +110,7 @@ export function ProfileView({
     <DesktopProfileView
       title={title}
       editHref={editHref}
+      settingsHref={settingsHref}
       name={name}
       accountId={accountId}
       initial={initial}
@@ -129,14 +134,18 @@ export function ProfileView({
       <div className="mx-auto w-full max-w-xl">
         {/* Top bar */}
         <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
-          <Link
-            href={backHref}
-            onClick={handleBack}
-            aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
-          >
-            <Icon name="arrow_back" size={22} />
-          </Link>
+          {backHref ? (
+            <Link
+              href={backHref}
+              onClick={handleBack}
+              aria-label="戻る"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+            >
+              <Icon name="arrow_back" size={22} />
+            </Link>
+          ) : (
+            <div className="w-1 shrink-0" />
+          )}
           <div className="min-w-0 flex-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
             {title}
           </div>
@@ -144,6 +153,15 @@ export function ProfileView({
             <Link
               href={editHref}
               aria-label="プロフィールを編集"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+            >
+              <Icon name="edit" size={22} />
+            </Link>
+          )}
+          {settingsHref && (
+            <Link
+              href={settingsHref}
+              aria-label="設定"
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
             >
               <Icon name="settings" size={22} />
@@ -195,6 +213,25 @@ export function ProfileView({
           </div>
 
           {actions && <div className="mt-3 flex items-center gap-2">{actions}</div>}
+
+          {/* 設定への導線。以前はボトムナビから直接開いていたが、プロフィール内に集約した */}
+          {settingsHref && (
+            <Link
+              href={settingsHref}
+              className="mt-3 flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
+                <Icon name="settings" size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="text-[13px] font-bold text-[var(--solid-ink)]">設定</span>
+                <p className="mt-px truncate text-[10px] leading-4 text-[var(--color-muted)]">
+                  学習ツール・通知・プラン・サポート
+                </p>
+              </div>
+              <Icon name="chevron_right" size={14} className="text-[var(--color-muted)]" />
+            </Link>
+          )}
         </div>
 
         {/* Overview / stats */}
@@ -342,6 +379,7 @@ type ProfileDerivedStats = {
 function DesktopProfileView({
   title,
   editHref,
+  settingsHref,
   name,
   accountId,
   initial,
@@ -359,6 +397,7 @@ function DesktopProfileView({
 }: {
   title: string;
   editHref?: string;
+  settingsHref?: string;
   name: string;
   accountId: string | null;
   initial: string;
@@ -380,8 +419,13 @@ function DesktopProfileView({
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title={title} crumb="アカウント">
         {editHref && (
-          <DesktopButton href={editHref} icon="settings">
+          <DesktopButton href={editHref} icon="edit">
             プロフィールを編集
+          </DesktopButton>
+        )}
+        {settingsHref && (
+          <DesktopButton href={settingsHref} icon="settings">
+            設定
           </DesktopButton>
         )}
       </DesktopTopbar>

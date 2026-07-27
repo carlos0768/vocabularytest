@@ -27,6 +27,16 @@ export default function ProfileSettingsPage() {
   const displayAccountIdValue = accountIdInput ?? accountId ?? '';
   const isAccountIdValid = /^[a-z0-9_]{4,24}$/.test(displayAccountIdValue);
 
+  // プロフィール変更はアカウント設定以外(プロフィール画面の設定ボタンなど)からも
+  // 開かれるので、履歴があれば実際の遷移元へ戻す。直接開かれた場合のみ既定へ。
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/settings/account');
+  };
+
   const startEditing = () => {
     setUsernameInput(username ?? '');
   };
@@ -66,8 +76,8 @@ export default function ProfileSettingsPage() {
       <div className="px-[18px] pb-[14px] pt-1">
         <button
           type="button"
-          onClick={() => router.push('/settings/account')}
-          aria-label="アカウントへ戻る"
+          onClick={handleBack}
+          aria-label="戻る"
           className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="chevron_left" size={20} />
