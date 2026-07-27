@@ -20,6 +20,7 @@
 - `npm run security:deps` は成功している
 - `npm run security:all` は成功している
 - `security/secrets-allowlist.json` は現状空
+- `security/deps-audit-allowlist.json` に `postcss` の3件を期限付き(2026-10-31)で登録済み。修正版postcssが出たらbumpして削除する
 - `npm run lint` は広範囲のlegacy lint。公開前Web検証では `npm run verify` / `npm run lint:web` を使う
 
 ## 作業ルール
