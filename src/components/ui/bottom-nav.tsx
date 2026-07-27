@@ -95,6 +95,8 @@ interface TabItem {
   label: string;
   href?: string;
   matchPaths?: string[];
+  // 前方一致だと他人のページまで拾ってしまうパス用(例: /profile/[accountId])
+  exactPaths?: string[];
   primary?: boolean;
   IconDefault: React.FC;
   IconActive: React.FC;
@@ -129,8 +131,9 @@ const SHARED_TAB: TabItem = {
 const ACCOUNT_TAB: TabItem = {
   k: 'account',
   label: 'アカウント',
-  href: '/settings',
+  href: '/profile',
   matchPaths: ['/settings', '/subscription'],
+  exactPaths: ['/profile'],
   IconDefault: AccountIcon,
   IconActive: AccountIconFilled,
 };
@@ -173,7 +176,9 @@ export function BottomNav() {
   const tabs = isPro ? PRO_TABS : FREE_TABS;
 
   const isActive = (tab: TabItem) => {
-    if (!tab.matchPaths || !tab.href) return false;
+    if (!tab.href) return false;
+    if (tab.exactPaths?.some((path) => pathname === path)) return true;
+    if (!tab.matchPaths) return false;
     return tab.matchPaths.some(
       (path) => pathname === path || pathname.startsWith(path + '/')
     );

@@ -23,7 +23,10 @@ const NO_SHELL_PATHS = [
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
   '/quick-response/', '/scan/confirm', '/shared/share-wordbook',
-  '/subscription', '/collections/new', '/word/', '/favorites', '/profile', '/follows',
+  '/subscription', '/collections/new', '/word/', '/favorites', '/follows',
+  // 自分のプロフィール(/profile)はボトムナビのタブなのでナビを表示する。
+  // 他ユーザーのプロフィール(/profile/<accountId>)は詳細画面なので非表示のまま。
+  '/profile/',
   '/groups/', '/reels',
   // 語法演習画面(/grammar/<bookId>)はナビ非表示。一覧(/grammar)は表示する。
   '/grammar/',
