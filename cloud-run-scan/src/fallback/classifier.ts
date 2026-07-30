@@ -71,6 +71,28 @@ function extractStatusCode(error: unknown): number | undefined {
     return code;
   }
 
+  // Vertex AI REST errors arrive as JSON strings in the error message:
+  // {"error":{"code":429,"message":"Resource exhausted...","status":"RESOURCE_EXHAUSTED"}}
+  // Parse the message and extract the nested HTTP code when present.
+  const rawMsg = (error as { message?: unknown }).message;
+  const msgStr = typeof rawMsg === 'string' ? rawMsg : null;
+  if (msgStr) {
+    const jsonStart = msgStr.indexOf('{');
+    if (jsonStart !== -1) {
+      try {
+        const parsed: unknown = JSON.parse(msgStr.slice(jsonStart));
+        if (parsed && typeof parsed === 'object') {
+          const nested = (parsed as { error?: { code?: unknown } }).error?.code;
+          if (typeof nested === 'number') {
+            return nested;
+          }
+        }
+      } catch {
+        // Not JSON — keyword-based detection handles it
+      }
+    }
+  }
+
   return undefined;
 }
 
