@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, useToast } from '@/components/ui';
+import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { useProfile } from '@/hooks/use-profile';
 
 export default function ProfileSettingsPage() {
@@ -72,6 +73,131 @@ export default function ProfileSettingsPage() {
   };
 
   return (
+    <>
+    {/* デスクトップ表示（プロフィール / 設定の「プロフィールを編集」から遷移） */}
+    <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <DesktopTopbar title="プロフィール変更" crumb="アカウント / プロフィール">
+        <DesktopButton icon="arrow_back" onClick={handleBack}>戻る</DesktopButton>
+      </DesktopTopbar>
+      <div className="ds-scroll">
+        <div style={{ width: 'min(100%, 640px)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="ds-set-group">
+            <div className="gh">ユーザー名</div>
+            <div className="ds-set-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+              {isEditing ? (
+                <>
+                  <label htmlFor="desktop-profile-username" className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em' }}>
+                    USERNAME
+                  </label>
+                  <input
+                    id="desktop-profile-username"
+                    className="ds-input"
+                    type="text"
+                    value={displayValue}
+                    onChange={(event) => setUsernameInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void handleSave();
+                      }
+                      if (event.key === 'Escape') {
+                        cancelEditing();
+                      }
+                    }}
+                    maxLength={20}
+                    autoFocus
+                    placeholder="ユーザー名を入力"
+                  />
+                  <div className="mono muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                    <span>1〜20文字</span>
+                    <span>{displayValue.length}/20</span>
+                  </div>
+                  {profileError && (
+                    <p style={{ margin: 0, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--color-error)', background: 'rgba(239,68,68,0.08)', fontSize: 12.5, fontWeight: 700, color: 'var(--color-error)' }}>
+                      {profileError}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <DesktopButton variant="dark" onClick={() => void handleSave()} disabled={profileSaving || !displayValue.trim()}>
+                      {profileSaving ? '保存中...' : '保存'}
+                    </DesktopButton>
+                    <DesktopButton onClick={cancelEditing} disabled={profileSaving}>キャンセル</DesktopButton>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div className="lab" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="t">{profileLoading ? '読み込み中...' : (username ?? 'ユーザー名未設定')}</div>
+                    <div className="d">アプリ内で表示される名前です</div>
+                  </div>
+                  <DesktopButton icon="edit" onClick={startEditing} disabled={profileLoading}>編集</DesktopButton>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="ds-set-group">
+            <div className="gh">アカウントID</div>
+            <div className="ds-set-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+              {isEditingAccountId ? (
+                <>
+                  <label htmlFor="desktop-profile-account-id" className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em' }}>
+                    ACCOUNT ID
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span className="mono muted" style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', fontSize: 14.5, fontWeight: 700, pointerEvents: 'none' }}>@</span>
+                    <input
+                      id="desktop-profile-account-id"
+                      className="ds-input mono"
+                      style={{ paddingLeft: 32 }}
+                      type="text"
+                      value={displayAccountIdValue}
+                      onChange={(event) => setAccountIdInput(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void handleSaveAccountId();
+                        }
+                        if (event.key === 'Escape') {
+                          cancelEditingAccountId();
+                        }
+                      }}
+                      maxLength={24}
+                      autoFocus
+                      placeholder="account_id"
+                    />
+                  </div>
+                  <div className="mono muted" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11 }}>
+                    <span>半角英小文字・数字・_ / 4〜24文字</span>
+                    <span>{displayAccountIdValue.length}/24</span>
+                  </div>
+                  {profileError && (
+                    <p style={{ margin: 0, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--color-error)', background: 'rgba(239,68,68,0.08)', fontSize: 12.5, fontWeight: 700, color: 'var(--color-error)' }}>
+                      {profileError}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <DesktopButton variant="dark" onClick={() => void handleSaveAccountId()} disabled={profileSaving || !isAccountIdValid}>
+                      {profileSaving ? '保存中...' : '保存'}
+                    </DesktopButton>
+                    <DesktopButton onClick={cancelEditingAccountId} disabled={profileSaving}>キャンセル</DesktopButton>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div className="lab" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="t mono">{profileLoading ? '...' : accountId ? `@${accountId}` : '未設定'}</div>
+                    <div className="d">共有・フォローで使われる固有のIDです</div>
+                  </div>
+                  <DesktopButton icon="edit" onClick={startEditingAccountId} disabled={profileLoading}>編集</DesktopButton>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       <div className="px-[18px] pb-[14px] pt-1">
         <button
@@ -243,5 +369,6 @@ export default function ProfileSettingsPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

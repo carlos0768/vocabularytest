@@ -138,6 +138,14 @@ export function DesktopSettingsView({
                 </div>
               </div>
             )}
+            {email && !isEditing && (
+              <SettingsLink
+                icon="person"
+                label="ID・ユーザー名の変更"
+                description={accountId ? `@${accountId}` : 'アカウントIDを設定する'}
+                href="/settings/account/profile"
+              />
+            )}
             {email && (
               <button type="button" className="ds-set-row" style={{ width: '100%', cursor: 'pointer', background: '#fff', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left' }} onClick={onSignOut}>
                 <div className="ic" style={{ background: 'var(--color-error-light)' }}><Icon name="logout" style={{ color: 'var(--color-error)' }} /></div>
