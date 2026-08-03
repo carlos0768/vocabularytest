@@ -23,6 +23,9 @@ export default function SettingsPage() {
     username,
     accountId,
     loading: profileLoading,
+    saving: profileSaving,
+    error: profileError,
+    setUsername,
   } = useProfile();
 
   const billingEnabled = isBillingEnabled();
@@ -49,6 +52,9 @@ export default function SettingsPage() {
         accountId={accountId}
         isPro={isPro}
         onSignOut={() => void handleSignOut()}
+        onUsernameChange={isAuthenticated ? setUsername : undefined}
+        usernameSaving={profileSaving}
+        usernameError={profileError}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
