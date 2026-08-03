@@ -17,6 +17,18 @@ export type LevelTestShareMessages = {
   instagram: string;
 };
 
+// レベルが上がるほど「昇格」感の出る色に寄せる(緑→青→紫→金)。
+// 結果カード(画面)・共有画像・OG画像で同じ並びを使う。
+export const LEVEL_ACCENT_COLORS = [
+  '#228B22',
+  '#15803d',
+  '#137FEC',
+  '#2E66BF',
+  '#664DB3',
+  '#7C3AED',
+  '#B8860B',
+] as const;
+
 export function buildLevelTestShareUrl(origin: string, code: string): string {
   const base = (origin || '').replace(/\/+$/, '');
   return `${base}/level-test/r/${encodeURIComponent(code)}`;

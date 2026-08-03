@@ -4,21 +4,11 @@ import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui';
 import { CONFIDENCE_LABELS, EIKEN_LEVEL_LABELS } from '@/lib/level-test/engine';
 import type { LevelTestResultPayload } from '@/lib/level-test/result-code';
-import { formatVocabSizeFromTheta, vocabSizeTextFor } from '@/lib/level-test/share';
+import { LEVEL_ACCENT_COLORS, formatVocabSizeFromTheta, vocabSizeTextFor } from '@/lib/level-test/share';
 
 // 診断結果カード。自分の結果画面(variant='own': 段階的リビール演出あり)と
 // 共有された結果の閲覧ページ(variant='viewer': 即時表示)で共用する。
-
-// レベルが上がるほど「昇格」感の出る色に寄せる(緑→青→紫→金)。
-export const LEVEL_ACCENT_COLORS = [
-  '#228B22',
-  '#15803d',
-  '#137FEC',
-  '#2E66BF',
-  '#664DB3',
-  '#7C3AED',
-  '#B8860B',
-] as const;
+// レベル別のアクセント色は共有画像と揃えるため lib/level-test/share.ts に置く。
 
 function revealProps(variant: 'own' | 'viewer', order: number) {
   if (variant === 'viewer') {
