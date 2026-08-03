@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
@@ -8,9 +8,19 @@ import { buildLineShareUrl, buildXIntentUrl } from '@/lib/shared-projects/group-
 import { EIKEN_LEVEL_LABELS } from '@/lib/level-test/engine';
 import type { LevelTestResultPayload } from '@/lib/level-test/result-code';
 import { buildLevelTestShareMessages, buildLevelTestShareUrl } from '@/lib/level-test/share';
+import {
+  LEVEL_TEST_SHARE_FILE_NAME,
+  generateLevelTestShareImage,
+} from '@/lib/level-test/share-image';
+import { downloadBlob } from '@/lib/share/canvas';
 
 // 診断結果のシェアシート。groups/[groupId] の GroupInviteShareSheet と同じ
 // 操作感(ネイティブ共有が主CTA + X/LINE/Instagram/リンクコピー)。
+//
+// Instagramだけはテキスト共有の受け口が無い(URLもリンクにならない)ため、
+// キャプションのコピーではなく結果カード画像を共有する。画像はシートを
+// 開いた時点で先に生成しておき、タップ時は待たずに navigator.share を
+// 呼ぶ(iOS Safariはawaitを挟むとユーザー操作の権限が切れて共有できない)。
 
 export function LevelTestShareSheet({
   open,
@@ -35,6 +45,23 @@ export function LevelTestShareSheet({
     [payload, shareUrl],
   );
 
+  // 結果カード画像はシートを開いた時点で先に用意する(タップ時にawaitしないため)。
+  const [shareImage, setShareImage] = useState<Blob | null>(null);
+  const imagePromiseRef = useRef<Promise<Blob | null> | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const pending = generateLevelTestShareImage(payload).catch(() => null);
+    imagePromiseRef.current = pending;
+    void pending.then((blob) => {
+      if (!cancelled) setShareImage(blob);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, payload]);
+
   if (!open) return null;
 
   const grade = EIKEN_LEVEL_LABELS[payload.finalLevel] ?? EIKEN_LEVEL_LABELS[0];
@@ -46,6 +73,49 @@ export function LevelTestShareSheet({
     } catch {
       showToast({ message: 'コピーに失敗しました', type: 'error' });
     }
+  };
+
+  const toFile = (blob: Blob) =>
+    new File([blob], LEVEL_TEST_SHARE_FILE_NAME, { type: 'image/png' });
+
+  // 画像をシェアできない環境(PCブラウザなど)の逃げ道:
+  // 画像を保存させ、キャプションはクリップボードへ。
+  const fallbackToDownload = (blob: Blob | null) => {
+    if (blob && downloadBlob(blob, LEVEL_TEST_SHARE_FILE_NAME)) {
+      void copy(messages.instagram, '画像を保存しました。キャプションもコピー済みです');
+      return;
+    }
+    void copy(messages.instagram, 'キャプションをコピーしました。Instagramに貼り付けてね');
+  };
+
+  // Instagramは画像でしか受け取れないので、結果カード画像を共有シートに渡す
+  // (共有先としてストーリーズ/フィード/DMが選べる)。
+  const shareToInstagram = () => {
+    triggerHaptic();
+
+    const blob = shareImage;
+    const file = blob ? toFile(blob) : null;
+    if (file && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+      // キャプションは貼り付け用にコピーしておく(Instagramはtextを取り込まない)。
+      void navigator.clipboard?.writeText(messages.instagram).catch(() => {});
+      navigator
+        .share({ files: [file], title: `語彙レベル診断: ${grade}`, text: messages.instagram })
+        .catch((error: unknown) => {
+          const name = error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : '';
+          if (name === 'AbortError') return;
+          fallbackToDownload(blob);
+        });
+      return;
+    }
+
+    // 画像がまだ出来ていない場合は生成を待ってから保存にまわす。
+    if (!blob && imagePromiseRef.current) {
+      void imagePromiseRef.current.then(fallbackToDownload);
+      return;
+    }
+    fallbackToDownload(blob);
   };
 
   const openIntent = (url: string) => {
@@ -112,7 +182,7 @@ export function LevelTestShareSheet({
           </div>
 
           <p className="mb-3 text-[12px] font-bold leading-relaxed text-[var(--color-muted)]">
-            リンクをシェアすると、判定レベルと推定語彙数入りの結果カードが表示されます。
+            リンクをシェアすると、判定レベルと推定語彙数入りの結果カードが表示されます。Instagramは結果カードの画像で共有されます(キャプションは自動でコピー)。
           </p>
 
           {/* ネイティブ共有 — 主CTA。Instagramを含む全アプリに届く */}
@@ -141,7 +211,7 @@ export function LevelTestShareSheet({
             <ShareChannelButton
               label="Instagram"
               bg="linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7)"
-              onClick={() => { triggerHaptic(); void copy(messages.instagram, 'キャプションをコピーしました。Instagramに貼り付けてね'); }}
+              onClick={shareToInstagram}
               icon={<InstagramBrandIcon />}
             />
           </div>
