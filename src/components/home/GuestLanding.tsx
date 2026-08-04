@@ -580,7 +580,13 @@ function RootLandingHeroVisual() {
       <span className="absolute bottom-[8%] left-[4%] z-40 rounded-full bg-[#1a1a1a] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-white">
         AI 抽出
       </span>
-      <span className="absolute right-[8%] top-[4%] z-40 rotate-[4deg] rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-white">
+      {/*
+        スマホは bottom-0 起点・高さがコンテナ幅の約121%なので、端末に対する位置は
+        コンテナ基準の % で表すと画面幅に関係なく一定になる。バッジは端末の左端を
+        またぐ形で、例文ブロックと「次へ」の間の余白（端末基準で 77〜87%）に置く。
+        端末上端側はヘッダーと重なるため使わない。
+      */}
+      <span className="absolute right-[47%] top-[74%] z-40 rotate-[4deg] rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-white">
         + 単語帳へ
       </span>
     </div>
