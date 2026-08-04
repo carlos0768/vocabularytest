@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
+import { LpReelSection } from '@/components/home/LpReelSection';
 import { isBillingEnabled } from '@/lib/billing/feature';
 
 const ROOT_LANDING_SCAN_MODES = [
@@ -95,6 +96,10 @@ const ROOT_LANDING_FAQS = [
     a: '単語帳取込、丸囲み、英検レベル、熟語・イディオムの4種類です（スキャンはProプランの機能です）。教材の種類と目的に合わせて切り替えられます。詳しくは使い方ガイドをご覧ください。',
   },
   {
+    q: 'リールとは何ですか？',
+    a: 'みんなが公開した単語帳と公式単語帳の単語が、1枚ずつ流れてくる縦スクロールのフィードです。カードをめくって和訳を確認でき、語源が用意されている単語は成り立ちと解説もまとめて表示されます。気に入った単語帳は、カード下部からワンタップで自分の単語帳に取り込めます。ログインすれば無料プランでも1日50枚まで利用でき、Proプランなら上限なしで見られます。',
+  },
+  {
     q: '登録方法は？',
     a: 'メールとOTP認証、またはGoogle / Appleログインで始められます。登録後はそのままホーム画面に進みます。',
   },
@@ -112,6 +117,7 @@ export function GuestLanding() {
             <Link href="#how" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">使い方</Link>
             <Link href="#features" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">機能</Link>
             <Link href="#demo" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">体験する</Link>
+            <Link href="#reels" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">リール</Link>
             {billingEnabled && <Link href="#pricing" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">料金</Link>}
             <Link href="/login?redirect=/" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">ログイン</Link>
             <Link
@@ -158,6 +164,7 @@ export function GuestLanding() {
               {[
                 ['4', '抽出モード（Pro）'],
                 ['無料', '共有単語帳の取込'],
+                ['1日50枚', 'リール（無料プラン）'],
                 ['100語', '無料保存枠'],
               ].map(([num, label]) => (
                 <div key={label}>
@@ -198,7 +205,7 @@ export function GuestLanding() {
 
       <section className="overflow-hidden border-b-2 border-[#1a1a1a] py-5" aria-label="MERKENで扱える教材">
         <div className="mx-auto flex max-w-[1200px] flex-wrap gap-x-8 gap-y-3 px-5 font-display text-lg font-black md:px-10">
-          {['教科書', 'プリント', 'ノート', '英検対策', '熟語・イディオム', '保存済み復習', 'フラッシュカード'].map((item, index) => (
+          {['教科書', 'プリント', 'ノート', '英検対策', '熟語・イディオム', 'リール', '保存済み復習', 'フラッシュカード'].map((item, index) => (
             <span key={item} className={`inline-flex items-center gap-3 ${index % 2 === 1 ? 'text-[#8a857a]' : 'text-[#1a1a1a]'}`}>
               {item}
               <span className="h-1.5 w-1.5 bg-[var(--color-accent)]" />
@@ -322,9 +329,11 @@ export function GuestLanding() {
 
       <LpDemoSection />
 
+      <LpReelSection />
+
       <section className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
-          number="04"
+          number="05"
           label="Progress"
           title={<>ホームで、今日やることが<br />すぐ見える。</>}
           body="単語帳、習得度、連続日数、保存済み単語へアクセスできます。学習の入口をホームに集約し、スキャンから復習まで迷わない構成にしています。"
@@ -358,7 +367,7 @@ export function GuestLanding() {
       {billingEnabled && (
         <section id="pricing" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
           <RootLandingSectionHeading
-            number="05"
+            number="06"
             label="Pricing"
             title={<>無料で始めて、<br />必要ならProへ。</>}
             body="料金と制限は実装中の設定に合わせています。まずは無料で試し、AIスキャンや同期が必要になったらProへ切り替えられます。"
@@ -383,7 +392,7 @@ export function GuestLanding() {
 
       <section id="faq" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
-          number="06"
+          number="07"
           label="FAQ"
           title={<>よくある質問。</>}
           body="プランの違いや使い方について、よくいただく質問をまとめました。さらに詳しい解説は使い方ガイドと学習コラムにあります。"
@@ -448,6 +457,7 @@ export function GuestLanding() {
             <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">Product</p>
             <ul className="flex flex-col gap-2 text-sm">
               <li><Link href="#features" className="hover:text-[var(--color-accent)]">機能</Link></li>
+              <li><Link href="#reels" className="hover:text-[var(--color-accent)]">リール</Link></li>
               {billingEnabled && <li><Link href="#pricing" className="hover:text-[var(--color-accent)]">料金</Link></li>}
               <li><Link href="/guide" className="hover:text-[var(--color-accent)]">使い方ガイド</Link></li>
               <li><Link href="/column" className="hover:text-[var(--color-accent)]">学習コラム</Link></li>
