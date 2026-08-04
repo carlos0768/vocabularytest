@@ -539,7 +539,7 @@ function WordRow({
           </div>
         )}
       </div>
-      <div className="flex gap-0.5">
+      <div className="flex shrink-0 gap-0.5">
         <button
           type="button"
           onClick={() => onEdit(w.tempId)}

@@ -533,7 +533,7 @@ function MobileWrongAnswersView({
               </div>
               <Link
                 href={`/flashcard/${word.projectId || 'all'}?from=${returnPath}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
                 aria-label="復習"
               >
                 <Icon name="style" size={14} />
