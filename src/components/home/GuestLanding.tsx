@@ -32,6 +32,25 @@ const ROOT_LANDING_SCAN_MODES = [
   },
 ];
 
+/**
+ * ヒーローのスマホモックに出す進捗セグメント。実機と同じく1問1セグメントで、
+ * 正解=success / 不正解=error / 現在の問題=ink / 未回答=薄いink。
+ */
+const HERO_QUIZ_SEGMENTS = [
+  '#22c55e',
+  '#22c55e',
+  '#ef4444',
+  '#1a1a1a',
+  ...Array.from({ length: 6 }, () => 'rgba(26,26,26,0.1)'),
+];
+
+const HERO_QUIZ_OPTIONS = [
+  { label: '珍しい、まれな; 貴重な', correct: false },
+  { label: 'どこにでもある; 遍在する', correct: true },
+  { label: '一時的な; はかない', correct: false },
+  { label: '複雑な; 入り組んだ', correct: false },
+];
+
 const ROOT_LANDING_WORKFLOW = [
   {
     step: '01',
@@ -556,19 +575,7 @@ function RootLandingHeroVisual() {
         <path d="M68 50 L75 60 L82 56" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
 
-      <div className="absolute bottom-0 right-0 z-30 w-[56%] rotate-[5deg] rounded-[36px] bg-[#1a1a1a] p-2 shadow-[0_24px_50px_rgba(26,26,26,0.22),0_0_0_1.5px_#1a1a1a]">
-        <div className="relative overflow-hidden rounded-[28px] bg-white">
-          <div className="absolute left-1/2 top-2 z-10 h-[22px] w-[86px] -translate-x-1/2 rounded-full bg-[#1a1a1a]" />
-          <Image
-            src="/lp/quiz-new.png"
-            alt="MERKENのクイズ画面"
-            width={375}
-            height={812}
-            priority
-            className="h-auto w-full"
-          />
-        </div>
-      </div>
+      <RootLandingQuizPhone />
 
       <span className="absolute bottom-[8%] left-[4%] z-40 rounded-full bg-[#1a1a1a] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-white">
         AI 抽出
@@ -576,6 +583,133 @@ function RootLandingHeroVisual() {
       <span className="absolute right-[8%] top-[4%] z-40 rotate-[4deg] rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-white">
         + 単語帳へ
       </span>
+    </div>
+  );
+}
+
+/**
+ * ヒーローのスマホモック。実機のクイズ画面（`src/app/quiz/[projectId]/page.tsx` の
+ * モバイルレイアウトと `DSQuizOption`）をそのまま再現している。
+ *
+ * 画面内の寸法はすべて em で書き、コンテナクエリで基準フォントサイズを決めているため
+ * （4cqw ≒ 実機 375px 幅での 16px）、フレームが縮んでも実機と同じ比率を保つ。
+ * 色は LP と同じくライトテーマのトークン値をハードコードしている。
+ */
+function RootLandingQuizPhone() {
+  return (
+    <div
+      className="@container absolute bottom-0 right-0 z-30 w-[56%] rotate-[5deg]"
+      role="img"
+      aria-label="MERKENのクイズ画面。英単語の意味を4択で選び、正解と例文が表示される"
+    >
+      <div
+        aria-hidden="true"
+        className="rounded-[2.25em] bg-[#1a1a1a] p-[0.5em] shadow-[0_24px_50px_rgba(26,26,26,0.22),0_0_0_1.5px_#1a1a1a]"
+        style={{ fontSize: '4cqw' }}
+      >
+        <div className="relative flex aspect-[375/812] flex-col overflow-hidden rounded-[1.75em] bg-[#f6f5f1] text-[#1a1a1a]">
+          <div className="absolute left-1/2 top-[0.5em] z-10 h-[1.375em] w-[5.375em] -translate-x-1/2 rounded-full bg-[#1a1a1a]" />
+
+          {/* Status bar */}
+          <div className="flex shrink-0 items-center justify-between px-[1.25em] pt-[0.6em]">
+            <span className="text-[0.8125em] font-bold">9:41</span>
+            <span className="flex items-center gap-[0.2em]">
+              <Icon name="signal_cellular_alt" style={{ fontSize: '0.8em' }} />
+              <Icon name="wifi" style={{ fontSize: '0.8em' }} />
+              <Icon name="battery_full" style={{ fontSize: '0.8em' }} />
+            </span>
+          </div>
+
+          {/* Header: close + 1問1セグメントの進捗バー + 問題数 */}
+          <div className="flex shrink-0 items-center gap-[0.625em] px-[1em] pb-[0.875em] pt-[0.5em]">
+            <span className="inline-flex h-[2em] w-[2em] items-center justify-center">
+              <Icon name="close" style={{ fontSize: '1.375em' }} />
+            </span>
+            <div className="flex flex-1 items-center gap-[0.5em]">
+              <div className="flex flex-1 gap-[0.1875em]">
+                {HERO_QUIZ_SEGMENTS.map((background, i) => (
+                  <span key={i} className="h-[0.3125em] flex-1 rounded-[0.125em]" style={{ background }} />
+                ))}
+              </div>
+              <span className="text-[0.6875em] font-bold tabular-nums">
+                4<span className="text-[#9ca3af]">/10</span>
+              </span>
+            </div>
+          </div>
+
+          {/* 出題 */}
+          <div className="flex min-h-0 flex-1 flex-col px-[1.25em] pt-[0.625em]">
+            <div className="mb-[0.6em] text-[0.625em] font-bold uppercase tracking-[0.08em] text-[#9ca3af]">
+              意味を選ぼう
+            </div>
+
+            <div className="rounded-[1.125em] border-[0.125em] border-[#1a1a1a] bg-white px-[1.125em] py-[1.5em] text-center">
+              <div className="font-display text-[2.125em] font-extrabold leading-[1.1] tracking-[-0.01em]">
+                ubiquitous
+              </div>
+              <div className="mt-[0.625em] flex justify-center">
+                <span className="inline-flex items-center gap-[0.45em] rounded-full border border-[#e5e7eb] bg-[rgba(26,26,26,0.04)] px-[0.91em] py-[0.45em] text-[0.6875em] font-semibold text-[#9ca3af]">
+                  <Icon name="volume_up" style={{ fontSize: '1.09em' }} />
+                  読み上げ
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-[1.125em] flex flex-col gap-[0.5em]">
+              {HERO_QUIZ_OPTIONS.map((option, i) => (
+                <RootLandingQuizOption key={option.label} index={i} {...option} />
+              ))}
+            </div>
+
+            <div className="mt-[1em] rounded-[0.75em] border border-dashed border-[#e5e7eb] bg-white px-[0.875em] py-[0.8125em]">
+              <div className="mb-[0.55em] text-[0.5625em] font-bold tracking-[0.06em] text-[#9ca3af]">EXAMPLE</div>
+              <div className="text-[0.875em] font-medium leading-[1.55]">
+                Digital screens have become ubiquitous in everyday classrooms.
+              </div>
+              <div className="mt-[0.33em] text-[0.75em] leading-[1.55] text-[#9ca3af]">
+                デジタル画面は日常の教室でどこにでもあるものになった。
+              </div>
+            </div>
+          </div>
+
+          {/* 解答後のみ出る「次へ」 */}
+          <div className="shrink-0 px-[1.25em] pb-[2em] pt-[0.75em]">
+            <span className="flex w-full items-center justify-center gap-[0.5em] rounded-[0.75em] border-[0.125em] border-[#14532d] bg-[#15803d] px-[1.25em] py-[0.75em] font-display font-bold text-white">
+              <span className="text-[0.9375em]">次へ</span>
+              <Icon name="chevron_right" style={{ fontSize: '1.125em' }} />
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** `DSQuizOption` の解答後スタイルをそのまま写した表示専用の選択肢。 */
+function RootLandingQuizOption({ label, index, correct }: { label: string; index: number; correct: boolean }) {
+  const face = correct
+    ? { background: '#15803d', borderColor: '#14532d', color: '#fff' }
+    : { background: '#fff', borderColor: '#e5e7eb', color: '#9ca3af' };
+  const shadow = correct ? '#14532d' : '#e5e7eb';
+
+  return (
+    <div className="relative">
+      <div className="absolute inset-0 rounded-[0.75em] translate-x-[0.156em] translate-y-[0.156em]" style={{ background: shadow }} />
+      <div
+        className="relative flex items-center gap-[0.6875em] rounded-[0.75em] border-[0.125em] px-[0.875em] py-[0.875em]"
+        style={{ background: face.background, borderColor: face.borderColor }}
+      >
+        <div
+          className="flex h-[1.5em] w-[1.5em] shrink-0 items-center justify-center rounded-[0.375em] border-[0.125em] border-[#1a1a1a]"
+          style={{ background: correct ? 'rgba(255,255,255,0.22)' : '#fff', color: correct ? '#fff' : '#1a1a1a' }}
+        >
+          <span className="text-[0.6875em] font-bold leading-none">{String.fromCharCode(65 + index)}</span>
+        </div>
+        <div className="flex-1 text-[0.9375em] font-semibold leading-[1.35]" style={{ color: face.color }}>
+          {label}
+        </div>
+        {correct && <Icon name="check" style={{ fontSize: '1.125em' }} className="text-white" />}
+      </div>
     </div>
   );
 }
