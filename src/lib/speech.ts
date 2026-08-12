@@ -1,5 +1,5 @@
 /**
- * Web Speech API での英語読み上げの共通ユーティリティ。
+ * Web Speech API での読み上げの共通ユーティリティ。
  *
  * デスクトップブラウザ固有の不具合への対策を1箇所に集約する:
  * - Chrome/Edge (デスクトップ) は `cancel()` 直後に同期的に `speak()` すると
@@ -16,8 +16,15 @@
 // Chrome の cancel→speak 競合を避けるための遅延 (ms)
 const SPEAK_DELAY_MS = 60;
 
+export type SpeechLang = 'en' | 'ja';
+
+const BCP47_BY_LANG: Record<SpeechLang, string> = {
+  en: 'en-US',
+  ja: 'ja-JP',
+};
+
 let activeUtterance: SpeechSynthesisUtterance | null = null;
-let cachedVoice: SpeechSynthesisVoice | null = null;
+const cachedVoiceByLang = new Map<SpeechLang, SpeechSynthesisVoice | null>();
 let voiceListenerAttached = false;
 
 function isSupported(): boolean {
@@ -28,18 +35,21 @@ function isSupported(): boolean {
   );
 }
 
-/** 利用可能なボイス一覧から英語読み上げに最適なボイスを選ぶ (テスト用に公開) */
-export function pickEnglishVoice(
+/** 利用可能なボイス一覧から指定言語の読み上げに最適なボイスを選ぶ (テスト用に公開) */
+export function pickVoiceForLang(
   voices: readonly Pick<SpeechSynthesisVoice, 'lang' | 'default' | 'localService'>[],
+  lang: SpeechLang,
 ): number {
   let best = -1;
   let bestScore = -1;
   voices.forEach((voice, index) => {
-    const lang = (voice.lang ?? '').toLowerCase().replace('_', '-');
-    if (!lang.startsWith('en')) return;
+    const voiceLang = (voice.lang ?? '').toLowerCase().replace('_', '-');
+    if (!voiceLang.startsWith(lang)) return;
     let score = 1;
-    if (lang === 'en-us') score += 4;
-    else if (lang === 'en-gb') score += 2;
+    const preferredRegion = lang === 'en' ? 'en-us' : 'ja-jp';
+    const secondaryRegion = lang === 'en' ? 'en-gb' : null;
+    if (voiceLang === preferredRegion) score += 4;
+    else if (secondaryRegion && voiceLang === secondaryRegion) score += 2;
     if (voice.localService) score += 2; // ローカルボイスはオフラインでも即時に鳴る
     if (voice.default) score += 1;
     if (score > bestScore) {
@@ -50,44 +60,48 @@ export function pickEnglishVoice(
   return best;
 }
 
-function getEnglishVoice(): SpeechSynthesisVoice | null {
+/** @deprecated use `pickVoiceForLang(voices, 'en')` */
+export function pickEnglishVoice(
+  voices: readonly Pick<SpeechSynthesisVoice, 'lang' | 'default' | 'localService'>[],
+): number {
+  return pickVoiceForLang(voices, 'en');
+}
+
+function getVoiceForLang(lang: SpeechLang): SpeechSynthesisVoice | null {
   const synth = window.speechSynthesis;
   if (!voiceListenerAttached) {
     voiceListenerAttached = true;
     // Chrome はボイス一覧を非同期で読み込むため、更新されたら選び直す
     synth.addEventListener?.('voiceschanged', () => {
-      cachedVoice = null;
+      cachedVoiceByLang.clear();
     });
   }
-  if (cachedVoice) return cachedVoice;
+  if (cachedVoiceByLang.has(lang)) return cachedVoiceByLang.get(lang) ?? null;
   const voices = synth.getVoices();
-  const index = pickEnglishVoice(voices);
-  cachedVoice = index >= 0 ? voices[index] : null;
-  return cachedVoice;
+  const index = pickVoiceForLang(voices, lang);
+  const voice = index >= 0 ? voices[index] : null;
+  cachedVoiceByLang.set(lang, voice);
+  return voice;
 }
 
 export interface SpeakOptions {
   rate?: number;
 }
 
-/** 英語テキストを読み上げる。再生中の音声はキャンセルして置き換える。 */
-export function speakEnglish(text: string | null | undefined, options: SpeakOptions = {}): void {
-  if (!isSupported()) return;
-  const trimmed = text?.trim();
-  if (!trimmed) return;
-
+function speakInternal(text: string, lang: SpeechLang, options: SpeakOptions, onDone?: () => void): void {
   const synth = window.speechSynthesis;
   synth.cancel();
   synth.resume();
 
-  const utterance = new SpeechSynthesisUtterance(trimmed);
-  utterance.lang = 'en-US';
-  utterance.rate = options.rate ?? 0.9;
-  const voice = getEnglishVoice();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = BCP47_BY_LANG[lang];
+  utterance.rate = options.rate ?? (lang === 'en' ? 0.9 : 1);
+  const voice = getVoiceForLang(lang);
   if (voice) utterance.voice = voice;
 
   const release = () => {
     if (activeUtterance === utterance) activeUtterance = null;
+    onDone?.();
   };
   utterance.onend = release;
   utterance.onerror = release;
@@ -95,10 +109,47 @@ export function speakEnglish(text: string | null | undefined, options: SpeakOpti
 
   window.setTimeout(() => {
     // 遅延中に新しい読み上げや stopSpeaking() があれば発話しない
-    if (activeUtterance !== utterance) return;
+    if (activeUtterance !== utterance) {
+      onDone?.();
+      return;
+    }
     synth.resume();
     synth.speak(utterance);
   }, SPEAK_DELAY_MS);
+}
+
+/** 英語テキストを読み上げる。再生中の音声はキャンセルして置き換える。 */
+export function speakEnglish(text: string | null | undefined, options: SpeakOptions = {}): void {
+  if (!isSupported()) return;
+  const trimmed = text?.trim();
+  if (!trimmed) return;
+  speakInternal(trimmed, 'en', options);
+}
+
+/** 日本語テキストを読み上げる。再生中の音声はキャンセルして置き換える。 */
+export function speakJapanese(text: string | null | undefined, options: SpeakOptions = {}): void {
+  if (!isSupported()) return;
+  const trimmed = text?.trim();
+  if (!trimmed) return;
+  speakInternal(trimmed, 'ja', options);
+}
+
+/**
+ * 読み上げが終わるまで待つ版。音読チャレンジのように「出題文の読み上げが
+ * 終わってからリスニング(タイマー+録音)を開始する」といった逐次制御に使う。
+ * 非対応環境・空文字では即座に resolve する。
+ */
+export function speakAndWait(
+  text: string | null | undefined,
+  lang: SpeechLang,
+  options: SpeakOptions = {},
+): Promise<void> {
+  const trimmed = text?.trim();
+  if (!isSupported() || !trimmed) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    speakInternal(trimmed, lang, options, resolve);
+  });
 }
 
 /** 再生中・待機中の読み上げをすべて停止する。 */

@@ -1430,6 +1430,16 @@ export default function ProjectPage() {
         </div>
         <div className="relative h-[44px] w-[44px] flex-none">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
+          <Link
+            href={`/voice-quiz/${projectId}`}
+            aria-label="音読チャレンジ"
+            className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="mic" size={18} />
+          </Link>
+        </div>
+        <div className="relative h-[44px] w-[44px] flex-none">
+          <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <button
             type="button"
             onClick={() => setAddMenuOpen((open) => !open)}

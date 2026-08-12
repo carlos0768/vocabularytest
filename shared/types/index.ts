@@ -197,6 +197,8 @@ export interface Word {
   exampleSentence?: string; // Example sentence using the word (Pro feature)
   exampleSentenceJa?: string; // Japanese translation of example sentence
   pronunciation?: string; // IPA pronunciation e.g. "/ɪˈlæb.ər.ət/"
+  /** AI-generated Japanese oral quiz prompt for the voice quiz (音読チャレンジ). Never reveals the English spelling. */
+  voiceQuizPrompt?: string;
   status: WordStatus;
   createdAt: string; // ISO string
   // Spaced repetition fields (SM-2 algorithm)

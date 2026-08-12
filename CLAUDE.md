@@ -181,6 +181,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
 6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
 7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit
 8. **Favorites Mode**: Shows all favorite words across all projects, not just current project
+9. **Voice Quiz (音読チャレンジ)**: `/voice-quiz/[projectId]`. Narrates an AI-pregenerated Japanese quiz prompt (`words.voice_quiz_prompt`, generated on-demand via `/api/generate-voice-quiz-prompt`, never reveals the English spelling) using the browser's frontend TTS (`src/lib/speech.ts` `speakAndWait`), then records the spoken answer via `MediaRecorder` and sends it to `/api/voice-quiz/recognize`, which calls **GCP Cloud Speech-to-Text** (`src/lib/speech/cloud-speech-to-text.ts`, `GOOGLE_CLOUD_SPEECH_API_KEY`) for recognition instead of the browser's `SpeechRecognition` — needed for consistent accuracy and because `SpeechRecognition` does not work inside an installed iOS Safari PWA. No answer within `TIMER_DURATION_MS` (6s) after narration ends = disqualified (失格). On answering, the correct pronunciation is played back via frontend TTS (`speakEnglish`) as reinforcement. See `docs/research/voice-quiz-gcp-feasibility.md` for the GCP-only feasibility research.
 
 ## Testing
 

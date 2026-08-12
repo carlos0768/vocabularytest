@@ -284,6 +284,7 @@ function toHomogeneousWordInsertRow(
     example_sentence: row.example_sentence ?? null,
     example_sentence_ja: row.example_sentence_ja ?? null,
     pronunciation: row.pronunciation ?? null,
+    voice_quiz_prompt: row.voice_quiz_prompt ?? null,
     part_of_speech_tags: row.part_of_speech_tags ?? null,
     related_words: row.related_words ?? null,
     usage_patterns: row.usage_patterns ?? null,

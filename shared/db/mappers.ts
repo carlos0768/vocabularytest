@@ -179,6 +179,7 @@ export interface WordRow {
   example_sentence?: string | null;
   example_sentence_ja?: string | null;
   pronunciation?: string | null;
+  voice_quiz_prompt?: string | null;
   part_of_speech_tags?: unknown | null;
   related_words?: unknown | null;
   usage_patterns?: unknown | null;
@@ -619,6 +620,7 @@ export function mapWordFromRow(row: WordRow): Word {
     exampleSentence: resolveWordExampleSentence(row),
     exampleSentenceJa: resolveWordExampleSentenceJa(row),
     pronunciation: row.pronunciation ?? undefined,
+    voiceQuizPrompt: row.voice_quiz_prompt ?? undefined,
     partOfSpeechTags: normalizePartOfSpeechTags(row.part_of_speech_tags),
     relatedWords: normalizeRelatedWords(row.related_words),
     usagePatterns: normalizeUsagePatterns(row.usage_patterns),
@@ -657,6 +659,7 @@ export function mapWordToInsert(word: WordInput): {
   example_sentence?: string;
   example_sentence_ja?: string;
   pronunciation?: string;
+  voice_quiz_prompt?: string;
   part_of_speech_tags?: string[];
   related_words?: RelatedWord[];
   usage_patterns?: UsagePattern[];
@@ -684,6 +687,7 @@ export function mapWordToInsert(word: WordInput): {
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
     pronunciation: word.pronunciation,
+    voice_quiz_prompt: word.voiceQuizPrompt,
     part_of_speech_tags: word.partOfSpeechTags,
     related_words: word.relatedWords,
     usage_patterns: word.usagePatterns,
@@ -713,6 +717,7 @@ export function mapWordToInsertWithId(word: Word): {
   example_sentence?: string;
   example_sentence_ja?: string;
   pronunciation?: string;
+  voice_quiz_prompt?: string;
   part_of_speech_tags?: string[];
   related_words?: RelatedWord[];
   usage_patterns?: UsagePattern[];
@@ -743,6 +748,7 @@ export function mapWordToInsertWithId(word: Word): {
     example_sentence: word.exampleSentence,
     example_sentence_ja: word.exampleSentenceJa,
     pronunciation: word.pronunciation,
+    voice_quiz_prompt: word.voiceQuizPrompt,
     part_of_speech_tags: word.partOfSpeechTags,
     related_words: word.relatedWords,
     usage_patterns: word.usagePatterns,
@@ -776,6 +782,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;
   if (updates.exampleSentenceJa !== undefined) updateData.example_sentence_ja = updates.exampleSentenceJa;
   if (updates.pronunciation !== undefined) updateData.pronunciation = updates.pronunciation;
+  if (updates.voiceQuizPrompt !== undefined) updateData.voice_quiz_prompt = updates.voiceQuizPrompt;
   if (updates.partOfSpeechTags !== undefined) updateData.part_of_speech_tags = updates.partOfSpeechTags;
   if (updates.relatedWords !== undefined) updateData.related_words = updates.relatedWords;
   if (updates.usagePatterns !== undefined) updateData.usage_patterns = updates.usagePatterns;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickEnglishVoice } from './speech';
+import { pickEnglishVoice, pickVoiceForLang } from './speech';
 
 type FakeVoice = { lang: string; default: boolean; localService: boolean };
 
@@ -36,4 +36,14 @@ test('アンダースコア区切りの言語タグも扱える', () => {
 test('en-US がなければ en-GB、それもなければ他の英語ボイス', () => {
   assert.equal(pickEnglishVoice([voice('en-AU'), voice('en-GB')]), 1);
   assert.equal(pickEnglishVoice([voice('ja-JP'), voice('en-IN')]), 1);
+});
+
+test('pickVoiceForLang: 日本語ボイスがなければ -1 を返す', () => {
+  assert.equal(pickVoiceForLang([], 'ja'), -1);
+  assert.equal(pickVoiceForLang([voice('en-US', { default: true })], 'ja'), -1);
+});
+
+test('pickVoiceForLang: ja-JP を優先して選ぶ', () => {
+  const voices = [voice('en-US'), voice('ja-JP')];
+  assert.equal(pickVoiceForLang(voices, 'ja'), 1);
 });
