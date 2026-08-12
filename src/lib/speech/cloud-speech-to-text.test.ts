@@ -19,8 +19,33 @@ test('recognizeSpeech fails fast when the API key is missing', async () => {
 
   assert.equal(result.success, false);
   if (!result.success) {
+    assert.equal(result.reason, 'not_configured');
     assert.match(result.error, /GOOGLE_CLOUD_SPEECH_API_KEY/);
   }
+});
+
+test('recognizeSpeech treats a whitespace-only API key as unset', async () => {
+  const result = await recognizeSpeech(
+    { audioBase64: 'AAAA', encoding: 'WEBM_OPUS' },
+    { apiKey: '  \n', fetchImpl: fakeFetch({ ok: true, body: {} }) },
+  );
+
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.reason, 'not_configured');
+  }
+});
+
+test('recognizeSpeech trims a pasted API key before calling GCP', async () => {
+  let calledUrl = '';
+  const fetchImpl = (async (url: string) => {
+    calledUrl = url;
+    return { ok: true, status: 200, json: async () => ({ results: [] }) };
+  }) as unknown as typeof fetch;
+
+  await recognizeSpeech({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }, { apiKey: ' key-1\n', fetchImpl });
+
+  assert.match(calledUrl, /key=key-1$/);
 });
 
 test('recognizeSpeech fails when audio is empty', async () => {
@@ -30,6 +55,9 @@ test('recognizeSpeech fails when audio is empty', async () => {
   );
 
   assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.reason, 'invalid_audio');
+  }
 });
 
 test('recognizeSpeech returns the top transcript and confidence on success', async () => {
@@ -78,6 +106,7 @@ test('recognizeSpeech surfaces the GCP error message on non-200 responses', asyn
 
   assert.equal(result.success, false);
   if (!result.success) {
+    assert.equal(result.reason, 'upstream');
     assert.equal(result.error, 'API key not valid');
   }
 });

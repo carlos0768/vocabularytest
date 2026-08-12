@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { SolidButton } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { QuizModeTabs } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
-import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
+import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { speakAndWait, speakEnglish, stopSpeaking } from '@/lib/speech';
@@ -26,19 +26,47 @@ import type { Word, SubscriptionStatus } from '@/types';
 const TIMER_DURATION_MS = 6000;
 const TIMER_TICK_MS = 50;
 
+/**
+ * 「次へ」を押さなくても自動で次の問題へ進むまでの待ち時間。
+ * finishQuestion が500ms後に正解を読み上げるので、それを聞き終えられる長さにする。
+ * 不正解のときは正解を読み取る時間が要るので長めに取る。
+ */
+const AUTO_ADVANCE_CORRECT_MS = 2200;
+const AUTO_ADVANCE_INCORRECT_MS = 3800;
+
+/* --- Merken Design System (Solid) のトークン --- */
+/** 面を持つ要素の枠。ハードシャドウは大きさに応じて2種類使い分ける。 */
+const SOLID_SURFACE =
+  'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
+const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-ink)]';
+const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-ink)]';
+/** 見出しの上に置く小さなラベル。 */
+const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em]';
+
 type RecordingEncoding = 'WEBM_OPUS' | 'OGG_OPUS';
 
-const CANDIDATE_MIME_TYPES: Array<{ mimeType: string; encoding: RecordingEncoding }> = [
-  { mimeType: 'audio/webm;codecs=opus', encoding: 'WEBM_OPUS' },
-  { mimeType: 'audio/webm', encoding: 'WEBM_OPUS' },
-  { mimeType: 'audio/ogg;codecs=opus', encoding: 'OGG_OPUS' },
+const CANDIDATE_MIME_TYPES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
 ];
 
-function pickSupportedRecording(): { mimeType: string; encoding: RecordingEncoding } | null {
+/** 録音に使う MIME を選ぶ。エンコーディングは録音後の実際の出力から決める。 */
+function pickSupportedMimeType(): string | null {
   if (typeof MediaRecorder === 'undefined') return null;
-  for (const candidate of CANDIDATE_MIME_TYPES) {
-    if (MediaRecorder.isTypeSupported(candidate.mimeType)) return candidate;
-  }
+  return CANDIDATE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? null;
+}
+
+/**
+ * MediaRecorder が実際に出力した MIME から、送信するエンコーディングを決める。
+ * Safari は `isTypeSupported` が true を返しても mp4/aac で録音することがあり、
+ * 要求した側の encoding をそのまま送ると Cloud Speech-to-Text 側で必ず失敗する。
+ * 宣言ではなく実際の出力を唯一の判断材料にする。
+ */
+function encodingFromMimeType(mimeType: string): RecordingEncoding | null {
+  const type = mimeType.toLowerCase();
+  if (type.includes('webm')) return 'WEBM_OPUS';
+  if (type.includes('ogg')) return 'OGG_OPUS';
   return null;
 }
 
@@ -104,7 +132,7 @@ export default function VoiceQuizPage() {
   const [recognitionErrored, setRecognitionErrored] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
-  const recordingRef = useRef<{ mimeType: string; encoding: RecordingEncoding } | null>(null);
+  const recordingRef = useRef<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerStartRef = useRef<number | null>(null);
@@ -130,12 +158,12 @@ export default function VoiceQuizPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const recording = pickSupportedRecording();
-      if (!recording || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      const mimeType = pickSupportedMimeType();
+      if (!mimeType || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         if (!cancelled) setSetupState('unsupported');
         return;
       }
-      recordingRef.current = recording;
+      recordingRef.current = mimeType;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (cancelled) {
@@ -280,7 +308,7 @@ export default function VoiceQuizPage() {
       setPhase('listening');
       timerStartRef.current = Date.now();
 
-      const { mimeType, encoding } = recordingRef.current;
+      const mimeType = recordingRef.current;
       const recorder = new MediaRecorder(streamRef.current, { mimeType });
 
       recorder.ondataavailable = (event) => {
@@ -292,12 +320,24 @@ export default function VoiceQuizPage() {
           if (questionRunRef.current !== run) return;
           setPhase('grading');
           try {
-            const blob = new Blob(chunksRef.current, { type: mimeType });
+            // 要求した mimeType ではなく、MediaRecorder が実際に採用した型で判断する。
+            const recordedMimeType = recorder.mimeType || mimeType;
+            const recordedEncoding = encodingFromMimeType(recordedMimeType);
+            const blob = new Blob(chunksRef.current, { type: recordedMimeType });
+
+            if (!recordedEncoding || blob.size === 0) {
+              console.error(
+                `Voice quiz recording unusable (mimeType=${recordedMimeType}, bytes=${blob.size})`,
+              );
+              await handleAttemptResult('', true, run);
+              return;
+            }
+
             const audioBase64 = arrayBufferToBase64(await blob.arrayBuffer());
             const response = await fetch('/api/voice-quiz/recognize', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audioBase64, encoding }),
+              body: JSON.stringify({ audioBase64, encoding: recordedEncoding }),
             });
             const data = await response.json();
             if (questionRunRef.current !== run) return;
@@ -366,7 +406,7 @@ export default function VoiceQuizPage() {
     return () => clearInterval(intervalId);
   }, [phase, stopRecording]);
 
-  const moveToNext = () => {
+  const moveToNext = useCallback(() => {
     const nextIndex = currentIndex + 1;
     if (nextIndex >= words.length) {
       setIsComplete(true);
@@ -374,7 +414,23 @@ export default function VoiceQuizPage() {
     }
     setCurrentIndex(nextIndex);
     startQuestion(words[nextIndex]);
-  };
+  }, [currentIndex, words, startQuestion]);
+
+  // finishQuestion が words を書き換えると moveToNext の同一性が変わる。
+  // タイマーを張り直さないよう、効果の依存からは外して ref 経由で呼ぶ。
+  const moveToNextRef = useRef(moveToNext);
+  moveToNextRef.current = moveToNext;
+
+  /**
+   * 解答後は「次へ」を押さなくても自動で次の問題へ進む。
+   * ボタンは早送り用に残してあるので、待ちたくないときは従来どおり押せる。
+   */
+  useEffect(() => {
+    if (phase !== 'answered') return;
+    const delay = isCorrect ? AUTO_ADVANCE_CORRECT_MS : AUTO_ADVANCE_INCORRECT_MS;
+    const timeoutId = window.setTimeout(() => moveToNextRef.current(), delay);
+    return () => window.clearTimeout(timeoutId);
+  }, [phase, isCorrect]);
 
   const beginSession = (attempts: number) => {
     if (words.length === 0) return;
@@ -456,32 +512,41 @@ export default function VoiceQuizPage() {
     return (
       <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
         <header className="sticky top-0 flex-shrink-0 p-4">
-          <button
-            onClick={backToProject}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-          >
-            <Icon name="close" size={24} />
-          </button>
+          <CloseButton onClick={backToProject} />
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center px-6">
+        <main className="flex-1 flex flex-col items-center justify-center px-6 overflow-y-auto">
           <div className="w-full max-w-sm mb-5">
             <QuizModeTabs active="voice" onSelect={goToNormalQuiz} />
           </div>
-          <div className="card p-8 w-full max-w-sm text-center animate-fade-in-up">
-            <div className="w-20 h-20 bg-[var(--color-accent-light)] rounded-full flex items-center justify-center mx-auto mb-5">
-              <Icon name="mic" size={40} className="text-[var(--color-accent-ink)]" />
+
+          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
+            <div
+              className={cn(
+                'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light)]',
+                HARD_SHADOW_SM,
+              )}
+            >
+              <Icon name="mic" size={38} className="text-[var(--color-accent-ink)]" />
             </div>
 
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-1">音読チャレンジ</h1>
-            <p className="text-sm text-[var(--color-muted)] mb-6">
-              読み上げられた意味の英単語を、{Math.round(TIMER_DURATION_MS / 1000)}秒以内に声で答えてください。
+            <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Voice Challenge</p>
+            <h1 className="mt-1 font-display text-[1.9rem] font-black leading-[1.05] text-[var(--solid-ink)]">
+              音読チャレンジ
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
+              読み上げられた意味の英単語を、
               <br />
-              全{words.length}問
+              {Math.round(TIMER_DURATION_MS / 1000)}秒以内に声で答えてください。
             </p>
 
-            <p className="text-sm font-semibold text-[var(--color-foreground)] mb-2">試行回数</p>
-            <div className="flex gap-2 mb-2" role="group" aria-label="試行回数">
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <StatChip icon="list" label="出題数" value={`${words.length}問`} />
+              <StatChip icon="timer" label="制限時間" value={`${Math.round(TIMER_DURATION_MS / 1000)}秒`} />
+            </div>
+
+            <p className={cn(EYEBROW, 'mt-6 mb-2 text-left text-[var(--color-muted)]')}>試行回数</p>
+            <div className="flex gap-2" role="group" aria-label="試行回数">
               {VOICE_QUIZ_ATTEMPT_OPTIONS.map((option) => {
                 const selected = attemptsAllowed === option;
                 return (
@@ -490,26 +555,33 @@ export default function VoiceQuizPage() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setAttemptsAllowed(option)}
-                    className={`flex-1 h-12 rounded-xl border-2 text-base font-bold transition-colors ${
+                    className={cn(
+                      'flex-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] py-3 font-display text-base font-black transition-all duration-100 active:translate-x-px active:translate-y-px',
                       selected
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-                        : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
-                    }`}
+                        ? cn('bg-[var(--solid-ink)] text-[var(--color-surface)]', HARD_SHADOW_SM)
+                        : 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
+                    )}
                   >
                     {option}回
                   </button>
                 );
               })}
             </div>
-            <p className="text-xs text-[var(--color-muted)] mb-6 min-h-[2.5rem]">
+            <p className="mt-3 mb-6 min-h-[2.5rem] text-xs leading-5 text-[var(--color-muted)]">
               {attemptsAllowed === 1
                 ? '1回でも間違えるとその問題は終了します。'
                 : `間違えても「もう一回!」と促されて、最大${attemptsAllowed}回まで挑戦できます。`}
             </p>
 
-            <Button onClick={() => beginSession(attemptsAllowed)} className="w-full" size="lg">
+            <SolidButton
+              variant="accent"
+              size="lg"
+              iconRight="arrow_forward"
+              onClick={() => beginSession(attemptsAllowed)}
+              className={cn('w-full', HARD_SHADOW)}
+            >
               開始する
-            </Button>
+            </SolidButton>
           </div>
         </main>
       </div>
@@ -527,47 +599,65 @@ export default function VoiceQuizPage() {
       : '繰り返し練習しましょう!';
 
     return (
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 p-4">
-          <button
-            onClick={backToProject}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-          >
-            <Icon name="close" size={24} />
-          </button>
+      <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        <header className="sticky top-0 flex-shrink-0 p-4">
+          <CloseButton onClick={backToProject} />
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="card p-8 w-full max-w-sm text-center animate-fade-in-up">
-            <div className="w-20 h-20 bg-[var(--color-success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
-            </div>
-
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">音読チャレンジ完了!</h1>
-
-            <div className="mb-6">
-              <p className="text-5xl font-bold text-[var(--color-primary)] mb-1">{percentage}%</p>
-              <p className="text-[var(--color-muted)]">
-                {results.total}問中 {results.correct}問正解
-              </p>
-              {results.disqualified > 0 && (
-                <p className="text-sm text-[var(--color-error,#ef4444)] mt-1 flex items-center justify-center gap-1">
-                  <Icon name="timer_off" size={14} />
-                  失格 {results.disqualified}回
-                </p>
+        <main className="flex-1 flex flex-col items-center justify-center px-6 overflow-y-auto">
+          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
+            <div
+              className={cn(
+                'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border-2 border-[var(--solid-ink)] bg-[var(--color-success-light)]',
+                HARD_SHADOW_SM,
               )}
+            >
+              <Icon name="emoji_events" size={38} className="text-[var(--color-success)]" />
             </div>
 
-            <p className="text-[var(--color-foreground)] mb-8">{completionMessage}</p>
+            <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Result</p>
+            <h1 className="mt-1 font-display text-[1.6rem] font-black leading-tight text-[var(--solid-ink)]">
+              音読チャレンジ完了!
+            </h1>
 
-            <div className="space-y-3">
-              <Button onClick={restartSession} className="w-full" size="lg">
-                <Icon name="refresh" size={20} className="mr-2" />
+            <p className="mt-5 font-mono text-[3.75rem] font-black leading-none tabular-nums text-[var(--solid-ink)]">
+              {percentage}
+              <span className="text-2xl">%</span>
+            </p>
+
+            {/* 正答率バー。数字だけより結果の重みが伝わる。 */}
+            <div className="mx-auto mt-4 h-3 w-full overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
+              <div
+                className="h-full bg-[var(--color-accent)] transition-[width] duration-700 ease-out"
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <StatChip icon="check" label="正解" value={`${results.correct}/${results.total}`} />
+              <StatChip
+                icon={results.disqualified > 0 ? 'timer_off' : 'timer'}
+                label="失格"
+                value={`${results.disqualified}回`}
+                tone={results.disqualified > 0 ? 'error' : 'default'}
+              />
+            </div>
+
+            <p className="mt-6 font-display text-base font-black text-[var(--solid-ink)]">{completionMessage}</p>
+
+            <div className="mt-7 space-y-3">
+              <SolidButton
+                variant="accent"
+                size="lg"
+                iconLeft="refresh"
+                onClick={restartSession}
+                className={cn('w-full', HARD_SHADOW)}
+              >
                 もう一度
-              </Button>
-              <Button variant="secondary" onClick={backToProject} className="w-full" size="lg">
+              </SolidButton>
+              <SolidButton size="lg" onClick={backToProject} className={cn('w-full', HARD_SHADOW_SM)}>
                 単語一覧に戻る
-              </Button>
+              </SolidButton>
             </div>
           </div>
         </main>
@@ -575,145 +665,332 @@ export default function VoiceQuizPage() {
     );
   }
 
+  // 残り時間の色。1秒を切ったら赤、2秒を切ったら警告色。
+  const timerTone =
+    timeLeft <= 1000
+      ? 'var(--color-error, #ef4444)'
+      : timeLeft <= 2000
+      ? 'var(--color-warning)'
+      : 'var(--color-accent)';
+  const answeredCount = currentIndex + (phase === 'answered' ? 1 : 0);
+  const autoAdvanceMs = isCorrect ? AUTO_ADVANCE_CORRECT_MS : AUTO_ADVANCE_INCORRECT_MS;
+  const isLastQuestion = currentIndex + 1 >= words.length;
+
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 p-4 flex items-center gap-4">
-        <button
-          onClick={backToProject}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-        >
-          <Icon name="close" size={24} />
-        </button>
+      <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4">
+        <CloseButton onClick={backToProject} />
 
-        <div className="flex-1 progress-bar">
+        <div className="h-3 flex-1 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
           <div
-            className="progress-bar-fill"
-            style={{ width: `${((currentIndex + (phase === 'answered' ? 1 : 0)) / words.length) * 100}%` }}
+            className="h-full bg-[var(--color-accent)] transition-[width] duration-500 ease-out"
+            style={{ width: `${(answeredCount / words.length) * 100}%` }}
           />
         </div>
 
-        <span className="text-xs text-[var(--color-muted)] font-medium tabular-nums">
+        <span className="font-mono text-xs font-black tabular-nums text-[var(--solid-ink)]">
           {currentIndex + 1}/{words.length}
         </span>
       </header>
 
-      {phase === 'listening' && (
-        <div className="px-6 mb-2 flex-shrink-0">
-          <div className="h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden">
-            <div
-              className="h-full rounded-full transition-[width] duration-75 ease-linear"
-              style={{
-                width: `${(timeLeft / TIMER_DURATION_MS) * 100}%`,
-                backgroundColor:
-                  timeLeft <= 1000
-                    ? 'var(--color-error, #ef4444)'
-                    : timeLeft <= 2000
-                    ? '#f59e0b'
-                    : 'var(--color-primary)',
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      <main className="flex-1 flex flex-col items-center justify-center px-6 min-h-0">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 min-h-0 overflow-y-auto">
         {currentWord && (
-          <div className="w-full max-w-sm text-center animate-fade-in-up">
-            {phase === 'narrating' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center">
-                  <Icon name="volume_up" size={36} className="text-[var(--color-accent-ink)]" />
-                </div>
-                <p className="text-lg font-medium text-[var(--color-muted)]">問題を読み上げています...</p>
-              </div>
-            )}
-
-            {phase === 'listening' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center animate-pulse shadow-lg">
-                  <Icon name="mic" size={36} className="text-white" />
-                </div>
-                <p className="text-lg font-medium text-[var(--color-foreground)]">英語で答えてください...</p>
-                {attemptsAllowed > 1 && (
-                  <p className="text-xs font-semibold text-[var(--color-muted)] tabular-nums">
-                    {attemptNumber}回目 / 全{attemptsAllowed}回
-                  </p>
-                )}
-              </div>
-            )}
-
-            {phase === 'grading' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-                <p className="text-lg font-medium text-[var(--color-muted)]">採点中...</p>
-              </div>
-            )}
-
-            {phase === 'retrying' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-[#f59e0b] flex items-center justify-center">
-                  <Icon name="refresh" size={40} className="text-white" />
-                </div>
-                <p className="text-xl font-bold text-[#f59e0b]">{retryMessage}</p>
-                {recognizedText && (
-                  <p className="text-base text-[var(--color-muted)] line-through">{recognizedText}</p>
-                )}
-                <p className="text-xs font-semibold text-[var(--color-muted)] tabular-nums">
-                  残り{attemptsAllowed - attemptNumber}回
+          <div className="w-full max-w-sm animate-fade-in-up">
+            {/* 出題中の意味。英単語は伏せたまま、何を聞かれているかを目でも追えるようにする。 */}
+            {phase !== 'answered' && (
+              <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mb-7 px-5 py-4 text-center')}>
+                <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Question</p>
+                <p className="mt-1.5 font-display text-2xl font-black leading-snug text-[var(--solid-ink)]">
+                  {currentWord.japanese}
                 </p>
               </div>
             )}
 
-            {phase === 'answered' && (
-              <div className="flex flex-col items-center gap-4">
-                {isCorrect ? (
-                  <>
-                    <div className="w-20 h-20 rounded-full bg-[var(--color-success)] flex items-center justify-center">
-                      <Icon name="check" size={40} className="text-white" />
-                    </div>
-                    <p className="text-xl font-bold text-[var(--color-success)]">正解!</p>
-                    <p className="text-2xl font-bold text-[var(--color-foreground)]">{currentWord.english}</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-20 h-20 rounded-full bg-[var(--color-error,#ef4444)] flex items-center justify-center">
-                      {isDisqualified ? (
-                        <Icon name="timer_off" size={40} className="text-white" />
-                      ) : (
-                        <Icon name="close" size={40} className="text-white" />
+            <div className="flex flex-col items-center gap-4 text-center">
+              {phase === 'narrating' && (
+                <>
+                  <div
+                    className={cn(
+                      'flex h-40 w-40 flex-col items-center justify-center gap-3 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light)]',
+                      HARD_SHADOW,
+                    )}
+                  >
+                    <SoundWave />
+                    <span className={cn(EYEBROW, 'text-[var(--color-accent-ink)]')}>Speaking</span>
+                  </div>
+                  <p className="font-display text-base font-black text-[var(--solid-ink)]">
+                    問題を読み上げています...
+                  </p>
+                </>
+              )}
+
+              {phase === 'listening' && (
+                <>
+                  {/* アイコンではなく残り秒数そのものを大きく出す。 */}
+                  <div className="relative h-40 w-40">
+                    <CountdownRing progress={timeLeft / TIMER_DURATION_MS} tone={timerTone} />
+                    <div
+                      className={cn(
+                        'absolute inset-[20px] flex flex-col items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]',
+                        HARD_SHADOW_SM,
                       )}
+                    >
+                      <span
+                        className="font-mono text-[2.75rem] font-black leading-none tabular-nums"
+                        style={{ color: timerTone }}
+                      >
+                        {Math.ceil(timeLeft / 1000)}
+                      </span>
+                      <span className={cn(EYEBROW, 'mt-1.5 text-[var(--color-muted)]')}>秒</span>
                     </div>
-                    <p className="text-xl font-bold text-[var(--color-error,#ef4444)]">
-                      {isDisqualified ? '失格!' : '不正解'}
+                  </div>
+
+                  {/* 録音中であることを言葉でも示す。 */}
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-error,#ef4444)] animate-pulse" />
+                    <p className="font-display text-base font-black text-[var(--solid-ink)]">
+                      録音中 — 英語で答えてください
                     </p>
-                    {recognitionErrored && (
-                      <p className="text-xs text-[var(--color-muted)]">(音声認識に失敗しました)</p>
+                  </div>
+
+                  {attemptsAllowed > 1 && <AttemptPill current={attemptNumber} total={attemptsAllowed} />}
+
+                  {/* 6秒待たずに送れるようにする。何をすればいいかも明示される。 */}
+                  <SolidButton
+                    variant="accent"
+                    size="lg"
+                    iconLeft="check"
+                    onClick={stopRecording}
+                    className={cn('mt-1 w-full', HARD_SHADOW)}
+                  >
+                    話し終わった
+                  </SolidButton>
+                </>
+              )}
+
+              {phase === 'grading' && (
+                <>
+                  <div
+                    className={cn(
+                      'flex h-36 w-36 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]',
+                      HARD_SHADOW,
                     )}
-                    {recognizedText && !isDisqualified && (
-                      <p className="text-base text-[var(--color-muted)] line-through">{recognizedText}</p>
+                  >
+                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--color-accent)] border-t-transparent" />
+                  </div>
+                  <p className="font-display text-base font-black text-[var(--color-muted)]">採点中...</p>
+                </>
+              )}
+
+              {phase === 'retrying' && (
+                <>
+                  <PhaseOrb
+                    icon="refresh"
+                    className="bg-[var(--color-warning-light)]"
+                    iconClassName="text-[var(--color-warning)]"
+                  />
+                  <p className="font-display text-xl font-black text-[var(--color-warning)]">{retryMessage}</p>
+                  {recognizedText && <MisheardText text={recognizedText} />}
+                  <AttemptPill current={attemptNumber} total={attemptsAllowed} remaining />
+                </>
+              )}
+
+              {phase === 'answered' && (
+                <>
+                  <PhaseOrb
+                    icon={isCorrect ? 'check' : isDisqualified ? 'timer_off' : 'close'}
+                    className={isCorrect ? 'bg-[var(--color-success)]' : 'bg-[var(--color-error,#ef4444)]'}
+                    iconClassName="text-white"
+                  />
+                  <p
+                    className={cn(
+                      'font-display text-xl font-black',
+                      isCorrect ? 'text-[var(--color-success)]' : 'text-[var(--color-error,#ef4444)]',
                     )}
-                    <div className="mt-2 px-6 py-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)]">
-                      <p className="text-xs text-[var(--color-muted)] mb-1">正解</p>
-                      <p className="text-2xl font-bold text-[var(--color-foreground)]">{currentWord.english}</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+                  >
+                    {isCorrect ? '正解!' : isDisqualified ? '失格!' : '不正解'}
+                  </p>
+                  {recognitionErrored && (
+                    <p className="text-xs text-[var(--color-muted)]">音声認識に失敗しました</p>
+                  )}
+                  {recognizedText && !isCorrect && !isDisqualified && <MisheardText text={recognizedText} />}
+
+                  <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mt-1 w-full px-5 py-4')}>
+                    <p className={cn(EYEBROW, 'text-[var(--color-muted)]')}>Answer</p>
+                    <p className="mt-1 font-display text-[1.75rem] font-black leading-tight text-[var(--solid-ink)]">
+                      {currentWord.english}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--color-muted)]">{currentWord.japanese}</p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
       </main>
 
       {phase === 'answered' && (
         <div className="flex-shrink-0 bg-[var(--color-background)] px-6 pt-3 pb-6 safe-area-bottom">
-          <Button onClick={moveToNext} className="w-full max-w-lg mx-auto flex" size="lg">
-            次へ
-            <Icon name="chevron_right" size={20} className="ml-1" />
-          </Button>
+          <div className="mx-auto w-full max-w-lg">
+            {/* 自動で次へ進むまでの残り時間。待ちたくなければボタンを押せばすぐ進む。 */}
+            <p className={cn(EYEBROW, 'mb-1.5 text-center text-[var(--color-muted)]')}>
+              {isLastQuestion ? 'まもなく結果へ' : 'まもなく次の問題へ'}
+            </p>
+            <div className="mb-2.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-border)]">
+              <div
+                key={currentIndex}
+                className="voice-quiz-drain h-full rounded-full bg-[var(--solid-ink)]"
+                style={{ '--voice-quiz-drain': `${autoAdvanceMs}ms` } as CSSProperties}
+              />
+            </div>
+            <SolidButton
+              variant="inverse"
+              size="lg"
+              iconRight="chevron_right"
+              onClick={moveToNext}
+              className={cn('w-full', HARD_SHADOW)}
+            >
+              {isLastQuestion ? '結果を見る' : '次へ進む'}
+            </SolidButton>
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+function CloseButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="閉じる"
+      className={cn(
+        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
+        HARD_SHADOW_SM,
+      )}
+    >
+      <Icon name="close" size={20} />
+    </button>
+  );
+}
+
+function StatChip({
+  icon,
+  label,
+  value,
+  tone = 'default',
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  tone?: 'default' | 'error';
+}) {
+  const errorTone = tone === 'error';
+  return (
+    <div className="rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-left">
+      <div className="flex items-center gap-1.5">
+        <Icon
+          name={icon}
+          size={14}
+          className={errorTone ? 'text-[var(--color-error,#ef4444)]' : 'text-[var(--color-muted)]'}
+        />
+        <span className={cn(EYEBROW, 'text-[var(--color-muted)]')}>{label}</span>
+      </div>
+      <p
+        className={cn(
+          'mt-0.5 font-mono text-base font-black tabular-nums',
+          errorTone ? 'text-[var(--color-error,#ef4444)]' : 'text-[var(--solid-ink)]',
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+/** 各フェーズの中央に置く大きな円。 */
+function PhaseOrb({
+  icon,
+  className,
+  iconClassName,
+}: {
+  icon: string;
+  className?: string;
+  iconClassName?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex h-36 w-36 items-center justify-center rounded-full border-2 border-[var(--solid-ink)]',
+        HARD_SHADOW,
+        className,
+      )}
+    >
+      <Icon name={icon} size={52} className={iconClassName} />
+    </div>
+  );
+}
+
+/** 残り時間を示すリング。中央のマイクを囲む。 */
+function CountdownRing({ progress, tone }: { progress: number; tone: string }) {
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(1, progress));
+  return (
+    <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
+      <circle cx="60" cy="60" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="8" />
+      <circle
+        cx="60"
+        cy="60"
+        r={radius}
+        fill="none"
+        stroke={tone}
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - clamped)}
+      />
+      <circle cx="60" cy="60" r={radius + 4} fill="none" stroke="var(--solid-ink)" strokeWidth="2" />
+    </svg>
+  );
+}
+
+/** 読み上げ中のイコライザ。 */
+function SoundWave() {
+  return (
+    <div className="flex h-6 items-end gap-1.5" aria-hidden="true">
+      {[0, 140, 280, 420, 560].map((delay) => (
+        <span
+          key={delay}
+          className="voice-quiz-wave block h-6 w-1.5 rounded-full bg-[var(--color-accent)]"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** 何回目の試行かを示すピル。 */
+function AttemptPill({
+  current,
+  total,
+  remaining,
+}: {
+  current: number;
+  total: number;
+  remaining?: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1 font-mono text-[11px] font-black tabular-nums text-[var(--solid-ink)]">
+      {remaining ? `残り${total - current}回` : `${current} / ${total}`}
+    </span>
+  );
+}
+
+/** 認識された(=間違えた)発話。 */
+function MisheardText({ text }: { text: string }) {
+  return <p className="font-mono text-sm text-[var(--color-muted)] line-through">{text}</p>;
 }
 
 function NoticeScreen({
@@ -728,25 +1005,25 @@ function NoticeScreen({
   message: string;
 }) {
   return (
-    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       <header className="sticky top-0 flex-shrink-0 p-4">
-        <button
-          onClick={onBack}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--color-muted)]"
-        >
-          <Icon name="close" size={24} />
-        </button>
+        <CloseButton onClick={onBack} />
       </header>
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center max-w-sm">
-          <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Icon name={icon} size={32} className="text-orange-500" />
+      <main className="flex-1 flex items-center justify-center px-6">
+        <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
+          <div
+            className={cn(
+              'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-warning-light)]',
+              HARD_SHADOW_SM,
+            )}
+          >
+            <Icon name={icon} size={30} className="text-[var(--color-warning)]" />
           </div>
-          <p className="text-[var(--color-foreground)] font-semibold mb-2">{title}</p>
-          <p className="text-sm text-[var(--color-muted)] mb-6">{message}</p>
-          <Button onClick={onBack} className="w-full" size="lg">
+          <p className="font-display text-lg font-black leading-snug text-[var(--solid-ink)]">{title}</p>
+          <p className="mt-3 mb-6 text-sm leading-6 text-[var(--color-muted)]">{message}</p>
+          <SolidButton size="lg" onClick={onBack} className={cn('w-full', HARD_SHADOW_SM)}>
             戻る
-          </Button>
+          </SolidButton>
         </div>
       </main>
     </div>

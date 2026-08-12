@@ -36,7 +36,9 @@ export function Solid({
         interactive && SOLID_INTERACTIVE,
         variant === 'sm' && '!rounded-[var(--solid-radius-sm)]',
         variant === 'tile' && '!rounded-[var(--solid-radius-tile)] aspect-[3/4] overflow-hidden',
-        variant === 'inverse' && 'bg-[var(--solid-ink)] text-white',
+        // ダークでは --solid-ink が明色に反転するので、前景は白固定ではなく
+        // 背景色トークンを使う (ライトでは #fff のまま = 見た目は不変)。
+        variant === 'inverse' && 'bg-[var(--solid-ink)] text-[var(--color-surface)]',
         variant === 'accent' && 'bg-[var(--color-accent)] text-white border-[var(--color-accent-ink)]',
         className,
       )}
@@ -96,7 +98,8 @@ export const SolidButton = forwardRef<HTMLElement, SolidButtonProps>(function So
     size === 'md' && 'px-5 py-3 text-[15px]',
     size === 'lg' && 'px-7 py-4 text-base',
     variant === 'default' && 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
-    variant === 'inverse' && 'bg-[var(--solid-ink)] text-white',
+    // 同上。ダークで「白背景に白文字」になるのを防ぐ。
+    variant === 'inverse' && 'bg-[var(--solid-ink)] text-[var(--color-surface)]',
     variant === 'accent' && 'bg-[var(--color-accent)] text-white border-[var(--color-accent-ink)]',
     className,
     faceClassName,
