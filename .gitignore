@@ -84,3 +84,7 @@ coverage/
 .agents/skills/upgrade-*
 skills/
 skills-lock.json
+
+# Python (scripts/derived-words のパイプライン実行で生成される)
+__pycache__/
+*.py[cod]
