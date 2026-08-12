@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  buildVoiceQuizPrompt,
+  buildVoiceQuizMeaningPrompt,
   canRetryVoiceQuiz,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
   DEFAULT_VOICE_QUIZ_COUNT,
@@ -14,62 +14,76 @@ import {
   randomVoiceQuizPromptOffset,
   resolveVoiceQuizCount,
   VOICE_QUIZ_ATTEMPT_OPTIONS,
-  VOICE_QUIZ_MEANING_PLACEHOLDER,
-  VOICE_QUIZ_PROMPT_TEMPLATES,
+  VOICE_QUIZ_MEANING_PROMPT_TEMPLATES,
   VOICE_QUIZ_RETRY_TEMPLATES,
+  VOICE_QUIZ_WORD_PLACEHOLDER,
+  voiceQuizPromptToText,
 } from './voice-quiz-prompt';
 
-test('every template carries the meaning placeholder', () => {
-  assert.ok(VOICE_QUIZ_PROMPT_TEMPLATES.length > 1);
-  for (const template of VOICE_QUIZ_PROMPT_TEMPLATES) {
+test('every template sandwiches the word between Japanese on both sides', () => {
+  assert.ok(VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length > 1);
+  for (const template of VOICE_QUIZ_MEANING_PROMPT_TEMPLATES) {
+    const at = template.indexOf(VOICE_QUIZ_WORD_PLACEHOLDER);
+    assert.ok(at >= 0, `template is missing the placeholder: ${template}`);
+    // 単語を文末に置くと「単語 → 質問」と切れて聞こえるので前後に日本語を残す。
     assert.ok(
-      template.includes(VOICE_QUIZ_MEANING_PLACEHOLDER),
-      `template is missing the placeholder: ${template}`,
+      template.slice(at + VOICE_QUIZ_WORD_PLACEHOLDER.length).trim().length > 0,
+      `template must keep Japanese after the word: ${template}`,
     );
   }
 });
 
-test('buildVoiceQuizPrompt substitutes the meaning and leaves no placeholder behind', () => {
-  const prompt = buildVoiceQuizPrompt('明確にする', 0);
+test('buildVoiceQuizMeaningPrompt splits the sentence so only the word is English', () => {
+  const segments = buildVoiceQuizMeaningPrompt('elaborate', 0);
 
-  assert.ok(prompt.includes('明確にする'));
-  assert.ok(!prompt.includes(VOICE_QUIZ_MEANING_PLACEHOLDER));
+  const english = segments.filter((segment) => segment.lang === 'en');
+  assert.equal(english.length, 1);
+  assert.equal(english[0].text, 'elaborate');
+  assert.ok(segments.some((segment) => segment.lang === 'ja'));
+  assert.ok(segments.every((segment) => segment.text.length > 0));
 });
 
-test('buildVoiceQuizPrompt trims surrounding whitespace from the meaning', () => {
-  assert.equal(
-    buildVoiceQuizPrompt('  明確にする \n', 0),
-    buildVoiceQuizPrompt('明確にする', 0),
-  );
-});
-
-test('buildVoiceQuizPrompt rotates templates so consecutive questions differ', () => {
-  assert.notEqual(buildVoiceQuizPrompt('明確にする', 0), buildVoiceQuizPrompt('明確にする', 1));
-});
-
-test('buildVoiceQuizPrompt wraps around past the end of the template list', () => {
-  assert.equal(
-    buildVoiceQuizPrompt('明確にする', VOICE_QUIZ_PROMPT_TEMPLATES.length),
-    buildVoiceQuizPrompt('明確にする', 0),
-  );
-});
-
-test('buildVoiceQuizPrompt stays valid for negative and non-integer indexes', () => {
-  for (const index of [-1, -9, 1.7, Number.NaN]) {
-    const prompt = buildVoiceQuizPrompt('明確にする', index);
-    assert.ok(prompt.includes('明確にする'));
-    assert.ok(!prompt.includes(VOICE_QUIZ_MEANING_PLACEHOLDER));
+test('buildVoiceQuizMeaningPrompt leaves no placeholder behind', () => {
+  for (const segment of buildVoiceQuizMeaningPrompt('elaborate', 0)) {
+    assert.ok(!segment.text.includes(VOICE_QUIZ_WORD_PLACEHOLDER));
   }
 });
 
-test('the English answer cannot leak into the prompt', () => {
-  // 出題文は日本語訳だけから組み立てるので、構造上スペルは漏れない。
-  // テンプレート自体にアルファベットが無いことを固定して回帰を防ぐ。
-  for (const template of VOICE_QUIZ_PROMPT_TEMPLATES) {
-    const withoutPlaceholder = template.replaceAll(VOICE_QUIZ_MEANING_PLACEHOLDER, '');
+test('buildVoiceQuizMeaningPrompt trims surrounding whitespace from the word', () => {
+  assert.deepEqual(
+    buildVoiceQuizMeaningPrompt('  elaborate \n', 0),
+    buildVoiceQuizMeaningPrompt('elaborate', 0),
+  );
+});
+
+test('buildVoiceQuizMeaningPrompt rotates templates so consecutive questions differ', () => {
+  assert.notEqual(
+    voiceQuizPromptToText(buildVoiceQuizMeaningPrompt('elaborate', 0)),
+    voiceQuizPromptToText(buildVoiceQuizMeaningPrompt('elaborate', 1)),
+  );
+});
+
+test('buildVoiceQuizMeaningPrompt wraps around past the end of the template list', () => {
+  assert.deepEqual(
+    buildVoiceQuizMeaningPrompt('elaborate', VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length),
+    buildVoiceQuizMeaningPrompt('elaborate', 0),
+  );
+});
+
+test('buildVoiceQuizMeaningPrompt stays valid for negative and non-integer indexes', () => {
+  for (const index of [-1, -9, 1.7, Number.NaN]) {
+    const segments = buildVoiceQuizMeaningPrompt('elaborate', index);
+    assert.ok(segments.some((segment) => segment.lang === 'en' && segment.text === 'elaborate'));
+  }
+});
+
+test('the Japanese answer cannot leak into the prompt', () => {
+  // 出題文は英単語だけから組み立てるので、構造上いっさい訳が混ざらない。
+  // テンプレート側に訳を差し込む口が無いことを固定して回帰を防ぐ。
+  for (const template of VOICE_QUIZ_MEANING_PROMPT_TEMPLATES) {
     assert.ok(
-      !/[a-z]/i.test(withoutPlaceholder),
-      `template must not contain Latin letters: ${template}`,
+      !template.includes('{meaning}'),
+      `template must not accept a meaning: ${template}`,
     );
   }
 });
@@ -78,7 +92,7 @@ test('randomVoiceQuizPromptOffset stays inside the template range', () => {
   assert.equal(randomVoiceQuizPromptOffset(() => 0), 0);
   assert.equal(
     randomVoiceQuizPromptOffset(() => 0.999999),
-    VOICE_QUIZ_PROMPT_TEMPLATES.length - 1,
+    VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length - 1,
   );
 });
 

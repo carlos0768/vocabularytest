@@ -11,7 +11,7 @@ import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { speakAndWait, speakEnglish, stopSpeaking } from '@/lib/speech';
 import {
-  buildVoiceQuizPrompt,
+  buildVoiceQuizMeaningPrompt,
   canRetryVoiceQuiz,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
   normalizeVoiceQuizAttempts,
@@ -20,6 +20,7 @@ import {
   resolveVoiceQuizCount,
   VOICE_QUIZ_ATTEMPT_OPTIONS,
 } from '@/lib/quiz/voice-quiz-prompt';
+import { isJapaneseAnswerCorrect } from '@/lib/quiz/voice-quiz-answer';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -79,9 +80,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   }
   return btoa(binary);
 }
-
-const normalize = (s: string) =>
-  s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
 
 type Phase = 'narrating' | 'listening' | 'grading' | 'retrying' | 'answered';
 type SetupState = 'checking' | 'ready' | 'unsupported' | 'mic-denied';
@@ -269,7 +267,7 @@ export default function VoiceQuizPage() {
       const word = activeWordRef.current;
       if (!word || questionRunRef.current !== run) return;
 
-      const correct = !!transcript && normalize(transcript) === normalize(word.english);
+      const correct = !!transcript && isJapaneseAnswerCorrect(transcript, word.japanese);
 
       // 音声認識自体が失敗した場合は、ユーザーの責任ではないので再挑戦させずに確定する。
       if (correct || apiErrored || !canRetryVoiceQuiz(attemptRef.current, attemptsAllowedRef.current)) {
@@ -337,7 +335,11 @@ export default function VoiceQuizPage() {
             const response = await fetch('/api/voice-quiz/recognize', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audioBase64, encoding: recordedEncoding }),
+              body: JSON.stringify({
+                audioBase64,
+                encoding: recordedEncoding,
+                languageCode: 'ja-JP',
+              }),
             });
             const data = await response.json();
             if (questionRunRef.current !== run) return;
@@ -384,9 +386,16 @@ export default function VoiceQuizPage() {
     setPhase('narrating');
 
     void (async () => {
-      // 出題文は日本語訳だけから組み立てるので、英単語のスペルは読み上げられない。
-      await speakAndWait(buildVoiceQuizPrompt(word.japanese, promptOffsetRef.current + run), 'ja');
-      if (questionRunRef.current !== run) return;
+      // 出題文は1文だが、英単語の部分だけ英語の声に切り替える。
+      // 日本語の声で英単語を読ませると別の単語に聞こえてしまうため。
+      const segments = buildVoiceQuizMeaningPrompt(
+        word.english,
+        promptOffsetRef.current + run,
+      );
+      for (const segment of segments) {
+        await speakAndWait(segment.text, segment.lang);
+        if (questionRunRef.current !== run) return;
+      }
       startListeningRef.current(run);
     })();
   }, []);
@@ -535,9 +544,9 @@ export default function VoiceQuizPage() {
               音読チャレンジ
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
-              読み上げられた意味の英単語を、
+              読み上げられた英単語の意味を、
               <br />
-              {Math.round(TIMER_DURATION_MS / 1000)}秒以内に声で答えてください。
+              {Math.round(TIMER_DURATION_MS / 1000)}秒以内に日本語で答えてください。
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -700,9 +709,14 @@ export default function VoiceQuizPage() {
             {phase !== 'answered' && (
               <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mb-7 px-5 py-4 text-center')}>
                 <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Question</p>
-                <p className="mt-1.5 font-display text-2xl font-black leading-snug text-[var(--solid-ink)]">
-                  {currentWord.japanese}
+                <p className="mt-1.5 font-display text-[1.75rem] font-black leading-tight text-[var(--solid-ink)]">
+                  {currentWord.english}
                 </p>
+                {currentWord.pronunciation && (
+                  <p className="mt-1 font-mono text-xs text-[var(--color-muted)]">
+                    {currentWord.pronunciation}
+                  </p>
+                )}
               </div>
             )}
 
@@ -749,7 +763,7 @@ export default function VoiceQuizPage() {
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-error,#ef4444)] animate-pulse" />
                     <p className="font-display text-base font-black text-[var(--solid-ink)]">
-                      録音中 — 英語で答えてください
+                      録音中 — 日本語で意味を答えてください
                     </p>
                   </div>
 
@@ -818,9 +832,11 @@ export default function VoiceQuizPage() {
                   <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mt-1 w-full px-5 py-4')}>
                     <p className={cn(EYEBROW, 'text-[var(--color-muted)]')}>Answer</p>
                     <p className="mt-1 font-display text-[1.75rem] font-black leading-tight text-[var(--solid-ink)]">
+                      {currentWord.japanese}
+                    </p>
+                    <p className="mt-1 font-mono text-sm text-[var(--color-muted)]">
                       {currentWord.english}
                     </p>
-                    <p className="mt-1 text-sm text-[var(--color-muted)]">{currentWord.japanese}</p>
                   </div>
                 </>
               )}
