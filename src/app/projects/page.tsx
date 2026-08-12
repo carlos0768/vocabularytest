@@ -336,7 +336,12 @@ export default function ProjectListPage() {
               .filter((group) => group.binder === null)
               .flatMap((group) => group.items)
               .map((project) => (
-                <BookRow key={project.id} project={project} onSetBinder={handleSetBinder} />
+                <BookRow
+                  key={project.id}
+                  project={project}
+                  onSetBinder={handleSetBinder}
+                  onDelete={(p) => void handleDeleteProject(p)}
+                />
               ))}
           </>
         )}
@@ -360,14 +365,20 @@ export default function ProjectListPage() {
 function BookRow({
   project,
   onSetBinder,
+  onDelete,
 }: {
   project: ProjectRowStats;
-  /** 「バインダーに追加」ボタン。デスクトップの「...」メニューと同じピッカーを開く */
+  /** 「...」メニューの「バインダーに追加」。デスクトップと同じピッカーを開く */
   onSetBinder?: (project: Project) => void;
+  /** 「...」メニューの「削除」 */
+  onDelete?: (project: Project) => void;
 }) {
   const bg = thumbColor(project.id);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const hasMenu = Boolean(onSetBinder || onDelete);
+
   return (
-    // バインダーボタンは <a> の中に <button> を入れないよう Link の兄弟として置く
+    // 「...」ボタンは <a> の中に <button> を入れないよう Link の兄弟として置く
     <div className="relative">
       <Link href={`/project/${project.id}`}>
         <SolidPanel
@@ -382,7 +393,7 @@ function BookRow({
               {!project.iconImage && project.title.charAt(0)}
             </div>
 
-            <div className={`min-w-0 flex-1 ${onSetBinder ? 'pr-[38px]' : ''}`}>
+            <div className={`min-w-0 flex-1 ${hasMenu ? 'pr-[38px]' : ''}`}>
               <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
               <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">
                 {project.totalWords}語
@@ -397,7 +408,7 @@ function BookRow({
               )}
             </div>
 
-            {!onSetBinder && (
+            {!hasMenu && (
               <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
                 <Icon name="chevron_right" size={14} />
               </span>
@@ -405,15 +416,48 @@ function BookRow({
           </div>
         </SolidPanel>
       </Link>
-      {onSetBinder && (
+      {hasMenu && (
         <button
           type="button"
-          onClick={() => onSetBinder(project)}
-          aria-label={`「${project.title}」をバインダーに追加`}
+          onClick={(e) => { e.preventDefault(); setMenuOpen(true); }}
+          aria-label={`「${project.title}」のメニュー`}
           className="absolute right-[11px] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-opacity duration-100 active:opacity-60"
         >
-          <Icon name="create_new_folder" size={16} />
+          <Icon name="more_horiz" size={17} />
         </button>
+      )}
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[70] cursor-default bg-transparent"
+            aria-label="メニューを閉じる"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="absolute right-[11px] top-[52px] z-[71] w-[178px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)]">
+            {onSetBinder && (
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); onSetBinder(project); }}
+                className="flex w-full items-center gap-2 border-b border-[var(--color-border-light)] px-3.5 py-3 text-left text-[13px] font-bold text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+              >
+                <Icon name="folder" size={15} />
+                バインダーに追加
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); onDelete(project); }}
+                className="flex w-full items-center gap-2 px-3.5 py-3 text-left text-[13px] font-bold active:bg-[var(--color-surface-secondary)]"
+                style={{ color: 'var(--color-error, #cc4d59)' }}
+              >
+                <Icon name="delete" size={15} />
+                削除
+              </button>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
