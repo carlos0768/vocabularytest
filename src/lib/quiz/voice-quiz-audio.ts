@@ -15,11 +15,12 @@
  */
 
 import {
-  VOICE_QUIZ_ANSWER_PREFIX,
-  VOICE_QUIZ_ANSWER_SUFFIX,
+  buildVoiceQuizAnswerAnnouncement,
+  buildVoiceQuizPromptFor,
   VOICE_QUIZ_MEANING_PROMPT_TEMPLATES,
   VOICE_QUIZ_RETRY_TEMPLATES,
-  VOICE_QUIZ_WORD_PLACEHOLDER,
+  VOICE_QUIZ_WORD_PROMPT_TEMPLATES,
+  type VoiceQuizDirection,
 } from './voice-quiz-prompt';
 
 /** 生成した音声を置くディレクトリ (public 配下)。 */
@@ -38,49 +39,83 @@ export const VOICE_QUIZ_RESULT_ANNOUNCEMENTS = {
   correct: '正解!',
   incorrect: '不正解。',
   disqualified: '時間切れです。',
-  gaveUp: '答えを見てみましょう。',
 } as const;
 
 export type VoiceQuizResultKey = keyof typeof VOICE_QUIZ_RESULT_ANNOUNCEMENTS;
 
 /**
- * 英→日の出題文から、単語を挟む前後の固定部分だけを取り出す。
- * 「この単語、」「の意味を日本語で言ってみて。」のような断片になる。
+ * 差し替え位置の目印。実際の語彙と衝突しない文字列を入れて組み立て、
+ * これ以外の断片＝単語に依存しない固定部分、として拾う。
  */
-function meaningPromptFragments(): VoiceQuizAudioClip[] {
+const SAMPLE_WORD = { english: '\u0000EN\u0000', japanese: '\u0000JA\u0000' };
+
+function isSampleText(text: string): boolean {
+  return text === SAMPLE_WORD.english || text === SAMPLE_WORD.japanese;
+}
+
+/**
+ * 出題文の固定部分を、実際に読み上げるビルダーから取り出す。
+ *
+ * ここでテンプレートを切り直すと、ビルダー側の切り方が変わったときに
+ * 静かに食い違って「音声を用意したのに使われない」状態になる
+ * (実際にそれで合成音声が残った)。組み立てた結果だけを見る。
+ */
+function promptFragments(
+  direction: VoiceQuizDirection,
+  templateCount: number,
+  idPrefix: string,
+): VoiceQuizAudioClip[] {
   const clips: VoiceQuizAudioClip[] = [];
 
-  VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.forEach((template, index) => {
-    const at = template.indexOf(VOICE_QUIZ_WORD_PLACEHOLDER);
-    if (at < 0) return;
+  for (let index = 0; index < templateCount; index += 1) {
+    buildVoiceQuizPromptFor(direction, SAMPLE_WORD, index).forEach((segment, position) => {
+      if (isSampleText(segment.text)) return;
+      clips.push({ id: `${idPrefix}-${index}-${position}`, text: segment.text, lang: segment.lang });
+    });
+  }
 
-    const before = template.slice(0, at).trim();
-    const after = template.slice(at + VOICE_QUIZ_WORD_PLACEHOLDER.length).trim();
+  return clips;
+}
 
-    if (before) clips.push({ id: `prompt-${index}-before`, text: before, lang: 'ja' });
-    if (after) clips.push({ id: `prompt-${index}-after`, text: after, lang: 'ja' });
-  });
+/** 「正解は、」「です。」など、正解を知らせる文の固定部分。 */
+function answerAnnouncementFragments(): VoiceQuizAudioClip[] {
+  const clips: VoiceQuizAudioClip[] = [];
+
+  for (const direction of ['en-to-ja', 'ja-to-en'] as const) {
+    buildVoiceQuizAnswerAnnouncement(direction, SAMPLE_WORD).forEach((segment, position) => {
+      if (isSampleText(segment.text)) return;
+      clips.push({ id: `answer-${direction}-${position}`, text: segment.text, lang: segment.lang });
+    });
+  }
 
   return clips;
 }
 
 /** 事前生成する固定文のすべて。 */
 export function voiceQuizAudioClips(): VoiceQuizAudioClip[] {
-  return [
-    ...meaningPromptFragments(),
+  const clips = [
+    ...promptFragments('en-to-ja', VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length, 'prompt'),
+    ...promptFragments('ja-to-en', VOICE_QUIZ_WORD_PROMPT_TEMPLATES.length, 'word-prompt'),
     ...VOICE_QUIZ_RETRY_TEMPLATES.map((text, index) => ({
       id: `retry-${index}`,
       text,
       lang: 'ja' as const,
     })),
-    { id: 'answer-prefix', text: VOICE_QUIZ_ANSWER_PREFIX, lang: 'ja' },
-    { id: 'answer-suffix', text: VOICE_QUIZ_ANSWER_SUFFIX, lang: 'ja' },
+    ...answerAnnouncementFragments(),
     ...Object.entries(VOICE_QUIZ_RESULT_ANNOUNCEMENTS).map(([key, text]) => ({
       id: `result-${key}`,
       text,
       lang: 'ja' as const,
     })),
   ];
+
+  // 同じ文言が複数のテンプレートに出ることがある。音声は1つでよい。
+  const seen = new Set<string>();
+  return clips.filter((clip) => {
+    if (seen.has(clip.text)) return false;
+    seen.add(clip.text);
+    return true;
+  });
 }
 
 /** 文言から音声ファイルを引くための索引。同じ文言は1つの音声を共有する。 */

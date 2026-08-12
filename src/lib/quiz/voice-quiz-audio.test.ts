@@ -13,7 +13,9 @@ import {
   VOICE_QUIZ_MEANING_PROMPT_TEMPLATES,
   VOICE_QUIZ_RETRY_TEMPLATES,
   VOICE_QUIZ_WORD_PLACEHOLDER,
-  buildVoiceQuizMeaningPrompt,
+  VOICE_QUIZ_WORD_PROMPT_TEMPLATES,
+  buildVoiceQuizAnswerAnnouncement,
+  buildVoiceQuizPromptFor,
   pickVoiceQuizRetryPrompt,
 } from './voice-quiz-prompt';
 
@@ -36,16 +38,44 @@ test('no clip carries a placeholder — the variable parts are never pre-generat
   }
 });
 
-test('the fixed halves of every English-to-Japanese prompt are covered', () => {
-  // 出題文の前後は必ず音声にできていること。ここが欠けると
-  // 1問ごとに合成音声と自然な音声が混ざって聞こえる。
+/**
+ * 実際に読み上げる並びを歩いて、固定部分に音声が無いものを見つける。
+ *
+ * 台本に文言が載っていても、読み上げ側がそれを1つに繋げて喋っていれば
+ * 索引に当たらず合成音声のままになる —— 実際にそれで
+ * 「正解は、○○ です。」と日→英の出題文が合成音声で残っていた。
+ * 文言の一覧ではなく、組み立てた結果を突き合わせる。
+ */
+function uncoveredFixedSegments(segments: { text: string; lang: string }[], variable: string[]) {
   const index = voiceQuizAudioIndex();
+  return segments
+    .filter((segment) => !variable.includes(segment.text)) // 単語・訳は対象外
+    .filter((segment) => !index.has(segment.text))
+    .map((segment) => segment.text);
+}
 
+test('every fixed part of an English-to-Japanese question has audio', () => {
+  const word = { english: 'elaborate', japanese: '入念に作り上げる' };
   for (let i = 0; i < VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length; i += 1) {
-    for (const segment of buildVoiceQuizMeaningPrompt('elaborate', i)) {
-      if (segment.lang === 'en') continue; // 単語そのものは対象外
-      assert.ok(index.has(segment.text), `no clip for: ${segment.text}`);
-    }
+    const segments = buildVoiceQuizPromptFor('en-to-ja', word, i);
+    assert.deepEqual(uncoveredFixedSegments(segments, [word.english]), []);
+  }
+});
+
+test('every fixed part of a Japanese-to-English question has audio', () => {
+  const word = { english: 'elaborate', japanese: '入念に作り上げる' };
+  for (let i = 0; i < VOICE_QUIZ_WORD_PROMPT_TEMPLATES.length; i += 1) {
+    const segments = buildVoiceQuizPromptFor('ja-to-en', word, i);
+    assert.deepEqual(uncoveredFixedSegments(segments, [word.japanese]), []);
+  }
+});
+
+test('the answer announcement is split so its fixed halves have audio', () => {
+  const word = { english: 'elaborate', japanese: '入念に作り上げる' };
+  for (const direction of ['en-to-ja', 'ja-to-en'] as const) {
+    const segments = buildVoiceQuizAnswerAnnouncement(direction, word);
+    // 繋げて1文にしていたら、答え以外の部分が索引に当たらず落ちる。
+    assert.deepEqual(uncoveredFixedSegments(segments, [word.english, word.japanese]), []);
   }
 });
 

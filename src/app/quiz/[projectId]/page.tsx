@@ -464,6 +464,12 @@ export default function QuizPage() {
   const returnPath = searchParams.get('from');
   const reviewMode = searchParams.get('review') === '1';
   const learnMode = searchParams.get('learn') === '1';
+  /**
+   * 音読チャレンジに送れない出題か。
+   * 音読側は単語帳を1冊だけ読み込む作りで、`all` や復習・今日の学習のような
+   * 横断出題を扱えない。ここが true のときはクイズ形式の選択を適用しない。
+   */
+  const voiceQuizUnavailable = projectId === 'all' || reviewMode || learnMode;
   const wrongMode = searchParams.get('wrong') === '1';
   const favoritesMode = searchParams.get('favorites') === '1';
   const reminderMode = searchParams.get('reminder') === '1';
@@ -626,13 +632,18 @@ export default function QuizPage() {
    * この端末が音読チャレンジを選んでいるなら、四択を開いても音読へ送る。
    * 選んだ直後だけでなく「次に開いたとき」も選択を守るために要る。
    * 遷移は一度きり ——依存が変わるたびに router を叩かないよう ref で止める。
+   *
+   * ただし音読チャレンジは単語帳1冊ぶんしか出題できない。「今日の学習」のような
+   * 横断出題 (/quiz/all?learn=1) を送っても向こうで単語帳が見つからず、
+   * 弾かれて戻ってくるだけなので、その場合は端末の選択より四択を優先する。
    */
   const redirectedToVoiceRef = useRef(false);
   useEffect(() => {
-    if (!modeLoaded || storedMode !== 'voice' || redirectedToVoiceRef.current) return;
+    if (!modeLoaded || storedMode !== 'voice' || voiceQuizUnavailable) return;
+    if (redirectedToVoiceRef.current) return;
     redirectedToVoiceRef.current = true;
     goToVoiceQuiz({ replace: true });
-  }, [modeLoaded, storedMode, goToVoiceQuiz]);
+  }, [modeLoaded, storedMode, goToVoiceQuiz, voiceQuizUnavailable]);
 
   /** 形式を選んだ。四択ならこの画面のまま、音読なら音読チャレンジへ移る。 */
   const chooseMode = useCallback(
@@ -1287,7 +1298,7 @@ export default function QuizPage() {
   }
 
   /* ---------- 音読チャレンジが選ばれている: 送るまで四択を描かない ---------- */
-  if (storedMode === 'voice') {
+  if (storedMode === 'voice' && !voiceQuizUnavailable) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
         <div className="text-center">
@@ -1299,7 +1310,7 @@ export default function QuizPage() {
   }
 
   /* ---------- この端末でまだ形式を選んでいない ---------- */
-  if (storedMode === null) {
+  if (storedMode === null && !voiceQuizUnavailable) {
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
         <div className="p-4">
@@ -1635,9 +1646,11 @@ export default function QuizPage() {
           </button>
           <div className="ds-qbar"><div className="fi" style={{ width: `${Math.round((currentIndex / Math.max(total, 1)) * 100)}%` }} /></div>
           <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
-          <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
-            <Icon name="mic" />
-          </button>
+          {!voiceQuizUnavailable && (
+            <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
+              <Icon name="mic" />
+            </button>
+          )}
         </div>
         <div className="mono muted" style={{ fontSize: 12, marginTop: 6 }}>{desktopSubtitle}</div>
 
@@ -1843,14 +1856,16 @@ export default function QuizPage() {
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowModeSwitch(true)}
-          aria-label="クイズの解き方を変える"
-          className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
-        >
-          <Icon name="mic" size={19} />
-        </button>
+        {!voiceQuizUnavailable && (
+          <button
+            type="button"
+            onClick={() => setShowModeSwitch(true)}
+            aria-label="クイズの解き方を変える"
+            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+          >
+            <Icon name="mic" size={19} />
+          </button>
+        )}
         {(reviewMode || learnMode) && (
           <button
             type="button"
