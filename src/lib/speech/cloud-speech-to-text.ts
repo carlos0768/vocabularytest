@@ -31,8 +31,17 @@ export interface RecognizeSpeechResult {
   confidence: number;
 }
 
+/**
+ * 失敗の種別。呼び出し側がHTTPステータスを選び分けるために使う。
+ * - `not_configured`: APIキー未設定。サーバー側の設定ミスなので上流障害(502)ではない。
+ * - `invalid_audio`: 送られてきた音声が不正。
+ * - `upstream`: Cloud Speech-to-Text が実際にエラーを返した/到達できなかった。
+ */
+export type RecognizeSpeechFailureReason = 'not_configured' | 'invalid_audio' | 'upstream';
+
 export interface RecognizeSpeechFailure {
   success: false;
+  reason: RecognizeSpeechFailureReason;
   error: string;
 }
 
@@ -68,13 +77,19 @@ export async function recognizeSpeech(
   deps?: RecognizeSpeechDeps,
 ): Promise<RecognizeSpeechResult | RecognizeSpeechFailure> {
   const fetchImpl = deps?.fetchImpl ?? fetch;
-  const apiKey = deps?.apiKey ?? process.env.GOOGLE_CLOUD_SPEECH_API_KEY;
+  // ダッシュボードから貼り付けたキーは前後に空白や改行が混ざりやすく、そのまま
+  // クエリに載せると認証が通らないので、ここで落としておく。
+  const apiKey = (deps?.apiKey ?? process.env.GOOGLE_CLOUD_SPEECH_API_KEY)?.trim();
 
   if (!apiKey) {
-    return { success: false, error: 'GOOGLE_CLOUD_SPEECH_API_KEY が設定されていません' };
+    return {
+      success: false,
+      reason: 'not_configured',
+      error: 'GOOGLE_CLOUD_SPEECH_API_KEY が設定されていません',
+    };
   }
   if (!input.audioBase64) {
-    return { success: false, error: '音声データがありません' };
+    return { success: false, reason: 'invalid_audio', error: '音声データがありません' };
   }
 
   const config: Record<string, unknown> = {
@@ -103,6 +118,7 @@ export async function recognizeSpeech(
     if (!response.ok) {
       return {
         success: false,
+        reason: 'upstream',
         error: data?.error?.message || `Cloud Speech-to-Text HTTP ${response.status}`,
       };
     }
@@ -116,6 +132,7 @@ export async function recognizeSpeech(
   } catch (error) {
     return {
       success: false,
+      reason: 'upstream',
       error: error instanceof Error ? error.message : 'Cloud Speech-to-Text への接続に失敗しました',
     };
   }

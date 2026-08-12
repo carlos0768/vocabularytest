@@ -8,7 +8,21 @@ import {
   readBooleanEnv,
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
-import { recognizeSpeech } from '@/lib/speech/cloud-speech-to-text';
+import { recognizeSpeech, type RecognizeSpeechFailureReason } from '@/lib/speech/cloud-speech-to-text';
+
+// 設定ミスを502で返すと上流障害と見分けがつかないので、種別ごとにステータスを分ける。
+const RECOGNIZE_FAILURE_STATUS: Record<RecognizeSpeechFailureReason, number> = {
+  not_configured: 500,
+  invalid_audio: 400,
+  upstream: 502,
+};
+
+// 内部のエラーメッセージ(APIキー名やGCPの生の文言)はクライアントに出さない。
+const RECOGNIZE_FAILURE_MESSAGE: Record<RecognizeSpeechFailureReason, string> = {
+  not_configured: '音声認識が利用できません。時間をおいてお試しください。',
+  invalid_audio: '音声を認識できませんでした。もう一度お試しください。',
+  upstream: '音声認識に失敗しました。もう一度お試しください。',
+};
 
 // 数秒のopus音声を想定。base64換算で余裕を持たせつつ濫用を防ぐ上限。
 const MAX_AUDIO_BASE64_LENGTH = 2_000_000;
@@ -87,7 +101,16 @@ export async function handleVoiceQuizRecognizePost(
     });
 
     if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 502 });
+      // 失敗の詳細はサーバーログにだけ残す。ここを無言で502にしていたため、
+      // 「APIキー未設定」も「上流エラー」も本番では区別がつかなかった。
+      console.error(
+        `Voice quiz recognize failed (${result.reason}, encoding=${parsed.data.encoding}, bytes=${parsed.data.audioBase64.length}): ${result.error}`,
+      );
+
+      return NextResponse.json(
+        { success: false, error: RECOGNIZE_FAILURE_MESSAGE[result.reason] },
+        { status: RECOGNIZE_FAILURE_STATUS[result.reason] },
+      );
     }
 
     return NextResponse.json({

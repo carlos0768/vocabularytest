@@ -76,16 +76,50 @@ test('voice-quiz recognize returns the transcript on success', async () => {
   assert.equal(payload.transcript, 'clarify');
 });
 
-test('voice-quiz recognize surfaces a 502 when Cloud Speech-to-Text fails', async () => {
+test('voice-quiz recognize surfaces a 502 when Cloud Speech-to-Text itself fails', async () => {
   const response = await handleVoiceQuizRecognizePost(
     jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }, { authorization: 'Bearer token-1' }),
     {
       createClient: async () => createClient() as never,
-      recognize: async () => ({ success: false, error: 'GOOGLE_CLOUD_SPEECH_API_KEY が設定されていません' }),
+      recognize: async () => ({ success: false, reason: 'upstream', error: 'API key not valid' }),
     },
   );
 
   assert.equal(response.status, 502);
   const payload = await response.json() as { success: boolean; error: string };
   assert.equal(payload.success, false);
+});
+
+test('voice-quiz recognize reports a missing API key as 500, not 502', async () => {
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }, { authorization: 'Bearer token-1' }),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async () => ({
+        success: false,
+        reason: 'not_configured',
+        error: 'GOOGLE_CLOUD_SPEECH_API_KEY が設定されていません',
+      }),
+    },
+  );
+
+  // 設定ミスは上流障害ではない。502だと「GCPが落ちている」と誤読される。
+  assert.equal(response.status, 500);
+});
+
+test('voice-quiz recognize never leaks the internal error to the client', async () => {
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }, { authorization: 'Bearer token-1' }),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async () => ({
+        success: false,
+        reason: 'not_configured',
+        error: 'GOOGLE_CLOUD_SPEECH_API_KEY が設定されていません',
+      }),
+    },
+  );
+
+  const payload = await response.json() as { error: string };
+  assert.doesNotMatch(payload.error, /GOOGLE_CLOUD_SPEECH_API_KEY/);
 });
