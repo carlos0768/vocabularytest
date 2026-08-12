@@ -5,7 +5,8 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
-import { QuizModeTabs } from '@/components/quiz';
+import { QuizModeChooser, QuizModeTabs } from '@/components/quiz';
+import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
 import { getRepository } from '@/lib/db';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
@@ -16,6 +17,8 @@ import {
   canRetryVoiceQuiz,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
   DEFAULT_VOICE_QUIZ_DURATION_SEC,
+  MAX_VOICE_QUIZ_DURATION_SEC,
+  MIN_VOICE_QUIZ_DURATION_SEC,
   normalizeVoiceQuizAttempts,
   normalizeVoiceQuizDuration,
   VOICE_QUIZ_DURATION_OPTIONS,
@@ -107,10 +110,28 @@ export default function VoiceQuizPage() {
 
   /** 通常クイズへ戻す。出題数はそのまま引き継ぐ。 */
   const goToNormalQuiz = useCallback(() => {
+    writeQuizMode('normal');
     const params = new URLSearchParams({ count: String(requestedCount) });
     if (returnPath) params.set('from', returnPath);
     router.replace(`/quiz/${projectId}?${params.toString()}`);
   }, [router, projectId, returnPath, requestedCount]);
+
+  // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
+  useEffect(() => {
+    setStoredMode(readQuizMode());
+    setModeLoaded(true);
+  }, []);
+
+  /** 形式を選んだ。音読ならこの画面のまま、四択なら通常クイズへ移る。 */
+  const chooseMode = useCallback(
+    (mode: QuizMode) => {
+      writeQuizMode(mode);
+      setStoredMode(mode);
+      setShowModeSwitch(false);
+      if (mode === 'normal') goToNormalQuiz();
+    },
+    [goToNormalQuiz],
+  );
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -126,6 +147,12 @@ export default function VoiceQuizPage() {
   /** 1回の解答に使える秒数。開始画面で選ぶ。 */
   const [durationSec, setDurationSec] = useState(DEFAULT_VOICE_QUIZ_DURATION_SEC);
   const durationMs = durationSec * 1000;
+  /**
+   * 自由入力の欄の中身。数値ではなく文字列で持つ ——
+   * 消して打ち直す途中の空文字や "1" を、その都度3秒へ丸めてしまわないため。
+   */
+  const [customDurationText, setCustomDurationText] = useState('');
+  const isCustomDuration = customDurationText.trim() !== '';
 
   const [setupState, setSetupState] = useState<SetupState>('checking');
   const [phase, setPhase] = useState<Phase>('narrating');
@@ -136,6 +163,14 @@ export default function VoiceQuizPage() {
   const [recognitionErrored, setRecognitionErrored] = useState(false);
   /** 中断の確認を出しているか。出している間はクイズを止める。 */
   const [showStopConfirm, setShowStopConfirm] = useState(false);
+  /**
+   * この端末で選ばれているクイズ形式。null = 未選択なので、解き始める前に選ばせる。
+   * localStorage はサーバーには無いので、マウント後に読む。
+   */
+  const [storedMode, setStoredMode] = useState<QuizMode | null>(null);
+  const [modeLoaded, setModeLoaded] = useState(false);
+  /** 右上から開くクイズ形式の切り替え。 */
+  const [showModeSwitch, setShowModeSwitch] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recordingRef = useRef<string | null>(null);
@@ -531,7 +566,7 @@ export default function VoiceQuizPage() {
 
   // --- Render ---
 
-  if (loading || setupState === 'checking') {
+  if (loading || setupState === 'checking' || !modeLoaded) {
     return (
       <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
@@ -540,6 +575,20 @@ export default function VoiceQuizPage() {
             {setupState === 'checking' ? 'マイクを確認中...' : '準備中...'}
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // この端末でまだ形式を選んでいない。解き始める前に一度だけ選ばせる。
+  if (storedMode === null) {
+    return (
+      <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
+        <header className="sticky top-0 flex-shrink-0 p-4">
+          <CloseButton onClick={backToProject} />
+        </header>
+        <main className="flex-1 flex items-center justify-center px-6">
+          <QuizModeChooser onSelect={chooseMode} />
+        </main>
       </div>
     );
   }
@@ -620,10 +669,60 @@ export default function VoiceQuizPage() {
             <SegmentedOptions
               label="解答時間"
               options={VOICE_QUIZ_DURATION_OPTIONS}
-              selected={durationSec}
-              onSelect={setDurationSec}
+              // 自由入力中はどの定型も選択状態にしない。
+              selected={isCustomDuration ? -1 : durationSec}
+              onSelect={(option) => {
+                setDurationSec(option);
+                setCustomDurationText('');
+              }}
               format={(option) => `${option}秒`}
               className="mt-6"
+              extra={
+                <label
+                  className={cn(
+                    'flex flex-1 items-center gap-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] px-2 py-3 transition-all duration-100',
+                    isCustomDuration
+                      ? cn('bg-[var(--solid-ink)]', HARD_SHADOW_SM)
+                      : 'bg-[var(--color-surface)]',
+                  )}
+                >
+                  <span className="sr-only">解答時間を秒で入力</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_VOICE_QUIZ_DURATION_SEC}
+                    max={MAX_VOICE_QUIZ_DURATION_SEC}
+                    value={customDurationText}
+                    placeholder="任意"
+                    onChange={(event) => {
+                      const raw = event.target.value;
+                      setCustomDurationText(raw);
+                      if (raw.trim() !== '') setDurationSec(normalizeVoiceQuizDuration(raw));
+                    }}
+                    // 入力途中の値は丸めず、確定時にだけ範囲へ収める。
+                    onBlur={() => {
+                      if (customDurationText.trim() === '') return;
+                      const clamped = normalizeVoiceQuizDuration(customDurationText);
+                      setCustomDurationText(String(clamped));
+                      setDurationSec(clamped);
+                    }}
+                    className={cn(
+                      'w-full min-w-0 bg-transparent text-center font-display text-base font-black outline-none',
+                      isCustomDuration
+                        ? 'text-[var(--color-surface)] placeholder:text-[var(--color-surface)]/60'
+                        : 'text-[var(--solid-ink)] placeholder:text-[var(--color-muted)]',
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'shrink-0 font-display text-base font-black',
+                      isCustomDuration ? 'text-[var(--color-surface)]' : 'text-[var(--solid-ink)]',
+                    )}
+                  >
+                    秒
+                  </span>
+                </label>
+              }
             />
             <p className="mt-3 text-xs leading-5 text-[var(--color-muted)]">
               {durationSec <= 4
@@ -765,6 +864,16 @@ export default function VoiceQuizPage() {
         <span className="font-mono text-xs font-black tabular-nums text-[var(--solid-ink)]">
           {currentIndex + 1}/{words.length}
         </span>
+
+        {/* 解いている途中でも形式を変えられるようにする。 */}
+        <button
+          type="button"
+          onClick={() => setShowModeSwitch(true)}
+          aria-label="クイズの解き方を変える"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-[var(--solid-ink)]"
+        >
+          <Icon name="tune" size={19} />
+        </button>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 min-h-0 overflow-y-auto">
@@ -989,6 +1098,26 @@ export default function VoiceQuizPage() {
           </div>
         </div>
       </Modal>
+
+      <Modal
+        isOpen={showModeSwitch}
+        onClose={() => setShowModeSwitch(false)}
+        showCloseButton={false}
+        className="border-0 bg-transparent p-0 shadow-none"
+      >
+        <QuizModeChooser
+          current="voice"
+          onSelect={chooseMode}
+          onCancel={() => setShowModeSwitch(false)}
+          title="クイズの解き方を変える"
+          description="この端末での既定として覚えます。"
+          warning={
+            hasStarted && !isComplete
+              ? '四択に切り替えると、いまの音読チャレンジは記録されずに終わります。'
+              : undefined
+          }
+        />
+      </Modal>
     </div>
   );
 }
@@ -1017,6 +1146,7 @@ function SegmentedOptions({
   onSelect,
   format,
   className,
+  extra,
 }: {
   label: string;
   options: readonly number[];
@@ -1024,6 +1154,8 @@ function SegmentedOptions({
   onSelect: (option: number) => void;
   format: (option: number) => string;
   className?: string;
+  /** 定型の選択肢のあとに並べる自由入力など。 */
+  extra?: React.ReactNode;
 }) {
   return (
     <div className={className}>
@@ -1048,6 +1180,7 @@ function SegmentedOptions({
             </button>
           );
         })}
+        {extra}
       </div>
     </div>
   );

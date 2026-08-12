@@ -4,8 +4,8 @@
  * 通常クイズ / 音読チャレンジ の切り替えタブ。
  *
  * 両方の開始画面に同じ見た目で出すための共有コンポーネント。
- * 選択状態はサーバーにもDBにも保存せず、遷移先のURLだけで表現する
- * (既定は常に通常クイズ)。
+ * 表示はいまいる画面 (URL) をそのまま映すだけ。選んだ結果を端末に覚えるのは
+ * 遷移側の責務で、`lib/quiz/quiz-mode-preference` が担当する。
  */
 
 export type QuizModeTabKey = 'normal' | 'voice';
@@ -40,7 +40,8 @@ export function QuizModeTabs({
               aria-selected={selected}
               onClick={() => { if (!selected) onSelect(tab.key); }}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                selected ? 'bg-[var(--solid-ink)] text-white' : 'text-[var(--color-muted)]'
+                // ダークでは --solid-ink が明色に反転するので、前景は白固定にしない。
+                selected ? 'bg-[var(--solid-ink)] text-[var(--color-surface)]' : 'text-[var(--color-muted)]'
               }`}
             >
               {tab.label}
