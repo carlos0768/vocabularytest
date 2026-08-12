@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildVoiceQuizAnswerAnnouncement,
   buildVoiceQuizMeaningPrompt,
+  buildVoiceQuizPromptFor,
+  buildVoiceQuizWordPrompt,
+  isVoiceQuizDirection,
+  recognitionLanguageFor,
   canRetryVoiceQuiz,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
   DEFAULT_VOICE_QUIZ_DURATION_SEC,
@@ -178,4 +183,60 @@ test('every offered duration survives normalization unchanged', () => {
   for (const option of VOICE_QUIZ_DURATION_OPTIONS) {
     assert.equal(normalizeVoiceQuizDuration(option), option);
   }
+});
+
+// ============ 出題の向き ============
+
+test('ja-to-en prompts read the meaning and never leak the English word', () => {
+  const segments = buildVoiceQuizWordPrompt('入念に作り上げる', 0);
+
+  assert.equal(segments.length, 1);
+  assert.equal(segments[0].lang, 'ja');
+  assert.ok(segments[0].text.includes('入念に作り上げる'));
+  // 全体が日本語なので、綴りが混ざる余地が無いことを固定する。
+  assert.ok(!/[a-z]/i.test(segments[0].text));
+});
+
+test('buildVoiceQuizPromptFor picks the prompt that matches the direction', () => {
+  const word = { english: 'elaborate', japanese: '入念に作り上げる' };
+
+  const enToJa = buildVoiceQuizPromptFor('en-to-ja', word, 0);
+  assert.ok(enToJa.some((s) => s.lang === 'en' && s.text === 'elaborate'));
+
+  const jaToEn = buildVoiceQuizPromptFor('ja-to-en', word, 0);
+  assert.ok(jaToEn.every((s) => s.lang === 'ja'));
+  assert.ok(!voiceQuizPromptToText(jaToEn).includes('elaborate'));
+});
+
+test('recognitionLanguageFor follows the language the learner speaks', () => {
+  assert.equal(recognitionLanguageFor('en-to-ja'), 'ja-JP');
+  assert.equal(recognitionLanguageFor('ja-to-en'), 'en-US');
+});
+
+test('isVoiceQuizDirection accepts only the two directions', () => {
+  assert.equal(isVoiceQuizDirection('en-to-ja'), true);
+  assert.equal(isVoiceQuizDirection('ja-to-en'), true);
+  for (const value of ['', 'en', null, undefined, 0]) {
+    assert.equal(isVoiceQuizDirection(value), false);
+  }
+});
+
+test('the answer announcement switches voice only for an English answer', () => {
+  const word = { english: 'elaborate', japanese: '入念に作り上げる' };
+
+  // 英→日: 答えも日本語なので1文で読ませる。
+  const jaAnswer = buildVoiceQuizAnswerAnnouncement('en-to-ja', word);
+  assert.equal(jaAnswer.length, 1);
+  assert.equal(jaAnswer[0].lang, 'ja');
+  assert.ok(jaAnswer[0].text.includes('入念に作り上げる'));
+
+  // 日→英: 綴りの部分だけ英語の声にする。
+  const enAnswer = buildVoiceQuizAnswerAnnouncement('ja-to-en', word);
+  const english = enAnswer.filter((s) => s.lang === 'en');
+  assert.equal(english.length, 1);
+  assert.equal(english[0].text, 'elaborate');
+});
+
+test('an empty answer produces no announcement', () => {
+  assert.deepEqual(buildVoiceQuizAnswerAnnouncement('en-to-ja', { english: 'x', japanese: '  ' }), []);
 });

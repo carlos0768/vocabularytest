@@ -11,10 +11,14 @@ import { getRepository } from '@/lib/db';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
-import { speakAndWait, speakEnglish, stopSpeaking } from '@/lib/speech';
+import { speakAndWait, stopSpeaking } from '@/lib/speech';
 import {
-  buildVoiceQuizMeaningPrompt,
+  buildVoiceQuizAnswerAnnouncement,
+  buildVoiceQuizPromptFor,
   canRetryVoiceQuiz,
+  DEFAULT_VOICE_QUIZ_DIRECTION,
+  recognitionLanguageFor,
+  type VoiceQuizDirection,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
   DEFAULT_VOICE_QUIZ_DURATION_SEC,
   MAX_VOICE_QUIZ_DURATION_SEC,
@@ -27,7 +31,11 @@ import {
   resolveVoiceQuizCount,
   VOICE_QUIZ_ATTEMPT_OPTIONS,
 } from '@/lib/quiz/voice-quiz-prompt';
-import { isAnyJapaneseAnswerCorrect, japaneseAnswerHints } from '@/lib/quiz/voice-quiz-answer';
+import {
+  isAnyEnglishAnswerCorrect,
+  isAnyJapaneseAnswerCorrect,
+  japaneseAnswerHints,
+} from '@/lib/quiz/voice-quiz-answer';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
@@ -35,11 +43,11 @@ const TIMER_TICK_MS = 50;
 
 /**
  * 「次へ」を押さなくても自動で次の問題へ進むまでの待ち時間。
- * finishQuestion が500ms後に正解を読み上げるので、それを聞き終えられる長さにする。
- * 不正解のときは正解を読み取る時間が要るので長めに取る。
+ * 正解のときはテンポを優先してすぐ進む。読み上げも挟まない。
+ * 不正解のときは「正解は〜です」を聞き終えられるだけの間を取る。
  */
-const AUTO_ADVANCE_CORRECT_MS = 2200;
-const AUTO_ADVANCE_INCORRECT_MS = 3800;
+const AUTO_ADVANCE_CORRECT_MS = 1000;
+const AUTO_ADVANCE_INCORRECT_MS = 4200;
 
 /* --- Merken Design System (Solid) のトークン --- */
 /** 面を持つ要素の枠。ハードシャドウは大きさに応じて2種類使い分ける。 */
@@ -162,6 +170,12 @@ export default function VoiceQuizPage() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [isDisqualified, setIsDisqualified] = useState(false);
   const [recognitionErrored, setRecognitionErrored] = useState(false);
+  /** 出題の向き。開始画面で選ぶ。 */
+  const [direction, setDirection] = useState<VoiceQuizDirection>(DEFAULT_VOICE_QUIZ_DIRECTION);
+  /** 答えるのが日本語か (英→日)。画面の文言と主従はこれで決まる。 */
+  const askingForJapanese = direction === 'en-to-ja';
+  /** 「わからない」で答えを見た問題か。失格とは区別して表示する。 */
+  const [gaveUp, setGaveUp] = useState(false);
   /** 中断の確認を出しているか。出している間はクイズを止める。 */
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   /**
@@ -187,6 +201,8 @@ export default function VoiceQuizPage() {
    * 出題中に値が変わらない ref を唯一の参照元にする。
    */
   const durationMsRef = useRef(DEFAULT_VOICE_QUIZ_DURATION_SEC * 1000);
+  /** 出題中に向きが変わらないよう、出題〜採点はこの ref を参照する。 */
+  const directionRef = useRef<VoiceQuizDirection>(DEFAULT_VOICE_QUIZ_DIRECTION);
   const questionRunRef = useRef(0);
   /**
    * いま出題中の単語。`setCurrentIndex` の反映は次のレンダーまで待たされるので、
@@ -281,17 +297,19 @@ export default function VoiceQuizPage() {
 
   /** 1問を確定させる。以降この問題では再挑戦しない。 */
   const finishQuestion = useCallback(
-    async (transcript: string, correct: boolean, apiErrored: boolean) => {
+    async (transcript: string, correct: boolean, apiErrored: boolean, skipped = false) => {
       const word = activeWordRef.current;
       if (!word) return;
       timerStartRef.current = null;
 
-      const disqualified = !transcript;
+      // 「わからない」は自分から答えを見に行った操作なので、時間切れの失格とは分ける。
+      const disqualified = !skipped && !transcript;
 
       playAnswerFeedbackSound(correct);
       setRecognizedText(transcript);
       setIsCorrect(correct);
       setIsDisqualified(disqualified);
+      setGaveUp(skipped);
       setRecognitionErrored(apiErrored);
       setPhase('answered');
 
@@ -308,8 +326,18 @@ export default function VoiceQuizPage() {
       }
       recordActivity();
 
-      // 正解の発音を聞かせる。
-      window.setTimeout(() => speakEnglish(word.english), 500);
+      // 正解ならすぐ次へ行くので何も読まない。外したときだけ正解を知らせる。
+      if (!correct) {
+        const announcement = buildVoiceQuizAnswerAnnouncement(directionRef.current, word);
+        const announcementRun = questionRunRef.current;
+        void (async () => {
+          for (const segment of announcement) {
+            // 次の問題へ進んだあとに前の答えが流れ続けないよう、毎回確かめる。
+            if (questionRunRef.current !== announcementRun) return;
+            await speakAndWait(segment.text, segment.lang);
+          }
+        })();
+      }
 
       try {
         const newStatus = getStatusAfterAnswer(word.status, correct);
@@ -332,7 +360,9 @@ export default function VoiceQuizPage() {
 
       // 最有力の変換が同音異義語で外れることがあるので、候補全体で突き合わせる。
       const heard = [transcript, ...alternatives].filter(Boolean);
-      const correct = isAnyJapaneseAnswerCorrect(heard, word.japanese);
+      const correct = directionRef.current === 'en-to-ja'
+        ? isAnyJapaneseAnswerCorrect(heard, word.japanese)
+        : isAnyEnglishAnswerCorrect(heard, word.english);
 
       // 音声認識自体が失敗した場合は、ユーザーの責任ではないので再挑戦させずに確定する。
       if (correct || apiErrored || !canRetryVoiceQuiz(attemptRef.current, attemptsAllowedRef.current)) {
@@ -403,9 +433,12 @@ export default function VoiceQuizPage() {
               body: JSON.stringify({
                 audioBase64,
                 encoding: recordedEncoding,
-                languageCode: 'ja-JP',
-                // 同音異義語の変換先を正解の表記に寄せる。
-                phraseHints: japaneseAnswerHints(activeWordRef.current?.japanese ?? ''),
+                languageCode: recognitionLanguageFor(directionRef.current),
+                // 期待する表記をヒントに渡す。日本語は同音異義語の変換先を寄せるため、
+                // 英語は綴りの近い語に流れるのを防ぐため。
+                phraseHints: directionRef.current === 'en-to-ja'
+                  ? japaneseAnswerHints(activeWordRef.current?.japanese ?? '')
+                  : [activeWordRef.current?.english ?? ''].filter(Boolean),
               }),
             });
             const data = await response.json();
@@ -455,6 +488,7 @@ export default function VoiceQuizPage() {
     setRecognizedText('');
     setIsCorrect(false);
     setIsDisqualified(false);
+    setGaveUp(false);
     setRecognitionErrored(false);
     setTimeLeft(durationMsRef.current);
     setPhase('narrating');
@@ -462,8 +496,9 @@ export default function VoiceQuizPage() {
     void (async () => {
       // 出題文は1文だが、英単語の部分だけ英語の声に切り替える。
       // 日本語の声で英単語を読ませると別の単語に聞こえてしまうため。
-      const segments = buildVoiceQuizMeaningPrompt(
-        word.english,
+      const segments = buildVoiceQuizPromptFor(
+        directionRef.current,
+        word,
         promptOffsetRef.current + run,
       );
       for (const segment of segments) {
@@ -517,6 +552,23 @@ export default function VoiceQuizPage() {
   }, [phase, isCorrect, showStopConfirm]);
 
   /**
+   * 「わからない」。答えをすぐ出す。
+   *
+   * 録音は捨て、音声認識には一切かけない —— 分からないと分かっている発話を
+   * 送っても、待ち時間とAPI利用が増えるだけで得るものが無い。
+   * run を進めてから recorder を止めるので、進行中の onstop は送信前に降りる。
+   */
+  const giveUp = useCallback(() => {
+    if (attemptSettledRef.current) return;
+    attemptSettledRef.current = true;
+    questionRunRef.current += 1;
+    try { recorderRef.current?.stop(); } catch {}
+    stopSpeaking();
+    timerStartRef.current = null;
+    void finishQuestion('', false, false, true);
+  }, [finishQuestion]);
+
+  /**
    * 中断の確認を開く。開いている間はクイズを完全に止める。
    * 進行中の読み上げ・録音を切り、run を進めて解決済みのコールバックを無効化する
    * (これをしないと、確認中に録音が採点まで走ってしまう)。
@@ -550,6 +602,7 @@ export default function VoiceQuizPage() {
 
   const beginSession = (attempts: number, seconds: number) => {
     if (words.length === 0) return;
+    directionRef.current = direction;
     attemptsAllowedRef.current = normalizeVoiceQuizAttempts(attempts);
     setAttemptsAllowed(attemptsAllowedRef.current);
 
@@ -683,14 +736,48 @@ export default function VoiceQuizPage() {
               音読チャレンジ
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
-              読み上げられた英単語の意味を、
+              {askingForJapanese ? '読み上げられた英単語の意味を、' : '読み上げられた意味の英単語を、'}
               <br />
-              {durationSec}秒以内に日本語で答えてください。
+              {durationSec}秒以内に{askingForJapanese ? '日本語' : '英語'}で答えてください。
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               <StatChip icon="list" label="出題数" value={`${words.length}問`} />
               <StatChip icon="timer" label="解答時間" value={`${durationSec}秒`} />
+            </div>
+
+            <p className={cn(EYEBROW, 'mt-6 mb-2 text-left text-[var(--color-muted)]')}>出題の向き</p>
+            <div className="flex gap-2" role="group" aria-label="出題の向き">
+              {([
+                { key: 'en-to-ja' as const, label: '英 → 日', hint: '意味を日本語で' },
+                { key: 'ja-to-en' as const, label: '日 → 英', hint: '英単語を英語で' },
+              ]).map((option) => {
+                const selected = direction === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setDirection(option.key)}
+                    className={cn(
+                      'flex-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] px-2 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px',
+                      selected
+                        ? cn('bg-[var(--solid-ink)] text-[var(--color-surface)]', HARD_SHADOW_SM)
+                        : 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
+                    )}
+                  >
+                    <span className="block font-display text-base font-black">{option.label}</span>
+                    <span
+                      className={cn(
+                        'mt-0.5 block text-[10px] font-bold',
+                        selected ? 'text-[var(--color-surface)]/70' : 'text-[var(--color-muted)]',
+                      )}
+                    >
+                      {option.hint}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <SegmentedOptions
@@ -879,7 +966,18 @@ export default function VoiceQuizPage() {
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4">
-        <CloseButton onClick={requestStop} label="中断する" />
+        {/* アイコンだけだと終了できると分からないので、文字を出す。 */}
+        <button
+          type="button"
+          onClick={requestStop}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1.5 font-display text-xs font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
+            HARD_SHADOW_SM,
+          )}
+        >
+          <Icon name="close" size={15} />
+          終了
+        </button>
 
         <div className="h-3 flex-1 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
           <div
@@ -911,9 +1009,9 @@ export default function VoiceQuizPage() {
               <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mb-7 px-5 py-4 text-center')}>
                 <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Question</p>
                 <p className="mt-1.5 font-display text-[1.75rem] font-black leading-tight text-[var(--solid-ink)]">
-                  {currentWord.english}
+                  {askingForJapanese ? currentWord.english : currentWord.japanese}
                 </p>
-                {currentWord.pronunciation && (
+                {askingForJapanese && currentWord.pronunciation && (
                   <p className="mt-1 font-mono text-xs text-[var(--color-muted)]">
                     {currentWord.pronunciation}
                   </p>
@@ -964,13 +1062,13 @@ export default function VoiceQuizPage() {
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-error,#ef4444)] animate-pulse" />
                     <p className="font-display text-base font-black text-[var(--solid-ink)]">
-                      録音中 — 日本語で意味を答えてください
+                      録音中 — {askingForJapanese ? '日本語で意味を答えてください' : '英語で答えてください'}
                     </p>
                   </div>
 
                   {attemptsAllowed > 1 && <AttemptPill current={attemptNumber} total={attemptsAllowed} />}
 
-                  {/* 6秒待たずに送れるようにする。何をすればいいかも明示される。 */}
+                  {/* 時間切れを待たずに送れるようにする。何をすればいいかも明示される。 */}
                   <SolidButton
                     variant="accent"
                     size="lg"
@@ -979,6 +1077,16 @@ export default function VoiceQuizPage() {
                     className={cn('mt-1 w-full', HARD_SHADOW)}
                   >
                     話し終わった
+                  </SolidButton>
+
+                  {/* 音声認識にかけず、すぐ答えを出す。 */}
+                  <SolidButton
+                    size="md"
+                    iconLeft="help"
+                    onClick={giveUp}
+                    className={cn('w-full', HARD_SHADOW_SM)}
+                  >
+                    わからない
                   </SolidButton>
                 </>
               )}
@@ -1013,7 +1121,7 @@ export default function VoiceQuizPage() {
               {phase === 'answered' && (
                 <>
                   <PhaseOrb
-                    icon={isCorrect ? 'check' : isDisqualified ? 'timer_off' : 'close'}
+                    icon={isCorrect ? 'check' : gaveUp ? 'help' : isDisqualified ? 'timer_off' : 'close'}
                     className={isCorrect ? 'bg-[var(--color-success)]' : 'bg-[var(--color-error,#ef4444)]'}
                     iconClassName="text-white"
                   />
@@ -1023,7 +1131,7 @@ export default function VoiceQuizPage() {
                       isCorrect ? 'text-[var(--color-success)]' : 'text-[var(--color-error,#ef4444)]',
                     )}
                   >
-                    {isCorrect ? '正解!' : isDisqualified ? '失格!' : '不正解'}
+                    {isCorrect ? '正解!' : gaveUp ? 'わからない' : isDisqualified ? '失格!' : '不正解'}
                   </p>
                   {recognitionErrored && (
                     <p className="text-xs text-[var(--color-muted)]">音声認識に失敗しました</p>
@@ -1033,10 +1141,10 @@ export default function VoiceQuizPage() {
                   <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mt-1 w-full px-5 py-4')}>
                     <p className={cn(EYEBROW, 'text-[var(--color-muted)]')}>Answer</p>
                     <p className="mt-1 font-display text-[1.75rem] font-black leading-tight text-[var(--solid-ink)]">
-                      {currentWord.japanese}
+                      {askingForJapanese ? currentWord.japanese : currentWord.english}
                     </p>
                     <p className="mt-1 font-mono text-sm text-[var(--color-muted)]">
-                      {currentWord.english}
+                      {askingForJapanese ? currentWord.english : currentWord.japanese}
                     </p>
                   </div>
                 </>
