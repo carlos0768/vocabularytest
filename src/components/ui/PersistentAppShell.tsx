@@ -22,7 +22,7 @@ const NO_SHELL_PATHS = [
 
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
-  '/quick-response/', '/scan/confirm', '/shared/share-wordbook',
+  '/quick-response/', '/voice-quiz/', '/scan/confirm', '/shared/share-wordbook',
   '/subscription', '/collections/new', '/word/', '/favorites', '/follows',
   // 自分のプロフィール(/profile)はボトムナビのタブなのでナビを表示する。
   // 他ユーザーのプロフィール(/profile/<accountId>)は詳細画面なので非表示のまま。

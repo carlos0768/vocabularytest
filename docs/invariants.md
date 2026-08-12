@@ -105,7 +105,7 @@ Source: `supabase/migrations/20260705120000_create_coin_system.sql`, `src/lib/co
 
 ### INV-10: Protected routes redirect to login
 
-Middleware at `src/lib/supabase/middleware.ts` redirects unauthenticated users to `/login` for these paths: `/project`, `/quiz`, `/quiz2`, `/scan`, `/settings`, `/subscription`, `/coins`, `/flashcard`, `/favorites`, `/grammar`, `/stats`, `/reels`, `/oauth/authorize`.
+Middleware at `src/lib/supabase/middleware.ts` redirects unauthenticated users to `/login` for these paths: `/project`, `/quiz`, `/quiz2`, `/voice-quiz`, `/scan`, `/settings`, `/subscription`, `/coins`, `/flashcard`, `/favorites`, `/grammar`, `/stats`, `/reels`, `/oauth/authorize`.
 
 **Consequence of violation**: Unauthenticated access to user data.
 
