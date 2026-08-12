@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { resolveOrCreateLexiconEntry } from '@/lib/lexicon/resolver';
-import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import { RESOLVED_WORD_SELECT_COLUMNS, withDerivedWordsColumnFallback } from '@/lib/words/resolved';
 import { mapWordFromRow, type WordRow } from '../../../../../../shared/db';
 import { requireSharedProjectAccess } from '../../shared';
 
@@ -38,19 +38,22 @@ export async function POST(
     });
 
     const admin = getSupabaseAdmin();
-    const { data, error } = await admin
-      .from('words')
-      .insert({
-        project_id: resolvedProjectId,
-        english: parsed.data.english,
-        japanese: parsed.data.japanese,
-        lexicon_entry_id: lexiconEntry?.id ?? null,
-        distractors: [],
-        status: 'new',
-        is_favorite: false,
-      })
-      .select(RESOLVED_WORD_SELECT_COLUMNS)
-      .single<WordRow>();
+    const { data, error } = await withDerivedWordsColumnFallback(
+      (columns) => admin
+        .from('words')
+        .insert({
+          project_id: resolvedProjectId,
+          english: parsed.data.english,
+          japanese: parsed.data.japanese,
+          lexicon_entry_id: lexiconEntry?.id ?? null,
+          distractors: [],
+          status: 'new',
+          is_favorite: false,
+        })
+        .select(columns)
+        .single<WordRow>(),
+      RESOLVED_WORD_SELECT_COLUMNS,
+    );
 
     if (error || !data) {
       throw new Error(error?.message || 'shared_word_create_failed');

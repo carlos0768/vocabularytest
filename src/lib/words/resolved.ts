@@ -13,13 +13,13 @@ export const WORD_TRANSLATION_WITH_SENSE_SELECT_COLUMNS =
   `${WORD_TRANSLATION_SELECT_COLUMNS}, lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_BASE_SELECT_COLUMNS =
-  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, morphology, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections' as const;
+  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, morphology, derived_words, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections' as const;
 
 export const RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS =
   'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id' as const;
 
 export const SHARE_VIEW_WORD_BASE_SELECT_COLUMNS =
-  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, morphology, created_at' as const;
+  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, morphology, derived_words, created_at' as const;
 
 export const RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS =
   'id, project_id, english, japanese, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite' as const;
@@ -139,4 +139,52 @@ export function resolveSelectedWordTexts<T extends ResolvableWordRow>(
     lexiconSenseId: row.lexicon_sense_id ?? undefined,
     cefrLevel: firstNonEmpty(lexicon?.cefr_level),
   };
+}
+
+// ============ derived_words 列の後方互換 ============
+//
+// derived_words は後から足した列なので、マイグレーション未適用のDBでは
+// SELECT 自体が 42703 / PGRST204 で失敗する。全単語取得のカラム定数に
+// 含めている以上、列が無い環境でも単語一覧・共有単語帳が壊れないように
+// 「derived_words だけ落として1回だけ再試行する」ラッパを通す。
+//
+// scan_jobs.include_derived_words / words insert 側の同種フォールバックは
+// scan-jobs-compat.ts と server-cloud-persistence.ts にある。
+
+const DERIVED_WORDS_COLUMN_FRAGMENT = ', derived_words';
+
+type MaybeColumnError = {
+  code?: unknown;
+  message?: unknown;
+  details?: unknown;
+  hint?: unknown;
+} | null;
+
+export function isMissingDerivedWordsColumnError(error: MaybeColumnError): boolean {
+  if (!error) return false;
+  const { code } = error;
+  if (code !== '42703' && code !== 'PGRST204') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return text.includes('derived_words');
+}
+
+export function stripDerivedWordsColumn(columns: string): string {
+  return columns.replace(DERIVED_WORDS_COLUMN_FRAGMENT, '');
+}
+
+/**
+ * カラム文字列を受け取るクエリを実行し、derived_words 列が無いDBだった場合だけ
+ * その列を外して1回再試行する。列がある環境では余分なクエリを一切投げない。
+ */
+export async function withDerivedWordsColumnFallback<T extends { error: MaybeColumnError }>(
+  run: (columns: string) => PromiseLike<T>,
+  columns: string,
+): Promise<T> {
+  const first = await run(columns);
+  if (!isMissingDerivedWordsColumnError(first.error)) return first;
+
+  const stripped = stripDerivedWordsColumn(columns);
+  if (stripped === columns) return first;
+  console.warn('[words] derived_words column compatibility fallback used');
+  return run(stripped);
 }

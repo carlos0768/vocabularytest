@@ -1,6 +1,6 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
-import type { CustomSection, WordMorphology } from '@/types';
+import type { CustomSection, WordDerivedWords, WordMorphology } from '@/types';
 
 export interface ServerCloudProjectInsertParams {
   userId: string;
@@ -31,6 +31,7 @@ export interface ServerCloudWordForInsert {
   sourceModes?: ExtractMode[];
   customSections?: CustomSection[];
   morphology?: WordMorphology;
+  derivedWords?: WordDerivedWords;
 }
 
 export interface ServerCloudWordInsertPayload {
@@ -48,6 +49,7 @@ export interface ServerCloudWordInsertPayload {
   source_modes?: ExtractMode[];
   custom_sections: CustomSection[];
   morphology: WordMorphology | null;
+  derived_words: WordDerivedWords | null;
 }
 
 type MaybePostgrestColumnError = {
@@ -61,13 +63,15 @@ export type MissingWordsCompatColumn =
   | 'japanese_source'
   | 'source_modes'
   | 'lexicon_sense_id'
-  | 'morphology';
+  | 'morphology'
+  | 'derived_words';
 
 export type ServerCloudWordsInsertCompatOptions = {
   omitJapaneseSource?: boolean;
   omitSourceModes?: boolean;
   omitLexiconSenseId?: boolean;
   omitMorphology?: boolean;
+  omitDerivedWords?: boolean;
 };
 
 const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
@@ -84,6 +88,7 @@ const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
   'part_of_speech_tags',
   'word_order_quiz',
   'morphology',
+  'derived_words',
 ] as const;
 
 export function buildServerCloudProjectInsertPayload(
@@ -123,6 +128,7 @@ export function buildServerCloudWordsInsertPayload(
     source_modes: word.sourceModes,
     custom_sections: word.customSections ?? [],
     morphology: word.morphology ?? null,
+    derived_words: word.derivedWords ?? null,
   }));
 }
 
@@ -162,6 +168,14 @@ export function getMissingWordsCompatColumn(error: unknown): MissingWordsCompatC
   }
 
   if (
+    message.includes('words.derived_words')
+    || message.includes("'derived_words' column of 'words'")
+    || message.includes('derived_words')
+  ) {
+    return 'derived_words';
+  }
+
+  if (
     message.includes('words.morphology')
     || message.includes("'morphology' column of 'words'")
     || message.includes('morphology')
@@ -187,6 +201,7 @@ export function getServerCloudWordsInsertSelectColumns(
     .filter((column) => !(options.omitJapaneseSource && column === 'japanese_source'))
     .filter((column) => !(options.omitLexiconSenseId && column === 'lexicon_sense_id'))
     .filter((column) => !(options.omitMorphology && column === 'morphology'))
+    .filter((column) => !(options.omitDerivedWords && column === 'derived_words'))
     .join(', ');
 }
 
@@ -219,6 +234,9 @@ export function stripServerCloudWordsInsertPayloadForCompat(
     }
     if (!options.omitMorphology) {
       row.morphology = word.morphology;
+    }
+    if (!options.omitDerivedWords) {
+      row.derived_words = word.derived_words;
     }
 
     return row;

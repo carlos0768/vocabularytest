@@ -61,6 +61,7 @@ const requestSchema = z.object({
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
   aiEnabled: z.boolean().nullable().optional(),
   includeMorphology: z.boolean().optional().default(false),
+  includeDerivedWords: z.boolean().optional().default(false),
   // カスタム抽出モード: 保存済みモードのID（優先）か、その場限りの指示文
   customModeId: z.string().uuid().nullable().optional(),
   customPrompt: z.string().max(MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH).nullable().optional(),
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
       imagePath,
       imagePaths: multiplePaths,
       includeMorphology,
+      includeDerivedWords,
       customModeId,
       customPrompt,
       targetProjectId,
@@ -175,6 +177,7 @@ export async function POST(request: NextRequest) {
       imageCount: imagePaths.length,
       scanJobId: jobId,
       includeMorphology,
+      includeDerivedWords,
     });
 
     if (!gate.ok) {
@@ -226,6 +229,7 @@ export async function POST(request: NextRequest) {
         scan_modes: scanModes,
         eiken_level: eikenLevel,
         include_morphology: includeMorphology,
+        include_derived_words: includeDerivedWords,
         custom_prompt: resolvedCustomPrompt.prompt,
         custom_scan_mode_id: scanModes.includes('custom') ? customModeId ?? null : null,
         image_path: imagePaths[0], // Primary image (backward compat)

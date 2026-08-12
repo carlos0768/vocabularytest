@@ -101,6 +101,7 @@ export function ScanCapturePanel({
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
+  const [derivedWordsOn, setDerivedWordsOn] = useState(false);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',
@@ -170,6 +171,7 @@ export function ScanCapturePanel({
       scanModes: selectedScanModes,
       eikenLevel: selectedEikenLevel,
       includeMorphology: morphologyOn,
+      includeDerivedWords: derivedWordsOn,
       customModeId: customPayload.customModeId,
       customPrompt: customPayload.customPrompt,
       targetProjectId,
@@ -198,6 +200,7 @@ export function ScanCapturePanel({
             scanModes: selectedScanModes,
             eikenLevel: selectedEikenLevel,
             includeMorphology: morphologyOn,
+            includeDerivedWords: derivedWordsOn,
             ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
             ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
           }),
@@ -381,6 +384,7 @@ export function ScanCapturePanel({
     imageCount: heldShots.length,
     totalRemaining: coinBalance.totalRemaining,
     includeMorphology: morphologyOn,
+    includeDerivedWords: derivedWordsOn,
   });
   const estimatedCoinCost = coinState.cost;
   const insufficientBalance = coinState.insufficient;
@@ -568,6 +572,43 @@ export function ScanCapturePanel({
               </span>
               <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
                 接頭語・接尾語・接中語と語根の成り立ちを解説
+              </span>
+            </span>
+          </button>
+        </div>
+
+        {/* Derived words (派生語) toggle */}
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic();
+              setDerivedWordsOn((prev) => !prev);
+            }}
+            className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all"
+            style={{
+              borderColor: derivedWordsOn ? 'var(--solid-ink)' : 'var(--color-border)',
+              boxShadow: derivedWordsOn ? '2px 2px 0 var(--solid-ink)' : 'none',
+            }}
+          >
+            <span
+              className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+              style={{
+                border: `1.25px solid ${derivedWordsOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                background: derivedWordsOn ? 'var(--color-accent)' : '#fff',
+              }}
+            >
+              {derivedWordsOn && <Icon name="check" size={11} className="text-white" />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                <span className="truncate">派生語</span>
+                <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                  +2コイン
+                </span>
+              </span>
+              <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
+                試験で狙われる派生語を最大3つ（対象語のみ）
               </span>
             </span>
           </button>

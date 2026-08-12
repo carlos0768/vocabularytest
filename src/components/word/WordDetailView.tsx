@@ -13,6 +13,9 @@ import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { speakEnglish } from '@/lib/speech';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
+import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
+import { useDerivedWordsBackfill } from '@/hooks/use-derived-words-backfill';
+import { DerivedWordsList } from '@/components/word/DerivedWordsList';
 
 function formatCustomSectionValue(value: string, type: CustomColumn['type']): string {
   if (!value) return '';
@@ -153,6 +156,14 @@ export function WordDetailView({
     onWordUpdated?.(updated);
   }, [syncHomeCacheForWord, onWordUpdated]);
   const morphology = useMorphologyBackfill(word, { onBackfilled: handleMorphologyBackfilled });
+
+  // 派生語も同じくlexicon共有キャッシュから表示時に補う（生成は走らない）
+  const handleDerivedWordsBackfilled = useCallback((updated: Word) => {
+    setWord((prev) => (prev && prev.id === updated.id ? { ...prev, derivedWords: updated.derivedWords } : prev));
+    syncHomeCacheForWord(updated);
+    onWordUpdated?.(updated);
+  }, [syncHomeCacheForWord, onWordUpdated]);
+  const derivedWords = useDerivedWordsBackfill(word, { onBackfilled: handleDerivedWordsBackfilled });
 
   useEffect(() => {
     if (authLoading) return;
@@ -521,6 +532,19 @@ export function WordDetailView({
               <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.6] text-[var(--color-ink-muted)]">
                 {morphology.explanation}
               </p>
+            </section>
+          </>
+        )}
+
+        {hasDisplayableDerivedWords(derivedWords) && (
+          <>
+            <SectionDivider />
+            <section className="py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <SectionHeading title="DERIVATIVES" />
+                <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">派生語</span>
+              </div>
+              <DerivedWordsList derivedWords={derivedWords} />
             </section>
           </>
         )}

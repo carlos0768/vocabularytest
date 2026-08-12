@@ -180,6 +180,36 @@ export interface WordMorphology {
   none?: boolean;
 }
 
+// ============ Derived words (派生語) Types ============
+
+/** Exams a derived word is worth knowing for. */
+export type DerivedWordExamTag = 'kyotsu' | 'kokkouritsu' | 'shiritsu' | 'toefl' | 'ielts' | 'eiken';
+
+/** One derived word (同一語根の品詞変化形), e.g. receive → reception. */
+export interface DerivedWordItem {
+  /** The derived word itself, e.g. "reception". */
+  english: string;
+  /** Short Japanese gloss, e.g. "受付・歓迎会". */
+  japanese: string;
+  /** Part of speech of the derived word. */
+  partOfSpeech: 'noun' | 'verb' | 'adjective' | 'adverb';
+  /** Exams where this form is worth knowing. Empty = general. */
+  examTags?: DerivedWordExamTag[];
+}
+
+/**
+ * AI-generated derived-word set, cached in lexicon_entries.derived_words and
+ * snapshotted onto words.derived_words. At most 3 items — the filter in
+ * `src/lib/derived-words/eligibility.ts` decides whether it is worth generating
+ * at all. `none: true` marks "not worth generating / nothing found" so the word
+ * is never re-sent to the AI.
+ */
+export interface WordDerivedWords {
+  items: DerivedWordItem[];
+  version: 1;
+  none?: boolean;
+}
+
 export interface Word {
   id: string;
   projectId: string;
@@ -218,6 +248,8 @@ export interface Word {
   customSections?: CustomSection[];
   /** Word-formation breakdown (語源解析). Generated at scan time when the option is on. */
   morphology?: WordMorphology;
+  /** Derived words (派生語). Generated when the option is on and the word passes the filter. */
+  derivedWords?: WordDerivedWords;
   quizTarget?: {
     kind: 'word' | 'translation';
     key: string;
@@ -292,6 +324,7 @@ export interface AIWordExtraction {
   exampleSentenceJa?: string;
   customSections?: CustomSection[];
   morphology?: WordMorphology;
+  derivedWords?: WordDerivedWords;
 }
 
 export interface AIResponse {

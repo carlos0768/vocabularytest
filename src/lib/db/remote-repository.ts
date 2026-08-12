@@ -30,6 +30,7 @@ import {
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
   RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS,
+  withDerivedWordsColumnFallback,
   RESOLVED_WORD_SELECT_COLUMNS_BASIC,
   RESOLVED_WORD_MINIMAL_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
@@ -116,6 +117,7 @@ type WordsCreateRequestWord = {
   wordOrderQuiz?: Word['wordOrderQuiz'];
   customSections?: Word['customSections'];
   morphology?: Word['morphology'];
+  derivedWords?: Word['derivedWords'];
   status: Word['status'];
   createdAt: string;
   lastReviewedAt?: string;
@@ -289,6 +291,36 @@ function normalizeWordsCreateMorphology(morphology: Word['morphology']): Word['m
   return { formula, explanation, version: 1 };
 }
 
+function normalizeWordsCreateDerivedWords(
+  derivedWords: Word['derivedWords'],
+): Word['derivedWords'] | undefined {
+  if (!derivedWords || derivedWords.version !== 1) return undefined;
+  if (derivedWords.none) return undefined; // 「派生語なし」は保存対象にしない
+  if (!Array.isArray(derivedWords.items) || derivedWords.items.length === 0) return undefined;
+
+  const items = derivedWords.items
+    .slice(0, 3)
+    .map((item) => {
+      const english = normalizeRequestText(item.english, 60);
+      const japanese = normalizeRequestText(item.japanese, 60);
+      if (!english || !japanese) return null;
+      if (!['noun', 'verb', 'adjective', 'adverb'].includes(item.partOfSpeech)) return null;
+      const examTags = (item.examTags ?? []).filter((tag) =>
+        ['kyotsu', 'kokkouritsu', 'shiritsu', 'toefl', 'ielts', 'eiken'].includes(tag),
+      );
+      return {
+        english,
+        japanese,
+        partOfSpeech: item.partOfSpeech,
+        ...(examTags.length > 0 ? { examTags } : {}),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  if (items.length === 0) return undefined;
+  return { items, version: 1 };
+}
+
 export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord {
   return {
     id: word.id,
@@ -312,6 +344,7 @@ export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord 
     wordOrderQuiz: normalizeWordsCreateWordOrderQuiz(word.wordOrderQuiz),
     customSections: normalizeWordsCreateCustomSections(word.customSections),
     morphology: normalizeWordsCreateMorphology(word.morphology),
+    derivedWords: normalizeWordsCreateDerivedWords(word.derivedWords),
     status: word.status,
     createdAt: word.createdAt,
     lastReviewedAt: word.lastReviewedAt,
@@ -346,7 +379,7 @@ export class RemoteWordRepository implements WordRepository {
   }
 
   private async selectWordsWithFallback<T extends SupabaseSelectResult>(
-    buildQuery: (columns: string) => PromiseLike<T>,
+    rawBuildQuery: (columns: string) => PromiseLike<T>,
     columns: {
       primary: string;
       withoutSenses: string;
@@ -358,6 +391,12 @@ export class RemoteWordRepository implements WordRepository {
       label: string;
     },
   ): Promise<T> {
+    // derived_words は後付けの列。未適用DBでは各段が 42703 で落ちるが、
+    // それを「リレーション不足」と誤認して一気に minimal まで劣化させると
+    // 語源解析やカスタムセクションまで巻き添えで消える。段ごとに
+    // 「derived_words だけ外して再試行」を挟んで劣化を1列分に留める。
+    const buildQuery = (cols: string) => withDerivedWordsColumnFallback(rawBuildQuery, cols);
+
     const primary = await buildQuery(columns.primary);
     if (!shouldRetryWordSelectWithoutRelations(primary.error)) {
       return primary;
