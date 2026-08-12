@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { getRepository } from '@/lib/db';
 import { getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
@@ -32,6 +33,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
   const router = useRouter();
   const { user, subscription, isPro } = useAuth();
   const { showToast } = useToast();
+  const pageScrolled = usePageScrolled();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -114,9 +116,13 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
   };
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] lg:max-w-[720px] lg:px-8 lg:pt-8">
-      {/* Header */}
-      <div className="flex items-center gap-2 pb-3 pt-1">
+    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 font-[var(--font-body)] lg:max-w-[720px] lg:px-8">
+      {/* Header: スクロールしても上部に固定 (/project/* 等と同じパターン)。
+          ノッチ帯は全体共通の StatusBarCover が覆う */}
+      <header
+        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md lg:-mx-8 lg:px-8 ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
         <button
           type="button"
           onClick={() => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push('/'))}
@@ -133,71 +139,59 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
             <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{inBinder.length}冊</span>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Actions */}
-      <div className="mb-3.5 flex gap-2.5">
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="add" size={17} />
-          単語帳を追加
-        </button>
-        <button
-          type="button"
-          onClick={() => void handlePublishBinder()}
-          disabled={publishing || inBinder.length === 0}
-          className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
-        >
-          <Icon name={publishing ? 'progress_activity' : 'public'} size={17} className={publishing ? 'animate-spin' : ''} />
-          {publishing ? '公開中...' : 'バインダーを公開'}
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
-          <Icon name="progress_activity" size={20} className="animate-spin" />
-          <span className="ml-2 text-sm">読み込み中...</span>
-        </div>
-      ) : inBinder.length === 0 ? (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
-          <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
-            このバインダーにはまだ単語帳がありません。「単語帳を追加」から入れましょう。
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {inBinder.map((project) => (
-            <div
-              key={project.id}
-              className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-[13px]"
-            >
-              <Link href={`/project/${project.id}`} className="flex min-w-0 flex-1 items-center gap-3 no-underline">
-                <span
-                  className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[18px] font-extrabold text-white"
-                  style={{ backgroundColor: thumbColor(project.id), backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
-                >
-                  {!project.iconImage && project.title.charAt(0)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</span>
-                </span>
-              </Link>
-              <button
-                type="button"
-                onClick={() => void setBinder(project.id, null, '解除に失敗しました')}
+      <div className="pt-3.5">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
+            <Icon name="progress_activity" size={20} className="animate-spin" />
+            <span className="ml-2 text-sm">読み込み中...</span>
+          </div>
+        ) : inBinder.length === 0 ? (
+          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+            <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
+              このバインダーにはまだ単語帳がありません。「単語帳を追加」から入れましょう。
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {inBinder.map((project) => (
+              <BinderProjectRow
+                key={project.id}
+                project={project}
                 disabled={busyId !== null}
-                aria-label="バインダーから外す"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
-              >
-                <Icon name="close" size={15} />
-              </button>
-            </div>
-          ))}
+                onRemove={() => void setBinder(project.id, null, '解除に失敗しました')}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 下部固定バー: 単語帳を追加 / バインダーを公開 (/project/* のページ送りバーと同じパターン) */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md"
+        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+      >
+        <div className="mx-auto flex w-full max-w-[560px] items-center gap-2.5 px-[18px] pt-3 lg:max-w-[720px] lg:px-8">
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          >
+            <Icon name="add" size={17} />
+            単語帳を追加
+          </button>
+          <button
+            type="button"
+            onClick={() => void handlePublishBinder()}
+            disabled={publishing || inBinder.length === 0}
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+          >
+            <Icon name={publishing ? 'progress_activity' : 'public'} size={17} className={publishing ? 'animate-spin' : ''} />
+            {publishing ? '公開中...' : 'バインダーを公開'}
+          </button>
         </div>
-      )}
+      </div>
 
       {/* 単語帳を追加するピッカー */}
       {addOpen && (
@@ -243,6 +237,66 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// バインダー内の単語帳の1行。右端の「...」から「バインダーから外す」を実行する
+// (以前はバツボタン直押しで解除していたが、一覧の他行と同じ「...」メニューに統一)
+function BinderProjectRow({
+  project,
+  disabled,
+  onRemove,
+}: {
+  project: Project;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <div className="relative flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-[13px]">
+      <Link href={`/project/${project.id}`} className="flex min-w-0 flex-1 items-center gap-3 no-underline">
+        <span
+          className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[18px] font-extrabold text-white"
+          style={{ backgroundColor: thumbColor(project.id), backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
+        >
+          {!project.iconImage && project.title.charAt(0)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</span>
+        </span>
+      </Link>
+      <button
+        type="button"
+        onClick={() => setMenuOpen(true)}
+        disabled={disabled}
+        aria-label={`「${project.title}」のメニュー`}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+      >
+        <Icon name="more_horiz" size={17} />
+      </button>
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[70] cursor-default bg-transparent"
+            aria-label="メニューを閉じる"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="absolute right-[13px] top-[54px] z-[71] w-[190px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)]">
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); onRemove(); }}
+              className="flex w-full items-center gap-2 px-3.5 py-3 text-left text-[13px] font-bold active:bg-[var(--color-surface-secondary)]"
+              style={{ color: 'var(--color-error, #cc4d59)' }}
+            >
+              <Icon name="folder_off" size={15} />
+              バインダーから外す
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

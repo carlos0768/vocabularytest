@@ -30,6 +30,9 @@ const HIDE_BOTTOM_NAV_PATHS = [
   '/groups/', '/reels',
   // 語法演習画面(/grammar/<bookId>)はナビ非表示。一覧(/grammar)は表示する。
   '/grammar/',
+  // バインダー詳細は自前の固定下部バー（単語帳を追加/公開）を持つため、
+  // 共通ボトムナビと二重に固定表示されないよう非表示にする。
+  '/binder/',
 ];
 
 function shouldHideShell(pathname: string): boolean {
