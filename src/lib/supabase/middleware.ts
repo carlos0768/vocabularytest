@@ -8,6 +8,9 @@ const protectedPaths = [
   '/project',
   '/quiz',
   '/quiz2',
+  // 回答の音声認識に /api/voice-quiz/recognize (認証必須) を使うため、
+  // 未ログインだと読み上げ・録音は動くのに毎問401で失敗する。入口で止める。
+  '/voice-quiz',
   '/scan',
   '/settings',
   '/subscription',
