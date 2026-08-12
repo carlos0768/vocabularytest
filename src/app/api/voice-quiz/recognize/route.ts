@@ -27,9 +27,15 @@ const RECOGNIZE_FAILURE_MESSAGE: Record<RecognizeSpeechFailureReason, string> = 
 // 数秒のopus音声を想定。base64換算で余裕を持たせつつ濫用を防ぐ上限。
 const MAX_AUDIO_BASE64_LENGTH = 2_000_000;
 
+// 出題方向によって認識する言語が変わる。任意の値を通すとGCPへの素通しに
+// なるので、こちらで扱う2言語だけに閉じる。
+const SUPPORTED_LANGUAGE_CODES = ['en-US', 'ja-JP'] as const;
+const DEFAULT_LANGUAGE_CODE = 'ja-JP';
+
 const requestSchema = z.object({
   audioBase64: z.string().trim().min(1).max(MAX_AUDIO_BASE64_LENGTH),
   encoding: z.enum(['WEBM_OPUS', 'OGG_OPUS']),
+  languageCode: z.enum(SUPPORTED_LANGUAGE_CODES).optional(),
 }).strict();
 
 interface RecognizeVoiceQuizDeps {
@@ -94,17 +100,19 @@ export async function handleVoiceQuizRecognizePost(
       return parsed.response;
     }
 
+    const languageCode = parsed.data.languageCode ?? DEFAULT_LANGUAGE_CODE;
+
     const result = await recognize({
       audioBase64: parsed.data.audioBase64,
       encoding: parsed.data.encoding,
-      languageCode: 'en-US',
+      languageCode,
     });
 
     if (!result.success) {
       // 失敗の詳細はサーバーログにだけ残す。ここを無言で502にしていたため、
       // 「APIキー未設定」も「上流エラー」も本番では区別がつかなかった。
       console.error(
-        `Voice quiz recognize failed (${result.reason}, encoding=${parsed.data.encoding}, bytes=${parsed.data.audioBase64.length}): ${result.error}`,
+        `Voice quiz recognize failed (${result.reason}, encoding=${parsed.data.encoding}, lang=${languageCode}, bytes=${parsed.data.audioBase64.length}): ${result.error}`,
       );
 
       return NextResponse.json(
