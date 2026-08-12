@@ -15,7 +15,10 @@ function jsonRequest(body: unknown, headers: Record<string, string> = {}) {
   });
 }
 
-function createClient(user: { id: string } | null = { id: 'user-1' }) {
+function createClient(
+  user: { id: string } | null = { id: 'user-1' },
+  usage: Record<string, unknown> = { allowed: true, requires_pro: false, current_count: 1, limit: 30, is_pro: false },
+) {
   return {
     auth: {
       getUser: async (token?: string) => ({
@@ -24,10 +27,7 @@ function createClient(user: { id: string } | null = { id: 'user-1' }) {
         token,
       }),
     },
-    rpc: async () => ({
-      data: { allowed: true, requires_pro: false, current_count: 1, limit: 30, is_pro: false },
-      error: null,
-    }),
+    rpc: async () => ({ data: usage, error: null }),
   };
 }
 
@@ -122,4 +122,31 @@ test('voice-quiz recognize never leaks the internal error to the client', async 
 
   const payload = await response.json() as { error: string };
   assert.doesNotMatch(payload.error, /GOOGLE_CLOUD_SPEECH_API_KEY/);
+});
+
+/**
+ * 上限に達したことは、クイズ画面が `limitReached` で見分けて出題を止める。
+ * ここを success:false の一般的な失敗に丸めると、残りの問題が黙って
+ * 全部「認識に失敗」になり、原因が画面から分からなくなる。
+ */
+test('voice-quiz recognize marks the daily limit so the quiz can stop instead of failing every question', async () => {
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }, { authorization: 'Bearer token-1' }),
+    {
+      createClient: async () => createClient(
+        { id: 'user-1' },
+        { allowed: false, requires_pro: false, current_count: 30, limit: 30, is_pro: false },
+      ) as never,
+      recognize: async () => {
+        throw new Error('recognize should not run once the limit is reached');
+      },
+    },
+  );
+
+  assert.equal(response.status, 429);
+  const payload = await response.json() as { success: boolean; error: string; limitReached: boolean };
+  assert.equal(payload.success, false);
+  assert.equal(payload.limitReached, true);
+  // 回数が入っていないと、何回でやめさせられたのか画面に出せない。
+  assert.match(payload.error, /30/);
 });
