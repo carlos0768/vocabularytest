@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
-import { TypeInQuizField, ReviewProjectFilterSheet, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
+import { TypeInQuizField, ReviewProjectFilterSheet, QuizModeTabs, QuizModeChooser, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
+import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
 import { getRepository } from '@/lib/db';
@@ -74,6 +75,7 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { PwaInstallPromptModal } from '@/components/onboarding/PwaInstallPromptModal';
+import { Modal } from '@/components/ui/modal';
 import type {
   MultipleChoiceQuizQuestion,
   QuizQuestion,
@@ -462,6 +464,12 @@ export default function QuizPage() {
   const returnPath = searchParams.get('from');
   const reviewMode = searchParams.get('review') === '1';
   const learnMode = searchParams.get('learn') === '1';
+  /**
+   * 音読チャレンジに送れない出題か。
+   * 音読側は単語帳を1冊だけ読み込む作りで、`all` や復習・今日の学習のような
+   * 横断出題を扱えない。ここが true のときはクイズ形式の選択を適用しない。
+   */
+  const voiceQuizUnavailable = projectId === 'all' || reviewMode || learnMode;
   const wrongMode = searchParams.get('wrong') === '1';
   const favoritesMode = searchParams.get('favorites') === '1';
   const reminderMode = searchParams.get('reminder') === '1';
@@ -485,6 +493,14 @@ export default function QuizPage() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [distractorError, setDistractorError] = useState<string | null>(null);
+  /**
+   * この端末で選ばれているクイズ形式。null = 未選択なので、解き始める前に選ばせる。
+   * localStorage はサーバーには無いので、マウント後に読む。
+   */
+  const [storedMode, setStoredMode] = useState<QuizMode | null>(null);
+  const [modeLoaded, setModeLoaded] = useState(false);
+  /** 右上から開くクイズ形式の切り替え。 */
+  const [showModeSwitch, setShowModeSwitch] = useState(false);
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
@@ -584,6 +600,61 @@ export default function QuizPage() {
     }
     router.back();
   }, [clearQuizState, router, reminderMode]);
+
+  /**
+   * 音読チャレンジへ切り替える。
+   * 選んだ形式は端末に覚えさせる (localStorage)。次回からは選択画面を出さずに
+   * その形式で始められるようにするため。入力済みの問題数は引き継ぐ
+   * (上限の丸めは遷移先で行う)。
+   */
+  const goToVoiceQuiz = useCallback((options?: { replace?: boolean }) => {
+    writeQuizMode('voice');
+    const params = new URLSearchParams();
+    const parsedInput = Number.parseInt(inputCount, 10);
+    const count = Number.isFinite(parsedInput) && parsedInput > 0 ? parsedInput : questionCount;
+    if (count && count > 0) params.set('count', String(count));
+    if (returnPath) params.set('from', returnPath);
+    const query = params.toString();
+    const href = `/voice-quiz/${projectId}${query ? `?${query}` : ''}`;
+    // 進行中のクイズ状態(sessionStorage)は消さない。戻ってきたら続きから再開できる。
+    // 自動送りは replace。push にすると「戻る」でここへ戻され、また送られて堂々巡りになる。
+    if (options?.replace) router.replace(href);
+    else router.push(href);
+  }, [inputCount, questionCount, returnPath, router, projectId]);
+
+  // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
+  useEffect(() => {
+    setStoredMode(readQuizMode());
+    setModeLoaded(true);
+  }, []);
+
+  /**
+   * この端末が音読チャレンジを選んでいるなら、四択を開いても音読へ送る。
+   * 選んだ直後だけでなく「次に開いたとき」も選択を守るために要る。
+   * 遷移は一度きり ——依存が変わるたびに router を叩かないよう ref で止める。
+   *
+   * ただし音読チャレンジは単語帳1冊ぶんしか出題できない。「今日の学習」のような
+   * 横断出題 (/quiz/all?learn=1) を送っても向こうで単語帳が見つからず、
+   * 弾かれて戻ってくるだけなので、その場合は端末の選択より四択を優先する。
+   */
+  const redirectedToVoiceRef = useRef(false);
+  useEffect(() => {
+    if (!modeLoaded || storedMode !== 'voice' || voiceQuizUnavailable) return;
+    if (redirectedToVoiceRef.current) return;
+    redirectedToVoiceRef.current = true;
+    goToVoiceQuiz({ replace: true });
+  }, [modeLoaded, storedMode, goToVoiceQuiz, voiceQuizUnavailable]);
+
+  /** 形式を選んだ。四択ならこの画面のまま、音読なら音読チャレンジへ移る。 */
+  const chooseMode = useCallback(
+    (mode: QuizMode) => {
+      writeQuizMode(mode);
+      setStoredMode(mode);
+      setShowModeSwitch(false);
+      if (mode === 'voice') goToVoiceQuiz();
+    },
+    [goToVoiceQuiz],
+  );
 
   const goToNextReviewQuiz = useCallback(() => {
     clearQuizState();
@@ -1215,12 +1286,45 @@ export default function QuizPage() {
   };
 
   /* ---------- Loading ---------- */
-  if (loading) {
+  if (loading || !modeLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[var(--solid-ink)] border-t-transparent" />
           <p className="text-[var(--color-muted)]">クイズを準備中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- 音読チャレンジが選ばれている: 送るまで四択を描かない ---------- */
+  if (storedMode === 'voice' && !voiceQuizUnavailable) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[var(--solid-ink)] border-t-transparent" />
+          <p className="text-[var(--color-muted)]">音読チャレンジを開いています...</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- この端末でまだ形式を選んでいない ---------- */
+  if (storedMode === null && !voiceQuizUnavailable) {
+    return (
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
+        <div className="p-4">
+          <button
+            type="button"
+            onClick={backToProject}
+            aria-label="閉じる"
+            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+          >
+            <Icon name="close" size={22} />
+          </button>
+        </div>
+        <div className="flex flex-1 items-center justify-center px-6 pb-16">
+          <QuizModeChooser onSelect={chooseMode} />
         </div>
       </div>
     );
@@ -1265,6 +1369,10 @@ export default function QuizPage() {
         </div>
         <div className="flex flex-1 flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm">
+            <div className="mb-5">
+              {/* タブは選ばれたキーを渡してくるので、遷移オプションと混ざらないよう包む。 */}
+              <QuizModeTabs active="normal" onSelect={() => goToVoiceQuiz()} />
+            </div>
             <h1 className="mb-2 text-center font-display text-2xl font-black text-[var(--solid-ink)]">問題数を入力</h1>
             <p className="mb-4 text-center text-[var(--color-muted)]">1〜{maxQ}問まで</p>
             <div className="space-y-6">
@@ -1516,6 +1624,20 @@ export default function QuizPage() {
         onApply={handleApplyReviewProjectFilter}
       />
     )}
+    <Modal
+      isOpen={showModeSwitch}
+      onClose={() => setShowModeSwitch(false)}
+      showCloseButton={false}
+      className="border-0 bg-transparent p-0 shadow-none"
+    >
+      <QuizModeChooser
+        current="normal"
+        onSelect={chooseMode}
+        onCancel={() => setShowModeSwitch(false)}
+        title="クイズの解き方を変える"
+        description="この端末での既定として覚えます。"
+      />
+    </Modal>
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
       <div className="ds-quiz-wrap">
         <div className="ds-quiz-head">
@@ -1524,6 +1646,11 @@ export default function QuizPage() {
           </button>
           <div className="ds-qbar"><div className="fi" style={{ width: `${Math.round((currentIndex / Math.max(total, 1)) * 100)}%` }} /></div>
           <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
+          {!voiceQuizUnavailable && (
+            <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
+              <Icon name="mic" />
+            </button>
+          )}
         </div>
         <div className="mono muted" style={{ fontSize: 12, marginTop: 6 }}>{desktopSubtitle}</div>
 
@@ -1729,6 +1856,16 @@ export default function QuizPage() {
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
+        {!voiceQuizUnavailable && (
+          <button
+            type="button"
+            onClick={() => setShowModeSwitch(true)}
+            aria-label="クイズの解き方を変える"
+            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+          >
+            <Icon name="mic" size={19} />
+          </button>
+        )}
         {(reviewMode || learnMode) && (
           <button
             type="button"

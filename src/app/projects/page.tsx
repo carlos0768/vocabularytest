@@ -336,7 +336,12 @@ export default function ProjectListPage() {
               .filter((group) => group.binder === null)
               .flatMap((group) => group.items)
               .map((project) => (
-                <BookRow key={project.id} project={project} />
+                <BookRow
+                  key={project.id}
+                  project={project}
+                  onSetBinder={handleSetBinder}
+                  onDelete={(p) => void handleDeleteProject(p)}
+                />
               ))}
           </>
         )}
@@ -357,43 +362,104 @@ export default function ProjectListPage() {
   );
 }
 
-function BookRow({ project }: { project: ProjectRowStats }) {
+function BookRow({
+  project,
+  onSetBinder,
+  onDelete,
+}: {
+  project: ProjectRowStats;
+  /** 「...」メニューの「バインダーに追加」。デスクトップと同じピッカーを開く */
+  onSetBinder?: (project: Project) => void;
+  /** 「...」メニューの「削除」 */
+  onDelete?: (project: Project) => void;
+}) {
   const bg = thumbColor(project.id);
-  return (
-    <Link href={`/project/${project.id}`}>
-      <SolidPanel
-        className="!rounded-[14px] ! transition-all duration-100 active:translate-x-px active:translate-y-px active:!"
-        faceClassName="!p-[13px]"
-      >
-        <div className="flex items-center gap-[13px]">
-          <div
-            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-center bg-cover font-display text-[18px] font-extrabold text-white"
-            style={{ backgroundColor: bg, backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
-          >
-            {!project.iconImage && project.title.charAt(0)}
-          </div>
+  const [menuOpen, setMenuOpen] = useState(false);
+  const hasMenu = Boolean(onSetBinder || onDelete);
 
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
-            <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">
-              {project.totalWords}語
+  return (
+    // 「...」ボタンは <a> の中に <button> を入れないよう Link の兄弟として置く
+    <div className="relative">
+      <Link href={`/project/${project.id}`}>
+        <SolidPanel
+          className="!rounded-[14px] ! transition-all duration-100 active:translate-x-px active:translate-y-px active:!"
+          faceClassName="!p-[13px]"
+        >
+          <div className="flex items-center gap-[13px]">
+            <div
+              className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-center bg-cover font-display text-[18px] font-extrabold text-white"
+              style={{ backgroundColor: bg, backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
+            >
+              {!project.iconImage && project.title.charAt(0)}
             </div>
-            {project.totalWords > 0 && (
-              <div className="mt-1.5 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
-                {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
-                {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
-                {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
+
+            <div className={`min-w-0 flex-1 ${hasMenu ? 'pr-[38px]' : ''}`}>
+              <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
+              <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">
+                {project.totalWords}語
               </div>
+              {project.totalWords > 0 && (
+                <div className="mt-1.5 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                  {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
+                  {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
+                  {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
+                  {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
+                </div>
+              )}
+            </div>
+
+            {!hasMenu && (
+              <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
+                <Icon name="chevron_right" size={14} />
+              </span>
             )}
           </div>
-
-          <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
-            <Icon name="chevron_right" size={14} />
-          </span>
-        </div>
-      </SolidPanel>
-    </Link>
+        </SolidPanel>
+      </Link>
+      {hasMenu && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); setMenuOpen(true); }}
+          aria-label={`「${project.title}」のメニュー`}
+          className="absolute right-[11px] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-opacity duration-100 active:opacity-60"
+        >
+          <Icon name="more_horiz" size={17} />
+        </button>
+      )}
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[70] cursor-default bg-transparent"
+            aria-label="メニューを閉じる"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="absolute right-[11px] top-[52px] z-[71] w-[178px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)]">
+            {onSetBinder && (
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); onSetBinder(project); }}
+                className="flex w-full items-center gap-2 border-b border-[var(--color-border-light)] px-3.5 py-3 text-left text-[13px] font-bold text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+              >
+                <Icon name="folder" size={15} />
+                バインダーに追加
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); onDelete(project); }}
+                className="flex w-full items-center gap-2 px-3.5 py-3 text-left text-[13px] font-bold active:bg-[var(--color-surface-secondary)]"
+                style={{ color: 'var(--color-error, #cc4d59)' }}
+              >
+                <Icon name="delete" size={15} />
+                削除
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

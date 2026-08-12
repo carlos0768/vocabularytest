@@ -756,6 +756,45 @@ body {
   }
 }
 
+/* 音読チャレンジ: 解答後に自動で次の問題へ進むまでの残り時間バー。
+   継続時間は --voice-quiz-drain でその場ごとに渡す。 */
+@keyframes voiceQuizDrain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* 音読チャレンジ: 出題読み上げ中のイコライザ。 */
+@keyframes voiceQuizWave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.voice-quiz-drain {
+  transform-origin: left center;
+  animation: voiceQuizDrain var(--voice-quiz-drain, 2200ms) linear forwards;
+}
+
+.voice-quiz-wave {
+  transform-origin: center bottom;
+  animation: voiceQuizWave 0.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-quiz-drain,
+  .voice-quiz-wave {
+    animation: none;
+  }
+}
+
 .scanvocab-generating-spin {
   animation: scanvocabGeneratingSpin 0.85s linear infinite !important;
 }

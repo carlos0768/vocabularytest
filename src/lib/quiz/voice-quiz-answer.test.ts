@@ -1,0 +1,122 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  isAnyEnglishAnswerCorrect,
+  isAnyJapaneseAnswerCorrect,
+  isEnglishAnswerCorrect,
+  normalizeEnglishAnswer,
+  isJapaneseAnswerCorrect,
+  japaneseAnswerCandidates,
+  japaneseAnswerHints,
+  normalizeJapaneseAnswer,
+} from './voice-quiz-answer';
+
+test('a homophone transcribed with the wrong kanji is rescued by the other candidates', () => {
+  // 「きづく」を「築く」と変換されても、候補に「気づく」があれば正解にする。
+  assert.equal(isJapaneseAnswerCorrect('築く', '気づく'), false);
+  assert.equal(isAnyJapaneseAnswerCorrect(['築く', '気づく'], '気づく'), true);
+});
+
+test('candidates that are all wrong stay wrong', () => {
+  assert.equal(isAnyJapaneseAnswerCorrect(['走る', '奔る'], '気づく'), false);
+});
+
+test('an empty candidate list is rejected', () => {
+  assert.equal(isAnyJapaneseAnswerCorrect([], '気づく'), false);
+});
+
+test('normalizeJapaneseAnswer folds katakana, width and punctuation', () => {
+  assert.equal(normalizeJapaneseAnswer('コーヒー'), normalizeJapaneseAnswer('こーひー'));
+  assert.equal(normalizeJapaneseAnswer('気づく。'), '気づく');
+  assert.equal(normalizeJapaneseAnswer(' 気 づく '), '気づく');
+  assert.equal(normalizeJapaneseAnswer('ＡＢＣ'), 'abc');
+});
+
+test('exact meaning is accepted', () => {
+  assert.equal(isJapaneseAnswerCorrect('気づく', '気づく'), true);
+});
+
+test('trailing punctuation from speech recognition does not fail the answer', () => {
+  assert.equal(isJapaneseAnswerCorrect('気づく。', '気づく'), true);
+  assert.equal(isJapaneseAnswerCorrect('「気づく」', '気づく'), true);
+});
+
+test('any one of several registered meanings is accepted', () => {
+  assert.equal(isJapaneseAnswerCorrect('認識する', '気づく、認識する'), true);
+  assert.equal(isJapaneseAnswerCorrect('気づく', '気づく、認識する'), true);
+});
+
+test('meanings separated by a slash are split too', () => {
+  assert.equal(isJapaneseAnswerCorrect('はっきりさせる', '明確にする／はっきりさせる'), true);
+});
+
+test('answering the core of a longer meaning is accepted', () => {
+  assert.equal(isJapaneseAnswerCorrect('作り上げる', '入念に作り上げる'), true);
+});
+
+test('a parenthetical note may be omitted', () => {
+  assert.equal(isJapaneseAnswerCorrect('与える', '(人に)与える'), true);
+  assert.equal(isJapaneseAnswerCorrect('人に与える', '(人に)与える'), true);
+});
+
+test('katakana meanings match however they are transcribed', () => {
+  assert.equal(isJapaneseAnswerCorrect('コーヒー', 'こーひー'), true);
+});
+
+test('a wrong meaning is rejected', () => {
+  assert.equal(isJapaneseAnswerCorrect('走る', '気づく'), false);
+});
+
+test('a bare stray fragment is rejected', () => {
+  // 「する」だけで「勉強する」を正解にしない。
+  assert.equal(isJapaneseAnswerCorrect('る', '勉強する'), false);
+});
+
+test('empty or silent input is rejected', () => {
+  assert.equal(isJapaneseAnswerCorrect('', '気づく'), false);
+  assert.equal(isJapaneseAnswerCorrect('  ', '気づく'), false);
+});
+
+test('japaneseAnswerHints keeps the original spelling so hints stay usable', () => {
+  // 比較用の候補は長音を落とすが、ヒントは表記のまま渡さないと役に立たない。
+  assert.deepEqual(japaneseAnswerHints('コーヒー'), ['コーヒー']);
+  assert.ok(japaneseAnswerCandidates('コーヒー')[0] !== 'コーヒー');
+});
+
+test('japaneseAnswerHints splits meanings and offers the parenthetical-free form', () => {
+  const hints = japaneseAnswerHints('気づく、(人に)与える');
+  assert.ok(hints.includes('気づく'));
+  assert.ok(hints.includes('(人に)与える'));
+  assert.ok(hints.includes('与える'));
+});
+
+test('japaneseAnswerCandidates splits and folds every meaning', () => {
+  const candidates = japaneseAnswerCandidates('気づく、認識する');
+  assert.equal(candidates.length, 2);
+  assert.ok(candidates.includes('気づく'));
+  assert.ok(candidates.includes('認識する'));
+});
+
+// ============ 日→英 ============
+
+test('an English answer matches regardless of case and punctuation', () => {
+  assert.equal(isEnglishAnswerCorrect('Elaborate.', 'elaborate'), true);
+  assert.equal(isEnglishAnswerCorrect('  elaborate  ', 'elaborate'), true);
+});
+
+test('a wrong English answer is rejected', () => {
+  assert.equal(isEnglishAnswerCorrect('elaborated', 'elaborate'), false);
+  assert.equal(isEnglishAnswerCorrect('', 'elaborate'), false);
+});
+
+test('any English candidate may carry the right spelling', () => {
+  assert.equal(isAnyEnglishAnswerCorrect(['a lab rate', 'elaborate'], 'elaborate'), true);
+  assert.equal(isAnyEnglishAnswerCorrect(['a lab rate'], 'elaborate'), false);
+  assert.equal(isAnyEnglishAnswerCorrect([], 'elaborate'), false);
+});
+
+test('multi-word English answers collapse internal spacing', () => {
+  assert.equal(normalizeEnglishAnswer('give   up'), 'give up');
+  assert.equal(isEnglishAnswerCorrect('give  up', 'give up'), true);
+});

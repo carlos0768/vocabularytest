@@ -22,7 +22,7 @@ const NO_SHELL_PATHS = [
 
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
-  '/quick-response/', '/scan/confirm', '/shared/share-wordbook',
+  '/quick-response/', '/voice-quiz/', '/scan/confirm', '/shared/share-wordbook',
   '/subscription', '/collections/new', '/word/', '/favorites', '/follows',
   // 自分のプロフィール(/profile)はボトムナビのタブなのでナビを表示する。
   // 他ユーザーのプロフィール(/profile/<accountId>)は詳細画面なので非表示のまま。
@@ -30,6 +30,9 @@ const HIDE_BOTTOM_NAV_PATHS = [
   '/groups/', '/reels',
   // 語法演習画面(/grammar/<bookId>)はナビ非表示。一覧(/grammar)は表示する。
   '/grammar/',
+  // バインダー詳細は自前の固定下部バー（単語帳を追加/公開）を持つため、
+  // 共通ボトムナビと二重に固定表示されないよう非表示にする。
+  '/binder/',
 ];
 
 function shouldHideShell(pathname: string): boolean {
