@@ -24,6 +24,8 @@ const BCP47_BY_LANG: Record<SpeechLang, string> = {
 };
 
 let activeUtterance: SpeechSynthesisUtterance | null = null;
+/** いま待たれている読み上げを解放する手段。stopSpeaking から呼ぶ。 */
+let activeRelease: (() => void) | null = null;
 const cachedVoiceByLang = new Map<SpeechLang, SpeechSynthesisVoice | null>();
 let voiceListenerAttached = false;
 
@@ -100,12 +102,16 @@ function speakInternal(text: string, lang: SpeechLang, options: SpeakOptions, on
   if (voice) utterance.voice = voice;
 
   const release = () => {
-    if (activeUtterance === utterance) activeUtterance = null;
+    if (activeUtterance === utterance) {
+      activeUtterance = null;
+      activeRelease = null;
+    }
     onDone?.();
   };
   utterance.onend = release;
   utterance.onerror = release;
   activeUtterance = utterance;
+  activeRelease = release;
 
   window.setTimeout(() => {
     // 遅延中に新しい読み上げや stopSpeaking() があれば発話しない
@@ -148,13 +154,44 @@ export function speakAndWait(
   if (!isSupported() || !trimmed) return Promise.resolve();
 
   return new Promise((resolve) => {
-    speakInternal(trimmed, lang, options, resolve);
+    let settled = false;
+    let timer = 0;
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve();
+    };
+
+    // onend も onerror も来ないことがある —— iOS Safari では発話が黙って
+    // 捨てられたり、cancel の後にイベントが上がらなかったりする。
+    // そのまま待つと呼び出し側が永久に止まるので、読み上げにかかるであろう
+    // 時間から上限を決めて必ず解決する。実際に鳴っていたとしても、次の
+    // speakInternal が cancel するので声が重なることはない。
+    timer = window.setTimeout(done, speechTimeoutMs(trimmed));
+    speakInternal(trimmed, lang, options, done);
   });
+}
+
+/**
+ * 読み上げを待つ上限。1文字あたりの所要時間は言語や声で変わるので、
+ * 短く切りすぎないよう多めに見積もる。
+ */
+function speechTimeoutMs(text: string): number {
+  return Math.min(3000 + text.length * 300, 20_000);
 }
 
 /** 再生中・待機中の読み上げをすべて停止する。 */
 export function stopSpeaking(): void {
   if (!isSupported()) return;
+
+  const release = activeRelease;
   activeUtterance = null;
+  activeRelease = null;
   window.speechSynthesis.cancel();
+
+  // cancel しても onend が来ない環境があるため、待っている側はここで解放する。
+  // 解放し損ねると、読み上げ中に中断した瞬間にクイズが進まなくなる。
+  release?.();
 }
