@@ -9,6 +9,7 @@ import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
 import { DerivedWordsList } from '@/components/word/DerivedWordsList';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
+import { useDerivedWordsBackfill } from '@/hooks/use-derived-words-backfill';
 import { speakEnglish } from '@/lib/speech';
 import type { Word } from '@/types';
 
@@ -29,6 +30,7 @@ export function DesktopWordDetailModal({
 }) {
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完する
   const morphology = useMorphologyBackfill(word);
+  const derivedWords = useDerivedWordsBackfill(word);
 
   return (
     <div className="ds-overlay" onClick={onClose}>
@@ -147,12 +149,12 @@ export function DesktopWordDetailModal({
             </div>
           )}
 
-          {hasDisplayableDerivedWords(word.derivedWords) && (
+          {hasDisplayableDerivedWords(derivedWords) && (
             <div>
               <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <Icon name="family_history" style={{ fontSize: 14 }} />派生語
               </div>
-              <DerivedWordsList derivedWords={word.derivedWords} />
+              <DerivedWordsList derivedWords={derivedWords} />
             </div>
           )}
 

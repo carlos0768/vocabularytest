@@ -6,7 +6,7 @@ import {
   needsWordLexiconResolution,
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
-import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import { RESOLVED_WORD_SELECT_COLUMNS, withDerivedWordsColumnFallback } from '@/lib/words/resolved';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
@@ -267,12 +267,15 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       ? supabase.from('words').upsert(rows, { onConflict: 'id', ignoreDuplicates: true })
       : supabase.from('words').insert(rows);
 
-    const { data, error } = await query.select(RESOLVED_WORD_SELECT_COLUMNS);
+    const { data, error } = await withDerivedWordsColumnFallback(
+      (columns) => query.select(columns),
+      RESOLVED_WORD_SELECT_COLUMNS,
+    );
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    const createdWordRows = (data ?? []) as WordRow[];
+    const createdWordRows = (data ?? []) as unknown as WordRow[];
     const translationRows = buildWordTranslationInsertRows(
       translatedWords,
       createdWordRows.map((row) => row.id),
@@ -288,13 +291,16 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
     }
 
     const aiTranslatedWordIds = translatedWords
-      .map((word, index) => (word.japaneseSource === 'ai' ? ((data ?? []) as WordRow[])[index]?.id : null))
+      .map((word, index) => (word.japaneseSource === 'ai' ? ((data ?? []) as unknown as WordRow[])[index]?.id : null))
       .filter((value): value is string => typeof value === 'string' && value.length > 0);
     const createdWordRowsWithTranslations = translationRows.length > 0
-      ? await supabase
-        .from('words')
-        .select(RESOLVED_WORD_SELECT_COLUMNS)
-        .in('id', createdWordRows.map((row) => row.id))
+      ? await withDerivedWordsColumnFallback(
+        (columns) => supabase
+          .from('words')
+          .select(columns)
+          .in('id', createdWordRows.map((row) => row.id)),
+        RESOLVED_WORD_SELECT_COLUMNS,
+      )
       : { data: createdWordRows, error: null };
     if (createdWordRowsWithTranslations.error) {
       return NextResponse.json({ success: false, error: createdWordRowsWithTranslations.error.message }, { status: 500 });

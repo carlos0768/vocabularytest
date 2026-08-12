@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { RESOLVED_WORD_SELECT_COLUMNS } from '@/lib/words/resolved';
+import { RESOLVED_WORD_SELECT_COLUMNS, withDerivedWordsColumnFallback } from '@/lib/words/resolved';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { requireSharedProjectAccess } from '../shared';
 
@@ -17,11 +17,14 @@ export async function GET(
     const resolvedProjectId = access.access.project.id;
 
     const admin = getSupabaseAdmin();
-    const { data, error } = await admin
-      .from('words')
-      .select(RESOLVED_WORD_SELECT_COLUMNS)
-      .eq('project_id', resolvedProjectId)
-      .order('created_at', { ascending: true });
+    const { data, error } = await withDerivedWordsColumnFallback(
+      (columns) => admin
+        .from('words')
+        .select(columns)
+        .eq('project_id', resolvedProjectId)
+        .order('created_at', { ascending: true }),
+      RESOLVED_WORD_SELECT_COLUMNS,
+    );
 
     if (error) {
       throw new Error(error.message || 'shared_project_words_lookup_failed');
@@ -32,7 +35,7 @@ export async function GET(
       project: access.access.project,
       accessRole: access.access.accessRole,
       collaboratorCount: access.access.collaboratorCount,
-      words: ((data ?? []) as WordRow[]).map(mapWordFromRow),
+      words: ((data ?? []) as unknown as WordRow[]).map(mapWordFromRow),
     });
   } catch (error) {
     console.error('shared-project detail error:', error);

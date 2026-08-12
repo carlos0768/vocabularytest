@@ -30,6 +30,7 @@ import {
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
   RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS,
+  withDerivedWordsColumnFallback,
   RESOLVED_WORD_SELECT_COLUMNS_BASIC,
   RESOLVED_WORD_MINIMAL_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
@@ -378,7 +379,7 @@ export class RemoteWordRepository implements WordRepository {
   }
 
   private async selectWordsWithFallback<T extends SupabaseSelectResult>(
-    buildQuery: (columns: string) => PromiseLike<T>,
+    rawBuildQuery: (columns: string) => PromiseLike<T>,
     columns: {
       primary: string;
       withoutSenses: string;
@@ -390,6 +391,12 @@ export class RemoteWordRepository implements WordRepository {
       label: string;
     },
   ): Promise<T> {
+    // derived_words は後付けの列。未適用DBでは各段が 42703 で落ちるが、
+    // それを「リレーション不足」と誤認して一気に minimal まで劣化させると
+    // 語源解析やカスタムセクションまで巻き添えで消える。段ごとに
+    // 「derived_words だけ外して再試行」を挟んで劣化を1列分に留める。
+    const buildQuery = (cols: string) => withDerivedWordsColumnFallback(rawBuildQuery, cols);
+
     const primary = await buildQuery(columns.primary);
     if (!shouldRetryWordSelectWithoutRelations(primary.error)) {
       return primary;
