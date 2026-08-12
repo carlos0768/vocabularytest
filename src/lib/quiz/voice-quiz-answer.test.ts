@@ -2,10 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  isAnyJapaneseAnswerCorrect,
   isJapaneseAnswerCorrect,
   japaneseAnswerCandidates,
+  japaneseAnswerHints,
   normalizeJapaneseAnswer,
 } from './voice-quiz-answer';
+
+test('a homophone transcribed with the wrong kanji is rescued by the other candidates', () => {
+  // 「きづく」を「築く」と変換されても、候補に「気づく」があれば正解にする。
+  assert.equal(isJapaneseAnswerCorrect('築く', '気づく'), false);
+  assert.equal(isAnyJapaneseAnswerCorrect(['築く', '気づく'], '気づく'), true);
+});
+
+test('candidates that are all wrong stay wrong', () => {
+  assert.equal(isAnyJapaneseAnswerCorrect(['走る', '奔る'], '気づく'), false);
+});
+
+test('an empty candidate list is rejected', () => {
+  assert.equal(isAnyJapaneseAnswerCorrect([], '気づく'), false);
+});
 
 test('normalizeJapaneseAnswer folds katakana, width and punctuation', () => {
   assert.equal(normalizeJapaneseAnswer('コーヒー'), normalizeJapaneseAnswer('こーひー'));
@@ -57,6 +73,19 @@ test('a bare stray fragment is rejected', () => {
 test('empty or silent input is rejected', () => {
   assert.equal(isJapaneseAnswerCorrect('', '気づく'), false);
   assert.equal(isJapaneseAnswerCorrect('  ', '気づく'), false);
+});
+
+test('japaneseAnswerHints keeps the original spelling so hints stay usable', () => {
+  // 比較用の候補は長音を落とすが、ヒントは表記のまま渡さないと役に立たない。
+  assert.deepEqual(japaneseAnswerHints('コーヒー'), ['コーヒー']);
+  assert.ok(japaneseAnswerCandidates('コーヒー')[0] !== 'コーヒー');
+});
+
+test('japaneseAnswerHints splits meanings and offers the parenthetical-free form', () => {
+  const hints = japaneseAnswerHints('気づく、(人に)与える');
+  assert.ok(hints.includes('気づく'));
+  assert.ok(hints.includes('(人に)与える'));
+  assert.ok(hints.includes('与える'));
 });
 
 test('japaneseAnswerCandidates splits and folds every meaning', () => {

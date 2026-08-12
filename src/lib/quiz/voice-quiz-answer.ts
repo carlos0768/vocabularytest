@@ -60,6 +60,27 @@ export function japaneseAnswerCandidates(japanese: string): string[] {
 }
 
 /**
+ * 音声認識に渡すヒント語。
+ *
+ * 比較用の候補 (japaneseAnswerCandidates) は正規化で長音やカタカナを畳んでおり
+ * 「コーヒー」が「こひ」になってしまうため、ヒントには使えない。
+ * ここでは区切りだけ分けて、表記はそのまま残す。
+ */
+export function japaneseAnswerHints(japanese: string): string[] {
+  const hints = new Set<string>();
+
+  for (const part of japanese.split(MEANING_SEPARATORS)) {
+    const trimmed = part.trim();
+    if (trimmed) hints.add(trimmed);
+
+    const withoutParenthetical = part.replace(/[（(][^）)]*[）)]/g, '').trim();
+    if (withoutParenthetical) hints.add(withoutParenthetical);
+  }
+
+  return [...hints];
+}
+
+/**
  * 一方がもう一方を含み、かつ短いほうが長いほうの半分以上あれば正解扱いにする。
  * 「入念に作り上げる」に対して「作り上げる」だけ答えた場合を拾うため。
  * 長さの下限を置かないと「する」だけで通ってしまうので 2 文字未満は弾く。
@@ -88,4 +109,20 @@ export function isJapaneseAnswerCorrect(transcript: string, japanese: string): b
   return japaneseAnswerCandidates(japanese).some((candidate) =>
     isCloseEnough(said, candidate),
   );
+}
+
+/**
+ * 音声認識が返した候補のどれかが正解なら正解とみなす。
+ *
+ * 日本語は同音異義語が多く、正しく発音していても最有力の変換が別の漢字に
+ * なることがある (「きづく」→「築く」/「気づく」)。読みを突き合わせるには
+ * 辞書が要るので、代わりに認識側から複数の変換候補を受け取り、その中に
+ * 正しい表記があれば拾う。音が違う語は候補に出てこないため、
+ * これで正解が甘くなることはない。
+ */
+export function isAnyJapaneseAnswerCorrect(
+  transcripts: readonly string[],
+  japanese: string,
+): boolean {
+  return transcripts.some((transcript) => isJapaneseAnswerCorrect(transcript, japanese));
 }

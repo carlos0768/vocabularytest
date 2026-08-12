@@ -32,10 +32,19 @@ const MAX_AUDIO_BASE64_LENGTH = 2_000_000;
 const SUPPORTED_LANGUAGE_CODES = ['en-US', 'ja-JP'] as const;
 const DEFAULT_LANGUAGE_CODE = 'ja-JP';
 
+// 同音異義語を拾うための候補数。多すぎても判定が緩くなるだけなので絞る。
+const VOICE_QUIZ_MAX_ALTERNATIVES = 5;
+
 const requestSchema = z.object({
   audioBase64: z.string().trim().min(1).max(MAX_AUDIO_BASE64_LENGTH),
   encoding: z.enum(['WEBM_OPUS', 'OGG_OPUS']),
   languageCode: z.enum(SUPPORTED_LANGUAGE_CODES).optional(),
+  /**
+   * 認識のヒント。日本語は同音異義語が別の漢字に変換されやすく、正しく答えても
+   * 表記違いで不正解になる。期待する語を渡して変換先を寄せる。
+   * 答えそのものなので、ログにも応答にも出さない。
+   */
+  phraseHints: z.array(z.string().trim().min(1).max(100)).max(8).optional(),
 }).strict();
 
 interface RecognizeVoiceQuizDeps {
@@ -106,6 +115,8 @@ export async function handleVoiceQuizRecognizePost(
       audioBase64: parsed.data.audioBase64,
       encoding: parsed.data.encoding,
       languageCode,
+      phraseHints: parsed.data.phraseHints,
+      maxAlternatives: VOICE_QUIZ_MAX_ALTERNATIVES,
     });
 
     if (!result.success) {
@@ -125,6 +136,8 @@ export async function handleVoiceQuizRecognizePost(
       success: true,
       transcript: result.transcript,
       confidence: result.confidence,
+      // 同音異義語の別変換を判定側で拾えるように候補も返す。
+      alternatives: result.alternatives,
     });
   } catch (error) {
     console.error('Voice quiz recognize error:', error);

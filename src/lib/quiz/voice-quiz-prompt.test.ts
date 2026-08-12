@@ -5,6 +5,11 @@ import {
   buildVoiceQuizMeaningPrompt,
   canRetryVoiceQuiz,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
+  DEFAULT_VOICE_QUIZ_DURATION_SEC,
+  MAX_VOICE_QUIZ_DURATION_SEC,
+  MIN_VOICE_QUIZ_DURATION_SEC,
+  normalizeVoiceQuizDuration,
+  VOICE_QUIZ_DURATION_OPTIONS,
   DEFAULT_VOICE_QUIZ_COUNT,
   MAX_VOICE_QUIZ_COUNT,
   MAX_VOICE_QUIZ_ATTEMPTS,
@@ -155,4 +160,22 @@ test('resolveVoiceQuizCount falls back to the default for missing or junk values
 
 test('resolveVoiceQuizCount caps absurd values', () => {
   assert.equal(resolveVoiceQuizCount('99999'), MAX_VOICE_QUIZ_COUNT);
+});
+
+test('normalizeVoiceQuizDuration clamps to the supported range', () => {
+  assert.equal(normalizeVoiceQuizDuration(6), 6);
+  assert.equal(normalizeVoiceQuizDuration(1), MIN_VOICE_QUIZ_DURATION_SEC);
+  assert.equal(normalizeVoiceQuizDuration(999), MAX_VOICE_QUIZ_DURATION_SEC);
+});
+
+test('normalizeVoiceQuizDuration falls back to the default for junk input', () => {
+  for (const value of [undefined, null, 'abc', Number.NaN]) {
+    assert.equal(normalizeVoiceQuizDuration(value), DEFAULT_VOICE_QUIZ_DURATION_SEC);
+  }
+});
+
+test('every offered duration survives normalization unchanged', () => {
+  for (const option of VOICE_QUIZ_DURATION_OPTIONS) {
+    assert.equal(normalizeVoiceQuizDuration(option), option);
+  }
 });
