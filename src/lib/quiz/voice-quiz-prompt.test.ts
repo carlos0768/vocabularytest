@@ -5,11 +5,14 @@ import {
   buildVoiceQuizPrompt,
   canRetryVoiceQuiz,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
+  DEFAULT_VOICE_QUIZ_COUNT,
+  MAX_VOICE_QUIZ_COUNT,
   MAX_VOICE_QUIZ_ATTEMPTS,
   MIN_VOICE_QUIZ_ATTEMPTS,
   normalizeVoiceQuizAttempts,
   pickVoiceQuizRetryPrompt,
   randomVoiceQuizPromptOffset,
+  resolveVoiceQuizCount,
   VOICE_QUIZ_ATTEMPT_OPTIONS,
   VOICE_QUIZ_MEANING_PLACEHOLDER,
   VOICE_QUIZ_PROMPT_TEMPLATES,
@@ -120,4 +123,22 @@ test('canRetryVoiceQuiz allows retries up to the configured attempt count', () =
   assert.equal(canRetryVoiceQuiz(1, 3), true);
   assert.equal(canRetryVoiceQuiz(2, 3), true);
   assert.equal(canRetryVoiceQuiz(3, 3), false);
+});
+
+test('resolveVoiceQuizCount carries a valid count through from the normal quiz', () => {
+  assert.equal(resolveVoiceQuizCount('25'), 25);
+  assert.equal(resolveVoiceQuizCount('1'), 1);
+});
+
+test('resolveVoiceQuizCount falls back to the default for missing or junk values', () => {
+  assert.equal(resolveVoiceQuizCount(null), DEFAULT_VOICE_QUIZ_COUNT);
+  assert.equal(resolveVoiceQuizCount(undefined), DEFAULT_VOICE_QUIZ_COUNT);
+  assert.equal(resolveVoiceQuizCount(''), DEFAULT_VOICE_QUIZ_COUNT);
+  assert.equal(resolveVoiceQuizCount('abc'), DEFAULT_VOICE_QUIZ_COUNT);
+  assert.equal(resolveVoiceQuizCount('0'), DEFAULT_VOICE_QUIZ_COUNT);
+  assert.equal(resolveVoiceQuizCount('-3'), DEFAULT_VOICE_QUIZ_COUNT);
+});
+
+test('resolveVoiceQuizCount caps absurd values', () => {
+  assert.equal(resolveVoiceQuizCount('99999'), MAX_VOICE_QUIZ_COUNT);
 });

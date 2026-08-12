@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
-import { TypeInQuizField, ReviewProjectFilterSheet, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
+import { TypeInQuizField, ReviewProjectFilterSheet, QuizModeTabs, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
 import { getRepository } from '@/lib/db';
@@ -584,6 +584,22 @@ export default function QuizPage() {
     }
     router.back();
   }, [clearQuizState, router, reminderMode]);
+
+  /**
+   * 音読チャレンジへ切り替える。
+   * 選択状態はサーバーにもDBにも保存せず、遷移先URLだけで表現する。
+   * 入力済みの問題数は引き継ぐ (上限の丸めは遷移先で行う)。
+   */
+  const goToVoiceQuiz = useCallback(() => {
+    const params = new URLSearchParams();
+    const parsedInput = Number.parseInt(inputCount, 10);
+    const count = Number.isFinite(parsedInput) && parsedInput > 0 ? parsedInput : questionCount;
+    if (count && count > 0) params.set('count', String(count));
+    if (returnPath) params.set('from', returnPath);
+    const query = params.toString();
+    // 進行中のクイズ状態(sessionStorage)は消さない。戻ってきたら続きから再開できる。
+    router.push(`/voice-quiz/${projectId}${query ? `?${query}` : ''}`);
+  }, [inputCount, questionCount, returnPath, router, projectId]);
 
   const goToNextReviewQuiz = useCallback(() => {
     clearQuizState();
@@ -1265,6 +1281,9 @@ export default function QuizPage() {
         </div>
         <div className="flex flex-1 flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm">
+            <div className="mb-5">
+              <QuizModeTabs active="normal" onSelect={goToVoiceQuiz} />
+            </div>
             <h1 className="mb-2 text-center font-display text-2xl font-black text-[var(--solid-ink)]">問題数を入力</h1>
             <p className="mb-4 text-center text-[var(--color-muted)]">1〜{maxQ}問まで</p>
             <div className="space-y-6">
@@ -1524,6 +1543,9 @@ export default function QuizPage() {
           </button>
           <div className="ds-qbar"><div className="fi" style={{ width: `${Math.round((currentIndex / Math.max(total, 1)) * 100)}%` }} /></div>
           <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
+          <button type="button" className="x" onClick={goToVoiceQuiz} aria-label="音読チャレンジに切り替える" title="音読チャレンジ">
+            <Icon name="mic" />
+          </button>
         </div>
         <div className="mono muted" style={{ fontSize: 12, marginTop: 6 }}>{desktopSubtitle}</div>
 
@@ -1729,6 +1751,14 @@ export default function QuizPage() {
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
+        <button
+          type="button"
+          onClick={goToVoiceQuiz}
+          aria-label="音読チャレンジに切り替える"
+          className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+        >
+          <Icon name="mic" size={19} />
+        </button>
         {(reviewMode || learnMode) && (
           <button
             type="button"

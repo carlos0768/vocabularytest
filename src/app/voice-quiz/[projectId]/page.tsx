@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
+import { QuizModeTabs } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
@@ -16,6 +17,7 @@ import {
   normalizeVoiceQuizAttempts,
   pickVoiceQuizRetryPrompt,
   randomVoiceQuizPromptOffset,
+  resolveVoiceQuizCount,
   VOICE_QUIZ_ATTEMPT_OPTIONS,
 } from '@/lib/quiz/voice-quiz-prompt';
 import { useAuth } from '@/hooks/use-auth';
@@ -23,7 +25,6 @@ import type { Word, SubscriptionStatus } from '@/types';
 
 const TIMER_DURATION_MS = 6000;
 const TIMER_TICK_MS = 50;
-const DEFAULT_COUNT = 10;
 
 type RecordingEncoding = 'WEBM_OPUS' | 'OGG_OPUS';
 
@@ -63,6 +64,8 @@ export default function VoiceQuizPage() {
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const returnPath = searchParams.get('from');
+  // 通常クイズから引き継いだ出題数。モード選択はURLだけで表現し、保存はしない。
+  const requestedCount = resolveVoiceQuizCount(searchParams.get('count'));
   const { subscription, loading: authLoading, user } = useAuth();
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -72,6 +75,13 @@ export default function VoiceQuizPage() {
   const backToProject = useCallback(() => {
     router.replace(returnPath || `/project/${projectId}`);
   }, [router, returnPath, projectId]);
+
+  /** 通常クイズへ戻す。出題数はそのまま引き継ぐ。 */
+  const goToNormalQuiz = useCallback(() => {
+    const params = new URLSearchParams({ count: String(requestedCount) });
+    if (returnPath) params.set('from', returnPath);
+    router.replace(`/quiz/${projectId}?${params.toString()}`);
+  }, [router, projectId, returnPath, requestedCount]);
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -169,7 +179,7 @@ export default function VoiceQuizPage() {
           return;
         }
 
-        setWords(sortWordsByPriority(loaded).slice(0, Math.min(loaded.length, DEFAULT_COUNT)));
+        setWords(sortWordsByPriority(loaded).slice(0, Math.min(loaded.length, requestedCount)));
       } catch {
         setPrepareError(true);
       } finally {
@@ -178,7 +188,7 @@ export default function VoiceQuizPage() {
     };
 
     load();
-  }, [authLoading, projectId, repository, user, backToProject]);
+  }, [authLoading, projectId, repository, user, backToProject, requestedCount]);
 
   /** 1問を確定させる。以降この問題では再挑戦しない。 */
   const finishQuestion = useCallback(
@@ -455,6 +465,9 @@ export default function VoiceQuizPage() {
         </header>
 
         <main className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="w-full max-w-sm mb-5">
+            <QuizModeTabs active="voice" onSelect={goToNormalQuiz} />
+          </div>
           <div className="card p-8 w-full max-w-sm text-center animate-fade-in-up">
             <div className="w-20 h-20 bg-[var(--color-accent-light)] rounded-full flex items-center justify-center mx-auto mb-5">
               <Icon name="mic" size={40} className="text-[var(--color-accent-ink)]" />

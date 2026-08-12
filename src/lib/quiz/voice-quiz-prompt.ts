@@ -75,6 +75,21 @@ export const DEFAULT_VOICE_QUIZ_ATTEMPTS = 1;
 /** 選択肢として並べる試行回数。 */
 export const VOICE_QUIZ_ATTEMPT_OPTIONS: readonly number[] = [1, 2, 3];
 
+// ============ 出題数 (count) ============
+
+export const DEFAULT_VOICE_QUIZ_COUNT = 10;
+export const MAX_VOICE_QUIZ_COUNT = 100;
+
+/**
+ * 通常クイズから引き継いだ `?count=` を 1〜MAX に丸める。
+ * 未指定・不正な値は既定値に落とす (実際の出題数は単語数でさらに切り詰められる)。
+ */
+export function resolveVoiceQuizCount(raw: string | null | undefined): number {
+  const parsed = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_VOICE_QUIZ_COUNT;
+  return Math.min(parsed, MAX_VOICE_QUIZ_COUNT);
+}
+
 /** 外から来た試行回数を 1〜3 に丸める。 */
 export function normalizeVoiceQuizAttempts(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number(value);
