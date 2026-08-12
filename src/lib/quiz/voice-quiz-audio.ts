@@ -27,7 +27,7 @@ import {
 export const VOICE_QUIZ_AUDIO_DIR = '/audio/voice-quiz';
 
 export interface VoiceQuizAudioClip {
-  /** ファイル名に使う安定した識別子。 */
+  /** ファイル名に使う識別子。文言から導くので、並び順を変えても変わらない。 */
   id: string;
   /** 読み上げる文言。 */
   text: string;
@@ -42,6 +42,23 @@ export const VOICE_QUIZ_RESULT_ANNOUNCEMENTS = {
 } as const;
 
 export type VoiceQuizResultKey = keyof typeof VOICE_QUIZ_RESULT_ANNOUNCEMENTS;
+
+/**
+ * 文言から音声ファイル名を導く。
+ *
+ * 以前は「何番目のテンプレートの前half」といった位置で名前を付けていたが、
+ * テンプレートを1つ足しただけで全部の名前がずれ、生成済みの音声が丸ごと
+ * 使われなくなった。文言そのものから決めれば、変えた文だけが作り直しになる。
+ */
+function clipId(text: string): string {
+  // FNV-1a。暗号用途ではなく、短い文言を安定した名前に落とすだけ。
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
 
 /**
  * 差し替え位置の目印。実際の語彙と衝突しない文字列を入れて組み立て、
@@ -63,14 +80,13 @@ function isSampleText(text: string): boolean {
 function promptFragments(
   direction: VoiceQuizDirection,
   templateCount: number,
-  idPrefix: string,
 ): VoiceQuizAudioClip[] {
   const clips: VoiceQuizAudioClip[] = [];
 
   for (let index = 0; index < templateCount; index += 1) {
     buildVoiceQuizPromptFor(direction, SAMPLE_WORD, index).forEach((segment, position) => {
       if (isSampleText(segment.text)) return;
-      clips.push({ id: `${idPrefix}-${index}-${position}`, text: segment.text, lang: segment.lang });
+      clips.push({ id: clipId(segment.text), text: segment.text, lang: segment.lang });
     });
   }
 
@@ -84,7 +100,7 @@ function answerAnnouncementFragments(): VoiceQuizAudioClip[] {
   for (const direction of ['en-to-ja', 'ja-to-en'] as const) {
     buildVoiceQuizAnswerAnnouncement(direction, SAMPLE_WORD).forEach((segment, position) => {
       if (isSampleText(segment.text)) return;
-      clips.push({ id: `answer-${direction}-${position}`, text: segment.text, lang: segment.lang });
+      clips.push({ id: clipId(segment.text), text: segment.text, lang: segment.lang });
     });
   }
 
@@ -94,16 +110,16 @@ function answerAnnouncementFragments(): VoiceQuizAudioClip[] {
 /** 事前生成する固定文のすべて。 */
 export function voiceQuizAudioClips(): VoiceQuizAudioClip[] {
   const clips = [
-    ...promptFragments('en-to-ja', VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length, 'prompt'),
-    ...promptFragments('ja-to-en', VOICE_QUIZ_WORD_PROMPT_TEMPLATES.length, 'word-prompt'),
-    ...VOICE_QUIZ_RETRY_TEMPLATES.map((text, index) => ({
-      id: `retry-${index}`,
+    ...promptFragments('en-to-ja', VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length),
+    ...promptFragments('ja-to-en', VOICE_QUIZ_WORD_PROMPT_TEMPLATES.length),
+    ...VOICE_QUIZ_RETRY_TEMPLATES.map((text) => ({
+      id: clipId(text),
       text,
       lang: 'ja' as const,
     })),
     ...answerAnnouncementFragments(),
-    ...Object.entries(VOICE_QUIZ_RESULT_ANNOUNCEMENTS).map(([key, text]) => ({
-      id: `result-${key}`,
+    ...Object.values(VOICE_QUIZ_RESULT_ANNOUNCEMENTS).map((text) => ({
+      id: clipId(text),
       text,
       lang: 'ja' as const,
     })),
