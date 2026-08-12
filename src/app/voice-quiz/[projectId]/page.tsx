@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
 import { QuizModeChooser, QuizModeTabs } from '@/components/quiz';
 import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
+import { voiceQuizBatch } from '@/lib/quiz/voice-quiz-batch';
 import { getRepository } from '@/lib/db';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
@@ -145,7 +146,23 @@ export default function VoiceQuizPage() {
     [goToNormalQuiz],
   );
 
-  const [words, setWords] = useState<Word[]>([]);
+  /**
+   * 単語帳の出題候補を、優先度順に並べたもの。1回のセッションで解くのは
+   * この先頭から `requestedCount` 問ぶんで、終わったら次のひと組へ進む。
+   * 並びは読み込み時に一度だけ決める —— 解くたびに並べ替えると、
+   * 「次の10問」がどこから続くのか追えなくなる。
+   */
+  const [pool, setPool] = useState<Word[]>([]);
+  /** いま解いているひと組が、並びの何番目から始まるか。 */
+  const [batchStart, setBatchStart] = useState(0);
+  /**
+   * いま解いているひと組と、その次の見通し。
+   * 画面の進捗も出題も、この範囲だけを見る。
+   */
+  const { words, nextStart, nextSize: nextBatchSize } = useMemo(
+    () => voiceQuizBatch(pool, batchStart, requestedCount),
+    [pool, batchStart, requestedCount],
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
@@ -296,7 +313,8 @@ export default function VoiceQuizPage() {
           return;
         }
 
-        setWords(sortWordsByPriority(loaded).slice(0, Math.min(loaded.length, requestedCount)));
+        setPool(sortWordsByPriority(loaded));
+        setBatchStart(0);
       } catch {
         setPrepareError(true);
       } finally {
@@ -305,7 +323,7 @@ export default function VoiceQuizPage() {
     };
 
     load();
-  }, [authLoading, projectId, repository, user, backToProject, goToNormalQuiz, requestedCount]);
+  }, [authLoading, projectId, repository, user, backToProject, goToNormalQuiz]);
 
   /** 1問を確定させる。以降この問題では再挑戦しない。 */
   const finishQuestion = useCallback(
@@ -369,7 +387,7 @@ export default function VoiceQuizPage() {
         const srUpdate = calculateNextReview(correct, word);
         const updates = { status: newStatus, ...srUpdate };
         await repository.updateWord(word.id, updates);
-        setWords((prev) => prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w)));
+        setPool((prev) => prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w)));
       } catch {}
     },
     [projectId, repository],
@@ -649,6 +667,22 @@ export default function VoiceQuizPage() {
     setIsComplete(false);
     questionRunRef.current = 0;
     setHasStarted(false);
+  };
+
+  /**
+   * 同じ設定のまま、単語帳の次のひと組へ進む。
+   * 試行回数も解答時間も選び直させない —— 続けて解きたいから押すボタンで、
+   * 開始画面に戻すと10問ごとに同じ設定を選ばされる。
+   */
+  const startNextBatch = () => {
+    const nextWord = pool[nextStart];
+    if (!nextWord) return;
+
+    setBatchStart(nextStart);
+    setCurrentIndex(0);
+    setResults({ correct: 0, total: 0, disqualified: 0 });
+    setIsComplete(false);
+    startQuestion(nextWord);
   };
 
   useEffect(() => {
@@ -961,15 +995,32 @@ export default function VoiceQuizPage() {
             <p className="mt-6 font-display text-base font-black text-[var(--solid-ink)]">{completionMessage}</p>
 
             <div className="mt-7 space-y-3">
-              <SolidButton
-                variant="accent"
-                size="lg"
-                iconLeft="refresh"
-                onClick={restartSession}
-                className={cn('w-full', HARD_SHADOW)}
-              >
-                もう一度
-              </SolidButton>
+              {/*
+                同じ10問をもう一度やるより、単語帳の先へ進みたい。
+                残りが尽きたときだけ「もう一度」に戻す —— 進む先が無いのに
+                「次の◯問」を出すわけにいかないし、押せる手を消したくない。
+              */}
+              {nextBatchSize > 0 ? (
+                <SolidButton
+                  variant="accent"
+                  size="lg"
+                  iconLeft="arrow_forward"
+                  onClick={startNextBatch}
+                  className={cn('w-full', HARD_SHADOW)}
+                >
+                  次の{nextBatchSize}問
+                </SolidButton>
+              ) : (
+                <SolidButton
+                  variant="accent"
+                  size="lg"
+                  iconLeft="refresh"
+                  onClick={restartSession}
+                  className={cn('w-full', HARD_SHADOW)}
+                >
+                  もう一度
+                </SolidButton>
+              )}
               <SolidButton size="lg" onClick={backToProject} className={cn('w-full', HARD_SHADOW_SM)}>
                 単語一覧に戻る
               </SolidButton>
