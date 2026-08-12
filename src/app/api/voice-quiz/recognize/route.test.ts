@@ -66,7 +66,7 @@ test('voice-quiz recognize returns the transcript on success', async () => {
     jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }, { authorization: 'Bearer token-1' }),
     {
       createClient: async () => createClient() as never,
-      recognize: async () => ({ success: true, transcript: 'clarify', confidence: 0.9 }),
+      recognize: async () => ({ success: true, transcript: 'clarify', confidence: 0.9, alternatives: ['clarify'] }),
     },
   );
 

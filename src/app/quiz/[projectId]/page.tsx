@@ -601,7 +601,7 @@ export default function QuizPage() {
    * その形式で始められるようにするため。入力済みの問題数は引き継ぐ
    * (上限の丸めは遷移先で行う)。
    */
-  const goToVoiceQuiz = useCallback(() => {
+  const goToVoiceQuiz = useCallback((options?: { replace?: boolean }) => {
     writeQuizMode('voice');
     const params = new URLSearchParams();
     const parsedInput = Number.parseInt(inputCount, 10);
@@ -609,8 +609,11 @@ export default function QuizPage() {
     if (count && count > 0) params.set('count', String(count));
     if (returnPath) params.set('from', returnPath);
     const query = params.toString();
+    const href = `/voice-quiz/${projectId}${query ? `?${query}` : ''}`;
     // 進行中のクイズ状態(sessionStorage)は消さない。戻ってきたら続きから再開できる。
-    router.push(`/voice-quiz/${projectId}${query ? `?${query}` : ''}`);
+    // 自動送りは replace。push にすると「戻る」でここへ戻され、また送られて堂々巡りになる。
+    if (options?.replace) router.replace(href);
+    else router.push(href);
   }, [inputCount, questionCount, returnPath, router, projectId]);
 
   // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
@@ -618,6 +621,18 @@ export default function QuizPage() {
     setStoredMode(readQuizMode());
     setModeLoaded(true);
   }, []);
+
+  /**
+   * この端末が音読チャレンジを選んでいるなら、四択を開いても音読へ送る。
+   * 選んだ直後だけでなく「次に開いたとき」も選択を守るために要る。
+   * 遷移は一度きり ——依存が変わるたびに router を叩かないよう ref で止める。
+   */
+  const redirectedToVoiceRef = useRef(false);
+  useEffect(() => {
+    if (!modeLoaded || storedMode !== 'voice' || redirectedToVoiceRef.current) return;
+    redirectedToVoiceRef.current = true;
+    goToVoiceQuiz({ replace: true });
+  }, [modeLoaded, storedMode, goToVoiceQuiz]);
 
   /** 形式を選んだ。四択ならこの画面のまま、音読なら音読チャレンジへ移る。 */
   const chooseMode = useCallback(
@@ -1271,6 +1286,18 @@ export default function QuizPage() {
     );
   }
 
+  /* ---------- 音読チャレンジが選ばれている: 送るまで四択を描かない ---------- */
+  if (storedMode === 'voice') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[var(--solid-ink)] border-t-transparent" />
+          <p className="text-[var(--color-muted)]">音読チャレンジを開いています...</p>
+        </div>
+      </div>
+    );
+  }
+
   /* ---------- この端末でまだ形式を選んでいない ---------- */
   if (storedMode === null) {
     return (
@@ -1332,7 +1359,8 @@ export default function QuizPage() {
         <div className="flex flex-1 flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <div className="mb-5">
-              <QuizModeTabs active="normal" onSelect={goToVoiceQuiz} />
+              {/* タブは選ばれたキーを渡してくるので、遷移オプションと混ざらないよう包む。 */}
+              <QuizModeTabs active="normal" onSelect={() => goToVoiceQuiz()} />
             </div>
             <h1 className="mb-2 text-center font-display text-2xl font-black text-[var(--solid-ink)]">問題数を入力</h1>
             <p className="mb-4 text-center text-[var(--color-muted)]">1〜{maxQ}問まで</p>
