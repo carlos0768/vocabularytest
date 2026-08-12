@@ -12,6 +12,7 @@ import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
+import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
@@ -180,6 +181,9 @@ export default function ProjectPage() {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
+  // バインダー (フォルダ) ピッカー。既存のバインダー名は開くときに集める
+  const [binderPickerOpen, setBinderPickerOpen] = useState(false);
+  const [binderNames, setBinderNames] = useState<string[]>([]);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const [deleteWordTarget, setDeleteWordTarget] = useState<Word | null>(null);
   const [deleteWordLoading, setDeleteWordLoading] = useState(false);
@@ -983,13 +987,33 @@ export default function ProjectPage() {
     }
   };
 
-  // バインダー (フォルダ) 名を設定する。空欄で解除
-  const handleSetBinder = async () => {
+  // バインダー (フォルダ) の設定はピッカーシートで行う。window.prompt は
+  // PWA スタンドアロン表示や一部のモバイルブラウザでブロックされるため使わない。
+  const handleOpenBinderPicker = async () => {
     if (!project) return;
     setMenuOpen(false);
-    const input = window.prompt('バインダー名を入力してください (空欄で解除)', project.binder ?? '');
-    if (input === null) return;
-    const binder = input.trim().slice(0, 40) || null;
+    // 既存のバインダー名を集めてから開く (取得に失敗しても新規作成はできる)
+    try {
+      const userId = user ? user.id : getGuestUserId();
+      const projects = await repository.getProjects(userId);
+      const names = new Set<string>();
+      for (const p of projects) {
+        const name = p.binder?.trim();
+        if (name) names.add(name);
+      }
+      setBinderNames(Array.from(names).sort((a, b) => a.localeCompare(b, 'ja')));
+    } catch {
+      setBinderNames([]);
+    }
+    setBinderPickerOpen(true);
+  };
+
+  // バインダーを適用する。null でバインダーから外す
+  const handleApplyBinder = async (rawBinder: string | null) => {
+    setBinderPickerOpen(false);
+    if (!project) return;
+    const binder = rawBinder?.trim().slice(0, 40) || null;
+    if (binder === (project.binder?.trim() || null)) return;
     try {
       await mutationRepository.updateProject(project.id, { binder });
       setProject((p) => (p ? { ...p, binder } : p));
@@ -1296,7 +1320,7 @@ export default function ProjectPage() {
         }}
         onToggleSelectWord={handleToggleSelectWord}
         onRename={handleOpenRename}
-        onSetBinder={() => void handleSetBinder()}
+        onSetBinder={() => void handleOpenBinderPicker()}
         onDeleteProject={() => setDeleteModalOpen(true)}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
@@ -1356,7 +1380,7 @@ export default function ProjectPage() {
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)', right: 14 }}
           >
             <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
-            <MenuButton icon="folder" label="バインダー設定" onClick={() => void handleSetBinder()} />
+            <MenuButton icon="folder" label="バインダー設定" onClick={() => void handleOpenBinderPicker()} />
             <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
             <MenuButton
               icon="delete"
@@ -1745,6 +1769,15 @@ export default function ProjectPage() {
         onClose={() => setWordShowSortSheet(false)}
         sortOrder={wordSortOrder}
         onSortOrderChange={setWordSortOrder}
+      />
+      {/* バインダー (フォルダ) の設定。モバイル・デスクトップ共通のピッカー */}
+      <BinderPickerSheet
+        key={binderPickerOpen ? `binder-${project.binder ?? ''}` : 'binder-closed'}
+        open={binderPickerOpen}
+        onClose={() => setBinderPickerOpen(false)}
+        project={project}
+        binders={binderNames}
+        onApply={(binder) => void handleApplyBinder(binder)}
       />
 
       <GuidedTour run={runProjectTour} steps={PROJECT_INTRO_TOUR_STEPS} onFinish={markProjectTourSeen} />
