@@ -190,11 +190,12 @@ test('every offered duration survives normalization unchanged', () => {
 test('ja-to-en prompts read the meaning and never leak the English word', () => {
   const segments = buildVoiceQuizWordPrompt('入念に作り上げる', 0);
 
-  assert.equal(segments.length, 1);
-  assert.equal(segments[0].lang, 'ja');
-  assert.ok(segments[0].text.includes('入念に作り上げる'));
+  // 固定部分と訳を切り分ける (固定部分だけ作り置きの音声で読めるようにするため)。
+  assert.ok(segments.length > 1);
+  assert.ok(segments.every((segment) => segment.lang === 'ja'));
+  assert.ok(segments.some((segment) => segment.text === '入念に作り上げる'));
   // 全体が日本語なので、綴りが混ざる余地が無いことを固定する。
-  assert.ok(!/[a-z]/i.test(segments[0].text));
+  assert.ok(!/[a-z]/i.test(voiceQuizPromptToText(segments)));
 });
 
 test('buildVoiceQuizPromptFor picks the prompt that matches the direction', () => {
@@ -224,11 +225,11 @@ test('isVoiceQuizDirection accepts only the two directions', () => {
 test('the answer announcement switches voice only for an English answer', () => {
   const word = { english: 'elaborate', japanese: '入念に作り上げる' };
 
-  // 英→日: 答えも日本語なので1文で読ませる。
+  // 英→日: すべて日本語だが、前後の固定部分は切り分けておく。
   const jaAnswer = buildVoiceQuizAnswerAnnouncement('en-to-ja', word);
-  assert.equal(jaAnswer.length, 1);
-  assert.equal(jaAnswer[0].lang, 'ja');
-  assert.ok(jaAnswer[0].text.includes('入念に作り上げる'));
+  assert.ok(jaAnswer.every((segment) => segment.lang === 'ja'));
+  assert.ok(jaAnswer.some((segment) => segment.text === '入念に作り上げる'));
+  assert.ok(jaAnswer.some((segment) => segment.text === '正解は、'));
 
   // 日→英: 綴りの部分だけ英語の声にする。
   const enAnswer = buildVoiceQuizAnswerAnnouncement('ja-to-en', word);

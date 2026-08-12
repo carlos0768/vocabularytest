@@ -39,14 +39,14 @@ export const VOICE_QUIZ_MEANING_PLACEHOLDER = '{meaning}';
  * 全体が日本語なので、英→日と違って声を切り替える必要がない。
  */
 export const VOICE_QUIZ_WORD_PROMPT_TEMPLATES: readonly string[] = [
-  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」という意味の単語、英語で何と言う?`,
-  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」を英語で言うと?`,
-  `次の意味に当てはまる英単語は? 「${VOICE_QUIZ_MEANING_PLACEHOLDER}」`,
-  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」。これを英語で答えてください。`,
-  `英語で何と言うでしょう? 「${VOICE_QUIZ_MEANING_PLACEHOLDER}」`,
-  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」という意味の英単語を答えてください。`,
-  `では次です。「${VOICE_QUIZ_MEANING_PLACEHOLDER}」を英語で。`,
-  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」にあたる英単語は何でしょう?`,
+  `${VOICE_QUIZ_MEANING_PLACEHOLDER}。これを英語で何と言う?`,
+  `${VOICE_QUIZ_MEANING_PLACEHOLDER}。英語で言うと?`,
+  `次の意味に当てはまる英単語は? ${VOICE_QUIZ_MEANING_PLACEHOLDER}`,
+  `${VOICE_QUIZ_MEANING_PLACEHOLDER}。これを英語で答えてください。`,
+  `英語で何と言うでしょう? ${VOICE_QUIZ_MEANING_PLACEHOLDER}`,
+  `${VOICE_QUIZ_MEANING_PLACEHOLDER}。この意味の英単語を答えてください。`,
+  `では次です。${VOICE_QUIZ_MEANING_PLACEHOLDER}。英語で。`,
+  `${VOICE_QUIZ_MEANING_PLACEHOLDER}。これにあたる英単語は何でしょう?`,
 ];
 
 /**
@@ -89,9 +89,14 @@ export function buildVoiceQuizAnswerAnnouncement(
   const answer = direction === 'en-to-ja' ? word.japanese.trim() : word.english.trim();
   if (!answer) return [];
 
-  // 英→日は答えも日本語なので、切らずに1文で読ませたほうが自然に聞こえる。
+  // 向きによらず前後を切り分ける。つなげて1文にすると、せっかく作り置きした
+  // 「正解は、」「です。」に一致せず、文まるごと合成音声になってしまう。
   if (direction === 'en-to-ja') {
-    return [{ text: `${VOICE_QUIZ_ANSWER_PREFIX}${answer}${VOICE_QUIZ_ANSWER_SUFFIX}`, lang: 'ja' }];
+    return [
+      { text: VOICE_QUIZ_ANSWER_PREFIX, lang: 'ja' },
+      { text: answer, lang: 'ja' },
+      { text: VOICE_QUIZ_ANSWER_SUFFIX, lang: 'ja' },
+    ];
   }
 
   return [
@@ -108,6 +113,20 @@ export const VOICE_QUIZ_RETRY_TEMPLATES: readonly string[] = [
   'ちがうよ。もう一回!',
   'もう一度どうぞ。',
 ];
+
+/**
+ * 読み上げる価値のある断片か。
+ * テンプレートの切れ端が句読点やカギ括弧だけになることがあり、そのまま渡すと
+ * 무音や不自然な読みになるうえ、音声を作る分だけ無駄になる。
+ */
+function trimFragment(text: string): string {
+  // 差し込み位置の直後に残る句読点は、前の語で切れているので読ませない。
+  return text.trim().replace(/^[、。，．\s]+/, '').trim();
+}
+
+function isSpeakable(text: string): boolean {
+  return /[\p{Letter}\p{Number}]/u.test(text);
+}
 
 function rotate(templates: readonly string[], index: number): string {
   const count = templates.length;
@@ -145,22 +164,33 @@ export function buildVoiceQuizMeaningPrompt(
   const after = template.slice(placeholderAt + VOICE_QUIZ_WORD_PLACEHOLDER.length);
 
   return [
-    { text: before.trim(), lang: 'ja' as const },
+    { text: trimFragment(before), lang: 'ja' as const },
     { text: trimmedWord, lang: 'en' as const },
-    { text: after.trim(), lang: 'ja' as const },
-  ].filter((segment) => segment.text.length > 0);
+    { text: trimFragment(after), lang: 'ja' as const },
+  ].filter((segment) => isSpeakable(segment.text));
 }
 
 /**
- * 日→英の出題文。全体が日本語なので1片で返し、英→日と同じ形で扱えるようにする。
+ * 日→英の出題文。全体が日本語だが、英→日と同じように意味の前後で切り分ける。
+ * 固定部分は作り置きの音声で読めるので、合成音声になるのは日本語訳だけで済む。
  */
 export function buildVoiceQuizWordPrompt(
   meaning: string,
   index: number,
 ): VoiceQuizPromptSegment[] {
-  const text = rotate(VOICE_QUIZ_WORD_PROMPT_TEMPLATES, index)
-    .replaceAll(VOICE_QUIZ_MEANING_PLACEHOLDER, meaning.trim());
-  return [{ text, lang: 'ja' }];
+  const template = rotate(VOICE_QUIZ_WORD_PROMPT_TEMPLATES, index);
+  const at = template.indexOf(VOICE_QUIZ_MEANING_PLACEHOLDER);
+  const trimmed = meaning.trim();
+
+  if (at < 0) {
+    return [{ text: template, lang: 'ja' }];
+  }
+
+  return [
+    { text: trimFragment(template.slice(0, at)), lang: 'ja' as const },
+    { text: trimmed, lang: 'ja' as const },
+    { text: trimFragment(template.slice(at + VOICE_QUIZ_MEANING_PLACEHOLDER.length)), lang: 'ja' as const },
+  ].filter((segment) => isSpeakable(segment.text));
 }
 
 /** 出題の向きに応じた読み上げを組み立てる。 */

@@ -270,6 +270,15 @@ export default function VoiceQuizPage() {
     const load = async () => {
       try {
         const ownerUserId = user ? user.id : getGuestUserId();
+        // 音読チャレンジは単語帳1冊ぶんしか出題できない。横断出題の入口
+        // (/voice-quiz/all や復習・今日の学習) を踏んだら、行き止まりにせず
+        // 四択へ渡す。ここで backToProject に落とすと、クイズが始まらないまま
+        // ホームへ戻されたように見える。
+        if (projectId === 'all') {
+          goToNormalQuiz();
+          return;
+        }
+
         const project = await repository.getProject(projectId);
         if (!project || project.userId !== ownerUserId) {
           backToProject();
@@ -296,7 +305,7 @@ export default function VoiceQuizPage() {
     };
 
     load();
-  }, [authLoading, projectId, repository, user, backToProject, requestedCount]);
+  }, [authLoading, projectId, repository, user, backToProject, goToNormalQuiz, requestedCount]);
 
   /** 1問を確定させる。以降この問題では再挑戦しない。 */
   const finishQuestion = useCallback(
@@ -331,16 +340,18 @@ export default function VoiceQuizPage() {
 
       // 判定を声でも伝える。外したときは続けて正解を読み上げる。
       // 正解のときは短い一言だけ —— すぐ次の問題へ進むので、長く喋る間が無い。
-      const resultKey: VoiceQuizResultKey = correct
+      // 「わからない」は自分から答えを見に行った操作なので、判定は読み上げず
+      // すぐ正解へ移る。正解/不正解/時間切れだけ一言添える。
+      const resultKey: VoiceQuizResultKey | null = correct
         ? 'correct'
         : skipped
-        ? 'gaveUp'
+        ? null
         : disqualified
         ? 'disqualified'
         : 'incorrect';
 
       const announcement: VoiceQuizPromptSegment[] = [
-        { text: VOICE_QUIZ_RESULT_ANNOUNCEMENTS[resultKey], lang: 'ja' },
+        ...(resultKey ? [{ text: VOICE_QUIZ_RESULT_ANNOUNCEMENTS[resultKey], lang: 'ja' as const }] : []),
         ...(correct ? [] : buildVoiceQuizAnswerAnnouncement(directionRef.current, word)),
       ];
 
