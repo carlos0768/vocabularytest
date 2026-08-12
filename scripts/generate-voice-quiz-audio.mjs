@@ -10,13 +10,14 @@
  * 実行のたびに課金される類のものを、ビルドのたびに叩かせない。
  *
  * 既にあるファイルは飛ばす。作り直したいときは --force を付ける。
+ * 台本に無くなった音声はその場で消す。残したいときは --keep-stale を付ける。
  *
  * キーは Cloud Text-to-Speech API を有効にしたもの。音声認識用の
  * GOOGLE_CLOUD_SPEECH_API_KEY と同じプロジェクトのキーでよいが、
  * API の制限に Text-to-Speech を含めておくこと。
  */
 
-import { mkdir, writeFile, access, readdir } from 'node:fs/promises';
+import { mkdir, writeFile, access, readdir, rm } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,6 +34,7 @@ const repoRoot = join(here, '..');
 const outDir = join(repoRoot, 'public', 'audio', 'voice-quiz');
 
 const force = process.argv.includes('--force');
+const keepStale = process.argv.includes('--keep-stale');
 
 async function exists(path) {
   try {
@@ -103,19 +105,27 @@ async function main() {
 
   console.log(`\n生成 ${written}件 / 既存を維持 ${skipped}件 → ${outDir}`);
 
-  // 文言を変えると古い音声が残る。放っておくと「用意したのに使われない」まま
-  // 気づけないので、必ず知らせる。
+  // 文言を変えると古い音声が残る。台本に無いファイルはもう誰も再生しないので、
+  // 手で消させずにここで片付ける。消えて困るものは無い —— このディレクトリの
+  // 中身はすべてこのスクリプトの生成物で、台本さえあれば作り直せる。
   const wanted = new Set(clips.map((clip) => `${clip.id}.mp3`));
   const present = (await readdir(outDir)).filter((name) => name.endsWith('.mp3'));
   const stale = present.filter((name) => !wanted.has(name));
 
   if (stale.length > 0) {
-    console.log(`\n使われていない音声が ${stale.length}件あります (文言を変えた名残):`);
+    if (!keepStale) {
+      for (const name of stale) await rm(join(outDir, name));
+    }
+    const headline = keepStale
+      ? `使われていない音声が ${stale.length}件あります (--keep-stale のため残しました)`
+      : `使われていない音声を ${stale.length}件消しました (文言を変えた名残)`;
+    console.log(`\n${headline}:`);
     for (const name of stale) console.log(`  ${name}`);
-    console.log('消してからコミットしてください。');
+    if (keepStale) console.log('消してからコミットしてください。');
   }
 
-  if (written > 0) console.log('\n生成した mp3 をコミットしてください。');
+  const changed = written > 0 || (stale.length > 0 && !keepStale);
+  if (changed) console.log('\npublic/audio/voice-quiz の変更をコミットしてください。');
 }
 
 main().catch((error) => {
