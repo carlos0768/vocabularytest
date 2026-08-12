@@ -16,7 +16,7 @@
  * API の制限に Text-to-Speech を含めておくこと。
  */
 
-import { mkdir, writeFile, access } from 'node:fs/promises';
+import { mkdir, writeFile, access, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -102,7 +102,20 @@ async function main() {
   }
 
   console.log(`\n生成 ${written}件 / 既存を維持 ${skipped}件 → ${outDir}`);
-  if (written > 0) console.log('生成した mp3 をコミットしてください。');
+
+  // 文言を変えると古い音声が残る。放っておくと「用意したのに使われない」まま
+  // 気づけないので、必ず知らせる。
+  const wanted = new Set(clips.map((clip) => `${clip.id}.mp3`));
+  const present = (await readdir(outDir)).filter((name) => name.endsWith('.mp3'));
+  const stale = present.filter((name) => !wanted.has(name));
+
+  if (stale.length > 0) {
+    console.log(`\n使われていない音声が ${stale.length}件あります (文言を変えた名残):`);
+    for (const name of stale) console.log(`  ${name}`);
+    console.log('消してからコミットしてください。');
+  }
+
+  if (written > 0) console.log('\n生成した mp3 をコミットしてください。');
 }
 
 main().catch((error) => {
