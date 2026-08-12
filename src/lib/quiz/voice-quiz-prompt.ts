@@ -10,8 +10,44 @@
  * 構造上、答えが漏れる経路が存在しない。
  */
 
+/**
+ * 出題の向き。
+ * - `en-to-ja`: 英単語を出して、意味を日本語で答えさせる
+ * - `ja-to-en`: 日本語の意味を読み上げて、英単語を答えさせる
+ */
+export type VoiceQuizDirection = 'en-to-ja' | 'ja-to-en';
+
+export const DEFAULT_VOICE_QUIZ_DIRECTION: VoiceQuizDirection = 'en-to-ja';
+
+export function isVoiceQuizDirection(value: unknown): value is VoiceQuizDirection {
+  return value === 'en-to-ja' || value === 'ja-to-en';
+}
+
+/** 向きごとの音声認識の言語。答えを話す側の言語になる。 */
+export function recognitionLanguageFor(direction: VoiceQuizDirection): 'ja-JP' | 'en-US' {
+  return direction === 'en-to-ja' ? 'ja-JP' : 'en-US';
+}
+
 /** テンプレート内で英単語に置き換わる位置。 */
 export const VOICE_QUIZ_WORD_PLACEHOLDER = '{word}';
+
+/** テンプレート内で日本語訳に置き換わる位置。 */
+export const VOICE_QUIZ_MEANING_PLACEHOLDER = '{meaning}';
+
+/**
+ * 日→英の出題文。読み上げるのは日本語訳だけで、英単語(正解)は出てこない。
+ * 全体が日本語なので、英→日と違って声を切り替える必要がない。
+ */
+export const VOICE_QUIZ_WORD_PROMPT_TEMPLATES: readonly string[] = [
+  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」という意味の単語、英語で何と言う?`,
+  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」を英語で言うと?`,
+  `次の意味に当てはまる英単語は? 「${VOICE_QUIZ_MEANING_PLACEHOLDER}」`,
+  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」。これを英語で答えてください。`,
+  `英語で何と言うでしょう? 「${VOICE_QUIZ_MEANING_PLACEHOLDER}」`,
+  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」という意味の英単語を答えてください。`,
+  `では次です。「${VOICE_QUIZ_MEANING_PLACEHOLDER}」を英語で。`,
+  `「${VOICE_QUIZ_MEANING_PLACEHOLDER}」にあたる英単語は何でしょう?`,
+];
 
 /**
  * 英→日の出題文。英単語を文の途中に挟んだ、読み上げて自然な日本語1文にする。
@@ -33,6 +69,36 @@ export const VOICE_QUIZ_MEANING_PROMPT_TEMPLATES: readonly string[] = [
 export interface VoiceQuizPromptSegment {
   text: string;
   lang: 'ja' | 'en';
+}
+
+/**
+ * 不正解・失格・「わからない」のあとに正解を知らせる文。
+ * 答えの語だけが可変で、前後は固定なので、読み上げ音声を作り置きできる。
+ */
+export const VOICE_QUIZ_ANSWER_PREFIX = '正解は、';
+export const VOICE_QUIZ_ANSWER_SUFFIX = 'です。';
+
+/**
+ * 「正解は、○○ です。」を読み上げ用のセグメントで組み立てる。
+ * 日→英では答えが英単語なので、そこだけ英語の声に切り替える。
+ */
+export function buildVoiceQuizAnswerAnnouncement(
+  direction: VoiceQuizDirection,
+  word: { english: string; japanese: string },
+): VoiceQuizPromptSegment[] {
+  const answer = direction === 'en-to-ja' ? word.japanese.trim() : word.english.trim();
+  if (!answer) return [];
+
+  // 英→日は答えも日本語なので、切らずに1文で読ませたほうが自然に聞こえる。
+  if (direction === 'en-to-ja') {
+    return [{ text: `${VOICE_QUIZ_ANSWER_PREFIX}${answer}${VOICE_QUIZ_ANSWER_SUFFIX}`, lang: 'ja' }];
+  }
+
+  return [
+    { text: VOICE_QUIZ_ANSWER_PREFIX, lang: 'ja' },
+    { text: answer, lang: 'en' },
+    { text: VOICE_QUIZ_ANSWER_SUFFIX, lang: 'ja' },
+  ];
 }
 
 /** 間違えたときに、もう一度promptするための掛け声。 */
@@ -83,6 +149,29 @@ export function buildVoiceQuizMeaningPrompt(
     { text: trimmedWord, lang: 'en' as const },
     { text: after.trim(), lang: 'ja' as const },
   ].filter((segment) => segment.text.length > 0);
+}
+
+/**
+ * 日→英の出題文。全体が日本語なので1片で返し、英→日と同じ形で扱えるようにする。
+ */
+export function buildVoiceQuizWordPrompt(
+  meaning: string,
+  index: number,
+): VoiceQuizPromptSegment[] {
+  const text = rotate(VOICE_QUIZ_WORD_PROMPT_TEMPLATES, index)
+    .replaceAll(VOICE_QUIZ_MEANING_PLACEHOLDER, meaning.trim());
+  return [{ text, lang: 'ja' }];
+}
+
+/** 出題の向きに応じた読み上げを組み立てる。 */
+export function buildVoiceQuizPromptFor(
+  direction: VoiceQuizDirection,
+  word: { english: string; japanese: string },
+  index: number,
+): VoiceQuizPromptSegment[] {
+  return direction === 'en-to-ja'
+    ? buildVoiceQuizMeaningPrompt(word.english, index)
+    : buildVoiceQuizWordPrompt(word.japanese, index);
 }
 
 /** 出題文を画面に出すときの表示用テキスト (読み上げと同じ並び)。 */

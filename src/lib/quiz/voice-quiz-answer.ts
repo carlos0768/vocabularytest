@@ -126,3 +126,34 @@ export function isAnyJapaneseAnswerCorrect(
 ): boolean {
   return transcripts.some((transcript) => isJapaneseAnswerCorrect(transcript, japanese));
 }
+
+// ============ 日→英 (英単語を答える) ============
+
+/**
+ * 英語の答えを比較用に畳む。
+ * 認識結果には句読点や語間の揺れが混ざるので、英数字と1つの空白だけに落とす。
+ */
+export function normalizeEnglishAnswer(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+/** 認識結果が、その単語の綴りとして妥当かを判定する。 */
+export function isEnglishAnswerCorrect(transcript: string, english: string): boolean {
+  const said = normalizeEnglishAnswer(transcript);
+  return said.length > 0 && said === normalizeEnglishAnswer(english);
+}
+
+/**
+ * 候補のどれかが正解なら正解とみなす。
+ * 英語でも "to elaborate" と "elaborate" のように候補が割れることがある。
+ */
+export function isAnyEnglishAnswerCorrect(
+  transcripts: readonly string[],
+  english: string,
+): boolean {
+  return transcripts.some((transcript) => isEnglishAnswerCorrect(transcript, english));
+}

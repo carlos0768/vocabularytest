@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  isAnyEnglishAnswerCorrect,
   isAnyJapaneseAnswerCorrect,
+  isEnglishAnswerCorrect,
+  normalizeEnglishAnswer,
   isJapaneseAnswerCorrect,
   japaneseAnswerCandidates,
   japaneseAnswerHints,
@@ -93,4 +96,27 @@ test('japaneseAnswerCandidates splits and folds every meaning', () => {
   assert.equal(candidates.length, 2);
   assert.ok(candidates.includes('気づく'));
   assert.ok(candidates.includes('認識する'));
+});
+
+// ============ 日→英 ============
+
+test('an English answer matches regardless of case and punctuation', () => {
+  assert.equal(isEnglishAnswerCorrect('Elaborate.', 'elaborate'), true);
+  assert.equal(isEnglishAnswerCorrect('  elaborate  ', 'elaborate'), true);
+});
+
+test('a wrong English answer is rejected', () => {
+  assert.equal(isEnglishAnswerCorrect('elaborated', 'elaborate'), false);
+  assert.equal(isEnglishAnswerCorrect('', 'elaborate'), false);
+});
+
+test('any English candidate may carry the right spelling', () => {
+  assert.equal(isAnyEnglishAnswerCorrect(['a lab rate', 'elaborate'], 'elaborate'), true);
+  assert.equal(isAnyEnglishAnswerCorrect(['a lab rate'], 'elaborate'), false);
+  assert.equal(isAnyEnglishAnswerCorrect([], 'elaborate'), false);
+});
+
+test('multi-word English answers collapse internal spacing', () => {
+  assert.equal(normalizeEnglishAnswer('give   up'), 'give up');
+  assert.equal(isEnglishAnswerCorrect('give  up', 'give up'), true);
 });
