@@ -113,11 +113,15 @@ export const VOICE_QUIZ_ATTEMPT_OPTIONS: readonly number[] = [1, 2, 3];
 
 // ============ 解答時間 (duration) ============
 
-export const MIN_VOICE_QUIZ_DURATION_SEC = 4;
-export const MAX_VOICE_QUIZ_DURATION_SEC = 15;
+export const MIN_VOICE_QUIZ_DURATION_SEC = 3;
+/**
+ * 上限。Cloud Speech-to-Text の同期認識は1分までなので、そこには十分収まる。
+ * 実用上これ以上待たせても答えは出てこないという判断で60秒までは開けない。
+ */
+export const MAX_VOICE_QUIZ_DURATION_SEC = 30;
 export const DEFAULT_VOICE_QUIZ_DURATION_SEC = 6;
 
-/** 開始画面に並べる解答時間の選択肢 (秒)。 */
+/** 開始画面に並べる解答時間の選択肢 (秒)。これ以外は自分で入力する。 */
 export const VOICE_QUIZ_DURATION_OPTIONS: readonly number[] = [4, 6, 10, 15];
 
 /**
