@@ -336,7 +336,7 @@ export default function ProjectListPage() {
               .filter((group) => group.binder === null)
               .flatMap((group) => group.items)
               .map((project) => (
-                <BookRow key={project.id} project={project} />
+                <BookRow key={project.id} project={project} onSetBinder={handleSetBinder} />
               ))}
           </>
         )}
@@ -357,43 +357,65 @@ export default function ProjectListPage() {
   );
 }
 
-function BookRow({ project }: { project: ProjectRowStats }) {
+function BookRow({
+  project,
+  onSetBinder,
+}: {
+  project: ProjectRowStats;
+  /** 「バインダーに追加」ボタン。デスクトップの「...」メニューと同じピッカーを開く */
+  onSetBinder?: (project: Project) => void;
+}) {
   const bg = thumbColor(project.id);
   return (
-    <Link href={`/project/${project.id}`}>
-      <SolidPanel
-        className="!rounded-[14px] ! transition-all duration-100 active:translate-x-px active:translate-y-px active:!"
-        faceClassName="!p-[13px]"
-      >
-        <div className="flex items-center gap-[13px]">
-          <div
-            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-center bg-cover font-display text-[18px] font-extrabold text-white"
-            style={{ backgroundColor: bg, backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
-          >
-            {!project.iconImage && project.title.charAt(0)}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
-            <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">
-              {project.totalWords}語
+    // バインダーボタンは <a> の中に <button> を入れないよう Link の兄弟として置く
+    <div className="relative">
+      <Link href={`/project/${project.id}`}>
+        <SolidPanel
+          className="!rounded-[14px] ! transition-all duration-100 active:translate-x-px active:translate-y-px active:!"
+          faceClassName="!p-[13px]"
+        >
+          <div className="flex items-center gap-[13px]">
+            <div
+              className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-center bg-cover font-display text-[18px] font-extrabold text-white"
+              style={{ backgroundColor: bg, backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
+            >
+              {!project.iconImage && project.title.charAt(0)}
             </div>
-            {project.totalWords > 0 && (
-              <div className="mt-1.5 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
-                {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
-                {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
-                {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
-                {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
+
+            <div className={`min-w-0 flex-1 ${onSetBinder ? 'pr-[38px]' : ''}`}>
+              <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</div>
+              <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">
+                {project.totalWords}語
               </div>
+              {project.totalWords > 0 && (
+                <div className="mt-1.5 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                  {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
+                  {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
+                  {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
+                  {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
+                </div>
+              )}
+            </div>
+
+            {!onSetBinder && (
+              <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
+                <Icon name="chevron_right" size={14} />
+              </span>
             )}
           </div>
-
-          <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
-            <Icon name="chevron_right" size={14} />
-          </span>
-        </div>
-      </SolidPanel>
-    </Link>
+        </SolidPanel>
+      </Link>
+      {onSetBinder && (
+        <button
+          type="button"
+          onClick={() => onSetBinder(project)}
+          aria-label={`「${project.title}」をバインダーに追加`}
+          className="absolute right-[11px] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-opacity duration-100 active:opacity-60"
+        >
+          <Icon name="create_new_folder" size={16} />
+        </button>
+      )}
+    </div>
   );
 }
 
