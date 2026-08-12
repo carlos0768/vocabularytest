@@ -1,6 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-export type CloudRunTimingPhase = 'aiExtraction' | 'exampleGeneration' | 'morphologyGeneration' | 'other';
+export type CloudRunTimingPhase =
+  | 'aiExtraction'
+  | 'exampleGeneration'
+  | 'morphologyGeneration'
+  | 'derivedWordsGeneration'
+  | 'other';
 
 export interface CloudRunTimingEntry {
   phase: CloudRunTimingPhase;

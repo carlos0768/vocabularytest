@@ -98,6 +98,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       source_modes: ['all', 'circled'],
       custom_sections: [],
       morphology: null,
+      derived_words: null,
     },
     {
       project_id: 'project-123',
@@ -114,6 +115,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       source_modes: undefined,
       custom_sections: [],
       morphology: null,
+      derived_words: null,
     },
   ]);
   assert.equal(Object.hasOwn(payload[1] ?? {}, 'part_of_speech_tags'), true);
@@ -236,6 +238,7 @@ test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_mode
       part_of_speech_tags: undefined,
       custom_sections: [],
       morphology: null,
+      derived_words: null,
     },
   ]);
 });

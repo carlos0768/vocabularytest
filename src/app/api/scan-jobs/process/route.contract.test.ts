@@ -897,7 +897,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   );
   assert.equal(
     wordsInsert.columns,
-    'id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, morphology',
+    'id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, morphology, derived_words',
   );
   assert.deepEqual(wordsInsert.payload, [
     {
@@ -915,6 +915,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
       source_modes: ['all'],
       custom_sections: [],
       morphology: null,
+      derived_words: null,
     },
   ]);
 

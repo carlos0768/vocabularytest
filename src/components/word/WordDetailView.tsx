@@ -13,6 +13,8 @@ import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { speakEnglish } from '@/lib/speech';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
+import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
+import { DerivedWordsList } from '@/components/word/DerivedWordsList';
 
 function formatCustomSectionValue(value: string, type: CustomColumn['type']): string {
   if (!value) return '';
@@ -521,6 +523,19 @@ export function WordDetailView({
               <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.6] text-[var(--color-ink-muted)]">
                 {morphology.explanation}
               </p>
+            </section>
+          </>
+        )}
+
+        {hasDisplayableDerivedWords(word.derivedWords) && (
+          <>
+            <SectionDivider />
+            <section className="py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <SectionHeading title="DERIVATIVES" />
+                <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">派生語</span>
+              </div>
+              <DerivedWordsList derivedWords={word.derivedWords} />
             </section>
           </>
         )}

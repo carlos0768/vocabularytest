@@ -11,6 +11,8 @@ export interface ScanCoinStateInput {
   totalRemaining: number;
   /** 語源解析（+2コイン）オプションの有効状態。 */
   includeMorphology?: boolean;
+  /** 派生語（+2コイン）オプションの有効状態。 */
+  includeDerivedWords?: boolean;
 }
 
 export interface ScanCoinState {
@@ -37,6 +39,7 @@ export function deriveScanCoinState(input: ScanCoinStateInput): ScanCoinState {
   try {
     cost = computeScanCoinCost(input.modes, Math.max(1, Math.floor(input.imageCount || 1)), {
       includeMorphology: input.includeMorphology === true,
+      includeDerivedWords: input.includeDerivedWords === true,
     });
   } catch {
     // モード未選択等、コストを算出できない状態ではブロックしない

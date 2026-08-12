@@ -18,12 +18,14 @@ function isMissingCompatColumn(error: PostgrestError | null): boolean {
     message.includes('scan_jobs.target_project_id') ||
     message.includes('scan_jobs.scan_modes') ||
     message.includes('scan_jobs.include_morphology') ||
+    message.includes('scan_jobs.include_derived_words') ||
     message.includes('scan_jobs.custom_prompt') ||
     message.includes('scan_jobs.custom_scan_mode_id') ||
     message.includes("'save_mode' column of 'scan_jobs'") ||
     message.includes("'target_project_id' column of 'scan_jobs'") ||
     message.includes("'scan_modes' column of 'scan_jobs'") ||
     message.includes("'include_morphology' column of 'scan_jobs'") ||
+    message.includes("'include_derived_words' column of 'scan_jobs'") ||
     message.includes("'custom_prompt' column of 'scan_jobs'") ||
     message.includes("'custom_scan_mode_id' column of 'scan_jobs'")
   );
@@ -64,6 +66,7 @@ export async function insertScanJobWithCompat(
   delete legacyPayload.target_project_id;
   delete legacyPayload.scan_modes;
   delete legacyPayload.include_morphology;
+  delete legacyPayload.include_derived_words;
   delete legacyPayload.custom_prompt;
   delete legacyPayload.custom_scan_mode_id;
 

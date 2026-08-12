@@ -40,6 +40,8 @@ import { fetchAiGenerationEnabled } from '@/lib/preferences/ai-generation';
 import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { resolveDerivedWordsForWords } from '@/lib/derived-words/resolve';
+import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
 import { normalizeHeadword } from '../../../../shared/lexicon';
 import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
 
@@ -54,6 +56,7 @@ const requestSchema = z.object({
   scanModes: z.array(z.enum(EXTRACT_MODES)).min(1).max(EXTRACT_MODES.length).optional(),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
   includeMorphology: z.boolean().optional().default(false),
+  includeDerivedWords: z.boolean().optional().default(false),
   // カスタム抽出モード: 保存済みモードのID（優先）か、その場限りの指示文
   customModeId: z.string().uuid().nullable().optional().default(null),
   customPrompt: z.string().max(MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH).nullable().optional().default(null),
@@ -85,6 +88,7 @@ export type ExtractRouteDeps = {
   generateExamples?: typeof generateExampleSentences;
   saveExamples?: typeof saveExamplesToLexicon;
   resolveMorphology?: typeof resolveMorphologyForWords;
+  resolveDerivedWords?: typeof resolveDerivedWordsForWords;
   fetchAiGeneration?: typeof fetchAiGenerationEnabled;
 };
 
@@ -107,6 +111,7 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
     saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
     resolveMorphology: deps?.resolveMorphology ?? resolveMorphologyForWords,
+    resolveDerivedWords: deps?.resolveDerivedWords ?? resolveDerivedWordsForWords,
     fetchAiGeneration: deps?.fetchAiGeneration ?? fetchAiGenerationEnabled,
   };
 }
@@ -141,6 +146,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     generateExamples,
     saveExamples,
     resolveMorphology,
+    resolveDerivedWords,
     fetchAiGeneration,
   } = getDeps(deps);
   const startedAt = Date.now();
@@ -180,6 +186,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       scanModes: requestedScanModes,
       eikenLevel,
       includeMorphology,
+      includeDerivedWords,
       customModeId,
       customPrompt,
     } = parsed.data as {
@@ -188,6 +195,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       scanModes?: ExtractMode[];
       eikenLevel: EikenLevel;
       includeMorphology: boolean;
+      includeDerivedWords: boolean;
       customModeId: string | null;
       customPrompt: string | null;
     };
@@ -296,6 +304,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       imageCount: 1,
       scanJobId: coinScanRef,
       includeMorphology,
+      includeDerivedWords,
     });
 
     if (!gate.ok) {
@@ -526,6 +535,38 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
         });
       } catch (morphologyError) {
         console.error('[extract] Morphology generation failed (non-critical):', morphologyError);
+      }
+    }
+
+    // --- Derived words (派生語) generation: opt-in, best-effort ---
+    // resolver 側で足切りするので、価値のない単語にはAIを呼ばない。
+    if (includeDerivedWords && extractedWords.length > 0) {
+      const derivedStart = Date.now();
+      try {
+        const derivedMap = await resolveDerivedWords(
+          extractedWords
+            .map((w) => ({ english: String((w as Record<string, unknown>).english ?? '') }))
+            .filter((w) => w.english.length > 0),
+          apiKeys,
+        );
+        let attachedCount = 0;
+        for (const word of extractedWords) {
+          const w = word as Record<string, unknown>;
+          const english = String(w.english ?? '');
+          if (!english) continue;
+          const derivedWords = derivedMap.get(normalizeHeadword(english));
+          if (hasDisplayableDerivedWords(derivedWords)) {
+            w.derivedWords = derivedWords;
+            attachedCount++;
+          }
+        }
+        console.log('[extract] Derived words generation completed', {
+          requested: extractedWords.length,
+          attached: attachedCount,
+          elapsedMs: Date.now() - derivedStart,
+        });
+      } catch (derivedWordsError) {
+        console.error('[extract] Derived words generation failed (non-critical):', derivedWordsError);
       }
     }
 

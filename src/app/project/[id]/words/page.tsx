@@ -22,6 +22,10 @@ import {
   readManualMorphologyPref,
   writeManualMorphologyPref,
 } from '@/lib/preferences/manual-morphology-pref';
+import {
+  readManualDerivedWordsPref,
+  writeManualDerivedWordsPref,
+} from '@/lib/preferences/manual-derived-words-pref';
 import type { Project, Word, SubscriptionStatus } from '@/types';
 
 export default function WordListPage() {
@@ -60,6 +64,15 @@ export default function WordListPage() {
   const handleManualWordMorphologyChange = (enabled: boolean) => {
     setManualWordMorphologyEnabled(enabled);
     writeManualMorphologyPref(enabled);
+  };
+  // 手動追加時の派生語トグル。既定はオフ（後付けの有料オプションのため）。
+  const [manualWordDerivedWordsEnabled, setManualWordDerivedWordsEnabled] = useState(false);
+  useEffect(() => {
+    setManualWordDerivedWordsEnabled(readManualDerivedWordsPref());
+  }, []);
+  const handleManualWordDerivedWordsChange = (enabled: boolean) => {
+    setManualWordDerivedWordsEnabled(enabled);
+    writeManualDerivedWordsPref(enabled);
   };
 
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
@@ -241,6 +254,7 @@ export default function WordListPage() {
     let enrichedExampleSentence = userExample;
     let enrichedExampleSentenceJa = '';
     let enrichedMorphology: Word['morphology'];
+    let enrichedDerivedWords: Word['derivedWords'];
 
     try {
       const enrichResponse = await fetch('/api/words/enrich-manual', {
@@ -250,6 +264,7 @@ export default function WordListPage() {
           english,
           japanese,
           includeMorphology: manualWordMorphologyEnabled,
+          includeDerivedWords: manualWordDerivedWordsEnabled,
           ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
           ...(userExample ? { exampleSentence: userExample } : {}),
         }),
@@ -265,6 +280,7 @@ export default function WordListPage() {
             exampleSentenceJa?: string;
           };
           morphology?: Word['morphology'];
+          derivedWords?: Word['derivedWords'];
         };
         if (data.success && data.enriched) {
           enrichedPronunciation = data.enriched.pronunciation ?? '';
@@ -276,6 +292,7 @@ export default function WordListPage() {
           }
           enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
           enrichedMorphology = data.morphology;
+          enrichedDerivedWords = data.derivedWords;
         }
       }
     } catch (enrichError) {
@@ -294,6 +311,7 @@ export default function WordListPage() {
       exampleSentence: enrichedExampleSentence || undefined,
       exampleSentenceJa: enrichedExampleSentenceJa || undefined,
       morphology: enrichedMorphology,
+      derivedWords: enrichedDerivedWords,
       status: 'new',
       createdAt: new Date().toISOString(),
       easeFactor: 2.5,
@@ -324,6 +342,7 @@ export default function WordListPage() {
       ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
       ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
       ...(enrichedMorphology ? { morphology: enrichedMorphology } : {}),
+      ...(enrichedDerivedWords ? { derivedWords: enrichedDerivedWords } : {}),
     }]).then((created) => {
       if (created && created.length > 0) {
         setWords(prev => prev.map(w => w.id === optimisticWord.id ? created[0]! : w));
@@ -414,6 +433,8 @@ export default function WordListPage() {
         setExampleSentence={setManualWordExampleSentence}
         morphologyEnabled={manualWordMorphologyEnabled}
         setMorphologyEnabled={handleManualWordMorphologyChange}
+        derivedWordsEnabled={manualWordDerivedWordsEnabled}
+        setDerivedWordsEnabled={handleManualWordDerivedWordsChange}
       />
 
       <DeleteConfirmModal

@@ -299,6 +299,8 @@ export function ManualWordInputModal({
   setExampleSentence,
   morphologyEnabled,
   setMorphologyEnabled,
+  derivedWordsEnabled,
+  setDerivedWordsEnabled,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -316,6 +318,9 @@ export function ManualWordInputModal({
   /** 語源解析トグル（未指定なら非表示 = 従来挙動） */
   morphologyEnabled?: boolean;
   setMorphologyEnabled?: (enabled: boolean) => void;
+  /** 派生語トグル（未指定なら非表示） */
+  derivedWordsEnabled?: boolean;
+  setDerivedWordsEnabled?: (enabled: boolean) => void;
 }) {
   const englishInputRef = useRef<HTMLInputElement>(null);
   const [showOptional, setShowOptional] = useState(false);
@@ -428,6 +433,37 @@ export function ManualWordInputModal({
                     </span>
                     <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
                       接頭語・接尾語・接中語と語根の成り立ちを解説
+                    </span>
+                  </span>
+                </button>
+              )}
+
+              {derivedWordsEnabled !== undefined && setDerivedWordsEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setDerivedWordsEnabled(!derivedWordsEnabled)}
+                  disabled={isLoading}
+                  className="w-full flex items-start gap-2.5 px-4 py-3 border rounded-[var(--radius-lg)] bg-[var(--color-surface)] text-left transition-colors disabled:opacity-60"
+                  style={{
+                    borderColor: derivedWordsEnabled ? 'var(--color-primary)' : 'var(--color-border)',
+                  }}
+                >
+                  <span
+                    className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                    style={{
+                      border: `1.25px solid ${derivedWordsEnabled ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      background: derivedWordsEnabled ? 'var(--color-primary)' : 'transparent',
+                    }}
+                  >
+                    {derivedWordsEnabled && <Icon name="check" size={11} className="text-white" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-foreground)]">
+                      派生語
+                      <span className="shrink-0 text-[10px] font-bold text-[var(--color-primary)]">+1コイン/語</span>
+                    </span>
+                    <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
+                      試験で狙われる派生語を最大3つ（対象語のみ・非対象なら消費なし）
                     </span>
                   </span>
                 </button>

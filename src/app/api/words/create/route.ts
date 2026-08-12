@@ -63,6 +63,21 @@ const morphologySchema = z.object({
   none: z.boolean().optional(),
 }).strict();
 
+const derivedWordItemSchema = z.object({
+  english: z.string().trim().min(1).max(60),
+  japanese: z.string().trim().min(1).max(60),
+  partOfSpeech: z.enum(['noun', 'verb', 'adjective', 'adverb']),
+  examTags: z.array(
+    z.enum(['kyotsu', 'kokkouritsu', 'shiritsu', 'toefl', 'ielts', 'eiken']),
+  ).max(6).optional(),
+}).strict();
+
+const derivedWordsSchema = z.object({
+  version: z.literal(1),
+  items: z.array(derivedWordItemSchema).min(1).max(3),
+  none: z.boolean().optional(),
+}).strict();
+
 const translationSchema = z.object({
   japanese: z.string().trim().min(1).max(300).optional(),
   translationJa: z.string().trim().min(1).max(300).optional(),
@@ -102,6 +117,7 @@ const wordInputSchema = z.object({
   wordOrderQuiz: wordOrderQuizSchema.optional(),
   customSections: z.array(customSectionSchema).max(20).optional(),
   morphology: morphologySchema.optional(),
+  derivedWords: derivedWordsSchema.optional(),
   status: z.enum(['new', 'review', 'active', 'mastered']).optional(),
   createdAt: z.string().datetime().optional(),
   lastReviewedAt: z.string().datetime().optional(),
@@ -227,6 +243,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         insights_version: word.insightsVersion ?? null,
         word_order_quiz: word.wordOrderQuiz ?? null,
         morphology: word.morphology ?? null,
+        derived_words: word.derivedWords ?? null,
         status: word.status ?? 'new',
         created_at: word.createdAt ?? new Date().toISOString(),
         last_reviewed_at: word.lastReviewedAt ?? null,

@@ -6,6 +6,8 @@ import { desktopPosLabel } from '@/components/desktop/desktop-data';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
+import { DerivedWordsList } from '@/components/word/DerivedWordsList';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { speakEnglish } from '@/lib/speech';
 import type { Word } from '@/types';
@@ -142,6 +144,15 @@ export function DesktopWordDetailModal({
               <div style={{ fontSize: 13, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 12, whiteSpace: 'pre-line' }}>
                 {morphology.explanation}
               </div>
+            </div>
+          )}
+
+          {hasDisplayableDerivedWords(word.derivedWords) && (
+            <div>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Icon name="family_history" style={{ fontSize: 14 }} />派生語
+              </div>
+              <DerivedWordsList derivedWords={word.derivedWords} />
             </div>
           )}
 

@@ -26,14 +26,25 @@ export const MORPHOLOGY_COIN_COST = 2;
 // consume_manual_morphology_coins()。両者のリテラル一致は rates.test.ts で担保。
 export const MANUAL_MORPHOLOGY_COIN_COST = 1;
 
+// 派生語（派生語生成）オプションのサーチャージ。語源解析と同じくスキャン1回に
+// 対する定額（1回のスキャンで数十語ぶん生成するため、1語あたりの手動追加より高い）。
+// SQL側は 20260812090100_derived_words_coin_cost.sql の scan_coin_cost()。
+export const DERIVED_WORDS_COIN_COST = 2;
+
+// 手動追加時の派生語コスト（1語あたり）。SQL側は
+// 20260812090100_derived_words_coin_cost.sql の consume_manual_derived_words_coins()。
+export const MANUAL_DERIVED_WORDS_COIN_COST = 1;
+
 export const MONTHLY_COIN_ALLOWANCE = 300;
 
 export interface ScanCoinCostOptions {
   includeMorphology?: boolean;
+  includeDerivedWords?: boolean;
 }
 
 // 複数モードは重複排除して合算、2枚目以降の画像は+1/枚。
-// 語源解析オプションが有効なら +MORPHOLOGY_COIN_COST。
+// 語源解析オプションが有効なら +MORPHOLOGY_COIN_COST、
+// 派生語オプションが有効なら +DERIVED_WORDS_COIN_COST。
 export function computeScanCoinCost(
   modes: ExtractMode[],
   imageCount: number,
@@ -54,5 +65,11 @@ export function computeScanCoinCost(
     return sum + rate;
   }, 0);
   const morphologyCost = options.includeMorphology ? MORPHOLOGY_COIN_COST : 0;
-  return modeCost + (Math.floor(imageCount) - 1) * EXTRA_IMAGE_COIN_COST + morphologyCost;
+  const derivedWordsCost = options.includeDerivedWords ? DERIVED_WORDS_COIN_COST : 0;
+  return (
+    modeCost
+    + (Math.floor(imageCount) - 1) * EXTRA_IMAGE_COIN_COST
+    + morphologyCost
+    + derivedWordsCost
+  );
 }

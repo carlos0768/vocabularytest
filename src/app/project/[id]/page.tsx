@@ -30,6 +30,10 @@ import {
   readManualMorphologyPref,
   writeManualMorphologyPref,
 } from '@/lib/preferences/manual-morphology-pref';
+import {
+  readManualDerivedWordsPref,
+  writeManualDerivedWordsPref,
+} from '@/lib/preferences/manual-derived-words-pref';
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import {
@@ -203,6 +207,15 @@ export default function ProjectPage() {
   const handleManualWordMorphologyChange = useCallback((enabled: boolean) => {
     setManualWordMorphologyEnabled(enabled);
     writeManualMorphologyPref(enabled);
+  }, []);
+  // 手動追加時の派生語トグル。既定はオフ（後付けの有料オプションのため）。
+  const [manualWordDerivedWordsEnabled, setManualWordDerivedWordsEnabled] = useState(false);
+  useEffect(() => {
+    setManualWordDerivedWordsEnabled(readManualDerivedWordsPref());
+  }, []);
+  const handleManualWordDerivedWordsChange = useCallback((enabled: boolean) => {
+    setManualWordDerivedWordsEnabled(enabled);
+    writeManualDerivedWordsPref(enabled);
   }, []);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
@@ -1119,6 +1132,7 @@ export default function ProjectPage() {
     let enrichedExampleSentence = userExample;
     let enrichedExampleSentenceJa = '';
     let enrichedMorphology: Word['morphology'];
+    let enrichedDerivedWords: Word['derivedWords'];
 
     try {
       const enrichResponse = await fetch('/api/words/enrich-manual', {
@@ -1127,6 +1141,7 @@ export default function ProjectPage() {
         body: JSON.stringify({
           english,
           includeMorphology: manualWordMorphologyEnabled,
+          includeDerivedWords: manualWordDerivedWordsEnabled,
           ...(japaneseInput ? { japanese: japaneseInput } : {}),
           ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
           ...(userExample ? { exampleSentence: userExample } : {}),
@@ -1145,6 +1160,7 @@ export default function ProjectPage() {
             exampleSentenceJa?: string;
           };
           morphology?: Word['morphology'];
+          derivedWords?: Word['derivedWords'];
         };
         if (data.success && data.enriched) {
           if (!japanese) {
@@ -1163,6 +1179,7 @@ export default function ProjectPage() {
           }
           enrichedExampleSentenceJa = data.enriched.exampleSentenceJa ?? '';
           enrichedMorphology = data.morphology;
+          enrichedDerivedWords = data.derivedWords;
         }
       }
     } catch (enrichError) {
@@ -1202,6 +1219,7 @@ export default function ProjectPage() {
       exampleSentence: enrichedExampleSentence || undefined,
       exampleSentenceJa: enrichedExampleSentenceJa || undefined,
       morphology: enrichedMorphology,
+      derivedWords: enrichedDerivedWords,
       status: 'new',
       createdAt: new Date().toISOString(),
       easeFactor: 2.5,
@@ -1233,6 +1251,7 @@ export default function ProjectPage() {
           ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
           ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
           ...(enrichedMorphology ? { morphology: enrichedMorphology } : {}),
+          ...(enrichedDerivedWords ? { derivedWords: enrichedDerivedWords } : {}),
         },
       ])
       .then((created) => {
@@ -1698,11 +1717,13 @@ export default function ProjectPage() {
         partOfSpeech={manualWordPartOfSpeech}
         exampleSentence={manualWordExampleSentence}
         morphologyEnabled={manualWordMorphologyEnabled}
+        derivedWordsEnabled={manualWordDerivedWordsEnabled}
         onEnglishChange={setManualWordEnglish}
         onJapaneseChange={setManualWordJapanese}
         onPartOfSpeechChange={setManualWordPartOfSpeech}
         onExampleSentenceChange={setManualWordExampleSentence}
         onMorphologyEnabledChange={handleManualWordMorphologyChange}
+        onDerivedWordsEnabledChange={handleManualWordDerivedWordsChange}
         onCancel={closeManualWordModal}
         onConfirm={handleSaveManualWord}
       />
@@ -2085,11 +2106,13 @@ function ManualWordModal({
   partOfSpeech,
   exampleSentence,
   morphologyEnabled,
+  derivedWordsEnabled,
   onEnglishChange,
   onJapaneseChange,
   onPartOfSpeechChange,
   onExampleSentenceChange,
   onMorphologyEnabledChange,
+  onDerivedWordsEnabledChange,
   onCancel,
   onConfirm,
 }: {
@@ -2102,11 +2125,13 @@ function ManualWordModal({
   partOfSpeech: string;
   exampleSentence: string;
   morphologyEnabled: boolean;
+  derivedWordsEnabled: boolean;
   onEnglishChange: (value: string) => void;
   onJapaneseChange: (value: string) => void;
   onPartOfSpeechChange: (value: string) => void;
   onExampleSentenceChange: (value: string) => void;
   onMorphologyEnabledChange: (enabled: boolean) => void;
+  onDerivedWordsEnabledChange: (enabled: boolean) => void;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -2221,6 +2246,39 @@ function ManualWordModal({
                 </span>
                 <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
                   接頭語・接尾語・接中語と語根の成り立ちを解説
+                </span>
+              </span>
+            </button>
+
+            {/* 派生語トグル（対象外の語では消費しない） */}
+            <button
+              type="button"
+              onClick={() => onDerivedWordsEnabledChange(!derivedWordsEnabled)}
+              disabled={loading}
+              className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all disabled:opacity-60"
+              style={{
+                borderColor: derivedWordsEnabled ? 'var(--solid-ink)' : 'var(--color-border)',
+                boxShadow: derivedWordsEnabled ? '2px 2px 0 var(--solid-ink)' : 'none',
+              }}
+            >
+              <span
+                className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                style={{
+                  border: `1.25px solid ${derivedWordsEnabled ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                  background: derivedWordsEnabled ? 'var(--color-accent)' : '#fff',
+                }}
+              >
+                {derivedWordsEnabled && <Icon name="check" size={11} className="text-white" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                  <span className="truncate">派生語</span>
+                  <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                    +1コイン/語
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
+                  試験で狙われる派生語を最大3つ（対象語のみ・非対象なら消費なし）
                 </span>
               </span>
             </button>
