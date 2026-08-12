@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties }
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
+import { Modal } from '@/components/ui/modal';
 import { QuizModeTabs } from '@/components/quiz';
 import { getRepository } from '@/lib/db';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
@@ -14,17 +15,19 @@ import {
   buildVoiceQuizMeaningPrompt,
   canRetryVoiceQuiz,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
+  DEFAULT_VOICE_QUIZ_DURATION_SEC,
   normalizeVoiceQuizAttempts,
+  normalizeVoiceQuizDuration,
+  VOICE_QUIZ_DURATION_OPTIONS,
   pickVoiceQuizRetryPrompt,
   randomVoiceQuizPromptOffset,
   resolveVoiceQuizCount,
   VOICE_QUIZ_ATTEMPT_OPTIONS,
 } from '@/lib/quiz/voice-quiz-prompt';
-import { isJapaneseAnswerCorrect } from '@/lib/quiz/voice-quiz-answer';
+import { isAnyJapaneseAnswerCorrect, japaneseAnswerHints } from '@/lib/quiz/voice-quiz-answer';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
 
-const TIMER_DURATION_MS = 6000;
 const TIMER_TICK_MS = 50;
 
 /**
@@ -120,14 +123,19 @@ export default function VoiceQuizPage() {
   const [attemptsAllowed, setAttemptsAllowed] = useState(DEFAULT_VOICE_QUIZ_ATTEMPTS);
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [retryMessage, setRetryMessage] = useState('');
+  /** 1回の解答に使える秒数。開始画面で選ぶ。 */
+  const [durationSec, setDurationSec] = useState(DEFAULT_VOICE_QUIZ_DURATION_SEC);
+  const durationMs = durationSec * 1000;
 
   const [setupState, setSetupState] = useState<SetupState>('checking');
   const [phase, setPhase] = useState<Phase>('narrating');
-  const [timeLeft, setTimeLeft] = useState(TIMER_DURATION_MS);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_VOICE_QUIZ_DURATION_SEC * 1000);
   const [recognizedText, setRecognizedText] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [isDisqualified, setIsDisqualified] = useState(false);
   const [recognitionErrored, setRecognitionErrored] = useState(false);
+  /** 中断の確認を出しているか。出している間はクイズを止める。 */
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recordingRef = useRef<string | null>(null);
@@ -138,6 +146,11 @@ export default function VoiceQuizPage() {
   const attemptSettledRef = useRef(false);
   const attemptRef = useRef(1);
   const attemptsAllowedRef = useRef(DEFAULT_VOICE_QUIZ_ATTEMPTS);
+  /**
+   * 解答時間のミリ秒。カウントダウンや録音開始はレンダー外から読むので、
+   * 出題中に値が変わらない ref を唯一の参照元にする。
+   */
+  const durationMsRef = useRef(DEFAULT_VOICE_QUIZ_DURATION_SEC * 1000);
   const questionRunRef = useRef(0);
   /**
    * いま出題中の単語。`setCurrentIndex` の反映は次のレンダーまで待たされるので、
@@ -261,13 +274,15 @@ export default function VoiceQuizPage() {
 
   /** 1回の試行の結果を受けて、再挑戦させるか問題を確定するかを決める。 */
   const handleAttemptResult = useCallback(
-    async (transcript: string, apiErrored: boolean, run: number) => {
+    async (transcript: string, apiErrored: boolean, run: number, alternatives: string[] = []) => {
       if (attemptSettledRef.current) return;
       attemptSettledRef.current = true;
       const word = activeWordRef.current;
       if (!word || questionRunRef.current !== run) return;
 
-      const correct = !!transcript && isJapaneseAnswerCorrect(transcript, word.japanese);
+      // 最有力の変換が同音異義語で外れることがあるので、候補全体で突き合わせる。
+      const heard = [transcript, ...alternatives].filter(Boolean);
+      const correct = isAnyJapaneseAnswerCorrect(heard, word.japanese);
 
       // 音声認識自体が失敗した場合は、ユーザーの責任ではないので再挑戦させずに確定する。
       if (correct || apiErrored || !canRetryVoiceQuiz(attemptRef.current, attemptsAllowedRef.current)) {
@@ -302,7 +317,7 @@ export default function VoiceQuizPage() {
       chunksRef.current = [];
       setRecognizedText('');
       setRetryMessage('');
-      setTimeLeft(TIMER_DURATION_MS);
+      setTimeLeft(durationMsRef.current);
       setPhase('listening');
       timerStartRef.current = Date.now();
 
@@ -339,6 +354,8 @@ export default function VoiceQuizPage() {
                 audioBase64,
                 encoding: recordedEncoding,
                 languageCode: 'ja-JP',
+                // 同音異義語の変換先を正解の表記に寄せる。
+                phraseHints: japaneseAnswerHints(activeWordRef.current?.japanese ?? ''),
               }),
             });
             const data = await response.json();
@@ -347,7 +364,14 @@ export default function VoiceQuizPage() {
               await handleAttemptResult('', true, run);
               return;
             }
-            await handleAttemptResult(typeof data.transcript === 'string' ? data.transcript : '', false, run);
+            await handleAttemptResult(
+              typeof data.transcript === 'string' ? data.transcript : '',
+              false,
+              run,
+              Array.isArray(data.alternatives)
+                ? data.alternatives.filter((item: unknown): item is string => typeof item === 'string')
+                : [],
+            );
           } catch {
             if (questionRunRef.current === run) await handleAttemptResult('', true, run);
           }
@@ -382,7 +406,7 @@ export default function VoiceQuizPage() {
     setIsCorrect(false);
     setIsDisqualified(false);
     setRecognitionErrored(false);
-    setTimeLeft(TIMER_DURATION_MS);
+    setTimeLeft(durationMsRef.current);
     setPhase('narrating');
 
     void (async () => {
@@ -406,7 +430,7 @@ export default function VoiceQuizPage() {
 
     const tick = () => {
       if (!timerStartRef.current || attemptSettledRef.current) return;
-      const remaining = Math.max(0, TIMER_DURATION_MS - (Date.now() - timerStartRef.current));
+      const remaining = Math.max(0, durationMsRef.current - (Date.now() - timerStartRef.current));
       setTimeLeft(remaining);
       if (remaining <= 0) stopRecording();
     };
@@ -435,16 +459,55 @@ export default function VoiceQuizPage() {
    * ボタンは早送り用に残してあるので、待ちたくないときは従来どおり押せる。
    */
   useEffect(() => {
-    if (phase !== 'answered') return;
+    // 中断の確認中は、裏で問題が進んでしまわないように止めておく。
+    if (phase !== 'answered' || showStopConfirm) return;
     const delay = isCorrect ? AUTO_ADVANCE_CORRECT_MS : AUTO_ADVANCE_INCORRECT_MS;
     const timeoutId = window.setTimeout(() => moveToNextRef.current(), delay);
     return () => window.clearTimeout(timeoutId);
-  }, [phase, isCorrect]);
+  }, [phase, isCorrect, showStopConfirm]);
 
-  const beginSession = (attempts: number) => {
+  /**
+   * 中断の確認を開く。開いている間はクイズを完全に止める。
+   * 進行中の読み上げ・録音を切り、run を進めて解決済みのコールバックを無効化する
+   * (これをしないと、確認中に録音が採点まで走ってしまう)。
+   */
+  const requestStop = useCallback(() => {
+    questionRunRef.current += 1;
+    try { recorderRef.current?.stop(); } catch {}
+    stopSpeaking();
+    timerStartRef.current = null;
+    setShowStopConfirm(true);
+  }, []);
+
+  /** 中断をやめて、いまの問題を最初から出題し直す。 */
+  const resumeQuiz = useCallback(() => {
+    setShowStopConfirm(false);
+    const word = activeWordRef.current;
+    if (word) startQuestion(word);
+  }, [startQuestion]);
+
+  /** ここまでの成績で結果画面へ進む。 */
+  const finishEarly = useCallback(() => {
+    setShowStopConfirm(false);
+    setIsComplete(true);
+  }, []);
+
+  /** 記録を見ずに単語帳へ戻る。 */
+  const exitQuiz = useCallback(() => {
+    setShowStopConfirm(false);
+    backToProject();
+  }, [backToProject]);
+
+  const beginSession = (attempts: number, seconds: number) => {
     if (words.length === 0) return;
     attemptsAllowedRef.current = normalizeVoiceQuizAttempts(attempts);
     setAttemptsAllowed(attemptsAllowedRef.current);
+
+    const normalizedSeconds = normalizeVoiceQuizDuration(seconds);
+    durationMsRef.current = normalizedSeconds * 1000;
+    setDurationSec(normalizedSeconds);
+    setTimeLeft(durationMsRef.current);
+
     setCurrentIndex(0);
     setHasStarted(true);
     startQuestion(words[0]);
@@ -546,36 +609,38 @@ export default function VoiceQuizPage() {
             <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
               読み上げられた英単語の意味を、
               <br />
-              {Math.round(TIMER_DURATION_MS / 1000)}秒以内に日本語で答えてください。
+              {durationSec}秒以内に日本語で答えてください。
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               <StatChip icon="list" label="出題数" value={`${words.length}問`} />
-              <StatChip icon="timer" label="制限時間" value={`${Math.round(TIMER_DURATION_MS / 1000)}秒`} />
+              <StatChip icon="timer" label="解答時間" value={`${durationSec}秒`} />
             </div>
 
-            <p className={cn(EYEBROW, 'mt-6 mb-2 text-left text-[var(--color-muted)]')}>試行回数</p>
-            <div className="flex gap-2" role="group" aria-label="試行回数">
-              {VOICE_QUIZ_ATTEMPT_OPTIONS.map((option) => {
-                const selected = attemptsAllowed === option;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setAttemptsAllowed(option)}
-                    className={cn(
-                      'flex-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] py-3 font-display text-base font-black transition-all duration-100 active:translate-x-px active:translate-y-px',
-                      selected
-                        ? cn('bg-[var(--solid-ink)] text-[var(--color-surface)]', HARD_SHADOW_SM)
-                        : 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
-                    )}
-                  >
-                    {option}回
-                  </button>
-                );
-              })}
-            </div>
+            <SegmentedOptions
+              label="解答時間"
+              options={VOICE_QUIZ_DURATION_OPTIONS}
+              selected={durationSec}
+              onSelect={setDurationSec}
+              format={(option) => `${option}秒`}
+              className="mt-6"
+            />
+            <p className="mt-3 text-xs leading-5 text-[var(--color-muted)]">
+              {durationSec <= 4
+                ? '短いほどテンポよく進みますが、言い切る前に締め切られることがあります。'
+                : durationSec >= 15
+                ? '長い意味や、考えてから答えたいときに。'
+                : '答え終わったら「話し終わった」を押せば、待たずに次へ進めます。'}
+            </p>
+
+            <SegmentedOptions
+              label="試行回数"
+              options={VOICE_QUIZ_ATTEMPT_OPTIONS}
+              selected={attemptsAllowed}
+              onSelect={setAttemptsAllowed}
+              format={(option) => `${option}回`}
+              className="mt-5"
+            />
             <p className="mt-3 mb-6 min-h-[2.5rem] text-xs leading-5 text-[var(--color-muted)]">
               {attemptsAllowed === 1
                 ? '1回でも間違えるとその問題は終了します。'
@@ -586,7 +651,7 @@ export default function VoiceQuizPage() {
               variant="accent"
               size="lg"
               iconRight="arrow_forward"
-              onClick={() => beginSession(attemptsAllowed)}
+              onClick={() => beginSession(attemptsAllowed, durationSec)}
               className={cn('w-full', HARD_SHADOW)}
             >
               開始する
@@ -688,7 +753,7 @@ export default function VoiceQuizPage() {
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
       <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4">
-        <CloseButton onClick={backToProject} />
+        <CloseButton onClick={requestStop} label="中断する" />
 
         <div className="h-3 flex-1 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
           <div
@@ -742,7 +807,7 @@ export default function VoiceQuizPage() {
                 <>
                   {/* アイコンではなく残り秒数そのものを大きく出す。 */}
                   <div className="relative h-40 w-40">
-                    <CountdownRing progress={timeLeft / TIMER_DURATION_MS} tone={timerTone} />
+                    <CountdownRing progress={timeLeft / durationMs} tone={timerTone} />
                     <div
                       className={cn(
                         'absolute inset-[20px] flex flex-col items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]',
@@ -871,16 +936,69 @@ export default function VoiceQuizPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={showStopConfirm}
+        onClose={resumeQuiz}
+        showCloseButton={false}
+        className={cn(
+          'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] shadow-none',
+          HARD_SHADOW,
+        )}
+      >
+        <div className="p-6 text-center">
+          <p className={cn(EYEBROW, 'text-[var(--color-muted)]')}>Pause</p>
+          <h2 className="mt-1 font-display text-xl font-black text-[var(--solid-ink)]">
+            音読チャレンジを中断しますか?
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
+            全{words.length}問中 {answeredCount}問おわりました。
+            {results.total > 0 && `（正解 ${results.correct}問）`}
+          </p>
+
+          <div className="mt-6 space-y-2.5">
+            <SolidButton
+              variant="accent"
+              size="lg"
+              iconLeft="play_arrow"
+              onClick={resumeQuiz}
+              className={cn('w-full', HARD_SHADOW)}
+            >
+              続ける
+            </SolidButton>
+
+            {/* 1問も解いていないときは見せる結果が無いので出さない。 */}
+            {results.total > 0 && (
+              <SolidButton
+                size="lg"
+                iconLeft="flag"
+                onClick={finishEarly}
+                className={cn('w-full', HARD_SHADOW_SM)}
+              >
+                ここまでの結果を見る
+              </SolidButton>
+            )}
+
+            <button
+              type="button"
+              onClick={exitQuiz}
+              className="w-full py-2 text-sm font-bold text-[var(--color-muted)] underline underline-offset-4"
+            >
+              記録せずに戻る
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-function CloseButton({ onClick }: { onClick: () => void }) {
+function CloseButton({ onClick, label = '閉じる' }: { onClick: () => void; label?: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="閉じる"
+      aria-label={label}
       className={cn(
         'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
         HARD_SHADOW_SM,
@@ -888,6 +1006,50 @@ function CloseButton({ onClick }: { onClick: () => void }) {
     >
       <Icon name="close" size={20} />
     </button>
+  );
+}
+
+/** 開始画面の設定行。解答時間と試行回数で見た目を揃える。 */
+function SegmentedOptions({
+  label,
+  options,
+  selected,
+  onSelect,
+  format,
+  className,
+}: {
+  label: string;
+  options: readonly number[];
+  selected: number;
+  onSelect: (option: number) => void;
+  format: (option: number) => string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <p className={cn(EYEBROW, 'mb-2 text-left text-[var(--color-muted)]')}>{label}</p>
+      <div className="flex gap-2" role="group" aria-label={label}>
+        {options.map((option) => {
+          const isSelected = selected === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => onSelect(option)}
+              className={cn(
+                'flex-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] py-3 font-display text-base font-black transition-all duration-100 active:translate-x-px active:translate-y-px',
+                isSelected
+                  ? cn('bg-[var(--solid-ink)] text-[var(--color-surface)]', HARD_SHADOW_SM)
+                  : 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
+              )}
+            >
+              {format(option)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

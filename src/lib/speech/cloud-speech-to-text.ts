@@ -23,12 +23,25 @@ export interface RecognizeSpeechInput {
   languageCode?: string;
   /** Required for LINEAR16; omitted for WEBM_OPUS/OGG_OPUS so GCP reads it from the container header. */
   sampleRateHertz?: number;
+  /**
+   * 認識のヒントに使う語 (speechContexts)。
+   * 日本語は同音異義語が多く、正しく発音していても別の漢字に変換されて
+   * 不正解になることがある。期待する表記を渡しておくと、音が同じ候補の中から
+   * その表記が選ばれやすくなる。音が違えば選ばれないので、答えの押し付けにはならない。
+   */
+  phraseHints?: string[];
+  /**
+   * 受け取る候補数。1にすると最有力の変換だけになり、同音異義語を取りこぼす。
+   */
+  maxAlternatives?: number;
 }
 
 export interface RecognizeSpeechResult {
   success: true;
   transcript: string;
   confidence: number;
+  /** 認識できた候補すべて (先頭が最有力)。同音異義語の判定に使う。 */
+  alternatives: string[];
 }
 
 /**
@@ -67,6 +80,21 @@ function pickBestAlternative(response: CloudSpeechApiResponse): CloudSpeechApiAl
   return null;
 }
 
+/** 全結果の候補を重複なく平坦化する。同音異義語の別変換がここに並ぶ。 */
+function collectAlternatives(response: CloudSpeechApiResponse): string[] {
+  const transcripts = new Set<string>();
+  for (const result of response.results ?? []) {
+    for (const alternative of result.alternatives ?? []) {
+      const transcript = alternative.transcript?.trim();
+      if (transcript) transcripts.add(transcript);
+    }
+  }
+  return [...transcripts];
+}
+
+/** GCPが受け付ける上限。 */
+const MAX_SPEECH_ALTERNATIVES = 30;
+
 export interface RecognizeSpeechDeps {
   fetchImpl?: typeof fetch;
   apiKey?: string;
@@ -95,12 +123,23 @@ export async function recognizeSpeech(
   const config: Record<string, unknown> = {
     encoding: input.encoding,
     languageCode: input.languageCode ?? 'en-US',
-    maxAlternatives: 1,
+    maxAlternatives: Math.min(
+      Math.max(input.maxAlternatives ?? 1, 1),
+      MAX_SPEECH_ALTERNATIVES,
+    ),
     // 単語1語の短い発話が対象のため、通話・動画向けenhancedモデルは不要。
     model: 'default',
   };
   if (input.encoding === 'LINEAR16' && input.sampleRateHertz) {
     config.sampleRateHertz = input.sampleRateHertz;
+  }
+
+  // 期待する表記をヒントとして渡し、同音異義語の変換先を寄せる。
+  const phrases = (input.phraseHints ?? [])
+    .map((phrase) => phrase.trim())
+    .filter((phrase) => phrase.length > 0);
+  if (phrases.length > 0) {
+    config.speechContexts = [{ phrases }];
   }
 
   try {
@@ -128,6 +167,7 @@ export async function recognizeSpeech(
       success: true,
       transcript: best?.transcript?.trim() ?? '',
       confidence: typeof best?.confidence === 'number' ? best.confidence : 0,
+      alternatives: data ? collectAlternatives(data) : [],
     };
   } catch (error) {
     return {

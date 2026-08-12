@@ -111,6 +111,32 @@ export const DEFAULT_VOICE_QUIZ_ATTEMPTS = 1;
 /** 選択肢として並べる試行回数。 */
 export const VOICE_QUIZ_ATTEMPT_OPTIONS: readonly number[] = [1, 2, 3];
 
+// ============ 解答時間 (duration) ============
+
+export const MIN_VOICE_QUIZ_DURATION_SEC = 4;
+export const MAX_VOICE_QUIZ_DURATION_SEC = 15;
+export const DEFAULT_VOICE_QUIZ_DURATION_SEC = 6;
+
+/** 開始画面に並べる解答時間の選択肢 (秒)。 */
+export const VOICE_QUIZ_DURATION_OPTIONS: readonly number[] = [4, 6, 10, 15];
+
+/**
+ * 外から来た解答時間を 4〜15秒 に丸める。
+ * 未指定 (null/undefined/空文字) は既定値に落とす。`Number(null)` は 0 になるため、
+ * ここで弾かないと「未指定」が最短の4秒として扱われてしまう。
+ */
+export function normalizeVoiceQuizDuration(value: unknown): number {
+  if (value === null || value === undefined || value === '') {
+    return DEFAULT_VOICE_QUIZ_DURATION_SEC;
+  }
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_VOICE_QUIZ_DURATION_SEC;
+  const floored = Math.floor(parsed);
+  if (floored < MIN_VOICE_QUIZ_DURATION_SEC) return MIN_VOICE_QUIZ_DURATION_SEC;
+  if (floored > MAX_VOICE_QUIZ_DURATION_SEC) return MAX_VOICE_QUIZ_DURATION_SEC;
+  return floored;
+}
+
 // ============ 出題数 (count) ============
 
 export const DEFAULT_VOICE_QUIZ_COUNT = 10;

@@ -95,6 +95,83 @@ test('recognizeSpeech returns an empty transcript when GCP found no speech', asy
   }
 });
 
+/** 送信したリクエストボディを覗くための fetch。 */
+function capturingFetch(body: unknown) {
+  const seen: { url: string; payload: Record<string, never> | undefined } = { url: '', payload: undefined };
+  const fetchImpl = (async (url: string, init: { body: string }) => {
+    seen.url = url;
+    seen.payload = JSON.parse(init.body);
+    return { ok: true, status: 200, json: async () => body };
+  }) as unknown as typeof fetch;
+  return { fetchImpl, seen };
+}
+
+test('recognizeSpeech passes phrase hints to GCP as a speech context', async () => {
+  const { fetchImpl, seen } = capturingFetch({ results: [] });
+
+  await recognizeSpeech(
+    { audioBase64: 'AAAA', encoding: 'WEBM_OPUS', phraseHints: ['気づく', '  ', '認識する'] },
+    { apiKey: 'test-key', fetchImpl },
+  );
+
+  const config = (seen.payload as unknown as { config: Record<string, unknown> }).config;
+  assert.deepEqual(config.speechContexts, [{ phrases: ['気づく', '認識する'] }]);
+});
+
+test('recognizeSpeech omits speechContexts when there is nothing to hint', async () => {
+  const { fetchImpl, seen } = capturingFetch({ results: [] });
+
+  await recognizeSpeech(
+    { audioBase64: 'AAAA', encoding: 'WEBM_OPUS', phraseHints: ['   '] },
+    { apiKey: 'test-key', fetchImpl },
+  );
+
+  const config = (seen.payload as unknown as { config: Record<string, unknown> }).config;
+  assert.equal('speechContexts' in config, false);
+});
+
+test('recognizeSpeech clamps maxAlternatives into the range GCP accepts', async () => {
+  for (const [requested, expected] of [[5, 5], [0, 1], [999, 30]] as const) {
+    const { fetchImpl, seen } = capturingFetch({ results: [] });
+    await recognizeSpeech(
+      { audioBase64: 'AAAA', encoding: 'WEBM_OPUS', maxAlternatives: requested },
+      { apiKey: 'test-key', fetchImpl },
+    );
+    const config = (seen.payload as unknown as { config: Record<string, unknown> }).config;
+    assert.equal(config.maxAlternatives, expected);
+  }
+});
+
+test('recognizeSpeech returns every alternative so homophones can be checked', async () => {
+  const result = await recognizeSpeech(
+    { audioBase64: 'AAAA', encoding: 'WEBM_OPUS' },
+    {
+      apiKey: 'test-key',
+      fetchImpl: fakeFetch({
+        ok: true,
+        body: {
+          results: [
+            {
+              alternatives: [
+                { transcript: '築く', confidence: 0.8 },
+                { transcript: '気づく', confidence: 0.7 },
+                { transcript: '気づく' },
+              ],
+            },
+          ],
+        },
+      }),
+    },
+  );
+
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.transcript, '築く');
+    // 重複は畳んだうえで、同音の別変換を残す。
+    assert.deepEqual(result.alternatives, ['築く', '気づく']);
+  }
+});
+
 test('recognizeSpeech surfaces the GCP error message on non-200 responses', async () => {
   const result = await recognizeSpeech(
     { audioBase64: 'AAAA', encoding: 'WEBM_OPUS' },
