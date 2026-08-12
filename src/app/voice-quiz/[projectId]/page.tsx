@@ -122,6 +122,7 @@ export default function VoiceQuizPage() {
     setModeLoaded(true);
   }, []);
 
+
   /** 形式を選んだ。音読ならこの画面のまま、四択なら通常クイズへ移る。 */
   const chooseMode = useCallback(
     (mode: QuizMode) => {
@@ -199,6 +200,20 @@ export default function VoiceQuizPage() {
   const startListeningRef = useRef<(run: number) => void>(() => {});
 
   const currentWord = words[currentIndex] ?? null;
+
+  /**
+   * この端末が四択を選んでいるなら、音読を開いても四択へ送る。
+   * 通常クイズ側と対になる処理。goToNormalQuiz は replace なので堂々巡りにならない。
+   *
+   * この効果は state の宣言より後ろに置くこと —— 依存配列はレンダー中に評価されるので、
+   * 宣言前に書くと modeLoaded が TDZ に入って落ちる。
+   */
+  const redirectedToNormalRef = useRef(false);
+  useEffect(() => {
+    if (!modeLoaded || storedMode !== 'normal' || redirectedToNormalRef.current) return;
+    redirectedToNormalRef.current = true;
+    goToNormalQuiz();
+  }, [modeLoaded, storedMode, goToNormalQuiz]);
 
   // マイク権限 + MediaRecorder対応を一度だけ確認する。
   useEffect(() => {
@@ -574,6 +589,18 @@ export default function VoiceQuizPage() {
           <p className="text-[var(--color-muted)]">
             {setupState === 'checking' ? 'マイクを確認中...' : '準備中...'}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 四択が選ばれている: 送るまで音読の画面は描かない (マイクも起こさない)。
+  if (storedMode === 'normal') {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--color-muted)]">通常クイズを開いています...</p>
         </div>
       </div>
     );
