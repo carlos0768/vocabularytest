@@ -11,7 +11,9 @@ import { getRepository } from '@/lib/db';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
-import { speakAndWait, stopSpeaking } from '@/lib/speech';
+import { stopSpeaking } from '@/lib/speech';
+import { speakVoiceQuiz, stopVoiceQuizAudio } from '@/lib/quiz/voice-quiz-speech';
+import { VOICE_QUIZ_RESULT_ANNOUNCEMENTS, type VoiceQuizResultKey } from '@/lib/quiz/voice-quiz-audio';
 import {
   buildVoiceQuizAnswerAnnouncement,
   buildVoiceQuizPromptFor,
@@ -19,6 +21,7 @@ import {
   DEFAULT_VOICE_QUIZ_DIRECTION,
   recognitionLanguageFor,
   type VoiceQuizDirection,
+  type VoiceQuizPromptSegment,
   DEFAULT_VOICE_QUIZ_ATTEMPTS,
   DEFAULT_VOICE_QUIZ_DURATION_SEC,
   MAX_VOICE_QUIZ_DURATION_SEC,
@@ -326,18 +329,29 @@ export default function VoiceQuizPage() {
       }
       recordActivity();
 
-      // 正解ならすぐ次へ行くので何も読まない。外したときだけ正解を知らせる。
-      if (!correct) {
-        const announcement = buildVoiceQuizAnswerAnnouncement(directionRef.current, word);
-        const announcementRun = questionRunRef.current;
-        void (async () => {
-          for (const segment of announcement) {
-            // 次の問題へ進んだあとに前の答えが流れ続けないよう、毎回確かめる。
-            if (questionRunRef.current !== announcementRun) return;
-            await speakAndWait(segment.text, segment.lang);
-          }
-        })();
-      }
+      // 判定を声でも伝える。外したときは続けて正解を読み上げる。
+      // 正解のときは短い一言だけ —— すぐ次の問題へ進むので、長く喋る間が無い。
+      const resultKey: VoiceQuizResultKey = correct
+        ? 'correct'
+        : skipped
+        ? 'gaveUp'
+        : disqualified
+        ? 'disqualified'
+        : 'incorrect';
+
+      const announcement: VoiceQuizPromptSegment[] = [
+        { text: VOICE_QUIZ_RESULT_ANNOUNCEMENTS[resultKey], lang: 'ja' },
+        ...(correct ? [] : buildVoiceQuizAnswerAnnouncement(directionRef.current, word)),
+      ];
+
+      const announcementRun = questionRunRef.current;
+      void (async () => {
+        for (const segment of announcement) {
+          // 次の問題へ進んだあとに前の答えが流れ続けないよう、毎回確かめる。
+          if (questionRunRef.current !== announcementRun) return;
+          await speakVoiceQuiz(segment.text, segment.lang);
+        }
+      })();
 
       try {
         const newStatus = getStatusAfterAnswer(word.status, correct);
@@ -378,7 +392,7 @@ export default function VoiceQuizPage() {
       setRetryMessage(retryPrompt);
       setPhase('retrying');
 
-      await speakAndWait(retryPrompt, 'ja');
+      await speakVoiceQuiz(retryPrompt, 'ja');
       if (questionRunRef.current !== run) return;
 
       attemptRef.current += 1;
@@ -502,7 +516,7 @@ export default function VoiceQuizPage() {
         promptOffsetRef.current + run,
       );
       for (const segment of segments) {
-        await speakAndWait(segment.text, segment.lang);
+        await speakVoiceQuiz(segment.text, segment.lang);
         if (questionRunRef.current !== run) return;
       }
       startListeningRef.current(run);
@@ -564,6 +578,7 @@ export default function VoiceQuizPage() {
     questionRunRef.current += 1;
     try { recorderRef.current?.stop(); } catch {}
     stopSpeaking();
+    stopVoiceQuizAudio();
     timerStartRef.current = null;
     void finishQuestion('', false, false, true);
   }, [finishQuestion]);
@@ -577,6 +592,7 @@ export default function VoiceQuizPage() {
     questionRunRef.current += 1;
     try { recorderRef.current?.stop(); } catch {}
     stopSpeaking();
+    stopVoiceQuizAudio();
     timerStartRef.current = null;
     setShowStopConfirm(true);
   }, []);
@@ -628,6 +644,7 @@ export default function VoiceQuizPage() {
     return () => {
       try { recorderRef.current?.stop(); } catch {}
       stopSpeaking();
+    stopVoiceQuizAudio();
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
