@@ -126,6 +126,7 @@ export function WordDetailView({
   const [editJapanese, setEditJapanese] = useState('');
   const [editExampleSentence, setEditExampleSentence] = useState('');
   const [editExampleSentenceJa, setEditExampleSentenceJa] = useState('');
+  const [derivedWordsExpanded, setDerivedWordsExpanded] = useState(false);
 
   // Swapy — order tracking via ref (NOT state) to avoid re-render conflicts
   const swapyContainerRef = useRef<HTMLDivElement>(null);
@@ -540,11 +541,24 @@ export function WordDetailView({
           <>
             <SectionDivider />
             <section className="py-4">
-              <div className="mb-3 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setDerivedWordsExpanded((prev) => !prev)}
+                aria-expanded={derivedWordsExpanded}
+                aria-label={derivedWordsExpanded ? '派生語を閉じる' : '派生語を開く'}
+                className="flex w-full items-center justify-between"
+              >
                 <SectionHeading title="DERIVATIVES" />
-                <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">派生語</span>
-              </div>
-              <DerivedWordsList derivedWords={derivedWords} />
+                <span className="flex items-center gap-1">
+                  <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">派生語</span>
+                  <Icon name={derivedWordsExpanded ? 'expand_less' : 'expand_more'} size={18} />
+                </span>
+              </button>
+              {derivedWordsExpanded && (
+                <div className="mt-3">
+                  <DerivedWordsList derivedWords={derivedWords} />
+                </div>
+              )}
             </section>
           </>
         )}
