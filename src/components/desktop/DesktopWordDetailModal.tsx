@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { desktopPosLabel } from '@/components/desktop/desktop-data';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
@@ -31,6 +31,7 @@ export function DesktopWordDetailModal({
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完する
   const morphology = useMorphologyBackfill(word);
   const derivedWords = useDerivedWordsBackfill(word);
+  const [derivedWordsExpanded, setDerivedWordsExpanded] = useState(false);
 
   return (
     <div className="ds-overlay" onClick={onClose}>
@@ -151,10 +152,19 @@ export function DesktopWordDetailModal({
 
           {hasDisplayableDerivedWords(derivedWords) && (
             <div>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Icon name="family_history" style={{ fontSize: 14 }} />派生語
-              </div>
-              <DerivedWordsList derivedWords={derivedWords} />
+              <button
+                type="button"
+                onClick={() => setDerivedWordsExpanded((prev) => !prev)}
+                aria-expanded={derivedWordsExpanded}
+                aria-label={derivedWordsExpanded ? '派生語を閉じる' : '派生語を開く'}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: derivedWordsExpanded ? 10 : 0 }}
+              >
+                <span className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="family_history" style={{ fontSize: 14 }} />派生語
+                </span>
+                <Icon name={derivedWordsExpanded ? 'expand_less' : 'expand_more'} style={{ fontSize: 18, color: 'var(--color-muted)' }} />
+              </button>
+              {derivedWordsExpanded && <DerivedWordsList derivedWords={derivedWords} />}
             </div>
           )}
 

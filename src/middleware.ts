@@ -27,7 +27,12 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      * - api routes (handled separately)
+     *
+     * APIを除いているのは、そこで守るものが無いのに全リクエストを通すため。
+     * protectedPaths は画面のパスだけなので、updateSession は /api を素通し
+     * していた —— 認証はルート側が自分で見る。それでも本文ごと通ってはいて、
+     * 音声のような大きなPOSTをミドルウェア層に運ばせる意味は無い。
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
