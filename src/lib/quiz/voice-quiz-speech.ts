@@ -23,9 +23,23 @@ const PLAY_START_TIMEOUT_MS = 1500;
 
 /**
  * 鳴り始めたあと、鳴り終わるのを待つ上限。
- * 読み上げるのは一息ぶんの短い文なので、これを超えるのは異常。
+ * 長さが分からないときの保険で、通常は音声そのものの長さから決める。
  */
 const PLAY_END_TIMEOUT_MS = 12_000;
+
+/**
+ * 音声の長さから、鳴り終わりを待つ上限を決める。
+ *
+ * 一律で長く待つと、`ended` が上がらなかったときにそのぶん丸ごと止まる ——
+ * iOS は再生が中断されるとイベントを上げないことがあり、1片ごとに
+ * 十数秒の沈黙になって「出題が始まらない」ように見える。
+ * 実際の長さが分かるなら、それを少し超えたところで見切る。
+ */
+export function playbackTimeoutMs(durationSeconds: number): number {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return PLAY_END_TIMEOUT_MS;
+  // 再生の遅れぶんの余裕を足す。短い掛け声でも1秒は待つ。
+  return Math.min(Math.round(durationSeconds * 1000 * 1.5) + 1000, PLAY_END_TIMEOUT_MS);
+}
 
 /** 文言 → 音声ファイルの索引。1度だけ組み立てる。 */
 let audioIndex: Map<string, string> | null = null;
@@ -101,8 +115,18 @@ async function playClip(url: string): Promise<boolean> {
     audio.onplaying = () => {
       started = true;
       window.clearTimeout(startTimer);
-      // 鳴り始めたら、終わらない場合に備えて上限だけ張る。
-      endTimer = window.setTimeout(() => settle(true, false), PLAY_END_TIMEOUT_MS);
+      // 鳴り始めたら、終わらない場合に備えて上限を張る。
+      // 上限はこの音声の長さから決める (この時点なら大抵は分かっている)。
+      endTimer = window.setTimeout(
+        () => settle(true, false),
+        playbackTimeoutMs(audio.duration),
+      );
+    };
+
+    // 再生が途中で止められたときも、待っている側を解放する。
+    // iOS は着信や音声セッションの切り替えで再生を止め、`ended` を上げない。
+    audio.onpause = () => {
+      if (started && !audio.ended) settle(true, false);
     };
 
     // 再生が始まらないまま黙っているケース (自動再生の制限や読み込み停滞)。
