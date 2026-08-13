@@ -8,6 +8,7 @@ import {
   mixToMono,
   passthroughEncodingFor,
   resampleMono,
+  trimSilence,
 } from './recorded-audio';
 
 test('opus containers are sent as they are', () => {
@@ -103,4 +104,35 @@ test('base64 encoding matches for the awkward lengths around a chunk boundary', 
     for (let i = 0; i < length; i += 1) bytes[i] = (i * 7) % 256;
     assert.equal(bytesToBase64(bytes), Buffer.from(bytes).toString('base64'), `length ${length}`);
   }
+});
+
+/**
+ * 録音の窓は解答時間ぶん開いているが、話しているのはその一部。
+ * 生PCMは圧縮が効かないので、無音がそのまま送信量になる。
+ */
+test('silence around the answer is trimmed away', () => {
+  const rate = 16000;
+  const samples = new Float32Array(rate * 6); // 6秒の窓
+  // 2.0〜2.5秒のところだけ声が入っている。
+  for (let i = rate * 2; i < rate * 2.5; i += 1) samples[i] = 0.5;
+
+  const trimmed = trimSilence(samples, rate);
+  // 前後に0.15秒ずつ残して、0.8秒ぶんになる。
+  assert.equal(trimmed.length, Math.round(rate * 0.8));
+  assert.ok(trimmed.length < samples.length / 5);
+});
+
+test('a quiet recording is kept rather than mistaken for silence', () => {
+  const rate = 16000;
+  const samples = new Float32Array(rate);
+  // 小さい声。固定の閾値だと丸ごと消える。
+  for (let i = 0; i < rate; i += 1) samples[i] = 0.004;
+
+  assert.equal(trimSilence(samples, rate).length, samples.length);
+});
+
+test('an entirely silent recording is left alone', () => {
+  const samples = new Float32Array(1000);
+  assert.equal(trimSilence(samples, 16000).length, samples.length);
+  assert.equal(trimSilence(new Float32Array(0), 16000).length, 0);
 });

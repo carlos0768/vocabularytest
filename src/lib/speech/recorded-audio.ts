@@ -79,6 +79,50 @@ export function resampleMono(
   return resampled;
 }
 
+/**
+ * 前後の無音を落とす。
+ *
+ * 録音の窓は解答時間ぶん (既定6秒) 開いているが、実際に話しているのは
+ * 1〜2秒で、残りは無音のまま送っている。生PCMは圧縮が効かないので、
+ * この無音がそのまま送信量になる —— 携帯回線では効いてくるうえ、
+ * 認識にも何も足さない。
+ *
+ * 閾値は最大音量からの相対で決める。固定値にすると、小さい声の録音を
+ * 丸ごと無音と見なして消してしまう。
+ */
+export function trimSilence(
+  samples: Float32Array,
+  sampleRate: number,
+  paddingSeconds = 0.15,
+): Float32Array {
+  if (samples.length === 0) return samples;
+
+  let peak = 0;
+  for (let i = 0; i < samples.length; i += 1) {
+    const level = Math.abs(samples[i]);
+    if (level > peak) peak = level;
+  }
+
+  // 何も入っていない録音。切り詰めず、そのまま送って判断は認識側に任せる。
+  if (peak === 0) return samples;
+
+  const threshold = peak * 0.06;
+  let first = -1;
+  let last = -1;
+  for (let i = 0; i < samples.length; i += 1) {
+    if (Math.abs(samples[i]) < threshold) continue;
+    if (first < 0) first = i;
+    last = i;
+  }
+  if (first < 0) return samples;
+
+  // 語頭・語尾を削り落とさないよう、前後に少し残す。
+  const padding = Math.max(0, Math.floor(paddingSeconds * sampleRate));
+  const start = Math.max(0, first - padding);
+  const end = Math.min(samples.length, last + padding + 1);
+  return samples.subarray(start, end);
+}
+
 /** -1〜1 の波形を 16bit リトルエンディアンの生PCMにする。 */
 export function floatsToPcm16(samples: Float32Array): Uint8Array {
   const bytes = new Uint8Array(samples.length * 2);
@@ -145,7 +189,8 @@ export async function toLinear16(blob: Blob): Promise<Linear16Audio | null> {
     const mono = resampleMono(mixToMono(channels), decoded.sampleRate, LINEAR16_SAMPLE_RATE);
     if (mono.length === 0) return null;
 
-    return { pcm: floatsToPcm16(mono), sampleRateHertz: LINEAR16_SAMPLE_RATE };
+    const spoken = trimSilence(mono, LINEAR16_SAMPLE_RATE);
+    return { pcm: floatsToPcm16(spoken), sampleRateHertz: LINEAR16_SAMPLE_RATE };
   } catch {
     return null;
   } finally {
