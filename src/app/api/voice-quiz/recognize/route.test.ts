@@ -18,6 +18,7 @@ function jsonRequest(body: unknown, headers: Record<string, string> = {}) {
 function createClient(
   user: { id: string } | null = { id: 'user-1' },
   usage: Record<string, unknown> = { allowed: true, requires_pro: false, current_count: 1, limit: 30, is_pro: false },
+  onRpc?: (name: string, params: Record<string, unknown>) => void,
 ) {
   return {
     auth: {
@@ -27,7 +28,10 @@ function createClient(
         token,
       }),
     },
-    rpc: async () => ({ data: usage, error: null }),
+    rpc: async (name: string, params: Record<string, unknown>) => {
+      onRpc?.(name, params);
+      return { data: usage, error: null };
+    },
   };
 }
 
@@ -149,6 +153,34 @@ test('voice-quiz recognize marks the daily limit so the quiz can stop instead of
   assert.equal(payload.limitReached, true);
   // 回数が入っていないと、何回でやめさせられたのか画面に出せない。
   assert.match(payload.error, /30/);
+});
+
+/**
+ * Proは音読チャレンジを回数で止めない。RPCは 0 以下の上限を「上限なし」として
+ * 扱うので、ここで 0 以外を渡すと Pro が黙って上限つきに戻る。
+ * 無料プランの30回はそのまま残す。
+ */
+test('voice-quiz recognize asks for an unlimited pro allowance and keeps the free one', async () => {
+  const calls: { name: string; params: Record<string, unknown> }[] = [];
+
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }, { authorization: 'Bearer token-1' }),
+    {
+      createClient: async () => createClient(
+        { id: 'user-1' },
+        { allowed: true, requires_pro: false, current_count: 400, limit: null, is_pro: true },
+        (name, params) => calls.push({ name, params }),
+      ) as never,
+      recognize: async () => ({ success: true, transcript: 'clarify', confidence: 0.9, alternatives: [] }),
+    },
+  );
+
+  // 旧上限(300回)を超えていても通る。
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, 'check_and_increment_feature_usage');
+  assert.equal(calls[0].params.p_pro_limit, 0);
+  assert.equal(calls[0].params.p_free_limit, 30);
 });
 
 /**
