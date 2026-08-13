@@ -150,3 +150,62 @@ test('voice-quiz recognize marks the daily limit so the quiz can stop instead of
   // 回数が入っていないと、何回でやめさせられたのか画面に出せない。
   assert.match(payload.error, /30/);
 });
+
+/**
+ * iOS Safari は mp4(AAC) でしか録音できず、GCPはAACを受け取れない。
+ * クライアントで生PCMに直して送るので、この経路が閉じているとスマホでは
+ * 1問も認識できない。
+ */
+test('voice-quiz recognize accepts converted LINEAR16 audio with its sample rate', async () => {
+  let seen: Record<string, unknown> | null = null;
+
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest(
+      { audioBase64: 'AAAA', encoding: 'LINEAR16', sampleRateHertz: 16000 },
+      { authorization: 'Bearer token-1' },
+    ),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async (input) => {
+        seen = input as unknown as Record<string, unknown>;
+        return { success: true, transcript: '入念に作り上げる', confidence: 0.8, alternatives: [] };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  // レートを落とすと、GCPは生PCMを別の速さで読んで必ず外す。
+  assert.equal(seen!.encoding, 'LINEAR16');
+  assert.equal(seen!.sampleRateHertz, 16000);
+});
+
+test('voice-quiz recognize rejects LINEAR16 without a sample rate', async () => {
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest({ audioBase64: 'AAAA', encoding: 'LINEAR16' }, { authorization: 'Bearer token-1' }),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async () => {
+        throw new Error('recognize should not run without a sample rate');
+      },
+    },
+  );
+
+  assert.equal(response.status, 400);
+});
+
+test('voice-quiz recognize refuses a sample rate outside what GCP takes', async () => {
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest(
+      { audioBase64: 'AAAA', encoding: 'LINEAR16', sampleRateHertz: 192000 },
+      { authorization: 'Bearer token-1' },
+    ),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async () => {
+        throw new Error('recognize should not run');
+      },
+    },
+  );
+
+  assert.equal(response.status, 400);
+});

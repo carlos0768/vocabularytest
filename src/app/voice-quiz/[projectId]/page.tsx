@@ -14,6 +14,7 @@ import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { stopSpeaking } from '@/lib/speech';
 import { speakVoiceQuiz, stopVoiceQuizAudio } from '@/lib/quiz/voice-quiz-speech';
+import { passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
 import { VOICE_QUIZ_RESULT_ANNOUNCEMENTS, type VoiceQuizResultKey } from '@/lib/quiz/voice-quiz-audio';
 import {
   buildVoiceQuizAnswerAnnouncement,
@@ -69,31 +70,36 @@ const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-ink)]';
 /** 見出しの上に置く小さなラベル。 */
 const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em]';
 
-type RecordingEncoding = 'WEBM_OPUS' | 'OGG_OPUS';
-
+/**
+ * 録音に使う MIME の候補。opus で録れれば圧縮済みのまま送れる。
+ * どれも通らない端末 (iOS Safari) では、ブラウザの既定で録って
+ * LINEAR16 に変換してから送る —— ここで諦めると音読自体ができない。
+ */
 const CANDIDATE_MIME_TYPES = [
   'audio/webm;codecs=opus',
   'audio/webm',
   'audio/ogg;codecs=opus',
+  'audio/mp4',
 ];
 
-/** 録音に使う MIME を選ぶ。エンコーディングは録音後の実際の出力から決める。 */
-function pickSupportedMimeType(): string | null {
-  if (typeof MediaRecorder === 'undefined') return null;
-  return CANDIDATE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? null;
-}
+/** ブラウザの既定で録ることを表す値。MediaRecorder には何も渡さない。 */
+const BROWSER_DEFAULT_MIME_TYPE = '';
 
 /**
- * MediaRecorder が実際に出力した MIME から、送信するエンコーディングを決める。
- * Safari は `isTypeSupported` が true を返しても mp4/aac で録音することがあり、
- * 要求した側の encoding をそのまま送ると Cloud Speech-to-Text 側で必ず失敗する。
- * 宣言ではなく実際の出力を唯一の判断材料にする。
+ * 録音に使う MIME を選ぶ。エンコーディングは録音後の実際の出力から決める。
+ * null は「この端末では録音できない」。
  */
-function encodingFromMimeType(mimeType: string): RecordingEncoding | null {
-  const type = mimeType.toLowerCase();
-  if (type.includes('webm')) return 'WEBM_OPUS';
-  if (type.includes('ogg')) return 'OGG_OPUS';
-  return null;
+function pickSupportedMimeType(): string | null {
+  if (typeof MediaRecorder === 'undefined') return null;
+  return (
+    CANDIDATE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType))
+    ?? BROWSER_DEFAULT_MIME_TYPE
+  );
+}
+
+/** Uint8Array の中身だけを ArrayBuffer として取り出す。 */
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -490,7 +496,9 @@ export default function VoiceQuizPage() {
       timerStartRef.current = Date.now();
 
       const mimeType = recordingRef.current;
-      const recorder = new MediaRecorder(streamRef.current, { mimeType });
+      const recorder = mimeType
+        ? new MediaRecorder(streamRef.current, { mimeType })
+        : new MediaRecorder(streamRef.current);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
@@ -503,25 +511,41 @@ export default function VoiceQuizPage() {
           try {
             // 要求した mimeType ではなく、MediaRecorder が実際に採用した型で判断する。
             const recordedMimeType = recorder.mimeType || mimeType;
-            const recordedEncoding = encodingFromMimeType(recordedMimeType);
             const blob = new Blob(chunksRef.current, { type: recordedMimeType });
 
-            if (!recordedEncoding || blob.size === 0) {
-              console.error(
-                `Voice quiz recording unusable (mimeType=${recordedMimeType}, bytes=${blob.size})`,
-              );
+            if (blob.size === 0) {
+              console.error(`Voice quiz recording empty (mimeType=${recordedMimeType})`);
               consecutiveRecognitionErrorsRef.current += 1;
+              setRecognitionErrorMessage(`録音できませんでした (${recordedMimeType || '形式不明'})`);
               await handleAttemptResult('', true, run);
               return;
             }
 
-            const audioBase64 = arrayBufferToBase64(await blob.arrayBuffer());
+            // opus で録れていればそのまま送る。iOS Safari の mp4(AAC) は
+            // GCPが受け取れないので、ここでデコードして生PCMに直す。
+            const passthrough = passthroughEncodingFor(recordedMimeType);
+            const converted = passthrough ? null : await toLinear16(blob);
+
+            if (!passthrough && !converted) {
+              console.error(
+                `Voice quiz recording unusable (mimeType=${recordedMimeType}, bytes=${blob.size})`,
+              );
+              consecutiveRecognitionErrorsRef.current += 1;
+              setRecognitionErrorMessage(`この端末の録音形式を変換できませんでした (${recordedMimeType || '形式不明'})`);
+              await handleAttemptResult('', true, run);
+              return;
+            }
+
+            const audioBase64 = arrayBufferToBase64(
+              converted ? toArrayBuffer(converted.pcm) : await blob.arrayBuffer(),
+            );
             const response = await fetch('/api/voice-quiz/recognize', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 audioBase64,
-                encoding: recordedEncoding,
+                encoding: passthrough ?? 'LINEAR16',
+                ...(converted ? { sampleRateHertz: converted.sampleRateHertz } : {}),
                 languageCode: recognitionLanguageFor(directionRef.current),
                 // 期待する表記をヒントに渡す。日本語は同音異義語の変換先を寄せるため、
                 // 英語は綴りの近い語に流れるのを防ぐため。

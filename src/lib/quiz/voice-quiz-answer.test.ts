@@ -87,7 +87,8 @@ test('japaneseAnswerHints keeps the original spelling so hints stay usable', () 
 test('japaneseAnswerHints splits meanings and offers the parenthetical-free form', () => {
   const hints = japaneseAnswerHints('気づく、(人に)与える');
   assert.ok(hints.includes('気づく'));
-  assert.ok(hints.includes('(人に)与える'));
+  // 括弧は読み上げられないので、ヒントとしては記号を落とした形で渡す。
+  assert.ok(hints.includes('人に与える'));
   assert.ok(hints.includes('与える'));
 });
 
@@ -119,4 +120,51 @@ test('any English candidate may carry the right spelling', () => {
 test('multi-word English answers collapse internal spacing', () => {
   assert.equal(normalizeEnglishAnswer('give   up'), 'give up');
   assert.equal(isEnglishAnswerCorrect('give  up', 'give up'), true);
+});
+
+// ============ 括弧書きの補足 ============
+
+/**
+ * 訳には「(人に)与える」「【他動詞】〜を許す」のように品詞や用法が
+ * 添えられていることがある。声に出すときそこは読まないので、
+ * 本体だけ答えても正解にする。
+ */
+test('every kind of bracket is treated as a note, not as the meaning', () => {
+  assert.equal(isJapaneseAnswerCorrect('与える', '（人に）与える'), true);
+  assert.equal(isJapaneseAnswerCorrect('許す', '【他動詞】〜を許す'), true);
+  assert.equal(isJapaneseAnswerCorrect('美しい', '［形］美しい'), true);
+  assert.equal(isJapaneseAnswerCorrect('高める', '[動]高める'), true);
+});
+
+/**
+ * 括弧の中に区切り文字が入っていると、先に区切りで割ってしまった時代は
+ * 閉じない括弧が残って中身が消せなかった。
+ */
+test('a separator inside the note does not leave the note behind', () => {
+  assert.equal(isJapaneseAnswerCorrect('与える', '(人に、物を)与える'), true);
+  assert.equal(isJapaneseAnswerCorrect('与える', '（人に・物を）与える'), true);
+});
+
+test('a long note no longer swamps the answer', () => {
+  // 「他動詞を許す」に対して「許す」は半分未満なので、括弧を落とさないと落ちる。
+  assert.equal(isJapaneseAnswerCorrect('許す', '【他動詞・文語】〜を許す'), true);
+});
+
+test('the note is not itself an acceptable answer', () => {
+  assert.equal(isJapaneseAnswerCorrect('人に', '(人に)与える'), false);
+});
+
+test('recognition hints carry no bracket characters', () => {
+  const hints = japaneseAnswerHints('(人に)与える、譲る');
+  assert.ok(hints.includes('与える'));
+  assert.ok(hints.includes('人に与える'), hints.join('|'));
+  for (const hint of hints) {
+    assert.ok(!/[（()）【】［\][]/.test(hint), `bracket left in hint: ${hint}`);
+  }
+});
+
+test('a parenthetical in the spelling does not have to be spoken either', () => {
+  assert.equal(isEnglishAnswerCorrect('take', 'take (after)'), true);
+  assert.equal(isEnglishAnswerCorrect('take after', 'take (after)'), true);
+  assert.equal(isEnglishAnswerCorrect('after', 'take (after)'), false);
 });
