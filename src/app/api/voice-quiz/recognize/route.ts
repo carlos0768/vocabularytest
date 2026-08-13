@@ -37,7 +37,13 @@ const VOICE_QUIZ_MAX_ALTERNATIVES = 5;
 
 const requestSchema = z.object({
   audioBase64: z.string().trim().min(1).max(MAX_AUDIO_BASE64_LENGTH),
-  encoding: z.enum(['WEBM_OPUS', 'OGG_OPUS']),
+  /**
+   * LINEAR16 は iOS Safari 用。あの端末は webm/ogg を要求しても mp4(AAC) で
+   * 録音し、GCPはAACを受け取れないので、クライアントで生PCMに直して送る。
+   */
+  encoding: z.enum(['WEBM_OPUS', 'OGG_OPUS', 'LINEAR16']),
+  /** LINEAR16 はコンテナが無いので、レートを添えないと解釈できない。 */
+  sampleRateHertz: z.number().int().min(8000).max(48000).optional(),
   languageCode: z.enum(SUPPORTED_LANGUAGE_CODES).optional(),
   /**
    * 認識のヒント。日本語は同音異義語が別の漢字に変換されやすく、正しく答えても
@@ -111,9 +117,18 @@ export async function handleVoiceQuizRecognizePost(
 
     const languageCode = parsed.data.languageCode ?? DEFAULT_LANGUAGE_CODE;
 
+    // 生PCMをレート無しで受けると、GCPが読み違えて必ず認識できない。
+    if (parsed.data.encoding === 'LINEAR16' && !parsed.data.sampleRateHertz) {
+      return NextResponse.json(
+        { success: false, error: '音声データの形式が不正です' },
+        { status: 400 },
+      );
+    }
+
     const result = await recognize({
       audioBase64: parsed.data.audioBase64,
       encoding: parsed.data.encoding,
+      sampleRateHertz: parsed.data.sampleRateHertz,
       languageCode,
       phraseHints: parsed.data.phraseHints,
       maxAlternatives: VOICE_QUIZ_MAX_ALTERNATIVES,

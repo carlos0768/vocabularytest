@@ -19,6 +19,21 @@ const MEANING_SEPARATORS = /[、,，・/／;；|｜\n]/;
 /** 判定に影響しない記号・空白。 */
 const IGNORED_CHARACTERS = /[\s　。．.!！?？「」『』（）()［］[\]【】〈〉《》~〜ー―-]/g;
 
+/**
+ * 括弧書きの補足。訳には「(人に)与える」「【他動詞】〜を許す」のように
+ * 品詞や用法が添えられていることがあり、声に出して答えるときは読まれない。
+ * 中身ごと落とした形も候補に入れて、本体だけ answered ても正解にする。
+ */
+const PARENTHETICAL = /[（(【〔［[][^）)】〕］\]]*[）)】〕］\]]/g;
+
+/** 括弧の記号そのもの。中身は残したいが、記号は読み上げにも判定にも要らない。 */
+const BRACKET_CHARACTERS = /[（)(）【】〔〕［\][]/g;
+
+/** 括弧書きを中身ごと取り除く。 */
+export function stripParentheticals(value: string): string {
+  return value.replace(PARENTHETICAL, ' ').replace(/\s+/g, ' ').trim();
+}
+
 /** カタカナをひらがなに畳む (「コーヒー」と「こーひー」を同一視する)。 */
 function katakanaToHiragana(value: string): string {
   return value.replace(/[ァ-ヶ]/g, (char) =>
@@ -42,18 +57,15 @@ export function normalizeJapaneseAnswer(value: string): string {
  * 括弧書きの補足 (例:「(人に)与える」) は本体と補足の両方を候補に入れる。
  */
 export function japaneseAnswerCandidates(japanese: string): string[] {
-  const parts = japanese.split(MEANING_SEPARATORS);
   const candidates = new Set<string>();
 
-  for (const part of parts) {
-    const normalized = normalizeJapaneseAnswer(part);
-    if (normalized) candidates.add(normalized);
-
-    // 括弧を外した形でも答えられるようにする。
-    const withoutParenthetical = normalizeJapaneseAnswer(
-      part.replace(/[（(][^）)]*[）)]/g, ''),
-    );
-    if (withoutParenthetical) candidates.add(withoutParenthetical);
+  // 括弧を落としてから割る。中に区切り文字が入っていることがあり
+  //(「(人に、物を)与える」)、先に割ると括弧が閉じないまま残ってしまう。
+  for (const source of [japanese, stripParentheticals(japanese)]) {
+    for (const part of source.split(MEANING_SEPARATORS)) {
+      const normalized = normalizeJapaneseAnswer(part);
+      if (normalized) candidates.add(normalized);
+    }
   }
 
   return [...candidates];
@@ -69,12 +81,13 @@ export function japaneseAnswerCandidates(japanese: string): string[] {
 export function japaneseAnswerHints(japanese: string): string[] {
   const hints = new Set<string>();
 
-  for (const part of japanese.split(MEANING_SEPARATORS)) {
-    const trimmed = part.trim();
-    if (trimmed) hints.add(trimmed);
-
-    const withoutParenthetical = part.replace(/[（(][^）)]*[）)]/g, '').trim();
-    if (withoutParenthetical) hints.add(withoutParenthetical);
+  // 括弧の記号が混じったままだと、認識のヒントとしては使いものにならない。
+  // 中身を残した形と、括弧書きごと落とした形の両方を渡す。
+  for (const source of [japanese.replace(BRACKET_CHARACTERS, ''), stripParentheticals(japanese)]) {
+    for (const part of source.split(MEANING_SEPARATORS)) {
+      const trimmed = part.replace(/\s+/g, ' ').trim();
+      if (trimmed) hints.add(trimmed);
+    }
   }
 
   return [...hints];
@@ -141,10 +154,25 @@ export function normalizeEnglishAnswer(value: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * 綴りの側にも「take (after)」のような補足が入っていることがある。
+ * 括弧の中まで言わないと不正解、では厳しすぎるので、落とした形も認める。
+ */
+export function englishAnswerCandidates(english: string): string[] {
+  const candidates = new Set<string>();
+
+  for (const source of [english, stripParentheticals(english)]) {
+    const normalized = normalizeEnglishAnswer(source);
+    if (normalized) candidates.add(normalized);
+  }
+
+  return [...candidates];
+}
+
 /** 認識結果が、その単語の綴りとして妥当かを判定する。 */
 export function isEnglishAnswerCorrect(transcript: string, english: string): boolean {
   const said = normalizeEnglishAnswer(transcript);
-  return said.length > 0 && said === normalizeEnglishAnswer(english);
+  return said.length > 0 && englishAnswerCandidates(english).includes(said);
 }
 
 /**
