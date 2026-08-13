@@ -156,12 +156,21 @@ export function speakAndWait(
   return new Promise((resolve) => {
     let settled = false;
     let timer = 0;
+    let watcher = 0;
 
     const done = () => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
+      window.clearInterval(watcher);
       resolve();
+    };
+
+    // 諦めるとき用。遅れて鳴り始めた声が録音に被らないよう、打ち切ってから返す。
+    const giveUp = () => {
+      if (settled) return;
+      try { window.speechSynthesis.cancel(); } catch {}
+      done();
     };
 
     // onend も onerror も来ないことがある —— iOS Safari では発話が黙って
@@ -169,7 +178,30 @@ export function speakAndWait(
     // そのまま待つと呼び出し側が永久に止まるので、読み上げにかかるであろう
     // 時間から上限を決めて必ず解決する。実際に鳴っていたとしても、次の
     // speakInternal が cancel するので声が重なることはない。
-    timer = window.setTimeout(done, speechTimeoutMs(trimmed));
+    timer = window.setTimeout(giveUp, speechTimeoutMs(trimmed));
+
+    // 上限だけに頼ると、捨てられた発話でも文字数ぶん待たされる。
+    // 鳴っているかを実際に見て、鳴らない/鳴り終わったと分かった時点で返す。
+    const startedAt = Date.now();
+    let spoke = false;
+    watcher = window.setInterval(() => {
+      const synth = window.speechSynthesis;
+      if (synth.speaking || synth.pending) spoke = true;
+
+      const stop = shouldStopWaitingForSpeech({
+        spoke,
+        speaking: synth.speaking,
+        pending: synth.pending,
+        elapsedMs: Date.now() - startedAt,
+        graceMs: SPEAK_DELAY_MS + SPEECH_START_GRACE_MS,
+      });
+      if (!stop) return;
+
+      // 鳴らないまま終わったのなら、遅れて鳴り出さないよう打ち切る。
+      if (spoke) done();
+      else giveUp();
+    }, SPEECH_WATCH_INTERVAL_MS);
+
     speakInternal(trimmed, lang, options, done);
   });
 }
@@ -180,6 +212,38 @@ export function speakAndWait(
  */
 function speechTimeoutMs(text: string): number {
   return Math.min(3000 + text.length * 300, 20_000);
+}
+
+/** 発話が始まるのを待つ猶予。これを過ぎて鳴っていなければ捨てられたとみなす。 */
+const SPEECH_START_GRACE_MS = 1500;
+
+/** 発話しているかを見に行く間隔。 */
+const SPEECH_WATCH_INTERVAL_MS = 200;
+
+export interface SpeechProgress {
+  /** 一度でも鳴っているのを見たか。 */
+  spoke: boolean;
+  speaking: boolean;
+  pending: boolean;
+  /** speak() を頼んでからの経過。 */
+  elapsedMs: number;
+  graceMs: number;
+}
+
+/**
+ * 読み上げを待つのをやめてよいか。
+ *
+ * onend も onerror も来ないことがあるので、実際に鳴っているかを見て決める:
+ * - 鳴っていた声が止まった → 読み終えた
+ * - 猶予を過ぎても鳴り始めない → 捨てられた (iOS でよく起きる)
+ *
+ * これが無いと、捨てられた発話を文字数から決めた上限いっぱい待つことになり、
+ * 1問あたり十数秒の沈黙になって「出題が始まらない」ように見える。
+ */
+export function shouldStopWaitingForSpeech(progress: SpeechProgress): boolean {
+  if (progress.speaking || progress.pending) return false;
+  if (progress.spoke) return true;
+  return progress.elapsedMs >= progress.graceMs;
 }
 
 /** 再生中・待機中の読み上げをすべて停止する。 */

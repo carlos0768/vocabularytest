@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
-import { QuizModeChooser, QuizModeTabs } from '@/components/quiz';
+import { QuizModeChooser } from '@/components/quiz';
 import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
 import { voiceQuizBatch } from '@/lib/quiz/voice-quiz-batch';
 import { getRepository } from '@/lib/db';
@@ -517,10 +517,14 @@ export default function VoiceQuizPage() {
         void (async () => {
           if (questionRunRef.current !== run) return;
           setPhase('grading');
+          // 例外になったときも大きさが分かるように、try の外で覚えておく。
+          // 送れない原因が録音の大きさに依るかどうかは、これが無いと分からない。
+          let recordedBytes = 0;
           try {
             // 要求した mimeType ではなく、MediaRecorder が実際に採用した型で判断する。
             const recordedMimeType = recorder.mimeType || mimeType || '';
             const blob = new Blob(chunksRef.current, { type: recordedMimeType });
+            recordedBytes = blob.size;
 
             if (blob.size === 0) {
               console.error(`Voice quiz recording empty (mimeType=${recordedMimeType})`);
@@ -602,7 +606,10 @@ export default function VoiceQuizPage() {
             if (questionRunRef.current !== run) return;
             // 例外の中身まで出す。ここだけ文言が空で、端末に何が起きたのか
             // 画面からは分からなかった (PWAではコンソールも開けない)。
-            const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            const detail = [
+              error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+              `${Math.round(recordedBytes / 1024)}KB`,
+            ].join(', ');
             console.error('Voice quiz recognize threw:', error);
             consecutiveRecognitionErrorsRef.current += 1;
             if (consecutiveRecognitionErrorsRef.current >= MAX_CONSECUTIVE_RECOGNITION_ERRORS) {
@@ -918,37 +925,34 @@ export default function VoiceQuizPage() {
           <CloseButton onClick={backToProject} />
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center px-6 overflow-y-auto">
-          <div className="w-full max-w-sm mb-5">
-            <QuizModeTabs active="voice" onSelect={goToNormalQuiz} />
-          </div>
-
-          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
-            <div
-              className={cn(
-                'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light)]',
-                HARD_SHADOW_SM,
-              )}
-            >
-              <Icon name="mic" size={38} className="text-[var(--color-accent-ink)]" />
+        {/*
+          設定を一画面に収める。開始前に読むものはここで全部で、
+          スクロールして探させるほどの中身ではない。
+        */}
+        <main className="flex-1 flex flex-col items-center justify-center px-6 py-2 overflow-y-auto">
+          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-5 text-center animate-fade-in-up')}>
+            {/* 見出しは横並び。大きなアイコンを積むだけで100px使っていた。 */}
+            <div className="flex items-center gap-3 text-left">
+              <div
+                className={cn(
+                  'flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light)]',
+                  HARD_SHADOW_SM,
+                )}
+              >
+                <Icon name="mic" size={22} className="text-[var(--color-accent-ink)]" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="font-display text-xl font-black leading-tight text-[var(--solid-ink)]">
+                  音読チャレンジ
+                </h1>
+                {/* 向きは下のボタンが示すので、ここでは繰り返さない。 */}
+                <p className="mt-0.5 text-xs leading-5 text-[var(--color-muted)]">
+                  全{words.length}問 ・ {durationSec}秒以内に声で答えます
+                </p>
+              </div>
             </div>
 
-            <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Voice Challenge</p>
-            <h1 className="mt-1 font-display text-[1.9rem] font-black leading-[1.05] text-[var(--solid-ink)]">
-              音読チャレンジ
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
-              {askingForJapanese ? '読み上げられた英単語の意味を、' : '読み上げられた意味の英単語を、'}
-              <br />
-              {durationSec}秒以内に{askingForJapanese ? '日本語' : '英語'}で答えてください。
-            </p>
-
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <StatChip icon="list" label="出題数" value={`${words.length}問`} />
-              <StatChip icon="timer" label="解答時間" value={`${durationSec}秒`} />
-            </div>
-
-            <p className={cn(EYEBROW, 'mt-6 mb-2 text-left text-[var(--color-muted)]')}>出題の向き</p>
+            <p className={cn(EYEBROW, 'mt-5 mb-2 text-left text-[var(--color-muted)]')}>出題の向き</p>
             <div className="flex gap-2" role="group" aria-label="出題の向き">
               {([
                 { key: 'en-to-ja' as const, label: '英 → 日', hint: '意味を日本語で' },
@@ -962,7 +966,7 @@ export default function VoiceQuizPage() {
                     aria-pressed={selected}
                     onClick={() => setDirection(option.key)}
                     className={cn(
-                      'flex-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] px-2 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px',
+                      'flex-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] px-2 py-2 transition-all duration-100 active:translate-x-px active:translate-y-px',
                       selected
                         ? cn('bg-[var(--solid-ink)] text-[var(--color-surface)]', HARD_SHADOW_SM)
                         : 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
@@ -992,7 +996,7 @@ export default function VoiceQuizPage() {
                 setCustomDurationText('');
               }}
               format={(option) => `${option}秒`}
-              className="mt-6"
+              className="mt-4"
               extra={
                 <label
                   className={cn(
@@ -1040,26 +1044,25 @@ export default function VoiceQuizPage() {
                 </label>
               }
             />
-            <p className="mt-3 text-xs leading-5 text-[var(--color-muted)]">
-              {durationSec <= 4
-                ? '短いほどテンポよく進みますが、言い切る前に締め切られることがあります。'
-                : durationSec >= 15
-                ? '長い意味や、考えてから答えたいときに。'
-                : '答え終わったら「話し終わった」を押せば、待たずに次へ進めます。'}
-            </p>
-
             <SegmentedOptions
               label="試行回数"
               options={VOICE_QUIZ_ATTEMPT_OPTIONS}
               selected={attemptsAllowed}
               onSelect={setAttemptsAllowed}
               format={(option) => `${option}回`}
-              className="mt-5"
+              className="mt-4"
             />
-            <p className="mt-3 mb-6 min-h-[2.5rem] text-xs leading-5 text-[var(--color-muted)]">
+
+            {/*
+              解説は選んだ設定ぶんの1行だけ。高さを固定して、選び直すたびに
+              下のボタンが動かないようにする。
+            */}
+            <p className="mt-3 mb-4 min-h-[2rem] text-left text-xs leading-4 text-[var(--color-muted)]">
               {attemptsAllowed === 1
                 ? '1回でも間違えるとその問題は終了します。'
-                : `間違えても「もう一回!」と促されて、最大${attemptsAllowed}回まで挑戦できます。`}
+                : `間違えても最大${attemptsAllowed}回まで挑戦できます。`}
+              <br />
+              答え終わったら「話し終わった」で、待たずに次へ進めます。
             </p>
 
             <SolidButton

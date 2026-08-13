@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickEnglishVoice, pickVoiceForLang } from './speech';
+import { pickEnglishVoice, pickVoiceForLang, shouldStopWaitingForSpeech } from './speech';
 
 type FakeVoice = { lang: string; default: boolean; localService: boolean };
 
@@ -46,4 +46,47 @@ test('pickVoiceForLang: 日本語ボイスがなければ -1 を返す', () => {
 test('pickVoiceForLang: ja-JP を優先して選ぶ', () => {
   const voices = [voice('en-US'), voice('ja-JP')];
   assert.equal(pickVoiceForLang(voices, 'ja'), 1);
+});
+
+// ============ 読み上げの待ち方 ============
+
+const grace = { elapsedMs: 0, graceMs: 1560 };
+
+test('鳴っている間は待ち続ける', () => {
+  assert.equal(
+    shouldStopWaitingForSpeech({ spoke: true, speaking: true, pending: false, ...grace }),
+    false,
+  );
+  // 次の発話が控えているだけの状態も、まだ終わりではない。
+  assert.equal(
+    shouldStopWaitingForSpeech({ spoke: true, speaking: false, pending: true, ...grace }),
+    false,
+  );
+});
+
+test('鳴っていた声が止まったら、onend を待たずに次へ進む', () => {
+  assert.equal(
+    shouldStopWaitingForSpeech({ spoke: true, speaking: false, pending: false, ...grace }),
+    true,
+  );
+});
+
+/**
+ * iOS は発話を黙って捨てることがある。鳴り始めるのを待つ猶予を過ぎたら、
+ * 文字数から決めた上限 (最大20秒) を待たずに諦める —— そこで待つと、
+ * 出題の読み上げが終わらず録音が始まらない。
+ */
+test('鳴り始めないまま猶予を過ぎたら諦める', () => {
+  const dropped = { spoke: false, speaking: false, pending: false, graceMs: 1560 };
+  assert.equal(shouldStopWaitingForSpeech({ ...dropped, elapsedMs: 400 }), false);
+  assert.equal(shouldStopWaitingForSpeech({ ...dropped, elapsedMs: 1560 }), true);
+  assert.equal(shouldStopWaitingForSpeech({ ...dropped, elapsedMs: 5000 }), true);
+});
+
+test('鳴り始めるのが遅いだけなら諦めない', () => {
+  // 猶予内に鳴り出したものは、その後ずっと待つ。
+  assert.equal(
+    shouldStopWaitingForSpeech({ spoke: true, speaking: true, pending: false, elapsedMs: 9000, graceMs: 1560 }),
+    false,
+  );
 });
