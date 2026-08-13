@@ -35,6 +35,18 @@ const DEFAULT_LANGUAGE_CODE = 'ja-JP';
 // 同音異義語を拾うための候補数。多すぎても判定が緩くなるだけなので絞る。
 const VOICE_QUIZ_MAX_ALTERNATIVES = 5;
 
+// 無料プランの1日あたりの認識回数。ここは据え置き。
+const VOICE_QUIZ_FREE_DAILY_LIMIT = 30;
+
+/**
+ * Proプランは音読チャレンジを無制限に解ける。
+ *
+ * `check_and_increment_feature_usage` は 0 以下の上限を「上限なし」(limit=NULL)
+ * として扱う。回数の記録自体は続くので、コストの実績は今まで通り
+ * `feature_usage_daily` から追える。
+ */
+const VOICE_QUIZ_PRO_DAILY_UNLIMITED = 0;
+
 const requestSchema = z.object({
   audioBase64: z.string().trim().min(1).max(MAX_AUDIO_BASE64_LENGTH),
   /**
@@ -92,8 +104,14 @@ export async function handleVoiceQuizRecognizePost(
       const usage = await checkAndIncrementFeatureUsage({
         supabase,
         featureKey: 'voice_quiz_recognize',
-        freeDailyLimit: readNumberEnv('AI_LIMIT_VOICE_QUIZ_FREE_DAILY', 30),
-        proDailyLimit: readNumberEnv('AI_LIMIT_VOICE_QUIZ_PRO_DAILY', 300),
+        freeDailyLimit: readNumberEnv(
+          'AI_LIMIT_VOICE_QUIZ_FREE_DAILY',
+          VOICE_QUIZ_FREE_DAILY_LIMIT,
+        ),
+        proDailyLimit: readNumberEnv(
+          'AI_LIMIT_VOICE_QUIZ_PRO_DAILY',
+          VOICE_QUIZ_PRO_DAILY_UNLIMITED,
+        ),
       });
 
       if (!usage.allowed) {
