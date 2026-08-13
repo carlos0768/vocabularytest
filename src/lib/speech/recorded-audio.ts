@@ -17,6 +17,15 @@
  */
 export const LINEAR16_SAMPLE_RATE = 16000;
 
+/**
+ * 送る音声の長さの上限 (秒)。
+ *
+ * 生PCMは1秒32KBあるので、解答時間を長くとるとリクエストが際限なく育つ。
+ * 答えは単語ひとつで、無音を落としたあと十数秒に及ぶことはまず無い ——
+ * 上限を置いても答えを削らずに、送信量だけを予測可能にできる。
+ */
+export const MAX_LINEAR16_SECONDS = 15;
+
 /** GCPが受け取れる、そのまま送れる録音形式。 */
 export type PassthroughEncoding = 'WEBM_OPUS' | 'OGG_OPUS';
 
@@ -123,6 +132,19 @@ export function trimSilence(
   return samples.subarray(start, end);
 }
 
+/**
+ * 長すぎる録音を頭から切り出す。答えは冒頭にあるので、後ろを落とす。
+ */
+export function capDuration(
+  samples: Float32Array,
+  sampleRate: number,
+  maxSeconds: number,
+): Float32Array {
+  const limit = Math.floor(sampleRate * maxSeconds);
+  if (limit <= 0 || samples.length <= limit) return samples;
+  return samples.subarray(0, limit);
+}
+
 /** -1〜1 の波形を 16bit リトルエンディアンの生PCMにする。 */
 export function floatsToPcm16(samples: Float32Array): Uint8Array {
   const bytes = new Uint8Array(samples.length * 2);
@@ -189,7 +211,11 @@ export async function toLinear16(blob: Blob): Promise<Linear16Audio | null> {
     const mono = resampleMono(mixToMono(channels), decoded.sampleRate, LINEAR16_SAMPLE_RATE);
     if (mono.length === 0) return null;
 
-    const spoken = trimSilence(mono, LINEAR16_SAMPLE_RATE);
+    const spoken = capDuration(
+      trimSilence(mono, LINEAR16_SAMPLE_RATE),
+      LINEAR16_SAMPLE_RATE,
+      MAX_LINEAR16_SECONDS,
+    );
     return { pcm: floatsToPcm16(spoken), sampleRateHertz: LINEAR16_SAMPLE_RATE };
   } catch {
     return null;

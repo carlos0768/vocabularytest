@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   LINEAR16_SAMPLE_RATE,
+  MAX_LINEAR16_SECONDS,
   bytesToBase64,
+  capDuration,
   floatsToPcm16,
   mixToMono,
   passthroughEncodingFor,
@@ -135,4 +137,24 @@ test('an entirely silent recording is left alone', () => {
   const samples = new Float32Array(1000);
   assert.equal(trimSilence(samples, 16000).length, samples.length);
   assert.equal(trimSilence(new Float32Array(0), 16000).length, 0);
+});
+
+/**
+ * 生PCMは1秒32KB。解答時間を長くとるほどリクエストが育つので、
+ * 送る長さに天井を置く。答えは単語ひとつなので冒頭に入っている。
+ */
+test('an over-long recording is cut to the cap, keeping the start', () => {
+  const rate = 16000;
+  const samples = new Float32Array(rate * 40);
+  samples[0] = 0.5;
+  samples[rate * 39] = 0.5;
+
+  const capped = capDuration(samples, rate, MAX_LINEAR16_SECONDS);
+  assert.equal(capped.length, rate * MAX_LINEAR16_SECONDS);
+  assert.equal(capped[0], 0.5);
+});
+
+test('a recording within the cap is untouched', () => {
+  const samples = new Float32Array(16000 * 3);
+  assert.equal(capDuration(samples, 16000, MAX_LINEAR16_SECONDS), samples);
 });
