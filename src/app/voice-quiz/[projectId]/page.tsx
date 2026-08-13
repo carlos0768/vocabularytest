@@ -14,7 +14,7 @@ import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { stopSpeaking } from '@/lib/speech';
 import { speakVoiceQuiz, stopVoiceQuizAudio } from '@/lib/quiz/voice-quiz-speech';
-import { passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
+import { bytesToBase64, passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
 import { VOICE_QUIZ_RESULT_ANNOUNCEMENTS, type VoiceQuizResultKey } from '@/lib/quiz/voice-quiz-audio';
 import {
   buildVoiceQuizAnswerAnnouncement,
@@ -100,21 +100,6 @@ function pickRecordingSetup(): RecordingSetup | null {
     MediaRecorder.isTypeSupported(mimeType),
   );
   return { mimeType: supported ?? null };
-}
-
-/** Uint8Array の中身だけを ArrayBuffer として取り出す。 */
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
 }
 
 /**
@@ -560,8 +545,8 @@ export default function VoiceQuizPage() {
               return;
             }
 
-            const audioBase64 = arrayBufferToBase64(
-              converted ? toArrayBuffer(converted.pcm) : await blob.arrayBuffer(),
+            const audioBase64 = bytesToBase64(
+              converted ? converted.pcm : new Uint8Array(await blob.arrayBuffer()),
             );
             const response = await fetch('/api/voice-quiz/recognize', {
               method: 'POST',
@@ -581,7 +566,9 @@ export default function VoiceQuizPage() {
             const data = await response.json().catch(() => null);
             if (questionRunRef.current !== run) return;
             if (!response.ok || !data?.success) {
-              const message = typeof data?.error === 'string' ? data.error : '';
+              const message = typeof data?.error === 'string' && data.error
+                ? data.error
+                : `サーバーが応答しませんでした (HTTP ${response.status})`;
 
               // 上限・未設定・未ログインは、次の問題でも同じように落ちる。
               // 残りを機械的に失敗させても得るものが無いので、ここで止める。
@@ -611,13 +598,18 @@ export default function VoiceQuizPage() {
                 ? data.alternatives.filter((item: unknown): item is string => typeof item === 'string')
                 : [],
             );
-          } catch {
+          } catch (error) {
             if (questionRunRef.current !== run) return;
+            // 例外の中身まで出す。ここだけ文言が空で、端末に何が起きたのか
+            // 画面からは分からなかった (PWAではコンソールも開けない)。
+            const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            console.error('Voice quiz recognize threw:', error);
             consecutiveRecognitionErrorsRef.current += 1;
             if (consecutiveRecognitionErrorsRef.current >= MAX_CONSECUTIVE_RECOGNITION_ERRORS) {
-              blockSession('音声認識に接続できませんでした。通信状況を確認してください。');
+              blockSession(`音声を送れませんでした (${detail})`);
               return;
             }
+            setRecognitionErrorMessage(`音声を送れませんでした (${detail})`);
             await handleAttemptResult('', true, run);
           }
         })();

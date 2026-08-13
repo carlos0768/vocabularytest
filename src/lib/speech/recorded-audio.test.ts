@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   LINEAR16_SAMPLE_RATE,
+  bytesToBase64,
   floatsToPcm16,
   mixToMono,
   passthroughEncodingFor,
@@ -81,4 +82,25 @@ test('out-of-range samples are clamped, not wrapped', () => {
   const view = new DataView(floatsToPcm16(new Float32Array([2, -2])).buffer);
   assert.equal(view.getInt16(0, true), 32767);
   assert.equal(view.getInt16(2, true), -32767);
+});
+
+/**
+ * 6秒ぶんの録音でも数万バイトになる。スプレッド展開で base64 にしていた
+ * 頃は、そこで引数の上限に当たって RangeError になり、送信前に落ちていた ——
+ * PCでは通り、スマホだけ「音声認識に失敗しました」になる形で出る。
+ */
+test('base64 encoding survives a recording far past any argument limit', () => {
+  const bytes = new Uint8Array(200_000);
+  for (let i = 0; i < bytes.length; i += 1) bytes[i] = i % 256;
+
+  const encoded = bytesToBase64(bytes);
+  assert.equal(encoded, Buffer.from(bytes).toString('base64'));
+});
+
+test('base64 encoding matches for the awkward lengths around a chunk boundary', () => {
+  for (const length of [0, 1, 2, 3, 32767, 32768, 32769, 65536]) {
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i += 1) bytes[i] = (i * 7) % 256;
+    assert.equal(bytesToBase64(bytes), Buffer.from(bytes).toString('base64'), `length ${length}`);
+  }
 });
