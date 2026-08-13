@@ -10,7 +10,7 @@ import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
-import { speakEnglish } from '@/lib/speech';
+import { speakEnglish, speakAndWait, stopSpeaking } from '@/lib/speech';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
@@ -53,12 +53,14 @@ function MasteryDots({ level }: { level: number }) {
 function HeaderBtn({
   children,
   onClick,
+  active,
   'aria-label': ariaLabel,
   'aria-expanded': ariaExpanded,
   'aria-haspopup': ariaHasPopup,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
+  active?: boolean;
   'aria-label'?: string;
   'aria-expanded'?: boolean;
   'aria-haspopup'?: 'menu';
@@ -70,7 +72,8 @@ function HeaderBtn({
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
       aria-haspopup={ariaHasPopup}
-      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      style={{ background: active ? 'var(--solid-ink)' : '#fff', color: active ? '#fff' : 'var(--solid-ink)' }}
     >
       {children}
     </button>
@@ -126,6 +129,10 @@ function NavBtn({
   );
 }
 
+// 自動再生: 英語読み上げ後の間、日本語読み上げ後に次のカードへ進むまでの間 (ms)
+const AUTOPLAY_GAP_MS = 500;
+const AUTOPLAY_NEXT_DELAY_MS = 1200;
+
 function nextWordStatus(current: string): 'new' | 'review' | 'mastered' {
   if (current === 'new') return 'review';
   if (current === 'review') return 'mastered';
@@ -152,6 +159,11 @@ export default function FlashcardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  /* 自動再生 (英語→日本語を読み上げ続けながらカードを自動送りする) */
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const wordsRef = useRef<Word[]>(words);
+  useEffect(() => { wordsRef.current = words; }, [words]);
 
   /* Guided tutorial: count forward advances toward the "view N cards" goal */
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
@@ -189,6 +201,8 @@ export default function FlashcardPage() {
   }, [projectId, favoritesOnly, collectionId]);
 
   const backToProject = useCallback(() => {
+    setIsAutoPlaying(false);
+    stopSpeaking();
     router.back();
   }, [router]);
 
@@ -331,6 +345,114 @@ export default function FlashcardPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAnimating, currentIndex, words.length, isFlipped, handlePrev, handleNext, handleFlip, backToProject]);
 
+  // handleNext/handlePrev は isAnimating などが変わるたびに再生成されるため、
+  // ref 越しに呼ぶことで自動再生ループの useEffect を無駄に再起動させない。
+  const handleNextRef = useRef(handleNext);
+  const handlePrevRef = useRef(handlePrev);
+  useEffect(() => { handleNextRef.current = handleNext; }, [handleNext]);
+  useEffect(() => { handlePrevRef.current = handlePrev; }, [handlePrev]);
+
+  const toggleAutoPlay = useCallback(() => {
+    triggerHaptic();
+    setIsAutoPlaying((prev) => !prev);
+  }, []);
+
+  /* 自動再生ループ: 英語→(間)→表面を裏返して日本語→(間)→次のカードへ、を繰り返す */
+  useEffect(() => {
+    if (!isAutoPlaying) return;
+    const word = wordsRef.current[currentIndex];
+    if (!word) { setIsAutoPlaying(false); return; }
+    let cancelled = false;
+    const wait = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms); });
+
+    (async () => {
+      setIsFlipped(false);
+      await speakAndWait(word.english, 'en');
+      if (cancelled) return;
+      await wait(AUTOPLAY_GAP_MS);
+      if (cancelled) return;
+      setIsFlipped(true);
+      await speakAndWait(word.japanese, 'ja');
+      if (cancelled) return;
+      await wait(AUTOPLAY_NEXT_DELAY_MS);
+      if (cancelled) return;
+      handleNextRef.current(true);
+    })();
+
+    return () => {
+      cancelled = true;
+      stopSpeaking();
+    };
+  }, [isAutoPlaying, currentIndex]);
+
+  /* 自動再生中は画面消灯を防ぎ、バックグラウンド/ロック中も読み上げが続きやすくする (対応環境のみ) */
+  useEffect(() => {
+    if (!isAutoPlaying || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    let sentinel: WakeLockSentinel | null = null;
+    let released = false;
+    const acquire = async () => {
+      try {
+        const lock = await navigator.wakeLock.request('screen');
+        if (released) { lock.release().catch(() => {}); return; }
+        sentinel = lock;
+      } catch { /* 非対応・許可なし: 読み上げ自体は続行する */ }
+    };
+    acquire();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && !sentinel) acquire();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      released = true;
+      document.removeEventListener('visibilitychange', handleVisibility);
+      sentinel?.release().catch(() => {});
+    };
+  }, [isAutoPlaying]);
+
+  /* Media Session: ロック画面/通知からの再生・一時停止・前後送りに対応させる */
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    ms.setActionHandler('play', () => setIsAutoPlaying(true));
+    ms.setActionHandler('pause', () => setIsAutoPlaying(false));
+    ms.setActionHandler('nexttrack', () => handleNextRef.current(true));
+    ms.setActionHandler('previoustrack', () => handlePrevRef.current(true));
+    return () => {
+      try {
+        ms.setActionHandler('play', null);
+        ms.setActionHandler('pause', null);
+        ms.setActionHandler('nexttrack', null);
+        ms.setActionHandler('previoustrack', null);
+        ms.playbackState = 'none';
+      } catch { /* 非対応環境 */ }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const word = words[currentIndex];
+    if (!isAutoPlaying || !word) {
+      navigator.mediaSession.playbackState = 'paused';
+      return;
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: word.english,
+      artist: word.japanese,
+      album: 'MERKEN フラッシュカード',
+    });
+    navigator.mediaSession.playbackState = 'playing';
+  }, [isAutoPlaying, words, currentIndex]);
+
+  // フラッシュカードページを閉じる (アンマウントする) ときは必ず読み上げを止める。
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        try { navigator.mediaSession.playbackState = 'none'; } catch { /* 非対応環境 */ }
+      }
+    };
+  }, []);
+
   const handleToggleFavorite = async () => {
     if (!currentWord) return;
     const newFavorite = !currentWord.isFavorite;
@@ -415,6 +537,15 @@ export default function FlashcardPage() {
           </button>
           <div className="ds-qbar"><div className="fi" style={{ width: `${((currentIndex + 1) / Math.max(total, 1)) * 100}%` }} /></div>
           <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
+          <button
+            type="button"
+            className="x"
+            onClick={toggleAutoPlay}
+            aria-label={isAutoPlaying ? '自動再生を停止' : '自動再生を開始'}
+            style={isAutoPlaying ? { background: 'var(--solid-ink)', color: '#fff' } : undefined}
+          >
+            <Icon name={isAutoPlaying ? 'pause' : 'play_arrow'} />
+          </button>
         </div>
         <div className="mono muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 4 }}>
           {favoritesOnly ? '保存済み' : collectionId ? 'コレクション' : '単語帳'} · フラッシュカード
@@ -546,8 +677,13 @@ export default function FlashcardPage() {
           </div>
         </div>
 
-        {/* 並び替え・保存メニューは廃止。進捗表示を中央に保つためのスペーサー。 */}
-        <div className="h-[38px] w-[38px]" aria-hidden="true" />
+        <HeaderBtn
+          onClick={toggleAutoPlay}
+          active={isAutoPlaying}
+          aria-label={isAutoPlaying ? '自動再生を停止' : '自動再生を開始'}
+        >
+          <Icon name={isAutoPlaying ? 'pause' : 'play_arrow'} size={16} filled={isAutoPlaying} />
+        </HeaderBtn>
       </div>
 
       {/* Card area (no ghost cards) */}
