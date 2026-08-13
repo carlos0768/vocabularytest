@@ -517,10 +517,14 @@ export default function VoiceQuizPage() {
         void (async () => {
           if (questionRunRef.current !== run) return;
           setPhase('grading');
+          // 例外になったときも大きさが分かるように、try の外で覚えておく。
+          // 送れない原因が録音の大きさに依るかどうかは、これが無いと分からない。
+          let recordedBytes = 0;
           try {
             // 要求した mimeType ではなく、MediaRecorder が実際に採用した型で判断する。
             const recordedMimeType = recorder.mimeType || mimeType || '';
             const blob = new Blob(chunksRef.current, { type: recordedMimeType });
+            recordedBytes = blob.size;
 
             if (blob.size === 0) {
               console.error(`Voice quiz recording empty (mimeType=${recordedMimeType})`);
@@ -602,7 +606,10 @@ export default function VoiceQuizPage() {
             if (questionRunRef.current !== run) return;
             // 例外の中身まで出す。ここだけ文言が空で、端末に何が起きたのか
             // 画面からは分からなかった (PWAではコンソールも開けない)。
-            const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            const detail = [
+              error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+              `${Math.round(recordedBytes / 1024)}KB`,
+            ].join(', ');
             console.error('Voice quiz recognize threw:', error);
             consecutiveRecognitionErrorsRef.current += 1;
             if (consecutiveRecognitionErrorsRef.current >= MAX_CONSECUTIVE_RECOGNITION_ERRORS) {
