@@ -406,7 +406,7 @@ export default function VoiceQuizPage() {
         for (const segment of announcement) {
           // 次の問題へ進んだあとに前の答えが流れ続けないよう、毎回確かめる。
           if (questionRunRef.current !== announcementRun) return;
-          await speakVoiceQuiz(segment.text, segment.lang);
+          await speakVoiceQuiz(segment.text, segment.lang, { variable: segment.variable });
         }
       })();
 
@@ -616,7 +616,7 @@ export default function VoiceQuizPage() {
         promptOffsetRef.current + run,
       );
       for (const segment of segments) {
-        await speakVoiceQuiz(segment.text, segment.lang);
+        await speakVoiceQuiz(segment.text, segment.lang, { variable: segment.variable });
         if (questionRunRef.current !== run) return;
       }
       startListeningRef.current(run);
@@ -802,7 +802,7 @@ export default function VoiceQuizPage() {
   if (storedMode === null) {
     return (
       <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
           <CloseButton onClick={backToProject} />
         </header>
         <main className="flex-1 flex items-center justify-center px-6">
@@ -874,7 +874,7 @@ export default function VoiceQuizPage() {
   if (!hasStarted) {
     return (
       <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
           <CloseButton onClick={backToProject} />
         </header>
 
@@ -1049,7 +1049,7 @@ export default function VoiceQuizPage() {
 
     return (
       <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
           <CloseButton onClick={backToProject} />
         </header>
 
@@ -1144,17 +1144,21 @@ export default function VoiceQuizPage() {
 
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4">
-        {/* アイコンだけだと終了できると分からないので、文字を出す。 */}
+      <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4 safe-area-top">
+        {/*
+          アイコンだけだと終了できると分からないので、文字を出す。
+          指で押せる大きさ (44px) を確保する —— 画面いっぱいのクイズから
+          抜ける唯一の導線なので、小さくて押しにくいでは困る。
+        */}
         <button
           type="button"
           onClick={requestStop}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1.5 font-display text-xs font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
+            'inline-flex h-11 shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 font-display text-sm font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
             HARD_SHADOW_SM,
           )}
         >
-          <Icon name="close" size={15} />
+          <Icon name="close" size={17} />
           終了
         </button>
 
@@ -1636,7 +1640,7 @@ function NoticeScreen({
 }) {
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 p-4">
+      <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
         <CloseButton onClick={onBack} />
       </header>
       <main className="flex-1 flex items-center justify-center px-6">

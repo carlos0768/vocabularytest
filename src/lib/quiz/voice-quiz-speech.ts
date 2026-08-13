@@ -119,15 +119,42 @@ async function playClip(url: string): Promise<boolean> {
 }
 
 /**
+ * 合成音声に回した文言。同じ文で何度も警告しないために覚えておく。
+ */
+const reportedFallbacks = new Set<string>();
+
+/**
+ * 合成音声で読んだことを知らせる。
+ *
+ * 単語や訳が合成音声なのは設計どおりだが、固定文がそうなっているのは
+ * 台本と音声のズレで、耳で気づくしかなかった。どの文が落ちたのかを出す。
+ */
+function reportFallback(text: string, indexed: boolean): void {
+  if (reportedFallbacks.has(text)) return;
+  reportedFallbacks.add(text);
+  console.warn(
+    indexed
+      ? `[voice-quiz] 事前生成の音声を再生できず合成音声で読みました: 「${text}」(mp3が未生成か、読み込めていません)`
+      : `[voice-quiz] 台本に無いので合成音声で読みました: 「${text}」`,
+  );
+}
+
+/**
  * 1片を読み上げて、読み終わるまで待つ。
  * 固定文なら事前生成の音声、無ければ合成音声。
  */
-export async function speakVoiceQuiz(text: string, lang: SpeechLang): Promise<void> {
+export async function speakVoiceQuiz(
+  text: string,
+  lang: SpeechLang,
+  options?: { variable?: boolean },
+): Promise<void> {
   const trimmed = text.trim();
   if (!trimmed) return;
 
   const url = urlForText(trimmed);
   if (url && (await playClip(url))) return;
 
+  // 単語や訳が合成音声なのは設計どおりなので、知らせる価値があるのは固定文だけ。
+  if (!options?.variable) reportFallback(trimmed, url !== null);
   await speakAndWait(trimmed, lang);
 }

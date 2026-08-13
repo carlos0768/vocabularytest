@@ -69,6 +69,12 @@ export const VOICE_QUIZ_MEANING_PROMPT_TEMPLATES: readonly string[] = [
 export interface VoiceQuizPromptSegment {
   text: string;
   lang: 'ja' | 'en';
+  /**
+   * 単語や訳など、出題ごとに変わる部分。
+   * ここは語彙の数だけあるので事前生成できず、合成音声で読む —— 固定文が
+   * 合成音声になっているのは不具合だが、これはそうではない、という区別。
+   */
+  variable?: boolean;
 }
 
 /**
@@ -94,14 +100,14 @@ export function buildVoiceQuizAnswerAnnouncement(
   if (direction === 'en-to-ja') {
     return [
       { text: VOICE_QUIZ_ANSWER_PREFIX, lang: 'ja' },
-      { text: answer, lang: 'ja' },
+      { text: answer, lang: 'ja', variable: true },
       { text: VOICE_QUIZ_ANSWER_SUFFIX, lang: 'ja' },
     ];
   }
 
   return [
     { text: VOICE_QUIZ_ANSWER_PREFIX, lang: 'ja' },
-    { text: answer, lang: 'en' },
+    { text: answer, lang: 'en', variable: true },
     { text: VOICE_QUIZ_ANSWER_SUFFIX, lang: 'ja' },
   ];
 }
@@ -155,7 +161,7 @@ export function buildVoiceQuizMeaningPrompt(
   // プレースホルダが無いテンプレートが紛れ込んでも、単語だけは必ず読み上げる。
   if (placeholderAt < 0) {
     return [
-      { text: trimmedWord, lang: 'en' },
+      { text: trimmedWord, lang: 'en', variable: true },
       { text: template, lang: 'ja' },
     ].filter((segment) => segment.text.length > 0) as VoiceQuizPromptSegment[];
   }
@@ -165,7 +171,7 @@ export function buildVoiceQuizMeaningPrompt(
 
   return [
     { text: trimFragment(before), lang: 'ja' as const },
-    { text: trimmedWord, lang: 'en' as const },
+    { text: trimmedWord, lang: 'en' as const, variable: true },
     { text: trimFragment(after), lang: 'ja' as const },
   ].filter((segment) => isSpeakable(segment.text));
 }
@@ -188,7 +194,7 @@ export function buildVoiceQuizWordPrompt(
 
   return [
     { text: trimFragment(template.slice(0, at)), lang: 'ja' as const },
-    { text: trimmed, lang: 'ja' as const },
+    { text: trimmed, lang: 'ja' as const, variable: true },
     { text: trimFragment(template.slice(at + VOICE_QUIZ_MEANING_PLACEHOLDER.length)), lang: 'ja' as const },
   ].filter((segment) => isSpeakable(segment.text));
 }
