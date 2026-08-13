@@ -110,6 +110,10 @@ function speakInternal(text: string, lang: SpeechLang, options: SpeakOptions, on
   };
   utterance.onend = release;
   utterance.onerror = release;
+  // 鳴り始めたなら、合成音声は使える。捨てられた数を数え直す。
+  utterance.onstart = () => {
+    consecutiveDrops = 0;
+  };
   activeUtterance = utterance;
   activeRelease = release;
 
@@ -183,6 +187,7 @@ export function speakAndWait(
     // 上限だけに頼ると、捨てられた発話でも文字数ぶん待たされる。
     // 鳴っているかを実際に見て、鳴らない/鳴り終わったと分かった時点で返す。
     const startedAt = Date.now();
+    const graceMs = SPEAK_DELAY_MS + speechStartGraceMs(consecutiveDrops);
     let spoke = false;
     watcher = window.setInterval(() => {
       const synth = window.speechSynthesis;
@@ -193,13 +198,18 @@ export function speakAndWait(
         speaking: synth.speaking,
         pending: synth.pending,
         elapsedMs: Date.now() - startedAt,
-        graceMs: SPEAK_DELAY_MS + SPEECH_START_GRACE_MS,
+        graceMs,
       });
       if (!stop) return;
 
       // 鳴らないまま終わったのなら、遅れて鳴り出さないよう打ち切る。
-      if (spoke) done();
-      else giveUp();
+      if (spoke) {
+        consecutiveDrops = 0;
+        done();
+      } else {
+        consecutiveDrops += 1;
+        giveUp();
+      }
     }, SPEECH_WATCH_INTERVAL_MS);
 
     speakInternal(trimmed, lang, options, done);
@@ -214,8 +224,22 @@ function speechTimeoutMs(text: string): number {
   return Math.min(3000 + text.length * 300, 20_000);
 }
 
-/** 発話が始まるのを待つ猶予。これを過ぎて鳴っていなければ捨てられたとみなす。 */
-const SPEECH_START_GRACE_MS = 1500;
+/** 続けて捨てられた発話の数。合成音声が使えない端末を見分けるための目印。 */
+let consecutiveDrops = 0;
+
+/**
+ * 発話が始まるのを待つ猶予。これを過ぎて鳴っていなければ捨てられたとみなす。
+ *
+ * 合成音声がそもそも鳴らない端末 (インストール済みPWAの iOS など) では、
+ * 読み上げ1片ごとにこの猶予を丸ごと待つ。出題文が数片に分かれているので、
+ * 一定にすると「開始を押したのに何も起きない」数秒が毎問積み上がる。
+ * 続けて捨てられたら、待つ意味が薄いとみて短くする。一度でも鳴れば元に戻す。
+ */
+export function speechStartGraceMs(drops: number): number {
+  if (drops >= 2) return 300;
+  if (drops >= 1) return 600;
+  return 1500;
+}
 
 /** 発話しているかを見に行く間隔。 */
 const SPEECH_WATCH_INTERVAL_MS = 200;
