@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { buildWordsCreateRequestWord, WORDS_SELECT_COLUMNS } from './remote-repository';
+import { buildWordsCreateRequestWord, fetchAllRows, SUPABASE_MAX_ROWS, WORDS_SELECT_COLUMNS } from './remote-repository';
 import {
   RESOLVED_WORD_DISPLAY_WITH_PRONUNCIATION_SELECT_COLUMNS,
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
@@ -220,5 +220,85 @@ test('shared preview fetches only a limited page with an exact count through fal
   assert.match(
     source,
     /async getWordsForSharePreview\(projectId: string, limit = 5\): Promise<SharedWordsPreview> \{[\s\S]*?this\.selectShareWordsWithFallback\([\s\S]*?\.select\(columns, \{ count: 'exact' \}\)[\s\S]*?\.limit\(limit\)/
+  );
+});
+
+test('fetchAllRows keeps paging past the PostgREST row cap', async () => {
+  const all = Array.from({ length: 2300 }, (_, i) => ({ id: i }));
+  const ranges: Array<[number, number]> = [];
+
+  const result = await fetchAllRows(
+    (from, to) => {
+      ranges.push([from, to]);
+      return Promise.resolve({ data: all.slice(from, to + 1), error: null });
+    },
+    SUPABASE_MAX_ROWS,
+  );
+
+  assert.equal(result.error, null);
+  assert.deepEqual(result.data, all);
+  assert.deepEqual(ranges, [[0, 999], [1000, 1999], [2000, 2999]]);
+});
+
+test('fetchAllRows stops after a single short page', async () => {
+  let calls = 0;
+  const result = await fetchAllRows((from, to) => {
+    calls++;
+    return Promise.resolve({ data: [{ id: from }, { id: to }], error: null });
+  }, SUPABASE_MAX_ROWS);
+
+  assert.equal(calls, 1);
+  assert.equal((result.data as unknown[]).length, 2);
+});
+
+test('fetchAllRows stops when an exactly-full last page is followed by an empty one', async () => {
+  const all = Array.from({ length: 2000 }, (_, i) => ({ id: i }));
+  let calls = 0;
+
+  const result = await fetchAllRows((from, to) => {
+    calls++;
+    return Promise.resolve({ data: all.slice(from, to + 1), error: null });
+  }, SUPABASE_MAX_ROWS);
+
+  assert.equal(calls, 3);
+  assert.deepEqual(result.data, all);
+});
+
+test('fetchAllRows surfaces an error instead of returning a partial page', async () => {
+  const error = { code: '57014', message: 'statement timeout' };
+  const result = await fetchAllRows(
+    (from) => Promise.resolve(
+      from === 0
+        ? { data: Array.from({ length: SUPABASE_MAX_ROWS }, (_, i) => ({ id: i })), error: null }
+        : { data: null, error },
+    ),
+    SUPABASE_MAX_ROWS,
+  );
+
+  assert.equal(result.error, error);
+});
+
+test('every unbounded words query pages through fetchAllRows with a unique sort key', () => {
+  const source = fs.readFileSync(new URL('./remote-repository.ts', import.meta.url), 'utf8');
+
+  // words.created_at は一括登録で同値になるため、created_at だけで並べた
+  // ページングはページ境界で行を取りこぼす。id の第2キーが必須。
+  for (const label of [
+    'getWords',
+    'getWordsForShareView',
+    'getAllWordsByProjectIds',
+    'getWordsUpdatedSince',
+  ]) {
+    const pattern = new RegExp(
+      `fetchAllRows\\(\\(from, to\\) => this\\.select\\w+WordsWithFallback\\([\\s\\S]*?` +
+      `\\.order\\('id', \\{ ascending: true \\}\\)[\\s\\S]*?\\.range\\(from, to\\)[\\s\\S]*?'${label}',`
+    );
+    assert.match(source, pattern, `${label} should page through fetchAllRows ordered by id`);
+  }
+
+  assert.match(
+    source,
+    /async getWordIdsByProjectIds\([\s\S]*?fetchAllRows\(\(from, to\) => this\.supabase[\s\S]*?\.range\(from, to\)\)/,
+    'getWordIdsByProjectIds feeds delete detection and must not truncate',
   );
 });
