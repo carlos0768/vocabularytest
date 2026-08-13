@@ -321,6 +321,49 @@ function normalizeWordsCreateDerivedWords(
   return { items, version: 1 };
 }
 
+/**
+ * PostgREST の db-max-rows。これを超える行数を返すクエリは、エラーも警告も
+ * 出さずに先頭 N 件で打ち切られる。
+ */
+export const SUPABASE_MAX_ROWS = 1000;
+
+/**
+ * 上限で無言に切られるのを防ぐため、range() で全ページを取り切る。
+ *
+ * 呼び出し側のクエリには **一意になる並び順** が必要。words.created_at は
+ * `DEFAULT now()`(トランザクション時刻)なので、一括登録された単語は
+ * created_at が完全に同値になる(実データで最大625件が同値)。同値行の
+ * ページ間の順序は保証されないため、created_at だけで並べると
+ * ページ境界で重複・欠落が起きる。id を第2キーに入れること。
+ *
+ * ページ取得が途中で失敗したら、部分的な結果を返さずエラーを返す。
+ * 欠けた状態を正常な結果として扱うのが今回の不具合の本質だったため、
+ * ここでは黙って減らさず、呼び出し側で throw させる。
+ */
+export async function fetchAllRows<T extends SupabaseSelectResult>(
+  fetchPage: (from: number, to: number) => PromiseLike<T>,
+  pageSize: number = SUPABASE_MAX_ROWS,
+): Promise<T> {
+  const first = await fetchPage(0, pageSize - 1);
+  if (first.error) return first;
+
+  const rows: unknown[] = Array.isArray(first.data) ? [...(first.data as unknown[])] : [];
+  let lastPageSize = rows.length;
+
+  // 満杯のページが返る間は続きがある可能性がある。短いページが来たら終端。
+  while (lastPageSize === pageSize) {
+    const next = await fetchPage(rows.length, rows.length + pageSize - 1);
+    if (next.error) return next;
+
+    const page = Array.isArray(next.data) ? (next.data as unknown[]) : [];
+    rows.push(...page);
+    lastPageSize = page.length;
+    if (page.length === 0) break;
+  }
+
+  return { ...first, data: rows } as T;
+}
+
 export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord {
   return {
     id: word.id,
@@ -685,14 +728,16 @@ export class RemoteWordRepository implements WordRepository {
   }
 
   async getWords(projectId: string): Promise<Word[]> {
-    const { data, error } = await this.selectFullWordsWithFallback(
+    const { data, error } = await fetchAllRows((from, to) => this.selectFullWordsWithFallback(
       (columns) => this.supabase
         .from('words')
         .select(columns)
         .eq('project_id', projectId)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to),
       'getWords',
-    );
+    ));
 
     if (error) throw new Error(`Failed to get words: ${error.message}`);
 
@@ -704,14 +749,16 @@ export class RemoteWordRepository implements WordRepository {
    * Omits heavy fields (related_words, usage_patterns, SM-2 fields) not needed for share display.
    */
   async getWordsForShareView(projectId: string): Promise<Word[]> {
-    const { data, error } = await this.selectShareWordsWithFallback(
+    const { data, error } = await fetchAllRows((from, to) => this.selectShareWordsWithFallback(
       (columns) => this.supabase
         .from('words')
         .select(columns)
         .eq('project_id', projectId)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to),
       'getWordsForShareView',
-    );
+    ));
 
     if (error) throw new Error(`Failed to get shared words: ${error.message}`);
 
@@ -793,14 +840,16 @@ export class RemoteWordRepository implements WordRepository {
   async getAllWordsByProjectIds(projectIds: string[]): Promise<Record<string, Word[]>> {
     if (projectIds.length === 0) return {};
 
-    const { data, error } = await this.selectFullWordsWithFallback(
+    const { data, error } = await fetchAllRows((from, to) => this.selectFullWordsWithFallback(
       (columns) => this.supabase
         .from('words')
         .select(columns)
         .in('project_id', projectIds)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to),
       'getAllWordsByProjectIds',
-    );
+    ));
 
     if (error) throw new Error(`Failed to get all words: ${error.message}`);
 
@@ -821,14 +870,16 @@ export class RemoteWordRepository implements WordRepository {
   async getWordsUpdatedSince(projectIds: string[], since: string): Promise<Word[]> {
     if (projectIds.length === 0) return [];
 
-    const { data, error } = await this.selectFullWordsWithFallback(
+    const { data, error } = await fetchAllRows((from, to) => this.selectFullWordsWithFallback(
       (columns) => this.supabase
         .from('words')
         .select(columns)
         .in('project_id', projectIds)
-        .gt('updated_at', since),
+        .gt('updated_at', since)
+        .order('id', { ascending: true })
+        .range(from, to),
       'getWordsUpdatedSince',
-    );
+    ));
 
     if (error) throw new Error(`Failed to get updated words: ${error.message}`);
     return (data as unknown as WordRow[]).map(mapWordFromRow);
@@ -838,10 +889,14 @@ export class RemoteWordRepository implements WordRepository {
   async getWordIdsByProjectIds(projectIds: string[]): Promise<string[]> {
     if (projectIds.length === 0) return [];
 
-    const { data, error } = await this.supabase
+    // 差分同期の削除検知に使う。ここが上限で切られると、取り切れなかった
+    // 単語が「サーバ側で削除された」と誤判定され、ローカルDBから消される。
+    const { data, error } = await fetchAllRows((from, to) => this.supabase
       .from('words')
       .select('id')
-      .in('project_id', projectIds);
+      .in('project_id', projectIds)
+      .order('id', { ascending: true })
+      .range(from, to));
 
     if (error) throw new Error(`Failed to get word IDs: ${error.message}`);
     return (data as { id: string }[]).map(r => r.id);
@@ -1136,10 +1191,12 @@ export class RemoteWordRepository implements WordRepository {
 
     // Get word counts for all relevant projects in one query
     const allProjectIds = [...new Set(cpRows.map((r) => r.project_id as string))];
-    const { data: wordRows, error: wError } = await this.supabase
+    const { data: wordRows, error: wError } = await fetchAllRows((from, to) => this.supabase
       .from('words')
       .select('project_id, status')
-      .in('project_id', allProjectIds);
+      .in('project_id', allProjectIds)
+      .order('id', { ascending: true })
+      .range(from, to));
 
     if (wError) throw new Error(`Failed to get word stats: ${wError.message}`);
 
