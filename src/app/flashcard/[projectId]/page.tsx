@@ -164,6 +164,16 @@ export default function FlashcardPage() {
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const wordsRef = useRef<Word[]>(words);
   useEffect(() => { wordsRef.current = words; }, [words]);
+  // ホーム画面遷移などでアプリがバックグラウンドになっても読み上げが
+  // 打ち切られにくいよう、極小音量のループ音声を鳴らして「再生中のタブ」
+  // としてブラウザ/OSに認識させる。ページ内遷移(アンマウント)では止める。
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const audio = silentAudioRef.current;
+    if (!audio) return;
+    if (isAutoPlaying) audio.play().catch(() => {});
+    else audio.pause();
+  }, [isAutoPlaying]);
 
   /* Guided tutorial: count forward advances toward the "view N cards" goal */
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
@@ -354,8 +364,13 @@ export default function FlashcardPage() {
 
   const toggleAutoPlay = useCallback(() => {
     triggerHaptic();
-    setIsAutoPlaying((prev) => !prev);
-  }, []);
+    const next = !isAutoPlaying;
+    // ユーザー操作の呼び出しスタック内で同期的に play()/pause() しておくと、
+    // ブラウザの自動再生ポリシー上より確実に許可される (useEffect 側でも保険をかける)。
+    if (next) silentAudioRef.current?.play().catch(() => {});
+    else silentAudioRef.current?.pause();
+    setIsAutoPlaying(next);
+  }, [isAutoPlaying]);
 
   /* 自動再生ループ: 英語→(間)→表面を裏返して日本語→(間)→次のカードへ、を繰り返す */
   useEffect(() => {
@@ -444,9 +459,12 @@ export default function FlashcardPage() {
   }, [isAutoPlaying, words, currentIndex]);
 
   // フラッシュカードページを閉じる (アンマウントする) ときは必ず読み上げを止める。
+  // バックグラウンド化 (ホーム画面遷移など) では呼ばれない —— unmount 時のみ発火する。
   useEffect(() => {
+    const audio = silentAudioRef.current;
     return () => {
       stopSpeaking();
+      audio?.pause();
       if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
         try { navigator.mediaSession.playbackState = 'none'; } catch { /* 非対応環境 */ }
       }
@@ -529,6 +547,8 @@ export default function FlashcardPage() {
 
   return (
     <>
+    {/* 自動再生中、バックグラウンドでも読み上げが止まりにくくするための無音ループ (画面には表示しない) */}
+    <audio ref={silentAudioRef} src="/audio/silence-loop.wav" loop playsInline preload="auto" hidden aria-hidden="true" />
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
       <div className="ds-fc-wrap">
         <div className="ds-quiz-head" style={{ maxWidth: 720 }}>
