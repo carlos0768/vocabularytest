@@ -14,7 +14,7 @@ import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { stopSpeaking } from '@/lib/speech';
 import { speakVoiceQuiz, stopVoiceQuizAudio } from '@/lib/quiz/voice-quiz-speech';
-import { passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
+import { bytesToBase64, passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
 import { VOICE_QUIZ_RESULT_ANNOUNCEMENTS, type VoiceQuizResultKey } from '@/lib/quiz/voice-quiz-audio';
 import {
   buildVoiceQuizAnswerAnnouncement,
@@ -42,6 +42,7 @@ import {
   japaneseAnswerHints,
 } from '@/lib/quiz/voice-quiz-answer';
 import { useAuth } from '@/hooks/use-auth';
+import { createBrowserClient } from '@/lib/supabase';
 import type { Word, SubscriptionStatus } from '@/types';
 
 const TIMER_TICK_MS = 50;
@@ -82,34 +83,42 @@ const CANDIDATE_MIME_TYPES = [
   'audio/mp4',
 ];
 
-/** ブラウザの既定で録ることを表す値。MediaRecorder には何も渡さない。 */
-const BROWSER_DEFAULT_MIME_TYPE = '';
+/**
+ * 録音の設定。`mimeType` が null なら MediaRecorder に何も渡さず、
+ * ブラウザの既定で録る。「指定なし」と「録音できない」を空文字で表すと、
+ * falsy 判定に引っかかって録音そのものが素通りされる。
+ */
+type RecordingSetup = { mimeType: string | null };
 
 /**
  * 録音に使う MIME を選ぶ。エンコーディングは録音後の実際の出力から決める。
  * null は「この端末では録音できない」。
  */
-function pickSupportedMimeType(): string | null {
+function pickRecordingSetup(): RecordingSetup | null {
   if (typeof MediaRecorder === 'undefined') return null;
-  return (
-    CANDIDATE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType))
-    ?? BROWSER_DEFAULT_MIME_TYPE
+  const supported = CANDIDATE_MIME_TYPES.find((mimeType) =>
+    MediaRecorder.isTypeSupported(mimeType),
   );
+  return { mimeType: supported ?? null };
 }
 
-/** Uint8Array の中身だけを ArrayBuffer として取り出す。 */
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+/**
+ * 認識APIに付ける見出し。
+ *
+ * このアプリの他の認証付きAPIと同じく、アクセストークンを明示的に載せる。
+ * Cookie だけに頼ると、ホーム画面に追加した iOS の PWA が Safari とは別の
+ * 保存領域を持つために、ログイン済みでも 401 で弾かれることがある ——
+ * 端末側の音声認識が「なぜかスマホだけ失敗する」形で出る。
+ */
+async function recognizeRequestHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  try {
+    const { data: { session } } = await createBrowserClient().auth.getSession();
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+  } catch {
+    // 取れなければ Cookie に任せる。ここで諦めると出題そのものが止まる。
   }
-  return btoa(binary);
+  return headers;
 }
 
 type Phase = 'narrating' | 'listening' | 'grading' | 'retrying' | 'answered';
@@ -232,7 +241,7 @@ export default function VoiceQuizPage() {
   const [showModeSwitch, setShowModeSwitch] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
-  const recordingRef = useRef<string | null>(null);
+  const recordingRef = useRef<RecordingSetup | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerStartRef = useRef<number | null>(null);
@@ -284,12 +293,12 @@ export default function VoiceQuizPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const mimeType = pickSupportedMimeType();
-      if (!mimeType || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      const setup = pickRecordingSetup();
+      if (!setup || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         if (!cancelled) setSetupState('unsupported');
         return;
       }
-      recordingRef.current = mimeType;
+      recordingRef.current = setup;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (cancelled) {
@@ -495,7 +504,7 @@ export default function VoiceQuizPage() {
       setPhase('listening');
       timerStartRef.current = Date.now();
 
-      const mimeType = recordingRef.current;
+      const { mimeType } = recordingRef.current;
       const recorder = mimeType
         ? new MediaRecorder(streamRef.current, { mimeType })
         : new MediaRecorder(streamRef.current);
@@ -510,7 +519,7 @@ export default function VoiceQuizPage() {
           setPhase('grading');
           try {
             // 要求した mimeType ではなく、MediaRecorder が実際に採用した型で判断する。
-            const recordedMimeType = recorder.mimeType || mimeType;
+            const recordedMimeType = recorder.mimeType || mimeType || '';
             const blob = new Blob(chunksRef.current, { type: recordedMimeType });
 
             if (blob.size === 0) {
@@ -536,12 +545,12 @@ export default function VoiceQuizPage() {
               return;
             }
 
-            const audioBase64 = arrayBufferToBase64(
-              converted ? toArrayBuffer(converted.pcm) : await blob.arrayBuffer(),
+            const audioBase64 = bytesToBase64(
+              converted ? converted.pcm : new Uint8Array(await blob.arrayBuffer()),
             );
             const response = await fetch('/api/voice-quiz/recognize', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: await recognizeRequestHeaders(),
               body: JSON.stringify({
                 audioBase64,
                 encoding: passthrough ?? 'LINEAR16',
@@ -557,7 +566,9 @@ export default function VoiceQuizPage() {
             const data = await response.json().catch(() => null);
             if (questionRunRef.current !== run) return;
             if (!response.ok || !data?.success) {
-              const message = typeof data?.error === 'string' ? data.error : '';
+              const message = typeof data?.error === 'string' && data.error
+                ? data.error
+                : `サーバーが応答しませんでした (HTTP ${response.status})`;
 
               // 上限・未設定・未ログインは、次の問題でも同じように落ちる。
               // 残りを機械的に失敗させても得るものが無いので、ここで止める。
@@ -587,13 +598,18 @@ export default function VoiceQuizPage() {
                 ? data.alternatives.filter((item: unknown): item is string => typeof item === 'string')
                 : [],
             );
-          } catch {
+          } catch (error) {
             if (questionRunRef.current !== run) return;
+            // 例外の中身まで出す。ここだけ文言が空で、端末に何が起きたのか
+            // 画面からは分からなかった (PWAではコンソールも開けない)。
+            const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            console.error('Voice quiz recognize threw:', error);
             consecutiveRecognitionErrorsRef.current += 1;
             if (consecutiveRecognitionErrorsRef.current >= MAX_CONSECUTIVE_RECOGNITION_ERRORS) {
-              blockSession('音声認識に接続できませんでした。通信状況を確認してください。');
+              blockSession(`音声を送れませんでした (${detail})`);
               return;
             }
+            setRecognitionErrorMessage(`音声を送れませんでした (${detail})`);
             await handleAttemptResult('', true, run);
           }
         })();

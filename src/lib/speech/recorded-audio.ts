@@ -93,6 +93,23 @@ export function floatsToPcm16(samples: Float32Array): Uint8Array {
   return bytes;
 }
 
+/**
+ * バイト列を base64 にする。
+ *
+ * `String.fromCharCode(...bytes)` は展開したぶんが引数になるため、
+ * 配列が大きいと呼び出しの上限に当たって RangeError で落ちる。
+ * 上限は処理系とスタックの余裕で決まり、スマホのほうが先に当たる ——
+ * 「PCでは通るのにスマホだけ音声認識が失敗する」の形で出る。
+ * 1バイトずつ積めば上限そのものが無い。
+ */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 type AudioContextConstructor = new () => AudioContext;
 
 function audioContextConstructor(): AudioContextConstructor | null {
@@ -117,8 +134,10 @@ export async function toLinear16(blob: Blob): Promise<Linear16Audio | null> {
   const Ctor = audioContextConstructor();
   if (!Ctor || blob.size === 0) return null;
 
-  const context = new Ctor();
+  let context: AudioContext | null = null;
   try {
+    // 生成自体が落ちることがある (音声セッションを取れない、など)。
+    context = new Ctor();
     const decoded = await context.decodeAudioData(await blob.arrayBuffer());
     const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) =>
       decoded.getChannelData(i),
@@ -131,6 +150,6 @@ export async function toLinear16(blob: Blob): Promise<Linear16Audio | null> {
     return null;
   } finally {
     // 端末のオーディオを掴んだままにしない。閉じられなくても実害は無い。
-    void context.close?.();
+    void context?.close?.();
   }
 }
