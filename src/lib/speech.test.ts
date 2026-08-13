@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickEnglishVoice, pickVoiceForLang, shouldStopWaitingForSpeech } from './speech';
+import {
+  pickEnglishVoice,
+  pickVoiceForLang,
+  shouldStopWaitingForSpeech,
+  speechStartGraceMs,
+} from './speech';
 
 type FakeVoice = { lang: string; default: boolean; localService: boolean };
 
@@ -81,6 +86,18 @@ test('鳴り始めないまま猶予を過ぎたら諦める', () => {
   assert.equal(shouldStopWaitingForSpeech({ ...dropped, elapsedMs: 400 }), false);
   assert.equal(shouldStopWaitingForSpeech({ ...dropped, elapsedMs: 1560 }), true);
   assert.equal(shouldStopWaitingForSpeech({ ...dropped, elapsedMs: 5000 }), true);
+});
+
+/**
+ * 合成音声が鳴らない端末では、この猶予が1片ごとにそのまま沈黙になる。
+ * 続けて捨てられたら短くし、「開始を押したのに始まらない」を積み上げない。
+ */
+test('捨てられ続けたら、鳴り始めを待つ猶予を詰める', () => {
+  assert.equal(speechStartGraceMs(0), 1500);
+  assert.ok(speechStartGraceMs(1) < speechStartGraceMs(0));
+  assert.ok(speechStartGraceMs(2) < speechStartGraceMs(1));
+  // いくら続いても待ちを0にはしない。遅れて鳴り出した声を拾えるようにしておく。
+  assert.ok(speechStartGraceMs(10) > 0);
 });
 
 test('鳴り始めるのが遅いだけなら諦めない', () => {

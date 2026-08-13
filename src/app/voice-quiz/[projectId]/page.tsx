@@ -13,7 +13,12 @@ import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUse
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { stopSpeaking } from '@/lib/speech';
-import { speakVoiceQuiz, stopVoiceQuizAudio } from '@/lib/quiz/voice-quiz-speech';
+import {
+  prefetchVoiceQuizAudio,
+  primeVoiceQuizAudio,
+  speakVoiceQuiz,
+  stopVoiceQuizAudio,
+} from '@/lib/quiz/voice-quiz-speech';
 import { bytesToBase64, passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
 import { VOICE_QUIZ_RESULT_ANNOUNCEMENTS, type VoiceQuizResultKey } from '@/lib/quiz/voice-quiz-audio';
 import {
@@ -288,6 +293,12 @@ export default function VoiceQuizPage() {
     redirectedToNormalRef.current = true;
     goToNormalQuiz();
   }, [modeLoaded, storedMode, goToNormalQuiz]);
+
+  // 固定文の音声を先に取ってきておく。設定を選んでいる間に済むので、
+  // 1問目の読み上げがネットワーク待ちで遅れない。
+  useEffect(() => {
+    prefetchVoiceQuizAudio();
+  }, []);
 
   // マイク権限 + MediaRecorder対応を一度だけ確認する。
   useEffect(() => {
@@ -765,6 +776,9 @@ export default function VoiceQuizPage() {
 
   const beginSession = (attempts: number, seconds: number) => {
     if (words.length === 0) return;
+    // 事前生成の音声はユーザー操作の中で一度解錠しないと鳴らない。
+    // ここを通さないと、インストール済みPWAでは全部が合成音声に落ちる。
+    primeVoiceQuizAudio();
     setBlockedMessage('');
     consecutiveRecognitionErrorsRef.current = 0;
     directionRef.current = direction;
@@ -800,6 +814,9 @@ export default function VoiceQuizPage() {
     const nextWord = pool[nextStart];
     if (!nextWord) return;
 
+    // 結果画面から直に出題へ入るので、ここでも解錠しておく
+    // (音声セッションが切れた端末では、操作のたびに通し直すのが確実)。
+    primeVoiceQuizAudio();
     setBlockedMessage('');
     consecutiveRecognitionErrorsRef.current = 0;
     setBatchStart(nextStart);

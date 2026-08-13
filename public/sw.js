@@ -21,6 +21,8 @@
 //   - Public shared-wordbook reads (/api/shared-projects/share/**) -> network-first,
 //     so a wordbook the user merely viewed (never imported) still opens offline.
 //   - RSC payloads & other GETs      -> network-first with cache fallback.
+//   - Media element loads (audio/video, byte-range) -> never touched. WebKit is
+//     unreliable about playing media served through a worker.
 //   - Other API / auth / cross-origin / non-GET -> never touched (always network).
 // Net effect: caching only ADDS an offline fallback on top of today's online
 // behavior; it never changes what an online launch loads.
@@ -154,6 +156,17 @@ self.addEventListener('fetch', (event) => {
   // Cross-origin (AI APIs, Supabase, Stripe, analytics): never intercept.
   if (url.origin !== self.location.origin) return;
 
+  // Media elements load audio with byte-range requests, and WebKit is unreliable
+  // about playing media served through a worker (a range request answered from a
+  // worker can stall or fail silently). Let those go straight to the network: the
+  // voice quiz falls back to synthetic speech whenever a clip will not play, and
+  // that fallback is exactly what the natural-voice clips are meant to avoid.
+  // The app also fetches the same clips itself (plain GET, no Range) to decode
+  // via Web Audio — those are cached below as static assets.
+  if (request.destination === 'audio' || request.destination === 'video' || request.headers.has('range')) {
+    return;
+  }
+
   // Public shared-wordbook reads: cache so a viewed-but-unsaved shared wordbook opens
   // offline. Network-first keeps it fresh online. Handled before the /api/ bypass.
   if (url.pathname.startsWith(SHARED_WORDBOOK_API_PREFIX)) {
@@ -195,7 +208,11 @@ self.addEventListener('fetch', (event) => {
 function isStaticAsset(url) {
   return (
     url.pathname === '/manifest.json' ||
-    /\.(?:png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot)$/i.test(url.pathname)
+    // mp3: the voice quiz's pre-generated narration. Cached like an icon so the
+    // clips are already local on the second session (and offline), instead of
+    // being re-fetched per question — that wait shows up as a silent pause
+    // before each question.
+    /\.(?:png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot|mp3)$/i.test(url.pathname)
   );
 }
 

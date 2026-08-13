@@ -5,6 +5,7 @@
  *
  * 固定文は事前生成した自然な音声を鳴らし、単語のように毎回変わるものは
  * これまでどおりブラウザの合成音声で読む。呼び出し側はどちらか意識しない。
+ * 音声そのものの鳴らし方は `voice-quiz-clips.ts` を見ること。
  *
  * ここでの絶対条件は「必ず終わること」。読み上げの完了待ちで止まると、
  * 呼び出し側は次の処理 (録音の開始) に進めず、クイズが始まらないまま
@@ -17,28 +18,35 @@
 
 import { speakAndWait, type SpeechLang } from '@/lib/speech';
 import { voiceQuizAudioIndex } from './voice-quiz-audio';
+import {
+  playVoiceQuizClip,
+  prefetchVoiceQuizClips,
+  primeVoiceQuizClips,
+  stopVoiceQuizClips,
+} from './voice-quiz-clips';
 
-/** 再生が始まるまでの猶予。これを過ぎたら鳴らないものとして合成音声に回す。 */
-const PLAY_START_TIMEOUT_MS = 1500;
+export { playbackTimeoutMs } from './voice-quiz-clips';
 
 /**
- * 鳴り始めたあと、鳴り終わるのを待つ上限。
- * 長さが分からないときの保険で、通常は音声そのものの長さから決める。
+ * 画面を開いた時点の下ごしらえ。固定文の音声を先に取ってきておく。
+ * 再生のたびにネットワークを待つと、その待ちがそのまま出題の遅れになる。
  */
-const PLAY_END_TIMEOUT_MS = 12_000;
+export function prefetchVoiceQuizAudio(): void {
+  prefetchVoiceQuizClips();
+}
 
 /**
- * 音声の長さから、鳴り終わりを待つ上限を決める。
- *
- * 一律で長く待つと、`ended` が上がらなかったときにそのぶん丸ごと止まる ——
- * iOS は再生が中断されるとイベントを上げないことがあり、1片ごとに
- * 十数秒の沈黙になって「出題が始まらない」ように見える。
- * 実際の長さが分かるなら、それを少し超えたところで見切る。
+ * 開始ボタンなど、ユーザー操作の中で呼ぶ。以降の再生を許可させる。
+ * これを通さないと、インストール済みPWAでは事前生成の音声が丸ごと弾かれ、
+ * 全部が合成音声で読まれる。
  */
-export function playbackTimeoutMs(durationSeconds: number): number {
-  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return PLAY_END_TIMEOUT_MS;
-  // 再生の遅れぶんの余裕を足す。短い掛け声でも1秒は待つ。
-  return Math.min(Math.round(durationSeconds * 1000 * 1.5) + 1000, PLAY_END_TIMEOUT_MS);
+export function primeVoiceQuizAudio(): void {
+  primeVoiceQuizClips();
+}
+
+/** 再生中の音声を止める。待っている側は解放する。 */
+export function stopVoiceQuizAudio(): void {
+  stopVoiceQuizClips();
 }
 
 /** 文言 → 音声ファイルの索引。1度だけ組み立てる。 */
@@ -50,99 +58,6 @@ function urlForText(text: string): string | null {
 }
 
 /**
- * 鳴らせないと分かった音声。
- * 未生成・破損・再生できない環境で毎回待たされないよう、一度諦めたら覚えておく。
- */
-const unavailable = new Set<string>();
-
-/** いま鳴っている音声と、それを待っている側を解放する手段。 */
-let current: { audio: HTMLAudioElement; abandon: () => void } | null = null;
-
-/**
- * 再生を止める。待っている側は「鳴らし終えた」扱いで解放する ——
- * ここで解決し損ねると、読み上げループが永久に待ち続けて先へ進めなくなる。
- */
-export function stopVoiceQuizAudio(): void {
-  const playing = current;
-  if (!playing) return;
-  current = null;
-
-  try {
-    playing.audio.pause();
-    playing.audio.currentTime = 0;
-  } catch {
-    // 再生前に止めた場合など。放っておいてよい。
-  }
-  playing.abandon();
-}
-
-/**
- * 事前生成の音声を鳴らす。
- * 鳴らし切れたか、あるいは途中で止められたら true。
- * 鳴らせなかった (未生成・失敗・始まらない) 場合だけ false を返し、
- * 呼び出し側が合成音声に回せるようにする。
- */
-async function playClip(url: string): Promise<boolean> {
-  if (typeof Audio === 'undefined' || unavailable.has(url)) return false;
-
-  // 前の一片がまだ鳴っていれば止める。合成音声側は speakInternal が
-  // 自分でキャンセルするので、事前生成音声もそれに揃える。
-  stopVoiceQuizAudio();
-
-  return new Promise<boolean>((resolve) => {
-    const audio = new Audio(url);
-    let settled = false;
-    let started = false;
-    let startTimer = 0;
-    let endTimer = 0;
-
-    const settle = (playedSomething: boolean, markUnusable: boolean) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(startTimer);
-      window.clearTimeout(endTimer);
-      if (markUnusable) unavailable.add(url);
-      if (current?.audio === audio) current = null;
-      resolve(playedSomething);
-    };
-
-    // 外から止められたとき。鳴らした扱いで解放し、二重に喋らせない。
-    current = { audio, abandon: () => settle(true, false) };
-
-    audio.onended = () => settle(true, false);
-    audio.onerror = () => settle(false, true);
-
-    audio.onplaying = () => {
-      started = true;
-      window.clearTimeout(startTimer);
-      // 鳴り始めたら、終わらない場合に備えて上限を張る。
-      // 上限はこの音声の長さから決める (この時点なら大抵は分かっている)。
-      endTimer = window.setTimeout(
-        () => settle(true, false),
-        playbackTimeoutMs(audio.duration),
-      );
-    };
-
-    // 再生が途中で止められたときも、待っている側を解放する。
-    // iOS は着信や音声セッションの切り替えで再生を止め、`ended` を上げない。
-    audio.onpause = () => {
-      if (started && !audio.ended) settle(true, false);
-    };
-
-    // 再生が始まらないまま黙っているケース (自動再生の制限や読み込み停滞)。
-    // ここで諦めないと、待っている側が永久に止まる。
-    startTimer = window.setTimeout(() => {
-      if (!started) settle(false, true);
-    }, PLAY_START_TIMEOUT_MS);
-
-    audio.play().catch(() => {
-      // 自動再生がユーザー操作より前に来た場合など。合成音声に任せる。
-      settle(false, true);
-    });
-  });
-}
-
-/**
  * 合成音声に回した文言。同じ文で何度も警告しないために覚えておく。
  */
 const reportedFallbacks = new Set<string>();
@@ -151,7 +66,7 @@ const reportedFallbacks = new Set<string>();
  * 合成音声で読んだことを知らせる。
  *
  * 単語や訳が合成音声なのは設計どおりだが、固定文がそうなっているのは
- * 台本と音声のズレで、耳で気づくしかなかった。どの文が落ちたのかを出す。
+ * 台本と音声のズレか再生の失敗で、耳で気づくしかなかった。どの文が落ちたのかを出す。
  */
 function reportFallback(text: string, indexed: boolean): void {
   if (reportedFallbacks.has(text)) return;
@@ -176,7 +91,7 @@ export async function speakVoiceQuiz(
   if (!trimmed) return;
 
   const url = urlForText(trimmed);
-  if (url && (await playClip(url))) return;
+  if (url && (await playVoiceQuizClip(url))) return;
 
   // 単語や訳が合成音声なのは設計どおりなので、知らせる価値があるのは固定文だけ。
   if (!options?.variable) reportFallback(trimmed, url !== null);
