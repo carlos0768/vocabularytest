@@ -61,14 +61,10 @@ function clipId(text: string): string {
 }
 
 /**
- * 差し替え位置の目印。実際の語彙と衝突しない文字列を入れて組み立て、
- * これ以外の断片＝単語に依存しない固定部分、として拾う。
+ * 差し込み位置に入れる仮の語。実際の語彙と衝突しない文字列にしておく。
+ * どの断片が単語ぶんかは、組み立てた側が `variable` で教えてくれる。
  */
 const SAMPLE_WORD = { english: '\u0000EN\u0000', japanese: '\u0000JA\u0000' };
-
-function isSampleText(text: string): boolean {
-  return text === SAMPLE_WORD.english || text === SAMPLE_WORD.japanese;
-}
 
 /**
  * 出題文の固定部分を、実際に読み上げるビルダーから取り出す。
@@ -84,8 +80,8 @@ function promptFragments(
   const clips: VoiceQuizAudioClip[] = [];
 
   for (let index = 0; index < templateCount; index += 1) {
-    buildVoiceQuizPromptFor(direction, SAMPLE_WORD, index).forEach((segment, position) => {
-      if (isSampleText(segment.text)) return;
+    buildVoiceQuizPromptFor(direction, SAMPLE_WORD, index).forEach((segment) => {
+      if (segment.variable) return;
       clips.push({ id: clipId(segment.text), text: segment.text, lang: segment.lang });
     });
   }
@@ -98,8 +94,8 @@ function answerAnnouncementFragments(): VoiceQuizAudioClip[] {
   const clips: VoiceQuizAudioClip[] = [];
 
   for (const direction of ['en-to-ja', 'ja-to-en'] as const) {
-    buildVoiceQuizAnswerAnnouncement(direction, SAMPLE_WORD).forEach((segment, position) => {
-      if (isSampleText(segment.text)) return;
+    buildVoiceQuizAnswerAnnouncement(direction, SAMPLE_WORD).forEach((segment) => {
+      if (segment.variable) return;
       clips.push({ id: clipId(segment.text), text: segment.text, lang: segment.lang });
     });
   }

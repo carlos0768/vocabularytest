@@ -41,7 +41,7 @@ if (missing.length > 0) {
 if (stale.length > 0) {
   console.log(`\nどの文にも対応しない音声 (${stale.length}件):`);
   for (const name of stale) console.log(`  ${name}`);
-  console.log('\n  消してからコミットしてください。');
+  console.log('\n  npm run audio:voice-quiz  を流すと消えます。');
 }
 
 if (missing.length === 0 && stale.length === 0) {

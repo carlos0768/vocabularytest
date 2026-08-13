@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
 import { QuizModeChooser, QuizModeTabs } from '@/components/quiz';
 import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
+import { voiceQuizBatch } from '@/lib/quiz/voice-quiz-batch';
 import { getRepository } from '@/lib/db';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
@@ -49,6 +50,13 @@ const TIMER_TICK_MS = 50;
  * 正解のときはテンポを優先してすぐ進む。読み上げも挟まない。
  * 不正解のときは「正解は〜です」を聞き終えられるだけの間を取る。
  */
+/**
+ * 音声認識が続けて落ちたら、そこでセッションを止める回数。
+ * 1回や2回は通信の揺れで起きるので流すが、それ以上は設定か上限の問題で、
+ * 残りの問題を出しても同じように落ちるだけ。
+ */
+const MAX_CONSECUTIVE_RECOGNITION_ERRORS = 3;
+
 const AUTO_ADVANCE_CORRECT_MS = 1000;
 const AUTO_ADVANCE_INCORRECT_MS = 4200;
 
@@ -145,7 +153,23 @@ export default function VoiceQuizPage() {
     [goToNormalQuiz],
   );
 
-  const [words, setWords] = useState<Word[]>([]);
+  /**
+   * 単語帳の出題候補を、優先度順に並べたもの。1回のセッションで解くのは
+   * この先頭から `requestedCount` 問ぶんで、終わったら次のひと組へ進む。
+   * 並びは読み込み時に一度だけ決める —— 解くたびに並べ替えると、
+   * 「次の10問」がどこから続くのか追えなくなる。
+   */
+  const [pool, setPool] = useState<Word[]>([]);
+  /** いま解いているひと組が、並びの何番目から始まるか。 */
+  const [batchStart, setBatchStart] = useState(0);
+  /**
+   * いま解いているひと組と、その次の見通し。
+   * 画面の進捗も出題も、この範囲だけを見る。
+   */
+  const { words, nextStart, nextSize: nextBatchSize } = useMemo(
+    () => voiceQuizBatch(pool, batchStart, requestedCount),
+    [pool, batchStart, requestedCount],
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
@@ -173,6 +197,17 @@ export default function VoiceQuizPage() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [isDisqualified, setIsDisqualified] = useState(false);
   const [recognitionErrored, setRecognitionErrored] = useState(false);
+  /**
+   * 認識が落ちた理由。サーバーは「上限に達した」「認証が必要」などを
+   * 書き分けて返しているのに、ここで捨てて「失敗しました」とだけ出していた。
+   * 全問落ちても原因が分からないので、返ってきた文言をそのまま見せる。
+   */
+  const [recognitionErrorMessage, setRecognitionErrorMessage] = useState('');
+  /**
+   * 続けても必ず落ちる失敗 (利用上限・設定不足)。1問ごとに黙って不正解に
+   * するのではなく、ここで止めて理由を出す。
+   */
+  const [blockedMessage, setBlockedMessage] = useState('');
   /** 出題の向き。開始画面で選ぶ。 */
   const [direction, setDirection] = useState<VoiceQuizDirection>(DEFAULT_VOICE_QUIZ_DIRECTION);
   /** 答えるのが日本語か (英→日)。画面の文言と主従はこれで決まる。 */
@@ -207,6 +242,11 @@ export default function VoiceQuizPage() {
   /** 出題中に向きが変わらないよう、出題〜採点はこの ref を参照する。 */
   const directionRef = useRef<VoiceQuizDirection>(DEFAULT_VOICE_QUIZ_DIRECTION);
   const questionRunRef = useRef(0);
+  /**
+   * 続けて落ちた音声認識の回数。キーが失効しているときのように、
+   * 何度やっても落ちる状態で残りの問題を機械的に潰させないための歯止め。
+   */
+  const consecutiveRecognitionErrorsRef = useRef(0);
   /**
    * いま出題中の単語。`setCurrentIndex` の反映は次のレンダーまで待たされるので、
    * 「次へ」の直後に startQuestion を呼ぶとレンダー由来の値はまだ1問前を指す。
@@ -296,7 +336,8 @@ export default function VoiceQuizPage() {
           return;
         }
 
-        setWords(sortWordsByPriority(loaded).slice(0, Math.min(loaded.length, requestedCount)));
+        setPool(sortWordsByPriority(loaded));
+        setBatchStart(0);
       } catch {
         setPrepareError(true);
       } finally {
@@ -305,7 +346,7 @@ export default function VoiceQuizPage() {
     };
 
     load();
-  }, [authLoading, projectId, repository, user, backToProject, goToNormalQuiz, requestedCount]);
+  }, [authLoading, projectId, repository, user, backToProject, goToNormalQuiz]);
 
   /** 1問を確定させる。以降この問題では再挑戦しない。 */
   const finishQuestion = useCallback(
@@ -331,12 +372,17 @@ export default function VoiceQuizPage() {
         disqualified: prev.disqualified + (disqualified ? 1 : 0),
       }));
 
-      if (correct) {
-        recordCorrectAnswer(false);
-      } else {
-        recordWrongAnswer(word.id, word.english, word.japanese, projectId, word.distractors);
+      // 音声認識が落ちたぶんは、間違えたことにしない。答えを聞き取れなかった
+      // だけで、答えられなかったわけではない —— 記録すると復習の間隔まで
+      // 縮み、上限に達した日は解いた10問ぶんの成績と学習状態が丸ごと壊れる。
+      if (!apiErrored) {
+        if (correct) {
+          recordCorrectAnswer(false);
+        } else {
+          recordWrongAnswer(word.id, word.english, word.japanese, projectId, word.distractors);
+        }
+        recordActivity();
       }
-      recordActivity();
 
       // 判定を声でも伝える。外したときは続けて正解を読み上げる。
       // 正解のときは短い一言だけ —— すぐ次の問題へ進むので、長く喋る間が無い。
@@ -360,16 +406,18 @@ export default function VoiceQuizPage() {
         for (const segment of announcement) {
           // 次の問題へ進んだあとに前の答えが流れ続けないよう、毎回確かめる。
           if (questionRunRef.current !== announcementRun) return;
-          await speakVoiceQuiz(segment.text, segment.lang);
+          await speakVoiceQuiz(segment.text, segment.lang, { variable: segment.variable });
         }
       })();
+
+      if (apiErrored) return;
 
       try {
         const newStatus = getStatusAfterAnswer(word.status, correct);
         const srUpdate = calculateNextReview(correct, word);
         const updates = { status: newStatus, ...srUpdate };
         await repository.updateWord(word.id, updates);
-        setWords((prev) => prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w)));
+        setPool((prev) => prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w)));
       } catch {}
     },
     [projectId, repository],
@@ -413,6 +461,20 @@ export default function VoiceQuizPage() {
     [finishQuestion],
   );
 
+  /**
+   * 続けても落ちる失敗で、セッションを止める。
+   * 読み上げも録音も切り、run を進めて進行中のコールバックを無効にしてから
+   * 理由を出す —— 黙って全問を不正解にするより、何が起きたかを見せる。
+   */
+  const blockSession = useCallback((message: string) => {
+    questionRunRef.current += 1;
+    try { recorderRef.current?.stop(); } catch {}
+    stopSpeaking();
+    stopVoiceQuizAudio();
+    timerStartRef.current = null;
+    setBlockedMessage(message || '音声認識に失敗しました。時間をおいてお試しください。');
+  }, []);
+
   /** 録音+カウントダウンを開始する。1問の中で試行のたびに呼ばれる。 */
   const startListening = useCallback(
     (run: number) => {
@@ -421,6 +483,7 @@ export default function VoiceQuizPage() {
       attemptSettledRef.current = false;
       chunksRef.current = [];
       setRecognizedText('');
+      setRecognitionErrorMessage('');
       setRetryMessage('');
       setTimeLeft(durationMsRef.current);
       setPhase('listening');
@@ -447,6 +510,7 @@ export default function VoiceQuizPage() {
               console.error(
                 `Voice quiz recording unusable (mimeType=${recordedMimeType}, bytes=${blob.size})`,
               );
+              consecutiveRecognitionErrorsRef.current += 1;
               await handleAttemptResult('', true, run);
               return;
             }
@@ -466,12 +530,31 @@ export default function VoiceQuizPage() {
                   : [activeWordRef.current?.english ?? ''].filter(Boolean),
               }),
             });
-            const data = await response.json();
+            const data = await response.json().catch(() => null);
             if (questionRunRef.current !== run) return;
-            if (!response.ok || !data.success) {
+            if (!response.ok || !data?.success) {
+              const message = typeof data?.error === 'string' ? data.error : '';
+
+              // 上限・未設定・未ログインは、次の問題でも同じように落ちる。
+              // 残りを機械的に失敗させても得るものが無いので、ここで止める。
+              const hopeless = Boolean(data?.limitReached)
+                || response.status === 401
+                || response.status === 500;
+
+              consecutiveRecognitionErrorsRef.current += 1;
+              const givenUp =
+                consecutiveRecognitionErrorsRef.current >= MAX_CONSECUTIVE_RECOGNITION_ERRORS;
+
+              if (hopeless || givenUp) {
+                blockSession(message);
+                return;
+              }
+
+              setRecognitionErrorMessage(message);
               await handleAttemptResult('', true, run);
               return;
             }
+            consecutiveRecognitionErrorsRef.current = 0;
             await handleAttemptResult(
               typeof data.transcript === 'string' ? data.transcript : '',
               false,
@@ -481,7 +564,13 @@ export default function VoiceQuizPage() {
                 : [],
             );
           } catch {
-            if (questionRunRef.current === run) await handleAttemptResult('', true, run);
+            if (questionRunRef.current !== run) return;
+            consecutiveRecognitionErrorsRef.current += 1;
+            if (consecutiveRecognitionErrorsRef.current >= MAX_CONSECUTIVE_RECOGNITION_ERRORS) {
+              blockSession('音声認識に接続できませんでした。通信状況を確認してください。');
+              return;
+            }
+            await handleAttemptResult('', true, run);
           }
         })();
       };
@@ -489,7 +578,7 @@ export default function VoiceQuizPage() {
       recorderRef.current = recorder;
       recorder.start();
     },
-    [handleAttemptResult],
+    [handleAttemptResult, blockSession],
   );
 
   startListeningRef.current = startListening;
@@ -527,7 +616,7 @@ export default function VoiceQuizPage() {
         promptOffsetRef.current + run,
       );
       for (const segment of segments) {
-        await speakVoiceQuiz(segment.text, segment.lang);
+        await speakVoiceQuiz(segment.text, segment.lang, { variable: segment.variable });
         if (questionRunRef.current !== run) return;
       }
       startListeningRef.current(run);
@@ -629,6 +718,8 @@ export default function VoiceQuizPage() {
 
   const beginSession = (attempts: number, seconds: number) => {
     if (words.length === 0) return;
+    setBlockedMessage('');
+    consecutiveRecognitionErrorsRef.current = 0;
     directionRef.current = direction;
     attemptsAllowedRef.current = normalizeVoiceQuizAttempts(attempts);
     setAttemptsAllowed(attemptsAllowedRef.current);
@@ -644,11 +735,31 @@ export default function VoiceQuizPage() {
   };
 
   const restartSession = () => {
+    setBlockedMessage('');
+    consecutiveRecognitionErrorsRef.current = 0;
     setCurrentIndex(0);
     setResults({ correct: 0, total: 0, disqualified: 0 });
     setIsComplete(false);
     questionRunRef.current = 0;
     setHasStarted(false);
+  };
+
+  /**
+   * 同じ設定のまま、単語帳の次のひと組へ進む。
+   * 試行回数も解答時間も選び直させない —— 続けて解きたいから押すボタンで、
+   * 開始画面に戻すと10問ごとに同じ設定を選ばされる。
+   */
+  const startNextBatch = () => {
+    const nextWord = pool[nextStart];
+    if (!nextWord) return;
+
+    setBlockedMessage('');
+    consecutiveRecognitionErrorsRef.current = 0;
+    setBatchStart(nextStart);
+    setCurrentIndex(0);
+    setResults({ correct: 0, total: 0, disqualified: 0 });
+    setIsComplete(false);
+    startQuestion(nextWord);
   };
 
   useEffect(() => {
@@ -691,7 +802,7 @@ export default function VoiceQuizPage() {
   if (storedMode === null) {
     return (
       <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
           <CloseButton onClick={backToProject} />
         </header>
         <main className="flex-1 flex items-center justify-center px-6">
@@ -708,6 +819,29 @@ export default function VoiceQuizPage() {
         icon="error"
         title="問題の準備に失敗しました"
         message="通信状況を確認して、もう一度お試しください。"
+      />
+    );
+  }
+
+  // 認識が続けて落ちる状態。理由を出して、解いたぶんの結果だけは見せる。
+  if (blockedMessage) {
+    return (
+      <NoticeScreen
+        onBack={backToProject}
+        icon="mic_off"
+        title="音声認識を続けられません"
+        message={blockedMessage}
+        action={
+          results.total > 0
+            ? {
+                label: 'ここまでの結果を見る',
+                onClick: () => {
+                  setBlockedMessage('');
+                  setIsComplete(true);
+                },
+              }
+            : undefined
+        }
       />
     );
   }
@@ -740,7 +874,7 @@ export default function VoiceQuizPage() {
   if (!hasStarted) {
     return (
       <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
           <CloseButton onClick={backToProject} />
         </header>
 
@@ -915,7 +1049,7 @@ export default function VoiceQuizPage() {
 
     return (
       <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4">
+        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
           <CloseButton onClick={backToProject} />
         </header>
 
@@ -961,15 +1095,32 @@ export default function VoiceQuizPage() {
             <p className="mt-6 font-display text-base font-black text-[var(--solid-ink)]">{completionMessage}</p>
 
             <div className="mt-7 space-y-3">
-              <SolidButton
-                variant="accent"
-                size="lg"
-                iconLeft="refresh"
-                onClick={restartSession}
-                className={cn('w-full', HARD_SHADOW)}
-              >
-                もう一度
-              </SolidButton>
+              {/*
+                同じ10問をもう一度やるより、単語帳の先へ進みたい。
+                残りが尽きたときだけ「もう一度」に戻す —— 進む先が無いのに
+                「次の◯問」を出すわけにいかないし、押せる手を消したくない。
+              */}
+              {nextBatchSize > 0 ? (
+                <SolidButton
+                  variant="accent"
+                  size="lg"
+                  iconLeft="arrow_forward"
+                  onClick={startNextBatch}
+                  className={cn('w-full', HARD_SHADOW)}
+                >
+                  次の{nextBatchSize}問
+                </SolidButton>
+              ) : (
+                <SolidButton
+                  variant="accent"
+                  size="lg"
+                  iconLeft="refresh"
+                  onClick={restartSession}
+                  className={cn('w-full', HARD_SHADOW)}
+                >
+                  もう一度
+                </SolidButton>
+              )}
               <SolidButton size="lg" onClick={backToProject} className={cn('w-full', HARD_SHADOW_SM)}>
                 単語一覧に戻る
               </SolidButton>
@@ -993,17 +1144,21 @@ export default function VoiceQuizPage() {
 
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4">
-        {/* アイコンだけだと終了できると分からないので、文字を出す。 */}
+      <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4 safe-area-top">
+        {/*
+          アイコンだけだと終了できると分からないので、文字を出す。
+          指で押せる大きさ (44px) を確保する —— 画面いっぱいのクイズから
+          抜ける唯一の導線なので、小さくて押しにくいでは困る。
+        */}
         <button
           type="button"
           onClick={requestStop}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1.5 font-display text-xs font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
+            'inline-flex h-11 shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 font-display text-sm font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
             HARD_SHADOW_SM,
           )}
         >
-          <Icon name="close" size={15} />
+          <Icon name="close" size={17} />
           終了
         </button>
 
@@ -1162,7 +1317,9 @@ export default function VoiceQuizPage() {
                     {isCorrect ? '正解!' : gaveUp ? 'わからない' : isDisqualified ? '失格!' : '不正解'}
                   </p>
                   {recognitionErrored && (
-                    <p className="text-xs text-[var(--color-muted)]">音声認識に失敗しました</p>
+                    <p className="text-xs text-[var(--color-muted)]">
+                      {recognitionErrorMessage || '音声認識に失敗しました'}
+                    </p>
                   )}
                   {recognizedText && !isCorrect && !isDisqualified && <MisheardText text={recognizedText} />}
 
@@ -1472,15 +1629,18 @@ function NoticeScreen({
   icon,
   title,
   message,
+  action,
 }: {
   onBack: () => void;
   icon: string;
   title: string;
   message: string;
+  /** 戻る以外にできることがあるとき (途中まで解いた結果を見る、など)。 */
+  action?: { label: string; onClick: () => void };
 }) {
   return (
     <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 p-4">
+      <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
         <CloseButton onClick={onBack} />
       </header>
       <main className="flex-1 flex items-center justify-center px-6">
@@ -1495,6 +1655,16 @@ function NoticeScreen({
           </div>
           <p className="font-display text-lg font-black leading-snug text-[var(--solid-ink)]">{title}</p>
           <p className="mt-3 mb-6 text-sm leading-6 text-[var(--color-muted)]">{message}</p>
+          {action && (
+            <SolidButton
+              variant="accent"
+              size="lg"
+              onClick={action.onClick}
+              className={cn('mb-3 w-full', HARD_SHADOW)}
+            >
+              {action.label}
+            </SolidButton>
+          )}
           <SolidButton size="lg" onClick={onBack} className={cn('w-full', HARD_SHADOW_SM)}>
             戻る
           </SolidButton>

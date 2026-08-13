@@ -27,6 +27,7 @@ import {
   VOICE_QUIZ_MEANING_PROMPT_TEMPLATES,
   VOICE_QUIZ_RETRY_TEMPLATES,
   VOICE_QUIZ_WORD_PLACEHOLDER,
+  VOICE_QUIZ_WORD_PROMPT_TEMPLATES,
   voiceQuizPromptToText,
 } from './voice-quiz-prompt';
 
@@ -240,4 +241,36 @@ test('the answer announcement switches voice only for an English answer', () => 
 
 test('an empty answer produces no announcement', () => {
   assert.deepEqual(buildVoiceQuizAnswerAnnouncement('en-to-ja', { english: 'x', japanese: '  ' }), []);
+});
+
+/**
+ * 読み上げの「単語ぶん」は1片だけ。ここがずれると、
+ * 事前生成の台本が単語を拾ってしまい (作れない音声を待つ)、
+ * 逆に固定文が合成音声のまま見過ごされる。
+ */
+test('exactly one segment per question is the variable one, and it is the word', () => {
+  const word = { english: 'elaborate', japanese: '入念に作り上げる' };
+
+  for (let i = 0; i < VOICE_QUIZ_MEANING_PROMPT_TEMPLATES.length; i += 1) {
+    const variable = buildVoiceQuizPromptFor('en-to-ja', word, i).filter((s) => s.variable);
+    assert.deepEqual(variable.map((s) => s.text), [word.english]);
+  }
+
+  for (let i = 0; i < VOICE_QUIZ_WORD_PROMPT_TEMPLATES.length; i += 1) {
+    const variable = buildVoiceQuizPromptFor('ja-to-en', word, i).filter((s) => s.variable);
+    assert.deepEqual(variable.map((s) => s.text), [word.japanese]);
+  }
+});
+
+test('only the answer itself is variable in the answer announcement', () => {
+  const word = { english: 'elaborate', japanese: '入念に作り上げる' };
+
+  assert.deepEqual(
+    buildVoiceQuizAnswerAnnouncement('en-to-ja', word).filter((s) => s.variable).map((s) => s.text),
+    [word.japanese],
+  );
+  assert.deepEqual(
+    buildVoiceQuizAnswerAnnouncement('ja-to-en', word).filter((s) => s.variable).map((s) => s.text),
+    [word.english],
+  );
 });
