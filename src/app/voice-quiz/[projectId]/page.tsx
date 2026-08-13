@@ -42,6 +42,7 @@ import {
   japaneseAnswerHints,
 } from '@/lib/quiz/voice-quiz-answer';
 import { useAuth } from '@/hooks/use-auth';
+import { createBrowserClient } from '@/lib/supabase';
 import type { Word, SubscriptionStatus } from '@/types';
 
 const TIMER_TICK_MS = 50;
@@ -82,19 +83,23 @@ const CANDIDATE_MIME_TYPES = [
   'audio/mp4',
 ];
 
-/** ブラウザの既定で録ることを表す値。MediaRecorder には何も渡さない。 */
-const BROWSER_DEFAULT_MIME_TYPE = '';
+/**
+ * 録音の設定。`mimeType` が null なら MediaRecorder に何も渡さず、
+ * ブラウザの既定で録る。「指定なし」と「録音できない」を空文字で表すと、
+ * falsy 判定に引っかかって録音そのものが素通りされる。
+ */
+type RecordingSetup = { mimeType: string | null };
 
 /**
  * 録音に使う MIME を選ぶ。エンコーディングは録音後の実際の出力から決める。
  * null は「この端末では録音できない」。
  */
-function pickSupportedMimeType(): string | null {
+function pickRecordingSetup(): RecordingSetup | null {
   if (typeof MediaRecorder === 'undefined') return null;
-  return (
-    CANDIDATE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType))
-    ?? BROWSER_DEFAULT_MIME_TYPE
+  const supported = CANDIDATE_MIME_TYPES.find((mimeType) =>
+    MediaRecorder.isTypeSupported(mimeType),
   );
+  return { mimeType: supported ?? null };
 }
 
 /** Uint8Array の中身だけを ArrayBuffer として取り出す。 */
@@ -110,6 +115,25 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
+}
+
+/**
+ * 認識APIに付ける見出し。
+ *
+ * このアプリの他の認証付きAPIと同じく、アクセストークンを明示的に載せる。
+ * Cookie だけに頼ると、ホーム画面に追加した iOS の PWA が Safari とは別の
+ * 保存領域を持つために、ログイン済みでも 401 で弾かれることがある ——
+ * 端末側の音声認識が「なぜかスマホだけ失敗する」形で出る。
+ */
+async function recognizeRequestHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  try {
+    const { data: { session } } = await createBrowserClient().auth.getSession();
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+  } catch {
+    // 取れなければ Cookie に任せる。ここで諦めると出題そのものが止まる。
+  }
+  return headers;
 }
 
 type Phase = 'narrating' | 'listening' | 'grading' | 'retrying' | 'answered';
@@ -232,7 +256,7 @@ export default function VoiceQuizPage() {
   const [showModeSwitch, setShowModeSwitch] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
-  const recordingRef = useRef<string | null>(null);
+  const recordingRef = useRef<RecordingSetup | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerStartRef = useRef<number | null>(null);
@@ -284,12 +308,12 @@ export default function VoiceQuizPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const mimeType = pickSupportedMimeType();
-      if (!mimeType || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      const setup = pickRecordingSetup();
+      if (!setup || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         if (!cancelled) setSetupState('unsupported');
         return;
       }
-      recordingRef.current = mimeType;
+      recordingRef.current = setup;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (cancelled) {
@@ -495,7 +519,7 @@ export default function VoiceQuizPage() {
       setPhase('listening');
       timerStartRef.current = Date.now();
 
-      const mimeType = recordingRef.current;
+      const { mimeType } = recordingRef.current;
       const recorder = mimeType
         ? new MediaRecorder(streamRef.current, { mimeType })
         : new MediaRecorder(streamRef.current);
@@ -510,7 +534,7 @@ export default function VoiceQuizPage() {
           setPhase('grading');
           try {
             // 要求した mimeType ではなく、MediaRecorder が実際に採用した型で判断する。
-            const recordedMimeType = recorder.mimeType || mimeType;
+            const recordedMimeType = recorder.mimeType || mimeType || '';
             const blob = new Blob(chunksRef.current, { type: recordedMimeType });
 
             if (blob.size === 0) {
@@ -541,7 +565,7 @@ export default function VoiceQuizPage() {
             );
             const response = await fetch('/api/voice-quiz/recognize', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: await recognizeRequestHeaders(),
               body: JSON.stringify({
                 audioBase64,
                 encoding: passthrough ?? 'LINEAR16',
