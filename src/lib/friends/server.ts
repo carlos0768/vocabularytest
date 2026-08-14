@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { normalizeStoredAvatarUrl } from '@/lib/profile/avatar';
 import type {
   FriendProfile,
   FriendSearchRelationship,
@@ -18,6 +19,7 @@ type ProfileRow = {
   display_name?: string | null;
   user_handle?: string | null;
   account_id?: string | null;
+  avatar_url?: string | null;
 };
 
 type FriendshipRow = {
@@ -62,6 +64,7 @@ type FriendSchemaDependency =
   | 'profiles_display_name'
   | 'profiles_user_handle'
   | 'profiles_is_public'
+  | 'profiles_avatar_url'
   | 'user_friendships'
   | 'user_follows'
   | 'study_group_members'
@@ -77,7 +80,7 @@ export type QuizSessionAnswerEvent = {
 };
 
 const FRIENDSHIP_SELECT = 'id,requester_id,addressee_id,status,created_at,responded_at';
-const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id';
+const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id,avatar_url';
 const PROFILE_ACCOUNT_SELECT = 'user_id,username,account_id';
 const PROFILE_BASIC_SELECT = 'user_id,username';
 const QUIZ_SESSION_SELECT = 'id,user_id,started_at,expires_at,last_answered_at,answer_count,mastered_count';
@@ -137,6 +140,7 @@ export function getFriendSchemaIssue(error: unknown): FriendSchemaDependency | n
     ['display_name', 'profiles_display_name'],
     ['user_handle', 'profiles_user_handle'],
     ['is_public', 'profiles_is_public'],
+    ['avatar_url', 'profiles_avatar_url'],
   ] as const) {
     if (
       normalized.includes(column)
@@ -173,7 +177,8 @@ function isProfileSchemaIssue(error: unknown): boolean {
   return issue === 'profiles_account_id'
     || issue === 'profiles_display_name'
     || issue === 'profiles_user_handle'
-    || issue === 'profiles_is_public';
+    || issue === 'profiles_is_public'
+    || issue === 'profiles_avatar_url';
 }
 
 function toProfile(row: ProfileRow): FriendProfile {
@@ -181,6 +186,7 @@ function toProfile(row: ProfileRow): FriendProfile {
     userId: row.user_id,
     username: row.display_name?.trim() || row.username?.trim() || row.user_handle?.trim() || null,
     accountId: row.account_id?.trim() || row.user_handle?.trim() || buildDefaultAccountId(row.user_id),
+    avatarUrl: normalizeStoredAvatarUrl(row.avatar_url),
   };
 }
 
@@ -189,6 +195,7 @@ function fallbackProfile(userId: string): FriendProfile {
     userId,
     username: null,
     accountId: buildDefaultAccountId(userId),
+    avatarUrl: null,
   };
 }
 

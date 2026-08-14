@@ -4,6 +4,26 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { ensureFriendProfile, getFriendSchemaIssue } from '@/lib/friends/server';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import {
+  MAX_AVATAR_DATA_URL_LENGTH,
+  isAvatarDataUrl,
+  normalizeStoredAvatarUrl,
+  AVATAR_INVALID_MESSAGE,
+  AVATAR_TOO_LARGE_MESSAGE,
+} from '@/lib/profile/avatar';
+
+// アイコンは data URL (正方形の小さな JPEG)。null / 空文字は「アイコンを外す」。
+const avatarUrlSchema = z
+  .union([z.string(), z.null()])
+  .refine(
+    value => value === null || value.trim().length <= MAX_AVATAR_DATA_URL_LENGTH,
+    { message: AVATAR_TOO_LARGE_MESSAGE },
+  )
+  .refine(
+    value => value === null || value.trim() === '' || isAvatarDataUrl(value.trim()),
+    { message: AVATAR_INVALID_MESSAGE },
+  )
+  .transform(value => (value === null || value.trim() === '' ? null : value.trim()));
 
 const updateSchema = z.object({
   username: z
@@ -17,9 +37,10 @@ const updateSchema = z.object({
     .trim()
     .regex(/^[a-z0-9_]{4,24}$/, 'IDは半角英小文字・数字・アンダースコアで4〜24文字にしてください')
     .optional(),
+  avatarUrl: avatarUrlSchema.optional(),
 }).strict().refine(
-  data => data.username !== undefined || data.accountId !== undefined,
-  { message: 'username または accountId を指定してください' },
+  data => data.username !== undefined || data.accountId !== undefined || data.avatarUrl !== undefined,
+  { message: 'username, accountId, avatarUrl のいずれかを指定してください' },
 );
 
 type ProfileRow = {
@@ -27,6 +48,7 @@ type ProfileRow = {
   display_name?: string | null;
   user_handle?: string | null;
   account_id?: string | null;
+  avatar_url?: string | null;
 };
 
 type ProfileRouteDeps = {
@@ -44,7 +66,8 @@ function isMissingProfileColumn(error: unknown): boolean {
   return issue === 'profiles_account_id'
     || issue === 'profiles_display_name'
     || issue === 'profiles_user_handle'
-    || issue === 'profiles_is_public';
+    || issue === 'profiles_is_public'
+    || issue === 'profiles_avatar_url';
 }
 
 async function fetchProfileRow(
@@ -53,7 +76,7 @@ async function fetchProfileRow(
 ): Promise<ProfileRow | null> {
   const full = await admin
     .from('profiles')
-    .select('username,display_name,user_handle,account_id')
+    .select('username,display_name,user_handle,account_id,avatar_url')
     .eq('user_id', userId)
     .maybeSingle<ProfileRow>();
 
@@ -124,6 +147,7 @@ export async function handleProfileGet(
     return NextResponse.json({
       username: profileDisplayName(data),
       accountId: data?.account_id ?? data?.user_handle ?? ensuredProfile.accountId,
+      avatarUrl: normalizeStoredAvatarUrl(data?.avatar_url),
     });
   } catch (error) {
     console.error('Profile GET error:', error);
@@ -153,17 +177,21 @@ export async function handleProfilePut(
     const ensureProfile = deps.ensureProfile ?? ensureFriendProfile;
     const ensuredProfile = await ensureProfile(userId, admin);
 
-    const upsertData: Record<string, string> = { user_id: userId };
+    const upsertData: Record<string, string | null> = { user_id: userId };
     if (parsed.data.username !== undefined) {
       upsertData.username = parsed.data.username;
       upsertData.display_name = parsed.data.username;
     }
     upsertData.account_id = parsed.data.accountId ?? ensuredProfile.accountId;
+    // 未指定なら列自体を送らず既存のアイコンを維持する(null は明示的な削除)。
+    if (parsed.data.avatarUrl !== undefined) {
+      upsertData.avatar_url = parsed.data.avatarUrl;
+    }
 
     let { data, error } = await admin
       .from('profiles')
       .upsert(upsertData, { onConflict: 'user_id' })
-      .select('username,display_name,user_handle,account_id')
+      .select('username,display_name,user_handle,account_id,avatar_url')
       .single<ProfileRow>();
 
     if (error && isMissingProfileColumn(error)) {
@@ -193,6 +221,7 @@ export async function handleProfilePut(
     return NextResponse.json({
       username: profileDisplayName(data),
       accountId: data.account_id ?? data.user_handle ?? ensuredProfile.accountId,
+      avatarUrl: normalizeStoredAvatarUrl(data.avatar_url),
     });
   } catch (error) {
     console.error('Profile PUT error:', error);

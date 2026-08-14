@@ -92,24 +92,6 @@ const EMPTY_DISCOVER: SharedDiscoverPayload = {
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
-type WordbookGenre = {
-  key: string;
-  label: string;
-  description: string;
-  query: string;
-  color: string;
-  icon: string;
-};
-
-const EIKEN_GENRE: WordbookGenre = {
-  key: 'eiken',
-  label: '英検',
-  description: '英検対策の単語帳',
-  query: '英検',
-  color: '#664DB3',
-  icon: 'school',
-};
-
 function thumbColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
@@ -175,7 +157,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const loadMoreState: LoadMoreState = loadMore?.key === discoverKey ? loadMore.state : 'idle';
 
   const [chooserOpen, setChooserOpen] = useState(false);
-  const [selectedGenre, setSelectedGenre] = useState<WordbookGenre | null>(null);
 
   useEffect(() => {
     discoverSeqRef.current += 1;
@@ -253,13 +234,11 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   function handleSelectCategory(nextCategory: PageCategory) {
     setCategory(nextCategory);
-    setSelectedGenre(null);
     setError(null);
   }
 
   function handleBackToAll() {
     setCategory('all');
-    setSelectedGenre(null);
     setError(null);
   }
 
@@ -417,10 +396,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </button>
         </header>
 
-        {selectedGenre ? (
-          <GenreResultsView genre={selectedGenre} onBack={() => setSelectedGenre(null)} />
-        ) : (
-        <>
         {category !== 'groups' && category !== 'users' && category !== 'grammar' && (
           <div className="px-[14px] pt-2">
             <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
@@ -438,7 +413,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         )}
 
         {category === 'all' ? (
-          <BrowseSection onSelectCategory={handleSelectCategory} onSelectGenre={setSelectedGenre} />
+          <BrowseSection onSelectCategory={handleSelectCategory} />
         ) : (
           <div className="flex items-center gap-2 px-[14px] py-3">
             <button
@@ -513,8 +488,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             )}
           </div>
         )}
-        </>
-        )}
       </div>
 
       <ShareTypeChooser
@@ -532,29 +505,17 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
 function BrowseSection({
   onSelectCategory,
-  onSelectGenre,
 }: {
   onSelectCategory: (category: PageCategory) => void;
-  onSelectGenre: (genre: WordbookGenre) => void;
 }) {
-  const tiles = [
-    ...(Object.keys(CATEGORY_META) as PageCategory[]).map((key) => ({
-      key: key as string,
-      label: CATEGORY_META[key].label,
-      icon: CATEGORY_META[key].icon,
-      color: CATEGORY_META[key].color,
-      ariaLabel: `${CATEGORY_META[key].label}を探す`,
-      onSelect: () => onSelectCategory(key),
-    })),
-    {
-      key: EIKEN_GENRE.key,
-      label: EIKEN_GENRE.label,
-      icon: EIKEN_GENRE.icon,
-      color: EIKEN_GENRE.color,
-      ariaLabel: `${EIKEN_GENRE.label}の単語帳を探す`,
-      onSelect: () => onSelectGenre(EIKEN_GENRE),
-    },
-  ];
+  const tiles = (Object.keys(CATEGORY_META) as PageCategory[]).map((key) => ({
+    key: key as string,
+    label: CATEGORY_META[key].label,
+    icon: CATEGORY_META[key].icon,
+    color: CATEGORY_META[key].color,
+    ariaLabel: `${CATEGORY_META[key].label}を探す`,
+    onSelect: () => onSelectCategory(key),
+  }));
 
   return (
     <div className="px-[14px] py-3">
@@ -583,125 +544,6 @@ function BrowseSection({
         ))}
       </div>
     </div>
-  );
-}
-
-type GenreResultsState = {
-  genre: WordbookGenre;
-  projects: SharedProjectCard[];
-  error: string | null;
-  nextCursor: string | null;
-};
-
-function GenreResultsView({ genre, onBack }: { genre: WordbookGenre; onBack: () => void }) {
-  const { showToast } = useToast();
-  // ジャンルごとの取得結果を1つの state に持つ（loading はジャンル不一致で導出）。
-  const [result, setResult] = useState<GenreResultsState | null>(null);
-  // 追加読み込み状態もジャンルに紐付けて持ち、切り替え時は自動で idle に戻る。
-  const [loadMore, setLoadMore] = useState<{ genre: WordbookGenre; state: LoadMoreState } | null>(null);
-  const loadMoreState: LoadMoreState = loadMore?.genre === genre ? loadMore.state : 'idle';
-  const loading = result?.genre !== genre;
-  const projects = result?.genre === genre ? result.projects : [];
-  const error = result?.genre === genre ? result.error : null;
-  const nextCursor = result?.genre === genre ? result.nextCursor : null;
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetch(buildDiscoverUrl('projects', genre.query), { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as DiscoverResponse | null;
-        if (!response.ok || !isDiscoverPayload(payload)) {
-          throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_failed');
-        }
-        setResult({ genre, projects: payload.projects, error: null, nextCursor: payload.nextCursor });
-      })
-      .catch((loadError) => {
-        if (controller.signal.aborted) return;
-        console.error('Failed to load genre wordbooks:', loadError);
-        setResult({ genre, projects: [], error: '単語帳を読み込めませんでした。', nextCursor: null });
-      });
-
-    return () => controller.abort();
-  }, [genre]);
-
-  function handleLoadMore() {
-    if (loading || loadMoreState === 'loading' || !nextCursor) return;
-
-    setLoadMore({ genre, state: 'loading' });
-    fetch(buildDiscoverUrl('projects', genre.query, nextCursor), { cache: 'no-store' })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as DiscoverResponse | null;
-        if (!response.ok || !isDiscoverPayload(payload)) {
-          throw new Error(payload && 'error' in payload ? payload.error : 'genre_discover_load_more_failed');
-        }
-        setResult((current) =>
-          current && current.genre === genre
-            ? {
-              ...current,
-              projects: mergeUniqueProjectCards(current.projects, payload.projects),
-              nextCursor: payload.nextCursor,
-            }
-            : current,
-        );
-        setLoadMore({ genre, state: 'idle' });
-      })
-      .catch((loadError) => {
-        console.error('Failed to load more genre wordbooks:', loadError);
-        setLoadMore({ genre, state: 'error' });
-      });
-  }
-
-  function handleProjectMissing(projectId: string) {
-    setResult((current) =>
-      current
-        ? { ...current, projects: current.projects.filter((item) => item.project.id !== projectId) }
-        : current,
-    );
-    showToast({ message: 'この単語帳は共有が停止されています', type: 'warning' });
-  }
-
-  return (
-    <>
-      <div className="flex items-center gap-2 px-[14px] py-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
-          aria-label="ジャンル一覧に戻る"
-        >
-          <Icon name="arrow_back" size={15} />
-        </button>
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-[8px] border-2 border-[var(--solid-ink)] text-white"
-          style={{ backgroundColor: genre.color }}
-        >
-          <Icon name={genre.icon} size={16} />
-        </span>
-        <div>
-          <div className="text-[15px] font-extrabold text-[var(--solid-ink)]">{genre.label}</div>
-          <div className="text-[10px] font-semibold text-[var(--color-muted)]">{genre.description}</div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4 px-[14px]">
-        {error && <ErrorBox message={error} />}
-        {loading ? (
-          <LoadingBox />
-        ) : projects.length === 0 ? (
-          <EmptyBox message="このジャンルの単語帳はまだありません" />
-        ) : (
-          <>
-            <ProjectSection projects={projects} onProjectMissing={handleProjectMissing} />
-            <LoadMoreSentinel
-              hasMore={Boolean(nextCursor)}
-              state={loadMoreState}
-              onLoadMore={handleLoadMore}
-            />
-          </>
-        )}
-      </div>
-    </>
   );
 }
 

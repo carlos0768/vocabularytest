@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MouseEvent, ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import type { CachedStats } from '@/lib/stats-cache';
@@ -44,6 +45,7 @@ export function ProfileView({
   accountId,
   initial,
   color,
+  avatarUrl,
   joined,
   planLabel,
   counts,
@@ -65,6 +67,8 @@ export function ProfileView({
   accountId: string | null;
   initial: string;
   color: string;
+  /** 設定済みのアカウントアイコン(data URL)。未設定なら頭文字を表示する。 */
+  avatarUrl?: string | null;
   joined: string | null;
   planLabel?: string | null;
   counts: ProfileCounts | null;
@@ -115,6 +119,7 @@ export function ProfileView({
       accountId={accountId}
       initial={initial}
       color={color}
+      avatarUrl={avatarUrl}
       joined={joined}
       planLabel={planLabel}
       counts={counts}
@@ -172,12 +177,14 @@ export function ProfileView({
         {/* Profile header */}
         <div className="px-[18px] pb-[14px] pt-2">
           <div className="flex items-center gap-4">
-            <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[20px] border-2 border-[var(--solid-ink)] font-display text-[36px] font-extrabold text-white"
-              style={{ backgroundColor: color }}
-            >
-              {initial}
-            </div>
+            <ProfileAvatar
+              avatarUrl={avatarUrl}
+              initial={initial}
+              color={color}
+              size={80}
+              radius={20}
+              fontSize={36}
+            />
             <div className="min-w-0 flex-1">
               <div className="truncate font-display text-[22px] font-extrabold leading-tight text-[var(--solid-ink)]">
                 {name}
@@ -384,6 +391,7 @@ function DesktopProfileView({
   accountId,
   initial,
   color,
+  avatarUrl,
   joined,
   planLabel,
   counts,
@@ -402,6 +410,7 @@ function DesktopProfileView({
   accountId: string | null;
   initial: string;
   color: string;
+  avatarUrl?: string | null;
   joined: string | null;
   planLabel?: string | null;
   counts: ProfileCounts | null;
@@ -435,25 +444,14 @@ function DesktopProfileView({
           {/* Profile header */}
           <div className="ds-card" style={{ padding: '26px 30px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 26, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 0, flex: 1 }}>
-              <div
-                style={{
-                  width: 84,
-                  height: 84,
-                  borderRadius: 22,
-                  border: '2px solid var(--solid-ink)',
-                  background: color,
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'var(--font-display)',
-                  fontWeight: 800,
-                  fontSize: 38,
-                  flexShrink: 0,
-                }}
-              >
-                {initial}
-              </div>
+              <ProfileAvatar
+                avatarUrl={avatarUrl}
+                initial={initial}
+                color={color}
+                size={84}
+                radius={22}
+                fontSize={38}
+              />
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {name}

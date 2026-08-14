@@ -6,6 +6,7 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
+import { useProfile } from '@/hooks/use-profile';
 import { cn } from '@/lib/utils';
 
 type NavKey = 'home' | 'books' | 'stats' | 'grammar' | 'reels' | 'feed' | 'shared' | 'fav' | 'scan' | 'settings';
@@ -56,6 +57,7 @@ export function DesktopSidebar({
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
+  const { avatarUrl } = useProfile();
   const active = activeKeyForPath(pathname);
   const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
 
@@ -117,7 +119,12 @@ export function DesktopSidebar({
         )}
         {!collapsed && (
           <Link href="/profile" className="ds-user" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }} title="プロフィールを開く">
-            <div className="ds-avatar">{userInitial}</div>
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="" className="ds-avatar" style={{ objectFit: 'cover' }} />
+            ) : (
+              <div className="ds-avatar">{userInitial}</div>
+            )}
             <div>
               <div className="nm">{user?.email?.split('@')[0] ?? 'ゲスト'}</div>
               <div className="pl">{isPro ? 'Pro メンバー' : 'Free メンバー'}</div>

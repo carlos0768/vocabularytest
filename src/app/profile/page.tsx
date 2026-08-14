@@ -20,7 +20,7 @@ type StatsLoadState = {
 
 export default function ProfilePage() {
   const { user, subscription, isPro, wasPro, isAuthenticated, loading: authLoading } = useAuth();
-  const { username, accountId } = useProfile();
+  const { username, accountId, avatarUrl } = useProfile();
 
   const authStatsKey = authLoading ? null : user?.id ?? 'guest';
   const [statsState, setStatsState] = useState<StatsLoadState | null>(null);
@@ -90,6 +90,7 @@ export default function ProfilePage() {
       accountId={accountId}
       initial={initial}
       color={color}
+      avatarUrl={avatarUrl}
       joined={joined}
       planLabel={isPro ? 'PRO PLAN' : 'FREE PLAN'}
       counts={counts}

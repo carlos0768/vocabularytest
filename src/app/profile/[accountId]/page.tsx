@@ -110,6 +110,7 @@ export default function FriendProfilePage() {
       accountId={profile.accountId}
       initial={initial}
       color={color}
+      avatarUrl={profile.avatarUrl}
       joined={joined}
       planLabel={null}
       counts={counts}
