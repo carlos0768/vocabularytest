@@ -10,6 +10,7 @@ import { WordLimitModal } from '@/components/limits';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { ProjectShareSheet } from '@/components/project/ProjectShareSheet';
 import { SelectCheckbox, WordRow, posShort } from '@/components/project/WordRow';
+import { StackedBar } from '@/components/project/WordStatusBar';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
@@ -2404,40 +2405,6 @@ function ToolChip({ icon, label }: { icon: string; label: string }) {
     <span className="inline-flex items-center gap-[5px] rounded-full border-2 border-[var(--color-border)] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-muted)]">
       <Icon name={icon} size={12} />
       <span className="text-[#4a4a4a]">{label}</span>
-    </span>
-  );
-}
-
-function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number; l: number; n: number }) {
-  const pctM = total ? (m / total) * 100 : 0;
-  const pctA = total ? (a / total) * 100 : 0;
-  const pctL = total ? (l / total) * 100 : 0;
-  const pctN = total ? (n / total) * 100 : 0;
-
-  return (
-    <div>
-      <div className="flex h-2.5 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-white">
-        <div style={{ width: `${pctM}%`, background: 'var(--color-success)' }} />
-        <div style={{ width: `${pctA}%`, background: '#2563eb' }} />
-        <div style={{ width: `${pctL}%`, background: 'var(--color-warning)' }} />
-        <div style={{ width: `${pctN}%`, background: 'rgba(26,26,26,0.12)' }} />
-      </div>
-      <div className="mt-[7px] flex flex-wrap gap-3.5 font-[var(--font-body)]">
-        <BarDot color="var(--color-success)" label="習得" count={m} />
-        <BarDot color="#2563eb" label="定着中" count={a} />
-        <BarDot color="var(--color-warning)" label="学習中" count={l} />
-        <BarDot color="rgba(26,26,26,0.35)" label="未学習" count={n} />
-      </div>
-    </div>
-  );
-}
-
-function BarDot({ color, label, count }: { color: string; label: string; count: number }) {
-  return (
-    <span className="inline-flex items-center gap-[5px]">
-      <span className="h-[7px] w-[7px] rounded-[3.5px]" style={{ background: color }} />
-      <span className="text-[11px] font-semibold text-[#4a4a4a]">{label}</span>
-      <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{count}</span>
     </span>
   );
 }

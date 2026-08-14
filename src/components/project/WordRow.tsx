@@ -9,7 +9,7 @@
  * 使えるようにここへ切り出した。
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
@@ -112,7 +112,6 @@ export function WordRow({
   selectMode,
   selected,
   tourAnchor = false,
-  metaLine,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -123,11 +122,6 @@ export function WordRow({
   selectMode: boolean;
   selected: boolean;
   tourAnchor?: boolean;
-  /**
-   * 訳の下に足す補足行。単語帳をまたぐ一覧で「どの単語帳の語か」を
-   * 出すために使う。単語帳詳細では渡さない (行の見た目は元のまま)。
-   */
-  metaLine?: ReactNode;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -157,7 +151,6 @@ export function WordRow({
                 <TranslationDisplay word={word} compact />
               </span>
             </div>
-            {metaLine}
           </div>
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
           <BookmarkBadge active={word.isFavorite} />
@@ -184,7 +177,6 @@ export function WordRow({
               <TranslationDisplay word={word} compact />
             </span>
           </div>
-          {metaLine}
         </button>
 
         <VocabularyTypeButton
