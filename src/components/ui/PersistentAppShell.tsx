@@ -28,9 +28,8 @@ const HIDE_BOTTOM_NAV_PATHS = [
   // 他ユーザーのプロフィール(/profile/<accountId>)は詳細画面なので非表示のまま。
   '/profile/',
   '/groups/', '/reels',
-  // 対戦ルーム(/battle/<roomId>)は早押しの専用画面なのでナビを出さない。
-  // ロビー(/battle)はタブ的な入口なので表示したまま。
-  '/battle/',
+  // 対戦はロビーも含めて専用フロー（1画面に収める設計）なのでナビは出さない。
+  '/battle',
   // 語法演習画面(/grammar/<bookId>)はナビ非表示。一覧(/grammar)は表示する。
   '/grammar/',
   // バインダー詳細は自前の固定下部バー（単語帳を追加/公開）を持つため、

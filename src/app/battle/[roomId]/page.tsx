@@ -7,7 +7,9 @@ import { useBattleRoom } from '@/hooks/use-battle-room';
 import { Icon } from '@/components/ui/Icon';
 import {
   BattleChoiceButton,
+  BattleHeaderButton,
   BattleInviteCode,
+  BattleLeaveConfirm,
   BattleNotice,
   BattleQuestionCard,
   BattleResultPanel,
@@ -78,6 +80,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
   }, [room, userId, roomId, refresh]);
 
   const handleLeave = useCallback(async () => {
+    setConfirmLeave(false);
     await leaveBattle();
     router.push('/battle');
   }, [leaveBattle, router]);
@@ -181,92 +184,79 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
   };
 
   return (
-    <BattleScreen
-      bodyClassName="py-3.5"
-      header={
-        <BattleScreenHeader
-          eyebrow="REALTIME BATTLE"
-          title={viewer.opponent ? `vs ${viewer.opponent.displayName}` : '単語対戦'}
-          onBack={() => setConfirmLeave(true)}
-        >
-          <BattleScoreboard
-            self={viewer.self}
-            opponent={viewer.opponent}
-            progressLabel={getBattleProgressLabel(room)}
-            timer={{
-              remainingMs,
-              durationMs: room.roundDurationMs,
-              paused: resolved,
-            }}
-          />
-        </BattleScreenHeader>
-      }
-      footer={
-        confirmLeave ? (
-          <div className="flex items-center gap-2">
-            <p className="min-w-0 flex-1 text-[12px] font-bold text-[var(--color-muted)]">
-              降参すると相手の勝ちになります。
-            </p>
-            <button
-              type="button"
-              onClick={() => setConfirmLeave(false)}
-              className="h-9 shrink-0 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[12.5px] font-bold text-[var(--solid-ink)]"
-            >
-              続ける
-            </button>
-            <button
-              type="button"
-              onClick={handleLeave}
-              className="h-9 shrink-0 rounded-[10px] border-2 border-[var(--color-error)] bg-[var(--color-error)] px-3 text-[12.5px] font-bold text-white"
-            >
-              降参する
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmLeave(true)}
-            className="mx-auto flex h-9 items-center gap-1 text-[12px] font-bold text-[var(--color-muted)]"
-          >
-            <Icon name="flag" size={14} />
-            対戦を降参する
-          </button>
-        )
-      }
-    >
-      {currentQuestion ? (
-        <>
-          <BattleQuestionCard
-            prompt={currentQuestion.prompt}
-            round={currentQuestion.roundIndex + 1}
-          />
-
-          <div className="mt-3.5 flex flex-col gap-2.5">
-            {currentQuestion.choices.map((choice, index) => (
-              <BattleChoiceButton
-                key={`${currentQuestion.roundIndex}-${index}`}
-                label={choice}
-                index={index}
-                state={choiceState(index)}
-                onSelect={() => submitAnswer(index)}
+    <>
+      <BattleScreen
+        fill
+        bodyClassName="pt-3"
+        header={
+          <BattleScreenHeader
+            eyebrow="REALTIME BATTLE"
+            title={viewer.opponent ? `vs ${viewer.opponent.displayName}` : '単語対戦'}
+            right={
+              <BattleHeaderButton
+                icon="flag"
+                label="対戦を降参する"
+                tone="danger"
+                onClick={() => setConfirmLeave(true)}
               />
-            ))}
-          </div>
+            }
+          >
+            <BattleScoreboard
+              self={viewer.self}
+              opponent={viewer.opponent}
+              progressLabel={getBattleProgressLabel(room)}
+              timer={{
+                remainingMs,
+                durationMs: room.roundDurationMs,
+                paused: resolved,
+              }}
+            />
+          </BattleScreenHeader>
+        }
+      >
+        {currentQuestion ? (
+          <>
+            {/* 上段=出題、下段=ボタン盤。画面の高さを2つで分け合う */}
+            <div className="flex min-h-[120px] flex-1 items-center justify-center py-2">
+              <BattleQuestionCard
+                prompt={currentQuestion.prompt}
+                round={currentQuestion.roundIndex + 1}
+              />
+            </div>
 
-          {outcome !== 'live' && (
-            <div className="mt-3.5">
+            {/* 決着表示は高さを確保した枠に出す（盤面がずれると早押しの邪魔になる） */}
+            <div className="flex h-[40px] shrink-0 items-center justify-center">
               <BattleRoundStatus outcome={outcome} />
             </div>
-          )}
-        </>
-      ) : (
-        <div className="flex items-center justify-center gap-2 py-14 text-[var(--color-muted)]">
-          <Icon name="progress_activity" size={20} className="animate-spin" />
-          <span className="text-sm font-bold">
-            {questions.length === 0 ? '問題を読み込んでいます...' : '次の問題を準備しています...'}
-          </span>
-        </div>
-      )}
-    </BattleScreen>
+
+            {/* 4択は2×2のボタン盤。親指の届く下半分を使い、面を大きく取る */}
+            <div className="grid min-h-[200px] flex-[1.15] grid-cols-2 grid-rows-2 gap-2.5">
+              {currentQuestion.choices.map((choice, index) => (
+                <BattleChoiceButton
+                  key={`${currentQuestion.roundIndex}-${index}`}
+                  label={choice}
+                  index={index}
+                  state={choiceState(index)}
+                  onSelect={() => submitAnswer(index)}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center gap-2 text-[var(--color-muted)]">
+            <Icon name="progress_activity" size={20} className="animate-spin" />
+            <span className="text-sm font-bold">
+              {questions.length === 0 ? '問題を読み込んでいます...' : '次の問題を準備しています...'}
+            </span>
+          </div>
+        )}
+      </BattleScreen>
+
+      <BattleLeaveConfirm
+        isOpen={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        onConfirm={handleLeave}
+      />
+    </>
   );
 }

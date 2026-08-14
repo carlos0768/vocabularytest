@@ -3,7 +3,7 @@
 /**
  * 出題カード・選択肢ボタン・ラウンド結果の帯。
  * 出題は「英単語 → 日本語の意味を4択」。早押しなので、押せる状態かどうかが
- * ひと目で分かることを最優先にしている。
+ * ひと目で分かること、押しやすいこと（2×2のボタン盤）を優先している。
  */
 
 import { Icon } from '@/components/ui/Icon';
@@ -28,7 +28,7 @@ const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
 
 export function BattleQuestionCard({ prompt, round }: { prompt: string; round: number }) {
   return (
-    <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-6 text-center shadow-[3px_4px_0_var(--solid-ink)]">
+    <div className="w-full rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-6 text-center shadow-[3px_4px_0_var(--solid-ink)]">
       <div className="font-mono text-[9.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
         Q{round} · この単語の意味は？
       </div>
@@ -47,6 +47,10 @@ export function BattleQuestionCard({ prompt, round }: { prompt: string; round: n
   );
 }
 
+/**
+ * 選択肢。2×2 のグリッドに置く前提で、面は正方形寄り・ラベルは中央。
+ * 記号（A〜D）は左上のコーナーに逃がして、意味の可読性を落とさない。
+ */
 export function BattleChoiceButton({
   label,
   index,
@@ -64,8 +68,8 @@ export function BattleChoiceButton({
   let borderColor = 'var(--solid-ink)';
   let shadowColor = 'var(--solid-ink)';
   let textColor = 'var(--solid-ink)';
-  let badgeBg = 'var(--color-surface)';
-  let badgeColor = 'var(--solid-ink)';
+  let badgeBg = 'var(--color-surface-secondary)';
+  let badgeColor = 'var(--color-muted)';
   let icon: string | null = null;
 
   if (state === 'correct') {
@@ -88,7 +92,6 @@ export function BattleChoiceButton({
     borderColor = 'var(--color-border)';
     shadowColor = 'var(--color-border)';
     textColor = 'var(--color-muted)';
-    badgeColor = 'var(--color-muted)';
   } else if (state === 'selected') {
     faceBg = 'var(--color-surface-secondary)';
     badgeBg = 'var(--solid-ink)';
@@ -103,7 +106,7 @@ export function BattleChoiceButton({
         triggerHaptic();
         onSelect();
       }}
-      className={`relative w-full text-left disabled:cursor-default ${state === 'locked' ? 'opacity-55' : ''}`}
+      className={`relative h-full w-full disabled:cursor-default ${state === 'locked' ? 'opacity-55' : ''}`}
     >
       {/* ハードシャドウの受け皿（クイズの選択肢と同じ作り） */}
       <div
@@ -111,22 +114,29 @@ export function BattleChoiceButton({
         style={{ transform: 'translate(2.5px, 2.5px)', background: shadowColor }}
       />
       <div
-        className="relative flex items-center gap-3 rounded-[14px] border-2 px-3.5 py-[15px]"
+        className="relative flex h-full min-h-[86px] flex-col items-center justify-center rounded-[14px] border-2 px-2.5 py-3"
         style={{ background: faceBg, borderColor }}
       >
         <span
-          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[8px] border-2 font-mono text-[11px] font-bold"
-          style={{ background: badgeBg, borderColor, color: badgeColor }}
+          className="absolute left-2 top-2 flex h-[20px] w-[20px] items-center justify-center rounded-[6px] font-mono text-[10px] font-bold"
+          style={{ background: badgeBg, color: badgeColor }}
         >
           {CHOICE_LABELS[index] ?? index + 1}
         </span>
+        {icon && (
+          <Icon
+            name={icon}
+            size={16}
+            className="absolute right-2 top-2"
+            style={{ color: textColor }}
+          />
+        )}
         <span
-          className="min-w-0 flex-1 break-words text-[15px] font-bold leading-[1.4]"
+          className="break-words text-center text-[15px] font-bold leading-[1.35]"
           style={{ color: textColor }}
         >
           {label}
         </span>
-        {icon && <Icon name={icon} size={18} className="shrink-0 text-white" />}
       </div>
     </button>
   );
@@ -169,25 +179,28 @@ const OUTCOME_STYLE: Record<
   // 誤答は「そのラウンドの失権」。決着はまだなので相手の回答を待つ。
   missed: {
     icon: 'close',
-    text: '不正解... 相手の回答を待ちます',
+    text: '不正解... 相手の回答待ち',
     bg: 'var(--color-error-light)',
     border: 'var(--color-error)',
     color: 'var(--color-error)',
   },
 };
 
-/** ラウンドの決着（または回答済み待ち）を伝える帯。 */
+/**
+ * ラウンドの状況を伝えるピル。
+ * 決着時に現れても盤面がずれないよう、呼び出し側で高さを確保した枠に置く。
+ */
 export function BattleRoundStatus({ outcome }: { outcome: BattleRoundOutcome }) {
   if (outcome === 'live') return null;
 
   const style = OUTCOME_STYLE[outcome];
   return (
     <div
-      className="flex items-center justify-center gap-1.5 rounded-[12px] border-2 py-2.5"
+      className="inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5"
       style={{ background: style.bg, borderColor: style.border, color: style.color }}
     >
-      <Icon name={style.icon} size={16} />
-      <span className="font-display text-[13.5px] font-extrabold">{style.text}</span>
+      <Icon name={style.icon} size={15} />
+      <span className="font-display text-[12.5px] font-extrabold">{style.text}</span>
     </div>
   );
 }
