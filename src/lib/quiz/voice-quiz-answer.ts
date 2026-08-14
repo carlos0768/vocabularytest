@@ -71,6 +71,41 @@ export function japaneseAnswerCandidates(japanese: string): string[] {
   return [...candidates];
 }
 
+/** 意味を持つ最小限の単語形。judging に必要な項目だけ受け取る。 */
+export interface WordMeaningsSource {
+  japanese: string;
+  translations?: ReadonlyArray<{ translationJa: string }>;
+}
+
+/**
+ * 判定・ヒントに使う「その単語の意味すべて」を1つの文字列にまとめる。
+ *
+ * 単語には主たる訳 (japanese) のほかに訳が複数ぶら下がることがあり、
+ * 主たる訳だけで突き合わせると、2つ目以降の意味を正しく答えても不正解に
+ * なってしまう。ここで全部つないでおけば、この先の処理は今まで通り
+ * 区切り文字で割るだけで意味ごとの判定になる (「気づく、悟る」のように
+ * 1つの訳の中で「、」で並んでいる場合も同じ扱いで割れる)。
+ */
+export function combineWordMeanings(word: WordMeaningsSource): string {
+  const meanings: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (value: string | undefined) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return;
+    const key = normalizeJapaneseAnswer(trimmed);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    meanings.push(trimmed);
+  };
+
+  // 主たる訳を先頭に置く。ヒントは上限で切られるので、優先度が効く。
+  add(word.japanese);
+  for (const translation of word.translations ?? []) add(translation.translationJa);
+
+  return meanings.join('、');
+}
+
 /**
  * 認識APIに渡せるヒントの数。
  * 訳が「A、B、C…」と長く並ぶ単語では候補がいくらでも増えるので、

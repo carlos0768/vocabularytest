@@ -42,10 +42,12 @@ import {
   VOICE_QUIZ_ATTEMPT_OPTIONS,
 } from '@/lib/quiz/voice-quiz-prompt';
 import {
+  combineWordMeanings,
   isAnyEnglishAnswerCorrect,
   isAnyJapaneseAnswerCorrect,
   japaneseAnswerHints,
 } from '@/lib/quiz/voice-quiz-answer';
+import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
 import type { Word, SubscriptionStatus } from '@/types';
@@ -482,7 +484,9 @@ export default function VoiceQuizPage() {
       // 候補がどれも別の漢字になったぶんは、認識側が添えてくれた読みで拾う。
       const heard = [transcript, ...alternatives].filter(Boolean);
       const correct = directionRef.current === 'en-to-ja'
-        ? isAnyJapaneseAnswerCorrect(heard, word.japanese, readings)
+        // 主たる訳だけでなく、ぶら下がっている訳もすべて対象にする。
+        // 「、」で並んだ意味は、この先の区切り処理で1つずつに割れる。
+        ? isAnyJapaneseAnswerCorrect(heard, combineWordMeanings(word), readings)
         : isAnyEnglishAnswerCorrect(heard, word.english);
 
       // 音声認識自体が失敗した場合は、ユーザーの責任ではないので再挑戦させずに確定する。
@@ -596,7 +600,11 @@ export default function VoiceQuizPage() {
                 // 期待する表記をヒントに渡す。日本語は同音異義語の変換先を寄せるため、
                 // 英語は綴りの近い語に流れるのを防ぐため。
                 phraseHints: directionRef.current === 'en-to-ja'
-                  ? japaneseAnswerHints(activeWordRef.current?.japanese ?? '')
+                  // ヒントは boost 付きで認識側に渡る。主たる訳以外の意味も
+                  // 渡しておかないと、そちらを答えたときに変換が寄らない。
+                  ? japaneseAnswerHints(
+                    activeWordRef.current ? combineWordMeanings(activeWordRef.current) : '',
+                  )
                   : [activeWordRef.current?.english ?? ''].filter(Boolean),
               }),
             });
@@ -1408,11 +1416,17 @@ export default function VoiceQuizPage() {
 
                   <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mt-1 w-full px-5 py-4')}>
                     <p className={cn(EYEBROW, 'text-[var(--color-muted)]')}>Answer</p>
+                    {/* 意味は4択クイズと同じく、主たる訳だけでなく全部出す
+                        (判定もすべての意味を正解として扱っているため) */}
                     <p className="mt-1 font-display text-[1.75rem] font-black leading-tight text-[var(--solid-ink)]">
-                      {askingForJapanese ? currentWord.japanese : currentWord.english}
+                      {askingForJapanese
+                        ? <TranslationDisplay word={currentWord} />
+                        : currentWord.english}
                     </p>
                     <p className="mt-1 font-mono text-sm text-[var(--color-muted)]">
-                      {askingForJapanese ? currentWord.english : currentWord.japanese}
+                      {askingForJapanese
+                        ? currentWord.english
+                        : <TranslationDisplay word={currentWord} compact />}
                     </p>
                   </div>
                 </>
