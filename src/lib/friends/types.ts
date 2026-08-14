@@ -2,6 +2,8 @@ export type FriendProfile = {
   userId: string;
   username: string | null;
   accountId: string;
+  /** アカウントアイコン(正方形 JPEG の data URL)。未設定なら null。 */
+  avatarUrl: string | null;
 };
 
 export type FriendshipStatus = 'pending' | 'accepted';

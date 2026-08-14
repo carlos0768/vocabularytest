@@ -12,6 +12,7 @@ export function DesktopSettingsView({
   email,
   username,
   accountId,
+  avatarUrl,
   isPro,
   onSignOut,
   onUsernameChange,
@@ -21,6 +22,7 @@ export function DesktopSettingsView({
   email?: string | null;
   username?: string | null;
   accountId?: string | null;
+  avatarUrl?: string | null;
   isPro: boolean;
   onSignOut: () => void;
   onUsernameChange?: (newUsername: string) => Promise<boolean>;
@@ -65,9 +67,19 @@ export function DesktopSettingsView({
                 href="/profile"
                 style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
               >
-                <div className="ds-avatar" style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18 }}>
-                  {(username ?? email ?? 'G').charAt(0).toUpperCase()}
-                </div>
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="ds-avatar"
+                    style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div className="ds-avatar" style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18 }}>
+                    {(username ?? email ?? 'G').charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="lab">
                   <div className="t">{username ?? 'ユーザー名未設定'}</div>
                   <div className="d">{email ?? 'ゲスト'}</div>

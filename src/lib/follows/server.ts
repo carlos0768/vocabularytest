@@ -5,6 +5,7 @@ import {
   buildDefaultAccountId,
   getFriendSchemaIssue,
 } from '@/lib/friends/server';
+import { normalizeStoredAvatarUrl } from '@/lib/profile/avatar';
 import { sendFollowPushNotification } from '@/lib/notifications/web-push';
 import type { FriendProfile, FriendTimelineSession, QuizSessionWordSummary } from '@/lib/friends/types';
 import type {
@@ -25,6 +26,7 @@ type ProfileRow = {
   user_handle?: string | null;
   account_id?: string | null;
   is_public?: boolean;
+  avatar_url?: string | null;
 };
 
 type FollowRow = {
@@ -59,7 +61,7 @@ type QuizSessionWordRow = {
 };
 
 const FOLLOW_SELECT = 'id,follower_id,following_id,status,created_at,responded_at,following_read_at';
-const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id,is_public';
+const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id,is_public,avatar_url';
 const PROFILE_ACCOUNT_SELECT = 'user_id,username,account_id';
 const PROFILE_BASIC_SELECT = 'user_id,username';
 const QUIZ_SESSION_SELECT = 'id,user_id,started_at,expires_at,last_answered_at,answer_count,mastered_count';
@@ -70,7 +72,8 @@ function isProfileSchemaIssue(error: unknown): boolean {
   return issue === 'profiles_account_id'
     || issue === 'profiles_display_name'
     || issue === 'profiles_user_handle'
-    || issue === 'profiles_is_public';
+    || issue === 'profiles_is_public'
+    || issue === 'profiles_avatar_url';
 }
 
 function toProfile(row: ProfileRow): FriendProfile {
@@ -78,11 +81,12 @@ function toProfile(row: ProfileRow): FriendProfile {
     userId: row.user_id,
     username: row.display_name?.trim() || row.username?.trim() || row.user_handle?.trim() || null,
     accountId: row.account_id?.trim() || row.user_handle?.trim() || buildDefaultAccountId(row.user_id),
+    avatarUrl: normalizeStoredAvatarUrl(row.avatar_url),
   };
 }
 
 function fallbackProfile(userId: string): FriendProfile {
-  return { userId, username: null, accountId: buildDefaultAccountId(userId) };
+  return { userId, username: null, accountId: buildDefaultAccountId(userId), avatarUrl: null };
 }
 
 function isUniqueViolation(error: { code?: string | null } | null | undefined): boolean {

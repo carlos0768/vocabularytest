@@ -7,6 +7,7 @@ import type { MouseEvent } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import type { FriendProfile } from '@/lib/friends/types';
 
 export type FollowsTab = 'following' | 'followers';
@@ -91,25 +92,14 @@ export function FollowsList({
                     borderTop: profileIndex > 0 ? '1px solid var(--color-border)' : 'none',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 40,
-                      height: 40,
-                      flexShrink: 0,
-                      borderRadius: 11,
-                      border: '2px solid var(--solid-ink)',
-                      fontFamily: 'var(--font-display)',
-                      fontWeight: 800,
-                      fontSize: 15,
-                      color: '#fff',
-                      backgroundColor: profileAvatarColor(profile.accountId),
-                    }}
-                  >
-                    {(profile.username || profile.accountId || '?').charAt(0).toUpperCase()}
-                  </div>
+                  <ProfileAvatar
+                    avatarUrl={profile.avatarUrl}
+                    initial={(profile.username || profile.accountId || '?').charAt(0).toUpperCase()}
+                    color={profileAvatarColor(profile.accountId)}
+                    size={40}
+                    radius={11}
+                    fontSize={15}
+                  />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {displayName(profile)}
@@ -168,12 +158,14 @@ export function FollowsList({
                   href={`/profile/${encodeURIComponent(profile.accountId)}`}
                   className="flex items-center gap-3 border-b border-[var(--color-border)] py-3 transition-colors active:bg-[var(--color-surface-secondary)]"
                 >
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] font-display text-[16px] font-extrabold text-white"
-                    style={{ backgroundColor: profileAvatarColor(profile.accountId) }}
-                  >
-                    {(profile.username || profile.accountId || '?').charAt(0).toUpperCase()}
-                  </div>
+                  <ProfileAvatar
+                    avatarUrl={profile.avatarUrl}
+                    initial={(profile.username || profile.accountId || '?').charAt(0).toUpperCase()}
+                    color={profileAvatarColor(profile.accountId)}
+                    size={44}
+                    radius={11}
+                    fontSize={16}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{displayName(profile)}</div>
                     <div className="truncate font-mono text-[11px] font-bold text-[var(--color-muted)]">@{profile.accountId}</div>

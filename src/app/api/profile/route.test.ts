@@ -10,6 +10,7 @@ type ProfileRow = {
   display_name?: string | null;
   user_handle?: string | null;
   account_id?: string | null;
+  avatar_url?: string | null;
 };
 
 type QueryError = {
@@ -77,6 +78,7 @@ class FakeProfileQuery {
         display_name: this.upsertRow.display_name,
         user_handle: this.upsertRow.user_handle,
         account_id: this.upsertRow.account_id,
+        avatar_url: this.upsertRow.avatar_url,
       });
       return {
         data: this.admin.rows.find((row) => row.user_id === this.upsertRow?.user_id) as T,
@@ -105,7 +107,9 @@ function request(method: 'GET' | 'PUT', body?: unknown) {
 }
 
 const userId = '11111111-1111-1111-1111-111111111111';
-const ensuredProfile = { userId, username: 'Ensured', accountId: 'mk111111111111' };
+const ensuredProfile = { userId, username: 'Ensured', accountId: 'mk111111111111', avatarUrl: null };
+
+const AVATAR_DATA_URL = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ==';
 
 test('profile GET prefers display_name and returns account_id', async () => {
   const admin = new FakeProfileAdmin([
@@ -128,6 +132,7 @@ test('profile GET prefers display_name and returns account_id', async () => {
   assert.deepEqual(await response.json(), {
     username: 'Display Name',
     accountId: 'mkprofile',
+    avatarUrl: null,
   });
 });
 
@@ -147,6 +152,7 @@ test('profile GET falls back to legacy username when newer profile columns are u
   assert.deepEqual(await response.json(), {
     username: 'Legacy User',
     accountId: 'mk111111111111',
+    avatarUrl: null,
   });
 });
 
@@ -166,6 +172,7 @@ test('profile PUT falls back to username-only upsert when newer profile columns 
   assert.deepEqual(await response.json(), {
     username: 'After',
     accountId: 'mk111111111111',
+    avatarUrl: null,
   });
   assert.equal(admin.rows[0]?.username, 'After');
 });
@@ -178,4 +185,87 @@ test('profile GET requires authentication', async () => {
   });
 
   assert.equal(response.status, 401);
+});
+
+test('profile GET returns a stored account icon', async () => {
+  const admin = new FakeProfileAdmin([
+    { user_id: userId, username: 'Icon User', account_id: 'mkicon', avatar_url: AVATAR_DATA_URL },
+  ]);
+
+  const response = await handleProfileGet(request('GET'), {
+    resolveUserId: async () => userId,
+    getAdmin: () => admin as never,
+    ensureProfile: async () => ensuredProfile,
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    username: 'Icon User',
+    accountId: 'mkicon',
+    avatarUrl: AVATAR_DATA_URL,
+  });
+});
+
+test('profile PUT stores an account icon', async () => {
+  const admin = new FakeProfileAdmin([
+    { user_id: userId, username: 'Icon User', account_id: 'mkicon' },
+  ]);
+
+  const response = await handleProfilePut(request('PUT', { avatarUrl: AVATAR_DATA_URL }), {
+    resolveUserId: async () => userId,
+    getAdmin: () => admin as never,
+    ensureProfile: async () => ensuredProfile,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).avatarUrl, AVATAR_DATA_URL);
+  assert.equal(admin.rows[0]?.avatar_url, AVATAR_DATA_URL);
+});
+
+test('profile PUT clears the icon when avatarUrl is null', async () => {
+  const admin = new FakeProfileAdmin([
+    { user_id: userId, username: 'Icon User', account_id: 'mkicon', avatar_url: AVATAR_DATA_URL },
+  ]);
+
+  const response = await handleProfilePut(request('PUT', { avatarUrl: null }), {
+    resolveUserId: async () => userId,
+    getAdmin: () => admin as never,
+    ensureProfile: async () => ensuredProfile,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).avatarUrl, null);
+  assert.equal(admin.rows[0]?.avatar_url, null);
+});
+
+test('profile PUT leaves an existing icon untouched when avatarUrl is omitted', async () => {
+  const admin = new FakeProfileAdmin([
+    { user_id: userId, username: 'Icon User', account_id: 'mkicon', avatar_url: AVATAR_DATA_URL },
+  ]);
+
+  const response = await handleProfilePut(request('PUT', { username: 'Renamed' }), {
+    resolveUserId: async () => userId,
+    getAdmin: () => admin as never,
+    ensureProfile: async () => ensuredProfile,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).avatarUrl, AVATAR_DATA_URL);
+  assert.equal(admin.rows[0]?.avatar_url, AVATAR_DATA_URL);
+});
+
+test('profile PUT rejects a non-image icon payload', async () => {
+  const admin = new FakeProfileAdmin([{ user_id: userId, username: 'Icon User', account_id: 'mkicon' }]);
+
+  const response = await handleProfilePut(
+    request('PUT', { avatarUrl: 'https://evil.example.com/tracker.png' }),
+    {
+      resolveUserId: async () => userId,
+      getAdmin: () => admin as never,
+      ensureProfile: async () => ensuredProfile,
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(admin.rows[0]?.avatar_url, undefined);
 });

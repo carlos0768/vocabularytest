@@ -1,6 +1,8 @@
 // Image utility functions
 // Handles HEIC conversion, compression, PDF pass-through, and other image processing
 
+import { ACCOUNT_ICON_QUALITY, ACCOUNT_ICON_SIZE } from '@/lib/profile/avatar';
+
 // Maximum image size in bytes (default profile)
 const DEFAULT_MAX_IMAGE_SIZE = 1 * 1024 * 1024;
 const PROJECT_ICON_SIZE = 256;
@@ -384,6 +386,28 @@ export async function processImageToBase64(
  * - Returns a compact data URL for storing in project metadata
  */
 export async function processProjectIconFile(file: File): Promise<string> {
+  return processSquareIconFile(file, PROJECT_ICON_SIZE, 0.82);
+}
+
+/**
+ * Process image file for the account icon (avatar)
+ * - Same square-crop pipeline as project icons
+ * - Output size/quality come from the shared avatar rules so the resulting
+ *   data URL stays inside the profiles.avatar_url length limit
+ */
+export async function processAccountIconFile(file: File): Promise<string> {
+  return processSquareIconFile(file, ACCOUNT_ICON_SIZE, ACCOUNT_ICON_QUALITY);
+}
+
+/**
+ * Shared square-icon pipeline: HEIC → JPEG, compress, center-crop to a square
+ * of `outputSize`, and return a data URL.
+ */
+async function processSquareIconFile(
+  file: File,
+  outputSize: number,
+  quality: number
+): Promise<string> {
   if (isPdfFile(file)) {
     throw new Error('アイコンには画像ファイルを選択してください');
   }
@@ -405,8 +429,8 @@ export async function processProjectIconFile(file: File): Promise<string> {
         const offsetX = Math.floor((img.width - size) / 2);
         const offsetY = Math.floor((img.height - size) / 2);
 
-        canvas.width = PROJECT_ICON_SIZE;
-        canvas.height = PROJECT_ICON_SIZE;
+        canvas.width = outputSize;
+        canvas.height = outputSize;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) {
@@ -423,8 +447,8 @@ export async function processProjectIconFile(file: File): Promise<string> {
           size,
           0,
           0,
-          PROJECT_ICON_SIZE,
-          PROJECT_ICON_SIZE
+          outputSize,
+          outputSize
         );
 
         canvas.toBlob(
@@ -447,7 +471,7 @@ export async function processProjectIconFile(file: File): Promise<string> {
             reader.readAsDataURL(blob);
           },
           'image/jpeg',
-          0.82
+          quality
         );
       } catch (error) {
         cleanup();

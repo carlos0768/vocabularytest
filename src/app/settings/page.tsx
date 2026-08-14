@@ -22,6 +22,7 @@ export default function SettingsPage() {
   const {
     username,
     accountId,
+    avatarUrl,
     loading: profileLoading,
     saving: profileSaving,
     error: profileError,
@@ -50,6 +51,7 @@ export default function SettingsPage() {
         email={user?.email}
         username={username}
         accountId={accountId}
+        avatarUrl={avatarUrl}
         isPro={isPro}
         onSignOut={() => void handleSignOut()}
         onUsernameChange={isAuthenticated ? setUsername : undefined}
@@ -86,9 +88,18 @@ export default function SettingsPage() {
             faceClassName="!p-[14px]"
           >
             <Link href="/profile" className="flex items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
-                {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
-              </div>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-full border-2 border-[var(--solid-ink)] object-cover"
+                />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.72_0.12_184)] to-[oklch(0.6_0.16_240)] font-display text-[22px] font-extrabold text-white">
+                  {(username ?? user?.email ?? '?').charAt(0).toUpperCase()}
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="font-display text-base font-bold text-[var(--solid-ink)]">
                   {profileLoading ? '読み込み中...' : (username ?? 'ユーザー名未設定')}
