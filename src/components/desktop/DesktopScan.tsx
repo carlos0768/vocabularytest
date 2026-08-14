@@ -52,7 +52,6 @@ const SCAN_OPTIONS: {
   { key: 'all', label: '単語帳取込', description: '単語帳形式の単語を抽出', icon: 'document_scanner' },
   { key: 'circled', label: '丸囲み', description: 'マークした単語を優先', icon: 'gesture' },
   { key: 'idiom', label: '熟語・イディオム', description: '複数語の表現も候補化', icon: 'link' },
-  { key: 'eiken', label: '英検', description: '級別の頻出語を優先', icon: 'filter_alt', pro: true },
   { key: 'custom', label: 'カスタム', description: '抽出条件を自分で指示', icon: 'edit_note' },
 ];
 

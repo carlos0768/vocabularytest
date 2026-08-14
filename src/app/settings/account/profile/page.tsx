@@ -8,6 +8,7 @@ import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import { useProfile } from '@/hooks/use-profile';
 import { processAccountIconFile } from '@/lib/image-utils';
+import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 
 type IconAction = 'idle' | 'saving' | 'removing';
 
@@ -303,19 +304,8 @@ export default function ProfileSettingsPage() {
       </div>
     </div>
 
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-      <div className="px-[18px] pb-[14px] pt-1">
-        <button
-          type="button"
-          onClick={handleBack}
-          aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="chevron_left" size={20} />
-        </button>
-        <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">PROFILE</div>
-        <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">プロフィール変更</div>
-      </div>
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <StickyPageHeader eyebrow="PROFILE" title="プロフィール変更" onBack={handleBack} className="mb-3" />
 
       <div className="px-[18px] pb-4">
         <div className="overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">

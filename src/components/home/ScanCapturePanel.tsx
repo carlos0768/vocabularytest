@@ -51,9 +51,9 @@ const EIKEN_LEVEL_OPTIONS: { value: Exclude<EikenLevel, null>; label: string }[]
 
 type SubOption = ExtractMode;
 
+// 英検モードはUIから非表示（サーバー側・級選択のコードはそのまま残してある）。
 const SUB_OPTIONS: { k: SubOption; label: string; hint: string; pro?: boolean }[] = [
   { k: 'circled', label: '丸囲み',           hint: '手動マークを優先' },
-  { k: 'eiken',  label: '英検',             hint: '級別頻出語を優先', pro: true },
   { k: 'idiom',  label: '熟語・イディオム', hint: '複合語・熟語を抽出' },
   { k: 'all',    label: '単語帳取込',       hint: '単語帳形式の単語を抽出' },
   { k: 'custom', label: 'カスタム',         hint: '抽出条件を自分で指示' },

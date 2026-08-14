@@ -8,6 +8,7 @@ import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import type { CachedStats } from '@/lib/stats-cache';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 
 const HEAT_COLORS = [
   'rgba(26,26,26,0.07)',
@@ -82,6 +83,7 @@ export function ProfileView({
   withBottomNav?: boolean;
 }) {
   const router = useRouter();
+  const pageScrolled = usePageScrolled();
 
   // Prefer returning to the actual previous page (e.g. the group the user came
   // from) when we arrived here via in-app navigation. Fall back to backHref on
@@ -137,8 +139,13 @@ export function ProfileView({
       }`}
     >
       <div className="mx-auto w-full max-w-xl">
-        {/* Top bar */}
-        <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
+        {/* Top bar: スクロールしても上部に固定する */}
+        <header
+          className={`sticky z-40 flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-1.5 backdrop-blur-md ${
+            pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'
+          }`}
+          style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        >
           {backHref ? (
             <Link
               href={backHref}
@@ -172,7 +179,7 @@ export function ProfileView({
               <Icon name="settings" size={22} />
             </Link>
           )}
-        </div>
+        </header>
 
         {/* Profile header */}
         <div className="px-[18px] pb-[14px] pt-2">
