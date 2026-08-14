@@ -171,7 +171,7 @@ export default function WordsPage() {
 
   return (
     <div
-      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 lg:pb-10"
+      className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-[var(--color-background)] pb-32 lg:pb-10"
       style={{ fontFamily: 'var(--font-body)' }}
     >
       {/* スクロールしても上部に固定されるヘッダー(単語帳詳細と同じパターン)。
@@ -182,11 +182,11 @@ export default function WordsPage() {
         }`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="flex items-baseline gap-2">
-          <span className="font-display text-[18px] font-extrabold leading-none tracking-[-0.02em] text-[var(--solid-ink)]">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="shrink-0 font-display text-[18px] font-extrabold leading-none tracking-[-0.02em] text-[var(--solid-ink)]">
             単語一覧
           </span>
-          <span className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+          <span className="min-w-0 truncate font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
             ALL WORDS
           </span>
           <span className="ml-auto shrink-0 font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
@@ -348,6 +348,7 @@ export default function WordsPage() {
                     word={entry.word}
                     selectMode={false}
                     selected={false}
+                    wrongCount={entry.wrongCount}
                     onToggleSelect={() => {}}
                     onCycleStatus={(newStatus) => handleCycleStatus(entry, newStatus)}
                     onCycleVocabularyType={() => void handleCycleVocabularyType(entry)}

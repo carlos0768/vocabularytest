@@ -107,11 +107,25 @@ export function StatusSquares({
   );
 }
 
+/** クイズで間違えた回数のバッジ。0回の単語には出さない。 */
+function WrongCountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className="shrink-0 font-mono text-[9.5px] font-bold tabular-nums text-[var(--color-error)]"
+      title={`クイズで ${count} 回間違えた単語`}
+    >
+      誤答{count}
+    </span>
+  );
+}
+
 export function WordRow({
   word,
   selectMode,
   selected,
   tourAnchor = false,
+  wrongCount = 0,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -122,6 +136,8 @@ export function WordRow({
   selectMode: boolean;
   selected: boolean;
   tourAnchor?: boolean;
+  /** クイズでの誤答回数。単語帳をまたぐ一覧で「間違えた単語」を見分けるために出す。 */
+  wrongCount?: number;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -150,6 +166,7 @@ export function WordRow({
               <span className="truncate">
                 <TranslationDisplay word={word} compact />
               </span>
+              <WrongCountBadge count={wrongCount} />
             </div>
           </div>
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
@@ -176,6 +193,7 @@ export function WordRow({
             <span className="truncate">
               <TranslationDisplay word={word} compact />
             </span>
+            <WrongCountBadge count={wrongCount} />
           </div>
         </button>
 

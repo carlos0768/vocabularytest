@@ -96,7 +96,7 @@ function Chip({
       }}
     >
       <span className="inline-flex max-w-full items-center gap-1">
-        <span className="truncate">{label}</span>
+        <span className="min-w-0 truncate">{label}</span>
         {suffix && <span className="font-mono text-[10px] opacity-80">{suffix}</span>}
         {typeof count === 'number' && (
           <span className="font-mono text-[9.5px] tabular-nums opacity-60">{count}</span>
@@ -127,7 +127,7 @@ function ChipRow({ children }: { children: React.ReactNode }) {
 /** 選択肢が多い軸 (単語帳・バインダー) は高さを抑えてスクロールさせる。 */
 function ScrollableChips({ children }: { children: React.ReactNode }) {
   return (
-    <div className="max-h-[132px] overflow-y-auto pr-1">
+    <div className="max-h-[132px] overflow-y-auto overflow-x-hidden pr-1">
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
   );

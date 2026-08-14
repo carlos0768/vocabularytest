@@ -11,6 +11,9 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { speakEnglish, speakAndWait, stopSpeaking } from '@/lib/speech';
+import { afterPaint, isPageHidden } from '@/lib/ui/after-paint';
+import { createTtsPlayer, type TtsPlayer } from '@/lib/speech/tts-player';
+import type { TtsLang } from '@/lib/speech/cloud-text-to-speech';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
@@ -285,10 +288,10 @@ export default function FlashcardPage() {
       setIsAnimating(true); setSlideDirection('left'); setSlidePhase('exit');
       setTimeout(() => {
         setCurrentIndex(nextIndex); setIsFlipped(false); setSlidePhase('enter');
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        afterPaint(() => {
           setSlidePhase(null);
           setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
-        }));
+        });
       }, 200);
     } else {
       setCurrentIndex(nextIndex); setIsFlipped(false);
@@ -302,10 +305,10 @@ export default function FlashcardPage() {
       setIsAnimating(true); setSlideDirection('right'); setSlidePhase('exit');
       setTimeout(() => {
         setCurrentIndex(prevIndex); setIsFlipped(false); setSlidePhase('enter');
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        afterPaint(() => {
           setSlidePhase(null);
           setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
-        }));
+        });
       }, 200);
     } else {
       setCurrentIndex(prevIndex); setIsFlipped(false);
@@ -362,15 +365,41 @@ export default function FlashcardPage() {
   useEffect(() => { handleNextRef.current = handleNext; }, [handleNext]);
   useEffect(() => { handlePrevRef.current = handlePrev; }, [handlePrev]);
 
+  /**
+   * 合成音声プレイヤー。画面ロック中も鳴らすには、ユーザー操作の中で作った
+   * 要素をそのまま使い回す必要があるので、再生ボタンのタップで解錠する。
+   */
+  const ttsPlayerRef = useRef<TtsPlayer | null>(null);
+
   const toggleAutoPlay = useCallback(() => {
     triggerHaptic();
     const next = !isAutoPlaying;
     // ユーザー操作の呼び出しスタック内で同期的に play()/pause() しておくと、
     // ブラウザの自動再生ポリシー上より確実に許可される (useEffect 側でも保険をかける)。
-    if (next) silentAudioRef.current?.play().catch(() => {});
-    else silentAudioRef.current?.pause();
+    if (next) {
+      silentAudioRef.current?.play().catch(() => {});
+      if (!ttsPlayerRef.current) ttsPlayerRef.current = createTtsPlayer();
+      ttsPlayerRef.current.unlock();
+    } else {
+      silentAudioRef.current?.pause();
+      ttsPlayerRef.current?.stop();
+    }
     setIsAutoPlaying(next);
   }, [isAutoPlaying]);
+
+  /**
+   * 自動再生の読み上げ。
+   *
+   * まず合成音声(mp3)で鳴らす —— iOS は画面ロック中に SpeechSynthesis が
+   * 発話しないため、これが「画面を消しても鳴り続ける」ための本命。
+   * 音声が用意できないとき(未ログイン・上限・生成失敗)はブラウザの読み上げに
+   * そのまま落とす。鳴らないより、画面が点いている間だけでも鳴った方がよい。
+   */
+  const speakForAutoPlay = useCallback(async (text: string | null | undefined, lang: TtsLang) => {
+    const played = await ttsPlayerRef.current?.play(text, lang);
+    if (played === 'played') return;
+    await speakAndWait(text, lang);
+  }, []);
 
   /* 自動再生ループ: 英語→(間)→表面を裏返して日本語→(間)→次のカードへ、を繰り返す */
   useEffect(() => {
@@ -380,25 +409,35 @@ export default function FlashcardPage() {
     let cancelled = false;
     const wait = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms); });
 
+    // 次のカードの音声を先に取っておき、カードの切り替わりで待たせない。
+    const nextWord = wordsRef.current[currentIndex + 1] ?? wordsRef.current[0];
+    if (nextWord) {
+      ttsPlayerRef.current?.prefetch(nextWord.english, 'en');
+      ttsPlayerRef.current?.prefetch(nextWord.japanese, 'ja');
+    }
+
     (async () => {
       setIsFlipped(false);
-      await speakAndWait(word.english, 'en');
+      await speakForAutoPlay(word.english, 'en');
       if (cancelled) return;
       await wait(AUTOPLAY_GAP_MS);
       if (cancelled) return;
       setIsFlipped(true);
-      await speakAndWait(word.japanese, 'ja');
+      await speakForAutoPlay(word.japanese, 'ja');
       if (cancelled) return;
       await wait(AUTOPLAY_NEXT_DELAY_MS);
       if (cancelled) return;
-      handleNextRef.current(true);
+      // 画面消灯中はスライド演出を挟まない。演出は描画が前提なので、
+      // 隠れている間に走らせても意味がないうえ、進行を遅らせるだけ。
+      handleNextRef.current(!isPageHidden());
     })();
 
     return () => {
       cancelled = true;
       stopSpeaking();
+      ttsPlayerRef.current?.stop();
     };
-  }, [isAutoPlaying, currentIndex]);
+  }, [isAutoPlaying, currentIndex, speakForAutoPlay]);
 
   /* 自動再生中は画面消灯を防ぎ、バックグラウンド/ロック中も読み上げが続きやすくする (対応環境のみ) */
   useEffect(() => {
@@ -464,6 +503,8 @@ export default function FlashcardPage() {
     const audio = silentAudioRef.current;
     return () => {
       stopSpeaking();
+      ttsPlayerRef.current?.dispose();
+      ttsPlayerRef.current = null;
       audio?.pause();
       if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
         try { navigator.mediaSession.playbackState = 'none'; } catch { /* 非対応環境 */ }
