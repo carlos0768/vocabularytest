@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui';
+import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 import { SolidPanel } from '@/components/redesign/SolidPage';
-import { ReviewLimitPicker } from '@/components/settings/ReviewLimitPicker';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -58,24 +58,12 @@ export default function SettingsPage() {
         usernameSaving={profileSaving}
         usernameError={profileError}
       />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-      {/* Header */}
-      <div className="px-[18px] pb-[14px] pt-1">
-        {/* 設定はプロフィール内の導線から開くので、戻り先はプロフィール */}
-        <button
-          type="button"
-          onClick={handleBack}
-          aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="chevron_left" size={20} />
-        </button>
-        <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT</div>
-        <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">設定</div>
-      </div>
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      {/* 設定はプロフィール内の導線から開くので、戻り先はプロフィール */}
+      <StickyPageHeader eyebrow="ACCOUNT" title="設定" onBack={handleBack} />
 
       {/* Profile card */}
-      <div className="px-[18px] pb-[14px]">
+      <div className="px-[18px] pb-[14px] pt-3">
         {authLoading ? (
           <SolidPanel className="!rounded-[14px] !" faceClassName="!p-[14px]">
             <div className="flex h-14 items-center justify-center">
@@ -87,7 +75,7 @@ export default function SettingsPage() {
             className="!rounded-[14px] !"
             faceClassName="!p-[14px]"
           >
-            <Link href="/profile" className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -113,8 +101,7 @@ export default function SettingsPage() {
                   {isPro ? 'PRO PLAN' : 'FREE PLAN'}
                 </div>
               </div>
-              <Icon name="chevron_right" size={22} className="shrink-0 text-[var(--color-muted)]" />
-            </Link>
+            </div>
           </SolidPanel>
         ) : (
           <SolidPanel className="!rounded-[14px] !" faceClassName="!p-[14px]">
@@ -188,28 +175,9 @@ export default function SettingsPage() {
         </Link>
       </div>
 
-      {/* 豆知識 — 語源（接頭語・接尾語・接中語）コーナー */}
+      {/* 豆知識 — 中身は /tips にまとめ、設定には入口だけ置く */}
       <SettingsGroup label="豆知識">
-        <SettingsRow icon="text_fields" label="接頭語（プレフィックス）" description="un- / re- / pre- など、頭に付くパーツの意味と例" href="/tips/prefixes" />
-        <SettingsRow icon="text_fields" label="接尾語（サフィックス）" description="-tion / -ous / -able など、品詞を決めるパーツ" href="/tips/suffixes" />
-        <SettingsRow icon="text_fields" label="接中語（インフィックス）" description="therm-o-meter の -o- など、語根をつなぐパーツ" href="/tips/infixes" />
-      </SettingsGroup>
-
-      <SettingsGroup label="学習">
-        <div className="px-3 py-[11px]">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
-              <Icon name="event_repeat" size={16} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <span className="text-[13px] font-bold text-[var(--solid-ink)]">1日の復習上限</span>
-              <p className="mt-px text-[10px] leading-4 text-[var(--color-muted)]">
-                復習クイズに出す問題数の上限。間違いが多い単語・CEFRが高い単語から優先して選ばれます
-              </p>
-            </div>
-          </div>
-          <ReviewLimitPicker className="mt-2.5 pl-[36.5px]" />
-        </div>
+        <SettingsRow icon="lightbulb" label="豆知識" description="接頭語・接尾語・接中語のパーツ辞典" href="/tips" />
       </SettingsGroup>
 
       <SettingsGroup label="カスタマイズ">

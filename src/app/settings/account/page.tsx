@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import type { Subscription } from '@/types';
+import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 
 function getPlanHint(subscription: Subscription | null, isPro: boolean): string {
   if (!isPro) return 'FREE';
@@ -24,25 +25,19 @@ export default function AccountSettingsPage() {
   const planHint = getPlanHint(subscription, isPro);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-      <div className="px-[18px] pb-[14px] pt-1">
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof window !== 'undefined' && window.history.length > 1) {
-              router.back();
-              return;
-            }
-            router.push('/settings');
-          }}
-          aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="chevron_left" size={20} />
-        </button>
-        <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">ACCOUNT</div>
-        <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">アカウント</div>
-      </div>
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <StickyPageHeader
+        eyebrow="ACCOUNT"
+        title="アカウント"
+        onBack={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+            return;
+          }
+          router.push('/settings');
+        }}
+        className="mb-3"
+      />
 
       <SettingsGroup label="プロフィール">
         <SettingsRow
