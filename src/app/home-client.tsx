@@ -11,7 +11,6 @@ import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
-import { HomeReelRail } from '@/components/home/HomeReelRail';
 import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
@@ -584,12 +583,8 @@ export function HomeClient() {
   const showUpgradeBanner = isBillingEnabled() && !isPro && !upgradeBannerDismissed;
   // 参加中のグループ（マイ単語帳の下に表示。/shared から移設）
   const { groups: myGroups } = useMyGroups();
-  // ホームのおすすめ（英検級ベースの共有単語帳 + 語源あり単語限定のリール）
-  const {
-    books: recommendedBooks,
-    reels: recommendedReels,
-    loading: recommendationsLoading,
-  } = useHomeRecommendations();
+  // ホームのおすすめ（英検級ベースの共有単語帳）
+  const { books: recommendedBooks } = useHomeRecommendations();
   // 語法問題集（Pro限定）。グループ表示の上に出す
   const { books: grammarBooks } = useHomeGrammarBooks();
   const visibleRecommendedBooks = loading ? [] : recommendedBooks;
@@ -614,8 +609,6 @@ export function HomeClient() {
         goal={{ state: goalState, count: goalCount }}
         grammarBooks={grammarBooks}
         recommendedBooks={visibleRecommendedBooks}
-        recommendedReels={recommendedReels}
-        recommendationsLoading={recommendationsLoading}
         onStartScan={() => setDesktopCreateOpen(true)}
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
@@ -777,9 +770,6 @@ export function HomeClient() {
 
       {/* 参加中のグループ（/shared から移設） */}
       <JoinedGroupsSection groups={myGroups} />
-
-      {/* おすすめのリール（語源がある単語限定・単語帳/グループより下に配置） */}
-      <HomeReelRail items={recommendedReels} loading={recommendationsLoading} />
 
       </div>
       <ScanCaptureModal
