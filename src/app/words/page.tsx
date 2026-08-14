@@ -11,14 +11,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { WordFilterPanel, WordFilterSheet } from '@/components/words/WordFilterPanel';
-import { WordListRow } from '@/components/words/WordListRow';
+import { WordRow } from '@/components/project/WordRow';
 import { Icon } from '@/components/ui/Icon';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll';
 import { useWordLibrary } from '@/hooks/use-word-library';
+import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import {
   DEFAULT_WORD_FILTER,
+  FEATURE_LABELS,
   SORT_LABELS,
   STATUS_LABELS,
   clearFilterConditions,
@@ -26,7 +29,9 @@ import {
   deriveFilterOptions,
   describeActiveFilters,
   filterAndSortWords,
+  hasFeature,
   summarizeStatuses,
+  type FeatureKey,
   type SortKey,
   type WordFilterState,
   type WordListEntry,
@@ -53,6 +58,36 @@ const STATUS_BAR_COLORS: Record<WordStatus, string> = {
   review: '#137fec',
   new: 'rgba(26,26,26,0.15)',
 };
+
+/** 行の下に出す要素マーク。絞り込み結果を目で確認できるようにする。 */
+const META_FEATURE_KEYS: FeatureKey[] = [
+  'example',
+  'pronunciation',
+  'morphology',
+  'derived',
+  'multiMeaning',
+  'custom',
+];
+
+/**
+ * 単語帳をまたぐ一覧なので、行に「どの単語帳の語か」を足す。
+ * 単語帳詳細の行には無い情報なので、WordRow の metaLine として渡す。
+ */
+function WordMetaLine({ entry }: { entry: WordListEntry }) {
+  const marks = META_FEATURE_KEYS.filter((key) => hasFeature(entry, key)).map(
+    (key) => FEATURE_LABELS[key],
+  );
+
+  return (
+    <div className="mt-[3px] flex items-center gap-1.5 overflow-hidden font-mono text-[9px] text-[var(--color-muted)]">
+      <span className="truncate">{entry.projectTitle}</span>
+      {marks.length > 0 && <span className="shrink-0 truncate opacity-70">{marks.join('・')}</span>}
+      {entry.wrongCount > 0 && (
+        <span className="shrink-0 font-bold text-[var(--color-error)]">誤答{entry.wrongCount}</span>
+      )}
+    </div>
+  );
+}
 
 export default function WordsPage() {
   const { entries, loading, error, repository, applyWordUpdate, removeWord } = useWordLibrary();
@@ -94,6 +129,51 @@ export default function WordsPage() {
         invalidateHomeCache();
       } catch (updateError) {
         console.error('Failed to toggle favorite:', updateError);
+        applyWordUpdate(entry.word);
+        setSelectedWord((current) =>
+          current && current.word.id === entry.word.id ? { ...current, word: entry.word } : current,
+        );
+      }
+    },
+    [applyWordUpdate, repository],
+  );
+
+  // 単語帳詳細と同じ3段チェックボックス。連打はまとめて1回だけ書き込む。
+  const handleCycleStatus = useCallback(
+    (entry: WordListEntry, newStatus: WordStatus) => {
+      const currentStatus = entry.word.status;
+      applyWordUpdate({ ...entry.word, status: newStatus });
+      scheduleWordStatusWrite({
+        wordId: entry.word.id,
+        currentStatus,
+        newStatus,
+        writer: async (finalStatus, originalStatus) => {
+          try {
+            await repository.updateWord(entry.word.id, { status: finalStatus });
+            invalidateHomeCache();
+          } catch (updateError) {
+            console.error('Failed to update status:', updateError);
+            applyWordUpdate({ ...entry.word, status: originalStatus });
+          }
+        },
+      });
+    },
+    [applyWordUpdate, repository],
+  );
+
+  const handleCycleVocabularyType = useCallback(
+    async (entry: WordListEntry) => {
+      const vocabularyType = getNextVocabularyType(entry.word.vocabularyType);
+      const updated: Word = { ...entry.word, vocabularyType };
+      applyWordUpdate(updated);
+      setSelectedWord((current) =>
+        current && current.word.id === entry.word.id ? { ...current, word: updated } : current,
+      );
+      try {
+        await repository.updateWord(entry.word.id, { vocabularyType });
+        invalidateHomeCache();
+      } catch (updateError) {
+        console.error('Failed to update vocabulary type:', updateError);
         applyWordUpdate(entry.word);
         setSelectedWord((current) =>
           current && current.word.id === entry.word.id ? { ...current, word: entry.word } : current,
@@ -297,13 +377,20 @@ export default function WordsPage() {
             </div>
           ) : (
             <>
-              <div className="flex flex-col gap-1.5">
+              {/* 行は単語帳詳細と同じ WordRow を使う (区切り線つきの一覧) */}
+              <div className="divide-y divide-[var(--color-border)] rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3">
                 {visible.map((entry) => (
-                  <WordListRow
+                  <WordRow
                     key={entry.word.id}
-                    entry={entry}
-                    onOpen={() => setSelectedWord(entry)}
+                    word={entry.word}
+                    selectMode={false}
+                    selected={false}
+                    metaLine={<WordMetaLine entry={entry} />}
+                    onToggleSelect={() => {}}
+                    onCycleStatus={(newStatus) => handleCycleStatus(entry, newStatus)}
+                    onCycleVocabularyType={() => void handleCycleVocabularyType(entry)}
                     onToggleFavorite={() => void handleToggleFavorite(entry)}
+                    onSelect={() => setSelectedWord(entry)}
                   />
                 ))}
               </div>
