@@ -9,6 +9,7 @@ import {
   isJapaneseAnswerCorrect,
   japaneseAnswerCandidates,
   japaneseAnswerHints,
+  MAX_ANSWER_HINTS,
   normalizeJapaneseAnswer,
 } from './voice-quiz-answer';
 
@@ -16,6 +17,36 @@ test('a homophone transcribed with the wrong kanji is rescued by the other candi
   // 「きづく」を「築く」と変換されても、候補に「気づく」があれば正解にする。
   assert.equal(isJapaneseAnswerCorrect('築く', '気づく'), false);
   assert.equal(isAnyJapaneseAnswerCorrect(['築く', '気づく'], '気づく'), true);
+});
+
+/**
+ * 同じ音でも変換が割れる語は、候補をいくつ受け取っても正しい表記が出ないことがある。
+ * 読みが分かっていれば、そこで拾う。
+ */
+test('a homophone with a completely different spelling is accepted via its reading', () => {
+  const readings = { 御社: 'おんしゃ', 恩赦: 'おんしゃ' };
+  assert.equal(isJapaneseAnswerCorrect('御社', '恩赦'), false);
+  assert.equal(isJapaneseAnswerCorrect('御社', '恩赦', readings), true);
+  assert.equal(isAnyJapaneseAnswerCorrect(['御社'], '恩赦', readings), true);
+});
+
+test('a kanji transcription of a katakana meaning is accepted via its reading', () => {
+  // 「コケ」と登録されている語を「苔」と書かれても、音は合っている。
+  assert.equal(isJapaneseAnswerCorrect('苔', 'コケ'), false);
+  assert.equal(isJapaneseAnswerCorrect('苔', 'コケ', { 苔: 'こけ' }), true);
+});
+
+test('readings only cover the meaning they belong to', () => {
+  // 読みが付いても、音の違う語は正解にならない。
+  assert.equal(
+    isJapaneseAnswerCorrect('御社', '会釈', { 御社: 'おんしゃ', 会釈: 'えしゃく' }),
+    false,
+  );
+});
+
+test('a reading rescues one meaning out of several', () => {
+  const readings = { 御社: 'おんしゃ', 気づく: 'きづく', 恩赦: 'おんしゃ' };
+  assert.equal(isJapaneseAnswerCorrect('御社', '気づく、恩赦', readings), true);
 });
 
 test('candidates that are all wrong stay wrong', () => {
@@ -90,6 +121,12 @@ test('japaneseAnswerHints splits meanings and offers the parenthetical-free form
   // 括弧は読み上げられないので、ヒントとしては記号を落とした形で渡す。
   assert.ok(hints.includes('人に与える'));
   assert.ok(hints.includes('与える'));
+});
+
+test('japaneseAnswerHints stays within what the recognition API accepts', () => {
+  // 訳が長く並ぶ単語でヒントが増えすぎると、リクエストごと弾かれて認識が失敗する。
+  const hints = japaneseAnswerHints('あ、い、う、え、お、か、き、く、け、こ');
+  assert.ok(hints.length <= MAX_ANSWER_HINTS, `too many hints: ${hints.length}`);
 });
 
 test('japaneseAnswerCandidates splits and folds every meaning', () => {

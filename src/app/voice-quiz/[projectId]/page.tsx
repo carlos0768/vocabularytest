@@ -126,6 +126,21 @@ async function recognizeRequestHeaders(): Promise<HeadersInit> {
   return headers;
 }
 
+/**
+ * 認識APIが表記の食い違いを見つけたときだけ返してくる、表記→読みの対応表。
+ * 「恩赦」を「御社」と書かれても、読みが同じなら正解として拾うために使う。
+ */
+function readingsFromResponse(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+
+  const readings: Record<string, string> = {};
+  for (const [text, reading] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof reading === 'string' && reading) readings[text] = reading;
+  }
+
+  return Object.keys(readings).length > 0 ? readings : undefined;
+}
+
 type Phase = 'narrating' | 'listening' | 'grading' | 'retrying' | 'answered';
 type SetupState = 'checking' | 'ready' | 'unsupported' | 'mic-denied';
 
@@ -451,16 +466,23 @@ export default function VoiceQuizPage() {
 
   /** 1回の試行の結果を受けて、再挑戦させるか問題を確定するかを決める。 */
   const handleAttemptResult = useCallback(
-    async (transcript: string, apiErrored: boolean, run: number, alternatives: string[] = []) => {
+    async (
+      transcript: string,
+      apiErrored: boolean,
+      run: number,
+      alternatives: string[] = [],
+      readings?: Record<string, string>,
+    ) => {
       if (attemptSettledRef.current) return;
       attemptSettledRef.current = true;
       const word = activeWordRef.current;
       if (!word || questionRunRef.current !== run) return;
 
       // 最有力の変換が同音異義語で外れることがあるので、候補全体で突き合わせる。
+      // 候補がどれも別の漢字になったぶんは、認識側が添えてくれた読みで拾う。
       const heard = [transcript, ...alternatives].filter(Boolean);
       const correct = directionRef.current === 'en-to-ja'
-        ? isAnyJapaneseAnswerCorrect(heard, word.japanese)
+        ? isAnyJapaneseAnswerCorrect(heard, word.japanese, readings)
         : isAnyEnglishAnswerCorrect(heard, word.english);
 
       // 音声認識自体が失敗した場合は、ユーザーの責任ではないので再挑戦させずに確定する。
@@ -612,6 +634,7 @@ export default function VoiceQuizPage() {
               Array.isArray(data.alternatives)
                 ? data.alternatives.filter((item: unknown): item is string => typeof item === 'string')
                 : [],
+              readingsFromResponse(data.readings),
             );
           } catch (error) {
             if (questionRunRef.current !== run) return;

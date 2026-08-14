@@ -72,11 +72,21 @@ export function japaneseAnswerCandidates(japanese: string): string[] {
 }
 
 /**
+ * 認識APIに渡せるヒントの数。
+ * 訳が「A、B、C…」と長く並ぶ単語では候補がいくらでも増えるので、
+ * ここで頭打ちにしないとリクエストが弾かれて認識そのものが失敗する。
+ */
+export const MAX_ANSWER_HINTS = 8;
+
+/**
  * 音声認識に渡すヒント語。
  *
  * 比較用の候補 (japaneseAnswerCandidates) は正規化で長音やカタカナを畳んでおり
  * 「コーヒー」が「こひ」になってしまうため、ヒントには使えない。
  * ここでは区切りだけ分けて、表記はそのまま残す。
+ *
+ * 読み (japaneseAnswerReadingForms) を引くときのキーにもなるので、
+ * クライアントとサーバーで同じ文字列が出るようこの関数だけを通す。
  */
 export function japaneseAnswerHints(japanese: string): string[] {
   const hints = new Set<string>();
@@ -90,7 +100,64 @@ export function japaneseAnswerHints(japanese: string): string[] {
     }
   }
 
-  return [...hints];
+  return [...hints].slice(0, MAX_ANSWER_HINTS);
+}
+
+/**
+ * 表記 → 読み(ひらがな) の対応表。
+ *
+ * 音読の答え合わせは本来「音が合っているか」を見たいのに、認識結果は漢字に
+ * 変換されて返るので、正しく発音していても表記が割れて不正解になる
+ * (「恩赦」が「御社」、「コケ」が「苔」)。読みが分かっている語は読みでも
+ * 突き合わせて、この取りこぼしを拾う。
+ *
+ * 読みは `/api/voice-quiz/recognize` が必要なときだけ引いて返す。
+ * 引けなかった語は表記だけで判定するので、無くても今まで通り動く。
+ */
+export type JapaneseReadings = Readonly<Record<string, string>>;
+
+/** 対応表から読みを引く。サーバーに渡した文字列そのものがキーになる。 */
+function lookupReading(text: string, readings?: JapaneseReadings): string | undefined {
+  if (!readings) return undefined;
+  return readings[text] ?? readings[text.trim()];
+}
+
+/**
+ * 突き合わせに使う形を畳んで返す。
+ * 表記そのものと、分かっていればその読みの両方を候補にする。
+ */
+function comparableForms(text: string, readings?: JapaneseReadings): string[] {
+  const forms = new Set<string>();
+
+  const surface = normalizeJapaneseAnswer(text);
+  if (surface) forms.add(surface);
+
+  const reading = lookupReading(text, readings);
+  if (reading) {
+    const normalized = normalizeJapaneseAnswer(reading);
+    if (normalized) forms.add(normalized);
+  }
+
+  return [...forms];
+}
+
+/**
+ * 登録されている訳の、突き合わせ可能な形すべて。
+ * 表記から作った候補に、読みが分かっているものを足す。
+ */
+export function japaneseAnswerReadingForms(
+  japanese: string,
+  readings?: JapaneseReadings,
+): string[] {
+  const forms = new Set<string>(japaneseAnswerCandidates(japanese));
+
+  if (readings) {
+    for (const hint of japaneseAnswerHints(japanese)) {
+      for (const form of comparableForms(hint, readings)) forms.add(form);
+    }
+  }
+
+  return [...forms];
 }
 
 /**
@@ -114,30 +181,37 @@ function isCloseEnough(said: string, candidate: string): boolean {
  *
  * @param transcript 認識されたユーザーの発話
  * @param japanese   単語に登録されている日本語訳
+ * @param readings   表記→読みの対応表 (あれば読みでも突き合わせる)
  */
-export function isJapaneseAnswerCorrect(transcript: string, japanese: string): boolean {
-  const said = normalizeJapaneseAnswer(transcript);
-  if (!said) return false;
+export function isJapaneseAnswerCorrect(
+  transcript: string,
+  japanese: string,
+  readings?: JapaneseReadings,
+): boolean {
+  const said = comparableForms(transcript, readings);
+  if (said.length === 0) return false;
 
-  return japaneseAnswerCandidates(japanese).some((candidate) =>
-    isCloseEnough(said, candidate),
-  );
+  const candidates = japaneseAnswerReadingForms(japanese, readings);
+  return said.some((form) => candidates.some((candidate) => isCloseEnough(form, candidate)));
 }
 
 /**
  * 音声認識が返した候補のどれかが正解なら正解とみなす。
  *
  * 日本語は同音異義語が多く、正しく発音していても最有力の変換が別の漢字に
- * なることがある (「きづく」→「築く」/「気づく」)。読みを突き合わせるには
- * 辞書が要るので、代わりに認識側から複数の変換候補を受け取り、その中に
- * 正しい表記があれば拾う。音が違う語は候補に出てこないため、
- * これで正解が甘くなることはない。
+ * なることがある (「きづく」→「築く」/「気づく」)。まず認識側から複数の変換候補を
+ * 受け取り、その中に正しい表記があれば拾う。それでも表記が割れる
+ * (「恩赦」→「御社」/「コケ」→「苔」) ぶんは、readings があれば読みで突き合わせる。
+ * 音が違う語は同じ読みにならないので、これで正解が甘くなることはない。
  */
 export function isAnyJapaneseAnswerCorrect(
   transcripts: readonly string[],
   japanese: string,
+  readings?: JapaneseReadings,
 ): boolean {
-  return transcripts.some((transcript) => isJapaneseAnswerCorrect(transcript, japanese));
+  return transcripts.some((transcript) =>
+    isJapaneseAnswerCorrect(transcript, japanese, readings),
+  );
 }
 
 // ============ 日→英 (英単語を答える) ============

@@ -115,7 +115,10 @@ test('recognizeSpeech passes phrase hints to GCP as a speech context', async () 
   );
 
   const config = (seen.payload as unknown as { config: Record<string, unknown> }).config;
-  assert.deepEqual(config.speechContexts, [{ phrases: ['気づく', '認識する'] }]);
+  const [context] = config.speechContexts as Array<{ phrases: string[]; boost?: number }>;
+  assert.deepEqual(context.phrases, ['気づく', '認識する']);
+  // boost が付いていないとヒントはほとんど効かず、同音異義語の変換先が寄らない。
+  assert.ok(typeof context.boost === 'number' && context.boost > 0, `boost missing: ${context.boost}`);
 });
 
 test('recognizeSpeech omits speechContexts when there is nothing to hint', async () => {
