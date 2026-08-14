@@ -487,6 +487,15 @@ export class HybridWordRepository implements WordRepository {
     return localRepository.getWord(id);
   }
 
+  /**
+   * 単語帳をまたいだ一括読み込み (単語一覧ページ /words 用)。
+   * 単語帳ごとに getWords を回すと件数分クエリが飛ぶため、ローカルの
+   * インデックス1回で全件取る。読み取りは他と同じくローカルのみ。
+   */
+  async getAllWordsByProjectIds(projectIds: string[]): Promise<Record<string, Word[]>> {
+    return localRepository.getAllWordsByProjectIds(projectIds);
+  }
+
   async updateWord(id: string, updates: Partial<Word>): Promise<void> {
     // 1. Update locally
     await localRepository.updateWord(id, updates);

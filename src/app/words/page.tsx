@@ -1,0 +1,414 @@
+'use client';
+
+/**
+ * 単語一覧 (/words)。
+ * 単語帳の区切りを外して「単語そのもの」を眺めるための画面。
+ *
+ * 読み込みはページを開いたときの1回だけで、以降の検索・絞り込み・並べ替えは
+ * すべてメモリ上のフロントエンド処理で完結する (通信は発生しない)。
+ * 通信するのは単語へのアクション (ブックマーク・編集・削除) だけ。
+ */
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { WordFilterPanel, WordFilterSheet } from '@/components/words/WordFilterPanel';
+import { WordListRow } from '@/components/words/WordListRow';
+import { Icon } from '@/components/ui/Icon';
+import { WordDetailView } from '@/components/word/WordDetailView';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll';
+import { useWordLibrary } from '@/hooks/use-word-library';
+import { invalidateHomeCache } from '@/lib/home-cache';
+import {
+  DEFAULT_WORD_FILTER,
+  SORT_LABELS,
+  STATUS_LABELS,
+  clearFilterConditions,
+  countActiveFilters,
+  deriveFilterOptions,
+  describeActiveFilters,
+  filterAndSortWords,
+  summarizeStatuses,
+  type SortKey,
+  type WordFilterState,
+  type WordListEntry,
+} from '@/lib/words/word-filter';
+import type { Word, WordStatus } from '@/types';
+
+const PAGE_SIZE = 60;
+
+const SORT_KEYS: SortKey[] = [
+  'created-desc',
+  'created-asc',
+  'alpha-asc',
+  'alpha-desc',
+  'japanese',
+  'status',
+  'review',
+  'project',
+  'wrong',
+];
+
+const STATUS_BAR_COLORS: Record<WordStatus, string> = {
+  mastered: 'var(--color-success)',
+  active: '#2563eb',
+  review: '#137fec',
+  new: 'rgba(26,26,26,0.15)',
+};
+
+export default function WordsPage() {
+  const { entries, loading, error, repository, applyWordUpdate, removeWord } = useWordLibrary();
+  const [filter, setFilter] = useState<WordFilterState>(DEFAULT_WORD_FILTER);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [selectedWord, setSelectedWord] = useState<WordListEntry | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WordListEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const options = useMemo(() => deriveFilterOptions(entries), [entries]);
+  const results = useMemo(() => filterAndSortWords(entries, filter), [entries, filter]);
+  const activeCount = countActiveFilters(filter);
+  const activeChips = useMemo(() => describeActiveFilters(filter, options), [filter, options]);
+  const statusSummary = useMemo(() => summarizeStatuses(results), [results]);
+
+  // 条件が変わったら先頭から出し直す
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filter, entries.length]);
+
+  const visible = results.slice(0, visibleCount);
+  const hasMore = visibleCount < results.length;
+  const sentinelRef = useInfiniteScrollSentinel({
+    enabled: hasMore,
+    onLoadMore: () => setVisibleCount((count) => count + PAGE_SIZE),
+  });
+
+  const handleToggleFavorite = useCallback(
+    async (entry: WordListEntry) => {
+      const next = !entry.word.isFavorite;
+      const updated: Word = { ...entry.word, isFavorite: next };
+      applyWordUpdate(updated);
+      setSelectedWord((current) =>
+        current && current.word.id === entry.word.id ? { ...current, word: updated } : current,
+      );
+      try {
+        await repository.updateWord(entry.word.id, { isFavorite: next });
+        invalidateHomeCache();
+      } catch (updateError) {
+        console.error('Failed to toggle favorite:', updateError);
+        applyWordUpdate(entry.word);
+        setSelectedWord((current) =>
+          current && current.word.id === entry.word.id ? { ...current, word: entry.word } : current,
+        );
+      }
+    },
+    [applyWordUpdate, repository],
+  );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await repository.deleteWord(deleteTarget.word.id);
+      removeWord(deleteTarget.word.id);
+      if (selectedWord?.word.id === deleteTarget.word.id) setSelectedWord(null);
+      invalidateHomeCache();
+      setDeleteTarget(null);
+    } catch (deleteError) {
+      console.error('Failed to delete word:', deleteError);
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, deleting, removeWord, repository, selectedWord]);
+
+  const panelProps = {
+    filter,
+    options,
+    onChange: setFilter,
+    onClear: () => setFilter((prev) => clearFilterConditions(prev)),
+    activeCount,
+  };
+
+  return (
+    <div
+      className="mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 lg:max-w-[1180px] lg:pb-10"
+      style={{ fontFamily: 'var(--font-body)' }}
+    >
+      <div className="pb-3 pt-1">
+        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+          ALL WORDS
+        </div>
+        <div className="mt-1.5 font-display text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-[var(--solid-ink)]">
+          単語一覧
+        </div>
+        <div className="mt-1.5 text-[12px] font-medium text-[var(--color-muted)]">
+          単語帳をまたいで、条件を組み合わせて単語を探せます
+        </div>
+      </div>
+
+      <div className="lg:grid lg:grid-cols-[286px_1fr] lg:items-start lg:gap-6">
+        {/* デスクトップ: 左に絞り込みを常設 */}
+        <aside className="sticky top-4 hidden max-h-[calc(100dvh-40px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 lg:block">
+          <WordFilterPanel {...panelProps} />
+        </aside>
+
+        <div className="min-w-0">
+          {/* 検索 + 並べ替え + (モバイル)絞り込みボタン */}
+          <div className="sticky top-0 z-20 -mx-[18px] bg-[var(--color-background)] px-[18px] pb-2.5 pt-1 lg:static lg:mx-0 lg:px-0">
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3">
+                <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+                <input
+                  value={filter.query}
+                  onChange={(event) => setFilter((prev) => ({ ...prev, query: event.target.value }))}
+                  placeholder="単語・意味・例文で検索"
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                />
+                {filter.query && (
+                  <button
+                    type="button"
+                    onClick={() => setFilter((prev) => ({ ...prev, query: '' }))}
+                    aria-label="検索をクリア"
+                    className="shrink-0 text-[var(--color-muted)]"
+                  >
+                    <Icon name="close" size={15} />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSheetOpen(true)}
+                className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 text-[12px] font-bold text-[var(--solid-ink)] lg:hidden"
+              >
+                <Icon name="tune" size={16} />
+                絞り込み
+                {activeCount > 0 && (
+                  <span className="rounded-full bg-[var(--solid-ink)] px-[6px] py-px font-mono text-[9.5px] font-bold tabular-nums text-white">
+                    {activeCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="mt-2 flex items-center gap-2">
+              <label className="flex h-9 min-w-0 items-center gap-1.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-2.5">
+                <Icon name="swap_vert" size={15} className="shrink-0 text-[var(--color-muted)]" />
+                <select
+                  value={filter.sort}
+                  onChange={(event) =>
+                    setFilter((prev) => ({ ...prev, sort: event.target.value as SortKey }))
+                  }
+                  aria-label="並べ替え"
+                  className="min-w-0 bg-transparent text-[11.5px] font-bold text-[var(--solid-ink)] outline-none"
+                >
+                  {SORT_KEYS.map((key) => (
+                    <option key={key} value={key}>
+                      {SORT_LABELS[key]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="ml-auto shrink-0 font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
+                <span className="text-[15px] text-[var(--solid-ink)]">{results.length}</span>
+                <span> / {entries.length}語</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 適用中の条件: 1つずつ外せる */}
+          {activeChips.length > 0 && (
+            <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+              {activeChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setFilter(chip.next)}
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[10px] py-[5px] text-[11px] font-bold text-white"
+                >
+                  <span className="truncate">{chip.label}</span>
+                  <Icon name="close" size={12} />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setFilter((prev) => clearFilterConditions(prev))}
+                className="rounded-full border-[1.5px] border-[var(--color-border)] bg-white px-[10px] py-[5px] text-[11px] font-bold text-[var(--solid-ink)]"
+              >
+                すべて解除
+              </button>
+            </div>
+          )}
+
+          {/* 絞り込み結果の学習度の内訳 */}
+          {results.length > 0 && (
+            <div className="mb-2.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3 py-2.5">
+              <div className="flex h-1.5 overflow-hidden rounded-sm border border-[var(--color-border)]">
+                {(['mastered', 'active', 'review', 'new'] as WordStatus[]).map((status) => (
+                  <div
+                    key={status}
+                    style={{ flex: statusSummary[status], background: STATUS_BAR_COLORS[status] }}
+                  />
+                ))}
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] font-bold">
+                {(['mastered', 'active', 'review', 'new'] as WordStatus[]).map((status) => (
+                  <span key={status} style={{ color: STATUS_BAR_COLORS[status] === 'rgba(26,26,26,0.15)' ? 'var(--color-muted)' : STATUS_BAR_COLORS[status] }}>
+                    ● {STATUS_LABELS[status]} {statusSummary[status]}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p className="mb-2 text-[11px] font-bold text-[var(--color-error)]">{error}</p>
+          )}
+
+          {loading ? (
+            <div className="flex flex-col gap-1.5">
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <div
+                  key={index}
+                  className="h-[68px] animate-pulse rounded-[10px] border-[1.5px] border-[var(--color-border)] bg-white"
+                />
+              ))}
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+              <div className="font-display text-[15px] font-bold text-[var(--solid-ink)]">
+                まだ単語がありません
+              </div>
+              <p className="m-0 mt-2 text-[12px] leading-[1.8] text-[var(--color-muted)]">
+                単語帳に単語を追加すると、ここに単語帳をまたいで一覧表示されます。
+              </p>
+            </div>
+          ) : results.length === 0 ? (
+            <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+              <div className="font-display text-[15px] font-bold text-[var(--solid-ink)]">
+                条件に合う単語がありません
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilter(DEFAULT_WORD_FILTER)}
+                className="mt-3 h-10 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-5 text-[12.5px] font-bold text-[var(--solid-ink)]"
+              >
+                条件をすべて解除
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5">
+                {visible.map((entry) => (
+                  <WordListRow
+                    key={entry.word.id}
+                    entry={entry}
+                    onOpen={() => setSelectedWord(entry)}
+                    onToggleFavorite={() => void handleToggleFavorite(entry)}
+                  />
+                ))}
+              </div>
+              {hasMore && (
+                <div ref={sentinelRef} className="flex justify-center py-5 text-[var(--color-muted)]">
+                  <Icon name="progress_activity" size={18} className="animate-spin" />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <WordFilterSheet
+        {...panelProps}
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        resultCount={results.length}
+      />
+
+      {selectedWord && (
+        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(26,26,26,0.45)' }}
+            onClick={() => setSelectedWord(null)}
+          />
+          <div
+            className="absolute inset-0 flex items-center justify-center px-4 py-10"
+            onClick={() => setSelectedWord(null)}
+          >
+            <div
+              className="w-full overflow-y-auto"
+              onClick={(event) => event.stopPropagation()}
+              style={{
+                maxWidth: 480,
+                maxHeight: '80dvh',
+                background: '#faf7f1',
+                border: '2px solid var(--solid-ink)',
+                borderRadius: 20,
+              }}
+            >
+              <WordDetailView
+                wordId={selectedWord.word.id}
+                variant="modal"
+                initialWord={selectedWord.word}
+                onClose={() => setSelectedWord(null)}
+                onWordUpdated={(updated) => {
+                  applyWordUpdate(updated);
+                  setSelectedWord((current) => (current ? { ...current, word: updated } : null));
+                }}
+                onDelete={(wordId) =>
+                  setDeleteTarget(results.find((entry) => entry.word.id === wordId) ?? null)
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+          <button
+            type="button"
+            aria-label="閉じる"
+            className="absolute inset-0 cursor-default"
+            onClick={() => {
+              if (!deleting) setDeleteTarget(null);
+            }}
+            style={{ background: 'rgba(26,26,26,0.45)' }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-5">
+            <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                DELETE
+              </div>
+              <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+                単語を削除しますか？
+              </h2>
+              <p className="mt-2 text-[11px] leading-[1.5] text-[var(--color-muted)]">
+                {deleteTarget.word.english} が削除されます。この操作は取り消せません。
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!deleting) setDeleteTarget(null);
+                  }}
+                  className="h-11 flex-1 rounded-xl border-2 border-[var(--color-border)] bg-white text-[13px] font-bold text-[var(--solid-ink)]"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmDelete()}
+                  disabled={deleting}
+                  className="h-11 flex-1 rounded-xl border-2 border-[var(--color-error)] bg-[var(--color-error)] text-[13px] font-bold text-white disabled:opacity-60"
+                >
+                  {deleting ? '削除中...' : '削除する'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -74,19 +74,17 @@ const ReelIconFilled = () => (
   </svg>
 );
 
-const GrammarIcon = () => (
+const WordsIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 4a2 2 0 012-2h12v18H7a2 2 0 00-2 2V4z"/>
-    <path d="M5 20a2 2 0 012-2h12"/>
-    <path d="M9.5 7.5h6M9.5 11h4"/>
+    <path d="M4 6h16M4 12h16M4 18h10"/>
+    <circle cx="18.5" cy="18" r="2.5"/>
   </svg>
 );
 
-const GrammarIconFilled = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 4a2 2 0 012-2h12v18H7a2 2 0 00-2 2V4z"/>
-    <path d="M5 20a2 2 0 012-2h12" stroke="#fff" strokeWidth="1.5"/>
-    <path d="M9.5 7.5h6M9.5 11h4" stroke="#fff" strokeWidth="1.5"/>
+const WordsIconFilled = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 6h16M4 12h16M4 18h10"/>
+    <circle cx="18.5" cy="18" r="2.5" fill="currentColor"/>
   </svg>
 );
 
@@ -138,16 +136,17 @@ const ACCOUNT_TAB: TabItem = {
   IconActive: AccountIconFilled,
 };
 
-// Pro: 語法コーナー入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)を維持。
+// Pro: 単語一覧入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)を維持。
+// 語法問題集はホームのセクションから開く。
 const PRO_TABS: TabItem[] = [
   HOME_TAB,
   {
-    k: 'grammar',
-    label: '語法',
-    href: '/grammar',
-    matchPaths: ['/grammar'],
-    IconDefault: GrammarIcon,
-    IconActive: GrammarIconFilled,
+    k: 'words',
+    label: '単語',
+    href: '/words',
+    matchPaths: ['/words'],
+    IconDefault: WordsIcon,
+    IconActive: WordsIconFilled,
   },
   CREATE_TAB,
   SHARED_TAB,
