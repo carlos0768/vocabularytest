@@ -2,14 +2,16 @@ export { BattleEntrySection } from './BattleEntrySection';
 export {
   BattleScreen,
   BattleScreenHeader,
+  BattleHeaderButton,
   BattleNotice,
   BattleWaitingPanel,
 } from './BattleScreen';
 export {
-  BattleFieldLabel,
   BattleInviteCode,
-  BattleSegmentedField,
-  BattleWordbookField,
+  BattleModeTabs,
+  BattleRuleStrip,
+  BattleSetupCard,
+  type BattleLobbyMode,
 } from './BattleFields';
 export { BattleScoreboard } from './BattleScoreboard';
 export {
@@ -20,3 +22,4 @@ export {
   type BattleRoundOutcome,
 } from './BattleQuestion';
 export { BattleResultPanel } from './BattleResultPanel';
+export { BattleLeaveConfirm } from './BattleLeaveConfirm';

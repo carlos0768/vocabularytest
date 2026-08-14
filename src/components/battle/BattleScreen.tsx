@@ -7,6 +7,8 @@
  * 同じ「固定ビューポート」パターン）。モバイルでは body の safe-area padding を
  * 抜けるために fixed で置き、デスクトップでは ds-live-main（100dvh・overflow
  * hidden のグリッド列）の中に収まるよう static に戻す。
+ *
+ * 対戦はボトムナビを出さない専用フローなので、本文は画面いっぱいを使える。
  */
 
 import Link from 'next/link';
@@ -17,18 +19,18 @@ import { cn } from '@/lib/utils';
 
 export function BattleScreen({
   header,
-  footer,
   children,
-  /** ボトムナビが重なる画面（ロビー）では下に余白を足す。 */
   bodyClassName,
   center = false,
+  fill = false,
 }: {
   header: ReactNode;
-  footer?: ReactNode;
   children: ReactNode;
   bodyClassName?: string;
   /** 本文を上下中央に置く（待機・結果画面）。 */
   center?: boolean;
+  /** 本文を画面いっぱいに伸ばし、中で flex 配分させる（対戦中）。 */
+  fill?: boolean;
 }) {
   return (
     <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:static lg:z-auto lg:h-full">
@@ -37,28 +39,22 @@ export function BattleScreen({
         <div
           className={cn(
             'mx-auto flex w-full max-w-[560px] flex-col px-[18px]',
-            center && 'min-h-full justify-center',
+            (center || fill) && 'min-h-full',
+            center && 'justify-center',
             bodyClassName,
           )}
+          style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom))' }}
         >
           {children}
         </div>
       </div>
-      {footer && (
-        <div
-          className="shrink-0 border-t-2 border-[var(--color-border)] bg-[var(--color-background)] px-[18px] pt-2.5"
-          style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}
-        >
-          <div className="mx-auto w-full max-w-[560px]">{footer}</div>
-        </div>
-      )}
     </div>
   );
 }
 
 /**
  * 固定ヘッダ。上段は 戻る + ラベル + 右アクション、`children` があれば
- * その下（スコアボードやタイマー）も固定領域に含める。
+ * その下（スコアボードなど）も固定領域に含める。
  */
 export function BattleScreenHeader({
   eyebrow,
@@ -109,6 +105,35 @@ export function BattleScreenHeader({
         {children}
       </div>
     </header>
+  );
+}
+
+/** ヘッダ右に置く丸アイコンボタン。 */
+export function BattleHeaderButton({
+  icon,
+  label,
+  onClick,
+  tone = 'default',
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  tone?: 'default' | 'danger';
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={cn(
+        'flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full border-2 bg-[var(--color-surface)] transition-all duration-100 active:translate-x-px active:translate-y-px',
+        tone === 'danger'
+          ? 'border-[var(--color-error)] text-[var(--color-error)]'
+          : 'border-[var(--solid-ink)] text-[var(--solid-ink)]',
+      )}
+    >
+      <Icon name={icon} size={17} />
+    </button>
   );
 }
 
