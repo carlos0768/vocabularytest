@@ -2,25 +2,28 @@
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useBattleRoom } from '@/hooks/use-battle-room';
+import { Icon } from '@/components/ui/Icon';
+import {
+  BattleChoiceButton,
+  BattleInviteCode,
+  BattleNotice,
+  BattleQuestionCard,
+  BattleResultPanel,
+  BattleRoundStatus,
+  BattleScoreboard,
+  BattleScreen,
+  BattleScreenHeader,
+  BattleWaitingPanel,
+  type BattleChoiceState,
+  type BattleRoundOutcome,
+} from '@/components/battle';
 import {
   getBattleProgressLabel,
   getBattleResultForViewer,
   getViewerParticipants,
 } from '@/lib/battle/room-state';
-import type { BattleParticipant } from '@/lib/battle/types';
-
-function ScoreBadge({ participant, label }: { participant: BattleParticipant | null; label: string }) {
-  return (
-    <div className="flex-1 text-center">
-      <p className="mb-1 truncate text-xs text-[var(--color-muted)]">{label}</p>
-      <p className="mb-1 truncate text-sm font-semibold">{participant?.displayName ?? '待機中'}</p>
-      <p className="text-3xl font-bold">{participant?.score ?? 0}</p>
-    </div>
-  );
-}
 
 export default function BattleRoomPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
@@ -38,12 +41,14 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
     hasAnswered,
     canAnswer,
     selectedChoice,
+    lastResult,
     submitAnswer,
     leaveBattle,
     refresh,
   } = useBattleRoom(roomId, userId);
 
   const [startError, setStartError] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const startRequestedRef = useRef(false);
 
   const viewer = useMemo(
@@ -77,152 +82,191 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
     router.push('/battle');
   }, [leaveBattle, router]);
 
+  const header = (
+    <BattleScreenHeader eyebrow="REALTIME BATTLE" title="単語対戦" backHref="/battle" />
+  );
+
   if (authLoading || loading) {
-    return <main className="p-6 text-center text-[var(--color-muted)]">読み込み中...</main>;
+    return (
+      <BattleScreen header={header} center>
+        <div className="flex items-center justify-center gap-2 py-10 text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={20} className="animate-spin" />
+          <span className="text-sm font-bold">対戦を読み込んでいます...</span>
+        </div>
+      </BattleScreen>
+    );
   }
 
   if (error || !room || !viewer) {
     return (
-      <main className="mx-auto max-w-md p-6 text-center">
-        <p className="mb-6 text-sm text-[var(--color-muted)]">{error ?? '対戦が見つかりません。'}</p>
-        <Link href="/battle" className="inline-block rounded-xl bg-[var(--color-foreground)] px-6 py-3 font-semibold text-white">
-          対戦トップへ
-        </Link>
-      </main>
+      <BattleScreen header={header} center>
+        <BattleNotice
+          icon="error"
+          title="対戦が見つかりません"
+          description={error ?? 'この対戦はすでに終了しているか、参加していない対戦です。'}
+          action={{ label: '対戦トップへ', href: '/battle' }}
+        />
+      </BattleScreen>
     );
   }
 
+  // ---- 決着 ----
   if (room.status === 'finished' || room.status === 'cancelled') {
-    const result = getBattleResultForViewer(room, userId ?? '');
-    const heading =
-      room.status === 'cancelled'
-        ? '対戦は中止されました'
-        : result === 'win' ? '勝ち！' : result === 'lose' ? '負け...' : '引き分け';
-
     return (
-      <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center p-6 text-center">
-        <h1 className="mb-2 text-3xl font-bold">{heading}</h1>
-        {room.outcome === 'abandoned' && (
-          <p className="mb-6 text-sm text-[var(--color-muted)]">相手が退出しました。</p>
-        )}
-
-        <div className="mb-10 flex w-full items-start gap-4 pt-6">
-          <ScoreBadge participant={viewer.self} label="あなた" />
-          <span className="pt-6 text-2xl font-bold text-[var(--color-muted)]">-</span>
-          <ScoreBadge participant={viewer.opponent} label="相手" />
-        </div>
-
-        <Link href="/battle" className="w-full rounded-xl bg-[var(--color-foreground)] py-4 text-lg font-bold text-white">
-          もう一度対戦する
-        </Link>
-      </main>
+      <BattleScreen header={header} bodyClassName="py-5" center>
+        <BattleResultPanel
+          result={getBattleResultForViewer(room, userId ?? '')}
+          cancelled={room.status === 'cancelled'}
+          abandoned={room.outcome === 'abandoned'}
+          self={viewer.self}
+          opponent={viewer.opponent}
+        />
+      </BattleScreen>
     );
   }
 
+  // ---- 相手待ち / 問題準備中 ----
   if (room.status === 'waiting' || room.status === 'ready' || room.status === 'preparing') {
+    const waitingForGuest = !room.guest;
     return (
-      <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center p-6 text-center">
-        <div className="mb-6 h-10 w-10 animate-spin rounded-full border-4 border-[var(--color-surface-secondary)] border-t-[var(--color-foreground)]" />
-        <h1 className="mb-2 text-lg font-bold">
-          {room.guest ? '問題を準備しています...' : '相手を待っています...'}
-        </h1>
-        {room.inviteCode && !room.guest && (
-          <p className="mb-6 font-mono text-3xl font-bold tracking-[0.3em]">{room.inviteCode}</p>
-        )}
-        {startError && <p className="mb-6 text-sm text-red-600">{startError}</p>}
-        <button
-          type="button"
-          onClick={handleLeave}
-          className="rounded-xl border-2 border-[var(--color-foreground)] px-6 py-3 font-semibold"
+      <BattleScreen header={header} center>
+        <BattleWaitingPanel
+          title={waitingForGuest ? '相手を待っています...' : '問題を準備しています...'}
+          description={
+            waitingForGuest
+              ? '相手が招待コードで参加すると、自動で対戦が始まります。'
+              : 'お互いの単語帳から問題を作っています。数秒で始まります。'
+          }
+          onCancel={handleLeave}
+          cancelLabel="退出する"
         >
-          退出する
-        </button>
-      </main>
+          {room.inviteCode && waitingForGuest && <BattleInviteCode code={room.inviteCode} />}
+          {startError && (
+            <p className="mt-4 text-center text-[12.5px] font-bold text-[var(--color-error)]">
+              {startError}
+            </p>
+          )}
+        </BattleWaitingPanel>
+      </BattleScreen>
     );
   }
 
+  // ---- 対戦中 ----
   const resolved = Boolean(currentQuestion?.resolvedAt);
   const correctIndex = currentQuestion?.correctIndex ?? null;
-  const wonRound = currentQuestion?.answeredBy && currentQuestion.answeredBy === userId;
-  const secondsLeft = Math.ceil(remainingMs / 1000);
+  const answeredByMe = Boolean(currentQuestion?.answeredBy && currentQuestion.answeredBy === userId);
+  const missedRound =
+    hasAnswered && !resolved && Boolean(lastResult?.accepted && !lastResult.correct);
+
+  const outcome: BattleRoundOutcome = resolved
+    ? answeredByMe
+      ? 'won'
+      : currentQuestion?.answeredBy
+        ? 'lost'
+        : 'timeout'
+    : missedRound
+      ? 'missed'
+      : hasAnswered
+        ? 'answered'
+        : 'live';
+
+  const choiceState = (index: number): BattleChoiceState => {
+    if (resolved) {
+      if (correctIndex === index) return 'correct';
+      if (selectedChoice === index) return 'wrong';
+      return 'muted';
+    }
+    if (selectedChoice === index) return 'selected';
+    return canAnswer ? 'idle' : 'locked';
+  };
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col p-6">
-      <header className="mb-6">
-        <div className="mb-4 flex items-start gap-4">
-          <ScoreBadge participant={viewer.self} label="あなた" />
-          <span className="pt-6 text-2xl font-bold text-[var(--color-muted)]">-</span>
-          <ScoreBadge participant={viewer.opponent} label="相手" />
-        </div>
-        <div className="flex items-center justify-between text-xs text-[var(--color-muted)]">
-          <span>{getBattleProgressLabel(room)}</span>
-          <span className={remainingMs < 3000 && !resolved ? 'font-bold text-red-600' : ''}>
-            残り {secondsLeft}秒
+    <BattleScreen
+      bodyClassName="py-3.5"
+      header={
+        <BattleScreenHeader
+          eyebrow="REALTIME BATTLE"
+          title={viewer.opponent ? `vs ${viewer.opponent.displayName}` : '単語対戦'}
+          onBack={() => setConfirmLeave(true)}
+        >
+          <BattleScoreboard
+            self={viewer.self}
+            opponent={viewer.opponent}
+            progressLabel={getBattleProgressLabel(room)}
+            timer={{
+              remainingMs,
+              durationMs: room.roundDurationMs,
+              paused: resolved,
+            }}
+          />
+        </BattleScreenHeader>
+      }
+      footer={
+        confirmLeave ? (
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 flex-1 text-[12px] font-bold text-[var(--color-muted)]">
+              降参すると相手の勝ちになります。
+            </p>
+            <button
+              type="button"
+              onClick={() => setConfirmLeave(false)}
+              className="h-9 shrink-0 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[12.5px] font-bold text-[var(--solid-ink)]"
+            >
+              続ける
+            </button>
+            <button
+              type="button"
+              onClick={handleLeave}
+              className="h-9 shrink-0 rounded-[10px] border-2 border-[var(--color-error)] bg-[var(--color-error)] px-3 text-[12.5px] font-bold text-white"
+            >
+              降参する
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmLeave(true)}
+            className="mx-auto flex h-9 items-center gap-1 text-[12px] font-bold text-[var(--color-muted)]"
+          >
+            <Icon name="flag" size={14} />
+            対戦を降参する
+          </button>
+        )
+      }
+    >
+      {currentQuestion ? (
+        <>
+          <BattleQuestionCard
+            prompt={currentQuestion.prompt}
+            round={currentQuestion.roundIndex + 1}
+          />
+
+          <div className="mt-3.5 flex flex-col gap-2.5">
+            {currentQuestion.choices.map((choice, index) => (
+              <BattleChoiceButton
+                key={`${currentQuestion.roundIndex}-${index}`}
+                label={choice}
+                index={index}
+                state={choiceState(index)}
+                onSelect={() => submitAnswer(index)}
+              />
+            ))}
+          </div>
+
+          {outcome !== 'live' && (
+            <div className="mt-3.5">
+              <BattleRoundStatus outcome={outcome} />
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex items-center justify-center gap-2 py-14 text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={20} className="animate-spin" />
+          <span className="text-sm font-bold">
+            {questions.length === 0 ? '問題を読み込んでいます...' : '次の問題を準備しています...'}
           </span>
         </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--color-surface-secondary)]">
-          <div
-            className="h-full bg-[var(--color-foreground)] transition-[width] duration-100 ease-linear"
-            style={{ width: `${Math.max(0, (remainingMs / room.roundDurationMs) * 100)}%` }}
-          />
-        </div>
-      </header>
-
-      <section className="mb-8 flex flex-1 flex-col items-center justify-center">
-        <p className="mb-2 text-xs text-[var(--color-muted)]">この単語の意味は？</p>
-        <h1 className="text-center text-4xl font-bold break-words">{currentQuestion?.prompt ?? ''}</h1>
-
-        {resolved && (
-          <p className="mt-4 text-sm font-semibold">
-            {wonRound ? '正解！ +1' : currentQuestion?.answeredBy ? '相手が正解しました' : '時間切れ'}
-          </p>
-        )}
-      </section>
-
-      <section className="mb-6 grid gap-3">
-        {(currentQuestion?.choices ?? []).map((choice, index) => {
-          const isCorrect = resolved && correctIndex === index;
-          const isMyWrongPick = resolved && selectedChoice === index && correctIndex !== index;
-
-          return (
-            <button
-              key={`${currentQuestion?.roundIndex}-${index}`}
-              type="button"
-              disabled={!canAnswer}
-              onClick={() => submitAnswer(index)}
-              className={`w-full rounded-xl border-2 p-4 text-left font-semibold transition-colors ${
-                isCorrect
-                  ? 'border-green-600 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300'
-                  : isMyWrongPick
-                    ? 'border-red-600 bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300'
-                    : selectedChoice === index
-                      ? 'border-[var(--color-foreground)] bg-[var(--color-surface-secondary)]'
-                      : 'border-[var(--color-foreground)]'
-              } ${!canAnswer && !resolved ? 'opacity-60' : ''}`}
-            >
-              {choice}
-            </button>
-          );
-        })}
-      </section>
-
-      {hasAnswered && !resolved && (
-        <p className="mb-4 text-center text-sm text-[var(--color-muted)]">
-          相手の回答を待っています...
-        </p>
       )}
-
-      <button
-        type="button"
-        onClick={handleLeave}
-        className="mb-2 text-center text-xs text-[var(--color-muted)] underline"
-      >
-        対戦を降参する
-      </button>
-
-      {questions.length === 0 && (
-        <p className="text-center text-xs text-[var(--color-muted)]">問題を読み込んでいます...</p>
-      )}
-    </main>
+    </BattleScreen>
   );
 }

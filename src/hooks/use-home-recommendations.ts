@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ホームのおすすめ（共有単語帳 + 語源ありリールプレビュー）を取得するフック。
+ * ホームのおすすめ（共有単語帳）を取得するフック。
  * 毎ナビゲーションで叩くとAPIコストが嵩むため、use-my-groups と同様に
  * モジュールレベルのキャッシュでSPAセッション中は1回だけフェッチする。
  */
@@ -15,7 +15,7 @@ type HomeRecommendationsApiResponse = Partial<HomeRecommendationsPayload> & {
   error?: string;
 };
 
-const EMPTY: HomeRecommendationsPayload = { books: [], reels: [] };
+const EMPTY: HomeRecommendationsPayload = { books: [] };
 
 let cached: HomeRecommendationsPayload | null = null;
 let inflight: Promise<HomeRecommendationsPayload> | null = null;
@@ -26,7 +26,7 @@ async function fetchRecommendations(): Promise<HomeRecommendationsPayload> {
   if (!response.ok || !payload?.success) {
     throw new Error(payload?.error || 'home_recommendations_failed');
   }
-  return { books: payload.books ?? [], reels: payload.reels ?? [] };
+  return { books: payload.books ?? [] };
 }
 
 function loadRecommendations(): Promise<HomeRecommendationsPayload> {
@@ -68,5 +68,5 @@ export function useHomeRecommendations(): HomeRecommendationsPayload & { loading
 
   const payload = !authLoading && isAuthenticated && fetched ? fetched : EMPTY;
   const loading = authLoading || (isAuthenticated && fetched === null);
-  return { books: payload.books, reels: payload.reels, loading };
+  return { books: payload.books, loading };
 }

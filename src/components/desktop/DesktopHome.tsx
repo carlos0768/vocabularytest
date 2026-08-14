@@ -14,7 +14,6 @@ import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { useAuth } from '@/hooks/use-auth';
-import { DesktopMediaCard, DesktopShelf } from '@/components/desktop/DesktopMediaShelf';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
 import { JoinedGroupGrid } from '@/components/groups/JoinedGroupsSection';
 import { DesktopHomeGrammarBooks } from '@/components/home/HomeGrammarBooks';
@@ -29,9 +28,7 @@ import {
   prefetchGroupOverview,
   seedGroupSummary,
 } from '@/lib/shared-projects/group-overview-cache';
-import { prefetchReelFeed } from '@/hooks/use-reel-feed';
-import { seedPinnedReelPreview } from '@/lib/reels/pinned-preview';
-import type { HomeRecommendedBook, HomeReelPreviewItem } from '@/lib/home/recommendations-types';
+import type { HomeRecommendedBook } from '@/lib/home/recommendations-types';
 import type { Project } from '@/types';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 
@@ -77,8 +74,6 @@ export function DesktopHomeView({
   goal,
   grammarBooks = [],
   recommendedBooks = [],
-  recommendedReels = [],
-  recommendationsLoading = false,
   onStartScan,
   showUpgrade = false,
   onDismissUpgrade,
@@ -92,8 +87,6 @@ export function DesktopHomeView({
   goal: DesktopHomeGoal;
   grammarBooks?: GrammarBook[];
   recommendedBooks?: HomeRecommendedBook[];
-  recommendedReels?: HomeReelPreviewItem[];
-  recommendationsLoading?: boolean;
   onStartScan: () => void;
   showUpgrade?: boolean;
   onDismissUpgrade?: () => void;
@@ -320,17 +313,6 @@ export function DesktopHomeView({
             </div>
           )}
 
-          {/* おすすめのリール（語源がある単語限定）。デスクトップで小さくなり
-              すぎないようカード幅を広めに取る */}
-          {(recommendationsLoading || recommendedReels.length > 0) && (
-            <DesktopShelf title="おすすめのリール" seeAllHref="/reels" >
-              {recommendationsLoading && recommendedReels.length === 0
-                ? [0, 1, 2].map((slot) => <DesktopMediaCardSkeleton key={slot} />)
-                : recommendedReels.map((item) => (
-                    <DesktopReelPreviewCard key={item.id} item={item} />
-                  ))}
-            </DesktopShelf>
-          )}
         </div>
 
         {/* 右サイド（モバイルと違い維持） */}
@@ -704,19 +686,6 @@ function DesktopProjectRow({ project }: { project: DesktopHomeProject }) {
   );
 }
 
-function DesktopMediaCardSkeleton() {
-  return (
-    <div className="ds-media-card" style={{ cursor: 'default' }} aria-hidden="true">
-      <div className="art ds-shimmer" style={{ boxShadow: 'none', borderColor: 'var(--color-border)' }} />
-      <div className="meta">
-        <div className="ds-shimmer" style={{ height: 13, borderRadius: 6, width: '80%' }} />
-        <div className="ds-shimmer" style={{ height: 10, borderRadius: 6, width: '55%', marginTop: 6 }} />
-      </div>
-    </div>
-  );
-}
-
-// おすすめの共有単語帳。マイ単語帳と同じ本棚タイル（ds-book）で表示する。
 function DesktopRecommendedBookTile({ book, compact = false }: { book: HomeRecommendedBook; compact?: boolean }) {
   const bg = book.iconImage ? undefined : desktopThumbColor(book.shareId);
   return (
@@ -745,72 +714,6 @@ function DesktopRecommendedBookTile({ book, compact = false }: { book: HomeRecom
         </div>
       </div>
     </Link>
-  );
-}
-
-const REEL_MAX_FORMULA_PARTS = 3;
-
-function DesktopReelPreviewCard({ item }: { item: HomeReelPreviewItem }) {
-  const parts = item.morphology.formula.slice(0, REEL_MAX_FORMULA_PARTS);
-  return (
-    <DesktopMediaCard
-      href={`/reels?pin=${encodeURIComponent(item.id)}`}
-      // クリック時点でフィード取得を先行開始（この単語を先頭に固定）し、
-      // /reels 側で即時表示できるよう表示データもシードする。
-      onClick={() => {
-        prefetchReelFeed(item.id);
-        seedPinnedReelPreview(item);
-      }}
-      artStyle={{ background: `linear-gradient(165deg, ${desktopThumbColor(item.id)} 0%, #1a1a1a 170%)` }}
-      artChildren={
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            padding: 12,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            textAlign: 'left',
-          }}
-        >
-          <span
-            className="mono"
-            style={{
-              alignSelf: 'flex-start',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.2)',
-              padding: '2px 8px',
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-            }}
-          >
-            語源
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.15, wordBreak: 'break-word' }}>
-              {item.english}
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 8 }}>
-              {parts.map((part, index) => (
-                <span key={`${part.text}-${index}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {index > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>+</span>}
-                  <span
-                    className="mono"
-                    style={{ borderRadius: 6, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', fontSize: 10, fontWeight: 700 }}
-                  >
-                    {part.text}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      }
-      title={item.japanese}
-      subtitle={item.bookTitle}
-    />
   );
 }
 
