@@ -220,25 +220,6 @@ export function ProfileView({
           </div>
 
           {actions && <div className="mt-3 flex items-center gap-2">{actions}</div>}
-
-          {/* 設定への導線。以前はボトムナビから直接開いていたが、プロフィール内に集約した */}
-          {settingsHref && (
-            <Link
-              href={settingsHref}
-              className="mt-3 flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px] transition-all duration-100 active:translate-x-px active:translate-y-px"
-            >
-              <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
-                <Icon name="settings" size={16} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <span className="text-[13px] font-bold text-[var(--solid-ink)]">設定</span>
-                <p className="mt-px truncate text-[10px] leading-4 text-[var(--color-muted)]">
-                  学習ツール・通知・プラン・サポート
-                </p>
-              </div>
-              <Icon name="chevron_right" size={14} className="text-[var(--color-muted)]" />
-            </Link>
-          )}
         </div>
 
         {/* Overview / stats */}
