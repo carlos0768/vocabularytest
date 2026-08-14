@@ -11,6 +11,7 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { getGuestUserId } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { speakEnglish, speakAndWait, stopSpeaking } from '@/lib/speech';
+import { afterPaint, isPageHidden } from '@/lib/ui/after-paint';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
@@ -285,10 +286,10 @@ export default function FlashcardPage() {
       setIsAnimating(true); setSlideDirection('left'); setSlidePhase('exit');
       setTimeout(() => {
         setCurrentIndex(nextIndex); setIsFlipped(false); setSlidePhase('enter');
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        afterPaint(() => {
           setSlidePhase(null);
           setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
-        }));
+        });
       }, 200);
     } else {
       setCurrentIndex(nextIndex); setIsFlipped(false);
@@ -302,10 +303,10 @@ export default function FlashcardPage() {
       setIsAnimating(true); setSlideDirection('right'); setSlidePhase('exit');
       setTimeout(() => {
         setCurrentIndex(prevIndex); setIsFlipped(false); setSlidePhase('enter');
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        afterPaint(() => {
           setSlidePhase(null);
           setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
-        }));
+        });
       }, 200);
     } else {
       setCurrentIndex(prevIndex); setIsFlipped(false);
@@ -391,7 +392,9 @@ export default function FlashcardPage() {
       if (cancelled) return;
       await wait(AUTOPLAY_NEXT_DELAY_MS);
       if (cancelled) return;
-      handleNextRef.current(true);
+      // 画面消灯中はスライド演出を挟まない。演出は描画が前提なので、
+      // 隠れている間に走らせても意味がないうえ、進行を遅らせるだけ。
+      handleNextRef.current(!isPageHidden());
     })();
 
     return () => {
