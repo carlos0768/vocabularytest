@@ -241,3 +241,92 @@ test('voice-quiz recognize refuses a sample rate outside what GCP takes', async 
 
   assert.equal(response.status, 400);
 });
+
+/**
+ * 日本語は同音異義語が多く、正しく発音していても変換先が別の漢字になる
+ * (「恩赦」→「御社」)。表記が食い違ったときは読みを添えて返し、
+ * クライアントが音で突き合わせられるようにする。
+ */
+test('voice-quiz recognize attaches readings when the transcription spells the answer differently', async () => {
+  let asked: readonly string[] | null = null;
+
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest(
+      {
+        audioBase64: 'AAAA',
+        encoding: 'WEBM_OPUS',
+        languageCode: 'ja-JP',
+        phraseHints: ['恩赦'],
+      },
+      { authorization: 'Bearer token-1' },
+    ),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async () => ({ success: true, transcript: '御社', confidence: 0.9, alternatives: ['御社'] }),
+      lookupReadings: async (texts) => {
+        asked = texts;
+        return { 御社: 'おんしゃ', 恩赦: 'おんしゃ' };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json() as { readings: Record<string, string> };
+  assert.equal(payload.readings['御社'], 'おんしゃ');
+  assert.equal(payload.readings['恩赦'], 'おんしゃ');
+  // 認識結果と期待表記の両方の読みが要る。片方だけでは突き合わせられない。
+  assert.ok(asked!.includes('御社'), [...asked!].join('|'));
+  assert.ok(asked!.includes('恩赦'), [...asked!].join('|'));
+});
+
+/**
+ * 読みを引くのはAI呼び出しなので、表記の時点で当たっている問題では走らせない。
+ * 正解のたびに待ちとコストが増えては割に合わない。
+ */
+test('voice-quiz recognize skips the reading lookup when the spelling already matches', async () => {
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest(
+      {
+        audioBase64: 'AAAA',
+        encoding: 'WEBM_OPUS',
+        languageCode: 'ja-JP',
+        phraseHints: ['恩赦'],
+      },
+      { authorization: 'Bearer token-1' },
+    ),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async () => ({ success: true, transcript: '恩赦', confidence: 0.9, alternatives: ['恩赦'] }),
+      lookupReadings: async () => {
+        throw new Error('reading lookup should not run when the spelling matches');
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json() as { readings?: Record<string, string> };
+  assert.equal(payload.readings, undefined);
+});
+
+test('voice-quiz recognize does not look up readings for the English direction', async () => {
+  const response = await handleVoiceQuizRecognizePost(
+    jsonRequest(
+      {
+        audioBase64: 'AAAA',
+        encoding: 'WEBM_OPUS',
+        languageCode: 'en-US',
+        phraseHints: ['elaborate'],
+      },
+      { authorization: 'Bearer token-1' },
+    ),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async () => ({ success: true, transcript: 'a lab rate', confidence: 0.4, alternatives: [] }),
+      lookupReadings: async () => {
+        throw new Error('reading lookup should not run for English');
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+});

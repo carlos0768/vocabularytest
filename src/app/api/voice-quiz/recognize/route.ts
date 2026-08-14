@@ -9,6 +9,8 @@ import {
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
 import { recognizeSpeech, type RecognizeSpeechFailureReason } from '@/lib/speech/cloud-speech-to-text';
+import { lookupJapaneseReadings } from '@/lib/speech/japanese-reading';
+import { isAnyJapaneseAnswerCorrect, MAX_ANSWER_HINTS } from '@/lib/quiz/voice-quiz-answer';
 
 // 設定ミスを502で返すと上流障害と見分けがつかないので、種別ごとにステータスを分ける。
 const RECOGNIZE_FAILURE_STATUS: Record<RecognizeSpeechFailureReason, number> = {
@@ -62,19 +64,44 @@ const requestSchema = z.object({
    * 表記違いで不正解になる。期待する語を渡して変換先を寄せる。
    * 答えそのものなので、ログにも応答にも出さない。
    */
-  phraseHints: z.array(z.string().trim().min(1).max(100)).max(8).optional(),
+  phraseHints: z.array(z.string().trim().min(1).max(100)).max(MAX_ANSWER_HINTS).optional(),
 }).strict();
 
 interface RecognizeVoiceQuizDeps {
   createClient?: typeof createRouteHandlerClient;
   recognize?: typeof recognizeSpeech;
+  lookupReadings?: typeof lookupJapaneseReadings;
 }
 
 function getDeps(deps?: RecognizeVoiceQuizDeps) {
   return {
     createClient: deps?.createClient ?? createRouteHandlerClient,
     recognize: deps?.recognize ?? recognizeSpeech,
+    lookupReadings: deps?.lookupReadings ?? lookupJapaneseReadings,
   };
+}
+
+/**
+ * 表記が食い違ったときのために、認識結果と期待表記の読みを引く。
+ *
+ * 日本語は同音異義語が多く、正しく発音していても変換先が別の漢字になる
+ * (「恩赦」→「御社」、「コケ」→「苔」)。表記だけで突き合わせると、
+ * 音は合っているのに不正解になってしまうので、読みを添えて返す。
+ *
+ * 表記の時点で一致しているならその心配は無いので、AI呼び出しは省く。
+ * つまり読みを引くのは不正解になりかけている問題だけで、正解した問題では
+ * 余計な待ちもコストも発生しない。
+ */
+async function readingsForJapaneseAnswer(
+  heard: readonly string[],
+  hints: readonly string[],
+  lookupReadings: typeof lookupJapaneseReadings,
+): Promise<Record<string, string> | undefined> {
+  if (heard.length === 0 || hints.length === 0) return undefined;
+  if (hints.some((hint) => isAnyJapaneseAnswerCorrect(heard, hint))) return undefined;
+
+  const readings = await lookupReadings([...heard, ...hints]);
+  return Object.keys(readings).length > 0 ? readings : undefined;
 }
 
 export async function handleVoiceQuizRecognizePost(
@@ -82,7 +109,7 @@ export async function handleVoiceQuizRecognizePost(
   deps?: RecognizeVoiceQuizDeps,
 ) {
   try {
-    const { createClient, recognize } = getDeps(deps);
+    const { createClient, recognize, lookupReadings } = getDeps(deps);
     const requireAuth = readBooleanEnv('REQUIRE_AUTH_VOICE_QUIZ_RECOGNIZE', true);
     const enableUsageLimits = isAiUsageLimitsEnabled();
 
@@ -165,12 +192,19 @@ export async function handleVoiceQuizRecognizePost(
       );
     }
 
+    const heard = [result.transcript, ...result.alternatives].filter(Boolean);
+    const readings = languageCode === 'ja-JP'
+      ? await readingsForJapaneseAnswer(heard, parsed.data.phraseHints ?? [], lookupReadings)
+      : undefined;
+
     return NextResponse.json({
       success: true,
       transcript: result.transcript,
       confidence: result.confidence,
       // 同音異義語の別変換を判定側で拾えるように候補も返す。
       alternatives: result.alternatives,
+      // 表記が割れたときだけ付く、表記→読みの対応表。
+      ...(readings ? { readings } : {}),
     });
   } catch (error) {
     console.error('Voice quiz recognize error:', error);

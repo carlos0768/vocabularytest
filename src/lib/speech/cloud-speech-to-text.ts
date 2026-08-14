@@ -95,6 +95,16 @@ function collectAlternatives(response: CloudSpeechApiResponse): string[] {
 /** GCPが受け付ける上限。 */
 const MAX_SPEECH_ALTERNATIVES = 30;
 
+/**
+ * ヒント語の重み。
+ *
+ * boost を付けずに phrases を渡しても効きがごく弱く、「恩赦」をヒントに渡していても
+ * 最有力は「御社」のまま返ってきていた。GCPが認める 0〜20 の中では強めだが、
+ * boost は音響的にありえる候補の並べ替えでしかないので、
+ * 別の音の語がヒントに引き寄せられることはない。
+ */
+const PHRASE_HINT_BOOST = 15;
+
 export interface RecognizeSpeechDeps {
   fetchImpl?: typeof fetch;
   apiKey?: string;
@@ -139,7 +149,7 @@ export async function recognizeSpeech(
     .map((phrase) => phrase.trim())
     .filter((phrase) => phrase.length > 0);
   if (phrases.length > 0) {
-    config.speechContexts = [{ phrases }];
+    config.speechContexts = [{ phrases, boost: PHRASE_HINT_BOOST }];
   }
 
   try {
