@@ -30,6 +30,8 @@ function makeRoom(overrides: Partial<BattleRoom> = {}): BattleRoom {
     mode: 'friend',
     status: 'in_progress',
     inviteCode: 'ABCDEF',
+    groupId: null,
+    rematchOfRoomId: null,
     questionCount: 10,
     roundDurationMs: 15_000,
     currentRound: 0,

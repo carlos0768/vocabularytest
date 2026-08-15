@@ -239,10 +239,11 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - 共有: `share_id` によるリンク共有に加えて、`is_public` を立てると共有ページ (`/shared` の「語法」) の一覧に載る。公開・取り込みはPro限定、閲覧はログインのみ
 
 ### 5. Realtime word battle (リアルタイム単語対戦) -- Done
-- 早押し4択のリアルタイム1対1対戦。**Pro限定・コイン消費なし**。フレンド対戦（6桁招待コード）とランダムマッチの両方に対応
-- Routes: `/battle`（ロビー）, `/battle/[roomId]`（対戦画面）, `/api/battle/**`（rooms, join, match, start）
+- 早押し4択のリアルタイム1対1対戦。**Pro限定・コイン消費なし**。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
+- Routes: `/battle`（ロビー）, `/battle/[roomId]`（対戦画面）, `/groups/[groupId]/battle`（グループ内マッチ）, `/api/battle/**`（rooms, join, match, start）
 - Tables: `battle_rooms` / `battle_questions` / `battle_question_keys` / `battle_answers` / `battle_queue` (`supabase/migrations/20260814100000_create_word_battles.sql`)
 - **出題は出題者（ホスト）の単語帳だけ**から生成（`src/lib/battle/questions.ts`）。ゲストの単語帳は参加時に記録するが問題には使わない。ホストはフレンド対戦なら部屋を作った側、ランダムマッチなら先にキューで待っていた側（`pair_battle_match`）で、問題数・制限時間もホストの設定が採用される。両者はまったく同じ問題を同じ順で解く。単語が足りなければ問題数を切り詰める（重複出題はしない）
+- **グループ内対戦（`battle_rooms.group_id` あり）だけは例外で、出題元は「グループに追加された単語帳」**（`study_group_projects` の全冊を1つのプールに束ねる / `loadGroupBattleSourceWords`）。誰の本かは問わず、同じ見出し語が複数冊にあっても1回しか出題しない。個人の単語帳を使わないので `battle_rooms.host_project_id` / `battle_queue.project_id` はグループ時のみ NULL 可（`20260815110000_group_battle_uses_group_wordbooks.sql`）。単語帳が0冊のグループはマッチング自体を始めさせない
 - **正解キーは `battle_question_keys` に隔離**。RLSを有効にしたうえでポリシーを一切張らないため `authenticated` からは読めず、`SECURITY DEFINER` の RPC だけが参照する。ここにSELECTポリシーを足すと早押しが自明にチートできるので**絶対に追加しない**。決着後に `battle_questions.revealed_*` へ書き戻して開示する
 - **判定はすべてサーバー権威**。`submit_battle_answer` がルーム行をロックして採点するので「先に正解した方」の順序はDBが決める。締切も `started_at + round_duration_ms` をサーバー側で再検証するため、遅延パケットがラウンドを奪えない
 - 1ラウンド1人1回だけ回答可能（誤答＝そのラウンド失権）。両者が外すとラウンド終了。減点はしない

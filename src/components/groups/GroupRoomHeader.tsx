@@ -49,7 +49,10 @@ export function GroupRoomHeader({
           type="button"
           onClick={() => {
             triggerHaptic();
-            router.back();
+            // 直接開かれた（履歴が無い）ときに back() は何も起きず戻れなくなる
+            // ので、そのときだけ共有ライブラリへ抜ける。
+            if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+            else router.push('/shared');
           }}
           aria-label="戻る"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"

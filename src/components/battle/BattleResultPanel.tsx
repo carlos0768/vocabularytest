@@ -97,12 +97,24 @@ export function BattleResultPanel({
   abandoned,
   self,
   opponent,
+  onRematch,
+  rematchPending,
+  rematchError,
+  backHref,
+  backLabel = '対戦トップに戻る',
 }: {
   result: BattleResultForViewer;
   cancelled: boolean;
   abandoned: boolean;
   self: BattleParticipant;
   opponent: BattleParticipant | null;
+  /** 押すと同じ相手との次の対戦部屋へ移る。ロビーへは戻さない。 */
+  onRematch: () => void;
+  rematchPending: boolean;
+  rematchError: string | null;
+  /** 「戻る」の行き先。対戦の入り口（ロビー / グループ対戦）。 */
+  backHref: string;
+  backLabel?: string;
 }) {
   const theme = cancelled || result === 'pending' ? CANCELLED_THEME : RESULT_THEME[result];
   const selfScore = self.score ?? 0;
@@ -143,18 +155,34 @@ export function BattleResultPanel({
         />
       </div>
 
-      <Link
-        href="/battle"
-        className="mt-5 flex h-[52px] items-center justify-center gap-1.5 rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+      <button
+        type="button"
+        onClick={onRematch}
+        disabled={rematchPending}
+        className="mt-5 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-60"
       >
-        <Icon name="swords" size={18} />
-        もう一度対戦する
-      </Link>
+        <Icon
+          name={rematchPending ? 'progress_activity' : 'swords'}
+          size={18}
+          className={rematchPending ? 'animate-spin' : undefined}
+        />
+        {rematchPending ? '準備しています...' : 'もう一度対戦する'}
+      </button>
+      {rematchError && (
+        <p className="mt-2 text-center text-[12.5px] font-bold text-[var(--color-error)]">
+          {rematchError}
+        </p>
+      )}
+      <p className="mt-2 text-center text-[11.5px] leading-[1.6] text-[var(--color-muted)]">
+        同じ相手・同じ設定でそのまま続けます。
+        <br />
+        相手が押すと自動で始まります。
+      </p>
       <Link
-        href="/"
+        href={backHref}
         className="mt-2.5 flex h-12 items-center justify-center rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[14px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
       >
-        ホームに戻る
+        {backLabel}
       </Link>
     </div>
   );

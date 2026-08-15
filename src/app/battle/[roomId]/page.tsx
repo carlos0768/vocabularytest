@@ -51,7 +51,14 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
 
   const [startError, setStartError] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [rematchPending, setRematchPending] = useState(false);
+  const [rematchError, setRematchError] = useState<string | null>(null);
   const startRequestedRef = useRef(false);
+
+  // 対戦の入り口。グループ内対戦はグループの対戦画面、それ以外はロビー。
+  const battleHomeHref = room?.groupId
+    ? `/groups/${encodeURIComponent(room.groupId)}/battle`
+    : '/battle';
 
   const viewer = useMemo(
     () => (room && userId ? getViewerParticipants(room, userId) : null),
@@ -82,11 +89,33 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
   const handleLeave = useCallback(async () => {
     setConfirmLeave(false);
     await leaveBattle();
-    router.push('/battle');
-  }, [leaveBattle, router]);
+    router.push(battleHomeHref);
+  }, [battleHomeHref, leaveBattle, router]);
+
+  /**
+   * 「もう一度対戦する」。ロビーへ戻さず、同じ相手・同じ設定の部屋へ直接移る。
+   * 先に押した側は相手待ちの部屋で待ち、後から押した側が入ると自動で始まる。
+   */
+  const handleRematch = useCallback(async () => {
+    if (rematchPending) return;
+    setRematchError(null);
+    setRematchPending(true);
+    try {
+      const response = await fetch(`/api/battle/rooms/${roomId}/rematch`, { method: 'POST' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success || !payload.roomId) {
+        throw new Error(payload?.error ?? '再戦の準備に失敗しました。');
+      }
+      // replace: 決着画面へ「戻る」で引き返せてしまわないようにする。
+      router.replace(`/battle/${payload.roomId}`);
+    } catch (err) {
+      setRematchError(err instanceof Error ? err.message : '再戦の準備に失敗しました。');
+      setRematchPending(false);
+    }
+  }, [rematchPending, roomId, router]);
 
   const header = (
-    <BattleScreenHeader eyebrow="REALTIME BATTLE" title="単語対戦" backHref="/battle" />
+    <BattleScreenHeader eyebrow="REALTIME BATTLE" title="単語対戦" backHref={battleHomeHref} />
   );
 
   if (authLoading || loading) {
@@ -123,6 +152,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
           abandoned={room.outcome === 'abandoned'}
           self={viewer.self}
           opponent={viewer.opponent}
+          onRematch={() => void handleRematch()}
+          rematchPending={rematchPending}
+          rematchError={rematchError}
+          backHref={battleHomeHref}
+          backLabel={room.groupId ? 'グループの対戦に戻る' : '対戦トップに戻る'}
         />
       </BattleScreen>
     );
@@ -137,8 +171,12 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
           title={waitingForGuest ? '相手を待っています...' : '問題を準備しています...'}
           description={
             waitingForGuest
-              ? '相手が招待コードで参加すると、自動で対戦が始まります。'
-              : '出題者の単語帳から問題を作っています。数秒で始まります。'
+              ? room.rematchOfRoomId
+                ? '相手が「もう一度対戦する」を押すと、自動で始まります。'
+                : '相手が招待コードで参加すると、自動で対戦が始まります。'
+              : room.groupId
+                ? 'グループの単語帳から問題を作っています。数秒で始まります。'
+                : '出題者の単語帳から問題を作っています。数秒で始まります。'
           }
           onCancel={handleLeave}
           cancelLabel="退出する"
