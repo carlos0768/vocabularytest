@@ -1,4 +1,5 @@
 import { BATTLE_CHOICE_COUNT } from '@/lib/battle/config';
+import { isPlaceholderDistractor } from '@/lib/quiz/placeholder-distractors';
 import type { BattleGeneratedQuestion, BattleSourceWord } from '@/lib/battle/types';
 
 /**
@@ -66,6 +67,9 @@ function buildChoices(
     if (distractors.length >= BATTLE_CHOICE_COUNT - 1) return;
     const trimmed = (candidate ?? '').trim();
     if (!trimmed) return;
+    // 「選択肢1」等の中身の無い誤答は、混ざるだけで正解が一目で割れるので使わない。
+    // 落としたぶんは下の単語帳プール／汎用の訳が埋める。
+    if (isPlaceholderDistractor(trimmed)) return;
     const key = normalize(trimmed);
     if (seen.has(key)) return;
     seen.add(key);

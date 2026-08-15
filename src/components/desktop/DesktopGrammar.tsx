@@ -102,6 +102,8 @@ export function DesktopGrammarBooksView({
   onShare,
   onToggleFavorite,
   onCreateManual,
+  onDelete,
+  deletingBookId,
 }: {
   state: GrammarBooksLoadState;
   gptUrl: string;
@@ -114,6 +116,9 @@ export function DesktopGrammarBooksView({
   onShare: (bookId: string) => void;
   onToggleFavorite: (bookId: string, next: boolean) => void;
   onCreateManual: () => void;
+  /** 問題集ごと削除する。確認は呼び出し側で取る。 */
+  onDelete?: (bookId: string) => void;
+  deletingBookId?: string | null;
 }) {
   const allBooks = state.kind === 'ready' ? state.books : [];
   const normalizedQuery = query.trim().toLowerCase();
@@ -199,6 +204,7 @@ export function DesktopGrammarBooksView({
                     <th style={{ width: 200 }}>習得度</th>
                     <th style={{ width: 90 }}>更新</th>
                     <th style={{ width: 90 }}>共有</th>
+                    <th style={{ width: 70 }}>削除</th>
                     <th style={{ width: 110 }} />
                   </tr>
                 </thead>
@@ -262,6 +268,18 @@ export function DesktopGrammarBooksView({
                           >
                             {''}
                           </DesktopButton>
+                        </td>
+                        <td>
+                          {onDelete && (
+                            <DesktopButton
+                              variant="ghost"
+                              icon={deletingBookId === book.id ? 'progress_activity' : 'delete'}
+                              onClick={() => (deletingBookId ? undefined : onDelete(book.id))}
+                              title="この問題集を削除"
+                            >
+                              {''}
+                            </DesktopButton>
+                          )}
                         </td>
                         <td>
                           <DesktopButton variant="dark" icon="play_arrow" href={`/grammar/${book.id}`}>

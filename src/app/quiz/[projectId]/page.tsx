@@ -38,6 +38,7 @@ import {
   normalizeActiveQuizAnswer,
   stripActiveQuizAnswerSpaces,
 } from '@/lib/quiz/active-answer';
+import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
 import {
   WORD_ORDER_BLANK_TOKEN,
   buildWordOrderQuestion,
@@ -526,10 +527,9 @@ export default function QuizPage() {
 
   const needsDistractors = useCallback((w: Word) => {
     if (isActiveQuizWord(w) || isWordOrderEligible(w)) return false;
-    const missingDistractors =
-      !w.distractors || w.distractors.length === 0 ||
-      (w.distractors.length === 3 && w.distractors[0] === '選択肢1');
-    return missingDistractors;
+    // 「選択肢1」等のプレースホルダしか無い単語は、誤答が無いのと同じ扱いにして
+    // 生成し直す（1件でも混ざると答えが割れるため、件数ではなく中身で見る）。
+    return withoutPlaceholderDistractors(w.distractors).length === 0;
   }, []);
 
   const needsWordOrderQuiz = useCallback((w: Word) => {

@@ -118,6 +118,34 @@ test('buildBattleQuestions prefers the word own distractors', () => {
   assert.deepEqual(question.choices, ['りんご', 'みかん', 'ぶどう', 'もも']);
 });
 
+// 「選択肢1/2/3」しか持たない単語をそのまま出すと、日本語訳が1つだけ浮いて
+// 正解が一目で割れる。プレースホルダは捨てて実在の訳で埋め直すこと。
+test('buildBattleQuestions never shows the 選択肢N placeholders', () => {
+  const shelf = [
+    word('h0', 'host', 'apple', 'りんご', ['選択肢1', '選択肢2', '選択肢3']),
+    ...makeWords('host', 5, 'h'),
+  ];
+
+  const [question] = buildBattleQuestions(shelf, 1, identityShuffle);
+
+  assert.equal(question.choices.length, 4);
+  assert.ok(
+    question.choices.every((choice) => !/^選択肢\s*\d+$/.test(choice)),
+    `placeholder leaked into ${JSON.stringify(question.choices)}`,
+  );
+  assert.equal(question.choices[question.correctIndex], 'りんご');
+});
+
+test('buildBattleQuestions keeps the real distractors when only some are placeholders', () => {
+  const shelf = [word('h0', 'host', 'apple', 'りんご', ['みかん', '選択肢2', 'ぶどう'])];
+
+  const [question] = buildBattleQuestions(shelf, 1, identityShuffle);
+
+  assert.ok(question.choices.includes('みかん'));
+  assert.ok(question.choices.includes('ぶどう'));
+  assert.ok(question.choices.every((choice) => !/^選択肢\s*\d+$/.test(choice)));
+});
+
 test('buildBattleQuestions never uses the answer as a distractor', () => {
   const host = [word('h0', 'host', 'apple', 'りんご', ['りんご', 'リンゴ', 'みかん', 'ぶどう'])];
 

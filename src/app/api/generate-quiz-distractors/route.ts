@@ -14,6 +14,7 @@ import {
 } from '@/lib/lexicon/quiz-content-lexicon';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
+import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
 
 interface WordInput {
   id: string;
@@ -42,9 +43,10 @@ function senseMatchesCorrectAnswer(row: ExistingWordRow, word: WordInput): boole
 
 function hasValidDistractors(value: unknown): boolean {
   if (!Array.isArray(value)) return false;
-  if (value.length < 3) return false;
-  if (value.length === 3 && value[0] === '選択肢1') return false;
-  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
+  // 「選択肢1」等のプレースホルダは中身が無いので、揃っている数に数えない。
+  return withoutPlaceholderDistractors(
+    value.filter((item): item is string => typeof item === 'string'),
+  ).length >= 3;
 }
 
 function hasExampleSentence(value: unknown): boolean {
