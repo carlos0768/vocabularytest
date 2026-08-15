@@ -7,8 +7,15 @@ import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { FlashcardTutorialGuide } from '@/components/onboarding/FlashcardTutorialGuide';
 import { getRepository } from '@/lib/db';
+import {
+  FLASHCARD_FILTERS,
+  countFlashcardFilters,
+  filterFlashcardWords,
+  isFlashcardFilter,
+  type FlashcardFilter,
+} from '@/lib/quiz/flashcard-filter';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { getGuestUserId } from '@/lib/utils';
+import { getGuestUserId, getWrongAnswers } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { speakEnglish, speakAndWait, stopSpeaking } from '@/lib/speech';
 import { afterPaint, isPageHidden } from '@/lib/ui/after-paint';
@@ -158,7 +165,27 @@ export default function FlashcardPage() {
   const collectionId = searchParams.get('collectionId');
   const { user, subscription, loading: authLoading } = useAuth();
 
-  const [words, setWords] = useState<Word[]>([]);
+  // 山札は「読み込んだ全部 (allWords)」と「絞り込み後 (words)」に分ける。
+  // 表示・送り・自動再生はすべて絞り込み後の words を見る。
+  const [allWords, setAllWords] = useState<Word[]>([]);
+  const [deckFilter, setDeckFilter] = useState<FlashcardFilter>(() => {
+    const requested = searchParams.get('filter');
+    return isFlashcardFilter(requested) ? requested : 'all';
+  });
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  // 誤答回数は /words の絞り込みと同じ localStorage の記録。開いた時点で固定する。
+  const wrongCounts = useMemo(
+    () => new Map(getWrongAnswers().map((wrong) => [wrong.wordId, wrong.wrongCount])),
+    [],
+  );
+  const words = useMemo(
+    () => filterFlashcardWords(allWords, deckFilter, wrongCounts),
+    [allWords, deckFilter, wrongCounts],
+  );
+  const filterCounts = useMemo(
+    () => countFlashcardFilters(allWords, wrongCounts),
+    [allWords, wrongCounts],
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -207,7 +234,7 @@ export default function FlashcardPage() {
     cacheRestoredRef.current = true;
     const cachedWords = getCachedProjectWords()[projectId];
     if (cachedWords && cachedWords.length > 0 && !favoritesOnly && !collectionId) {
-      setWords(sortFlashcardWords(cachedWords));
+      setAllWords(sortFlashcardWords(cachedWords));
       hasLoadedRef.current = true;
       setLoading(false);
     }
@@ -222,7 +249,7 @@ export default function FlashcardPage() {
   useEffect(() => {
     if (authLoading) return;
     const loadWords = async () => {
-      if (hasLoadedRef.current && words.length > 0) { setLoading(false); return; }
+      if (hasLoadedRef.current && allWords.length > 0) { setLoading(false); return; }
       try {
         const ensureProjectAccess = async (): Promise<boolean> => {
           const ownerUserId = user ? user.id : getGuestUserId();
@@ -258,7 +285,7 @@ export default function FlashcardPage() {
         if (loadedWords.length === 0) { backToProject(); return; }
 
         // クイズと同じ優先度順に並べて、常に先頭カードから開始する。
-        setWords(sortFlashcardWords(loadedWords));
+        setAllWords(sortFlashcardWords(loadedWords));
         setCurrentIndex(0);
         hasLoadedRef.current = true;
       } catch (error) {
@@ -269,14 +296,14 @@ export default function FlashcardPage() {
       }
     };
     loadWords();
-  }, [authLoading, projectId, favoritesOnly, collectionId, repository, user, backToProject, words.length]);
+  }, [authLoading, projectId, favoritesOnly, collectionId, repository, user, backToProject, allWords.length]);
 
   const currentWord = words[currentIndex];
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完し、
   // words 状態にも反映して再表示時のフェッチを防ぐ。
   const currentMorphology = useMorphologyBackfill(currentWord ?? null, {
     onBackfilled: (updated) => {
-      setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+      setAllWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
     },
   });
 
@@ -516,14 +543,14 @@ export default function FlashcardPage() {
     if (!currentWord) return;
     const newFavorite = !currentWord.isFavorite;
     await repository.updateWord(currentWord.id, { isFavorite: newFavorite });
-    setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, isFavorite: newFavorite } : w));
+    setAllWords(prev => prev.map(w => (w.id === currentWord.id ? { ...w, isFavorite: newFavorite } : w)));
   };
 
   const handleCycleStatus = async () => {
     if (!currentWord) return;
     const newStatus = nextWordStatus(currentWord.status);
     await repository.updateWord(currentWord.id, { status: newStatus });
-    setWords(prev => prev.map((w, i) => i === currentIndex ? { ...w, status: newStatus } : w));
+    setAllWords(prev => prev.map(w => (w.id === currentWord.id ? { ...w, status: newStatus } : w)));
   };
 
   const handleDeleteWord = async () => {
@@ -531,11 +558,23 @@ export default function FlashcardPage() {
     const confirmed = window.confirm(`「${currentWord.english}」を削除しますか？`);
     if (!confirmed) return;
     await repository.deleteWord(currentWord.id);
-    const newWords = words.filter((_, i) => i !== currentIndex);
-    if (newWords.length === 0) { backToProject(); return; }
-    if (currentIndex >= newWords.length) setCurrentIndex(newWords.length - 1);
-    setWords(newWords); setIsFlipped(false);
+    const remaining = words.filter((w) => w.id !== currentWord.id);
+    if (allWords.length <= 1) { backToProject(); return; }
+    if (currentIndex >= remaining.length) setCurrentIndex(Math.max(0, remaining.length - 1));
+    setAllWords((prev) => prev.filter((w) => w.id !== currentWord.id));
+    setIsFlipped(false);
   };
+
+  /** 絞り込みを変えたら山札の先頭から。裏返し・自動再生の状態も畳む。 */
+  const handleChangeFilter = useCallback((next: FlashcardFilter) => {
+    triggerHaptic();
+    setFilterMenuOpen(false);
+    setDeckFilter(next);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setIsAutoPlaying(false);
+    stopSpeaking();
+  }, []);
 
   function speakWord() {
     speakEnglish(currentWord?.english);
@@ -580,6 +619,33 @@ export default function FlashcardPage() {
     );
   }
 
+  /* ---------- 絞り込みで0枚になったとき ---------- */
+  if (allWords.length > 0 && words.length === 0) {
+    const label = FLASHCARD_FILTERS.find((option) => option.key === deckFilter)?.label ?? '条件';
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--color-background)] px-8 text-center font-[var(--font-body)]">
+        <Icon name="filter_alt_off" size={30} className="text-[var(--color-muted)]" />
+        <p className="text-[13.5px] font-bold leading-[1.8] text-[var(--color-muted)]">
+          「{label}」に当てはまる単語がありません。
+        </p>
+        <button
+          type="button"
+          onClick={() => handleChangeFilter('all')}
+          className="flex h-11 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 font-display text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          すべての単語に戻す
+        </button>
+        <button
+          type="button"
+          onClick={backToProject}
+          className="text-[12.5px] font-bold text-[var(--color-muted)] underline"
+        >
+          閉じる
+        </button>
+      </div>
+    );
+  }
+
   const masteryLevel = getMasteryLevel(currentWord?.repetition ?? 0);
   const total = words.length;
   const currentPartOfSpeechLabel = formatPartOfSpeechLabels(currentWord?.partOfSpeechTags);
@@ -610,6 +676,32 @@ export default function FlashcardPage() {
         </div>
         <div className="mono muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 4 }}>
           {favoritesOnly ? '保存済み' : collectionId ? 'コレクション' : '単語帳'} · フラッシュカード
+        </div>
+
+        {/* 流す単語の絞り込み。0件の軸は押せない（空の山札にしないため） */}
+        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+          {FLASHCARD_FILTERS.map((option) => {
+            const count = filterCounts[option.key];
+            const active = option.key === deckFilter;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                aria-pressed={active}
+                disabled={count === 0}
+                onClick={() => handleChangeFilter(option.key)}
+                className={`flex h-[30px] shrink-0 items-center gap-1 rounded-full border-2 px-3 font-display text-[12px] font-extrabold transition-colors duration-100 disabled:opacity-40 ${
+                  active
+                    ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-surface)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'
+                }`}
+              >
+                <Icon name={option.icon} size={14} filled={active} />
+                {option.label}
+                <span className="font-mono text-[10px] tabular-nums opacity-80">{count}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="ds-fc-scene">
@@ -738,13 +830,64 @@ export default function FlashcardPage() {
           </div>
         </div>
 
-        <HeaderBtn
-          onClick={toggleAutoPlay}
-          active={isAutoPlaying}
-          aria-label={isAutoPlaying ? '自動再生を停止' : '自動再生を開始'}
-        >
-          <Icon name={isAutoPlaying ? 'pause' : 'play_arrow'} size={16} filled={isAutoPlaying} />
-        </HeaderBtn>
+        <div className="flex items-center gap-2">
+          {/* 流す単語の絞り込み（保存済み・間違えた など） */}
+          <div className="relative">
+            <HeaderBtn
+              onClick={() => { triggerHaptic(); setFilterMenuOpen((open) => !open); }}
+              active={deckFilter !== 'all' || filterMenuOpen}
+              aria-label="流す単語を絞り込む"
+              aria-haspopup="menu"
+              aria-expanded={filterMenuOpen}
+            >
+              <Icon name="filter_alt" size={16} filled={deckFilter !== 'all'} />
+            </HeaderBtn>
+            {filterMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="閉じる"
+                  onClick={() => setFilterMenuOpen(false)}
+                  className="fixed inset-0 z-40 cursor-default bg-transparent"
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[44px] z-50 w-[210px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]"
+                >
+                  {FLASHCARD_FILTERS.map((option) => {
+                    const count = filterCounts[option.key];
+                    const active = option.key === deckFilter;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={active}
+                        disabled={count === 0}
+                        onClick={() => handleChangeFilter(option.key)}
+                        className={`flex w-full items-center gap-2.5 border-b-2 border-[var(--color-border)] px-3.5 py-3 text-left text-[13px] font-bold last:border-b-0 disabled:opacity-40 ${
+                          active ? 'bg-[var(--solid-ink)] text-[var(--color-surface)]' : 'text-[var(--solid-ink)]'
+                        }`}
+                      >
+                        <Icon name={option.icon} size={16} filled={active} />
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        <span className="font-mono text-[11px] tabular-nums opacity-80">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          <HeaderBtn
+            onClick={toggleAutoPlay}
+            active={isAutoPlaying}
+            aria-label={isAutoPlaying ? '自動再生を停止' : '自動再生を開始'}
+          >
+            <Icon name={isAutoPlaying ? 'pause' : 'play_arrow'} size={16} filled={isAutoPlaying} />
+          </HeaderBtn>
+        </div>
       </div>
 
       {/* Card area (no ghost cards) */}
