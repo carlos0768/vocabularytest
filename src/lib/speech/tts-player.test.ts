@@ -42,9 +42,19 @@ type FakeAudio = ReturnType<typeof createFakeAudio>;
 function playerWith(audio: FakeAudio, fetchImpl?: typeof fetch) {
   return createTtsPlayer({
     createAudio: () => audio as unknown as HTMLAudioElement,
-    fetchImpl: fetchImpl ?? (async () => new Response(null)),
+    fetchImpl: fetchImpl ?? (async () => new Response(null, { status: 200 })),
   });
 }
+
+/** 音声を返さないサーバー (APIキー未設定・未ログインなど)。 */
+function failingFetch(status = 500) {
+  let calls = 0;
+  const impl = (async () => { calls += 1; return new Response('{}', { status }); }) as typeof fetch;
+  return { impl, get calls() { return calls; } };
+}
+
+/** fetch の解決を1周待つ。 */
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 test('URLはテキストと言語で決まる (同じ単語なら同じURL = キャッシュが効く)', () => {
   assert.equal(ttsAudioUrl('apple', 'en'), ttsAudioUrl('apple', 'en'));
@@ -60,7 +70,7 @@ test('unlock はユーザー操作の中で1回鳴らして要素を解錠する
   player.unlock();
 
   assert.equal(audio.playCalls, 1);
-  assert.match(audio.src, /^data:audio\/mpeg/);
+  assert.match(audio.src, /silence-loop\.wav$/);
   assert.ok(audio.attributes.includes('playsinline'));
 });
 
@@ -74,9 +84,11 @@ test('要素は使い回す (iOSは操作外で作った要素の再生を拒む
 
   player.unlock();
   const first = player.play('apple', 'en');
+  await tick();
   audio.emit('ended');
   await first;
   const second = player.play('banana', 'en');
+  await tick();
   audio.emit('ended');
   await second;
 
@@ -88,6 +100,7 @@ test('鳴り終わったら played で解決し、リスナーを残さない', 
   const player = playerWith(audio);
 
   const playing = player.play('apple', 'en');
+  await tick();
   assert.match(audio.src, /\/api\/tts\?/);
   audio.emit('ended');
 
@@ -101,6 +114,7 @@ test('再生エラーは unavailable (呼び出し側が読み上げにフォー
   const player = playerWith(audio);
 
   const playing = player.play('apple', 'en');
+  await tick();
   audio.emit('error');
 
   assert.equal(await playing, 'unavailable');
@@ -162,4 +176,34 @@ test('dispose 後は鳴らさない', async () => {
 
   assert.equal(await player.play('apple', 'en'), 'unavailable');
   assert.equal(audio.paused, true);
+});
+
+test('音声が取れない環境では要素に読み込ませず、すぐ読み上げに譲る', async () => {
+  const audio = createFakeAudio();
+  const failing = failingFetch(500);
+  const player = createTtsPlayer({
+    createAudio: () => audio as unknown as HTMLAudioElement,
+    fetchImpl: failing.impl,
+  });
+
+  assert.equal(await player.play('apple', 'en'), 'unavailable');
+  // 鳴らない音源を掴ませない (掴ませると無音のまま待たされる)
+  assert.equal(audio.playCalls, 0);
+  assert.equal(audio.src, '');
+});
+
+test('一度失敗したら以降は取りに行かない (毎カード待たされない)', async () => {
+  const audio = createFakeAudio();
+  const failing = failingFetch(401);
+  const player = createTtsPlayer({
+    createAudio: () => audio as unknown as HTMLAudioElement,
+    fetchImpl: failing.impl,
+  });
+
+  await player.play('apple', 'en');
+  await player.play('banana', 'en');
+  player.prefetch('cherry', 'en');
+  await tick();
+
+  assert.equal(failing.calls, 1);
 });

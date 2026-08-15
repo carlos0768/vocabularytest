@@ -171,7 +171,7 @@ export default function WordsPage() {
 
   return (
     <div
-      className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-[var(--color-background)] pb-32 lg:pb-10"
+      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 lg:pb-10"
       style={{ fontFamily: 'var(--font-body)' }}
     >
       {/* スクロールしても上部に固定されるヘッダー(単語帳詳細と同じパターン)。
@@ -274,7 +274,10 @@ export default function WordsPage() {
           <WordFilterPanel {...panelProps} />
         </aside>
 
-        <div className="min-w-0">
+        {/* 横にはみ出させない。sticky なヘッダ/サイドバーの祖先に overflow を
+            付けると sticky がその要素基準になって効かなくなるので、
+            sticky を含まないこのカラムだけで閉じる。 */}
+        <div className="min-w-0 overflow-x-hidden">
 
           {/* 適用中の条件: 1つずつ外せる */}
           {activeChips.length > 0 && (
