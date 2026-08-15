@@ -354,7 +354,7 @@ export default function BattleLobbyPage() {
               マッチングを開始
             </button>
             <p className="mt-2 text-center text-[11.5px] leading-[1.6] text-[var(--color-muted)]">
-              待機中の相手と自動でマッチします。
+              待機中の相手と自動でマッチします。出題は先に待っていた側の単語帳からです。
             </p>
           </>
         ) : (
@@ -369,8 +369,8 @@ export default function BattleLobbyPage() {
                 <Icon name="add_link" size={18} />
                 招待コードを作る
               </button>
-              <p className="mt-1.5 text-center text-[11px] text-[var(--color-muted)]">
-                6桁のコードを相手に伝えて対戦します。
+              <p className="mt-1.5 text-center text-[11px] leading-[1.6] text-[var(--color-muted)]">
+                6桁のコードを相手に伝えて対戦します。出題はあなたの単語帳からです。
               </p>
             </div>
 
@@ -403,6 +403,9 @@ export default function BattleLobbyPage() {
                 参加
               </button>
             </div>
+            <p className="px-3 pb-3 text-center text-[11px] leading-[1.6] text-[var(--color-muted)]">
+              参加する側は、コードを作った相手の単語帳から出題されます。
+            </p>
           </div>
         )}
       </div>

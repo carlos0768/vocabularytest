@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { parseAvatarInput } from '@/lib/profile/avatar';
 import { requireAuthenticatedUser } from '../../shared';
 import { deleteStudyGroup, getStudyGroupOverview, updateStudyGroup, StudyGroupAccessError } from '../shared';
 
 const updateStudyGroupSchema = z.object({
   name: z.string().trim().min(1).max(40).optional(),
   visibility: z.enum(['private', 'public']).optional(),
+  // アイコンはアカウントアイコンと同じ data URL 形式。null / '' は削除。
+  // 形式・サイズの検証は parseAvatarInput に一本化する。
+  iconImage: z.union([z.string(), z.null()]).optional(),
 }).strict();
 
 type StudyGroupOverviewGetDeps = {
@@ -73,10 +77,20 @@ export async function handleStudyGroupUpdatePatch(
     });
     if (!parsed.ok) return parsed.response;
 
+    let iconImage: string | null | undefined;
+    if (parsed.data.iconImage !== undefined) {
+      const parsedIcon = parseAvatarInput(parsed.data.iconImage);
+      if (!parsedIcon.ok) {
+        return NextResponse.json({ success: false, error: parsedIcon.error }, { status: 400 });
+      }
+      iconImage = parsedIcon.value;
+    }
+
     const { groupId } = await context.params;
     const group = await update(groupId, auth.user.id, {
       name: parsed.data.name,
       visibility: parsed.data.visibility,
+      iconImage,
     });
     if (!group) {
       return NextResponse.json({ success: false, error: 'グループにアクセスできません。' }, { status: 403 });

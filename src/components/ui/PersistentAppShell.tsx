@@ -27,7 +27,8 @@ const HIDE_BOTTOM_NAV_PATHS = [
   // 自分のプロフィール(/profile)はボトムナビのタブなのでナビを表示する。
   // 他ユーザーのプロフィール(/profile/<accountId>)は詳細画面なので非表示のまま。
   '/profile/',
-  '/groups/', '/reels',
+  // グループは専用フロー（ハブ + 各機能ページ）なのでナビは出さない。
+  '/groups', '/reels',
   // 対戦はロビーも含めて専用フロー（1画面に収める設計）なのでナビは出さない。
   '/battle',
   // 語法演習画面(/grammar/<bookId>)はナビ非表示。一覧(/grammar)は表示する。

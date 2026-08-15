@@ -105,7 +105,11 @@ export function HomeShortcutGrid({
                 prefetchGroupOverview(group.id);
               }}
               iconArea={
-                <IconSquare background={thumbColor(group.id)}>{group.name.charAt(0)}</IconSquare>
+                <IconSquare
+                  background={group.iconImage ? `center / cover url(${group.iconImage})` : thumbColor(group.id)}
+                >
+                  {!group.iconImage && group.name.charAt(0)}
+                </IconSquare>
               }
               title={group.name}
               sub={<TileSub>グループ · {group.memberCount}人</TileSub>}

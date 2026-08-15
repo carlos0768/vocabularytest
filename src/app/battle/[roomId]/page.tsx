@@ -138,7 +138,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
           description={
             waitingForGuest
               ? '相手が招待コードで参加すると、自動で対戦が始まります。'
-              : 'お互いの単語帳から問題を作っています。数秒で始まります。'
+              : '出題者の単語帳から問題を作っています。数秒で始まります。'
           }
           onCancel={handleLeave}
           cancelLabel="退出する"
