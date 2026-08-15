@@ -249,3 +249,5 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - ラウンド進行・時間切れ処理は両クライアントが競って RPC を呼ぶが、`advance_battle_round` / `resolve_battle_round_timeout` は冪等かつサーバー側で条件を再検証する
 - 同期は Supabase Realtime の `postgres_changes`（`battle_rooms` / `battle_questions`）。イベント欠落に備えて4秒間隔の再取得もかけている。回答送信だけは Vercel を経由せず**ブラウザから直接 RPC** を叩いてラウンドトリップを1回減らしている（早押しのため）
 - Next.js の Route Handler は常駐できないので、サーバー側タイマーは持たず「締切時刻を持ってクライアントが叩く・サーバーが検証する」方式を取っている
+- UIは `src/components/battle/` に分割（`BattleScreen` = 固定ヘッダ付きの共通シェル、`BattleScoreboard` / `BattleRoundTimer` / `BattleQuestionCard` / `BattleChoiceList` / `BattleResultView` / `BattleWaitingView` など）。ページ (`/battle`, `/battle/[roomId]`) は状態遷移とデータ取得だけを持ち、描画はこれらに委ねる
+- 対戦画面 (`/battle/[roomId]`) はボトムナビ非表示（`PersistentAppShell` の `HIDE_BOTTOM_NAV_PATHS` に `/battle/`）。ロビー (`/battle`) はタブ移動できるようナビを出す
