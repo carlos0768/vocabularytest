@@ -57,6 +57,7 @@ export type StudyGroupTopMember = {
   userId: string;
   username: string | null;
   accountId: string | null;
+  avatarUrl: string | null;
   quizCount: number;
   isViewer: boolean;
 };
@@ -65,6 +66,8 @@ export type StudyGroupSummary = {
   id: string;
   name: string;
   inviteCode: string;
+  /** グループアイコン(正方形JPEGの data URL)。未設定は null。 */
+  iconImage?: string | null;
   role: StudyGroupMembershipRole;
   visibility: StudyGroupVisibility;
   memberCount: number;
@@ -89,6 +92,7 @@ export type StudyGroupLeaderboardEntry = {
   userId: string;
   username: string | null;
   accountId: string | null;
+  avatarUrl: string | null;
   quizCount: number;
   masteredCount: number;
   isViewer: boolean;
@@ -118,10 +122,32 @@ export type StudyGroupStrugglingWordsPayload = {
   totalCount: number;
 };
 
+/** グループの共有単語帳を横断した単語1件（/groups/[groupId]/words 用）。 */
+export type StudyGroupWord = {
+  id: string;
+  english: string;
+  japanese: string;
+  pronunciation: string | null;
+  exampleSentence: string | null;
+  projectId: string;
+  projectTitle: string;
+  ownerUsername: string | null;
+  /** グループ内で間違えられた回数。0 は苦手集計に載っていない単語。 */
+  missCount: number;
+  /** 間違えた人数。「みんなが苦戦中」は2人以上が対象。 */
+  learnerCount: number;
+};
+
+export type StudyGroupWordsPayload = {
+  group: StudyGroupSummary;
+  words: StudyGroupWord[];
+};
+
 export type StudyGroupMember = {
   userId: string;
   username: string | null;
   accountId: string | null;
+  avatarUrl: string | null;
   role: StudyGroupMembershipRole;
   isViewer: boolean;
 };
@@ -160,6 +186,7 @@ export type SharedUserSummary = {
 export type PublicStudyGroupSummary = {
   id: string;
   name: string;
+  iconImage?: string | null;
   visibility: StudyGroupVisibility;
   memberCount: number;
   projectCount: number;

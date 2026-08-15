@@ -9,6 +9,9 @@
  */
 
 import Link from 'next/link';
+import { GroupAvatar } from '@/components/groups/GroupAvatar';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { profileAvatarColor } from '@/components/profile/ProfileView';
 import { Icon } from '@/components/ui/Icon';
 import { triggerHaptic } from '@/lib/haptics';
 import {
@@ -17,15 +20,8 @@ import {
 } from '@/lib/shared-projects/group-overview-cache';
 import type { StudyGroupSummary, StudyGroupTopMember } from '@/lib/shared-projects/types';
 
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-// 1位/2位/3位のメダル色（グループ概要ページの podium と同じ）
+// 1位/2位/3位のメダル色（グループのランキングページの podium と同じ）
 const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
-
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
-}
 
 function topMemberLabel(member: StudyGroupTopMember): string {
   return member.username ?? (member.accountId ? `@${member.accountId}` : '匿名');
@@ -69,7 +65,6 @@ export function JoinedGroupsSection({ groups }: { groups: StudyGroupSummary[] })
 }
 
 export function JoinedGroupCard({ group, className }: { group: StudyGroupSummary; className?: string }) {
-  const color = thumbColor(group.id);
   const handlePress = () => {
     triggerHaptic();
     // タップ時点で概要をシード+先読みし、グループページのヘッダーを
@@ -85,14 +80,9 @@ export function JoinedGroupCard({ group, className }: { group: StudyGroupSummary
       aria-label={`${group.name}のグループを開く`}
       className={`block focus:outline-none ${className ?? ''}`}
     >
-      <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-3.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
+      <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3.5 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div className="flex items-center gap-3">
-          <div
-            className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] font-display text-[20px] font-extrabold text-white"
-            style={{ backgroundColor: color }}
-          >
-            {group.name.charAt(0)}
-          </div>
+          <GroupAvatar group={group} size={46} />
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
@@ -132,10 +122,19 @@ export function JoinedGroupCard({ group, className }: { group: StudyGroupSummary
                 <div key={member.userId} className="flex items-center gap-2">
                   <span
                     className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-[var(--solid-ink)] font-display text-[10px] font-extrabold text-[var(--solid-ink)]"
-                    style={{ backgroundColor: MEDALS[index] ?? '#fff' }}
+                    style={{ backgroundColor: MEDALS[index] ?? 'var(--color-surface)' }}
                   >
                     {index + 1}
                   </span>
+                  <ProfileAvatar
+                    avatarUrl={member.avatarUrl}
+                    initial={topMemberLabel(member).charAt(0).toUpperCase()}
+                    color={profileAvatarColor(member.accountId ?? member.userId)}
+                    size={20}
+                    radius={10}
+                    fontSize={9}
+                    borderWidth={1}
+                  />
                   <span
                     className={`min-w-0 flex-1 truncate text-[12px] font-extrabold ${
                       member.isViewer ? 'text-[var(--color-accent)]' : 'text-[var(--solid-ink)]'

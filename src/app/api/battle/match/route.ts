@@ -10,10 +10,17 @@ import {
   BATTLE_MIN_QUESTION_COUNT,
   BATTLE_MIN_ROUND_DURATION_MS,
 } from '@/lib/battle/config';
-import { cancelRandomMatch, findActiveRoomForUser, requestRandomMatch } from '@/lib/battle/server';
+import {
+  cancelRandomMatch,
+  findActiveRoomForUser,
+  requestGroupMatch,
+  requestRandomMatch,
+} from '@/lib/battle/server';
 
 const matchSchema = z.object({
   projectId: z.string().uuid(),
+  /** 指定するとそのグループのメンバー同士だけでマッチングする。 */
+  groupId: z.string().uuid().optional(),
   questionCount: z
     .number()
     .int()
@@ -46,12 +53,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, matched: true, roomId: existing.id, room: existing });
     }
 
-    const result = await requestRandomMatch({
-      userId: auth.user.id,
-      projectId: parsed.data.projectId,
-      questionCount: parsed.data.questionCount,
-      roundDurationMs: parsed.data.roundDurationMs,
-    });
+    const result = parsed.data.groupId
+      ? await requestGroupMatch({
+        userId: auth.user.id,
+        groupId: parsed.data.groupId,
+        projectId: parsed.data.projectId,
+        questionCount: parsed.data.questionCount,
+        roundDurationMs: parsed.data.roundDurationMs,
+      })
+      : await requestRandomMatch({
+        userId: auth.user.id,
+        projectId: parsed.data.projectId,
+        questionCount: parsed.data.questionCount,
+        roundDurationMs: parsed.data.roundDurationMs,
+      });
 
     return NextResponse.json({ success: true, ...result });
   } catch (error) {

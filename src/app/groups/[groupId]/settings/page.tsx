@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { DesktopButton } from '@/components/desktop/DesktopChrome';
+import { GroupAvatar } from '@/components/groups/GroupAvatar';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { triggerHaptic } from '@/lib/haptics';
+import { processAccountIconFile } from '@/lib/image-utils';
 import {
   invalidateGroupOverview,
   loadGroupOverview,
@@ -39,6 +41,7 @@ export default function GroupSettingsPage() {
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
+  const [savingIcon, setSavingIcon] = useState(false);
 
   const load = useCallback(async (options: { force?: boolean } = {}) => {
     if (!groupId) return;
@@ -124,6 +127,49 @@ export default function GroupSettingsPage() {
       setSavingVisibility(false);
     }
   }, [group, savingVisibility, showToast]);
+
+  /**
+   * アイコンの保存/削除。画像はアカウントアイコンと同じ 160px JPEG の data URL
+   * に落としてから送る（processAccountIconFile）。null で削除。
+   */
+  const saveIcon = useCallback(async (iconImage: string | null) => {
+    if (!group || savingIcon) return;
+    triggerHaptic();
+    setSavingIcon(true);
+    try {
+      const response = await fetch(`/api/shared-projects/groups/${encodeURIComponent(group.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ iconImage }),
+      });
+      const payload = await response.json().catch(() => null) as { success?: boolean; group?: StudyGroupSummary; error?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'group_icon_update_failed');
+      }
+      setGroup((prev) => (prev ? { ...prev, iconImage } : prev));
+      updateCachedGroupOverview(group.id, (cached) => ({
+        ...cached,
+        group: { ...cached.group, iconImage },
+      }));
+      showToast({ message: iconImage ? 'アイコンを変更しました' : 'アイコンを削除しました', type: 'success' });
+    } catch (iconError) {
+      const message = iconError instanceof Error ? iconError.message : 'アイコンの保存に失敗しました。';
+      showToast({ message, type: 'error' });
+    } finally {
+      setSavingIcon(false);
+    }
+  }, [group, savingIcon, showToast]);
+
+  const handlePickIcon = useCallback(async (file: File | null) => {
+    if (!file) return;
+    try {
+      const dataUrl = await processAccountIconFile(file);
+      await saveIcon(dataUrl);
+    } catch (iconError) {
+      console.warn('Failed to process group icon:', iconError);
+      showToast({ message: '画像を読み込めませんでした', type: 'error' });
+    }
+  }, [saveIcon, showToast]);
 
   const handleRemoveMember = useCallback(async (member: StudyGroupMember) => {
     if (!group || pendingMemberId) return;
@@ -221,6 +267,50 @@ export default function GroupSettingsPage() {
 
   const sections = group ? (
     <div className="flex flex-col gap-4">
+          {/* Group icon */}
+          <SectionCard icon="image" title="グループアイコン" accent="#D97340">
+            <div className="flex items-center gap-3">
+              <GroupAvatar group={group} size={56} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-bold text-[var(--color-muted)]">
+                  {group.iconImage ? '設定済み' : '未設定（頭文字を表示）'}
+                </div>
+                {isOwner ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 font-display text-[12.5px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${savingIcon ? 'opacity-60' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={savingIcon}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          event.target.value = '';
+                          void handlePickIcon(file);
+                        }}
+                      />
+                      <Icon name={savingIcon ? 'progress_activity' : 'photo_camera'} size={15} className={savingIcon ? 'animate-spin' : ''} />
+                      {savingIcon ? '保存中...' : group.iconImage ? '変更' : '画像を選ぶ'}
+                    </label>
+                    {group.iconImage && (
+                      <button
+                        type="button"
+                        disabled={savingIcon}
+                        onClick={() => void saveIcon(null)}
+                        className="inline-flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 font-display text-[12.5px] font-extrabold text-[var(--color-muted)] disabled:opacity-60"
+                      >
+                        <Icon name="delete" size={15} />
+                        削除
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11px] font-bold text-[var(--color-muted)]">オーナーのみ変更できます</p>
+                )}
+              </div>
+            </div>
+          </SectionCard>
+
           {/* Group name */}
           <SectionCard icon="badge" title="グループ名" accent="#137FEC">
             {isOwner ? (

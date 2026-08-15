@@ -387,6 +387,47 @@ export async function requestRandomMatch(options: {
   return { matched: true, roomId: row.id };
 }
 
+/**
+ * Group matchmaking: same queue table, but pairing is restricted to members of
+ * the given study group (`pair_group_battle_match` verifies membership and only
+ * ever looks at rows queued for that group).
+ */
+export async function requestGroupMatch(options: {
+  userId: string;
+  groupId: string;
+  projectId: string;
+  questionCount: number;
+  roundDurationMs: number;
+  admin?: SupabaseAdminClient;
+}): Promise<BattleMatchResult> {
+  const admin = options.admin ?? getSupabaseAdmin();
+  await assertProjectOwnership(options.projectId, options.userId, admin);
+
+  const { data, error } = await admin.rpc('pair_group_battle_match', {
+    p_user_id: options.userId,
+    p_group_id: options.groupId,
+    p_project_id: options.projectId,
+    p_question_count: clampQuestionCount(options.questionCount),
+    p_round_duration_ms: clampRoundDurationMs(options.roundDurationMs),
+    p_stale_after: `${Math.round(BATTLE_QUEUE_STALE_MS / 1000)} seconds`,
+  });
+
+  if (error) {
+    // 非メンバーは RPC 側で弾かれる（42501）。
+    if (error.code === '42501' || (error.message ?? '').includes('not_a_group_member')) {
+      throw new BattleError('battle_not_a_group_member', 403, 'このグループのメンバーではありません。');
+    }
+    throw new BattleError('battle_matchmaking_failed', 500, 'マッチングに失敗しました。');
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as BattleRoomRow | null;
+  if (!row?.id) {
+    return { matched: false, queued: true };
+  }
+
+  return { matched: true, roomId: row.id };
+}
+
 export async function cancelRandomMatch(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),

@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getCurrentWeekStartUtc } from '@/lib/date/week';
+import { normalizeStoredAvatarUrl } from '@/lib/profile/avatar';
+import { normalizeMissKey } from '@/lib/quiz-misses/server';
 import { isActiveProSubscription } from '@/lib/subscription/status';
 import type {
   PublicStudyGroupSummary,
@@ -15,6 +17,8 @@ import type {
   StudyGroupProjectListPayload,
   StudyGroupStrugglingWord,
   StudyGroupStrugglingWordsPayload,
+  StudyGroupWord,
+  StudyGroupWordsPayload,
   StudyGroupsPayload,
   StudyGroupSummary,
   StudyGroupTopMember,
@@ -30,6 +34,7 @@ type StudyGroupRow = {
   owner_user_id: string;
   name: string;
   invite_code: string;
+  icon_image?: string | null;
   visibility?: string | null;
   created_at: string;
 };
@@ -82,7 +87,7 @@ type StudyGroupCursor = {
   id: string;
 };
 
-const STUDY_GROUP_SELECT_COLUMNS = 'id,owner_user_id,name,invite_code,visibility,created_at';
+const STUDY_GROUP_SELECT_COLUMNS = 'id,owner_user_id,name,invite_code,icon_image,visibility,created_at';
 const PROJECT_GROUP_SELECT_COLUMNS = 'id,user_id,title,source_labels,shared_tags,icon_image,created_at,share_id,is_favorite,description,share_scope';
 const GROUP_INVITE_CODE_PATTERN = /^[A-Za-z0-9_]{4,64}$/;
 const CREATE_INVITE_CODE_RETRIES = 5;
@@ -229,6 +234,7 @@ async function getTopMembersByGroupId(
           userId: id,
           username: profiles.get(id)?.username ?? null,
           accountId: profiles.get(id)?.accountId ?? null,
+          avatarUrl: profiles.get(id)?.avatarUrl ?? null,
           quizCount: quizCountByUser.get(id) ?? 0,
           isViewer: id === viewerUserId,
         })),
@@ -332,6 +338,7 @@ export async function listPublicStudyGroups(
       return {
         id: row.id,
         name: row.name,
+        iconImage: row.icon_image ?? null,
         visibility: normalizeStudyGroupVisibility(row.visibility),
         memberCount: counts.memberCount,
         projectCount: counts.projectCount,
@@ -577,6 +584,7 @@ function buildStudyGroupMembers(
         userId: memberUserId,
         username: profile?.username ?? null,
         accountId: profile?.accountId ?? null,
+        avatarUrl: profile?.avatarUrl ?? null,
         role,
         isViewer: memberUserId === viewerUserId,
       };
@@ -709,6 +717,7 @@ async function getStudyGroupLeaderboard(
         userId: id,
         username: profile?.username ?? null,
         accountId: profile?.accountId ?? null,
+        avatarUrl: profile?.avatarUrl ?? null,
         quizCount: totalsForUser.quizCount,
         masteredCount: totalsForUser.masteredCount,
         isViewer: id === viewerUserId,
@@ -719,6 +728,106 @@ async function getStudyGroupLeaderboard(
       if (b.masteredCount !== a.masteredCount) return b.masteredCount - a.masteredCount;
       return (a.accountId ?? a.userId).localeCompare(b.accountId ?? b.userId);
     });
+}
+
+type StudyGroupWordRow = {
+  id: string;
+  project_id: string;
+  english: string | null;
+  japanese: string | null;
+  pronunciation?: string | null;
+  example_sentence?: string | null;
+};
+
+/** 1グループの単語一覧で読む上限。苦戦単語の集計(2000)と揃えている。 */
+const STUDY_GROUP_WORD_FETCH_LIMIT = 2000;
+
+/**
+ * グループの共有単語帳を横断した単語一覧。
+ *
+ * 単語そのものは共有された単語帳（メンバーが取り込んだコピーは含まない）から、
+ * 「苦手」判定は苦戦単語の集計（コピーも含めた出題実績）から取り、見出し語で
+ * 突き合わせる。クライアントはこれを1回だけ取得し、以降の絞り込みはメモリ上で
+ * 行う（/words と同じ方針）。
+ */
+export async function listStudyGroupWords(
+  groupId: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<StudyGroupWordsPayload | null> {
+  const [projectPayload, memberRoles] = await Promise.all([
+    listStudyGroupProjects(groupId, userId, admin),
+    getStudyGroupMemberRoles(groupId, admin),
+  ]);
+  if (!projectPayload) return null;
+
+  const cards = projectPayload.projects;
+  if (cards.length === 0) {
+    return { group: projectPayload.group, words: [] };
+  }
+
+  const memberUserIds = Array.from(memberRoles.keys());
+  const [wordRows, missedSummary] = await Promise.all([
+    fetchStudyGroupWordRows(cards.map((card) => card.project.id), admin),
+    getGroupWordbookProjectIds(cards, memberUserIds, admin).then((groupProjectIds) =>
+      getStudyGroupMissedWordSummary(memberUserIds, groupProjectIds, admin, null)),
+  ]);
+
+  const missByKey = new Map(
+    missedSummary.words.map((word) => [normalizeMissKey(word.english), word]),
+  );
+  const cardByProjectId = new Map(cards.map((card) => [card.project.id, card]));
+
+  const words: StudyGroupWord[] = [];
+  for (const row of wordRows) {
+    const english = row.english?.trim();
+    const japanese = row.japanese?.trim();
+    if (!english || !japanese) continue;
+
+    const card = cardByProjectId.get(row.project_id);
+    if (!card) continue;
+
+    const missed = missByKey.get(normalizeMissKey(english));
+    words.push({
+      id: row.id,
+      english,
+      japanese,
+      pronunciation: row.pronunciation?.trim() || null,
+      exampleSentence: row.example_sentence?.trim() || null,
+      projectId: row.project_id,
+      projectTitle: card.project.title,
+      ownerUsername: card.ownerUsername ?? null,
+      missCount: missed?.wrongCount ?? 0,
+      learnerCount: missed?.learnerCount ?? 0,
+    });
+  }
+
+  return { group: projectPayload.group, words };
+}
+
+async function fetchStudyGroupWordRows(
+  projectIds: string[],
+  admin: SupabaseAdminClient,
+): Promise<StudyGroupWordRow[]> {
+  if (projectIds.length === 0) return [];
+
+  const selectWords = (columns: string) => admin
+    .from('words')
+    .select(columns)
+    .in('project_id', projectIds)
+    .order('created_at', { ascending: true })
+    .limit(STUDY_GROUP_WORD_FETCH_LIMIT);
+
+  // 例文・発音は古い環境に無いことがあるので、落ちたら必須列だけで引き直す。
+  let { data, error } = await selectWords('id,project_id,english,japanese,pronunciation,example_sentence');
+  if (error) {
+    ({ data, error } = await selectWords('id,project_id,english,japanese'));
+  }
+  if (error) {
+    throw new Error(error.message || 'study_group_words_lookup_failed');
+  }
+
+  return (data ?? []) as unknown as StudyGroupWordRow[];
 }
 
 export async function listStudyGroupStrugglingWords(
@@ -849,32 +958,53 @@ function mapStrugglingWordToMissedWord(word: StudyGroupStrugglingWord): StudyGro
   };
 }
 
+type MemberProfile = {
+  username: string | null;
+  accountId: string | null;
+  avatarUrl: string | null;
+};
+
+type MemberProfileRow = {
+  user_id: string;
+  username: string | null;
+  account_id: string | null;
+  avatar_url?: string | null;
+};
+
 async function getMemberProfiles(
   userIds: string[],
   admin: SupabaseAdminClient,
-): Promise<Map<string, { username: string | null; accountId: string | null }>> {
-  const result = new Map<string, { username: string | null; accountId: string | null }>();
+): Promise<Map<string, MemberProfile>> {
+  const result = new Map<string, MemberProfile>();
   const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
   if (uniqueIds.length === 0) return result;
 
-  const { data, error } = await admin
+  const fetchProfiles = (columns: string) => admin
     .from('profiles')
-    .select('user_id, username, account_id')
+    .select(columns)
     .in('user_id', uniqueIds);
+
+  // アイコン列(avatar_url)が無い環境でも壊れないよう、列付き→列なし→
+  // ユーザー名のみ、の順に降りていく。
+  let { data, error } = await fetchProfiles('user_id, username, account_id, avatar_url');
+  if (error) {
+    ({ data, error } = await fetchProfiles('user_id, username, account_id'));
+  }
 
   if (error) {
     // Fall back to username-only lookup when account_id is unavailable.
     const usernames = await getUsernamesByUserIds(admin, uniqueIds);
     for (const id of uniqueIds) {
-      result.set(id, { username: usernames.get(id) ?? null, accountId: null });
+      result.set(id, { username: usernames.get(id) ?? null, accountId: null, avatarUrl: null });
     }
     return result;
   }
 
-  for (const row of (data ?? []) as Array<{ user_id: string; username: string | null; account_id: string | null }>) {
+  for (const row of (data ?? []) as unknown as MemberProfileRow[]) {
     result.set(row.user_id, {
       username: (row.username ?? null) || null,
       accountId: (row.account_id ?? null) || null,
+      avatarUrl: normalizeStoredAvatarUrl(row.avatar_url),
     });
   }
   return result;
@@ -1128,7 +1258,7 @@ export class StudyGroupAccessError extends Error {
 export async function updateStudyGroup(
   groupId: string,
   userId: string,
-  updates: { name?: string; visibility?: StudyGroupVisibility },
+  updates: { name?: string; visibility?: StudyGroupVisibility; iconImage?: string | null },
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<StudyGroupSummary | null> {
   const membership = await getStudyGroupMembership(groupId, userId, admin);
@@ -1137,7 +1267,7 @@ export async function updateStudyGroup(
     throw new StudyGroupAccessError('owner_required');
   }
 
-  const patch: { name?: string; visibility?: StudyGroupVisibility } = {};
+  const patch: { name?: string; visibility?: StudyGroupVisibility; icon_image?: string | null } = {};
 
   if (updates.name !== undefined) {
     const normalizedName = updates.name.trim();
@@ -1149,6 +1279,11 @@ export async function updateStudyGroup(
 
   if (updates.visibility !== undefined) {
     patch.visibility = normalizeStudyGroupVisibility(updates.visibility);
+  }
+
+  // アイコンはアカウントアイコンと同じ data URL 方式。null は削除を意味する。
+  if (updates.iconImage !== undefined) {
+    patch.icon_image = updates.iconImage;
   }
 
   if (Object.keys(patch).length > 0) {
@@ -1485,6 +1620,7 @@ function mapStudyGroupSummary(
     id: row.id,
     name: row.name,
     inviteCode: row.invite_code,
+    iconImage: row.icon_image ?? null,
     role,
     visibility: normalizeStudyGroupVisibility(row.visibility),
     memberCount: counts.memberCount,

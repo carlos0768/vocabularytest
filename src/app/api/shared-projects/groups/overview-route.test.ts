@@ -20,12 +20,12 @@ function overviewPayload(): StudyGroupOverviewPayload {
     },
     projects: [],
     members: [
-      { userId: 'u1', username: 'Alice', accountId: 'alice', role: 'owner', isViewer: false },
-      { userId: 'u2', username: 'Bob', accountId: 'bob', role: 'member', isViewer: true },
+      { userId: 'u1', username: 'Alice', accountId: 'alice', avatarUrl: null, role: 'owner', isViewer: false },
+      { userId: 'u2', username: 'Bob', accountId: 'bob', avatarUrl: null, role: 'member', isViewer: true },
     ],
     leaderboard: [
-      { userId: 'u1', username: 'Alice', accountId: 'alice', quizCount: 40, masteredCount: 10, isViewer: false },
-      { userId: 'u2', username: 'Bob', accountId: 'bob', quizCount: 12, masteredCount: 3, isViewer: true },
+      { userId: 'u1', username: 'Alice', accountId: 'alice', avatarUrl: null, quizCount: 40, masteredCount: 10, isViewer: false },
+      { userId: 'u2', username: 'Bob', accountId: 'bob', avatarUrl: null, quizCount: 12, masteredCount: 3, isViewer: true },
     ],
     missedWords: [
       { englishKey: 'ubiquitous', english: 'ubiquitous', japanese: '遍在する', missCount: 5 },
