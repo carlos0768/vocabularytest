@@ -2,8 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import { BATTLE_ROUND_REVEAL_MS } from '@/lib/battle/config';
+import {
+  BATTLE_ROUND_ACTION_MAX_RETRIES,
+  BATTLE_ROUND_ACTION_RETRY_MS,
+  BATTLE_ROUND_REVEAL_MS,
+} from '@/lib/battle/config';
 import { canViewerAnswer, getRemainingMs } from '@/lib/battle/room-state';
+import {
+  createRoundActionScheduler,
+  type RoundActionScheduler,
+} from '@/lib/battle/round-action-scheduler';
 import type { BattleAnswerResult, BattleQuestion, BattleRoom } from '@/lib/battle/types';
 
 /** Backstop refetch in case a realtime event is dropped. */
@@ -43,9 +51,10 @@ export function useBattleRoom(roomId: string, userId: string | null): UseBattleR
   const [selection, setSelection] = useState<{ round: number; choiceIndex: number } | null>(null);
   const [result, setResult] = useState<{ round: number; value: BattleAnswerResult } | null>(null);
 
-  // Guards so the advance/timeout RPCs fire once per round, not once per tick.
-  const timeoutRequestedRef = useRef<number | null>(null);
-  const advanceRequestedRef = useRef<number | null>(null);
+  // Own the round-driving RPCs outside the render cycle so they fire once per
+  // round regardless of how often the room state is re-fetched.
+  const timeoutSchedulerRef = useRef<RoundActionScheduler | null>(null);
+  const advanceSchedulerRef = useRef<RoundActionScheduler | null>(null);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -159,6 +168,16 @@ export function useBattleRoom(roomId: string, userId: string | null): UseBattleR
 
   const hasAnswered = currentQuestion ? answeredRounds.has(currentQuestion.roundIndex) : false;
 
+  // The round-driving effects below key off these primitives, never off `room` /
+  // `currentQuestion` themselves. `refresh` parses a fresh payload on every poll,
+  // realtime event and post-answer reload, so those objects get a new identity
+  // several times a second even when nothing changed -- and an effect that holds
+  // a `setTimeout` would have it cleared by the cleanup before it could ever fire.
+  const roomStatus = state.room?.status ?? null;
+  const currentRoundIndex = currentQuestion?.roundIndex ?? null;
+  const currentRoundResolved = currentQuestion?.resolvedAt != null;
+  const currentRoundExpired = remainingMs <= 0;
+
   const canAnswer = useMemo(() => {
     if (!state.room || !userId) return false;
     return canViewerAnswer({
@@ -202,45 +221,62 @@ export function useBattleRoom(roomId: string, userId: string | null): UseBattleR
     void refresh();
   }, [state.room, currentQuestion, refresh]);
 
+  // Both round-driving RPCs are owned by schedulers rather than by the effects
+  // that request them, so a re-render mid-pause cannot cancel a transition that
+  // is already due. Recreated only when the room changes.
+  useEffect(() => {
+    const callRpc = async (fn: string, args: Record<string, unknown>) => {
+      if (!isSupabaseConfigured()) return true;
+      const { error } = await createClient().rpc(fn, args);
+      return !error;
+    };
+    const onSettled = () => { void refresh(); };
+
+    const timeoutScheduler = createRoundActionScheduler({
+      delayMs: 0,
+      retryMs: BATTLE_ROUND_ACTION_RETRY_MS,
+      maxRetries: BATTLE_ROUND_ACTION_MAX_RETRIES,
+      send: (round) =>
+        callRpc('resolve_battle_round_timeout', { p_room_id: roomId, p_round_index: round }),
+      onSettled,
+    });
+
+    const advanceScheduler = createRoundActionScheduler({
+      delayMs: BATTLE_ROUND_REVEAL_MS,
+      retryMs: BATTLE_ROUND_ACTION_RETRY_MS,
+      maxRetries: BATTLE_ROUND_ACTION_MAX_RETRIES,
+      send: (round) =>
+        callRpc('advance_battle_round', { p_room_id: roomId, p_from_round: round }),
+      onSettled,
+    });
+
+    timeoutSchedulerRef.current = timeoutScheduler;
+    advanceSchedulerRef.current = advanceScheduler;
+
+    return () => {
+      timeoutScheduler.cancel();
+      advanceScheduler.cancel();
+      timeoutSchedulerRef.current = null;
+      advanceSchedulerRef.current = null;
+    };
+  }, [roomId, refresh]);
+
   // Timer expiry. Both clients may call; the server re-checks the deadline.
   useEffect(() => {
-    const room = state.room;
-    if (!room || !currentQuestion || room.status !== 'in_progress') return;
-    if (currentQuestion.resolvedAt || remainingMs > 0) return;
-    if (timeoutRequestedRef.current === currentQuestion.roundIndex) return;
-    if (!isSupabaseConfigured()) return;
+    if (roomStatus !== 'in_progress' || currentRoundIndex === null) return;
+    if (currentRoundResolved || !currentRoundExpired) return;
 
-    timeoutRequestedRef.current = currentQuestion.roundIndex;
-    const supabase = createClient();
-    void supabase
-      .rpc('resolve_battle_round_timeout', {
-        p_room_id: room.id,
-        p_round_index: currentQuestion.roundIndex,
-      })
-      .then(() => refresh());
-  }, [state.room, currentQuestion, remainingMs, refresh]);
+    timeoutSchedulerRef.current?.request(currentRoundIndex);
+  }, [roomId, roomStatus, currentRoundIndex, currentRoundResolved, currentRoundExpired]);
 
-  // Round advance after the reveal pause. Idempotent on the server.
+  // Round advance after the reveal pause. Idempotent on the server, and the
+  // scheduler ignores a round it is already working on.
   useEffect(() => {
-    const room = state.room;
-    if (!room || !currentQuestion || room.status !== 'in_progress') return;
-    if (!currentQuestion.resolvedAt) return;
-    if (advanceRequestedRef.current === currentQuestion.roundIndex) return;
-    if (!isSupabaseConfigured()) return;
+    if (roomStatus !== 'in_progress' || currentRoundIndex === null) return;
+    if (!currentRoundResolved) return;
 
-    advanceRequestedRef.current = currentQuestion.roundIndex;
-    const timer = setTimeout(() => {
-      const supabase = createClient();
-      void supabase
-        .rpc('advance_battle_round', {
-          p_room_id: room.id,
-          p_from_round: currentQuestion.roundIndex,
-        })
-        .then(() => refresh());
-    }, BATTLE_ROUND_REVEAL_MS);
-
-    return () => clearTimeout(timer);
-  }, [state.room, currentQuestion, refresh]);
+    advanceSchedulerRef.current?.request(currentRoundIndex);
+  }, [roomId, roomStatus, currentRoundIndex, currentRoundResolved]);
 
   const leaveBattle = useCallback(async () => {
     if (!state.room || !isSupabaseConfigured()) return;
