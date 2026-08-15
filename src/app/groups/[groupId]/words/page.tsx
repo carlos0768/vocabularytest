@@ -17,6 +17,7 @@ import {
   GroupPageShell,
 } from '@/components/groups/GroupPageShell';
 import { Icon } from '@/components/ui/Icon';
+import { WordListFrame } from '@/components/words/WordListFrame';
 import { speakEnglish } from '@/lib/speech';
 import type { StudyGroupSummary, StudyGroupWord } from '@/lib/shared-projects/types';
 
@@ -198,11 +199,12 @@ function GroupWordsView() {
           <p className="mb-2 px-1 font-mono text-[10px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
             {visibleWords.length} / {words.length} WORDS
           </p>
-          <div className="overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
-            {visibleWords.map((word, index) => (
-              <GroupWordRow key={word.id} word={word} last={index === visibleWords.length - 1} />
+          {/* 枠は /words と同じ（区切り線だけ）。fullBleed で画面の端まで伸ばす */}
+          <WordListFrame fullBleed>
+            {visibleWords.map((word) => (
+              <GroupWordRow key={word.id} word={word} />
             ))}
-          </div>
+          </WordListFrame>
         </>
       )}
     </GroupPageShell>
@@ -237,12 +239,13 @@ function FilterChip({
   );
 }
 
-function GroupWordRow({ word, last }: { word: StudyGroupWord; last: boolean }) {
+/** 行の見た目も /words の WordRow に合わせる（枠は WordListFrame が持つ）。 */
+function GroupWordRow({ word }: { word: StudyGroupWord }) {
   return (
-    <div className={`flex items-center gap-3 px-3 py-2.5 ${last ? '' : 'border-b border-[var(--color-border-light)]'}`}>
+    <div className="flex items-center gap-3 px-[14px] py-2.5">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate font-display text-[15px] font-extrabold text-[var(--solid-ink)]">
+          <span className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">
             {word.english}
           </span>
           {word.missCount > 0 && (

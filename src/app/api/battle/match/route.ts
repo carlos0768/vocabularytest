@@ -18,7 +18,11 @@ import {
 } from '@/lib/battle/server';
 
 const matchSchema = z.object({
-  projectId: z.string().uuid(),
+  /**
+   * 出題に使う自分の単語帳。グループ内対戦はグループの単語帳から出題するので
+   * 省略できる（下の refine で、グループ指定が無いときだけ必須にする）。
+   */
+  projectId: z.string().uuid().optional(),
   /** 指定するとそのグループのメンバー同士だけでマッチングする。 */
   groupId: z.string().uuid().optional(),
   questionCount: z
@@ -33,7 +37,10 @@ const matchSchema = z.object({
     .min(BATTLE_MIN_ROUND_DURATION_MS)
     .max(BATTLE_MAX_ROUND_DURATION_MS)
     .default(BATTLE_DEFAULT_ROUND_DURATION_MS),
-}).strict();
+}).strict().refine(
+  (value) => Boolean(value.groupId) || Boolean(value.projectId),
+  { path: ['projectId'], message: '単語帳を選択してください。' },
+);
 
 /**
  * Enters random matchmaking. Pairing is atomic in the database, so returns
@@ -63,7 +70,8 @@ export async function POST(request: NextRequest) {
       })
       : await requestRandomMatch({
         userId: auth.user.id,
-        projectId: parsed.data.projectId,
+        // refine 済み: グループ指定が無いここでは projectId が必ずある。
+        projectId: parsed.data.projectId as string,
         questionCount: parsed.data.questionCount,
         roundDurationMs: parsed.data.roundDurationMs,
       });

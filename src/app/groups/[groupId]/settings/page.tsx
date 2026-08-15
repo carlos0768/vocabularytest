@@ -249,6 +249,15 @@ export default function GroupSettingsPage() {
 
   const backHref = `/groups/${encodeURIComponent(groupId)}`;
 
+  // 設定→グループの戻るは履歴を1つ戻す。グループを push で積むと、グループ側の
+  // 戻る(router.back)で再び設定に戻ってしまい、左矢印を押すたびに
+  // 設定↔グループを往復する無限ループになる（本棚ページと同じ理由）。
+  const handleBack = useCallback(() => {
+    triggerHaptic();
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push(backHref);
+  }, [backHref, router]);
+
   const stateView = authLoading || loading ? (
     <LoadingState />
   ) : !isAuthenticated ? (
@@ -515,7 +524,7 @@ export default function GroupSettingsPage() {
       {/* Desktop */}
       <div className="hidden h-full min-h-0 flex-col lg:flex">
         <div className="ds-top">
-          <DesktopButton href={backHref} icon="arrow_back" variant="ghost" title="グループに戻る">{''}</DesktopButton>
+          <DesktopButton onClick={handleBack} icon="arrow_back" variant="ghost" title="グループに戻る">{''}</DesktopButton>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="crumb">共有ライブラリ / グループ</div>
             <h1>{group ? group.name : 'グループ'}</h1>
@@ -541,14 +550,14 @@ export default function GroupSettingsPage() {
         }}
       >
         <header className="flex items-center gap-2.5 px-[14px] pb-1 pt-2">
-          <Link
-            href={backHref}
+          <button
+            type="button"
+            onClick={handleBack}
             aria-label="グループに戻る"
-            onClick={() => triggerHaptic()}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="arrow_back" size={16} />
-          </Link>
+          </button>
           <div className="min-w-0">
             <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">GROUP SETTINGS</div>
             <h1 className="truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">グループ設定</h1>

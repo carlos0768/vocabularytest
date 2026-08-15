@@ -75,6 +75,17 @@ export function BattleScreenHeader({
   const router = useRouter();
   const showBack = Boolean(backHref || onBack);
 
+  // 戻るは履歴を1つ戻す。backHref を push で積むと、戻り先（グループ等）の
+  // 戻るが router.back() のとき互いを押し合う無限ループになるため、履歴が
+  // 無いときだけ backHref へ飛ぶ。
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(backHref as string);
+  };
+
   return (
     <header
       className="shrink-0 border-b-2 border-[var(--color-border)] bg-[var(--color-background)] px-[18px] pb-2.5"
@@ -85,7 +96,7 @@ export function BattleScreenHeader({
           {showBack && (
             <button
               type="button"
-              onClick={onBack ?? (() => router.push(backHref as string))}
+              onClick={onBack ?? handleBack}
               aria-label="戻る"
               className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >

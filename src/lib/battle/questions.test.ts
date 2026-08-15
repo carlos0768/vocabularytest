@@ -71,6 +71,31 @@ test('buildBattleQuestions asks only the host wordbook', () => {
   assert.deepEqual([...owners], ['host']);
 });
 
+// グループ内対戦では、グループの本棚（複数人の単語帳）をまとめた1つのプールを
+// 渡す。どの本の単語も出題され、誤答選択肢も同じプールから作られる。
+test('buildBattleQuestions asks across a pooled group shelf', () => {
+  const shelf = [...makeWords('alice', 3, 'a'), ...makeWords('bob', 3, 'b')];
+
+  const questions = buildBattleQuestions(shelf, 6, identityShuffle);
+
+  assert.deepEqual(
+    questions.map((item) => item.sourceUserId),
+    ['alice', 'alice', 'alice', 'bob', 'bob', 'bob'],
+  );
+});
+
+test('buildBattleQuestions dedupes a headword shared by two group wordbooks', () => {
+  const shelf = [
+    word('a0', 'alice', 'apple', 'りんご'),
+    word('b0', 'bob', 'Apple', 'アップル'),
+    word('b1', 'bob', 'banana', 'バナナ'),
+  ];
+
+  const questions = buildBattleQuestions(shelf, 10, identityShuffle);
+
+  assert.deepEqual(questions.map((item) => item.prompt), ['apple', 'banana']);
+});
+
 test('buildBattleQuestions produces four choices containing the answer at correctIndex', () => {
   const questions = buildBattleQuestions(makeWords('host', 6, 'h'), 4, identityShuffle);
 

@@ -7,6 +7,7 @@ export {
   BattleWaitingPanel,
 } from './BattleScreen';
 export {
+  BattleGroupSetupCard,
   BattleInviteCode,
   BattleModeTabs,
   BattleRuleStrip,

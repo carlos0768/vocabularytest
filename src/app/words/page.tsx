@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { WordFilterPanel, WordFilterSheet } from '@/components/words/WordFilterPanel';
 import { WordRow } from '@/components/project/WordRow';
+import { WordListFrame } from '@/components/words/WordListFrame';
 import { StackedBar } from '@/components/project/WordStatusBar';
 import { Icon } from '@/components/ui/Icon';
 import { WordDetailView } from '@/components/word/WordDetailView';
@@ -344,7 +345,7 @@ export default function WordsPage() {
           ) : (
             <>
               {/* 行も枠も単語帳詳細と同じ (区切り線だけの横幅いっぱいの一覧) */}
-              <div className="divide-y divide-[var(--color-border)]">
+              <WordListFrame>
                 {visible.map((entry) => (
                   <WordRow
                     key={entry.word.id}
@@ -359,7 +360,7 @@ export default function WordsPage() {
                     onSelect={() => setSelectedWord(entry)}
                   />
                 ))}
-              </div>
+              </WordListFrame>
               {hasMore && (
                 <div ref={sentinelRef} className="flex justify-center py-5 text-[var(--color-muted)]">
                   <Icon name="progress_activity" size={18} className="animate-spin" />

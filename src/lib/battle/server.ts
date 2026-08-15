@@ -24,6 +24,13 @@ type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 /** Words pulled per wordbook when building a question set. */
 const BATTLE_SOURCE_WORD_LIMIT = 400;
 
+/**
+ * Words pulled when the source is a whole study group's shelf. Higher than the
+ * single-wordbook limit so a group with several books still draws from all of
+ * them; the pool is shuffled before questions are picked.
+ */
+const BATTLE_GROUP_SOURCE_WORD_LIMIT = 1_000;
+
 export class BattleError extends Error {
   constructor(
     readonly code: string,
@@ -40,8 +47,11 @@ type BattleRoomRow = {
   mode: BattleMode;
   status: BattleStatus;
   invite_code: string | null;
+  group_id: string | null;
+  rematch_of_room_id: string | null;
   host_user_id: string;
-  host_project_id: string;
+  /** グループ内対戦は個人の単語帳を使わないので null になりうる。 */
+  host_project_id: string | null;
   guest_user_id: string | null;
   guest_project_id: string | null;
   question_count: number;
@@ -70,7 +80,7 @@ type ProjectRow = {
 };
 
 const ROOM_COLUMNS =
-  'id,mode,status,invite_code,host_user_id,host_project_id,guest_user_id,guest_project_id,'
+  'id,mode,status,invite_code,group_id,rematch_of_room_id,host_user_id,host_project_id,guest_user_id,guest_project_id,'
   + 'question_count,round_duration_ms,current_round,host_score,guest_score,winner_user_id,'
   + 'outcome,started_at,finished_at,created_at';
 
@@ -118,6 +128,8 @@ async function hydrateRoom(
     mode: row.mode,
     status: row.status,
     inviteCode: row.invite_code,
+    groupId: row.group_id,
+    rematchOfRoomId: row.rematch_of_room_id,
     questionCount: row.question_count,
     roundDurationMs: row.round_duration_ms,
     currentRound: row.current_round,
@@ -233,20 +245,81 @@ export async function loadBattleSourceWords(
   ownerId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<BattleSourceWord[]> {
+  return loadWordsForProjects([projectId], new Map([[projectId, ownerId]]), admin);
+}
+
+/**
+ * グループ内対戦の出題元。ホスト個人の単語帳ではなく、グループに追加された
+ * 単語帳（`study_group_projects`）をすべて束ねて返す。
+ *
+ * 複数冊ぶんを1つのプールにするので、誤答選択肢も同じグループの単語から作られ、
+ * 同じ見出し語が2冊に入っていても `selectBattleWords` が1回しか出題しない。
+ */
+export async function loadGroupBattleSourceWords(
+  groupId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<BattleSourceWord[]> {
+  const { data: links, error: linkError } = await admin
+    .from('study_group_projects')
+    .select('project_id')
+    .eq('group_id', groupId);
+
+  if (linkError) {
+    throw new BattleError('battle_group_projects_lookup_failed', 500, 'グループの単語帳の取得に失敗しました。');
+  }
+
+  const projectIds = Array.from(
+    new Set(
+      ((links ?? []) as Array<{ project_id: string | null }>)
+        .map((row) => row.project_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  if (projectIds.length === 0) return [];
+
+  // 出題の出どころ（誰の単語帳か）を残すため、単語帳の持ち主も引いておく。
+  const { data: projects, error: projectError } = await admin
+    .from('projects')
+    .select('id,user_id')
+    .in('id', projectIds);
+
+  if (projectError) {
+    throw new BattleError('battle_group_projects_lookup_failed', 500, 'グループの単語帳の取得に失敗しました。');
+  }
+
+  const ownerByProjectId = new Map(
+    ((projects ?? []) as Array<{ id: string; user_id: string }>).map((row) => [row.id, row.user_id]),
+  );
+
+  return loadWordsForProjects(projectIds, ownerByProjectId, admin);
+}
+
+async function loadWordsForProjects(
+  projectIds: string[],
+  ownerByProjectId: Map<string, string>,
+  admin: SupabaseAdminClient,
+): Promise<BattleSourceWord[]> {
+  if (projectIds.length === 0) return [];
+
   const { data, error } = await admin
     .from('words')
-    .select('id,english,japanese,distractors')
-    .eq('project_id', projectId)
-    .limit(BATTLE_SOURCE_WORD_LIMIT);
+    .select('id,project_id,english,japanese,distractors')
+    .in('project_id', projectIds)
+    .limit(projectIds.length > 1 ? BATTLE_GROUP_SOURCE_WORD_LIMIT : BATTLE_SOURCE_WORD_LIMIT);
 
   if (error) {
     throw new BattleError('battle_words_lookup_failed', 500, '単語の取得に失敗しました。');
   }
 
-  return (data ?? []).map((row) => {
+  const words: BattleSourceWord[] = [];
+  for (const row of data ?? []) {
     const record = row as Record<string, unknown>;
+    // 持ち主を引けない単語は出題キー(source_user_id)を埋められないので捨てる。
+    const ownerId = ownerByProjectId.get(String(record.project_id));
+    if (!ownerId) continue;
+
     const rawDistractors = record.distractors;
-    return {
+    words.push({
       id: String(record.id),
       ownerId,
       english: String(record.english ?? ''),
@@ -254,8 +327,10 @@ export async function loadBattleSourceWords(
       distractors: Array.isArray(rawDistractors)
         ? rawDistractors.filter((item): item is string => typeof item === 'string')
         : [],
-    };
-  });
+    });
+  }
+
+  return words;
 }
 
 export async function createFriendRoom(options: {
@@ -357,6 +432,137 @@ export async function joinRoomByInviteCode(options: {
   return hydrateRoom(data, admin);
 }
 
+/**
+ * 決着後の「もう一度対戦する」。ロビーへ戻さず、同じ相手・同じ設定の部屋を
+ * 1つだけ作ってそこへ両者を集める。
+ *
+ * 先に押した側がホスト（＝出題者。グループ内対戦では出題元はグループの本棚な
+ * ので誰がホストでも出題は変わらない）になって `waiting` で待ち、後から押した
+ * 側がゲストとして入ると `ready` になり、通常どおりホストのクライアントが
+ * 問題生成を叩く。
+ *
+ * 同時押しは `battle_rooms.rematch_of_room_id` の部分ユニーク索引で捌く:
+ * 一意制約で弾かれた側は、既にできている部屋にゲストとして入り直す。
+ */
+export async function createOrJoinRematch(options: {
+  roomId: string;
+  userId: string;
+  admin?: SupabaseAdminClient;
+}): Promise<BattleRoom> {
+  const admin = options.admin ?? getSupabaseAdmin();
+  const source = await fetchRoomRow(options.roomId, admin);
+  assertParticipant(source, options.userId);
+
+  if (source.status !== 'finished' && source.status !== 'cancelled') {
+    throw new BattleError('battle_not_finished', 409, 'この対戦はまだ終わっていません。');
+  }
+
+  const existing = await findRematchRoom(options.roomId, admin);
+  if (existing) return joinRematchRoom(existing, options.userId, admin);
+
+  // 自分がどちらの席だったかで、持ち込む単語帳が決まる。
+  const callerProjectId = source.host_user_id === options.userId
+    ? source.host_project_id
+    : source.guest_project_id;
+
+  const { data, error } = await admin
+    .from('battle_rooms')
+    .insert({
+      mode: source.mode,
+      status: 'waiting',
+      group_id: source.group_id,
+      rematch_of_room_id: source.id,
+      host_user_id: options.userId,
+      host_project_id: callerProjectId,
+      question_count: source.question_count,
+      round_duration_ms: source.round_duration_ms,
+    })
+    .select(ROOM_COLUMNS)
+    .maybeSingle<BattleRoomRow>();
+
+  if (error) {
+    // 相手が一瞬先に押していた。その部屋にゲストとして入る。
+    if (isUniqueViolation(error)) {
+      const room = await findRematchRoom(options.roomId, admin);
+      if (room) return joinRematchRoom(room, options.userId, admin);
+    }
+    throw new BattleError('battle_rematch_failed', 500, '再戦の準備に失敗しました。');
+  }
+  if (!data) {
+    throw new BattleError('battle_rematch_failed', 500, '再戦の準備に失敗しました。');
+  }
+
+  return hydrateRoom(data, admin);
+}
+
+async function findRematchRoom(
+  sourceRoomId: string,
+  admin: SupabaseAdminClient,
+): Promise<BattleRoomRow | null> {
+  const { data, error } = await admin
+    .from('battle_rooms')
+    .select(ROOM_COLUMNS)
+    .eq('rematch_of_room_id', sourceRoomId)
+    .maybeSingle<BattleRoomRow>();
+
+  if (error) {
+    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。');
+  }
+
+  return data ?? null;
+}
+
+async function joinRematchRoom(
+  room: BattleRoomRow,
+  userId: string,
+  admin: SupabaseAdminClient,
+): Promise<BattleRoom> {
+  // 既に自分の席がある（もう一度押した / 再読み込みした）ならそのまま返す。
+  if (room.host_user_id === userId || room.guest_user_id === userId) {
+    return hydrateRoom(room, admin);
+  }
+  if (room.guest_user_id) {
+    throw new BattleError('battle_room_full', 409, 'この対戦ルームは満室です。');
+  }
+
+  // ゲスト席が空いているときだけ埋まる条件付き更新。相手の再戦部屋を
+  // 横取りできないよう、元の部屋の参加者かどうかは呼び出し側で検証済み。
+  const source = room.rematch_of_room_id
+    ? await fetchRoomRow(room.rematch_of_room_id, admin)
+    : null;
+  const guestProjectId = source
+    ? (source.host_user_id === userId ? source.host_project_id : source.guest_project_id)
+    : null;
+
+  const { data, error } = await admin
+    .from('battle_rooms')
+    .update({
+      guest_user_id: userId,
+      guest_project_id: guestProjectId,
+      status: 'ready',
+    })
+    .eq('id', room.id)
+    .eq('status', 'waiting')
+    .is('guest_user_id', null)
+    .select(ROOM_COLUMNS)
+    .maybeSingle<BattleRoomRow>();
+
+  if (error) {
+    throw new BattleError('battle_rematch_failed', 500, '再戦の準備に失敗しました。');
+  }
+  if (!data) {
+    throw new BattleError('battle_room_full', 409, 'この対戦ルームは満室です。');
+  }
+
+  return hydrateRoom(data, admin);
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const maybeError = error as { code?: string | null; message?: string | null };
+  return maybeError?.code === '23505'
+    || (maybeError?.message ?? '').toLowerCase().includes('duplicate key');
+}
+
 export async function requestRandomMatch(options: {
   userId: string;
   projectId: string;
@@ -391,22 +597,28 @@ export async function requestRandomMatch(options: {
  * Group matchmaking: same queue table, but pairing is restricted to members of
  * the given study group (`pair_group_battle_match` verifies membership and only
  * ever looks at rows queued for that group).
+ *
+ * Questions come from the group's shelf, not from either player's own wordbook,
+ * so `projectId` is optional here -- a member with no wordbooks of their own can
+ * still play.
  */
 export async function requestGroupMatch(options: {
   userId: string;
   groupId: string;
-  projectId: string;
+  projectId?: string | null;
   questionCount: number;
   roundDurationMs: number;
   admin?: SupabaseAdminClient;
 }): Promise<BattleMatchResult> {
   const admin = options.admin ?? getSupabaseAdmin();
-  await assertProjectOwnership(options.projectId, options.userId, admin);
+  if (options.projectId) {
+    await assertProjectOwnership(options.projectId, options.userId, admin);
+  }
 
   const { data, error } = await admin.rpc('pair_group_battle_match', {
     p_user_id: options.userId,
     p_group_id: options.groupId,
-    p_project_id: options.projectId,
+    p_project_id: options.projectId ?? null,
     p_question_count: clampQuestionCount(options.questionCount),
     p_round_duration_ms: clampRoundDurationMs(options.roundDurationMs),
     p_stale_after: `${Math.round(BATTLE_QUEUE_STALE_MS / 1000)} seconds`,
@@ -511,7 +723,14 @@ export async function startBattle(options: {
   if (row.status === 'in_progress' || row.status === 'finished') {
     return hydrateRoom(row, admin);
   }
-  if (row.status !== 'ready' || !row.guest_user_id || !row.guest_project_id) {
+  // グループ内対戦はグループの単語帳から出題するので、参加者個人の単語帳は
+  // 揃っていなくてよい。
+  const requiresPersonalProjects = !row.group_id;
+  if (
+    row.status !== 'ready'
+    || !row.guest_user_id
+    || (requiresPersonalProjects && (!row.host_project_id || !row.guest_project_id))
+  ) {
     throw new BattleError('battle_not_ready', 409, '対戦の準備が整っていません。');
   }
 
@@ -532,21 +751,25 @@ export async function startBattle(options: {
   }
 
   try {
-    // 出題は出題者（ホスト）の単語帳だけから作る。ゲストの単語帳は参加時に
-    // 記録するだけで、問題には使わない。
-    const hostWords = await loadBattleSourceWords(
-      claimed.host_project_id,
-      claimed.host_user_id,
-      admin,
-    );
+    // 出題元はモードで変わる:
+    //   グループ内対戦 -> グループに追加された単語帳すべて（誰の本かは問わない）
+    //   それ以外       -> 出題者（ホスト）の単語帳だけ。ゲストの単語帳は参加時に
+    //                     記録するだけで、問題には使わない。
+    const sourceWords = claimed.group_id
+      ? await loadGroupBattleSourceWords(claimed.group_id, admin)
+      : claimed.host_project_id
+        ? await loadBattleSourceWords(claimed.host_project_id, claimed.host_user_id, admin)
+        : [];
 
-    const questions = buildBattleQuestions(hostWords, claimed.question_count);
+    const questions = buildBattleQuestions(sourceWords, claimed.question_count);
 
     if (questions.length < BATTLE_MIN_SOURCE_WORDS) {
       throw new BattleError(
         'battle_not_enough_words',
         409,
-        `対戦には出題者の単語帳に${BATTLE_MIN_SOURCE_WORDS}語以上の単語が必要です。`,
+        claimed.group_id
+          ? `対戦にはグループの単語帳に${BATTLE_MIN_SOURCE_WORDS}語以上の単語が必要です。`
+          : `対戦には出題者の単語帳に${BATTLE_MIN_SOURCE_WORDS}語以上の単語が必要です。`,
       );
     }
 

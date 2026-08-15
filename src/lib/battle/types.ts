@@ -1,6 +1,6 @@
 /** Domain types for リアルタイム単語対戦. */
 
-export type BattleMode = 'friend' | 'random';
+export type BattleMode = 'friend' | 'random' | 'group';
 
 export type BattleStatus =
   | 'waiting'
@@ -28,6 +28,10 @@ export type BattleRoom = {
   mode: BattleMode;
   status: BattleStatus;
   inviteCode: string | null;
+  /** グループ内対戦のときだけ入る。出題元はこのグループの単語帳。 */
+  groupId: string | null;
+  /** 「もう一度対戦する」で作られた部屋なら、元の部屋のID。 */
+  rematchOfRoomId: string | null;
   questionCount: number;
   roundDurationMs: number;
   currentRound: number;

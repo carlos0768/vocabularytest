@@ -234,6 +234,81 @@ export function BattleSetupCard({
   );
 }
 
+/**
+ * グループ内対戦の設定カード。出題元はグループに追加された単語帳なので、
+ * 通常の対戦と違って「自分の単語帳」を選ばせない（選んでも使われないため）。
+ */
+export function BattleGroupSetupCard({
+  books,
+  booksLoading,
+  totalWordCount,
+  questionCount,
+  questionCountOptions,
+  onQuestionCountChange,
+  roundDurationMs,
+  roundDurationOptions,
+  onRoundDurationChange,
+  disabled,
+}: {
+  books: { id: string; title: string }[];
+  booksLoading: boolean;
+  totalWordCount: number;
+  questionCount: number;
+  questionCountOptions: { label: string; value: number }[];
+  onQuestionCountChange: (value: number) => void;
+  roundDurationMs: number;
+  roundDurationOptions: { label: string; value: number }[];
+  onRoundDurationChange: (value: number) => void;
+  disabled?: boolean;
+}) {
+  const titles = books.map((book) => book.title).join('・');
+
+  return (
+    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]">
+      <div className="flex items-center gap-2.5 border-b-2 border-[var(--color-border)] p-3">
+        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]">
+          <Icon name="auto_stories" size={19} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+            グループの単語帳から出題
+          </div>
+          <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+            {booksLoading
+              ? '読み込み中...'
+              : books.length === 0
+                ? 'まだ単語帳がありません'
+                : `${books.length}冊 · ${totalWordCount}語`}
+          </div>
+          {!booksLoading && books.length > 0 && (
+            <div className="truncate text-[11px] font-bold text-[var(--color-muted)]">{titles}</div>
+          )}
+        </div>
+      </div>
+
+      <SettingRow icon="format_list_numbered" label="問題数">
+        <InlineSegment
+          ariaLabel="問題数"
+          options={questionCountOptions}
+          value={questionCount}
+          onChange={onQuestionCountChange}
+          disabled={disabled}
+        />
+      </SettingRow>
+
+      <SettingRow icon="timer" label="1問の制限時間" last>
+        <InlineSegment
+          ariaLabel="1問の制限時間"
+          options={roundDurationOptions}
+          value={roundDurationMs}
+          onChange={onRoundDurationChange}
+          disabled={disabled}
+        />
+      </SettingRow>
+    </section>
+  );
+}
+
 const RULES: { icon: string; title: string; detail: string }[] = [
   { icon: 'menu_book', title: '出題者の単語帳', detail: 'から出題' },
   { icon: 'bolt', title: '先に正解', detail: '+1点' },

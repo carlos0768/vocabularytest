@@ -10,6 +10,8 @@ import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { getRepository } from '@/lib/db';
 import { getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { processProjectIconFile } from '@/lib/image-utils';
+import { getCachedBinderIcons, loadBinderIcons, saveBinderIcon } from '@/lib/binders/icons';
 import type { Project, SubscriptionStatus } from '@/types';
 
 // バインダー (フォルダ) 詳細。中の単語帳を一覧し、単語帳の追加/解除と、
@@ -44,6 +46,10 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
   const [addOpen, setAddOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [iconImage, setIconImage] = useState<string | null>(
+    () => getCachedBinderIcons()?.[binderName] ?? null,
+  );
+  const [savingIcon, setSavingIcon] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,6 +66,51 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadBinderIcons().then((icons) => {
+      if (!cancelled) setIconImage(icons[binderName] ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [binderName]);
+
+  /**
+   * バインダーのアイコン。単語帳アイコンと同じ正方形JPEGのdata URLに落として
+   * から保存する。null は削除（頭文字＋フォルダアイコンの既定表示に戻る）。
+   */
+  const handlePickIcon = async (file: File | null) => {
+    if (!file || savingIcon) return;
+    setSavingIcon(true);
+    try {
+      const dataUrl = await processProjectIconFile(file);
+      await saveBinderIcon(binderName, dataUrl);
+      setIconImage(dataUrl);
+      invalidateHomeCache();
+      showToast({ message: 'アイコンを設定しました', type: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'アイコンの保存に失敗しました';
+      showToast({ message, type: 'error' });
+    } finally {
+      setSavingIcon(false);
+    }
+  };
+
+  const handleRemoveIcon = async () => {
+    if (savingIcon || !iconImage) return;
+    setSavingIcon(true);
+    try {
+      await saveBinderIcon(binderName, null);
+      setIconImage(null);
+      invalidateHomeCache();
+      showToast({ message: 'アイコンを削除しました', type: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'アイコンの削除に失敗しました';
+      showToast({ message, type: 'error' });
+    } finally {
+      setSavingIcon(false);
+    }
+  };
 
   const inBinder = useMemo(
     () => projects.filter((p) => normalizeBinder(p.binder) === binderName),
@@ -140,6 +191,61 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
           </div>
         </div>
       </header>
+
+      {/* バインダーのアイコン設定。ホームのバインダータイルの絵柄になる */}
+      <section className="mt-3.5 flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-3">
+        <span
+          className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-cover bg-center text-white"
+          style={{
+            backgroundColor: thumbColor(binderName),
+            backgroundImage: iconImage ? `url(${iconImage})` : undefined,
+          }}
+        >
+          {!iconImage && <Icon name="folder" size={24} filled />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+            BINDER ICON
+          </div>
+          <div className="text-[12px] font-bold text-[var(--color-muted)]">
+            {iconImage ? '設定済み' : '未設定（フォルダの絵）'}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <label
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${savingIcon ? 'opacity-60' : ''}`}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={savingIcon}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  event.target.value = '';
+                  void handlePickIcon(file);
+                }}
+              />
+              <Icon
+                name={savingIcon ? 'progress_activity' : 'photo_camera'}
+                size={15}
+                className={savingIcon ? 'animate-spin' : undefined}
+              />
+              {savingIcon ? '保存中...' : iconImage ? '変更' : '画像を選ぶ'}
+            </label>
+            {iconImage && (
+              <button
+                type="button"
+                disabled={savingIcon}
+                onClick={() => void handleRemoveIcon()}
+                className="inline-flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--color-border)] bg-white px-3 py-2 text-[12.5px] font-bold text-[var(--color-muted)] disabled:opacity-60"
+              >
+                <Icon name="delete" size={15} />
+                削除
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
 
       <div className="pt-3.5">
         {loading ? (
