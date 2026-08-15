@@ -247,5 +247,6 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - **判定はすべてサーバー権威**。`submit_battle_answer` がルーム行をロックして採点するので「先に正解した方」の順序はDBが決める。締切も `started_at + round_duration_ms` をサーバー側で再検証するため、遅延パケットがラウンドを奪えない
 - 1ラウンド1人1回だけ回答可能（誤答＝そのラウンド失権）。両者が外すとラウンド終了。減点はしない
 - ラウンド進行・時間切れ処理は両クライアントが競って RPC を呼ぶが、`advance_battle_round` / `resolve_battle_round_timeout` は冪等かつサーバー側で条件を再検証する
+- **この2つの RPC の発火は `src/lib/battle/round-action-scheduler.ts` が持ち、`useEffect` の中に `setTimeout` を置いてはいけない**。ルーム状態は Realtime と4秒ポーリングで頻繁に再取得され、そのたびに新しいオブジェクトが生成されるので、effect の cleanup が正解表示の待ち時間（`BATTLE_ROUND_REVEAL_MS`）を消してしまい、1問目を解いた時点で対戦が固まる。ラウンドが解決した後は誰も操作できず再送する主体がいないため、送信失敗時のリトライもスケジューラ側で持つ
 - 同期は Supabase Realtime の `postgres_changes`（`battle_rooms` / `battle_questions`）。イベント欠落に備えて4秒間隔の再取得もかけている。回答送信だけは Vercel を経由せず**ブラウザから直接 RPC** を叩いてラウンドトリップを1回減らしている（早押しのため）
 - Next.js の Route Handler は常駐できないので、サーバー側タイマーは持たず「締切時刻を持ってクライアントが叩く・サーバーが検証する」方式を取っている
