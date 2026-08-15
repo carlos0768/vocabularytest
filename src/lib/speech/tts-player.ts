@@ -16,15 +16,17 @@
 
 import type { TtsLang } from '@/lib/speech/cloud-text-to-speech';
 
-/** 解錠用の無音 mp3 (ごく短い)。ユーザー操作の中で一度だけ鳴らす。 */
-const SILENT_MP3 =
-  'data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA' +
-  'gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgP///////' +
-  '////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAA' +
-  'JAAAAAAAAAAAAnGDdQ2CAAAA';
+/**
+ * 解錠用の無音音源。フラッシュカードが常時鳴らしているものと同じファイルを使う
+ * (手書きの data URI だと壊れた音源を掴ませかねないので、実在のファイルにする)。
+ */
+const SILENT_AUDIO_SRC = '/audio/silence-loop.wav';
 
-/** 1クリップの再生を諦めるまでの時間。ここで詰まると自動再生が止まるので必ず抜ける。 */
-const PLAY_TIMEOUT_MS = 20_000;
+/**
+ * 1クリップの再生を諦めるまでの時間。
+ * ここで詰まると自動再生が丸ごと黙るので、短めに切ってブラウザ読み上げへ渡す。
+ */
+const PLAY_TIMEOUT_MS = 8_000;
 
 export type TtsPlayResult = 'played' | 'unavailable';
 
@@ -56,6 +58,13 @@ export function createTtsPlayer(deps?: TtsPlayerDeps): TtsPlayer {
 
   let audio: HTMLAudioElement | null = null;
   let disposed = false;
+  /**
+   * 音声が使えるか。null = 未確認。
+   * APIキー未設定・未ログイン・上限などで音声が取れない環境では、鳴らない音を
+   * 毎回ロードしにいっても待たされるだけなので、一度失敗したら以降は即あきらめて
+   * ブラウザ読み上げに任せる。
+   */
+  let available: boolean | null = null;
   const prefetched = new Set<string>();
 
   const ensureAudio = (): HTMLAudioElement | null => {
@@ -75,14 +84,32 @@ export function createTtsPlayer(deps?: TtsPlayerDeps): TtsPlayer {
       if (!element) return;
       // 操作の呼び出しスタックの中で一度鳴らしておくと、以降はタイマーからの
       // 再生 (=画面消灯中の次のカード) も許可される。
-      element.src = SILENT_MP3;
+      element.src = SILENT_AUDIO_SRC;
       void element.play().catch(() => {});
     },
 
     async play(text, lang) {
       const trimmed = text?.trim();
+      if (!trimmed || disposed || available === false) return 'unavailable';
+
+      // 先に音声そのものを取りに行く。取れないと分かった時点で引き返せば、
+      // オーディオ要素に鳴らない音を読み込ませずに済む
+      // (要素に失敗した音源を掴ませると、そのぶん無音の待ち時間が生まれる)。
+      const url = ttsAudioUrl(trimmed, lang);
+      try {
+        const response = await fetchImpl(url, { credentials: 'same-origin' });
+        if (!response.ok) {
+          available = false;
+          return 'unavailable';
+        }
+      } catch {
+        available = false;
+        return 'unavailable';
+      }
+      available = true;
+
       const element = ensureAudio();
-      if (!trimmed || !element) return 'unavailable';
+      if (!element) return 'unavailable';
 
       return new Promise<TtsPlayResult>((resolve) => {
         let settled = false;
@@ -108,7 +135,8 @@ export function createTtsPlayer(deps?: TtsPlayerDeps): TtsPlayer {
         // 音源が壊れている・応答が返らない場合でも必ず抜ける。
         timer = setTimeout(() => settle('unavailable'), PLAY_TIMEOUT_MS);
 
-        element.src = ttsAudioUrl(trimmed, lang);
+        // 直前に取得済みなので、ここはHTTPキャッシュから読まれる。
+        element.src = url;
         const started = element.play();
         if (started && typeof started.catch === 'function') {
           started.catch(() => settle('unavailable'));
@@ -118,14 +146,18 @@ export function createTtsPlayer(deps?: TtsPlayerDeps): TtsPlayer {
 
     prefetch(text, lang) {
       const trimmed = text?.trim();
-      if (!trimmed || disposed) return;
+      if (!trimmed || disposed || available === false) return;
       const url = ttsAudioUrl(trimmed, lang);
       if (prefetched.has(url)) return;
       prefetched.add(url);
-      void fetchImpl(url, { credentials: 'same-origin' }).catch(() => {
-        // 取れなくても再生時に取り直せばよい。次の機会のために覚えておかない。
-        prefetched.delete(url);
-      });
+      void fetchImpl(url, { credentials: 'same-origin' })
+        .then((response) => {
+          if (!response.ok) available = false;
+        })
+        .catch(() => {
+          // 取れなくても再生時に取り直せばよい。次の機会のために覚えておかない。
+          prefetched.delete(url);
+        });
     },
 
     stop() {
