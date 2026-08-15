@@ -2,9 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useProjects } from '@/hooks/use-projects';
+import { BattleScreenHeader } from '@/components/battle/BattleScreenHeader';
+import { BattleStatusPanel } from '@/components/battle/BattleStatusPanel';
+import { BattleButton, BattleLinkButton } from '@/components/battle/BattleButton';
+import { BattleInviteCard } from '@/components/battle/BattleInviteCard';
+import {
+  BattleSettingsFields,
+  BattleWordbookField,
+} from '@/components/battle/BattleLobbyForm';
 import {
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
@@ -15,21 +23,17 @@ import type { BattleRoom } from '@/lib/battle/types';
 
 type LobbyMode = 'idle' | 'matching' | 'hosting';
 
-const QUESTION_COUNT_OPTIONS = [5, 10, 20];
-const ROUND_DURATION_OPTIONS = [
-  { label: '10秒', value: 10_000 },
-  { label: '15秒', value: 15_000 },
-  { label: '20秒', value: 20_000 },
-];
+const QUESTION_COUNT_OPTIONS = [5, 10, 20] as const;
+const ROUND_DURATION_OPTIONS = [10_000, 15_000, 20_000] as const;
 
 export default function BattleLobbyPage() {
   const router = useRouter();
   const { isAuthenticated, isPro, loading: authLoading } = useAuth();
   const { projects, loading: projectsLoading } = useProjects();
 
-  const [projectId, setProjectId] = useState<string>('');
-  const [questionCount, setQuestionCount] = useState(BATTLE_DEFAULT_QUESTION_COUNT);
-  const [roundDurationMs, setRoundDurationMs] = useState(BATTLE_DEFAULT_ROUND_DURATION_MS);
+  const [projectId, setProjectId] = useState('');
+  const [questionCount, setQuestionCount] = useState<number>(BATTLE_DEFAULT_QUESTION_COUNT);
+  const [roundDurationMs, setRoundDurationMs] = useState<number>(BATTLE_DEFAULT_ROUND_DURATION_MS);
   const [mode, setMode] = useState<LobbyMode>('idle');
   const [hostedRoom, setHostedRoom] = useState<BattleRoom | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -45,8 +49,8 @@ export default function BattleLobbyPage() {
     }
   }, [projects, projectId]);
 
-  const selectedProject = useMemo(
-    () => projects.find((project) => project.id === projectId) ?? null,
+  const hasProject = useMemo(
+    () => projects.some((project) => project.id === projectId),
     [projects, projectId],
   );
 
@@ -64,7 +68,7 @@ export default function BattleLobbyPage() {
   }, []);
 
   const startRandomMatch = useCallback(async () => {
-    if (!projectId) return;
+    if (!hasProject) return;
     setError(null);
     setBusy(true);
     try {
@@ -84,14 +88,14 @@ export default function BattleLobbyPage() {
     } finally {
       setBusy(false);
     }
-  }, [projectId, questionCount, roundDurationMs, postJson, router]);
+  }, [hasProject, projectId, questionCount, roundDurationMs, postJson, router]);
 
   const cancelRandomMatch = useCallback(async () => {
     setMode('idle');
     await fetch('/api/battle/match', { method: 'DELETE' }).catch(() => {});
   }, []);
 
-  // While queued, poll for the room the server paired us into.
+  // 待機中はサーバーがペアリングしたルームをポーリングで拾う。
   useEffect(() => {
     if (mode !== 'matching') return;
 
@@ -103,7 +107,7 @@ export default function BattleLobbyPage() {
           router.push(`/battle/${payload.roomId}`);
         }
       } catch {
-        // Keep waiting -- a dropped poll is not fatal.
+        // 1回落ちても待機は続ける。
       }
     }, BATTLE_MATCH_POLL_INTERVAL_MS);
 
@@ -111,7 +115,7 @@ export default function BattleLobbyPage() {
   }, [mode, router]);
 
   const createFriendRoom = useCallback(async () => {
-    if (!projectId) return;
+    if (!hasProject) return;
     setError(null);
     setBusy(true);
     try {
@@ -127,9 +131,9 @@ export default function BattleLobbyPage() {
     } finally {
       setBusy(false);
     }
-  }, [projectId, questionCount, roundDurationMs, postJson]);
+  }, [hasProject, projectId, questionCount, roundDurationMs, postJson]);
 
-  // The host waits here until someone joins with the invite code.
+  // ホストは相手がコードで入室するまでここで待つ。
   useEffect(() => {
     if (mode !== 'hosting' || !hostedRoom) return;
 
@@ -137,9 +141,7 @@ export default function BattleLobbyPage() {
       try {
         const response = await fetch(`/api/battle/rooms/${hostedRoom.id}`, { cache: 'no-store' });
         const payload = await response.json().catch(() => null);
-        if (payload?.room?.guest) {
-          router.push(`/battle/${hostedRoom.id}`);
-        }
+        if (payload?.room?.guest) router.push(`/battle/${hostedRoom.id}`);
       } catch {
         // ignore
       }
@@ -149,7 +151,7 @@ export default function BattleLobbyPage() {
   }, [mode, hostedRoom, router]);
 
   const joinFriendRoom = useCallback(async () => {
-    if (!projectId) return;
+    if (!hasProject) return;
     const normalized = normalizeInviteCode(joinCode);
     if (!normalized) {
       setError('招待コードは6文字です。');
@@ -159,207 +161,179 @@ export default function BattleLobbyPage() {
     setError(null);
     setBusy(true);
     try {
-      const payload = await postJson('/api/battle/join', {
-        inviteCode: normalized,
-        projectId,
-      });
+      const payload = await postJson('/api/battle/join', { inviteCode: normalized, projectId });
       router.push(`/battle/${(payload.room as BattleRoom).id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '参加に失敗しました。');
     } finally {
       setBusy(false);
     }
-  }, [projectId, joinCode, postJson, router]);
+  }, [hasProject, projectId, joinCode, postJson, router]);
+
+  const shell = (children: React.ReactNode, header?: React.ReactNode) => (
+    <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] font-[var(--font-body)]">
+      {header ?? <BattleScreenHeader eyebrow="BATTLE" title="単語対戦" fallbackHref="/" />}
+      {children}
+    </div>
+  );
 
   if (authLoading) {
-    return <main className="p-6 text-center text-[var(--color-muted)]">読み込み中...</main>;
+    return shell(<BattleStatusPanel spinning title="読み込み中" />);
   }
 
   if (!isAuthenticated) {
-    return (
-      <main className="mx-auto max-w-md p-6 text-center">
-        <h1 className="mb-3 text-xl font-bold">リアルタイム単語対戦</h1>
-        <p className="mb-6 text-sm text-[var(--color-muted)]">対戦にはログインが必要です。</p>
-        <Link href="/login" className="inline-block rounded-xl bg-[var(--color-foreground)] px-6 py-3 font-semibold text-white">
-          ログイン
-        </Link>
-      </main>
+    return shell(
+      <BattleStatusPanel
+        icon="lock"
+        title="ログインが必要です"
+        description="リアルタイム対戦を遊ぶにはログインしてください。"
+        actions={<BattleLinkButton href="/login" icon="login">ログイン</BattleLinkButton>}
+      />,
     );
   }
 
   if (!isPro) {
-    return (
-      <main className="mx-auto max-w-md p-6 text-center">
-        <h1 className="mb-3 text-xl font-bold">リアルタイム単語対戦</h1>
-        <p className="mb-6 text-sm text-[var(--color-muted)]">
-          リアルタイム対戦はProプラン限定の機能です。コインは消費しません。
-        </p>
-        <Link href="/pricing" className="inline-block rounded-xl bg-[var(--color-foreground)] px-6 py-3 font-semibold text-white">
-          Proプランを見る
-        </Link>
-      </main>
+    return shell(
+      <BattleStatusPanel
+        icon="crown"
+        title="Proプラン限定の機能です"
+        description="リアルタイム対戦はProプラン限定です。対戦でコインは消費しません。"
+        actions={<BattleLinkButton href="/pricing" icon="crown">Proプランを見る</BattleLinkButton>}
+      />,
     );
   }
 
   if (mode === 'matching') {
-    return (
-      <main className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center p-6 text-center">
-        <div className="mb-6 h-12 w-12 animate-spin rounded-full border-4 border-[var(--color-surface-secondary)] border-t-[var(--color-foreground)]" />
-        <h1 className="mb-2 text-lg font-bold">対戦相手を探しています...</h1>
-        <p className="mb-8 text-sm text-[var(--color-muted)]">
-          見つかり次第、自動で対戦が始まります。
-        </p>
-        <button
-          type="button"
-          onClick={cancelRandomMatch}
-          className="rounded-xl border-2 border-[var(--color-foreground)] px-6 py-3 font-semibold"
-        >
-          キャンセル
-        </button>
-      </main>
+    return shell(
+      <BattleStatusPanel
+        spinning
+        title="対戦相手を探しています"
+        description="見つかり次第、自動で対戦が始まります。"
+        actions={
+          <BattleButton variant="outline" icon="close" onClick={cancelRandomMatch}>
+            キャンセル
+          </BattleButton>
+        }
+      />,
+      <BattleScreenHeader
+        eyebrow="RANDOM MATCH"
+        title="マッチング中"
+        onBack={cancelRandomMatch}
+      />,
     );
   }
 
-  if (mode === 'hosting' && hostedRoom) {
-    return (
-      <main className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center p-6 text-center">
-        <h1 className="mb-2 text-lg font-bold">招待コード</h1>
-        <p className="mb-6 text-sm text-[var(--color-muted)]">
-          このコードを相手に伝えてください。参加すると自動で始まります。
-        </p>
-        <div className="mb-8 rounded-2xl border-2 border-[var(--color-foreground)] px-8 py-6 font-mono text-4xl font-bold tracking-[0.3em]">
-          {hostedRoom.inviteCode}
+  if (mode === 'hosting' && hostedRoom?.inviteCode) {
+    const leaveHosting = () => {
+      setMode('idle');
+      setHostedRoom(null);
+    };
+
+    return shell(
+      <BattleStatusPanel
+        spinning
+        title="相手を待っています"
+        description="このコードを相手に伝えてください。参加すると自動で始まります。"
+        actions={
+          <BattleButton variant="outline" icon="close" onClick={leaveHosting}>
+            キャンセル
+          </BattleButton>
+        }
+      >
+        <BattleInviteCard inviteCode={hostedRoom.inviteCode} />
+      </BattleStatusPanel>,
+      <BattleScreenHeader eyebrow="FRIEND MATCH" title="招待コード" onBack={leaveHosting} />,
+    );
+  }
+
+  return shell(
+    <div className="px-[18px] pb-8 pt-4">
+      <div className="mb-6 flex items-start gap-3 rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] p-4 text-white shadow-[2px_3px_0_var(--solid-ink)]">
+        <Icon name="bolt" size={24} className="mt-0.5 shrink-0" />
+        <div>
+          <p className="font-display text-[15px] font-black leading-tight">早押し4択バトル</p>
+          <p className="mt-1 text-[12px] leading-relaxed opacity-90">
+            先に正解した方が1ポイント。1問につき回答は1人1回だけです。
+          </p>
         </div>
-        <div className="mb-6 h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-surface-secondary)] border-t-[var(--color-foreground)]" />
-        <button
-          type="button"
-          onClick={() => { setMode('idle'); setHostedRoom(null); }}
-          className="rounded-xl border-2 border-[var(--color-foreground)] px-6 py-3 font-semibold"
-        >
-          キャンセル
-        </button>
-      </main>
-    );
-  }
-
-  return (
-    <main className="mx-auto max-w-md p-6">
-      <h1 className="mb-2 text-2xl font-bold">リアルタイム単語対戦</h1>
-      <p className="mb-8 text-sm text-[var(--color-muted)]">
-        早押し4択。お互いの単語帳から出題され、先に正解した方がポイントを取ります。
-      </p>
+      </div>
 
       {error && (
-        <p className="mb-6 rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="mb-5 flex items-start gap-2 rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-error-light)] px-3.5 py-3 text-[13px] text-[var(--color-error)]"
+        >
+          <Icon name="error" size={16} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
       )}
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-bold">使う単語帳</h2>
-        {projectsLoading ? (
-          <p className="text-sm text-[var(--color-muted)]">読み込み中...</p>
-        ) : projects.length === 0 ? (
-          <p className="text-sm text-[var(--color-muted)]">
-            単語帳がありません。先に単語帳を作成してください。
-          </p>
-        ) : (
-          <select
-            value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
-            className="w-full rounded-xl border-2 border-[var(--color-foreground)] bg-[var(--color-surface)] p-3 font-semibold"
-          >
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.title}
-              </option>
-            ))}
-          </select>
-        )}
-      </section>
+      <div className="mb-7 grid gap-5">
+        <BattleWordbookField
+          projects={projects}
+          loading={projectsLoading}
+          value={projectId}
+          onChange={setProjectId}
+        />
+        <BattleSettingsFields
+          questionCount={questionCount}
+          onQuestionCountChange={setQuestionCount}
+          questionCountOptions={QUESTION_COUNT_OPTIONS}
+          roundDurationMs={roundDurationMs}
+          onRoundDurationChange={setRoundDurationMs}
+          roundDurationOptions={ROUND_DURATION_OPTIONS}
+        />
+      </div>
 
-      <section className="mb-8 grid grid-cols-2 gap-4">
-        <div>
-          <h2 className="mb-3 text-sm font-bold">問題数</h2>
-          <div className="flex gap-2">
-            {QUESTION_COUNT_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setQuestionCount(option)}
-                className={`flex-1 rounded-xl border-2 py-2 text-sm font-semibold ${
-                  questionCount === option
-                    ? 'border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white'
-                    : 'border-[var(--color-foreground)]'
-                }`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <h2 className="mb-3 text-sm font-bold">制限時間</h2>
-          <div className="flex gap-2">
-            {ROUND_DURATION_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setRoundDurationMs(option.value)}
-                className={`flex-1 rounded-xl border-2 py-2 text-sm font-semibold ${
-                  roundDurationMs === option.value
-                    ? 'border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white'
-                    : 'border-[var(--color-foreground)]'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <button
-        type="button"
+      <BattleButton
+        icon="shuffle"
+        disabled={busy || !hasProject}
         onClick={startRandomMatch}
-        disabled={busy || !selectedProject}
-        className="mb-8 w-full rounded-xl bg-[var(--color-foreground)] py-4 text-lg font-bold text-white disabled:opacity-50"
+        className="mb-7"
       >
         ランダムマッチ
-      </button>
+      </BattleButton>
 
-      <section className="rounded-2xl border-2 border-[var(--color-foreground)] p-5">
-        <h2 className="mb-4 text-sm font-bold">フレンド対戦</h2>
+      <section className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 shadow-[2px_3px_0_var(--solid-ink)]">
+        <div className="mb-3.5 flex items-center gap-1.5">
+          <Icon name="group" size={14} className="text-[var(--color-muted)]" />
+          <h2 className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+            フレンド対戦
+          </h2>
+        </div>
 
-        <button
-          type="button"
+        <BattleButton
+          variant="outline"
+          icon="add"
+          disabled={busy || !hasProject}
           onClick={createFriendRoom}
-          disabled={busy || !selectedProject}
-          className="mb-4 w-full rounded-xl border-2 border-[var(--color-foreground)] py-3 font-semibold disabled:opacity-50"
+          className="mb-3.5"
         >
           招待コードを作る
-        </button>
+        </BattleButton>
 
         <div className="flex gap-2">
           <input
             value={joinCode}
             onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-            placeholder="コードを入力"
+            placeholder="コード"
             maxLength={8}
             inputMode="text"
             autoCapitalize="characters"
-            className="min-w-0 flex-1 rounded-xl border-2 border-[var(--color-foreground)] bg-[var(--color-surface)] p-3 text-center font-mono text-lg font-bold tracking-[0.2em]"
+            autoComplete="off"
+            aria-label="招待コード"
+            className="min-w-0 flex-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] px-3 py-3 text-center font-display text-[18px] font-black uppercase tracking-[0.2em] text-[var(--solid-ink)] placeholder:text-[13px] placeholder:font-bold placeholder:tracking-normal placeholder:text-[var(--color-muted)]"
           />
           <button
             type="button"
             onClick={joinFriendRoom}
-            disabled={busy || !selectedProject || joinCode.length === 0}
-            className="rounded-xl bg-[var(--color-foreground)] px-5 font-semibold text-white disabled:opacity-50"
+            disabled={busy || !hasProject || joinCode.length === 0}
+            className="shrink-0 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 font-display text-[14px] font-bold text-[var(--color-background)] shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)] disabled:opacity-45 disabled:shadow-none"
           >
             参加
           </button>
         </div>
       </section>
-    </main>
+    </div>,
   );
 }
