@@ -198,7 +198,7 @@ export function BattleSetupCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
-            出題に使う単語帳
+            自分が出題するときの単語帳
           </div>
           <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
             {projectsLoading
@@ -235,7 +235,7 @@ export function BattleSetupCard({
 }
 
 const RULES: { icon: string; title: string; detail: string }[] = [
-  { icon: 'shuffle', title: '両者の単語帳', detail: '交互に出題' },
+  { icon: 'menu_book', title: '出題者の単語帳', detail: 'から出題' },
   { icon: 'bolt', title: '先に正解', detail: '+1点' },
   { icon: 'toll', title: 'コイン', detail: '消費なし' },
 ];

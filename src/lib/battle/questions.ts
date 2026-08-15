@@ -3,7 +3,7 @@ import type { BattleGeneratedQuestion, BattleSourceWord } from '@/lib/battle/typ
 
 /**
  * Fallback meanings used only when a word has no distractors of its own and the
- * merged pool is too small to supply real ones.
+ * host's wordbook is too small to supply real ones.
  */
 export const BATTLE_GENERIC_DISTRACTORS = [
   '確認する', '提供する', '参加する', '検討する', '対応する', '説明する', '準備する', '記録する',
@@ -29,49 +29,27 @@ function isUsable(word: BattleSourceWord): boolean {
 }
 
 /**
- * Takes from both sides in turn so neither player's wordbook dominates the set.
- * When one side runs out the other fills the remainder.
+ * Picks the words to ask, in order. Unusable rows are skipped and a headword is
+ * only ever asked once, so a short wordbook shortens the battle rather than
+ * repeating itself.
  */
-export function interleaveSources(
-  hostWords: readonly BattleSourceWord[],
-  guestWords: readonly BattleSourceWord[],
+export function selectBattleWords(
+  words: readonly BattleSourceWord[],
   limit: number,
 ): BattleSourceWord[] {
-  const merged: BattleSourceWord[] = [];
+  const selected: BattleSourceWord[] = [];
   const seenEnglish = new Set<string>();
-  let hostIndex = 0;
-  let guestIndex = 0;
-  let takeHost = true;
 
-  const push = (word: BattleSourceWord | undefined): boolean => {
-    if (!word || !isUsable(word)) return false;
+  for (const word of words) {
+    if (selected.length >= limit) break;
+    if (!isUsable(word)) continue;
     const key = normalize(word.english);
-    if (seenEnglish.has(key)) return false;
+    if (seenEnglish.has(key)) continue;
     seenEnglish.add(key);
-    merged.push(word);
-    return true;
-  };
-
-  while (merged.length < limit && (hostIndex < hostWords.length || guestIndex < guestWords.length)) {
-    const hostExhausted = hostIndex >= hostWords.length;
-    const guestExhausted = guestIndex >= guestWords.length;
-    const useHost = hostExhausted ? false : guestExhausted ? true : takeHost;
-
-    if (useHost) {
-      push(hostWords[hostIndex]);
-      hostIndex += 1;
-    } else {
-      push(guestWords[guestIndex]);
-      guestIndex += 1;
-    }
-
-    // Only alternate when both sides still have words left to offer.
-    if (!hostExhausted && !guestExhausted) {
-      takeHost = !takeHost;
-    }
+    selected.push(word);
   }
 
-  return merged;
+  return selected;
 }
 
 function buildChoices(
@@ -111,19 +89,17 @@ function buildChoices(
 }
 
 /**
- * Builds the shared question set for a battle by merging both participants'
- * wordbooks. Both players see exactly the same questions in the same order.
+ * Builds the shared question set from the host's (出題者) wordbook only.
+ * The guest answers the host's words, and both players see exactly the same
+ * questions in the same order.
  */
 export function buildBattleQuestions(
   hostWords: readonly BattleSourceWord[],
-  guestWords: readonly BattleSourceWord[],
   questionCount: number,
   shuffle: ShuffleFn = defaultShuffle,
 ): BattleGeneratedQuestion[] {
-  const usableHost = shuffle(hostWords.filter(isUsable));
-  const usableGuest = shuffle(guestWords.filter(isUsable));
-  const selected = interleaveSources(usableHost, usableGuest, questionCount);
-  const pool = [...usableHost, ...usableGuest];
+  const pool = shuffle(hostWords.filter(isUsable));
+  const selected = selectBattleWords(pool, questionCount);
 
   return selected.map((word, roundIndex) => {
     const { choices, correctIndex } = buildChoices(word, pool, shuffle);

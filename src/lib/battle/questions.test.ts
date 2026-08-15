@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import {
   BATTLE_GENERIC_DISTRACTORS,
   buildBattleQuestions,
-  interleaveSources,
+  selectBattleWords,
   type ShuffleFn,
 } from '@/lib/battle/questions';
 import type { BattleSourceWord } from '@/lib/battle/types';
@@ -27,82 +27,52 @@ function makeWords(ownerId: string, count: number, prefix: string): BattleSource
   );
 }
 
-test('interleaveSources alternates between the two wordbooks', () => {
-  const host = makeWords('host', 3, 'h');
-  const guest = makeWords('guest', 3, 'g');
+test('selectBattleWords stops at the limit', () => {
+  const selected = selectBattleWords(makeWords('host', 10, 'h'), 4);
 
-  const merged = interleaveSources(host, guest, 6);
-
-  assert.deepEqual(
-    merged.map((item) => item.ownerId),
-    ['host', 'guest', 'host', 'guest', 'host', 'guest'],
-  );
+  assert.deepEqual(selected.map((item) => item.id), ['h0', 'h1', 'h2', 'h3']);
 });
 
-test('interleaveSources fills from the remaining side once one runs out', () => {
-  const host = makeWords('host', 1, 'h');
-  const guest = makeWords('guest', 4, 'g');
+test('selectBattleWords asks a headword only once', () => {
+  const words = [
+    word('h0', 'host', 'apple', 'りんご'),
+    word('h1', 'host', 'Apple', 'アップル'),
+    word('h2', 'host', 'banana', 'バナナ'),
+  ];
 
-  const merged = interleaveSources(host, guest, 5);
+  const selected = selectBattleWords(words, 10);
 
-  assert.deepEqual(
-    merged.map((item) => item.ownerId),
-    ['host', 'guest', 'guest', 'guest', 'guest'],
-  );
+  assert.deepEqual(selected.map((item) => item.english), ['apple', 'banana']);
 });
 
-test('interleaveSources drops duplicate english across the two wordbooks', () => {
-  const host = [word('h0', 'host', 'apple', 'りんご')];
-  const guest = [word('g0', 'guest', 'Apple', 'アップル'), word('g1', 'guest', 'banana', 'バナナ')];
+test('selectBattleWords skips words missing english or japanese', () => {
+  const words = [
+    word('h0', 'host', '  ', 'りんご'),
+    word('h1', 'host', 'pear', '   '),
+    word('h2', 'host', 'banana', 'バナナ'),
+  ];
 
-  const merged = interleaveSources(host, guest, 10);
+  const selected = selectBattleWords(words, 10);
 
-  assert.deepEqual(
-    merged.map((item) => item.english),
-    ['apple', 'banana'],
-  );
-});
-
-test('interleaveSources skips words missing english or japanese', () => {
-  const host = [word('h0', 'host', '  ', 'りんご'), word('h1', 'host', 'pear', '   ')];
-  const guest = [word('g0', 'guest', 'banana', 'バナナ')];
-
-  const merged = interleaveSources(host, guest, 10);
-
-  assert.deepEqual(merged.map((item) => item.id), ['g0']);
+  assert.deepEqual(selected.map((item) => item.id), ['h2']);
 });
 
 test('buildBattleQuestions stops at the requested question count', () => {
-  const questions = buildBattleQuestions(
-    makeWords('host', 20, 'h'),
-    makeWords('guest', 20, 'g'),
-    10,
-    identityShuffle,
-  );
+  const questions = buildBattleQuestions(makeWords('host', 20, 'h'), 10, identityShuffle);
 
   assert.equal(questions.length, 10);
   assert.deepEqual(questions.map((item) => item.roundIndex), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 });
 
-test('buildBattleQuestions draws from both wordbooks', () => {
-  const questions = buildBattleQuestions(
-    makeWords('host', 10, 'h'),
-    makeWords('guest', 10, 'g'),
-    10,
-    identityShuffle,
-  );
+test('buildBattleQuestions asks only the host wordbook', () => {
+  const questions = buildBattleQuestions(makeWords('host', 10, 'h'), 10, identityShuffle);
 
   const owners = new Set(questions.map((item) => item.sourceUserId));
-  assert.deepEqual([...owners].sort(), ['guest', 'host']);
+  assert.deepEqual([...owners], ['host']);
 });
 
 test('buildBattleQuestions produces four choices containing the answer at correctIndex', () => {
-  const questions = buildBattleQuestions(
-    makeWords('host', 6, 'h'),
-    makeWords('guest', 6, 'g'),
-    4,
-    identityShuffle,
-  );
+  const questions = buildBattleQuestions(makeWords('host', 6, 'h'), 4, identityShuffle);
 
   for (const question of questions) {
     assert.equal(question.choices.length, 4);
@@ -112,10 +82,12 @@ test('buildBattleQuestions produces four choices containing the answer at correc
 });
 
 test('buildBattleQuestions prefers the word own distractors', () => {
-  const host = [word('h0', 'host', 'apple', 'りんご', ['みかん', 'ぶどう', 'もも'])];
-  const guest = [word('g0', 'guest', 'banana', 'バナナ', ['いちご', 'すいか', 'なし'])];
+  const host = [
+    word('h0', 'host', 'apple', 'りんご', ['みかん', 'ぶどう', 'もも']),
+    word('h1', 'host', 'banana', 'バナナ', ['いちご', 'すいか', 'なし']),
+  ];
 
-  const [question] = buildBattleQuestions(host, guest, 1, identityShuffle);
+  const [question] = buildBattleQuestions(host, 1, identityShuffle);
 
   assert.equal(question.answer, 'りんご');
   assert.deepEqual(question.choices, ['りんご', 'みかん', 'ぶどう', 'もも']);
@@ -124,7 +96,7 @@ test('buildBattleQuestions prefers the word own distractors', () => {
 test('buildBattleQuestions never uses the answer as a distractor', () => {
   const host = [word('h0', 'host', 'apple', 'りんご', ['りんご', 'リンゴ', 'みかん', 'ぶどう'])];
 
-  const [question] = buildBattleQuestions(host, [], 1, identityShuffle);
+  const [question] = buildBattleQuestions(host, 1, identityShuffle);
 
   const answerOccurrences = question.choices.filter(
     (choice) => choice.trim().toLowerCase() === question.answer.trim().toLowerCase(),
@@ -132,10 +104,19 @@ test('buildBattleQuestions never uses the answer as a distractor', () => {
   assert.equal(answerOccurrences.length, 1);
 });
 
-test('buildBattleQuestions falls back to generic distractors for a tiny pool', () => {
+test('buildBattleQuestions fills distractors from the rest of the host wordbook', () => {
+  const host = makeWords('host', 6, 'h');
+
+  const [question] = buildBattleQuestions(host, 1, identityShuffle);
+
+  assert.equal(question.answer, 'h訳0');
+  assert.deepEqual(question.choices, ['h訳0', 'h訳1', 'h訳2', 'h訳3']);
+});
+
+test('buildBattleQuestions falls back to generic distractors for a tiny wordbook', () => {
   const host = [word('h0', 'host', 'apple', 'りんご')];
 
-  const [question] = buildBattleQuestions(host, [], 1, identityShuffle);
+  const [question] = buildBattleQuestions(host, 1, identityShuffle);
 
   const fillers = question.choices.filter((choice) =>
     (BATTLE_GENERIC_DISTRACTORS as readonly string[]).includes(choice),
@@ -144,20 +125,8 @@ test('buildBattleQuestions falls back to generic distractors for a tiny pool', (
   assert.equal(fillers.length, 3);
 });
 
-test('buildBattleQuestions works when only one side has words', () => {
-  const questions = buildBattleQuestions(makeWords('host', 8, 'h'), [], 5, identityShuffle);
-
-  assert.equal(questions.length, 5);
-  assert.ok(questions.every((item) => item.sourceUserId === 'host'));
-});
-
 test('buildBattleQuestions returns fewer questions than requested when words run out', () => {
-  const questions = buildBattleQuestions(
-    makeWords('host', 2, 'h'),
-    makeWords('guest', 1, 'g'),
-    10,
-    identityShuffle,
-  );
+  const questions = buildBattleQuestions(makeWords('host', 3, 'h'), 10, identityShuffle);
 
   assert.equal(questions.length, 3);
 });

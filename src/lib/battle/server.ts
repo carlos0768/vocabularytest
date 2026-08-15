@@ -491,18 +491,21 @@ export async function startBattle(options: {
   }
 
   try {
-    const [hostWords, guestWords] = await Promise.all([
-      loadBattleSourceWords(claimed.host_project_id, claimed.host_user_id, admin),
-      loadBattleSourceWords(claimed.guest_project_id as string, claimed.guest_user_id as string, admin),
-    ]);
+    // 出題は出題者（ホスト）の単語帳だけから作る。ゲストの単語帳は参加時に
+    // 記録するだけで、問題には使わない。
+    const hostWords = await loadBattleSourceWords(
+      claimed.host_project_id,
+      claimed.host_user_id,
+      admin,
+    );
 
-    const questions = buildBattleQuestions(hostWords, guestWords, claimed.question_count);
+    const questions = buildBattleQuestions(hostWords, claimed.question_count);
 
     if (questions.length < BATTLE_MIN_SOURCE_WORDS) {
       throw new BattleError(
         'battle_not_enough_words',
         409,
-        `対戦には合計${BATTLE_MIN_SOURCE_WORDS}語以上の単語が必要です。`,
+        `対戦には出題者の単語帳に${BATTLE_MIN_SOURCE_WORDS}語以上の単語が必要です。`,
       );
     }
 
