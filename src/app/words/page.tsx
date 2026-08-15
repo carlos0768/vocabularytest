@@ -12,26 +12,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { WordFilterPanel, WordFilterSheet } from '@/components/words/WordFilterPanel';
 import { WordRow } from '@/components/project/WordRow';
+import { StackedBar } from '@/components/project/WordStatusBar';
 import { Icon } from '@/components/ui/Icon';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useWordLibrary } from '@/hooks/use-word-library';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import {
   DEFAULT_WORD_FILTER,
-  FEATURE_LABELS,
   SORT_LABELS,
-  STATUS_LABELS,
   clearFilterConditions,
   countActiveFilters,
   deriveFilterOptions,
   describeActiveFilters,
   filterAndSortWords,
-  hasFeature,
   summarizeStatuses,
-  type FeatureKey,
   type SortKey,
   type WordFilterState,
   type WordListEntry,
@@ -52,45 +50,9 @@ const SORT_KEYS: SortKey[] = [
   'wrong',
 ];
 
-const STATUS_BAR_COLORS: Record<WordStatus, string> = {
-  mastered: 'var(--color-success)',
-  active: '#2563eb',
-  review: '#137fec',
-  new: 'rgba(26,26,26,0.15)',
-};
-
-/** 行の下に出す要素マーク。絞り込み結果を目で確認できるようにする。 */
-const META_FEATURE_KEYS: FeatureKey[] = [
-  'example',
-  'pronunciation',
-  'morphology',
-  'derived',
-  'multiMeaning',
-  'custom',
-];
-
-/**
- * 単語帳をまたぐ一覧なので、行に「どの単語帳の語か」を足す。
- * 単語帳詳細の行には無い情報なので、WordRow の metaLine として渡す。
- */
-function WordMetaLine({ entry }: { entry: WordListEntry }) {
-  const marks = META_FEATURE_KEYS.filter((key) => hasFeature(entry, key)).map(
-    (key) => FEATURE_LABELS[key],
-  );
-
-  return (
-    <div className="mt-[3px] flex items-center gap-1.5 overflow-hidden font-mono text-[9px] text-[var(--color-muted)]">
-      <span className="truncate">{entry.projectTitle}</span>
-      {marks.length > 0 && <span className="shrink-0 truncate opacity-70">{marks.join('・')}</span>}
-      {entry.wrongCount > 0 && (
-        <span className="shrink-0 font-bold text-[var(--color-error)]">誤答{entry.wrongCount}</span>
-      )}
-    </div>
-  );
-}
-
 export default function WordsPage() {
   const { entries, loading, error, repository, applyWordUpdate, removeWord } = useWordLibrary();
+  const pageScrolled = usePageScrolled();
   const [filter, setFilter] = useState<WordFilterState>(DEFAULT_WORD_FILTER);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -209,91 +171,113 @@ export default function WordsPage() {
 
   return (
     <div
-      className="mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 lg:max-w-[1180px] lg:pb-10"
+      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 lg:pb-10"
       style={{ fontFamily: 'var(--font-body)' }}
     >
-      <div className="pb-3 pt-1">
-        <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-          ALL WORDS
+      {/* スクロールしても上部に固定されるヘッダー(単語帳詳細と同じパターン)。
+          下線はコンテンツがヘッダの下に潜り込んだときだけ出す。 */}
+      <header
+        className={`sticky z-40 border-b-2 bg-[var(--color-background)]/95 px-[14px] pb-2.5 pt-2.5 backdrop-blur-md ${
+          pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'
+        }`}
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="shrink-0 font-display text-[18px] font-extrabold leading-none tracking-[-0.02em] text-[var(--solid-ink)]">
+            単語一覧
+          </span>
+          <span className="min-w-0 truncate font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+            ALL WORDS
+          </span>
+          <span className="ml-auto shrink-0 font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
+            <span className="text-[14px] text-[var(--solid-ink)]">{results.length}</span>
+            <span> / {entries.length}語</span>
+          </span>
         </div>
-        <div className="mt-1.5 font-display text-2xl font-extrabold leading-[1.15] tracking-[-0.02em] text-[var(--solid-ink)]">
-          単語一覧
-        </div>
-        <div className="mt-1.5 text-[12px] font-medium text-[var(--color-muted)]">
-          単語帳をまたいで、条件を組み合わせて単語を探せます
-        </div>
-      </div>
 
-      <div className="lg:grid lg:grid-cols-[286px_1fr] lg:items-start lg:gap-6">
+        {/* 検索・絞り込み・並べ替えを一列に並べる */}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3">
+            <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+            <input
+              value={filter.query}
+              onChange={(event) => setFilter((prev) => ({ ...prev, query: event.target.value }))}
+              placeholder="単語・意味・例文で検索"
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+            />
+            {filter.query && (
+              <button
+                type="button"
+                onClick={() => setFilter((prev) => ({ ...prev, query: '' }))}
+                aria-label="検索をクリア"
+                className="shrink-0 text-[var(--color-muted)]"
+              >
+                <Icon name="close" size={15} />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            aria-label="絞り込み"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] lg:hidden"
+          >
+            <Icon name="tune" size={17} />
+            {activeCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1 font-mono text-[9.5px] font-bold tabular-nums text-white">
+                {activeCount}
+              </span>
+            )}
+          </button>
+
+          {/* 並べ替え: 端末標準のピッカーを出すため select をそのまま重ねる */}
+          <label className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-2.5 text-[var(--solid-ink)]">
+            <Icon name="swap_vert" size={16} className="shrink-0 text-[var(--color-muted)]" />
+            <span className="hidden max-w-[150px] truncate text-[11.5px] font-bold lg:inline">
+              {SORT_LABELS[filter.sort]}
+            </span>
+            <select
+              value={filter.sort}
+              onChange={(event) =>
+                setFilter((prev) => ({ ...prev, sort: event.target.value as SortKey }))
+              }
+              aria-label="並べ替え"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            >
+              {SORT_KEYS.map((key) => (
+                <option key={key} value={key}>
+                  {SORT_LABELS[key]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </header>
+
+      {/* 学習度の内訳。単語帳詳細と同じバーを、枠を持たせず背景の上に置く */}
+      {results.length > 0 && (
+        <div className="px-4 pb-1 pt-3 lg:px-5">
+          <StackedBar
+            total={results.length}
+            m={statusSummary.mastered}
+            a={statusSummary.active}
+            l={statusSummary.review}
+            n={statusSummary.new}
+          />
+        </div>
+      )}
+
+      <div className="px-4 pt-2.5 lg:grid lg:grid-cols-[286px_1fr] lg:items-start lg:gap-6 lg:px-5">
         {/* デスクトップ: 左に絞り込みを常設 */}
-        <aside className="sticky top-4 hidden max-h-[calc(100dvh-40px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 lg:block">
+        <aside className="sticky top-[104px] hidden max-h-[calc(100dvh-124px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 lg:block">
           <WordFilterPanel {...panelProps} />
         </aside>
 
-        <div className="min-w-0">
-          {/* 検索 + 並べ替え + (モバイル)絞り込みボタン */}
-          <div className="sticky top-0 z-20 -mx-[18px] bg-[var(--color-background)] px-[18px] pb-2.5 pt-1 lg:static lg:mx-0 lg:px-0">
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3">
-                <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
-                <input
-                  value={filter.query}
-                  onChange={(event) => setFilter((prev) => ({ ...prev, query: event.target.value }))}
-                  placeholder="単語・意味・例文で検索"
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
-                />
-                {filter.query && (
-                  <button
-                    type="button"
-                    onClick={() => setFilter((prev) => ({ ...prev, query: '' }))}
-                    aria-label="検索をクリア"
-                    className="shrink-0 text-[var(--color-muted)]"
-                  >
-                    <Icon name="close" size={15} />
-                  </button>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSheetOpen(true)}
-                className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 text-[12px] font-bold text-[var(--solid-ink)] lg:hidden"
-              >
-                <Icon name="tune" size={16} />
-                絞り込み
-                {activeCount > 0 && (
-                  <span className="rounded-full bg-[var(--solid-ink)] px-[6px] py-px font-mono text-[9.5px] font-bold tabular-nums text-white">
-                    {activeCount}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            <div className="mt-2 flex items-center gap-2">
-              <label className="flex h-9 min-w-0 items-center gap-1.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-2.5">
-                <Icon name="swap_vert" size={15} className="shrink-0 text-[var(--color-muted)]" />
-                <select
-                  value={filter.sort}
-                  onChange={(event) =>
-                    setFilter((prev) => ({ ...prev, sort: event.target.value as SortKey }))
-                  }
-                  aria-label="並べ替え"
-                  className="min-w-0 bg-transparent text-[11.5px] font-bold text-[var(--solid-ink)] outline-none"
-                >
-                  {SORT_KEYS.map((key) => (
-                    <option key={key} value={key}>
-                      {SORT_LABELS[key]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="ml-auto shrink-0 font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
-                <span className="text-[15px] text-[var(--solid-ink)]">{results.length}</span>
-                <span> / {entries.length}語</span>
-              </div>
-            </div>
-          </div>
+        {/* 横にはみ出させない。sticky なヘッダ/サイドバーの祖先に overflow を
+            付けると sticky がその要素基準になって効かなくなるので、
+            sticky を含まないこのカラムだけで閉じる。 */}
+        <div className="min-w-0 overflow-x-hidden">
 
           {/* 適用中の条件: 1つずつ外せる */}
           {activeChips.length > 0 && (
@@ -319,38 +303,20 @@ export default function WordsPage() {
             </div>
           )}
 
-          {/* 絞り込み結果の学習度の内訳 */}
-          {results.length > 0 && (
-            <div className="mb-2.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3 py-2.5">
-              <div className="flex h-1.5 overflow-hidden rounded-sm border border-[var(--color-border)]">
-                {(['mastered', 'active', 'review', 'new'] as WordStatus[]).map((status) => (
-                  <div
-                    key={status}
-                    style={{ flex: statusSummary[status], background: STATUS_BAR_COLORS[status] }}
-                  />
-                ))}
-              </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] font-bold">
-                {(['mastered', 'active', 'review', 'new'] as WordStatus[]).map((status) => (
-                  <span key={status} style={{ color: STATUS_BAR_COLORS[status] === 'rgba(26,26,26,0.15)' ? 'var(--color-muted)' : STATUS_BAR_COLORS[status] }}>
-                    ● {STATUS_LABELS[status]} {statusSummary[status]}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
           {error && (
             <p className="mb-2 text-[11px] font-bold text-[var(--color-error)]">{error}</p>
           )}
 
           {loading ? (
-            <div className="flex flex-col gap-1.5">
+            <div className="divide-y divide-[var(--color-border)]">
               {[0, 1, 2, 3, 4, 5].map((index) => (
-                <div
-                  key={index}
-                  className="h-[68px] animate-pulse rounded-[10px] border-[1.5px] border-[var(--color-border)] bg-white"
-                />
+                <div key={index} className="flex items-center gap-2.5 px-1 py-2.5">
+                  <div className="h-[43px] w-[13px] animate-pulse rounded bg-[var(--color-border)]" />
+                  <div className="flex-1">
+                    <div className="h-[15px] w-1/3 animate-pulse rounded bg-[var(--color-border)]" />
+                    <div className="mt-1.5 h-[11px] w-1/2 animate-pulse rounded bg-[var(--color-border)]" />
+                  </div>
+                </div>
               ))}
             </div>
           ) : entries.length === 0 ? (
@@ -377,15 +343,15 @@ export default function WordsPage() {
             </div>
           ) : (
             <>
-              {/* 行は単語帳詳細と同じ WordRow を使う (区切り線つきの一覧) */}
-              <div className="divide-y divide-[var(--color-border)] rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3">
+              {/* 行も枠も単語帳詳細と同じ (区切り線だけの横幅いっぱいの一覧) */}
+              <div className="divide-y divide-[var(--color-border)]">
                 {visible.map((entry) => (
                   <WordRow
                     key={entry.word.id}
                     word={entry.word}
                     selectMode={false}
                     selected={false}
-                    metaLine={<WordMetaLine entry={entry} />}
+                    wrongCount={entry.wrongCount}
                     onToggleSelect={() => {}}
                     onCycleStatus={(newStatus) => handleCycleStatus(entry, newStatus)}
                     onCycleVocabularyType={() => void handleCycleVocabularyType(entry)}

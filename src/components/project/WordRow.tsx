@@ -9,7 +9,7 @@
  * 使えるようにここへ切り出した。
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
@@ -107,12 +107,25 @@ export function StatusSquares({
   );
 }
 
+/** クイズで間違えた回数のバッジ。0回の単語には出さない。 */
+function WrongCountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className="shrink-0 font-mono text-[9.5px] font-bold tabular-nums text-[var(--color-error)]"
+      title={`クイズで ${count} 回間違えた単語`}
+    >
+      誤答{count}
+    </span>
+  );
+}
+
 export function WordRow({
   word,
   selectMode,
   selected,
   tourAnchor = false,
-  metaLine,
+  wrongCount = 0,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -123,11 +136,8 @@ export function WordRow({
   selectMode: boolean;
   selected: boolean;
   tourAnchor?: boolean;
-  /**
-   * 訳の下に足す補足行。単語帳をまたぐ一覧で「どの単語帳の語か」を
-   * 出すために使う。単語帳詳細では渡さない (行の見た目は元のまま)。
-   */
-  metaLine?: ReactNode;
+  /** クイズでの誤答回数。単語帳をまたぐ一覧で「間違えた単語」を見分けるために出す。 */
+  wrongCount?: number;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -156,8 +166,8 @@ export function WordRow({
               <span className="truncate">
                 <TranslationDisplay word={word} compact />
               </span>
+              <WrongCountBadge count={wrongCount} />
             </div>
-            {metaLine}
           </div>
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
           <BookmarkBadge active={word.isFavorite} />
@@ -183,8 +193,8 @@ export function WordRow({
             <span className="truncate">
               <TranslationDisplay word={word} compact />
             </span>
+            <WrongCountBadge count={wrongCount} />
           </div>
-          {metaLine}
         </button>
 
         <VocabularyTypeButton

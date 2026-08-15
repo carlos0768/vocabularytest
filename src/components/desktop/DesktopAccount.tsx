@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
-import { ReviewLimitPicker } from '@/components/settings/ReviewLimitPicker';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useCoins } from '@/hooks/use-coins';
 
@@ -63,9 +62,9 @@ export function DesktopSettingsView({
           <div className="ds-set-group">
             <div className="gh">アカウント</div>
             <div className="ds-set-row">
-              <Link
-                href="/profile"
-                style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
+              {/* アカウント表示はタップしても遷移させない (表示のみ) */}
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0, color: 'inherit' }}
               >
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -85,7 +84,7 @@ export function DesktopSettingsView({
                   <div className="d">{email ?? 'ゲスト'}</div>
                   {accountId && <div className="d mono">@{accountId}</div>}
                 </div>
-              </Link>
+              </div>
               <span className="ds-pro-badge">
                 <Icon name={isPro ? 'bolt' : 'person'} filled style={{ fontSize: 13 }} />
                 {isPro ? 'PRO' : 'FREE'}
@@ -167,26 +166,13 @@ export function DesktopSettingsView({
           </div>
 
           <div className="ds-set-group">
-            <div className="gh">学習</div>
-            <div style={{ padding: '14px 16px' }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700 }}>1日の復習上限</div>
-              <p className="muted" style={{ fontSize: 11.5, lineHeight: 1.7, margin: '4px 0 10px' }}>
-                復習クイズに出す問題数の上限。間違いが多い単語・CEFRが高い単語から優先して選ばれます
-              </p>
-              <ReviewLimitPicker />
-            </div>
-          </div>
-
-          <div className="ds-set-group">
             <div className="gh">カスタマイズ</div>
             <SettingsLink icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
           </div>
 
           <div className="ds-set-group">
             <div className="gh">豆知識</div>
-            <SettingsLink icon="text_fields" label="接頭語（プレフィックス）" description="un- / re- / pre- など、頭に付くパーツの意味と例" href="/tips/prefixes" />
-            <SettingsLink icon="text_fields" label="接尾語（サフィックス）" description="-tion / -ous / -able など、品詞を決めるパーツ" href="/tips/suffixes" />
-            <SettingsLink icon="text_fields" label="接中語（インフィックス）" description="therm-o-meter の -o- など、語根をつなぐパーツ" href="/tips/infixes" />
+            <SettingsLink icon="lightbulb" label="豆知識" description="接頭語・接尾語・接中語のパーツ辞典" href="/tips" />
           </div>
 
           <div className="ds-set-group">

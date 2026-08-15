@@ -11,6 +11,15 @@ export const BATTLE_MAX_ROUND_DURATION_MS = 60_000;
 /** How long the result of a resolved round stays on screen before advancing. */
 export const BATTLE_ROUND_REVEAL_MS = 2_000;
 
+/**
+ * Retry budget for the RPCs that drive rounds forward (timeout resolve, advance).
+ * Nothing downstream re-sends them: once a round is resolved the countdown is
+ * over and neither player can act, so a dropped call has to be retried here or
+ * the battle stays on that question.
+ */
+export const BATTLE_ROUND_ACTION_RETRY_MS = 1_000;
+export const BATTLE_ROUND_ACTION_MAX_RETRIES = 3;
+
 /** A queued player older than this is dropped by `pair_battle_match`. */
 export const BATTLE_QUEUE_STALE_MS = 120_000;
 

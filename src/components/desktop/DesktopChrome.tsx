@@ -9,15 +9,14 @@ import { useCoins } from '@/hooks/use-coins';
 import { useProfile } from '@/hooks/use-profile';
 import { cn } from '@/lib/utils';
 
-type NavKey = 'home' | 'books' | 'stats' | 'words' | 'reels' | 'feed' | 'shared' | 'fav' | 'scan' | 'settings';
+type NavKey = 'home' | 'books' | 'stats' | 'reels' | 'feed' | 'shared' | 'fav' | 'scan' | 'settings';
 
 type NavItem = { key: NavKey; href: string; icon: string; label: string; count?: number };
 
-// Pro: 単語一覧入り(リールなし)。Free: 従来のナビ(リール入り)を維持する。
-// モバイルの BottomNav と同じ出し分け。語法問題集はホームのセクションから開く。
+// Pro: リールなし。Free: 従来のナビ(リール入り)を維持する。
+// 単語一覧はモバイルのボトムナビ専用。語法問題集はホームのセクションから開く。
 const PRO_NAV_ITEMS: NavItem[] = [
   { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
-  { key: 'words', href: '/words', icon: 'format_list_bulleted', label: '単語一覧' },
   { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
   { key: 'fav', href: '/favorites', icon: 'bookmark', label: '保存', count: 21 },
   { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
@@ -37,7 +36,6 @@ function activeKeyForPath(pathname: string): NavKey {
   if (pathname === '/') return 'home';
   if (pathname === '/projects' || pathname.startsWith('/project/') || pathname.startsWith('/word/')) return 'books';
   if (pathname === '/stats') return 'stats';
-  if (pathname === '/words') return 'words';
   if (pathname === '/reels') return 'reels';
   if (pathname === '/follows' || pathname.startsWith('/profile')) return 'feed';
   if (pathname === '/shared' || pathname.startsWith('/share/') || pathname.startsWith('/groups/')) return 'shared';

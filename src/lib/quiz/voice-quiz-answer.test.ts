@@ -1,7 +1,8 @@
-import test from 'node:test';
+import test, { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  combineWordMeanings,
   isAnyEnglishAnswerCorrect,
   isAnyJapaneseAnswerCorrect,
   isEnglishAnswerCorrect,
@@ -204,4 +205,76 @@ test('a parenthetical in the spelling does not have to be spoken either', () => 
   assert.equal(isEnglishAnswerCorrect('take', 'take (after)'), true);
   assert.equal(isEnglishAnswerCorrect('take after', 'take (after)'), true);
   assert.equal(isEnglishAnswerCorrect('after', 'take (after)'), false);
+});
+
+// ============ 複数の意味 (メイン以外の訳も判定対象にする) ============
+
+describe('combineWordMeanings', () => {
+  it('主たる訳を先頭に、ぶら下がっている訳も全部つなぐ', () => {
+    const combined = combineWordMeanings({
+      japanese: '気づく',
+      translations: [{ translationJa: '気づく' }, { translationJa: '認識する' }, { translationJa: '悟る' }],
+    });
+    assert.equal(combined, '気づく、認識する、悟る');
+  });
+
+  it('訳が無ければ主たる訳だけを返す', () => {
+    assert.equal(combineWordMeanings({ japanese: 'りんご' }), 'りんご');
+  });
+
+  it('表記ゆれで重複する訳はまとめる', () => {
+    const combined = combineWordMeanings({
+      japanese: 'コーヒー',
+      translations: [{ translationJa: 'こーひー' }, { translationJa: '珈琲' }],
+    });
+    assert.equal(combined, 'コーヒー、珈琲');
+  });
+
+  it('空の訳は落とす', () => {
+    const combined = combineWordMeanings({
+      japanese: '与える',
+      translations: [{ translationJa: '  ' }, { translationJa: '授ける' }],
+    });
+    assert.equal(combined, '与える、授ける');
+  });
+});
+
+describe('メイン以外の意味でも正解になる', () => {
+  const word = {
+    japanese: '気づく',
+    translations: [{ translationJa: '気づく' }, { translationJa: '認識する、悟る' }],
+  };
+
+  it('2つ目の訳を答えても正解', () => {
+    assert.equal(isAnyJapaneseAnswerCorrect(['認識する'], combineWordMeanings(word)), true);
+  });
+
+  it('1つの訳の中で「、」で並んだ意味も個別に評価する', () => {
+    assert.equal(isAnyJapaneseAnswerCorrect(['悟る'], combineWordMeanings(word)), true);
+  });
+
+  it('主たる訳ももちろん正解', () => {
+    assert.equal(isAnyJapaneseAnswerCorrect(['気づく'], combineWordMeanings(word)), true);
+  });
+
+  it('どの意味とも違えば不正解のまま', () => {
+    assert.equal(isAnyJapaneseAnswerCorrect(['走る'], combineWordMeanings(word)), false);
+  });
+
+  it('認識ヒントにも全ての意味が乗る (boost の対象になる)', () => {
+    const hints = japaneseAnswerHints(combineWordMeanings(word));
+    assert.ok(hints.includes('気づく'));
+    assert.ok(hints.includes('認識する'));
+    assert.ok(hints.includes('悟る'));
+  });
+
+  it('ヒントは上限を超えず、主たる訳が先に残る', () => {
+    const many = combineWordMeanings({
+      japanese: 'いちばん大事な意味',
+      translations: Array.from({ length: 20 }, (_, index) => ({ translationJa: `意味${index}` })),
+    });
+    const hints = japaneseAnswerHints(many);
+    assert.ok(hints.length <= MAX_ANSWER_HINTS);
+    assert.equal(hints[0], 'いちばん大事な意味');
+  });
 });
