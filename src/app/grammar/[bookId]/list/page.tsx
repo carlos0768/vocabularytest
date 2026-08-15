@@ -39,9 +39,40 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
   // 問題追加後に一覧を再取得するためのキー
   const [reloadKey, setReloadKey] = useState(0);
   const reload = useCallback(() => setReloadKey((prev) => prev + 1), []);
+
+  /**
+   * 問題を1問だけ削除する。開いている詳細は閉じ、一覧からもその場で取り除く。
+   */
+  const handleDeleteQuestion = useCallback(async (question: GrammarQuestion) => {
+    if (deletingQuestionId) return;
+    if (typeof window !== 'undefined'
+      && !window.confirm('この問題を削除しますか？元に戻せません。')) {
+      return;
+    }
+    setDeletingQuestionId(question.id);
+    try {
+      const response = await fetch(`/api/grammar/questions/${encodeURIComponent(question.id)}`, {
+        method: 'DELETE',
+      });
+      const payload = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!response.ok || !payload.success) {
+        window.alert(payload.error || '問題の削除に失敗しました');
+        return;
+      }
+      setSelectedIndex(null);
+      setState((prev) => (prev.kind === 'ready'
+        ? { kind: 'ready', questions: prev.questions.filter((item) => item.id !== question.id) }
+        : prev));
+    } catch {
+      window.alert('通信に失敗しました');
+    } finally {
+      setDeletingQuestionId(null);
+    }
+  }, [deletingQuestionId]);
 
   /**
    * 問題集ごと削除する。問題・苦手記録は FK の ON DELETE CASCADE で一緒に消える
@@ -327,6 +358,19 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
               </div>
               <div className="flex flex-col gap-4 p-5">
                 <GrammarQuestionDetailBody question={selectedQuestion} />
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteQuestion(selectedQuestion)}
+                  disabled={deletingQuestionId !== null}
+                  className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[#CC4D59] bg-white text-[13px] font-bold text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
+                >
+                  <Icon
+                    name={deletingQuestionId === selectedQuestion.id ? 'progress_activity' : 'delete'}
+                    size={16}
+                    className={deletingQuestionId === selectedQuestion.id ? 'animate-spin' : undefined}
+                  />
+                  {deletingQuestionId === selectedQuestion.id ? '削除中...' : 'この問題を削除'}
+                </button>
               </div>
             </div>
           </div>

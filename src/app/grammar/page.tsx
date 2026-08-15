@@ -34,6 +34,7 @@ export default function GrammarBooksPage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'fav'>('all');
   const [creatingBook, setCreatingBook] = useState(false);
+  const [deletingBookId, setDeletingBookId] = useState<string | null>(null);
   // 作成メニュー(右上「+」): ChatGPT / 手動 の2択を格納する
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
@@ -83,6 +84,36 @@ export default function GrammarBooksPage() {
       window.alert('通信に失敗しました');
     } finally {
       setCreatingBook(false);
+    }
+  };
+
+  /**
+   * 問題集を削除する。問題・苦手記録は FK の ON DELETE CASCADE で一緒に消える。
+   * 一覧からは即座に取り除き、失敗したときだけ再読み込みで戻す。
+   */
+  const handleDeleteBook = async (bookId: string) => {
+    if (deletingBookId) return;
+    const target = state.kind === 'ready' ? state.books.find((book) => book.id === bookId) : null;
+    const title = target?.title ?? 'この問題集';
+    if (!window.confirm(`「${title}」を削除しますか？問題と苦手記録もすべて消え、元に戻せません。`)) return;
+
+    setDeletingBookId(bookId);
+    try {
+      const response = await fetch(`/api/grammar/books/${encodeURIComponent(bookId)}`, {
+        method: 'DELETE',
+      });
+      const payload = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!response.ok || !payload.success) {
+        window.alert(payload.error || '問題集の削除に失敗しました');
+        return;
+      }
+      setState((prev) => (prev.kind === 'ready'
+        ? { kind: 'ready', books: prev.books.filter((book) => book.id !== bookId) }
+        : prev));
+    } catch {
+      window.alert('通信に失敗しました');
+    } finally {
+      setDeletingBookId(null);
     }
   };
 
@@ -165,6 +196,8 @@ export default function GrammarBooksPage() {
         onShare={(bookId) => void handleShare(bookId)}
         onToggleFavorite={(bookId, next) => void handleToggleFavorite(bookId, next)}
         onCreateManual={() => void handleCreateManual()}
+        onDelete={(bookId) => void handleDeleteBook(bookId)}
+        deletingBookId={deletingBookId}
       />
 
       <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] lg:hidden">
@@ -348,6 +381,19 @@ export default function GrammarBooksPage() {
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
                   >
                     <Icon name={sharedBookId === book.id ? 'check' : 'ios_share'} size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteBook(book.id)}
+                    disabled={deletingBookId !== null}
+                    aria-label={`「${book.title}」を削除`}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#CC4D59] bg-white text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                  >
+                    <Icon
+                      name={deletingBookId === book.id ? 'progress_activity' : 'delete'}
+                      size={15}
+                      className={deletingBookId === book.id ? 'animate-spin' : undefined}
+                    />
                   </button>
                   <Link
                     href={`/grammar/${book.id}`}

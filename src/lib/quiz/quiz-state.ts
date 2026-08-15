@@ -6,6 +6,7 @@ import {
   isWordOrderEligible,
 } from '@/lib/quiz/word-order';
 import { isActiveQuizWord } from '@/lib/quiz/active-answer';
+import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
 import {
   getWordMemoryBaseKey,
   isSameWordMeaning,
@@ -138,9 +139,11 @@ export function generateQuizQuestions(
         .map((item) => item.japanese.trim().toLowerCase())
         .filter(Boolean),
     );
-    let distractors: string[] = [...(word.distractors || [])];
+    // 保存済みの誤答に「選択肢1」等が混ざっていることがある（材料が尽きた回の
+    // 名残）。1件でも混ざると答えが割れるので、件数の判定より先に落とす。
+    let distractors: string[] = withoutPlaceholderDistractors(word.distractors);
 
-    if (distractors.length === 0 || (distractors.length === 3 && distractors[0] === '選択肢1')) {
+    if (distractors.length === 0) {
       const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && getWordMemoryBaseKey(item) !== wordBaseKey);
       distractors = shuffle(otherWords)
         .map((item) => item.japanese)
