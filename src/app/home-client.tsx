@@ -39,6 +39,8 @@ import {
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
+import { getCachedBinderIcons, loadBinderIcons, type BinderIconMap } from '@/lib/binders/icons';
+import { imageToneTextStyle, useImageTone } from '@/lib/ui/image-tone';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { countHomeWordStatuses } from '@/lib/home/home-page-selectors';
 import { homeShortcutContentSlots } from '@/lib/home/shortcut-tiles';
@@ -526,6 +528,19 @@ export function HomeClient() {
       .map(([name, count]) => ({ name, count }));
   }, [listProjects]);
 
+  // バインダーのアイコン画像（/binder/[name] で設定する）。飾りなので best-effort
+  // で取り、バインダーが1つも無いユーザーでは取りに行かない。
+  const [binderIcons, setBinderIcons] = useState<BinderIconMap>(() => getCachedBinderIcons() ?? {});
+  const hasBinders = homeBinders.length > 0;
+  useEffect(() => {
+    if (!hasBinders) return;
+    let cancelled = false;
+    void loadBinderIcons().then((icons) => {
+      if (!cancelled) setBinderIcons(icons);
+    });
+    return () => { cancelled = true; };
+  }, [hasBinders]);
+
   // The guided flow starts for any user who hasn't studied yet. Word status only
   // advances past 'new' via quiz/study, so any progress means they've quizzed.
   const hasStudiedBefore = completedToday > 0 || mastered > 0 || review > 0 || stats.activeW > 0;
@@ -754,7 +769,11 @@ export function HomeClient() {
             <div className="no-scrollbar -mx-[18px] mb-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
               {homeBinders.map((binder) => (
                 <div key={binder.name} className="w-[42%] shrink-0 snap-start">
-                  <BinderSquareTile name={binder.name} count={binder.count} />
+                  <BinderSquareTile
+                    name={binder.name}
+                    count={binder.count}
+                    iconImage={binderIcons[binder.name] ?? null}
+                  />
                 </div>
               ))}
             </div>
@@ -820,22 +839,35 @@ function HomeLoadingScreen() {
 }
 
 // バインダー (フォルダ) タイル。ProjectSquareTile と同じシェル・配色 (thumbColor) で、
-// キーは binder 名。単語帳タイルと見た目を揃える。
-function BinderSquareTile({ name, count }: { name: string; count: number }) {
+// キーは binder 名。単語帳タイルと見た目を揃える。アイコン画像が設定されていれば
+// 単語帳タイルと同じように面に敷き、文字色も面の明るさに合わせて反転する。
+function BinderSquareTile({ name, count, iconImage }: { name: string; count: number; iconImage?: string | null }) {
   const bg = thumbColor(name);
+  const tone = useImageTone(iconImage);
+  const toneStyle = imageToneTextStyle(tone);
   return (
     <Link
       href={`/binder/${encodeURIComponent(name)}`}
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
-      style={{ backgroundColor: bg }}
+      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+      style={{
+        backgroundColor: bg,
+        backgroundImage: iconImage ? `url(${iconImage})` : undefined,
+        color: toneStyle.color,
+      }}
     >
-      <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />
-      <div className="flex items-center gap-1 pl-1.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+      <div
+        className="absolute inset-y-0 left-0 w-[6px]"
+        style={{ background: tone === 'dark' ? 'rgba(0,0,0,0.14)' : 'rgba(0,0,0,0.22)' }}
+      />
+      <div className="flex items-center gap-1 pl-1.5" style={{ textShadow: toneStyle.textShadow }}>
         <Icon name="folder" size={15} filled />
         <span className="font-mono text-[9.5px] font-bold tracking-[0.04em]">BINDER</span>
       </div>
       <div className="pl-1.5">
-        <div className="line-clamp-2 font-display text-[13.5px] font-bold leading-snug drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+        <div
+          className="line-clamp-2 font-display text-[13.5px] font-bold leading-snug"
+          style={{ textShadow: toneStyle.textShadow }}
+        >
           {name}
         </div>
         <div className="mt-1 font-mono text-[9px] tracking-[0.04em] opacity-90">{count}冊</div>
@@ -857,29 +889,47 @@ function ProjectSquareTile({
   const bg = thumbColor(project.id);
   const hasWords = project.totalWords > 0;
   const masteredPct = hasWords ? Math.round((project.masteredWords / project.totalWords) * 100) : 0;
+  // アイコン画像をそのまま面に使うので、明るい画像の上では文字を黒に反転する
+  // （面と同系色だと題名が読めないため）。画像が無い面は配色が濃色なので白のまま。
+  const tone = useImageTone(project.iconImage);
+  const toneStyle = imageToneTextStyle(tone);
+  const inkOnLight = tone === 'dark';
   return (
     <div className="relative">
       <Link
         href={`/project/${project.id}`}
         onClick={onCardOpen}
-        className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 text-white shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+        className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
         style={{
           backgroundColor: bg,
           backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
+          color: toneStyle.color,
         }}
       >
-        <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />
-        <div className="line-clamp-2 pl-1.5 font-display text-[13.5px] font-bold leading-snug drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+        <div
+          className="absolute inset-y-0 left-0 w-[6px]"
+          style={{ background: inkOnLight ? 'rgba(0,0,0,0.14)' : 'rgba(0,0,0,0.22)' }}
+        />
+        <div
+          className="line-clamp-2 pl-1.5 font-display text-[13.5px] font-bold leading-snug"
+          style={{ textShadow: toneStyle.textShadow }}
+        >
           {project.title}
         </div>
         <div className="pl-1.5">
-          <div className="flex items-baseline gap-0.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]">
+          <div className="flex items-baseline gap-0.5" style={{ textShadow: toneStyle.textShadow }}>
             <span className="font-display text-[19px] font-extrabold leading-none tabular-nums">{project.totalWords}</span>
             <span className="text-[10px] font-bold opacity-90">語</span>
           </div>
           {hasWords && (
             <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-[rgba(0,0,0,0.22)]">
-              <div className="h-full bg-[rgba(255,255,255,0.92)]" style={{ width: `${masteredPct}%` }} />
+              <div
+                className="h-full"
+                style={{
+                  width: `${masteredPct}%`,
+                  background: inkOnLight ? 'rgba(26,26,26,0.85)' : 'rgba(255,255,255,0.92)',
+                }}
+              />
             </div>
           )}
         </div>

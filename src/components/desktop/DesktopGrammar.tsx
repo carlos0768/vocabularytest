@@ -581,6 +581,8 @@ export function DesktopGrammarQuestionListView({
   onCloseDetail,
   onNavDetail,
   onAddQuestion,
+  onDeleteBook,
+  deletingBook,
 }: {
   loadState: { kind: 'loading' } | { kind: 'pro-required' } | { kind: 'error'; message: string } | { kind: 'ready' };
   bookId: string;
@@ -590,6 +592,9 @@ export function DesktopGrammarQuestionListView({
   onCloseDetail: () => void;
   onNavDetail: (dir: -1 | 1) => void;
   onAddQuestion?: () => void;
+  /** 問題集ごと削除する。確認は呼び出し側で取る。 */
+  onDeleteBook?: () => void;
+  deletingBook?: boolean;
 }) {
   const selectedQuestion = selectedIndex !== null ? questions[selectedIndex] : undefined;
 
@@ -607,6 +612,16 @@ export function DesktopGrammarQuestionListView({
         {onAddQuestion && (
           <DesktopButton icon="add" onClick={onAddQuestion} title="問題を手動で追加">
             問題を追加
+          </DesktopButton>
+        )}
+        {onDeleteBook && (
+          <DesktopButton
+            variant="ghost"
+            icon={deletingBook ? 'progress_activity' : 'delete'}
+            onClick={onDeleteBook}
+            title="この問題集を削除"
+          >
+            {''}
           </DesktopButton>
         )}
         <DesktopButton variant="dark" icon="play_arrow" href={`/grammar/${bookId}`}>

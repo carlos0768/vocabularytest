@@ -38,9 +38,39 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   // 問題追加後に一覧を再取得するためのキー
   const [reloadKey, setReloadKey] = useState(0);
   const reload = useCallback(() => setReloadKey((prev) => prev + 1), []);
+
+  /**
+   * 問題集ごと削除する。問題・苦手記録は FK の ON DELETE CASCADE で一緒に消える
+   * ので、ここで消すのは問題集1件だけでよい。戻り先は replace（削除済みの
+   * 問題一覧へ「戻る」で引き返せてしまわないように）。
+   */
+  const handleDeleteBook = useCallback(async () => {
+    if (deleting) return;
+    if (typeof window !== 'undefined'
+      && !window.confirm('この問題集を削除しますか？問題と苦手記録もすべて消え、元に戻せません。')) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/grammar/books/${encodeURIComponent(bookId)}`, {
+        method: 'DELETE',
+      });
+      const payload = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!response.ok || !payload.success) {
+        window.alert(payload.error || '問題集の削除に失敗しました');
+        setDeleting(false);
+        return;
+      }
+      router.replace('/grammar');
+    } catch {
+      window.alert('通信に失敗しました');
+      setDeleting(false);
+    }
+  }, [bookId, deleting, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +133,8 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
         onCloseDetail={() => setSelectedIndex(null)}
         onNavDetail={handleNavDetail}
         onAddQuestion={() => setFormOpen(true)}
+        onDeleteBook={() => void handleDeleteBook()}
+        deletingBook={deleting}
       />
 
       {/* 手動で問題を追加 (モバイル/デスクトップ共用) */}
@@ -213,6 +245,28 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
               <Icon name="chevron_right" size={14} className="mt-1 shrink-0 text-[var(--color-muted)]" />
             </button>
           ))}
+        </div>
+      )}
+
+      {/* 問題集の削除。演習の邪魔にならないよう一覧の末尾に置く */}
+      {(state.kind === 'ready' || state.kind === 'error') && (
+        <div className="mt-8 border-t-2 border-[var(--color-border)] pt-4">
+          <button
+            type="button"
+            onClick={() => void handleDeleteBook()}
+            disabled={deleting}
+            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[#CC4D59] bg-white text-[13px] font-bold text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
+          >
+            <Icon
+              name={deleting ? 'progress_activity' : 'delete'}
+              size={16}
+              className={deleting ? 'animate-spin' : undefined}
+            />
+            {deleting ? '削除中...' : 'この問題集を削除'}
+          </button>
+          <p className="mt-2 text-center text-[11px] leading-[1.7] text-[var(--color-muted)]">
+            問題と苦手記録もすべて削除されます。元に戻せません。
+          </p>
         </div>
       )}
 
