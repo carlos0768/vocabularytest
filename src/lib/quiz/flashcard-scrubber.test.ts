@@ -6,7 +6,6 @@ import {
   getScrubDots,
   getScrubIndexFromRatio,
   getScrubRatioFromPosition,
-  getScrubTick,
 } from '@/lib/quiz/flashcard-scrubber';
 
 /** 点の並びを "・" (normal) / "●" (active) / "." (edge) の文字列にして見比べる */
@@ -105,17 +104,4 @@ test('矩形の外へ指が出ても0..1に収める', () => {
 
 test('幅が取れないうちは左端扱い', () => {
   assert.equal(getScrubRatioFromPosition(50, 0, 0), 0);
-});
-
-test('振動の刻みは端から端まででも決まった回数しか変わらない', () => {
-  const total = 500;
-  const ticks = new Set<number>();
-  for (let i = 0; i < total; i += 1) ticks.add(getScrubTick(i, total));
-  assert.equal(ticks.size, 21); // 0..20
-  assert.equal(getScrubTick(0, total), 0);
-  assert.equal(getScrubTick(total - 1, total), 20);
-});
-
-test('カードが1枚しかなければ刻みは動かない', () => {
-  assert.equal(getScrubTick(0, 1), 0);
 });

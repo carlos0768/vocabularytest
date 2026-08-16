@@ -30,9 +30,6 @@ export const SCRUB_MOVE_THRESHOLD_PX = 8;
 /** 同時に描く点の上限 */
 export const SCRUB_VISIBLE_DOTS = 5;
 
-/** 早送り中に振動させる刻み数。カード1枚ごとに震わせると細かすぎる */
-export const SCRUB_HAPTIC_TICKS = 20;
-
 export type ScrubDotKind =
   /** 今のカード */
   | 'active'
@@ -88,17 +85,4 @@ export function getScrubIndexFromRatio(ratio: number, total: number): number {
 export function getScrubRatioFromPosition(clientX: number, left: number, width: number): number {
   if (!Number.isFinite(clientX) || !Number.isFinite(left) || !(width > 0)) return 0;
   return Math.min(Math.max((clientX - left) / width, 0), 1);
-}
-
-/**
- * 振動の刻み。山札を ticks 等分した何番目にいるかを返す。
- * これが変わったときだけ震わせれば、100枚流しても振動は ticks 回で済む。
- */
-export function getScrubTick(
-  index: number,
-  total: number,
-  ticks: number = SCRUB_HAPTIC_TICKS,
-): number {
-  if (total <= 1 || ticks <= 0) return 0;
-  return Math.round((clampIndex(index, total) / (total - 1)) * ticks);
 }

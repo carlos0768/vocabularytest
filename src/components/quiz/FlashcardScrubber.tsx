@@ -7,7 +7,6 @@ import {
   getScrubDots,
   getScrubIndexFromRatio,
   getScrubRatioFromPosition,
-  getScrubTick,
   type ScrubDotKind,
 } from '@/lib/quiz/flashcard-scrubber';
 import { triggerHaptic } from '@/lib/haptics';
@@ -19,8 +18,8 @@ import { triggerHaptic } from '@/lib/haptics';
  * スワイプ）すると、指の位置に対応するカードへ即座に飛ぶ。押している間ずっと
  * 追従するので、指を滑らせるだけで山札が爆速で流れる。
  *
- * - 短く叩いただけ = 叩いた位置のカードへジャンプ
  * - 長押し / 横スワイプ = スクラブ開始。離すまで指に追従
+ * - 短く叩いただけ = 何も起きない（触れただけで山札が飛ばないように）
  *
  * 点は最大5個。送り幅を決めるのは点ではなく帯（trackRef）の幅全体なので、
  * 何百枚あっても左端から右端まで一振りで流せる。
@@ -115,7 +114,7 @@ export function FlashcardScrubber({
   const startYRef = useRef(0);
   const pendingXRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
-  const lastTickRef = useRef(getScrubTick(currentIndex, total));
+  const lastIndexRef = useRef(currentIndex);
   const onSeekRef = useRef(onSeek);
   const onScrubbingChangeRef = useRef(onScrubbingChange);
   useEffect(() => { onSeekRef.current = onSeek; }, [onSeek]);
@@ -131,16 +130,19 @@ export function FlashcardScrubber({
     }
   }, []);
 
-  /** 指の x からカードを決めて送る。刻みをまたいだときだけ小さく震わせる。 */
+  /**
+   * 指の x からカードを決めて送る。カードが1枚動くたびに短く震わせて、
+   * 目で追えない速さで流していても「今めくった」手応えが指に残るようにする。
+   * 呼び出し自体が1フレーム1回に間引かれているので、震えの上限も同じ。
+   */
   const applyPosition = useCallback((clientX: number) => {
     const rect = trackRef.current?.getBoundingClientRect();
     if (!rect) return;
     const ratio = getScrubRatioFromPosition(clientX, rect.left, rect.width);
     const index = getScrubIndexFromRatio(ratio, totalRef.current);
-    const tick = getScrubTick(index, totalRef.current);
-    if (tick !== lastTickRef.current) {
-      lastTickRef.current = tick;
-      triggerHaptic(6);
+    if (index !== lastIndexRef.current) {
+      lastIndexRef.current = index;
+      triggerHaptic(5);
     }
     onSeekRef.current(index);
   }, []);
@@ -184,11 +186,10 @@ export function FlashcardScrubber({
   useEffect(() => endScrub, [endScrub]);
 
   // スクラブしていない間は、外からの送り（次へ/自動再生）に合わせて
-  // 振動の基準にしている刻みを追従させる。
-  const currentTick = getScrubTick(currentIndex, total);
+  // 振動の基準にしているカード番号を追従させる。
   useEffect(() => {
-    if (!scrubbingRef.current) lastTickRef.current = currentTick;
-  }, [currentTick]);
+    if (!scrubbingRef.current) lastIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (total <= 1 || e.button > 0) return;
@@ -214,20 +215,15 @@ export function FlashcardScrubber({
     else if (dy > SCRUB_MOVE_THRESHOLD_PX * 2) clearHoldTimer();
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerUp = () => {
     if (scrubbingRef.current) {
       endScrub();
       return;
     }
-    // 長押しに届かなかった＝タップ。叩いた位置のカードへ飛ぶ。
+    // 長押しに届かずに離した＝ただのタップ。何もしない。
+    // 点はあくまで早送りのための帯で、触れただけでカードが動くと、
+    // 画面下端を持ち直しただけで山札が飛んでしまう。
     clearHoldTimer();
-    if (total <= 1) return;
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const ratio = getScrubRatioFromPosition(e.clientX, rect.left, rect.width);
-    triggerHaptic();
-    markHintSeen();
-    onSeek(getScrubIndexFromRatio(ratio, total));
   };
 
   if (dots.length <= 1) return null;
