@@ -18,6 +18,7 @@ import { DesktopButton } from '@/components/desktop/DesktopChrome';
 import { GroupHubTiles, buildGroupHubTiles } from '@/components/groups/GroupHubTiles';
 import { GroupLeaderboard, findViewerRank } from '@/components/groups/GroupLeaderboard';
 import { GroupRoomHeader } from '@/components/groups/GroupRoomHeader';
+import { GroupTopThree } from '@/components/groups/GroupTopThree';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -202,7 +203,14 @@ export default function GroupPage() {
           >
             {stateView ?? (group && (
               <>
-                {/* タイルは余白の中央に置く（下端に貼り付けない） */}
+                {/* 上部に今週の上位3人。誰が走っているかを開いた瞬間に見せる。
+                    メンバーは全員0問でも並ぶので、空配列＝まだ読めていない状態。
+                    その間は帯ごと出さない（一瞬「誰も解いていません」が出るため）*/}
+                {leaderboard.length > 0 && (
+                  <GroupTopThree leaderboard={leaderboard} href={`${groupPath}/ranking`} />
+                )}
+
+                {/* タイルは残りの余白の中央に置く（下端に貼り付けない） */}
                 <div className="flex flex-1 items-center">
                   <GroupHubTiles tiles={tiles} />
                 </div>
