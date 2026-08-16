@@ -203,9 +203,9 @@ export default function GroupPage() {
           >
             {stateView ?? (group && (
               <>
-                {/* 上部に今週の上位3人。誰が走っているかを開いた瞬間に見せる。
+                {/* 上部に今週の上位3人。枠は付けず、アイコンを背景の上に直接置く。
                     メンバーは全員0問でも並ぶので、空配列＝まだ読めていない状態。
-                    その間は帯ごと出さない（一瞬「誰も解いていません」が出るため）*/}
+                    その間は出さない（一瞬「誰も解いていません」が出るため）*/}
                 {leaderboard.length > 0 && (
                   <GroupTopThree leaderboard={leaderboard} href={`${groupPath}/ranking`} />
                 )}

@@ -3,19 +3,19 @@
 /**
  * グループのトップに置く「今週の上位3人」。
  *
- * ハブは 2×2 のタイルだけの画面なので、誰が走っているかはランキングページまで
- * 開かないと分からなかった。ここに表彰台を薄く1枚置いて、開いた瞬間に today's
- * 競争相手が見えるようにする。
+ * カード（枠付きの帯）には入れず、アイコンをそのままページの背景の上に置く。
+ * ハブはタイルが主役の画面なので、ここに枠がもう1枚増えると面が二重になって
+ * 重く見えるため。順位は金・銀・銅のメダルで読ませるので、見出しの帯も矢印も
+ * 置かない（全体がランキングページへのリンクになっている）。
  *
- * 全体をランキングページへの1枚のリンクにしている（各アバターを個別のプロフィール
- * リンクにするとリンクが入れ子になるうえ、狭い帯の中でタップ先が3つに割れて
- * 押しにくい）。個々のプロフィールへはランキングページから開ける。
+ * 各アバターを個別のプロフィールリンクにはしない。リンクが入れ子になるうえ、
+ * 狭い範囲でタップ先が3つに割れて押しにくいため。個々のプロフィールへは
+ * ランキングページから開ける。
  */
 
 import Link from 'next/link';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
-import { Icon } from '@/components/ui/Icon';
 import { memberInitial, memberLabel } from '@/app/groups/[groupId]/member-ui';
 import { triggerHaptic } from '@/lib/haptics';
 import type { StudyGroupLeaderboardEntry } from '@/lib/shared-projects/types';
@@ -31,48 +31,40 @@ export function GroupTopThree({
   href,
 }: {
   leaderboard: StudyGroupLeaderboardEntry[];
-  /** ランキングページ。帯ごとここへ飛ぶ。 */
+  /** ランキングページ。表彰台ごとここへ飛ぶ。 */
   href: string;
 }) {
   const podium = leaderboard.slice(0, 3);
-  // 全員0問の週は順位に意味が無いので、表彰台ではなく誘い文句を出す。
+  // 全員0問の週は順位に意味が無いので、表彰台ではなく誘い文句を1行だけ出す。
   const hasRecord = podium.some((entry) => entry.quizCount > 0);
+
+  if (!hasRecord) {
+    return (
+      <p className="mb-2 text-center text-[11.5px] font-bold text-[var(--color-muted)]">
+        今週はまだ誰も解いていません。最初の1問を解こう！
+      </p>
+    );
+  }
 
   return (
     <Link
       href={href}
       onClick={() => triggerHaptic()}
       aria-label="今週のランキングを見る"
-      className="mb-3 block rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 pb-2.5 pt-2 shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+      className="mb-2 flex items-end justify-center gap-1 transition-transform duration-100 active:scale-[0.98]"
     >
-      <div className="flex items-center gap-1.5">
-        <Icon name="emoji_events" size={14} className="shrink-0 text-[#F0A500]" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
-          THIS WEEK · 今週のランキング
-        </span>
-        <Icon name="chevron_right" size={15} className="shrink-0 text-[var(--color-muted)]" />
-      </div>
-
-      {hasRecord ? (
-        <div className="mt-1.5 flex items-end justify-center gap-1">
-          {PODIUM_ORDER.map((index) => {
-            const entry = podium[index];
-            if (!entry) return null;
-            return <PodiumSlot key={entry.userId} entry={entry} place={index + 1} />;
-          })}
-        </div>
-      ) : (
-        <p className="py-3 text-center text-[11.5px] font-bold text-[var(--color-muted)]">
-          今週はまだ誰も解いていません。最初の1問を解こう！
-        </p>
-      )}
+      {PODIUM_ORDER.map((index) => {
+        const entry = podium[index];
+        if (!entry) return null;
+        return <PodiumSlot key={entry.userId} entry={entry} place={index + 1} />;
+      })}
     </Link>
   );
 }
 
 function PodiumSlot({ entry, place }: { entry: StudyGroupLeaderboardEntry; place: number }) {
   const first = place === 1;
-  const size = first ? 46 : 38;
+  const size = first ? 50 : 40;
 
   return (
     <div className={`flex min-w-0 flex-1 flex-col items-center ${first ? '' : 'pb-1'}`}>
@@ -83,7 +75,7 @@ function PodiumSlot({ entry, place }: { entry: StudyGroupLeaderboardEntry; place
           color={profileAvatarColor(entry.accountId ?? entry.userId)}
           size={size}
           radius={size / 2}
-          fontSize={first ? 18 : 15}
+          fontSize={first ? 20 : 16}
         />
         <span
           className="absolute -bottom-0.5 -right-0.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] font-display text-[10px] font-extrabold text-[var(--solid-ink)]"

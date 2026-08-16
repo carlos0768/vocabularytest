@@ -80,7 +80,7 @@ export function buildGroupHubTiles(options: {
 export function GroupHubTiles({ tiles }: { tiles: GroupHubTile[] }) {
   return (
     // 4枚が正方形寄りに収まる高さ。画面が高いときに間延びしないよう上限を切る。
-    // 上にランキングの帯が乗ったぶん、1画面に収まるよう少しだけ低くしている。
+    // 上に今週の上位3人が乗るぶん、1画面に収まるよう少しだけ低くしている。
     <div className="grid h-[min(50dvh,400px)] min-h-[240px] w-full grid-cols-2 grid-rows-2 gap-2.5">
       {tiles.map((tile) => {
         const ink = tile.foreground === 'dark';
