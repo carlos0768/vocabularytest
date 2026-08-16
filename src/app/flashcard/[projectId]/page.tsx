@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { FlashcardTutorialGuide } from '@/components/onboarding/FlashcardTutorialGuide';
+import { FlashcardScrubber } from '@/components/quiz/FlashcardScrubber';
 import { getRepository } from '@/lib/db';
 import {
   FLASHCARD_FILTERS,
@@ -220,6 +221,12 @@ export default function FlashcardPage() {
   const touchStartY = useRef(0);
   const isSwiping = useRef(false);
 
+  /* 点々スクラバー（カード直下の点を長押し＋スワイプして山札を早送りする） */
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  // 早送り中に前後送りのスライド演出が割り込むと、指の位置と表示がずれる。
+  // 演出側から現在地を書き戻さないよう、進行中の送りに知らせるための ref。
+  const isScrubbingRef = useRef(false);
+
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
@@ -301,7 +308,9 @@ export default function FlashcardPage() {
   const currentWord = words[currentIndex];
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完し、
   // words 状態にも反映して再表示時のフェッチを防ぐ。
-  const currentMorphology = useMorphologyBackfill(currentWord ?? null, {
+  // 早送り中は通り過ぎるだけのカードなので取りに行かない（1枚ごとに
+  // /api/words/morphology を叩くと、指を滑らせただけで大量の通信が出る）。
+  const currentMorphology = useMorphologyBackfill(isScrubbing ? null : currentWord ?? null, {
     onBackfilled: (updated) => {
       setAllWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
     },
@@ -314,6 +323,8 @@ export default function FlashcardPage() {
     if (withAnimation) {
       setIsAnimating(true); setSlideDirection('left'); setSlidePhase('exit');
       setTimeout(() => {
+        // 演出の途中で早送りが始まっていたら、現在地を上書きせず演出だけ畳む。
+        if (isScrubbingRef.current) { setSlidePhase(null); setSlideDirection(null); setIsAnimating(false); return; }
         setCurrentIndex(nextIndex); setIsFlipped(false); setSlidePhase('enter');
         afterPaint(() => {
           setSlidePhase(null);
@@ -331,6 +342,7 @@ export default function FlashcardPage() {
     if (withAnimation) {
       setIsAnimating(true); setSlideDirection('right'); setSlidePhase('exit');
       setTimeout(() => {
+        if (isScrubbingRef.current) { setSlidePhase(null); setSlideDirection(null); setIsAnimating(false); return; }
         setCurrentIndex(prevIndex); setIsFlipped(false); setSlidePhase('enter');
         afterPaint(() => {
           setSlidePhase(null);
@@ -345,6 +357,34 @@ export default function FlashcardPage() {
   const handleFlip = useCallback(() => {
     if (!isAnimating && !isSwiping.current) setIsFlipped((prev) => !prev);
   }, [isAnimating]);
+
+  /** 点々スクラバーの飛び先。演出は挟まず、指に即追従させる。 */
+  const lastSeekIndexRef = useRef(0);
+  const handleSeek = useCallback((index: number) => {
+    setCurrentIndex((prev) => (prev === index ? prev : index));
+    setIsFlipped(false);
+    // 早送りで通り過ぎたカードも「見た枚数」に数える（1フレームに何度呼ばれても、
+    // 実際に別のカードへ移ったときだけ加算する）。
+    if (lastSeekIndexRef.current === index) return;
+    lastSeekIndexRef.current = index;
+    if (tutorialActive) setTutorialAdvances((count) => count + 1);
+  }, [tutorialActive]);
+
+  /**
+   * 早送りの開始・終了。
+   *
+   * 開始時は自動再生を畳む —— 読み上げが後ろから追いかけてくると、指を止めた
+   * ところと鳴っている単語がずれるうえ、送るたびに読み上げが切り直される。
+   */
+  const handleScrubbingChange = useCallback((scrubbing: boolean) => {
+    isScrubbingRef.current = scrubbing;
+    setIsScrubbing(scrubbing);
+    if (!scrubbing) return;
+    setIsFlipped(false);
+    setSwipeX(0);
+    setIsAutoPlaying(false);
+    stopSpeaking();
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -590,6 +630,8 @@ export default function FlashcardPage() {
 
   /* Card transform */
   const getCardTransform = () => {
+    // 早送り中は少し引いて、指の下を高速で流れている束であることを見せる。
+    if (isScrubbing) return 'translateX(0) scale(0.96)';
     if (slidePhase === 'exit') {
       if (slideDirection === 'left') return 'translateX(-120%)';
       if (slideDirection === 'right') return 'translateX(120%)';
@@ -777,6 +819,16 @@ export default function FlashcardPage() {
           </div>
         </div>
 
+        {/* カード直下の点々。デスクトップでは押しっぱなしのドラッグで早送りする */}
+        <div style={{ marginTop: 10 }}>
+          <FlashcardScrubber
+            total={total}
+            currentIndex={currentIndex}
+            onSeek={handleSeek}
+            onScrubbingChange={handleScrubbingChange}
+          />
+        </div>
+
         {/* モバイルと同じアクションチップ（回転などのナビの上段） */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginTop: 20 }}>
           <ActionChip icon="search" label="英辞郎" onClick={handleSearchEijiro} />
@@ -891,7 +943,7 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area (no ghost cards) */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5">
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5">
         {/* Flashcard */}
         <div
           className="relative w-full"
@@ -1013,6 +1065,16 @@ export default function FlashcardPage() {
               <div className="mt-2 text-center text-[11px] font-semibold text-white/50">タップで戻る</div>
             </div>
           </div>
+        </div>
+
+        {/* カード直下の点々。長押し＋スワイプで山札を早送りする */}
+        <div className="mt-2.5 w-full shrink-0">
+          <FlashcardScrubber
+            total={total}
+            currentIndex={currentIndex}
+            onSeek={handleSeek}
+            onScrubbingChange={handleScrubbingChange}
+          />
         </div>
 
         {/* Swipe hints */}
