@@ -170,11 +170,10 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         </Link>
       </header>
 
-      {/* バインダー全体の学習度。ヘッダと地続きに見せたいので、上と左右の枠は持たず
-          下の境界線だけを画面幅いっぱいに引く (-mx で端まで抜く)。
+      {/* バインダー全体の学習度。ヘッダと地続きに見せたいので枠は持たない。
           固定はせず、スクロールすればヘッダだけが残る。 */}
       {hasWords && (
-        <section className="-mx-[18px] border-b-2 border-[var(--solid-ink)] px-[18px] pb-3.5 pt-1.5 lg:-mx-8 lg:px-8">
+        <section className="pb-3.5 pt-1.5">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
               BINDER PROGRESS
@@ -381,9 +380,9 @@ function BinderProjectRow({
         onClick={() => setMenuOpen(true)}
         disabled={disabled}
         aria-label={`「${project.title}」のメニュー`}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+        className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--solid-ink)] transition-opacity duration-100 active:opacity-60 disabled:opacity-50"
       >
-        <Icon name="more_horiz" size={17} />
+        <Icon name="more_horiz" size={20} />
       </button>
       {menuOpen && (
         <>
