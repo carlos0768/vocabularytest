@@ -459,11 +459,28 @@ export default function VoiceQuizPage() {
         const newStatus = getStatusAfterAnswer(word.status, correct);
         const srUpdate = calculateNextReview(correct, word);
         const updates = { status: newStatus, ...srUpdate };
+        const becameMastered = word.status !== 'mastered' && newStatus === 'mastered';
         await repository.updateWord(word.id, updates);
         setPool((prev) => prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w)));
+        if (user) {
+          fetch('/api/quiz-sessions/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              wordId: word.id,
+              projectId,
+              english: word.english,
+              japanese: word.japanese,
+              becameMastered,
+              isCorrect: correct,
+            }),
+          }).catch((error) => {
+            console.warn('Failed to record quiz session event:', error);
+          });
+        }
       } catch {}
     },
-    [projectId, repository],
+    [projectId, repository, user],
   );
 
   /** 1回の試行の結果を受けて、再挑戦させるか問題を確定するかを決める。 */
