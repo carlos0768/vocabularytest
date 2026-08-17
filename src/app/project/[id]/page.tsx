@@ -1643,43 +1643,54 @@ export default function ProjectPage() {
           className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md lg:hidden"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
-          <div className="mx-auto flex w-full max-w-[560px] items-center justify-between gap-2.5 px-[18px] pt-3">
-            <button
-              type="button"
-              onClick={() => setWordPage((p) => Math.max(0, p - 1))}
-              disabled={!paginateWords || wordPage === 0}
-              aria-label="前の10語"
-              className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
-            >
-              <Icon name="chevron_left" size={20} />
-            </button>
-            <span className="font-mono text-[12px] font-bold tabular-nums text-[var(--solid-ink)]">
+          {/* 語数はバーの中央に固定する。左右を flex-1 で等分し、その間に置くので、
+              右側に赤シートが増えても表示位置は動かない */}
+          <div className="mx-auto flex w-full max-w-[560px] items-center gap-2.5 px-[18px] pt-3">
+            <div className="flex flex-1 justify-start">
+              <button
+                type="button"
+                onClick={() => setWordPage((p) => Math.max(0, p - 1))}
+                disabled={!paginateWords || wordPage === 0}
+                aria-label="前の10語"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+              >
+                <Icon name="chevron_left" size={20} />
+              </button>
+            </div>
+            <span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-bold tabular-nums text-[var(--solid-ink)]">
               {paginateWords
                 ? `${wordPage * MOBILE_WORDS_PER_PAGE + 1}–${Math.min(filteredWords.length, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)} / ${filteredWords.length}語`
                 : `${filteredWords.length}語`}
             </span>
-            {/* 赤シート。オンの間は一覧の訳が赤いベタで隠れる */}
-            <button
-              type="button"
-              onClick={() => setRedSheet((on) => !on)}
-              aria-pressed={redSheet}
-              aria-label={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
-              title={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
-              className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
-                redSheet ? 'bg-[#e0483f] text-white' : 'bg-white text-[#e0483f]'
-              }`}
-            >
-              <Icon name="crop_portrait" size={22} filled={redSheet} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setWordPage((p) => Math.min(wordPageCount - 1, p + 1))}
-              disabled={!paginateWords || wordPage >= wordPageCount - 1}
-              aria-label="次の10語"
-              className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
-            >
-              <Icon name="chevron_right" size={20} />
-            </button>
+            <div className="flex flex-1 items-center justify-end gap-2.5">
+              {/* 赤シート。オンの間は一覧の訳が赤いベタで隠れる。
+                  ボタンの枠は出さず、赤いカードそのものを置く (タップ範囲だけ44px確保する) */}
+              <button
+                type="button"
+                onClick={() => setRedSheet((on) => !on)}
+                aria-pressed={redSheet}
+                aria-label={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
+                title={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
+                className="flex h-11 w-11 items-center justify-center transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <span
+                  className={`block h-[32px] w-[24px] rounded-[5px] border-2 transition-colors duration-100 ${
+                    redSheet
+                      ? 'border-[var(--solid-ink)] bg-[#e0483f]'
+                      : 'border-[rgba(224,72,63,0.55)] bg-[rgba(224,72,63,0.35)]'
+                  }`}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setWordPage((p) => Math.min(wordPageCount - 1, p + 1))}
+                disabled={!paginateWords || wordPage >= wordPageCount - 1}
+                aria-label="次の10語"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+              >
+                <Icon name="chevron_right" size={20} />
+              </button>
+            </div>
           </div>
         </div>
       )}
