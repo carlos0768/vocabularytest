@@ -466,12 +466,6 @@ export default function QuizPage() {
   const returnPath = searchParams.get('from');
   const reviewMode = searchParams.get('review') === '1';
   const learnMode = searchParams.get('learn') === '1';
-  /**
-   * 音読チャレンジに送れない出題か。
-   * 音読側は単語帳を1冊だけ読み込む作りで、`all` や復習・今日の学習のような
-   * 横断出題を扱えない。ここが true のときはクイズ形式の選択を適用しない。
-   */
-  const voiceQuizUnavailable = projectId === 'all' || reviewMode || learnMode;
   const wrongMode = searchParams.get('wrong') === '1';
   const favoritesMode = searchParams.get('favorites') === '1';
   const reminderMode = searchParams.get('reminder') === '1';
@@ -483,6 +477,13 @@ export default function QuizPage() {
    * 単語帳を前提にした副作用 (リモート同期・語彙タイプの取り込み) は止める。
    */
   const binderName = projectId === 'all' ? searchParams.get('binder') : null;
+  /**
+   * 音読チャレンジに送れない出題か。
+   * 音読側が読めるのは単語帳1冊かバインダー1つぶんで、復習・今日の学習や
+   * 「すべての単語帳」のような横断出題は扱えない。ここが true のときは
+   * クイズ形式の選択を適用しない。
+   */
+  const voiceQuizUnavailable = (projectId === 'all' && !binderName) || reviewMode || learnMode;
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
     const parsed = Number.parseInt(countFromUrl, 10);
@@ -622,6 +623,7 @@ export default function QuizPage() {
     const parsedInput = Number.parseInt(inputCount, 10);
     const count = Number.isFinite(parsedInput) && parsedInput > 0 ? parsedInput : questionCount;
     if (count && count > 0) params.set('count', String(count));
+    if (binderName) params.set('binder', binderName);
     if (returnPath) params.set('from', returnPath);
     const query = params.toString();
     const href = `/voice-quiz/${projectId}${query ? `?${query}` : ''}`;
@@ -629,7 +631,7 @@ export default function QuizPage() {
     // 自動送りは replace。push にすると「戻る」でここへ戻され、また送られて堂々巡りになる。
     if (options?.replace) router.replace(href);
     else router.push(href);
-  }, [inputCount, questionCount, returnPath, router, projectId]);
+  }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
 
   // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
   useEffect(() => {

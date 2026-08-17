@@ -244,7 +244,8 @@ test('words/create inserts raw words, returns resolved lexicon entries, and enqu
   assert.equal(fakeClient.insertedRows[0]?.['lexicon_entry_id'], preservedLexiconEntryId);
   assert.equal(fakeClient.insertedRows[0]?.['english'], 'book');
   assert.equal(fakeClient.insertedRows[0]?.['word_order_quiz'], null);
-  assert.equal(fakeClient.insertedRows[1]?.['vocabulary_type'], null);
+  // 未指定の語は passive で入る (スキャンで拾った語の既定値)
+  assert.equal(fakeClient.insertedRows[1]?.['vocabulary_type'], 'passive');
   assert.equal(fakeClient.insertedRows[1]?.['english'], 'compose');
   assert.deepEqual(
     fakeClient.translationRows.map((row) => ({

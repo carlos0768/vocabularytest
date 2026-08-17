@@ -9,6 +9,7 @@ import { QuizModeChooser } from '@/components/quiz';
 import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
 import { voiceQuizBatch } from '@/lib/quiz/voice-quiz-batch';
 import { getRepository } from '@/lib/db';
+import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
 import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
@@ -152,6 +153,12 @@ export default function VoiceQuizPage() {
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const returnPath = searchParams.get('from');
+  /**
+   * バインダー横断の出題。`/voice-quiz/all?binder=<バインダー名>` で、そのバインダーに
+   * 入っている単語帳の語をひとつの山にして出す。1冊ぶんの出題ではないので、
+   * 単語帳を前提にした記録先 (projectId) は語ごとのものに切り替える。
+   */
+  const binderName = projectId === 'all' ? searchParams.get('binder') : null;
   // 通常クイズから引き継いだ出題数。モード選択はURLだけで表現し、保存はしない。
   const requestedCount = resolveVoiceQuizCount(searchParams.get('count'));
   const { subscription, loading: authLoading, user } = useAuth();
@@ -161,16 +168,18 @@ export default function VoiceQuizPage() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const backToProject = useCallback(() => {
-    router.replace(returnPath || `/project/${projectId}`);
-  }, [router, returnPath, projectId]);
+    const fallback = binderName ? `/binder/${encodeURIComponent(binderName)}` : `/project/${projectId}`;
+    router.replace(returnPath || fallback);
+  }, [router, returnPath, projectId, binderName]);
 
-  /** 通常クイズへ戻す。出題数はそのまま引き継ぐ。 */
+  /** 通常クイズへ戻す。出題数とバインダーの指定はそのまま引き継ぐ。 */
   const goToNormalQuiz = useCallback(() => {
     writeQuizMode('normal');
     const params = new URLSearchParams({ count: String(requestedCount) });
+    if (binderName) params.set('binder', binderName);
     if (returnPath) params.set('from', returnPath);
     router.replace(`/quiz/${projectId}?${params.toString()}`);
-  }, [router, projectId, returnPath, requestedCount]);
+  }, [router, projectId, binderName, returnPath, requestedCount]);
 
   // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
   useEffect(() => {
@@ -353,22 +362,35 @@ export default function VoiceQuizPage() {
     const load = async () => {
       try {
         const ownerUserId = user ? user.id : getGuestUserId();
-        // 音読チャレンジは単語帳1冊ぶんしか出題できない。横断出題の入口
-        // (/voice-quiz/all や復習・今日の学習) を踏んだら、行き止まりにせず
-        // 四択へ渡す。ここで backToProject に落とすと、クイズが始まらないまま
-        // ホームへ戻されたように見える。
-        if (projectId === 'all') {
+        let loaded: Word[];
+
+        if (binderName) {
+          // バインダーに入っている単語帳をまとめてひとつの山にする
+          const projects = await repository.getProjects(ownerUserId);
+          const ids = projects
+            .filter((p) => (p.binder?.trim() ?? '') === binderName)
+            .map((p) => p.id);
+          if (ids.length === 0) {
+            backToProject();
+            return;
+          }
+          const wordsByProject = await getWordsByProjectMap(repository, ids);
+          loaded = ids.flatMap((id) => wordsByProject[id] ?? []);
+        } else if (projectId === 'all') {
+          // 音読チャレンジはバインダー以外の横断出題 (復習・今日の学習・すべての
+          // 単語帳) を扱えない。行き止まりにせず四択へ渡す。ここで backToProject に
+          // 落とすと、クイズが始まらないままホームへ戻されたように見える。
           goToNormalQuiz();
           return;
+        } else {
+          const project = await repository.getProject(projectId);
+          if (!project || project.userId !== ownerUserId) {
+            backToProject();
+            return;
+          }
+          loaded = await repository.getWords(projectId);
         }
 
-        const project = await repository.getProject(projectId);
-        if (!project || project.userId !== ownerUserId) {
-          backToProject();
-          return;
-        }
-
-        let loaded = await repository.getWords(projectId);
         const unmastered = loaded.filter((w) => w.status !== 'mastered');
         if (unmastered.length > 0) {
           loaded = unmastered;
@@ -389,7 +411,7 @@ export default function VoiceQuizPage() {
     };
 
     load();
-  }, [authLoading, projectId, repository, user, backToProject, goToNormalQuiz]);
+  }, [authLoading, projectId, binderName, repository, user, backToProject, goToNormalQuiz]);
 
   /** 1問を確定させる。以降この問題では再挑戦しない。 */
   const finishQuestion = useCallback(
@@ -418,11 +440,15 @@ export default function VoiceQuizPage() {
       // 音声認識が落ちたぶんは、間違えたことにしない。答えを聞き取れなかった
       // だけで、答えられなかったわけではない —— 記録すると復習の間隔まで
       // 縮み、上限に達した日は解いた10問ぶんの成績と学習状態が丸ごと壊れる。
+      // バインダー横断のときの projectId は `all` という擬似IDなので、
+      // 記録先はその語が実際に属する単語帳にする
+      const recordProjectId = binderName ? word.projectId : projectId;
+
       if (!apiErrored) {
         if (correct) {
           recordCorrectAnswer(false);
         } else {
-          recordWrongAnswer(word.id, word.english, word.japanese, projectId, word.distractors);
+          recordWrongAnswer(word.id, word.english, word.japanese, recordProjectId, word.distractors);
         }
         recordActivity();
       }
@@ -468,7 +494,7 @@ export default function VoiceQuizPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               wordId: word.id,
-              projectId,
+              projectId: recordProjectId,
               english: word.english,
               japanese: word.japanese,
               becameMastered,
@@ -480,7 +506,7 @@ export default function VoiceQuizPage() {
         }
       } catch {}
     },
-    [projectId, repository, user],
+    [projectId, binderName, repository, user],
   );
 
   /** 1回の試行の結果を受けて、再挑戦させるか問題を確定するかを決める。 */

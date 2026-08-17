@@ -13,6 +13,7 @@ import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { prefillWordOrderQuizzesForWords } from '@/lib/scan/word-order-prefill';
+import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
 import {
   buildWordTranslationInsertRows,
   normalizeWordForTranslationPersistence,
@@ -229,7 +230,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         english: word.english,
         japanese: word.japanese,
         japanese_source: word.japaneseSource ?? null,
-        vocabulary_type: word.vocabularyType ?? 'passive',
+        vocabulary_type: word.vocabularyType ?? DEFAULT_SCANNED_VOCABULARY_TYPE,
         lexicon_entry_id: word.lexiconEntryId ?? null,
         lexicon_sense_id: word.lexiconSenseId ?? null,
         distractors: word.distractors,

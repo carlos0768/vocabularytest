@@ -1,6 +1,7 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
-import type { CustomSection, WordDerivedWords, WordMorphology } from '@/types';
+import type { CustomSection, VocabularyType, WordDerivedWords, WordMorphology } from '@/types';
+import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
 
 export interface ServerCloudProjectInsertParams {
   userId: string;
@@ -50,6 +51,7 @@ export interface ServerCloudWordInsertPayload {
   custom_sections: CustomSection[];
   morphology: WordMorphology | null;
   derived_words: WordDerivedWords | null;
+  vocabulary_type: VocabularyType;
 }
 
 type MaybePostgrestColumnError = {
@@ -129,6 +131,10 @@ export function buildServerCloudWordsInsertPayload(
     custom_sections: word.customSections ?? [],
     morphology: word.morphology ?? null,
     derived_words: word.derivedWords ?? null,
+    // スキャンで拾った語は「見て分かればいい語」から始める。ここを NULL のまま
+    // 挿すと、ローカル保存 (local-repository) 経由の語だけ passive になって
+    // 端末とバックグラウンドスキャンで既定値が食い違う。
+    vocabulary_type: DEFAULT_SCANNED_VOCABULARY_TYPE,
   }));
 }
 
@@ -221,6 +227,7 @@ export function stripServerCloudWordsInsertPayloadForCompat(
       pronunciation: word.pronunciation,
       part_of_speech_tags: word.part_of_speech_tags,
       custom_sections: word.custom_sections,
+      vocabulary_type: word.vocabulary_type,
     };
 
     if (!options.omitLexiconSenseId) {

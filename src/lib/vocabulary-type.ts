@@ -1,5 +1,15 @@
 import type { VocabularyType } from '@/types';
 
+/**
+ * スキャンで取り込んだ語の既定の語彙モード。
+ *
+ * 拾ったばかりの語はまず「見て分かればいい語 (passive)」から始めて、
+ * 自分で使えるようにしたい語だけ手で active に上げてもらう。
+ * ローカル保存 (`local-repository`)・`/api/words/create`・バックグラウンド
+ * スキャンの直挿し (`server-cloud-persistence`) の3経路で同じ値を使う。
+ */
+export const DEFAULT_SCANNED_VOCABULARY_TYPE: VocabularyType = 'passive';
+
 export function getNextVocabularyType(
   current: VocabularyType | null | undefined,
 ): VocabularyType | null {

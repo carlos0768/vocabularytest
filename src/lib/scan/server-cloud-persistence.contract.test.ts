@@ -99,6 +99,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       custom_sections: [],
       morphology: null,
       derived_words: null,
+      vocabulary_type: 'passive',
     },
     {
       project_id: 'project-123',
@@ -116,6 +117,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       custom_sections: [],
       morphology: null,
       derived_words: null,
+      vocabulary_type: 'passive',
     },
   ]);
   assert.equal(Object.hasOwn(payload[1] ?? {}, 'part_of_speech_tags'), true);
@@ -239,6 +241,7 @@ test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_mode
       custom_sections: [],
       morphology: null,
       derived_words: null,
+      vocabulary_type: 'passive',
     },
   ]);
 });

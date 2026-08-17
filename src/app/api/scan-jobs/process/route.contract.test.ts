@@ -916,6 +916,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
       custom_sections: [],
       morphology: null,
       derived_words: null,
+      vocabulary_type: 'passive',
     },
   ]);
 
