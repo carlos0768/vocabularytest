@@ -4,36 +4,32 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { StackedBar } from '@/components/project/WordStatusBar';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { getRepository } from '@/lib/db';
 import { getGuestUserId } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import { processProjectIconFile } from '@/lib/image-utils';
-import { getCachedBinderIcons, loadBinderIcons, saveBinderIcon } from '@/lib/binders/icons';
+import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
+import { summarizeWordMemory } from '@/lib/words/memory';
+import { normalizeBinder, thumbColor } from '@/lib/binders/display';
 import type { Project, SubscriptionStatus } from '@/types';
 
-// バインダー (フォルダ) 詳細。中の単語帳を一覧し、単語帳の追加/解除と、
-// バインダーごとの共有ライブラリ公開を行う。マイ単語帳と同じ配色のタイルを使う。
+// バインダー (フォルダ) 詳細。中の単語帳を進捗つきで一覧し、そこから
+// クイズ / フラッシュカード / 単語帳の追加を行う。マイ単語帳と同じ配色のタイルを使う。
+// アイコン・名前・共有ライブラリへの公開は右上の設定ページ (./settings) にある。
 
-// 単語帳タイルと同じ配色 (home-client / projects の THUMBS と同一)
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
-}
+/** 単語帳1冊ぶんの学習度。バーを出すためだけの集計。 */
+type ProjectProgress = { total: number; mastered: number; active: number; learning: number; unlearned: number };
 
-function normalizeBinder(value: string | null | undefined): string {
-  return value?.trim() ?? '';
-}
+const EMPTY_PROGRESS: ProjectProgress = { total: 0, mastered: 0, active: 0, learning: 0, unlearned: 0 };
 
 export default function BinderDetailPage({ params }: { params: Promise<{ name: string }> }) {
   const { name: rawName } = use(params);
   const binderName = decodeURIComponent(rawName);
   const router = useRouter();
-  const { user, subscription, isPro } = useAuth();
+  const { user, subscription } = useAuth();
   const { showToast } = useToast();
   const pageScrolled = usePageScrolled();
 
@@ -45,11 +41,8 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [publishing, setPublishing] = useState(false);
-  const [iconImage, setIconImage] = useState<string | null>(
-    () => getCachedBinderIcons()?.[binderName] ?? null,
-  );
-  const [savingIcon, setSavingIcon] = useState(false);
+  /** 単語帳ID -> 学習度。語の読み込みは一覧より遅れて入るので別状態に持つ。 */
+  const [progressByProject, setProgressByProject] = useState<Record<string, ProjectProgress>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,51 +60,6 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
     void load();
   }, [load]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void loadBinderIcons().then((icons) => {
-      if (!cancelled) setIconImage(icons[binderName] ?? null);
-    });
-    return () => { cancelled = true; };
-  }, [binderName]);
-
-  /**
-   * バインダーのアイコン。単語帳アイコンと同じ正方形JPEGのdata URLに落として
-   * から保存する。null は削除（頭文字＋フォルダアイコンの既定表示に戻る）。
-   */
-  const handlePickIcon = async (file: File | null) => {
-    if (!file || savingIcon) return;
-    setSavingIcon(true);
-    try {
-      const dataUrl = await processProjectIconFile(file);
-      await saveBinderIcon(binderName, dataUrl);
-      setIconImage(dataUrl);
-      invalidateHomeCache();
-      showToast({ message: 'アイコンを設定しました', type: 'success' });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'アイコンの保存に失敗しました';
-      showToast({ message, type: 'error' });
-    } finally {
-      setSavingIcon(false);
-    }
-  };
-
-  const handleRemoveIcon = async () => {
-    if (savingIcon || !iconImage) return;
-    setSavingIcon(true);
-    try {
-      await saveBinderIcon(binderName, null);
-      setIconImage(null);
-      invalidateHomeCache();
-      showToast({ message: 'アイコンを削除しました', type: 'success' });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'アイコンの削除に失敗しました';
-      showToast({ message, type: 'error' });
-    } finally {
-      setSavingIcon(false);
-    }
-  };
-
   const inBinder = useMemo(
     () => projects.filter((p) => normalizeBinder(p.binder) === binderName),
     [projects, binderName],
@@ -120,6 +68,60 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
     () => projects.filter((p) => normalizeBinder(p.binder) !== binderName),
     [projects, binderName],
   );
+
+  // 進捗バーのための語数。バインダーに入っている単語帳のぶんだけ引く。
+  // Hybrid リポジトリなら getAllWordsByProjectIds で1往復にまとまる。
+  const inBinderIds = useMemo(() => inBinder.map((p) => p.id).join(','), [inBinder]);
+  useEffect(() => {
+    const ids = inBinderIds ? inBinderIds.split(',') : [];
+    if (ids.length === 0) {
+      setProgressByProject({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const wordsByProject = await getWordsByProjectMap(repository, ids);
+        if (cancelled) return;
+        const next: Record<string, ProjectProgress> = {};
+        for (const id of ids) {
+          const summary = summarizeWordMemory(wordsByProject[id] ?? []);
+          next[id] = {
+            total: summary.total,
+            mastered: summary.mastered,
+            active: summary.active,
+            learning: summary.learning,
+            unlearned: summary.unlearned,
+          };
+        }
+        setProgressByProject(next);
+      } catch {
+        // 進捗は飾りなので、取れなければバー無しのまま一覧を出す
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [inBinderIds, repository]);
+
+  // バインダー全体の学習度。単語帳ごとの集計を足し合わせる
+  // (全語をまとめて summarizeWordMemory に渡すと、複数の単語帳にある同じ見出し語が
+  //  1語に畳まれて総語数が実際より減ってしまう)。
+  const binderProgress = useMemo(() => {
+    return inBinder.reduce<ProjectProgress>((acc, project) => {
+      const p = progressByProject[project.id];
+      if (!p) return acc;
+      return {
+        total: acc.total + p.total,
+        mastered: acc.mastered + p.mastered,
+        active: acc.active + p.active,
+        learning: acc.learning + p.learning,
+        unlearned: acc.unlearned + p.unlearned,
+      };
+    }, EMPTY_PROGRESS);
+  }, [inBinder, progressByProject]);
+
+  const binderHref = `/binder/${encodeURIComponent(binderName)}`;
+  const hasWords = binderProgress.total > 0;
+  const studyQuery = `binder=${encodeURIComponent(binderName)}&from=${encodeURIComponent(binderHref)}`;
 
   const setBinder = async (projectId: string, binder: string | null, failMessage: string) => {
     if (busyId) return;
@@ -133,37 +135,6 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
     } finally {
       setBusyId(null);
     }
-  };
-
-  // バインダー内の単語帳をまとめて共有ライブラリに公開する (Pro限定)
-  const handlePublishBinder = async () => {
-    if (publishing || inBinder.length === 0) return;
-    if (!isPro) {
-      showToast({ message: '共有ライブラリへの公開はProプラン限定です', type: 'error' });
-      return;
-    }
-    if (!window.confirm(`「${binderName}」内の${inBinder.length}冊を共有ライブラリに公開しますか？`)) return;
-    setPublishing(true);
-    let ok = 0;
-    for (const project of inBinder) {
-      try {
-        const res = await fetch('/api/shared-projects/share-wordbook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectId: project.id, sharedTags: [binderName] }),
-        });
-        const payload = (await res.json().catch(() => null)) as { success?: boolean } | null;
-        if (res.ok && payload?.success) ok += 1;
-      } catch {
-        // 続行して残りを公開する
-      }
-    }
-    setPublishing(false);
-    invalidateHomeCache();
-    showToast({
-      message: ok === inBinder.length ? `${ok}冊を公開しました` : `${ok}/${inBinder.length}冊を公開しました`,
-      type: ok > 0 ? 'success' : 'error',
-    });
   };
 
   return (
@@ -190,62 +161,35 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
             <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{inBinder.length}冊</span>
           </div>
         </div>
+        <Link
+          href={`${binderHref}/settings`}
+          aria-label="バインダーの設定"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
+        >
+          <Icon name="settings" size={17} />
+        </Link>
       </header>
 
-      {/* バインダーのアイコン設定。ホームのバインダータイルの絵柄になる */}
-      <section className="mt-3.5 flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-3">
-        <span
-          className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-cover bg-center text-white"
-          style={{
-            backgroundColor: thumbColor(binderName),
-            backgroundImage: iconImage ? `url(${iconImage})` : undefined,
-          }}
-        >
-          {!iconImage && <Icon name="folder" size={24} filled />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
-            BINDER ICON
+      {/* バインダー全体の学習度。単語帳詳細と同じ内訳バーを使う */}
+      {hasWords && (
+        <section className="mt-3.5 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-3.5">
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+              BINDER PROGRESS
+            </span>
+            <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
+              {binderProgress.total}語
+            </span>
           </div>
-          <div className="text-[12px] font-bold text-[var(--color-muted)]">
-            {iconImage ? '設定済み' : '未設定（フォルダの絵）'}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <label
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${savingIcon ? 'opacity-60' : ''}`}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={savingIcon}
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  event.target.value = '';
-                  void handlePickIcon(file);
-                }}
-              />
-              <Icon
-                name={savingIcon ? 'progress_activity' : 'photo_camera'}
-                size={15}
-                className={savingIcon ? 'animate-spin' : undefined}
-              />
-              {savingIcon ? '保存中...' : iconImage ? '変更' : '画像を選ぶ'}
-            </label>
-            {iconImage && (
-              <button
-                type="button"
-                disabled={savingIcon}
-                onClick={() => void handleRemoveIcon()}
-                className="inline-flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--color-border)] bg-white px-3 py-2 text-[12.5px] font-bold text-[var(--color-muted)] disabled:opacity-60"
-              >
-                <Icon name="delete" size={15} />
-                削除
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
+          <StackedBar
+            total={binderProgress.total}
+            m={binderProgress.mastered}
+            a={binderProgress.active}
+            l={binderProgress.learning}
+            n={binderProgress.unlearned}
+          />
+        </section>
+      )}
 
       <div className="pt-3.5">
         {loading ? (
@@ -265,6 +209,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
               <BinderProjectRow
                 key={project.id}
                 project={project}
+                progress={progressByProject[project.id]}
                 disabled={busyId !== null}
                 onRemove={() => void setBinder(project.id, null, '解除に失敗しました')}
               />
@@ -273,29 +218,61 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         )}
       </div>
 
-      {/* 下部固定バー: 単語帳を追加 / バインダーを公開 (/project/* のページ送りバーと同じパターン) */}
+      {/* 下部固定バー: クイズ / フラッシュカード / 単語帳の追加。
+          /project/* の3ボタンと同じ組み方 (影は2pxずらした絶対配置の黒い面)。
+          クイズとフラッシュカードはバインダー内の単語帳をまとめて出す。 */}
       <div
         className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md"
         style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
       >
-        <div className="mx-auto flex w-full max-w-[560px] items-center gap-2.5 px-[18px] pt-3 lg:max-w-[720px] lg:px-8">
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-          >
-            <Icon name="add" size={17} />
-            単語帳を追加
-          </button>
-          <button
-            type="button"
-            onClick={() => void handlePublishBinder()}
-            disabled={publishing || inBinder.length === 0}
-            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
-          >
-            <Icon name={publishing ? 'progress_activity' : 'public'} size={17} className={publishing ? 'animate-spin' : ''} />
-            {publishing ? '公開中...' : 'バインダーを公開'}
-          </button>
+        <div className="mx-auto flex w-full max-w-[560px] items-center gap-2 px-[18px] pt-3 lg:max-w-[720px] lg:px-8">
+          <div className="relative flex-1">
+            <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
+            {hasWords ? (
+              <Link
+                href={`/quiz/all?${studyQuery}`}
+                className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-white no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="check" size={14} />
+                クイズを始める
+              </Link>
+            ) : (
+              <span className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-white opacity-40">
+                <Icon name="check" size={14} />
+                クイズを始める
+              </span>
+            )}
+          </div>
+          <div className="relative h-[44px] w-[44px] flex-none">
+            <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
+            {hasWords ? (
+              <Link
+                href={`/flashcard/all?${studyQuery}`}
+                aria-label="フラッシュカード"
+                className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
+              >
+                <Icon name="style" size={18} />
+              </Link>
+            ) : (
+              <span
+                aria-label="フラッシュカード"
+                className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] opacity-40"
+              >
+                <Icon name="style" size={18} />
+              </span>
+            )}
+          </div>
+          <div className="relative h-[44px] w-[44px] flex-none">
+            <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              aria-label="単語帳を追加"
+              className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            >
+              <Icon name="add" size={20} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -352,14 +329,20 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
 // (以前はバツボタン直押しで解除していたが、一覧の他行と同じ「...」メニューに統一)
 function BinderProjectRow({
   project,
+  progress,
   disabled,
   onRemove,
 }: {
   project: Project;
+  /** 語の読み込みが済むまでは undefined。その間はバーを出さない。 */
+  progress: ProjectProgress | undefined;
   disabled: boolean;
   onRemove: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const masteredPct = progress && progress.total > 0
+    ? Math.round((progress.mastered / progress.total) * 100)
+    : 0;
 
   return (
     <div className="relative flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-[13px]">
@@ -372,6 +355,21 @@ function BinderProjectRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold text-[var(--solid-ink)]">{project.title}</span>
+          {/* ホームの単語帳タイルと同じ習得率バー。0語の単語帳には出さない */}
+          {progress && progress.total > 0 && (
+            <>
+              <span className="mt-0.5 flex items-baseline gap-1.5">
+                <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">{progress.total}語</span>
+                <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">習得{masteredPct}%</span>
+              </span>
+              <span className="mt-1 block h-[5px] overflow-hidden rounded-full bg-[var(--color-border)]">
+                <span
+                  className="block h-full rounded-full"
+                  style={{ width: `${masteredPct}%`, background: 'var(--color-success)' }}
+                />
+              </span>
+            </>
+          )}
         </span>
       </Link>
       <button

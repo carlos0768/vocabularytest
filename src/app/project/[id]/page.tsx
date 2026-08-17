@@ -407,6 +407,13 @@ export default function ProjectPage() {
     ? filteredWords.slice(wordPage * MOBILE_WORDS_PER_PAGE, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)
     : filteredWords;
 
+  // 赤シート: 一覧の訳を赤いベタで隠す。紙の単語帳の赤シートと同じ使い方をする。
+  // 開くたびにオフから始めたいので端末には覚えさせない。
+  const [redSheet, setRedSheet] = useState(false);
+  // 下部固定バー (ページ送り + 赤シート)。1語でもあれば出す。ただし選択モード中は
+  // 同じ位置に BulkActionBar が来るので譲る。
+  const showWordToolbar = wordsLoaded && filteredWords.length > 0 && !selectMode;
+
   const selectedDisplayedWordCount = useMemo(
     () => filteredWords.filter((word) => selectedWordIds.has(word.id)).length,
     [filteredWords, selectedWordIds],
@@ -1445,7 +1452,7 @@ export default function ProjectPage() {
       {(!wordsLoaded || counts.total > 0) && (
       <div className="flex items-center gap-2 px-[18px] pb-4">
         <div className="relative flex-1">
-          <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
+          <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/quiz/${projectId}`}
             data-tour="project-quiz"
@@ -1576,7 +1583,7 @@ export default function ProjectPage() {
       </div>
       )}
 
-      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : paginateWords ? 'pb-[104px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
+      <div className={`flex flex-col px-4 ${selectMode ? 'pb-[160px]' : showWordToolbar ? 'pb-[104px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
         {!wordsLoaded ? (
           <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -1604,6 +1611,7 @@ export default function ProjectPage() {
                 word={word}
                 selectMode={selectMode}
                 selected={selected}
+                hideMeaning={redSheet}
                 tourAnchor={index === 0 && wordPage === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
                 onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
@@ -1627,8 +1635,10 @@ export default function ProjectPage() {
         )}
       </div>
 
-      {/* モバイル: 20語を超える単語帳は10語ずつページ送り。下部固定バーの左右矢印で移動 */}
-      {paginateWords && !selectMode && (
+      {/* モバイル: 語数 / 赤シート / ページ送りの下部固定バー。
+          20語を超える単語帳は10語ずつのページ送りになり、左右の矢印で移動する
+          (20語以下でも赤シートは使えるようにバー自体は出し、矢印だけ無効にする) */}
+      {showWordToolbar && (
         <div
           className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md lg:hidden"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
@@ -1637,19 +1647,34 @@ export default function ProjectPage() {
             <button
               type="button"
               onClick={() => setWordPage((p) => Math.max(0, p - 1))}
-              disabled={wordPage === 0}
+              disabled={!paginateWords || wordPage === 0}
               aria-label="前の10語"
               className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
             >
               <Icon name="chevron_left" size={20} />
             </button>
             <span className="font-mono text-[12px] font-bold tabular-nums text-[var(--solid-ink)]">
-              {wordPage * MOBILE_WORDS_PER_PAGE + 1}–{Math.min(filteredWords.length, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)} / {filteredWords.length}語
+              {paginateWords
+                ? `${wordPage * MOBILE_WORDS_PER_PAGE + 1}–${Math.min(filteredWords.length, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)} / ${filteredWords.length}語`
+                : `${filteredWords.length}語`}
             </span>
+            {/* 赤シート。オンの間は一覧の訳が赤いベタで隠れる */}
+            <button
+              type="button"
+              onClick={() => setRedSheet((on) => !on)}
+              aria-pressed={redSheet}
+              aria-label={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
+              title={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
+              className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${
+                redSheet ? 'bg-[#e0483f] text-white' : 'bg-white text-[#e0483f]'
+              }`}
+            >
+              <Icon name="crop_portrait" size={22} filled={redSheet} />
+            </button>
             <button
               type="button"
               onClick={() => setWordPage((p) => Math.min(wordPageCount - 1, p + 1))}
-              disabled={wordPage >= wordPageCount - 1}
+              disabled={!paginateWords || wordPage >= wordPageCount - 1}
               aria-label="次の10語"
               className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
             >
