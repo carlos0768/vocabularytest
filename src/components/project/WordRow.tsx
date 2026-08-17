@@ -107,6 +107,76 @@ export function StatusSquares({
   );
 }
 
+/**
+ * 赤シート。訳の上に赤いベタを敷いて読めなくする。
+ *
+ * 文字を消さずに色だけ透明にするのは、隠しても行の高さと幅が動かないようにするため
+ * (訳を消すと行が詰まって、赤シートを外すたびに一覧が跳ねる)。
+ * 訳は `word.japanese` 直書きではなく複数語義を畳む TranslationDisplay 経由なので、
+ * ここでもラッパごと覆って語義が漏れないようにする。
+ */
+function MaskedTranslation({
+  word,
+  hidden,
+  interactive,
+}: {
+  word: Word;
+  hidden: boolean;
+  /** 赤い部分をタップして1行だけ表に戻せるか。選択モードでは行全体がボタンなので無効。 */
+  interactive: boolean;
+}) {
+  const [revealed, setRevealed] = useState(false);
+
+  // 赤シートを掛け直す / 外すたびに、1行だけ開けていた状態を畳んで次に備える。
+  // effect ではなくレンダー中に直すのは、赤いベタを1フレーム挟まずに切り替えるため。
+  const [lastHidden, setLastHidden] = useState(hidden);
+  if (lastHidden !== hidden) {
+    setLastHidden(hidden);
+    setRevealed(false);
+  }
+
+  const content = <TranslationDisplay word={word} compact />;
+
+  if (!hidden || revealed) {
+    return <span className="truncate">{content}</span>;
+  }
+
+  const maskClass = 'truncate select-none rounded-[4px] bg-[#e0483f] text-transparent';
+
+  if (!interactive) {
+    return (
+      <span className={maskClass} aria-label="訳は赤シートで隠れています">
+        {content}
+      </span>
+    );
+  }
+
+  const reveal = () => setRevealed(true);
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label="訳を表示"
+      className={`${maskClass} cursor-pointer`}
+      onClick={(event) => {
+        // 行タップ (単語詳細を開く) には伝えない
+        event.stopPropagation();
+        event.preventDefault();
+        reveal();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.stopPropagation();
+        event.preventDefault();
+        reveal();
+      }}
+    >
+      {content}
+    </span>
+  );
+}
+
 /** クイズで間違えた回数のバッジ。0回の単語には出さない。 */
 function WrongCountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -126,6 +196,7 @@ export function WordRow({
   selected,
   tourAnchor = false,
   wrongCount = 0,
+  hideMeaning = false,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -138,6 +209,8 @@ export function WordRow({
   tourAnchor?: boolean;
   /** クイズでの誤答回数。単語帳をまたぐ一覧で「間違えた単語」を見分けるために出す。 */
   wrongCount?: number;
+  /** 赤シート。true の間は訳を赤いベタで覆う (行タップで1行だけ表に戻せる)。 */
+  hideMeaning?: boolean;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -163,9 +236,7 @@ export function WordRow({
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
               {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-              <span className="truncate">
-                <TranslationDisplay word={word} compact />
-              </span>
+              <MaskedTranslation word={word} hidden={hideMeaning} interactive={false} />
               <WrongCountBadge count={wrongCount} />
             </div>
           </div>
@@ -190,9 +261,7 @@ export function WordRow({
           <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
           <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
             {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-            <span className="truncate">
-              <TranslationDisplay word={word} compact />
-            </span>
+            <MaskedTranslation word={word} hidden={hideMeaning} interactive />
             <WrongCountBadge count={wrongCount} />
           </div>
         </button>

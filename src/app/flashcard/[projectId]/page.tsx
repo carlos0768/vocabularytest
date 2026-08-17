@@ -164,6 +164,8 @@ export default function FlashcardPage() {
   const projectId = params.projectId as string;
   const favoritesOnly = searchParams.get('favorites') === 'true';
   const collectionId = searchParams.get('collectionId');
+  /** バインダー横断の山札。`/flashcard/all?binder=<バインダー名>` で来る。 */
+  const binderName = projectId === 'all' ? searchParams.get('binder') : null;
   const { user, subscription, loading: authLoading } = useAuth();
 
   // 山札は「読み込んだ全部 (allWords)」と「絞り込み後 (words)」に分ける。
@@ -240,12 +242,12 @@ export default function FlashcardPage() {
     if (!getHasLoaded()) return;
     cacheRestoredRef.current = true;
     const cachedWords = getCachedProjectWords()[projectId];
-    if (cachedWords && cachedWords.length > 0 && !favoritesOnly && !collectionId) {
+    if (cachedWords && cachedWords.length > 0 && !favoritesOnly && !collectionId && !binderName) {
       setAllWords(sortFlashcardWords(cachedWords));
       hasLoadedRef.current = true;
       setLoading(false);
     }
-  }, [projectId, favoritesOnly, collectionId]);
+  }, [projectId, favoritesOnly, collectionId, binderName]);
 
   const backToProject = useCallback(() => {
     setIsAutoPlaying(false);
@@ -275,6 +277,13 @@ export default function FlashcardPage() {
         let loadedWords: Word[];
         if (collectionId) {
           loadedWords = await loadCollectionWords(collectionId);
+        } else if (binderName) {
+          // バインダーに入っている単語帳をまとめて1つの山札にする
+          const userId = user ? user.id : getGuestUserId();
+          const projects = await repository.getProjects(userId);
+          const inBinder = projects.filter((p) => (p.binder?.trim() ?? '') === binderName);
+          const arrays = await Promise.all(inBinder.map((p) => repository.getWords(p.id)));
+          loadedWords = arrays.flat();
         } else if (projectId === 'all' && favoritesOnly) {
           const userId = user ? user.id : getGuestUserId();
           const projects = await repository.getProjects(userId);
@@ -303,7 +312,7 @@ export default function FlashcardPage() {
       }
     };
     loadWords();
-  }, [authLoading, projectId, favoritesOnly, collectionId, repository, user, backToProject, allWords.length]);
+  }, [authLoading, projectId, favoritesOnly, collectionId, binderName, repository, user, backToProject, allWords.length]);
 
   const currentWord = words[currentIndex];
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完し、
@@ -717,7 +726,7 @@ export default function FlashcardPage() {
           </button>
         </div>
         <div className="mono muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 4 }}>
-          {favoritesOnly ? '保存済み' : collectionId ? 'コレクション' : '単語帳'} · フラッシュカード
+          {favoritesOnly ? '保存済み' : collectionId ? 'コレクション' : binderName ? 'バインダー' : '単語帳'} · フラッシュカード
         </div>
 
         {/* 流す単語の絞り込み。0件の軸は押せない（空の山札にしないため） */}

@@ -66,6 +66,15 @@ export function getFavoritesQuizStorageKey(projectId: string): string {
   return `quiz_state_${projectId}_favorites`;
 }
 
+/**
+ * バインダー横断の出題 (`/quiz/all?binder=...`) の途中状態のキー。
+ * projectId が `all` のままだと、バインダーごとの出題も「すべての単語帳」の出題も
+ * 同じ `quiz_state_all` を奪い合ってしまうので、バインダー名で分ける。
+ */
+export function getBinderQuizStorageKey(binderName: string): string {
+  return `quiz_state_binder_${binderName}`;
+}
+
 export function isQuizStateExpired(timestamp: number, now: number = Date.now()): boolean {
   return now - timestamp > QUIZ_STATE_TTL_MS;
 }

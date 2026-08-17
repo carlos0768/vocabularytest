@@ -28,6 +28,7 @@ import { loadCollectionWords } from '@/lib/collection-words';
 import {
   applyWordOrderQuestionsToPendingQuiz,
   generateQuizQuestions,
+  getBinderQuizStorageKey,
   getFavoritesQuizStorageKey,
   getQuizStorageKey,
   isQuizStateExpired,
@@ -476,6 +477,12 @@ export default function QuizPage() {
   const reminderMode = searchParams.get('reminder') === '1';
   const reminderPriorityParam = searchParams.get('priority');
   const collectionId = searchParams.get('collectionId');
+  /**
+   * バインダー横断の出題。`/quiz/all?binder=<バインダー名>` で、そのバインダーに
+   * 入っている単語帳の語をまとめて出す。単語帳1冊ぶんの出題ではないので、
+   * 単語帳を前提にした副作用 (リモート同期・語彙タイプの取り込み) は止める。
+   */
+  const binderName = projectId === 'all' ? searchParams.get('binder') : null;
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
     const parsed = Number.parseInt(countFromUrl, 10);
@@ -550,7 +557,9 @@ export default function QuizPage() {
       ? 'quiz_state_wrong_answers'
       : favoritesMode
         ? getFavoritesQuizStorageKey(projectId)
-        : getQuizStorageKey(projectId, reviewMode, learnMode);
+        : binderName
+          ? getBinderQuizStorageKey(binderName)
+          : getQuizStorageKey(projectId, reviewMode, learnMode);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -983,6 +992,35 @@ export default function QuizPage() {
           }
         } else if (collectionId) {
           sourceWords = await loadCollectionWords(collectionId);
+        } else if (binderName) {
+          // バインダーに入っている単語帳をまとめて出題する
+          const userId = user ? user.id : getGuestUserId();
+          let projects = await repository.getProjects(userId);
+          let wordRepo = repository;
+          if (projects.length === 0 && user && navigator.onLine) {
+            try {
+              projects = await remoteRepository.getProjects(user.id);
+              if (projects.length > 0) wordRepo = remoteRepository;
+            } catch { /* ignore */ }
+          }
+          const projectIds = projects
+            .filter((p) => (p.binder?.trim() ?? '') === binderName)
+            .map((p) => p.id);
+          if (projectIds.length === 0) { backToProject(); return; }
+          const repoWithBulk = wordRepo as typeof repository & {
+            getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
+            getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
+          };
+          let wordsByProject: Record<string, Word[]> = {};
+          if (repoWithBulk.getAllWordsByProjectIds) {
+            wordsByProject = await repoWithBulk.getAllWordsByProjectIds(projectIds);
+          } else if (repoWithBulk.getAllWordsByProject) {
+            wordsByProject = await repoWithBulk.getAllWordsByProject(projectIds);
+          } else {
+            const arrays = await Promise.all(projectIds.map((id) => wordRepo.getWords(id)));
+            wordsByProject = Object.fromEntries(projectIds.map((id, idx) => [id, arrays[idx] ?? []]));
+          }
+          sourceWords = projectIds.flatMap((id) => wordsByProject[id] ?? []);
         } else {
           const hasAccess = await ensureProjectAccess();
           if (!hasAccess) { backToProject(); return; }
@@ -1031,10 +1069,10 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, binderName, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
 
   useEffect(() => {
-    if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
+    if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId || binderName) return;
     const syncRemote = async () => {
       try {
         const remoteWords = await remoteRepository.getWords(projectId);
@@ -1043,11 +1081,11 @@ export default function QuizPage() {
       } catch { /* silent */ }
     };
     syncRemote();
-  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, isPro]);
+  }, [authLoading, user, projectId, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, binderName, isPro]);
 
   useEffect(() => {
     if (!restoredFromStorage.current) return;
-    if (reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId) return;
+    if (reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId || binderName) return;
     if (questions.length === 0) return;
     if (vocabularyMergeFromLocalAppliedRef.current) return;
     vocabularyMergeFromLocalAppliedRef.current = true;
@@ -1072,7 +1110,7 @@ export default function QuizPage() {
       } catch { vocabularyMergeFromLocalAppliedRef.current = false; }
     })();
     return () => { cancelled = true; };
-  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId]);
+  }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, binderName]);
 
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
@@ -1108,7 +1146,10 @@ export default function QuizPage() {
       next[currentIndex] = marker ?? isCorrect;
       return next;
     });
-    const recordProjectId = reviewMode || learnMode || favoritesMode || reminderMode ? word.projectId : projectId;
+    // 単語帳をまたぐ出題 (復習・今日の学習・保存済み・リマインド・バインダー) では
+    // projectId が `all` などの擬似IDなので、記録先はその語が属する単語帳にする
+    const recordProjectId =
+      reviewMode || learnMode || favoritesMode || reminderMode || binderName ? word.projectId : projectId;
     const outcomePlan = buildQuizAnswerOutcomePlan({ word, isCorrect, recordProjectId });
     const becameMastered = word.status !== 'mastered' && outcomePlan.wordUpdates.status === 'mastered';
     if (isCorrect) recordCorrectAnswer(becameMastered);
