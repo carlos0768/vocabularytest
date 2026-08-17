@@ -4,6 +4,7 @@ import type { LexiconEntry, Project, Word, WordRepository, Collection, Collectio
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
+import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
 
 // Local implementation of WordRepository using Dexie (IndexedDB)
 // Used for Free tier users - data stays on device
@@ -83,7 +84,7 @@ export class LocalWordRepository implements WordRepository {
       createdAt: now,
       isFavorite: false,
       status: 'new' as const,
-      vocabularyType: word.vocabularyType ?? ('passive' as const),
+      vocabularyType: word.vocabularyType ?? DEFAULT_SCANNED_VOCABULARY_TYPE,
     }));
 
     await db.words.bulkAdd(newWords);

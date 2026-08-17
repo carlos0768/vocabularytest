@@ -170,9 +170,11 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         </Link>
       </header>
 
-      {/* バインダー全体の学習度。単語帳詳細と同じ内訳バーを使う */}
+      {/* バインダー全体の学習度。ヘッダと地続きに見せたいので、上と左右の枠は持たず
+          下の境界線だけを画面幅いっぱいに引く (-mx で端まで抜く)。
+          固定はせず、スクロールすればヘッダだけが残る。 */}
       {hasWords && (
-        <section className="mt-3.5 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-3.5">
+        <section className="-mx-[18px] border-b-2 border-[var(--solid-ink)] px-[18px] pb-3.5 pt-1.5 lg:-mx-8 lg:px-8">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
               BINDER PROGRESS
@@ -191,20 +193,22 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         </section>
       )}
 
-      <div className="pt-3.5">
+      <div>
         {loading ? (
           <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
             <span className="ml-2 text-sm">読み込み中...</span>
           </div>
         ) : inBinder.length === 0 ? (
-          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+          <div className="mt-3.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
             <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
               このバインダーにはまだ単語帳がありません。「単語帳を追加」から入れましょう。
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          /* 1冊ずつ枠で囲わず、上下の境界線だけで区切る音楽アプリ風の並び。
+             線は画面幅いっぱいに引きたいので、行も -mx で端まで抜く */
+          <div className="-mx-[18px] divide-y divide-[var(--color-border)] border-b border-[var(--color-border)] lg:-mx-8">
             {inBinder.map((project) => (
               <BinderProjectRow
                 key={project.id}
@@ -345,7 +349,7 @@ function BinderProjectRow({
     : 0;
 
   return (
-    <div className="relative flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white p-[13px]">
+    <div className="relative flex items-center gap-3 px-[18px] py-3 lg:px-8">
       <Link href={`/project/${project.id}`} className="flex min-w-0 flex-1 items-center gap-3 no-underline">
         <span
           className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[18px] font-extrabold text-white"
@@ -389,7 +393,8 @@ function BinderProjectRow({
             aria-label="メニューを閉じる"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="absolute right-[13px] top-[54px] z-[71] w-[190px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)]">
+          {/* 行の高さは進捗バーの有無で変わるので、下端を基準に置く */}
+          <div className="absolute right-[18px] top-full z-[71] w-[190px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)] lg:right-8">
             <button
               type="button"
               onClick={() => { setMenuOpen(false); onRemove(); }}
