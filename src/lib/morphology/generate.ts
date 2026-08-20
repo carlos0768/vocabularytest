@@ -9,6 +9,9 @@
  * トークン節約のため、プロンプトには「その単語にマッチした接辞候補」だけを
  * `id|form|kind|meaning` の行形式で送る。綴りが同じで意味が違う接辞は全 sense を
  * 送り、AI に id で指定させる。候補にない affixId が返ったら validation 失敗。
+ *
+ * 候補が空の単語も送る（複合語・ラテン/ギリシャ語根の語を拾うため）。その場合
+ * affixId は付けられないので、AI は語根だけで分解する。
  */
 
 import { AI_CONFIG, type ResponseSchema } from '@/lib/ai/config';
@@ -31,7 +34,7 @@ export interface MorphologySeedWord {
 
 export interface GeneratedMorphology {
   english: string;
-  /** null = AI が「接辞構造なし」と判定 */
+  /** null = AI が「語源構造なし」と判定（または分解になっていない回答） */
   morphology: WordMorphology | null;
 }
 
@@ -49,16 +52,18 @@ const CONCURRENCY = 5;
 
 // ---------- Prompt ----------
 
-const SYSTEM_PROMPT = `あなたは英単語の語源（接頭語・接尾語・接中語・語根）の専門家です。与えられた英単語を形態素に分解し、JSONで返してください。
+const SYSTEM_PROMPT = `あなたは英単語の語源（接頭語・接尾語・接中語・語根）の専門家です。与えられた英単語を語源の要素に分解し、JSONで返してください。
 
 【ルール】
-1. 提示された接辞候補リスト（id|綴り|種類|意味）の中から、実際にその単語の成り立ちに使われている接辞だけを選び、その id を affixId として返す
-2. 候補リストにない接辞 id を作ってはいけない。候補に該当がない接辞・連結母音は affixId を省略してよい
+1. 接辞候補リスト（id|綴り|種類|意味）が提示されたら、その中から実際にその単語の成り立ちに使われている接辞だけを選び、その id を affixId として返す
+2. 候補リストにない接辞 id を作ってはいけない。候補に該当がない接辞・連結母音、および候補リストが「なし」の場合は affixId を省略する
 3. 綴りが同じで意味が違う候補（例: un=否定 と uni=1つ）は、単語の本当の由来に合う方だけを選ぶ
 4. 語根（root）は候補リストに関係なく自由に記述し、その意味を meaningJa に書く
-5. parts は単語の先頭から順に並べる（prefix → root → suffix）
-6. explanation はその単語の成り立ちのニュアンス解説のみ。最大2行・80字以内。訳語の羅列や例文は書かない
-7. 接辞に分解できない単語（単一語根の語・固有名詞など）は hasMorphology を false にする
+5. 接辞が1つも無くてもよい。複合語（break＋fast → breakfast）や、語根そのものに由来がある語（sal「塩」＋ary → salary）は root だけの分解でよい
+6. parts は単語の先頭から順に並べ、単語の綴り全体をカバーする
+7. explanation はその単語の成り立ち・原義のニュアンス解説のみ。最大2行・80字以内。訳語の羅列や例文は書かない
+8. 由来が確かでないときに推測で作らない。語源をたどっても意味のある要素に分けられない基本語（get, dog など）・固有名詞・略語は hasMorphology を false にする
+9. 単語をそのまま1つの root にしただけの回答（分解になっていない）は返さない。その場合も hasMorphology を false にする
 
 【出力形式】JSON
 {
@@ -96,10 +101,12 @@ export const MORPHOLOGY_RESPONSE_SCHEMA: ResponseSchema = {
 };
 
 export function buildMorphologyPrompt(word: MorphologySeedWord): string {
-  const candidateLines = word.candidates
-    .map((sense) => `${sense.id}|${sense.form}|${sense.kind}|${sense.meaningJa}`)
-    .join('\n');
-  return `${SYSTEM_PROMPT}\n\n単語: "${word.english}"\n\n接辞候補リスト:\n${candidateLines}`;
+  const candidateSection = word.candidates.length > 0
+    ? `接辞候補リスト:\n${word.candidates
+        .map((sense) => `${sense.id}|${sense.form}|${sense.kind}|${sense.meaningJa}`)
+        .join('\n')}`
+    : '接辞候補リスト: なし（affixId は付けず、語根や複合要素で分解すること）';
+  return `${SYSTEM_PROMPT}\n\n単語: "${word.english}"\n\n${candidateSection}`;
 }
 
 // ---------- Validation ----------
@@ -114,6 +121,8 @@ class MorphologyGenerationError extends Error {
 /**
  * AI 応答を検証して WordMorphology に変換する。
  * - affixId が指定されている part は、送った候補内の id でなければ失敗
+ * - 接辞を含まない分解（複合語・語根のみ）も採用する。ただし単語をそのまま
+ *   1つの root にしただけの回答は分解になっていないので null
  * - explanation は2行にクランプ
  */
 export function toWordMorphology(
@@ -139,8 +148,10 @@ export function toWordMorphology(
     });
   }
 
-  // 接辞（root以外）が1つもなければ「構造なし」扱い
-  if (!parts.some((part) => part.kind !== 'root')) return null;
+  // 単語をそのまま1つの root にしただけの回答は分解になっていないので捨てる
+  // （複合語・語根のみの分解は2パーツ以上あれば採用する）
+  if (parts.length === 0) return null;
+  if (parts.length === 1 && parts[0]!.kind === 'root') return null;
 
   const explanation = clampExplanationLines(parsed.explanation).slice(0, 200);
   if (!explanation) return null;

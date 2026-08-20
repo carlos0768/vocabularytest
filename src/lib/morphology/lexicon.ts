@@ -2,8 +2,11 @@
  * 語源解説の共有キャッシュ（lexicon_entries.morphology）
  *
  * 一度生成した語源解説は lexicon マスターに保存し、全ユーザーで再利用する。
- * - 書き込みは fill-if-empty（`.is('morphology', null)`）: 既存値は上書きしない
- * - 「接辞構造なし」の単語は {version:1, none:true} を保存して再生成を防ぐ
+ * - 書き込みは既定で fill-if-empty（`.is('morphology', null)`）: 既存値は上書きしない
+ * - 例外は `overwriteExisting`。解析範囲を広げた後に旧世代の「構造なし」を
+ *   再解析したときだけ立ち、その行を上書きする（呼び出し側が直前に読んで
+ *   none センチネルだと確認した行に限る）
+ * - 「語源構造なし」の単語は {version:1, none:true, analysis:N} を保存して再生成を防ぐ
  * - lexicon_entries は (normalized_headword, pos) でユニークなため、同一
  *   headword の複数 pos 行に同じ morphology が非正規化して入る。読み取りは
  *   非 null の任意の行を採用する。
@@ -73,10 +76,16 @@ export async function getCachedMorphologyByHeadword(
 }
 
 /**
- * 生成した語源解説を lexicon_entries に保存する（既存値がある行は触らない）。
+ * 生成した語源解説を lexicon_entries に保存する。
+ * 既定では既存値がある行は触らない（`overwriteExisting` の行だけ上書きする）。
  */
 export async function saveMorphologyToLexicon(
-  entries: Array<{ normalizedHeadword: string; morphology: WordMorphology }>,
+  entries: Array<{
+    normalizedHeadword: string;
+    morphology: WordMorphology;
+    /** 旧世代の none センチネルを新しい解析結果で置き換える場合だけ true */
+    overwriteExisting?: boolean;
+  }>,
   deps: { supabaseAdmin?: SupabaseClient } = {},
 ): Promise<{ updated: number; errors: number }> {
   if (entries.length === 0) return { updated: 0, errors: 0 };
@@ -87,11 +96,13 @@ export async function saveMorphologyToLexicon(
 
   for (const entry of entries) {
     try {
-      const { error } = await supabaseAdmin
+      const query = supabaseAdmin
         .from('lexicon_entries')
         .update({ morphology: entry.morphology })
-        .eq('normalized_headword', entry.normalizedHeadword)
-        .is('morphology', null);
+        .eq('normalized_headword', entry.normalizedHeadword);
+      const { error } = entry.overwriteExisting
+        ? await query
+        : await query.is('morphology', null);
 
       if (error) {
         console.error(`[saveMorphologyToLexicon] Failed for ${entry.normalizedHeadword}:`, error);
