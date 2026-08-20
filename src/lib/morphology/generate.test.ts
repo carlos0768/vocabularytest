@@ -54,12 +54,29 @@ test('toWordMorphology returns null for hasMorphology=false', () => {
   assert.equal(toWordMorphology({ hasMorphology: false }, CANDIDATES), null);
 });
 
-test('toWordMorphology returns null when only roots come back (no affix structure)', () => {
+test('toWordMorphology returns null when the whole word comes back as one root', () => {
+  // 分解になっていない回答（単語をそのまま root にしただけ）は捨てる
   assert.equal(toWordMorphology({
     hasMorphology: true,
     parts: [{ text: 'cat', kind: 'root', meaningJa: '猫' }],
     explanation: '単一語根。',
   }, CANDIDATES), null);
+});
+
+test('toWordMorphology accepts a root-only breakdown (compound / Latin roots)', () => {
+  // 接辞が1つも無い複合語も語源解析の対象（解析世代2で広げた範囲）
+  const morphology = toWordMorphology({
+    hasMorphology: true,
+    parts: [
+      { text: 'break', kind: 'root', meaningJa: '破る' },
+      { text: 'fast', kind: 'root', meaningJa: '断食' },
+    ],
+    explanation: '断食（fast）を破る食事が原義。',
+  }, []);
+
+  assert.ok(morphology);
+  assert.equal(morphology.formula.length, 2);
+  assert.equal(morphology.formula[0]!.affixId, undefined);
 });
 
 test('toWordMorphology clamps the explanation to 2 lines', () => {
@@ -74,6 +91,12 @@ test('toWordMorphology clamps the explanation to 2 lines', () => {
 
   assert.ok(morphology);
   assert.equal(morphology.explanation, '1行目\n2行目');
+});
+
+test('buildMorphologyPrompt marks an empty candidate list instead of sending a blank section', () => {
+  const prompt = buildMorphologyPrompt({ english: 'breakfast', candidates: [] });
+  assert.ok(prompt.includes('"breakfast"'));
+  assert.ok(prompt.includes('接辞候補リスト: なし'));
 });
 
 test('buildMorphologyPrompt sends only compact candidate lines (token efficiency)', () => {

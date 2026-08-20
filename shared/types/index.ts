@@ -170,7 +170,8 @@ export interface WordMorphologyPart {
 /**
  * AI-generated word-formation breakdown, cached in lexicon_entries.morphology
  * and snapshotted onto words.morphology.
- * `none: true` marks "no affix structure" so the word is never re-sent to AI.
+ * `none: true` marks "no word-formation structure" so the word is never re-sent
+ * to AI until the analyzer generation widens (see MORPHOLOGY_ANALYSIS_VERSION).
  */
 export interface WordMorphology {
   formula: WordMorphologyPart[];
@@ -178,6 +179,12 @@ export interface WordMorphology {
   explanation: string;
   version: 1;
   none?: boolean;
+  /**
+   * Analyzer generation that produced a `none` sentinel, so a widened analyzer
+   * can retry the words an older, narrower one gave up on. Only ever set on
+   * `none` entries in the lexicon cache — displayable morphology omits it.
+   */
+  analysis?: number;
 }
 
 // ============ Derived words (派生語) Types ============
