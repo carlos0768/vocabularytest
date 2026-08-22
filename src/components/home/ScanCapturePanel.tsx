@@ -697,7 +697,7 @@ export function ScanCapturePanel({
               className="absolute inset-0 z-[130] flex items-center justify-center"
               style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
             >
-              <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5">
+              <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-5 py-3.5">
                 <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
                 <span className="text-[13px] font-bold text-[var(--solid-ink)]">
                   {processingLabel ?? (isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...')}

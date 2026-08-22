@@ -161,7 +161,7 @@ export function AffixTipsPage({ kind }: { kind: AffixKind }) {
 
         {/* Intro */}
         <div className="px-[18px] pb-3.5">
-          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
+          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[12px_14px]">
             <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">{meta.intro}</p>
           </div>
         </div>

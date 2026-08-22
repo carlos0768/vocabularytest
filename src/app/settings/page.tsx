@@ -6,6 +6,7 @@ import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui';
 import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 import { SolidPanel } from '@/components/redesign/SolidPage';
+import { ThemeSelector } from '@/components/settings/ThemeSelector';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -179,6 +180,16 @@ export default function SettingsPage() {
       <SettingsGroup label="豆知識">
         <SettingsRow icon="lightbulb" label="豆知識" description="接頭語・接尾語・接中語のパーツ辞典" href="/tips" />
       </SettingsGroup>
+
+      {/* 表示テーマ。端末ごとの設定なのでアカウント欄とは分ける */}
+      <div className="px-[18px] pb-3">
+        <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          表示
+        </div>
+        <div className="overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3">
+          <ThemeSelector />
+        </div>
+      </div>
 
       <SettingsGroup label="カスタマイズ">
         <SettingsRow icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />

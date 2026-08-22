@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useCoins } from '@/hooks/use-coins';
+import { ThemeSelector } from '@/components/settings/ThemeSelector';
 
 export function DesktopSettingsView({
   email,
@@ -134,7 +135,7 @@ export function DesktopSettingsView({
                     type="button"
                     onClick={() => void handleSave()}
                     disabled={usernameSaving || !editInput.trim()}
-                    style={{ flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, background: 'var(--color-foreground, #111)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (usernameSaving || !editInput.trim()) ? 0.5 : 1 }}
+                    style={{ flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, background: 'var(--color-foreground, #111)', color: 'var(--color-on-ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (usernameSaving || !editInput.trim()) ? 0.5 : 1 }}
                   >
                     {usernameSaving ? '保存中...' : '保存'}
                   </button>
@@ -142,7 +143,7 @@ export function DesktopSettingsView({
                     type="button"
                     onClick={cancelEditing}
                     disabled={usernameSaving}
-                    style={{ flex: 1, padding: '8px 0', border: '1px solid var(--color-border)', borderRadius: 8, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                    style={{ flex: 1, padding: '8px 0', border: '1px solid var(--color-border)', borderRadius: 8, background: 'var(--color-surface)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                   >
                     キャンセル
                   </button>
@@ -158,11 +159,19 @@ export function DesktopSettingsView({
               />
             )}
             {email && (
-              <button type="button" className="ds-set-row" style={{ width: '100%', cursor: 'pointer', background: '#fff', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left' }} onClick={onSignOut}>
+              <button type="button" className="ds-set-row" style={{ width: '100%', cursor: 'pointer', background: 'var(--color-surface)', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left' }} onClick={onSignOut}>
                 <div className="ic" style={{ background: 'var(--color-error-light)' }}><Icon name="logout" style={{ color: 'var(--color-error)' }} /></div>
                 <div className="lab"><div className="t" style={{ color: 'var(--color-error)' }}>ログアウト</div></div>
               </button>
             )}
+          </div>
+
+          {/* 表示テーマ。アカウントではなくこの端末に紐づく設定 */}
+          <div className="ds-set-group">
+            <div className="gh">表示</div>
+            <div className="ds-set-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4, padding: '14px 16px' }}>
+              <ThemeSelector />
+            </div>
           </div>
 
           <div className="ds-set-group">

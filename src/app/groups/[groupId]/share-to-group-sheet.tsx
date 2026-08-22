@@ -91,7 +91,7 @@ export function ShareToGroupSheet({
       {/* モバイル: ボトムシート / デスクトップ(lg): 中央モーダル */}
       <div className="absolute inset-x-0 bottom-0 flex justify-center lg:inset-0 lg:items-center lg:p-6">
         <div
-          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:animate-fade-in lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-ink)]"
+          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:animate-fade-in lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-ink)]"
           style={{ maxHeight: 'min(82vh, 680px)' }}
         >
           <div className="mb-2.5 flex justify-center lg:hidden">

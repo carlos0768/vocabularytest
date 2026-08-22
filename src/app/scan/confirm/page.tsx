@@ -573,7 +573,7 @@ function EditingWordRow({
   const [japanese, setJapanese] = useState(w.japanese);
 
   return (
-    <div className="rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-3">
+    <div className="rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-3">
       <div className="mb-2 flex gap-2">
         <div className="flex-1">
           <div className="mb-[3px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">英単語</div>

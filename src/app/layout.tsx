@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Lexend, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
+import { THEME_COLOR, THEME_INIT_SCRIPT } from '@/lib/theme';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
@@ -91,6 +92,13 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning className={`${lexend.variable} ${notoSansJP.variable}`}>
       <head>
+        {/*
+          ハイドレーション前に <html> へ dark クラスを当てる。ThemeProvider は
+          useEffect で適用するので、これが無いとダーク設定のユーザに一瞬
+          ライトの画面が見える。<head> の先頭に置いて同期実行させること。
+        */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <meta name="theme-color" content={THEME_COLOR.light} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

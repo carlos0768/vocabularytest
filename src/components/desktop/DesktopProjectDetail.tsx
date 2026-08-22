@@ -505,7 +505,7 @@ export function DesktopProjectDetailView({
                     >
                       {selectMode ? (
                         <span className={'ds-check' + (isChecked ? ' on' : '')} aria-hidden>
-                          {isChecked && <Icon name="check" style={{ fontSize: 15, color: '#fff' }} />}
+                          {isChecked && <Icon name="check" style={{ fontSize: 15, color: 'var(--color-on-ink)' }} />}
                         </span>
                       ) : (
                         <Icon

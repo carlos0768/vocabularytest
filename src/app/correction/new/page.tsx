@@ -64,7 +64,7 @@ export default function CorrectionInputPage() {
     <div className="relative flex min-h-full flex-col pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
       {submitting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5">
+          <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-5 py-3.5">
             <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
             <span className="text-[13px] font-bold text-[var(--solid-ink)]">添削中...</span>
           </div>

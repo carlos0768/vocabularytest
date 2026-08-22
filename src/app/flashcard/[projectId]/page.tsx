@@ -720,7 +720,7 @@ export default function FlashcardPage() {
             className="x"
             onClick={toggleAutoPlay}
             aria-label={isAutoPlaying ? '自動再生を停止' : '自動再生を開始'}
-            style={isAutoPlaying ? { background: 'var(--solid-ink)', color: '#fff' } : undefined}
+            style={isAutoPlaying ? { background: 'var(--solid-ink)', color: 'var(--color-on-ink)' } : undefined}
           >
             <Icon name={isAutoPlaying ? 'pause' : 'play_arrow'} />
           </button>
@@ -976,7 +976,7 @@ export default function FlashcardPage() {
             }}
           >
             <div
-              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[22px_18px_18px]"
               style={{
                 backfaceVisibility: 'hidden',
                 boxShadow: '4px 4px 0 var(--solid-ink)',
@@ -1028,7 +1028,7 @@ export default function FlashcardPage() {
                   style={{
                     color: statusColor(currentWord?.status ?? 'new'),
                     border: `1px solid ${statusColor(currentWord?.status ?? 'new')}`,
-                    background: 'white',
+                    background: 'var(--color-surface)',
                   }}
                 >
                   {statusLabel(currentWord?.status ?? 'new')}

@@ -113,7 +113,7 @@ export function ReviewProjectFilterSheet({
             style={{
               borderColor: allSelected ? 'var(--solid-ink)' : 'var(--color-border)',
               boxShadow: allSelected ? '2px 2px 0 var(--solid-ink)' : 'none',
-              background: '#fff',
+              background: 'var(--color-surface)',
             }}
           >
             <span
@@ -140,7 +140,7 @@ export function ReviewProjectFilterSheet({
                     className="flex items-center gap-3 rounded-[12px] border-2 px-3.5 py-2.5 text-left"
                     style={{
                       borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
-                      background: '#fff',
+                      background: 'var(--color-surface)',
                     }}
                   >
                     <span

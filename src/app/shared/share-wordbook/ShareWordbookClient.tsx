@@ -344,7 +344,7 @@ export default function ShareWordbookClient() {
 
         {showPublishPanel && (
           <div
-            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[#faf7f1] px-4 pt-3"
+            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-4 pt-3"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
           >
             {publishForm}

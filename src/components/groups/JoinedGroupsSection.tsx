@@ -184,7 +184,7 @@ export function JoinedGroupGrid({
             padding: '0 6px',
             borderRadius: 999,
             background: 'var(--solid-ink)',
-            color: '#fff',
+            color: 'var(--color-on-ink)',
             fontFamily: 'var(--font-mono)',
             fontSize: 11,
             fontWeight: 800,

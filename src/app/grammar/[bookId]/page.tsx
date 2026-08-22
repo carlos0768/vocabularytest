@@ -267,7 +267,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               <div className="text-[12px] font-bold text-[var(--solid-ink)]">復習したい文法項目</div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {wrongGrammarPoints.map((point) => (
-                  <span key={point} className="rounded-[4px] border border-[var(--solid-ink)] bg-[#faf7f1] px-2 py-[3px] font-mono text-[10px] font-bold text-[var(--solid-ink)]">
+                  <span key={point} className="rounded-[4px] border border-[var(--solid-ink)] bg-[var(--color-paper)] px-2 py-[3px] font-mono text-[10px] font-bold text-[var(--solid-ink)]">
                     {point}
                   </span>
                 ))}
@@ -323,7 +323,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
 
           {/* 解説 (Vintage風: 答え合わせのたびに必ず表示) */}
           {answered && (
-            <div className="mt-3.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-4">
+            <div className="mt-3.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-4">
               <div className="flex items-center gap-1.5">
                 <Icon name={correct ? 'check_circle' : 'school'} size={16} className={correct ? 'text-[var(--color-accent)]' : 'text-[var(--solid-ink)]'} />
                 <span className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">

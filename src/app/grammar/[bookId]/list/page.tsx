@@ -268,7 +268,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
                   {renderSentence(question.sentence)}
                 </span>
                 {question.grammarPoint && (
-                  <span className="mt-1.5 inline-block rounded-[4px] border border-[var(--solid-ink)] bg-[#faf7f1] px-2 py-[3px] font-mono text-[9px] font-bold text-[var(--solid-ink)]">
+                  <span className="mt-1.5 inline-block rounded-[4px] border border-[var(--solid-ink)] bg-[var(--color-paper)] px-2 py-[3px] font-mono text-[9px] font-bold text-[var(--solid-ink)]">
                     {question.grammarPoint}
                   </span>
                 )}
@@ -316,7 +316,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
-                background: '#fff',
+                background: 'var(--color-surface)',
                 border: '2px solid var(--solid-ink)',
                 borderRadius: 20,
               }}

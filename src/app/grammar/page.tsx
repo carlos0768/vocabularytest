@@ -357,7 +357,7 @@ export default function GrammarBooksPage() {
                     href={`/grammar/${book.id}/list`}
                     className="flex min-w-0 flex-1 items-center gap-3 no-underline"
                   >
-                    <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+                    <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
                       <Icon name="menu_book" size={20} />
                     </span>
                     <span className="min-w-0 flex-1">

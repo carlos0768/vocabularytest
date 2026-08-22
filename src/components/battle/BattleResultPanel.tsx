@@ -25,7 +25,7 @@ const RESULT_THEME: Record<Exclude<BattleResultForViewer, 'pending'>, ResultThem
     icon: 'emoji_events',
     bg: 'var(--color-accent)',
     border: 'var(--color-accent-ink)',
-    color: '#fff',
+    color: 'var(--color-on-ink)',
   },
   lose: {
     eyebrow: 'YOU LOSE',

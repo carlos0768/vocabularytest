@@ -155,7 +155,7 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
       {state.kind === 'ready' && (
         <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
           <div className="flex items-start gap-3">
-            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
               <Icon name="menu_book" size={22} />
             </span>
             <div className="min-w-0 flex-1">
@@ -171,7 +171,7 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
               <div className="font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">Preview</div>
               <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
                 {state.book.preview.map((question, index) => (
-                  <li key={index} className="rounded-lg bg-[#faf7f1] p-3 text-[12px] leading-[1.7] text-[var(--solid-ink)]">
+                  <li key={index} className="rounded-lg bg-[var(--color-paper)] p-3 text-[12px] leading-[1.7] text-[var(--solid-ink)]">
                     {question.sentence}
                     {question.grammarPoint && (
                       <span className="ml-2 rounded-[3px] border border-[var(--solid-ink)] bg-white px-1.5 py-[1px] font-mono text-[9px] font-bold">

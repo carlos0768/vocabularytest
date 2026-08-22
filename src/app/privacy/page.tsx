@@ -53,7 +53,7 @@ export default function PrivacyPage() {
 
       {/* Intro */}
       <div className="px-[18px] pb-3.5">
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[12px_14px]">
           <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">
             MERKEN（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、本サービスにおける個人情報の取り扱いについて定めます。
           </p>
@@ -124,7 +124,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section num="10" label="お問い合わせ">
-        <div className="mt-1 rounded-lg border border-[var(--color-border)] bg-[#faf7f1] px-3 py-2.5">
+        <div className="mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-2.5">
           <div className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">CONTACT</div>
           <a href="mailto:support@merken.jp" className="mt-1 block font-mono text-xs text-[var(--color-accent)]">support@merken.jp</a>
         </div>

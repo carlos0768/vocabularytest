@@ -153,13 +153,14 @@ const OUTCOME_STYLE: Record<
     text: '正解！ +1',
     bg: 'var(--color-accent)',
     border: 'var(--color-accent-ink)',
-    color: '#fff',
+    color: 'var(--color-on-ink)',
   },
   lost: {
     icon: 'flash_off',
     text: '相手が先に正解',
     bg: 'var(--color-error)',
     border: '#b91c1c',
+    // --color-error はダークでも赤のままなので、ここは白のままが正しい
     color: '#fff',
   },
   timeout: {

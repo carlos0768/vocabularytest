@@ -212,7 +212,7 @@ export function MultiShotCaptureView({
             className="flex items-center justify-between rounded-full border-2 px-3.5 py-1.5"
             style={{
               borderColor: coinInsufficient ? 'var(--color-error)' : 'var(--solid-ink)',
-              background: '#fff',
+              background: 'var(--color-surface)',
             }}
           >
             <span className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--solid-ink)]">

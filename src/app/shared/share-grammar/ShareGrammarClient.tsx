@@ -228,7 +228,7 @@ export default function ShareGrammarClient() {
             className="flex items-center gap-3 rounded-[14px] border-2 bg-white px-3 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
             style={{ borderColor: selected ? 'var(--color-accent)' : 'var(--solid-ink)' }}
           >
-            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
               <Icon name="rule" size={22} />
             </span>
             <span className="min-w-0 flex-1">
@@ -342,7 +342,7 @@ export default function ShareGrammarClient() {
 
         {showPublishPanel && (
           <div
-            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[#faf7f1] px-4 pt-3"
+            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-4 pt-3"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
           >
             {publishForm}
@@ -368,7 +368,7 @@ function PublishedGrammarRow({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
         <Icon name="rule" size={18} />
       </span>
       <span className="min-w-0 flex-1">

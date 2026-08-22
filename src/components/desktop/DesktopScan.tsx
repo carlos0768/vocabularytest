@@ -510,7 +510,7 @@ export function DesktopScanView({
             }}
             onClick={openFilePicker}
           >
-            <div style={{ width: 74, height: 74, borderRadius: 20, background: '#fff', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+            <div style={{ width: 74, height: 74, borderRadius: 20, background: 'var(--color-surface)', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
               <Icon name="cloud_upload" style={{ fontSize: 36, color: 'var(--color-accent)' }} />
             </div>
             <div>
@@ -985,7 +985,7 @@ function DesktopScanConfirmRow({
     <tr onClick={() => onToggleWord(word.tempId)} style={!word.isSelected ? { opacity: 0.45 } : undefined}>
       <td>
         <span className={'ds-check' + (word.isSelected ? ' on' : '')}>
-          {word.isSelected && <Icon name="check" style={{ fontSize: 16, color: '#fff' }} />}
+          {word.isSelected && <Icon name="check" style={{ fontSize: 16, color: 'var(--color-on-ink)' }} />}
         </span>
       </td>
       <td className="en">{word.english || `単語 ${index + 1}`}</td>

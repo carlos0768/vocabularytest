@@ -206,7 +206,7 @@ export function DesktopHomeView({
                 className="ds-book"
                 style={{
                   width: 220,
-                  background: '#fff',
+                  background: 'var(--color-surface)',
                   color: 'var(--color-muted)',
                   border: '1.5px dashed var(--solid-ink)',
                   boxShadow: 'none',
@@ -237,7 +237,7 @@ export function DesktopHomeView({
                   onClick={onStartScan}
                   className="ds-book"
                   style={{
-                    background: '#fff',
+                    background: 'var(--color-surface)',
                     color: 'var(--color-muted)',
                     border: '1.5px dashed var(--solid-ink)',
                     boxShadow: 'none',
@@ -739,7 +739,7 @@ function DesktopUpgradeCard({ onDismiss }: { onDismiss?: () => void }) {
             height: 24,
             borderRadius: 999,
             border: '1.5px solid var(--solid-ink)',
-            background: '#fff',
+            background: 'var(--color-surface)',
             color: 'var(--solid-ink)',
             cursor: 'pointer',
             padding: 0,
@@ -778,7 +778,7 @@ function DesktopUpgradeCard({ onDismiss }: { onDismiss?: () => void }) {
           borderRadius: 10,
           border: '2px solid var(--solid-ink)',
           background: 'var(--solid-ink)',
-          color: '#fff',
+          color: 'var(--color-on-ink)',
           padding: '10px 0',
           fontFamily: 'var(--font-display)',
           fontWeight: 700,

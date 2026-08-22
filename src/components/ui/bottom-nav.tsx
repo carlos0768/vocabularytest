@@ -194,14 +194,17 @@ export function BottomNav() {
           bottom: 0,
           zIndex: 40,
           paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-          background: 'linear-gradient(to top, #faf7f1 70%, rgba(250,247,241,0))',
+          // 下端のフェード。透明側も同じ色から作らないと、
+          // ダークで灰色ににじむ（透明 = rgba(0,0,0,0) のため）
+          background:
+            'linear-gradient(to top, var(--color-paper) 70%, color-mix(in srgb, var(--color-paper) 0%, transparent))',
           pointerEvents: 'none',
         }}
       >
         <div
           style={{
             margin: '0 14px',
-            background: '#fff',
+            background: 'var(--color-surface)',
             border: '2px solid var(--solid-ink)',
             borderRadius: 22,
             padding: '8px 10px',
@@ -237,7 +240,7 @@ export function BottomNav() {
                       height: 36,
                       borderRadius: 18,
                       background: 'var(--solid-ink)',
-                      color: '#fff',
+                      color: 'var(--color-on-ink)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

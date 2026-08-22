@@ -169,7 +169,7 @@ export function DesktopSharedDetailView({
                     {selectMode && (
                       <td>
                         <span className={'ds-check' + (selected ? ' on' : '')}>
-                          {selected && <Icon name="check" style={{ fontSize: 15, color: '#fff' }} />}
+                          {selected && <Icon name="check" style={{ fontSize: 15, color: 'var(--color-on-ink)' }} />}
                         </span>
                       </td>
                     )}

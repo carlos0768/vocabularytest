@@ -128,7 +128,10 @@ export function GuestLanding() {
   const billingEnabled = isBillingEnabled();
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f3f0e9] font-[var(--font-body)] text-[#1a1a1a] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    // force-light: このLPはライト前提でアートディレクションされていて、
+    // ハードコードした色 (#f3f0e9 / #1a1a1a) と var(--color-*) が混在している。
+    // ダークにすると中途半端に崩れるので、ページごとライトに固定する。
+    <main className="force-light min-h-screen overflow-x-hidden bg-[#f3f0e9] font-[var(--font-body)] text-[#1a1a1a] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <header className="mx-auto max-w-[1200px] px-5 md:px-10">
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] py-6">
           <RootLandingBrand />

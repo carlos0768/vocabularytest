@@ -31,8 +31,10 @@ import {
 import { storePendingOnboarding } from '@/lib/auth/pending-onboarding';
 import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 import { usePageBackground } from '@/hooks/use-page-background';
+import { AUTH_PAGE_BACKGROUND } from '@/lib/theme';
 
-const SIGNUP_BG = '#f3f0e9';
+const SIGNUP_BG = AUTH_PAGE_BACKGROUND.light;
+const SIGNUP_BG_DARK = AUTH_PAGE_BACKGROUND.dark;
 
 const STEP_THEMES: Record<SignupStep, {
   icon: string;
@@ -67,7 +69,7 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 function SignupForm() {
-  usePageBackground(SIGNUP_BG);
+  usePageBackground(SIGNUP_BG, SIGNUP_BG_DARK);
 
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
@@ -858,7 +860,7 @@ function SignupShell({
   const totalSteps = SIGNUP_STEPS.length;
 
   return (
-    <div className="relative min-h-screen w-full bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <div className="relative min-h-screen w-full bg-[var(--color-auth-aside)] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-hidden pb-4 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
         {/* Decorative accent blobs + confetti */}
         <div
@@ -1027,10 +1029,10 @@ function LevelChip({
 }
 
 function SignupFallback() {
-  usePageBackground(SIGNUP_BG);
+  usePageBackground(SIGNUP_BG, SIGNUP_BG_DARK);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[var(--color-auth-aside)] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
     </div>
   );

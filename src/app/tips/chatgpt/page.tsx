@@ -99,7 +99,7 @@ export default function ChatGptTipsPage() {
 
       {/* Intro */}
       <div className="pb-4">
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[12px_14px]">
           <p className="m-0 text-[12px] leading-[1.8] text-[var(--solid-ink)]">
             ChatGPTとの会話に出てきた英単語を、そのままMERKENの単語帳に追加できます。
             調べものや英語の質問のついでに、気になった単語をためていきましょう。
@@ -113,7 +113,7 @@ export default function ChatGptTipsPage() {
         <div className="flex flex-col gap-2.5">
           {FEATURES.map((feature) => (
             <div key={feature.title} className="flex items-start gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
                 <Icon name={feature.icon} size={18} />
               </span>
               <div>

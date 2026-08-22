@@ -16,6 +16,8 @@
   --color-accent-ink: #14532d;
   --color-ink: #1a1a1a;
   --color-ink-strong: #0d0d0d;
+  /* ink 系で塗った面の上に乗せる文字色。ダークでは ink 自体が明るくなるので反転する */
+  --color-on-ink: #ffffff;
   --color-secondary-text: #6b7280;
 
   /* Semantic Colors */
@@ -25,6 +27,12 @@
   --color-error-light: #fee2e2;
   --color-warning: #f59e0b;
   --color-warning-light: #fef3c7;
+  --color-warning-ink: #b45309;
+  /* 情報系（学習中ステータスなど）の文字色 */
+  --color-info-ink: #1d4ed8;
+
+  /* テーマ切替の土台。ダーク時は .dark ブロックが同じ変数を上書きする */
+  color-scheme: light;
 
   /* Neutral Colors */
   /* デスクトップ (.ds-app) と同じ薄茶色。モバイルも共通の背景にする */
@@ -32,6 +40,8 @@
   --color-surface: #FFFFFF;
   --color-surface-secondary: #f5f5f5;
   --color-surface-alt: #f7f7f7;
+  /* 学習画面などが敷く、やや暖色の紙面。旧 bg-[#faf7f1] */
+  --color-paper: #faf7f1;
   --color-foreground: #111418;
   --color-muted: #9ca3af;
   --color-ink-muted: #4d5560;
@@ -49,6 +59,9 @@
   --color-hero-btn: #111418;
   --color-hero-btn-text: #ffffff;
   --color-hero-btn-border: #111418;
+
+  /* ログイン画面の左ペイン（デスクトップ） */
+  --color-auth-aside: #f3f0e9;
 
   /* Notebook paper */
   --color-notebook-paper: #fffdf7;
@@ -77,11 +90,17 @@
   --solid-press-y: 1px;
 }
 
+/*
+ * ダークパレット。:root の変数を「同じ名前で」上書きするだけなので、
+ * 色を var(--color-*) で書いてあるコンポーネントは自動的に追従する。
+ * 新しい色トークンを :root に足したら、ここにも対の値を足すこと。
+ */
 .dark {
   --color-background: #111418;
   --color-surface: #1e242b;
   --color-surface-secondary: #161a1f;
   --color-surface-alt: #1a1e24;
+  --color-paper: #1a1e24;
   --color-foreground: #f1f3f5;
   --color-muted: #9dabb9;
   --color-secondary-text: #c8d1db;
@@ -89,16 +108,44 @@
   --color-border: #283039;
   --color-border-light: #1e242b;
   --color-primary: #f1f3f5;
+  --color-primary-dark: #ffffff;
   --color-primary-light: #1e242b;
   --color-success-light: #14291e;
   --color-error-light: #2e1a1a;
   --color-warning-light: #2e2a1a;
+  --color-warning-ink: #fbbf24;
+  --color-info-ink: #7ba7f5;
+
+  /*
+   * ink は「本文の濃い色」なので、ダークでは明るい側に反転する。
+   * デスクトップCSSが文字色として 30 箇所以上参照しており、
+   * ここを直さないと黒背景に黒文字になる。
+   */
+  --color-ink: #f1f3f5;
+  --color-ink-strong: #ffffff;
+  --color-on-ink: #111418;
+
+  /*
+   * アクセント（緑）はライト用に暗く振ってあるため、そのままだと
+   * 暗い面の上で沈む。前景用は明るく、塗り用は暗く入れ替える。
+   */
+  --color-accent: #4ade80;
+  --color-accent-hover: #86efac;
+  --color-accent-light: #14321f;
+  --color-accent-subtle: #12241a;
+  --color-accent-ink: #86efac;
+
+  --color-project-header-from: #991b1b;
+  --color-project-header-to: #7f1d1d;
 
   --color-hero: #1e242b;
   --color-hero-btn: #ffffff;
   --color-hero-btn-text: #1e242b;
   --color-hero-btn-border: rgba(255, 255, 255, 0.3);
+  --color-auth-aside: #161a1f;
   --color-notebook-paper: #1a1e24;
+  --color-notebook-rule: #2a323b;
+  --color-notebook-margin: #6d4348;
   --solid-ink: #f1f3f5;
 }
 
@@ -118,11 +165,18 @@
   --color-error-light: var(--color-error-light);
   --color-warning: var(--color-warning);
   --color-warning-light: var(--color-warning-light);
+  --color-warning-ink: var(--color-warning-ink);
+  --color-info-ink: var(--color-info-ink);
   --color-background: var(--color-background);
   --color-surface: var(--color-surface);
   --color-surface-secondary: var(--color-surface-secondary);
   --color-surface-alt: var(--color-surface-alt);
+  --color-paper: var(--color-paper);
   --color-foreground: var(--color-foreground);
+  --color-ink: var(--color-ink);
+  --color-ink-strong: var(--color-ink-strong);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-on-ink: var(--color-on-ink);
   --color-muted: var(--color-muted);
   --color-secondary-text: var(--color-secondary-text);
   --color-border: var(--color-border);
@@ -263,6 +317,112 @@ body {
   background-color: #283039;
 }
 
+/*
+ * text-white の反転対策。
+ *
+ * このアプリは「濃い面 + 白文字」のボタンを
+ * `bg-[var(--solid-ink)] text-white` のように書いている箇所が 190 以上ある。
+ * ダークでは --solid-ink / --color-foreground / --color-primary が明るい色に
+ * 反転するため、そのままだと白地に白文字になって文字が消える。
+ *
+ * 呼び出し側 190 箇所を書き換える代わりに、「反転する塗り」と .text-white が
+ * 同じ要素に付いている場合だけ文字色を --color-on-ink に差し替える。
+ * :is() の詳細度は (0,3,0) で素の .text-white (0,1,0) に確実に勝つ。
+ *
+ * 半透明の text-white/60 などは対象外。こちらは赤いヘッダーなど
+ * ライト・ダークどちらでも濃いままの面にしか乗っていない。
+ */
+.dark
+  :is(
+    .bg-\[var\(--solid-ink\)\],
+    .bg-\[var\(--color-foreground\)\],
+    .bg-\[var\(--color-primary\)\],
+    .bg-\[var\(--color-primary-dark\)\],
+    .bg-\[var\(--color-ink\)\],
+    .bg-\[var\(--color-hero-btn\)\],
+    .bg-\[var\(--color-accent\)\],
+    .bg-\[var\(--color-success\)\],
+    .bg-\[var\(--color-error\)\],
+    .bg-\[var\(--color-warning\)\]
+  ).text-white {
+  color: var(--color-on-ink);
+}
+
+.dark
+  :is(
+    .bg-\[var\(--solid-ink\)\],
+    .bg-\[var\(--color-foreground\)\],
+    .bg-\[var\(--color-primary\)\],
+    .bg-\[var\(--color-accent\)\]
+  ).border-white {
+  border-color: var(--color-on-ink);
+}
+
+/* 同じ理由で、反転する塗りの上に置いたアイコン (currentColor) も追従させる */
+.dark
+  :is(
+    .bg-\[var\(--solid-ink\)\],
+    .bg-\[var\(--color-foreground\)\],
+    .bg-\[var\(--color-primary\)\]
+  ).text-white
+  :is(.text-white, .material-symbols-outlined) {
+  color: inherit;
+}
+
+/*
+ * ダークを打ち消してライトのパレットに固定する。
+ *
+ * 未ログイン時のランディングページ (GuestLanding とその配下) は
+ * `#f3f0e9` や `text-[#1a1a1a]` のようにライト前提の色を直接書いた
+ * アートディレクション済みのページで、一方で var(--color-*) も混在している。
+ * そのままダークにすると「背景だけ明るいまま文字が白」のような
+ * 崩れ方をするので、この一枚だけライトに固定する。
+ *
+ * 対象は .dark が上書きするトークンと同じ集合。ずれると崩れるので
+ * src/app/globals.theme.test.ts が両者の一致を検証している。
+ */
+.force-light {
+  color-scheme: light;
+  --color-background: #f6f5f1;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #f5f5f5;
+  --color-surface-alt: #f7f7f7;
+  --color-paper: #faf7f1;
+  --color-foreground: #111418;
+  --color-muted: #9ca3af;
+  --color-secondary-text: #6b7280;
+  --color-ink-muted: #4d5560;
+  --color-border: #e5e7eb;
+  --color-border-light: #f3f4f6;
+  --color-primary: #111418;
+  --color-primary-dark: #000000;
+  --color-primary-light: #f3f4f6;
+  --color-success-light: #dcfce7;
+  --color-error-light: #fee2e2;
+  --color-warning-light: #fef3c7;
+  --color-warning-ink: #b45309;
+  --color-info-ink: #1d4ed8;
+  --color-ink: #1a1a1a;
+  --color-ink-strong: #0d0d0d;
+  --color-on-ink: #ffffff;
+  --color-accent: #15803d;
+  --color-accent-hover: #166534;
+  --color-accent-light: #dcfce7;
+  --color-accent-subtle: #ecfdf5;
+  --color-accent-ink: #14532d;
+  --color-project-header-from: #dc2626;
+  --color-project-header-to: #b91c1c;
+  --color-hero: #111418;
+  --color-hero-btn: #111418;
+  --color-hero-btn-text: #ffffff;
+  --color-hero-btn-border: #111418;
+  --color-auth-aside: #f3f0e9;
+  --color-notebook-paper: #fffdf7;
+  --color-notebook-rule: #e8e0d0;
+  --color-notebook-margin: #e8b4b8;
+  --solid-ink: #1a1a1a;
+}
+
 /* ===== Custom Shadows ===== */
 
 .shadow-soft {
@@ -299,7 +459,7 @@ body {
 
 .btn-primary {
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
   font-weight: 600;
   border-radius: var(--radius-lg);
   border: var(--solid-border-w) solid var(--solid-ink);
@@ -404,7 +564,7 @@ body {
 .solid--accent {
   background: var(--color-accent);
   border-color: var(--color-accent-ink);
-  color: white;
+  color: var(--color-on-ink);
 }
 
 .solid-btn {
@@ -431,7 +591,7 @@ body {
 
 .solid-btn.solid--accent .solid-face {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-ink);
   border-color: var(--color-accent-ink);
 }
 
@@ -480,7 +640,7 @@ body {
 
 .solid-link-primary {
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
 }
 
 .solid-link-secondary {
@@ -623,7 +783,7 @@ body {
 
 .quiz-option-correct .quiz-option-label {
   background: var(--color-accent);
-  color: white;
+  color: var(--color-on-ink);
 }
 
 .quiz-option-wrong {
@@ -666,13 +826,13 @@ body {
 
 .chip-tough {
   background: var(--color-warning-light);
-  color: #B45309;
+  color: var(--color-warning-ink);
   border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .chip-pro {
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
 }
@@ -1050,7 +1210,7 @@ body {
   height: 3.5rem;
   border-radius: 50%;
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
   display: flex;
   align-items: center;
   justify-content: center;

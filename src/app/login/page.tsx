@@ -14,9 +14,10 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { usePageBackground } from '@/hooks/use-page-background';
+import { AUTH_PAGE_BACKGROUND } from '@/lib/theme';
 
 function LoginForm() {
-  usePageBackground('#f3f0e9');
+  usePageBackground(AUTH_PAGE_BACKGROUND.light, AUTH_PAGE_BACKGROUND.dark);
 
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
@@ -108,7 +109,7 @@ function LoginForm() {
         </div>
       </DesktopAuthShell>
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[#f3f0e9] pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px] lg:hidden">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-auth-aside)] pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px] lg:hidden">
       <div className="px-[14px] pt-1">
         <Link
           href="/"
@@ -220,10 +221,10 @@ function LoginForm() {
 }
 
 function LoginFallback() {
-  usePageBackground('#f3f0e9');
+  usePageBackground(AUTH_PAGE_BACKGROUND.light, AUTH_PAGE_BACKGROUND.dark);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[var(--color-auth-aside)] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
       <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
     </div>
   );
