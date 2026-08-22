@@ -1612,6 +1612,7 @@ export default function ProjectPage() {
                 selectMode={selectMode}
                 selected={selected}
                 hideMeaning={redSheet}
+                splitMeaning
                 tourAnchor={index === 0 && wordPage === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
                 onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
@@ -2129,16 +2130,22 @@ function RecommendedWordsSection({
                 {word.english.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">
-                  {word.english}
+                {/* 一覧と同じく、訳は英語の下ではなく右のカラムに仕切りを挟んで並べる。
+                    出典の単語帳名だけは右カラムに入れると訳を潰すので下の行に落とす */}
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 shrink-0 basis-[46%] truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">
+                    {word.english}
+                  </div>
+                  <span aria-hidden className="w-px shrink-0 self-stretch bg-[var(--color-border)]" />
+                  <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)]">
+                    {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+                    <span className="block min-w-0">
+                      <TranslationDisplay word={word} compact stacked />
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
-                  {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-                  <span className="truncate">
-                    <TranslationDisplay word={word} compact />
-                  </span>
-                  <span className="shrink-0">·</span>
-                  <span className="max-w-[96px] truncate">{suggestion.sourceProjectTitle}</span>
+                <div className="mt-px truncate text-[11px] text-[var(--color-muted)]">
+                  {suggestion.sourceProjectTitle}
                 </div>
               </div>
               <button

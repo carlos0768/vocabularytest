@@ -194,21 +194,27 @@ function WordItem({
         style={{ scrollbarWidth: 'thin' }}
       >
         <div className="w-max max-w-none">
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
-            {word.isFavorite && (
-              <Icon
-                name="flag"
-                size={14}
-                filled
-                className="text-[var(--color-warning)] shrink-0"
-                aria-label="苦手マーク"
-              />
-            )}
+          {/* 訳は英語の下ではなく右に置き、間に縦の仕切りを入れる。
+              見出し語側に最小幅を持たせているのは、行ごとに仕切りが揃うようにするため
+              (この列は横スクロールするので、幅は割合ではなく最小幅で決める) */}
+          <div className="flex items-center gap-2">
+            <div className="flex min-w-[7.5rem] items-center gap-1.5">
+              <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
+              {word.isFavorite && (
+                <Icon
+                  name="flag"
+                  size={14}
+                  filled
+                  className="text-[var(--color-warning)] shrink-0"
+                  aria-label="苦手マーク"
+                />
+              )}
+            </div>
+            <span aria-hidden className="w-px shrink-0 self-stretch bg-[var(--color-border)]" />
+            <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={formatJapaneseForDisplay(word)}>
+              <TranslationDisplay word={word} compact stacked />
+            </p>
           </div>
-          <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={formatJapaneseForDisplay(word)}>
-            <TranslationDisplay word={word} compact />
-          </p>
           {showProjectName && word.projectTitle && (
             <p className="text-xs text-[var(--color-primary)] mt-1 whitespace-nowrap">{word.projectTitle}</p>
           )}

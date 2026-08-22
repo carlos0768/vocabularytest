@@ -42,6 +42,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const DESKTOP_WORDS_PER_PAGE = 10;
 
+/** 英単語列と日本語訳列の間の仕切り。ds-table は他画面でも使うのでこの表だけに当てる。 */
+const JA_COL_DIVIDER: CSSProperties = { borderLeft: '1px solid var(--color-border)' };
+
 function vocabularyTypeSortRank(value: Word['vocabularyType']): number {
   if (value === 'active') return 0;
   if (value === 'passive') return 1;
@@ -467,7 +470,7 @@ export function DesktopProjectDetailView({
                   </th>
                   <th style={{ width: 70 }}>品詞</th>
                   {hiddenCols.has('ja') ? null : (
-                    <th>
+                    <th style={JA_COL_DIVIDER}>
                       日本語
                       <span
                         role="button"
@@ -527,8 +530,8 @@ export function DesktopProjectDetailView({
                     </td>
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     {hiddenCols.has('ja') ? null : (
-                      <td className="ja">
-                        <TranslationDisplay word={word} compact />
+                      <td className="ja" style={JA_COL_DIVIDER}>
+                        <TranslationDisplay word={word} compact stacked />
                       </td>
                     )}
                     <td style={{ textAlign: 'center' }}>
