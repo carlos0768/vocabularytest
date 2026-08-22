@@ -531,7 +531,7 @@ export function DesktopProjectDetailView({
                     <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
                     {hiddenCols.has('ja') ? null : (
                       <td className="ja" style={JA_COL_DIVIDER}>
-                        <TranslationDisplay word={word} compact stacked />
+                        <TranslationDisplay word={word} compact stacked maxLines={2} />
                       </td>
                     )}
                     <td style={{ textAlign: 'center' }}>

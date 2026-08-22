@@ -2140,7 +2140,7 @@ function RecommendedWordsSection({
                   <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)]">
                     {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
                     <span className="block min-w-0">
-                      <TranslationDisplay word={word} compact stacked />
+                      <TranslationDisplay word={word} compact stacked maxLines={1} />
                     </span>
                   </div>
                 </div>

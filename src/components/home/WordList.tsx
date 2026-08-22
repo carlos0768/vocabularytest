@@ -212,7 +212,7 @@ function WordItem({
             </div>
             <span aria-hidden className="w-px shrink-0 self-stretch bg-[var(--color-border)]" />
             <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={formatJapaneseForDisplay(word)}>
-              <TranslationDisplay word={word} compact stacked />
+              <TranslationDisplay word={word} compact stacked maxLines={2} />
             </p>
           </div>
           {showProjectName && word.projectTitle && (

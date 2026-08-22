@@ -138,7 +138,9 @@ function MaskedTranslation({
     setRevealed(false);
   }
 
-  const content = <TranslationDisplay word={word} compact stacked={stacked} />;
+  // 2行までなのは、行の高さを決めているステータスの3マス (42px) に収まる行数だから。
+  // 3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の `...` で示す。
+  const content = <TranslationDisplay word={word} compact stacked={stacked} maxLines={2} />;
 
   // 縦積みのときは語義ごとに `...` を出すので、ラッパ側では1行に潰さない。
   // flex-1 で伸ばさず内容幅のままにしているのは、赤シートのベタが訳のない余白まで
