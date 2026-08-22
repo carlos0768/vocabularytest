@@ -242,10 +242,14 @@ function WordRowText({
     );
   }
 
+  // 仕切りは行の上下いっぱい (px-1 py-2.5 の padding の外) まで貫通させる。
+  // 呼び出し側が親を self-stretch で行の高さまで伸ばしてあるので、ここは
+  // self-stretch + `-my-2.5` (= 行の py-2.5) で padding の分だけはみ出させる。
+  // マージンボックスは行の高さのままなので、行が伸びることはない。
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-1 items-center gap-2">
       <div className="min-w-0 shrink-0 basis-[46%]">{english}</div>
-      <span aria-hidden className="w-px shrink-0 self-stretch bg-[var(--color-border)]" />
+      <span aria-hidden className="-my-2.5 w-px shrink-0 self-stretch bg-[var(--color-border)]" />
       <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)]">{meaning}</div>
     </div>
   );
@@ -296,7 +300,7 @@ export function WordRow({
       >
         <div className="flex items-center gap-2.5">
           <SelectCheckbox checked={selected} size={26} />
-          <div className="min-w-0 flex-1">
+          <div className={`min-w-0 flex-1${splitMeaning ? ' flex self-stretch overflow-visible' : ''}`}>
             <WordRowText
               word={word}
               pos={pos}
@@ -323,7 +327,11 @@ export function WordRow({
           className={tourAnchor ? 'tour-anchor-word-status' : undefined}
         />
 
-        <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`min-w-0 flex-1 text-left${splitMeaning ? ' flex self-stretch overflow-visible' : ''}`}
+        >
           <WordRowText
             word={word}
             pos={pos}

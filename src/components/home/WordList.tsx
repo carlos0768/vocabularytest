@@ -184,20 +184,25 @@ function WordItem({
   }
 
   return (
-    <div className="px-1 py-3 flex items-center gap-2">
+    /* 縦の余白を行ではなく各カラムに持たせているのは、訳との間の仕切りを行の上下
+       いっぱいまで貫通させるため。横スクロール枠は縦をクリップするので、余白が枠の
+       外にあると仕切りが余白まで届かない。 */
+    <div className="px-1 flex items-stretch gap-2">
       {onStatusChange && (
-        <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
+        <span className="flex shrink-0 items-center py-3">
+          <NotionCheckbox wordId={word.id} status={word.status} onStatusChange={onStatusChange} />
+        </span>
       )}
       <div
         ref={scrollRef}
         className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden"
         style={{ scrollbarWidth: 'thin' }}
       >
-        <div className="w-max max-w-none">
+        <div className="flex min-h-full w-max max-w-none flex-col py-3">
           {/* 訳は英語の下ではなく右に置き、間に縦の仕切りを入れる。
               見出し語側に最小幅を持たせているのは、行ごとに仕切りが揃うようにするため
               (この列は横スクロールするので、幅は割合ではなく最小幅で決める) */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center gap-2">
             <div className="flex min-w-[7.5rem] items-center gap-1.5">
               <span className="font-semibold text-[var(--color-foreground)] whitespace-nowrap">{word.english}</span>
               {word.isFavorite && (
@@ -210,7 +215,7 @@ function WordItem({
                 />
               )}
             </div>
-            <span aria-hidden className="w-px shrink-0 self-stretch bg-[var(--color-border)]" />
+            <span aria-hidden className="-my-3 w-px shrink-0 self-stretch bg-[var(--color-border)]" />
             <p className="text-sm text-[var(--color-muted)] whitespace-nowrap" title={formatJapaneseForDisplay(word)}>
               <TranslationDisplay word={word} compact stacked maxLines={2} />
             </p>
@@ -220,7 +225,7 @@ function WordItem({
           )}
         </div>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 py-3">
         {onCycleVocabularyType && (
           <VocabularyTypeButton
             vocabularyType={word.vocabularyType}
