@@ -119,11 +119,14 @@ function MaskedTranslation({
   word,
   hidden,
   interactive,
+  stacked = false,
 }: {
   word: Word;
   hidden: boolean;
   /** 赤い部分をタップして1行だけ表に戻せるか。選択モードでは行全体がボタンなので無効。 */
   interactive: boolean;
+  /** 複数語義を1語義1行で縦に積む (収まらない語義はその行だけ `...` で省略)。 */
+  stacked?: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
 
@@ -135,13 +138,20 @@ function MaskedTranslation({
     setRevealed(false);
   }
 
-  const content = <TranslationDisplay word={word} compact />;
+  // 2行までなのは、行の高さを決めているステータスの3マス (42px) に収まる行数だから。
+  // 3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の `...` で示す。
+  const content = <TranslationDisplay word={word} compact stacked={stacked} maxLines={2} />;
+
+  // 縦積みのときは語義ごとに `...` を出すので、ラッパ側では1行に潰さない。
+  // flex-1 で伸ばさず内容幅のままにしているのは、赤シートのベタが訳のない余白まで
+  // 広がらないようにするため (狭いときは flex の縮小で効いて各行が `...` になる)。
+  const boxClass = stacked ? 'block min-w-0' : 'truncate';
 
   if (!hidden || revealed) {
-    return <span className="truncate">{content}</span>;
+    return <span className={boxClass}>{content}</span>;
   }
 
-  const maskClass = 'truncate select-none rounded-[4px] bg-[#e0483f] text-transparent';
+  const maskClass = `${boxClass} select-none rounded-[4px] bg-[#e0483f] text-transparent`;
 
   if (!interactive) {
     return (
@@ -190,6 +200,61 @@ function WrongCountBadge({ count }: { count: number }) {
   );
 }
 
+/**
+ * 行の本文 (見出し語 + 訳)。
+ *
+ * `splitMeaning` を立てると、訳を英語の下ではなく右のカラムに置き、間に縦の仕切りを
+ * 入れる (単語帳詳細 /project/[id] のレイアウト)。見出し語側の幅を割合で固定して
+ * いるのは、行ごとに仕切りの位置がずれると一覧が表に見えなくなるため。
+ */
+function WordRowText({
+  word,
+  pos,
+  wrongCount,
+  hideMeaning,
+  interactive,
+  splitMeaning,
+}: {
+  word: Word;
+  pos: string | null;
+  wrongCount: number;
+  hideMeaning: boolean;
+  interactive: boolean;
+  splitMeaning: boolean;
+}) {
+  const english = (
+    <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+  );
+  const meaning = (
+    <>
+      {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+      <MaskedTranslation word={word} hidden={hideMeaning} interactive={interactive} stacked={splitMeaning} />
+      <WrongCountBadge count={wrongCount} />
+    </>
+  );
+
+  if (!splitMeaning) {
+    return (
+      <>
+        {english}
+        <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">{meaning}</div>
+      </>
+    );
+  }
+
+  // 仕切りは行の上下いっぱい (px-1 py-2.5 の padding の外) まで貫通させる。
+  // 呼び出し側が親を self-stretch で行の高さまで伸ばしてあるので、ここは
+  // self-stretch + `-my-2.5` (= 行の py-2.5) で padding の分だけはみ出させる。
+  // マージンボックスは行の高さのままなので、行が伸びることはない。
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="min-w-0 shrink-0 basis-[46%]">{english}</div>
+      <span aria-hidden className="-my-2.5 w-px shrink-0 self-stretch bg-[var(--color-border)]" />
+      <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)]">{meaning}</div>
+    </div>
+  );
+}
+
 export function WordRow({
   word,
   selectMode,
@@ -197,6 +262,7 @@ export function WordRow({
   tourAnchor = false,
   wrongCount = 0,
   hideMeaning = false,
+  splitMeaning = false,
   onToggleSelect,
   onCycleStatus,
   onCycleVocabularyType,
@@ -211,6 +277,8 @@ export function WordRow({
   wrongCount?: number;
   /** 赤シート。true の間は訳を赤いベタで覆う (行タップで1行だけ表に戻せる)。 */
   hideMeaning?: boolean;
+  /** 訳を英語の下ではなく右のカラムに出し、間に仕切りを引く。 */
+  splitMeaning?: boolean;
   onToggleSelect: () => void;
   onCycleStatus: (newStatus: WordStatus) => void;
   onCycleVocabularyType: () => void;
@@ -232,13 +300,15 @@ export function WordRow({
       >
         <div className="flex items-center gap-2.5">
           <SelectCheckbox checked={selected} size={26} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
-            <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
-              {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-              <MaskedTranslation word={word} hidden={hideMeaning} interactive={false} />
-              <WrongCountBadge count={wrongCount} />
-            </div>
+          <div className={`min-w-0 flex-1${splitMeaning ? ' flex self-stretch overflow-visible' : ''}`}>
+            <WordRowText
+              word={word}
+              pos={pos}
+              wrongCount={wrongCount}
+              hideMeaning={hideMeaning}
+              interactive={false}
+              splitMeaning={splitMeaning}
+            />
           </div>
           <VocabularyTypeBadge vocabularyType={word.vocabularyType} />
           <BookmarkBadge active={word.isFavorite} />
@@ -257,13 +327,19 @@ export function WordRow({
           className={tourAnchor ? 'tour-anchor-word-status' : undefined}
         />
 
-        <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
-          <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
-          <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
-            {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
-            <MaskedTranslation word={word} hidden={hideMeaning} interactive />
-            <WrongCountBadge count={wrongCount} />
-          </div>
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`min-w-0 flex-1 text-left${splitMeaning ? ' flex self-stretch overflow-visible' : ''}`}
+        >
+          <WordRowText
+            word={word}
+            pos={pos}
+            wrongCount={wrongCount}
+            hideMeaning={hideMeaning}
+            interactive
+            splitMeaning={splitMeaning}
+          />
         </button>
 
         <VocabularyTypeButton
