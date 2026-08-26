@@ -312,7 +312,9 @@ export default function WordsPage() {
             <div className="divide-y divide-[var(--color-border)]">
               {[0, 1, 2, 3, 4, 5].map((index) => (
                 <div key={index} className="flex items-center gap-2.5 px-1 py-2.5">
-                  <div className="h-[43px] w-[13px] animate-pulse rounded bg-[var(--color-border)]" />
+                  {/* 行のステータス列 (3マス + 習得度ラベル) と同じ大きさ。読み込み後に
+                      行の高さが変わらないよう、マスだけの頃の 13x43 から広げてある */}
+                  <div className="h-[54px] w-[25px] animate-pulse rounded bg-[var(--color-border)]" />
                   <div className="flex-1">
                     <div className="h-[15px] w-1/3 animate-pulse rounded bg-[var(--color-border)]" />
                     <div className="mt-1.5 h-[11px] w-1/2 animate-pulse rounded bg-[var(--color-border)]" />

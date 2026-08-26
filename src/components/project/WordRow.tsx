@@ -44,6 +44,23 @@ const PP_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const PP_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
 
 /**
+ * 塗られたマスの色。段階ごとに色を変える (黄緑 = 習得 / 青 = 定着中 / オレンジ = 学習中)。
+ *
+ * 色は「そのマスが何段目か」ではなく現在の段階で決まるので、定着中なら2マスとも青、
+ * 習得なら3マスとも黄緑になる。段数と色の両方が同じことを指すので、色だけ・数だけ
+ * どちらを見ても習得度が分かる。未学習は塗らない (白のまま)。
+ *
+ * 青とオレンジはデスクトップの一覧の点 (`.c-active` / `.c-review`) と同じ色。
+ * 習得だけは黄緑を使い、緑系のアクセント色 (リンクや Pro 表示) と取り違えないようにする。
+ */
+const PP_FILL: Record<WordStatus, string> = {
+  new: 'transparent',
+  review: 'var(--color-warning)',
+  active: '#2563eb',
+  mastered: '#84cc16',
+};
+
+/**
  * 習得度のラベル (習得 / 定着中 / 学習中 / 未学習)。
  *
  * 3マスだけだと「何段目まで塗られているか」は見えても、その段が4段階の
@@ -128,7 +145,7 @@ export function StatusSquares({
           <div
             key={i}
             className="h-[13px] w-[13px] rounded-[2.5px] border-2 border-[var(--solid-ink)]"
-            style={{ background: i < filledCount ? 'var(--solid-ink)' : 'transparent' }}
+            style={{ background: i < filledCount ? PP_FILL[shownStatus] : 'transparent' }}
           />
         ))}
       </div>
