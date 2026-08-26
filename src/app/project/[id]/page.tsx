@@ -14,6 +14,7 @@ import { StackedBar } from '@/components/project/WordStatusBar';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
+import { DuplicateWordNotice } from '@/components/word/DuplicateWordNotice';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
@@ -38,6 +39,7 @@ import {
 } from '@/lib/preferences/manual-derived-words-pref';
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
+import { findDuplicateWord } from '@/lib/scan/duplicate-words';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
 import {
@@ -1122,6 +1124,12 @@ export default function ProjectPage() {
     setManualWordExampleSentence('');
   };
 
+  // 手入力の重複告知: 入力中の見出し語がすでにこの単語帳にあるか
+  const manualWordDuplicate = useMemo(
+    () => (showManualWordModal ? findDuplicateWord(words, manualWordEnglish) ?? null : null),
+    [showManualWordModal, words, manualWordEnglish],
+  );
+
   const openManualWordModal = () => {
     setManualWordAddedCount(0);
     setShowManualWordModal(true);
@@ -1774,6 +1782,7 @@ export default function ProjectPage() {
         japanese={manualWordJapanese}
         partOfSpeech={manualWordPartOfSpeech}
         exampleSentence={manualWordExampleSentence}
+        duplicateWord={manualWordDuplicate}
         morphologyEnabled={manualWordMorphologyEnabled}
         derivedWordsEnabled={manualWordDerivedWordsEnabled}
         onEnglishChange={setManualWordEnglish}
@@ -2181,6 +2190,7 @@ function ManualWordModal({
   japanese,
   partOfSpeech,
   exampleSentence,
+  duplicateWord,
   morphologyEnabled,
   derivedWordsEnabled,
   onEnglishChange,
@@ -2200,6 +2210,8 @@ function ManualWordModal({
   japanese: string;
   partOfSpeech: string;
   exampleSentence: string;
+  /** すでにこの単語帳にある同じ見出し語（なければ null） */
+  duplicateWord: { english: string; japanese?: string } | null;
   morphologyEnabled: boolean;
   derivedWordsEnabled: boolean;
   onEnglishChange: (value: string) => void;
@@ -2275,7 +2287,9 @@ function ManualWordModal({
                 maxLength={50}
                 autoFocus
                 className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
+                style={duplicateWord ? { borderColor: 'var(--color-warning)' } : undefined}
               />
+              <DuplicateWordNotice duplicateWord={duplicateWord} className="mt-1.5" />
             </div>
             <div>
               <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
@@ -2416,7 +2430,7 @@ function ManualWordModal({
               className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
             >
               {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
-              {loading ? (loadingMessage ?? '保存中...') : '追加して次へ'}
+              {loading ? (loadingMessage ?? '保存中...') : duplicateWord ? '重複して追加' : '追加して次へ'}
             </button>
           </div>
         </div>

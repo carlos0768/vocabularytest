@@ -1,32 +1,34 @@
 'use client';
 
 import { Icon } from '@/components/ui/Icon';
+import type { DuplicateHandling } from '@/lib/scan/duplicate-words';
 
 /**
  * スキャン確認画面の重複告知バナー。
  *
  * すでに単語帳にある見出し語を黙って作らないように、件数を知らせて
- * 「追加しない / 重複も追加する」をユーザーに選ばせる。モバイル版と
- * デスクトップ版で同じ文言を出すため、1コンポーネントに寄せている。
+ * 扱い方をユーザーに選ばせる。選択は2段階で、まず「追加しない / 重複も追加」、
+ * 追加する場合だけ「すべて追加 / ひとつずつ選択」を出す。
+ * モバイル版とデスクトップ版で同じ文言を出すため1コンポーネントに寄せている。
  */
 export function DuplicateWordsNotice({
   duplicateCount,
-  skippedDuplicateCount,
+  selectedDuplicateCount,
   isAddingToExisting,
-  includeDuplicates,
+  handling,
   checking,
   failed,
-  onIncludeDuplicatesChange,
+  onHandlingChange,
   className,
 }: {
   duplicateCount: number;
-  /** 重複のうち、いま実際に追加しない語数（1語ずつ切り替えられるので件数は一致しない） */
-  skippedDuplicateCount: number;
+  /** 重複のうち、いま追加することになっている語数（ひとつずつ選択のときに変わる） */
+  selectedDuplicateCount: number;
   isAddingToExisting: boolean;
-  includeDuplicates: boolean;
+  handling: DuplicateHandling;
   checking: boolean;
   failed: boolean;
-  onIncludeDuplicatesChange: (include: boolean) => void;
+  onHandlingChange: (handling: DuplicateHandling) => void;
   className?: string;
 }) {
   if (checking) {
@@ -65,28 +67,55 @@ export function DuplicateWordsNotice({
               : `スキャン結果の中で重複している単語が${duplicateCount}語あります`}
           </p>
           <p className="mt-px text-[11px] leading-snug text-[var(--color-muted)]">
-            {skippedDuplicateCount === 0
-              ? '重複した単語も追加します。同じ単語が2つ並びます。'
-              : skippedDuplicateCount === duplicateCount
-                ? `重複した${duplicateCount}語は追加しません。追加したい場合は「重複も追加」を選んでください。`
-                : `重複した${duplicateCount}語のうち${skippedDuplicateCount}語は追加しません。`}
+            {describeHandling(handling, duplicateCount, selectedDuplicateCount)}
           </p>
+
           <div className="mt-2 flex gap-1.5">
             <DuplicateChoiceButton
               label="追加しない"
-              active={!includeDuplicates}
-              onClick={() => onIncludeDuplicatesChange(false)}
+              active={handling === 'skip'}
+              onClick={() => onHandlingChange('skip')}
             />
             <DuplicateChoiceButton
               label="重複も追加"
-              active={includeDuplicates}
-              onClick={() => onIncludeDuplicatesChange(true)}
+              active={handling !== 'skip'}
+              // すでに「重複も追加」側にいるなら、下段の選択（ひとつずつ選んだ結果）を壊さない
+              onClick={() => { if (handling === 'skip') onHandlingChange('all'); }}
             />
           </div>
+
+          {handling !== 'skip' && (
+            <div className="mt-1.5 flex gap-1.5 border-t border-dashed border-[var(--color-warning)] pt-1.5">
+              <DuplicateChoiceButton
+                label="すべて追加"
+                active={handling === 'all'}
+                onClick={() => onHandlingChange('all')}
+              />
+              <DuplicateChoiceButton
+                label="ひとつずつ選択"
+                active={handling === 'each'}
+                onClick={() => onHandlingChange('each')}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+function describeHandling(
+  handling: DuplicateHandling,
+  duplicateCount: number,
+  selectedDuplicateCount: number,
+): string {
+  if (handling === 'skip') {
+    return `重複した${duplicateCount}語は追加しません。追加したい場合は「重複も追加」を選んでください。`;
+  }
+  if (handling === 'all') {
+    return `重複した${duplicateCount}語もすべて追加します。同じ単語が2つ並びます。`;
+  }
+  return `追加する単語を1語ずつ選んでください（${duplicateCount}語中${selectedDuplicateCount}語を追加）。各行の「追加する / 追加しない」で切り替わります。`;
 }
 
 function DuplicateChoiceButton({

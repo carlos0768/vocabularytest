@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository } from '@/lib/db';
+import { findDuplicateWord } from '@/lib/scan/duplicate-words';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { invalidateHomeCache } from '@/lib/home-cache';
@@ -232,6 +233,12 @@ export default function WordListPage() {
     });
   };
 
+  // 手入力の重複告知: 入力中の見出し語がすでにこの単語帳にあるか
+  const manualWordDuplicate = useMemo(
+    () => (showManualWordModal ? findDuplicateWord(words, manualWordEnglish) ?? null : null),
+    [showManualWordModal, words, manualWordEnglish],
+  );
+
   const handleSaveManualWord = async () => {
     const english = manualWordEnglish.trim();
     const japanese = manualWordJapanese.trim();
@@ -431,6 +438,7 @@ export default function WordListPage() {
         setPartOfSpeech={setManualWordPartOfSpeech}
         exampleSentence={manualWordExampleSentence}
         setExampleSentence={setManualWordExampleSentence}
+        duplicateWord={manualWordDuplicate}
         morphologyEnabled={manualWordMorphologyEnabled}
         setMorphologyEnabled={handleManualWordMorphologyChange}
         derivedWordsEnabled={manualWordDerivedWordsEnabled}

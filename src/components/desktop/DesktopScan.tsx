@@ -29,6 +29,7 @@ import { InsufficientCoinsError, type InsufficientCoinsInfo } from '@/lib/coins/
 import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModal';
 import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
 import { DuplicateWordsNotice, DuplicateWordBadge } from '@/components/scan/DuplicateWordsNotice';
+import type { DuplicateHandling } from '@/lib/scan/duplicate-words';
 import type { EikenLevel } from '@/app/api/extract/route';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
@@ -802,11 +803,11 @@ export function DesktopScanConfirmView({
   projectTitle,
   isAddingToExisting,
   duplicateCount,
-  skippedDuplicateCount,
-  includeDuplicates,
+  selectedDuplicateCount,
+  duplicateHandling,
   checkingDuplicates,
   duplicateCheckFailed,
-  onIncludeDuplicatesChange,
+  onDuplicateHandlingChange,
   selectedCount,
   availableSlots,
   showLimitWarning,
@@ -828,11 +829,11 @@ export function DesktopScanConfirmView({
   projectTitle: string;
   isAddingToExisting: boolean;
   duplicateCount: number;
-  skippedDuplicateCount: number;
-  includeDuplicates: boolean;
+  selectedDuplicateCount: number;
+  duplicateHandling: DuplicateHandling;
   checkingDuplicates: boolean;
   duplicateCheckFailed: boolean;
-  onIncludeDuplicatesChange: (include: boolean) => void;
+  onDuplicateHandlingChange: (handling: DuplicateHandling) => void;
   selectedCount: number;
   availableSlots: number;
   showLimitWarning: boolean;
@@ -913,12 +914,12 @@ export function DesktopScanConfirmView({
           <DuplicateWordsNotice
             className="mb-3.5"
             duplicateCount={duplicateCount}
-            skippedDuplicateCount={skippedDuplicateCount}
+            selectedDuplicateCount={selectedDuplicateCount}
             isAddingToExisting={isAddingToExisting}
-            includeDuplicates={includeDuplicates}
+            handling={duplicateHandling}
             checking={checkingDuplicates}
             failed={duplicateCheckFailed}
-            onIncludeDuplicatesChange={onIncludeDuplicatesChange}
+            onHandlingChange={onDuplicateHandlingChange}
           />
           <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
             <table className="ds-table">

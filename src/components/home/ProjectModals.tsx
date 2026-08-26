@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { Button, Icon } from '@/components/ui';
+import { DuplicateWordNotice } from '@/components/word/DuplicateWordNotice';
 import { processProjectIconFile } from '@/lib/image-utils';
 
 export function ProjectNameModal({
@@ -301,6 +302,7 @@ export function ManualWordInputModal({
   setMorphologyEnabled,
   derivedWordsEnabled,
   setDerivedWordsEnabled,
+  duplicateWord,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -321,6 +323,8 @@ export function ManualWordInputModal({
   /** 派生語トグル（未指定なら非表示） */
   derivedWordsEnabled?: boolean;
   setDerivedWordsEnabled?: (enabled: boolean) => void;
+  /** すでにこの単語帳にある同じ見出し語（未指定なら告知しない） */
+  duplicateWord?: { english: string; japanese?: string } | null;
 }) {
   const englishInputRef = useRef<HTMLInputElement>(null);
   const [showOptional, setShowOptional] = useState(false);
@@ -387,10 +391,12 @@ export function ManualWordInputModal({
                   value={english}
                   onChange={(e) => setEnglish(e.target.value)}
                   placeholder="例: beautiful"
-                  className="w-full px-4 py-3 border border-[var(--color-border)] rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                  className="w-full px-4 py-3 border rounded-[var(--radius-lg)] text-base bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                  style={{ borderColor: duplicateWord ? 'var(--color-warning)' : 'var(--color-border)' }}
                   disabled={isLoading}
                   maxLength={50}
                 />
+                <DuplicateWordNotice duplicateWord={duplicateWord} className="mt-1.5" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-1.5">
@@ -530,7 +536,7 @@ export function ManualWordInputModal({
                 disabled={!english.trim() || !japanese.trim() || isLoading}
                 className="flex-1"
               >
-                {isLoading ? (loadingMessage ?? '保存中...') : '保存'}
+                {isLoading ? (loadingMessage ?? '保存中...') : duplicateWord ? '重複して保存' : '保存'}
               </Button>
             </div>
           </form>

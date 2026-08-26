@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   buildExistingWordKeys,
   countDuplicateWords,
+  countSelectedDuplicateWords,
+  findDuplicateWord,
   normalizeWordKey,
   setDuplicateWordsSelected,
   syncDuplicateSelection,
@@ -136,4 +138,26 @@ test('状態が変わらない単語は同じ参照のまま返す', () => {
   const words = [word('banana')];
   const result = syncDuplicateSelection(words, new Set<string>(), false);
   assert.equal(result[0], words[0]);
+});
+
+test('findDuplicateWord は正規化して既存の単語を見つける', () => {
+  const existing = [
+    { english: 'banana', japanese: 'バナナ' },
+    { english: 'Apple', japanese: 'りんご' },
+  ];
+
+  assert.deepEqual(findDuplicateWord(existing, ' apple '), { english: 'Apple', japanese: 'りんご' });
+  assert.equal(findDuplicateWord(existing, 'grape'), undefined);
+  assert.equal(findDuplicateWord(existing, '   '), undefined);
+});
+
+test('countSelectedDuplicateWords は追加する重複だけ数える', () => {
+  const words = [
+    word('a', { isDuplicate: true, isSelected: true }),
+    word('b', { isDuplicate: true, isSelected: false }),
+    word('c', { isDuplicate: false, isSelected: true }),
+  ];
+
+  assert.equal(countDuplicateWords(words), 2);
+  assert.equal(countSelectedDuplicateWords(words), 1);
 });

@@ -25,8 +25,10 @@ import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphol
 import {
   buildExistingWordKeys,
   countDuplicateWords,
+  countSelectedDuplicateWords,
   setDuplicateWordsSelected,
   syncDuplicateSelection,
+  type DuplicateHandling,
 } from '@/lib/scan/duplicate-words';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 
@@ -146,7 +148,7 @@ export default function ConfirmPage() {
 
   // 重複告知: 既存の単語帳にすでにある見出し語を検出し、追加するかをユーザーに選ばせる
   const [existingWordKeys, setExistingWordKeys] = useState<ReadonlySet<string>>(NO_EXISTING_WORD_KEYS);
-  const [includeDuplicates, setIncludeDuplicates] = useState(false);
+  const [duplicateHandling, setDuplicateHandling] = useState<DuplicateHandling>('skip');
   const [checkingDuplicates, setCheckingDuplicates] = useState(!!initialData.existingProjectId);
   const [duplicateCheckFailed, setDuplicateCheckFailed] = useState(false);
   const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
@@ -156,7 +158,8 @@ export default function ConfirmPage() {
   const showLimitWarning = !isPro && wouldExceed;
   const isAddingToExisting = !!existingProjectId;
   const duplicateCount = countDuplicateWords(words);
-  const skippedDuplicateCount = words.filter((w) => w.isDuplicate && !w.isSelected).length;
+  const selectedDuplicateCount = countSelectedDuplicateWords(words);
+  const skippedDuplicateCount = duplicateCount - selectedDuplicateCount;
 
   useLayoutEffect(() => {
     if (initialData.words && initialData.words.length > 0) setDataReady(true);
@@ -195,27 +198,35 @@ export default function ConfirmPage() {
     return () => { cancelled = true; };
   }, [existingProjectId, dataReady, subscriptionStatus]);
 
+  // 新しく重複と分かった単語を既定で選ぶかどうか（「すべて追加」のときだけ選ぶ）
+  const selectNewDuplicates = duplicateHandling === 'all';
+
   // 重複キーが揃ったら、重複フラグと選択状態を付け直す
   useEffect(() => {
-    setWords((prev) => syncDuplicateSelection(prev, existingWordKeys, includeDuplicates));
-  }, [existingWordKeys, includeDuplicates]);
+    setWords((prev) => syncDuplicateSelection(prev, existingWordKeys, selectNewDuplicates));
+  }, [existingWordKeys, selectNewDuplicates]);
 
-  // バナーの「追加しない / 重複も追加」。重複した単語をまとめて切り替える
-  const handleIncludeDuplicatesChange = useCallback((include: boolean) => {
-    setIncludeDuplicates(include);
-    setWords((prev) => setDuplicateWordsSelected(prev, include));
+  // バナーの選択。重複した単語の選択状態をまとめて切り替える
+  const handleDuplicateHandlingChange = useCallback((handling: DuplicateHandling) => {
+    setDuplicateHandling(handling);
+    // ひとつずつ選ぶときは、いったん全部外してユーザーに選ばせる
+    setWords((prev) => setDuplicateWordsSelected(prev, handling === 'all'));
   }, []);
 
   // 単語の編集・削除で重複関係が変わるため、そのつど付け直す
   const resyncDuplicates = useCallback(
     (updater: (prev: EditableWord[]) => EditableWord[]) => {
-      setWords((prev) => syncDuplicateSelection(updater(prev), existingWordKeys, includeDuplicates));
+      setWords((prev) => syncDuplicateSelection(updater(prev), existingWordKeys, selectNewDuplicates));
     },
-    [existingWordKeys, includeDuplicates],
+    [existingWordKeys, selectNewDuplicates],
   );
 
   const handleDeleteWord = (tempId: string) => resyncDuplicates((prev) => prev.filter((w) => w.tempId !== tempId));
-  const handleToggleWord = (tempId: string) => setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isSelected: !w.isSelected } : w));
+  const handleToggleWord = (tempId: string) => {
+    // 重複した単語を1語だけ切り替えたら、バナーの表示も「ひとつずつ選択」に合わせる
+    if (words.some((w) => w.tempId === tempId && w.isDuplicate)) setDuplicateHandling('each');
+    setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isSelected: !w.isSelected } : w));
+  };
   const handleEditWord = (tempId: string) => setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isEditing: true } : w));
   const handleSaveWord = (tempId: string, english: string, japanese: string) =>
     resyncDuplicates((prev) => prev.map((w) => w.tempId === tempId ? { ...w, english, japanese, japaneseSource: undefined, isEditing: false } : w));
@@ -428,11 +439,11 @@ export default function ConfirmPage() {
         projectTitle={projectTitle}
         isAddingToExisting={isAddingToExisting}
         duplicateCount={duplicateCount}
-        skippedDuplicateCount={skippedDuplicateCount}
-        includeDuplicates={includeDuplicates}
+        selectedDuplicateCount={selectedDuplicateCount}
+        duplicateHandling={duplicateHandling}
         checkingDuplicates={checkingDuplicates}
         duplicateCheckFailed={duplicateCheckFailed}
-        onIncludeDuplicatesChange={handleIncludeDuplicatesChange}
+        onDuplicateHandlingChange={handleDuplicateHandlingChange}
         selectedCount={selectedCount}
         availableSlots={availableSlots}
         showLimitWarning={showLimitWarning}
@@ -526,12 +537,12 @@ export default function ConfirmPage() {
       <DuplicateWordsNotice
         className="mx-[18px] mb-3"
         duplicateCount={duplicateCount}
-        skippedDuplicateCount={skippedDuplicateCount}
+        selectedDuplicateCount={selectedDuplicateCount}
         isAddingToExisting={isAddingToExisting}
-        includeDuplicates={includeDuplicates}
+        handling={duplicateHandling}
         checking={checkingDuplicates}
         failed={duplicateCheckFailed}
-        onIncludeDuplicatesChange={handleIncludeDuplicatesChange}
+        onHandlingChange={handleDuplicateHandlingChange}
       />
 
       {/* Word count + add button */}

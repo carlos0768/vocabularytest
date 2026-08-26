@@ -37,6 +37,24 @@ export function buildExistingWordKeys(words: Iterable<{ english?: unknown }>): S
   return keys;
 }
 
+/**
+ * 重複した単語の扱い方。確認画面のバナーでユーザーが選ぶ。
+ * - skip: 重複した単語は追加しない（既定）
+ * - all:  重複した単語もすべて追加する
+ * - each: 重複した単語を1語ずつ選んで追加する
+ */
+export type DuplicateHandling = 'skip' | 'all' | 'each';
+
+/** 単語帳の中に同じ見出し語がすでにあれば、その単語を返す（手入力の重複告知用）。 */
+export function findDuplicateWord<T extends { english: string }>(
+  words: readonly T[],
+  english: string,
+): T | undefined {
+  const key = normalizeWordKey(english);
+  if (!key) return undefined;
+  return words.find((word) => normalizeWordKey(word.english) === key);
+}
+
 export interface DuplicateFlaggableWord {
   english: string;
   isDuplicate: boolean;
@@ -101,4 +119,11 @@ export function setDuplicateWordsSelected<T extends DuplicateFlaggableWord>(
 /** 重複と判定された単語の件数。告知バナーの表示判定に使う。 */
 export function countDuplicateWords(words: readonly { isDuplicate: boolean }[]): number {
   return words.reduce((count, word) => (word.isDuplicate ? count + 1 : count), 0);
+}
+
+/** 重複のうち、いま追加することになっている語数。 */
+export function countSelectedDuplicateWords(
+  words: readonly { isDuplicate: boolean; isSelected: boolean }[],
+): number {
+  return words.reduce((count, word) => (word.isDuplicate && word.isSelected ? count + 1 : count), 0);
 }
