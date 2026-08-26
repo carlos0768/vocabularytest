@@ -28,6 +28,7 @@ import { deriveScanCoinState } from '@/lib/coins/scan-cost';
 import { InsufficientCoinsError, type InsufficientCoinsInfo } from '@/lib/coins/errors';
 import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModal';
 import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
+import { DuplicateWordsNotice, DuplicateWordBadge } from '@/components/scan/DuplicateWordsNotice';
 import type { EikenLevel } from '@/app/api/extract/route';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
@@ -37,6 +38,8 @@ type EditableScanWord = AIWordExtraction & {
   tempId: string;
   isEditing: boolean;
   isSelected: boolean;
+  /** 既存の単語帳、または同じスキャン結果の中にすでにある見出し語か */
+  isDuplicate?: boolean;
 };
 
 type DesktopScanProject = Pick<Project, 'id' | 'title' | 'createdAt' | 'iconImage'>;
@@ -798,6 +801,12 @@ export function DesktopScanConfirmView({
   words,
   projectTitle,
   isAddingToExisting,
+  duplicateCount,
+  skippedDuplicateCount,
+  includeDuplicates,
+  checkingDuplicates,
+  duplicateCheckFailed,
+  onIncludeDuplicatesChange,
   selectedCount,
   availableSlots,
   showLimitWarning,
@@ -818,6 +827,12 @@ export function DesktopScanConfirmView({
   words: EditableScanWord[];
   projectTitle: string;
   isAddingToExisting: boolean;
+  duplicateCount: number;
+  skippedDuplicateCount: number;
+  includeDuplicates: boolean;
+  checkingDuplicates: boolean;
+  duplicateCheckFailed: boolean;
+  onIncludeDuplicatesChange: (include: boolean) => void;
   selectedCount: number;
   availableSlots: number;
   showLimitWarning: boolean;
@@ -895,6 +910,16 @@ export function DesktopScanConfirmView({
             <button type="button" className="ds-btn sm" onClick={onAddManualWord}><Icon name="add" />手動で追加</button>
             {!isAddingToExisting && <span className="mono muted" style={{ fontSize: 12 }}>{selectedCount} 語を選択中</span>}
           </div>
+          <DuplicateWordsNotice
+            className="mb-3.5"
+            duplicateCount={duplicateCount}
+            skippedDuplicateCount={skippedDuplicateCount}
+            isAddingToExisting={isAddingToExisting}
+            includeDuplicates={includeDuplicates}
+            checking={checkingDuplicates}
+            failed={duplicateCheckFailed}
+            onIncludeDuplicatesChange={onIncludeDuplicatesChange}
+          />
           <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
             <table className="ds-table">
               <thead>
@@ -988,7 +1013,10 @@ function DesktopScanConfirmRow({
           {word.isSelected && <Icon name="check" style={{ fontSize: 16, color: '#fff' }} />}
         </span>
       </td>
-      <td className="en">{word.english || `単語 ${index + 1}`}</td>
+      <td className="en">
+        {word.english || `単語 ${index + 1}`}
+        {word.isDuplicate && <DuplicateWordBadge className="ml-1.5 align-middle" />}
+      </td>
       <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
       <td className="ja">
         {word.japanese ? <TranslationDisplay word={word} compact /> : '-'}

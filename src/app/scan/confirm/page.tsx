@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesktopScanConfirmView } from '@/components/desktop/DesktopScan';
+import { DuplicateWordsNotice, DuplicateWordBadge } from '@/components/scan/DuplicateWordsNotice';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useToast } from '@/components/ui/toast';
@@ -21,13 +22,23 @@ import {
 } from '@/lib/quiz/word-order';
 import type { AIWordExtraction, LexiconEntry, Word, WordOrderQuizCache } from '@/types';
 import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphology/format';
+import {
+  buildExistingWordKeys,
+  countDuplicateWords,
+  setDuplicateWordsSelected,
+  syncDuplicateSelection,
+} from '@/lib/scan/duplicate-words';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 
 interface EditableWord extends AIWordExtraction {
   tempId: string;
   isEditing: boolean;
   isSelected: boolean;
+  /** 既存の単語帳、または同じスキャン結果の中にすでにある見出し語か */
+  isDuplicate: boolean;
 }
+
+const NO_EXISTING_WORD_KEYS: ReadonlySet<string> = new Set<string>();
 
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
@@ -114,7 +125,11 @@ export default function ConfirmPage() {
 
   const [words, setWords] = useState<EditableWord[]>(() => {
     if (initialData.words) {
-      return initialData.words.map((w, i) => ({ ...w, tempId: `word-${i}`, isEditing: false, isSelected: true }));
+      const mapped = initialData.words.map((w, i) => ({
+        ...w, tempId: `word-${i}`, isEditing: false, isSelected: true, isDuplicate: false,
+      }));
+      // 既存の単語帳はまだ読めていないので、この時点ではスキャン結果内の重複だけを外す
+      return syncDuplicateSelection(mapped, NO_EXISTING_WORD_KEYS, false);
     }
     return [];
   });
@@ -128,12 +143,20 @@ export default function ConfirmPage() {
 
   const [existingProjectId] = useState<string | null>(initialData.existingProjectId);
   const [saving, setSaving] = useState(false);
+
+  // 重複告知: 既存の単語帳にすでにある見出し語を検出し、追加するかをユーザーに選ばせる
+  const [existingWordKeys, setExistingWordKeys] = useState<ReadonlySet<string>>(NO_EXISTING_WORD_KEYS);
+  const [includeDuplicates, setIncludeDuplicates] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(!!initialData.existingProjectId);
+  const [duplicateCheckFailed, setDuplicateCheckFailed] = useState(false);
   const aiEnabledForGeneration = (initialData.scanAiEnabled ?? accountAiEnabled) !== false;
 
   const { wouldExceed, excessCount, availableSlots } = canAddWords(words.filter(w => w.isSelected).length);
   const selectedCount = words.filter(w => w.isSelected).length;
   const showLimitWarning = !isPro && wouldExceed;
   const isAddingToExisting = !!existingProjectId;
+  const duplicateCount = countDuplicateWords(words);
+  const skippedDuplicateCount = words.filter((w) => w.isDuplicate && !w.isSelected).length;
 
   useLayoutEffect(() => {
     if (initialData.words && initialData.words.length > 0) setDataReady(true);
@@ -147,16 +170,60 @@ export default function ConfirmPage() {
     }
   }, [shouldRedirect, showToast, router]);
 
-  const handleDeleteWord = (tempId: string) => setWords((prev) => prev.filter((w) => w.tempId !== tempId));
+  const subscriptionStatus = subscription?.status || 'free';
+
+  // 既存の単語帳に追加するときだけ、その単語帳の中身を読んで重複キーを作る。
+  // 読み取りはローカル(IndexedDB)からなので、単語帳ページと同じ中身を見ている。
+  useEffect(() => {
+    if (!existingProjectId || !dataReady) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const existingWords = await getRepository(subscriptionStatus).getWords(existingProjectId);
+        if (cancelled) return;
+        setExistingWordKeys(buildExistingWordKeys(existingWords));
+      } catch (error) {
+        console.error('Failed to load existing words for duplicate check:', error);
+        if (cancelled) return;
+        setDuplicateCheckFailed(true);
+      } finally {
+        if (!cancelled) setCheckingDuplicates(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [existingProjectId, dataReady, subscriptionStatus]);
+
+  // 重複キーが揃ったら、重複フラグと選択状態を付け直す
+  useEffect(() => {
+    setWords((prev) => syncDuplicateSelection(prev, existingWordKeys, includeDuplicates));
+  }, [existingWordKeys, includeDuplicates]);
+
+  // バナーの「追加しない / 重複も追加」。重複した単語をまとめて切り替える
+  const handleIncludeDuplicatesChange = useCallback((include: boolean) => {
+    setIncludeDuplicates(include);
+    setWords((prev) => setDuplicateWordsSelected(prev, include));
+  }, []);
+
+  // 単語の編集・削除で重複関係が変わるため、そのつど付け直す
+  const resyncDuplicates = useCallback(
+    (updater: (prev: EditableWord[]) => EditableWord[]) => {
+      setWords((prev) => syncDuplicateSelection(updater(prev), existingWordKeys, includeDuplicates));
+    },
+    [existingWordKeys, includeDuplicates],
+  );
+
+  const handleDeleteWord = (tempId: string) => resyncDuplicates((prev) => prev.filter((w) => w.tempId !== tempId));
   const handleToggleWord = (tempId: string) => setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isSelected: !w.isSelected } : w));
   const handleEditWord = (tempId: string) => setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isEditing: true } : w));
   const handleSaveWord = (tempId: string, english: string, japanese: string) =>
-    setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, english, japanese, japaneseSource: undefined, isEditing: false } : w));
+    resyncDuplicates((prev) => prev.map((w) => w.tempId === tempId ? { ...w, english, japanese, japaneseSource: undefined, isEditing: false } : w));
   const handleCancelEdit = (tempId: string) => setWords((prev) => prev.map((w) => w.tempId === tempId ? { ...w, isEditing: false } : w));
   const handleAddManualWord = () => {
     const newWord: EditableWord = {
       english: '', japanese: '', distractors: [], partOfSpeechTags: [], exampleSentence: '', exampleSentenceJa: '',
-      tempId: `word-manual-${Date.now()}`, isEditing: true, isSelected: true,
+      tempId: `word-manual-${Date.now()}`, isEditing: true, isSelected: true, isDuplicate: false,
     };
     setWords((prev) => [...prev, newWord]);
   };
@@ -283,7 +350,6 @@ export default function ConfirmPage() {
 
     setSaving(true);
     try {
-      const subscriptionStatus = subscription?.status || 'free';
       const repository = getRepository(subscriptionStatus);
       const userId = user ? user.id : getGuestUserId();
       let targetProjectId: string;
@@ -323,7 +389,14 @@ export default function ConfirmPage() {
       if (!isPro && currentWordCount < 80 && newTotal >= 80) {
         showToast({ message: `80語達成! あと${FREE_WORD_LIMIT - newTotal}語で上限です`, type: 'success', action: { label: 'Pro詳細', onClick: () => router.push('/subscription') }, duration: 4000 });
       }
-      if (isAddingToExisting) showToast({ message: `${selectedWords.length}語を追加しました`, type: 'success' });
+      if (isAddingToExisting) {
+        showToast({
+          message: skippedDuplicateCount > 0
+            ? `${selectedWords.length}語を追加しました（すでにある${skippedDuplicateCount}語は追加していません）`
+            : `${selectedWords.length}語を追加しました`,
+          type: 'success',
+        });
+      }
 
       invalidateHomeCache();
       if (isAddingToExisting && existingProjectId) router.push(`/project/${existingProjectId}`);
@@ -354,6 +427,12 @@ export default function ConfirmPage() {
         words={words}
         projectTitle={projectTitle}
         isAddingToExisting={isAddingToExisting}
+        duplicateCount={duplicateCount}
+        skippedDuplicateCount={skippedDuplicateCount}
+        includeDuplicates={includeDuplicates}
+        checkingDuplicates={checkingDuplicates}
+        duplicateCheckFailed={duplicateCheckFailed}
+        onIncludeDuplicatesChange={handleIncludeDuplicatesChange}
         selectedCount={selectedCount}
         availableSlots={availableSlots}
         showLimitWarning={showLimitWarning}
@@ -443,6 +522,18 @@ export default function ConfirmPage() {
       )}
 
 
+      {/* Duplicate notice */}
+      <DuplicateWordsNotice
+        className="mx-[18px] mb-3"
+        duplicateCount={duplicateCount}
+        skippedDuplicateCount={skippedDuplicateCount}
+        isAddingToExisting={isAddingToExisting}
+        includeDuplicates={includeDuplicates}
+        checking={checkingDuplicates}
+        failed={duplicateCheckFailed}
+        onIncludeDuplicatesChange={handleIncludeDuplicatesChange}
+      />
+
       {/* Word count + add button */}
       <div className="flex items-center justify-between px-[18px] pb-2.5">
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
@@ -459,7 +550,7 @@ export default function ConfirmPage() {
           w.isEditing ? (
             <EditingWordRow key={w.tempId} w={w} onSave={handleSaveWord} onCancel={handleCancelEdit} />
           ) : (
-            <WordRow key={w.tempId} w={w} index={i} onEdit={handleEditWord} onDelete={handleDeleteWord} />
+            <WordRow key={w.tempId} w={w} index={i} onEdit={handleEditWord} onDelete={handleDeleteWord} onToggle={handleToggleWord} />
           )
         )}
         {words.length === 0 && (
@@ -512,19 +603,27 @@ function WordRow({
   index,
   onEdit,
   onDelete,
+  onToggle,
 }: {
   w: EditableWord;
   index: number;
   onEdit: (tempId: string) => void;
   onDelete: (tempId: string) => void;
+  onToggle: (tempId: string) => void;
 }) {
   return (
     <div
       className="flex items-center gap-2.5 rounded-[10px] bg-white px-3 py-2.5"
-      style={{ border: `1.25px solid var(--color-border)` }}
+      style={{
+        border: w.isDuplicate ? '1.25px solid var(--color-warning)' : '1.25px solid var(--color-border)',
+        opacity: w.isSelected ? 1 : 0.5,
+      }}
     >
       <div className="min-w-0 flex-1">
-        <div className="font-display text-sm font-bold text-[var(--solid-ink)]">{w.english || `単語 ${index + 1}`}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-bold text-[var(--solid-ink)]">{w.english || `単語 ${index + 1}`}</span>
+          {w.isDuplicate && <DuplicateWordBadge />}
+        </div>
         <div className="mt-px text-[11px] text-[var(--color-muted)]">
           <TranslationDisplay word={w} compact />
         </div>
@@ -540,6 +639,22 @@ function WordRow({
         )}
       </div>
       <div className="flex gap-0.5">
+        {w.isDuplicate && (
+          <button
+            type="button"
+            onClick={() => onToggle(w.tempId)}
+            aria-pressed={w.isSelected}
+            aria-label={w.isSelected ? 'この重複した単語を追加しない' : 'この重複した単語を追加する'}
+            className={
+              'inline-flex h-[26px] items-center justify-center rounded-md border px-1.5 text-[10px] font-bold ' +
+              (w.isSelected
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]')
+            }
+          >
+            {w.isSelected ? '追加する' : '追加しない'}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onEdit(w.tempId)}
