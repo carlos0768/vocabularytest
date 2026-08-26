@@ -6,6 +6,9 @@ import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useToast } from '@/components/ui/toast';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
+// マス目 + 習得度ラベルは単語一覧の行と同じものを使う (ここで作り直すと文言や
+// 段階の見た目が一覧とずれる)。
+import { StatusSquares } from '@/components/project/WordRow';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
@@ -66,60 +69,6 @@ function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number
         ))}
       </div>
     </div>
-  );
-}
-
-const SS_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
-const SS_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
-const SS_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
-
-function StatusSquares({ wordId, status, onStatusChange }: {
-  wordId: string; status: WordStatus; onStatusChange: (s: WordStatus) => void;
-}) {
-  const [filledCount, setFilledCount] = useState(() => SS_FILLED[status] ?? 0);
-  const [direction, setDirection] = useState<'up' | 'down'>(() => status === 'mastered' ? 'down' : 'up');
-
-  useEffect(() => {
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (cancelled) return;
-      setFilledCount(SS_FILLED[status] ?? 0);
-      setDirection(status === 'mastered' ? 'down' : 'up');
-    });
-    return () => { cancelled = true; };
-  }, [status, wordId]);
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (direction === 'up') {
-      if (filledCount < 3) {
-        const next = filledCount + 1;
-        setFilledCount(next);
-        if (next === 3) setDirection('down');
-        onStatusChange(SS_STATUS[next]);
-      }
-    } else {
-      if (filledCount > 0) {
-        const next = filledCount - 1;
-        setFilledCount(next);
-        if (next === 0) setDirection('up');
-        onStatusChange(SS_STATUS[next]);
-      }
-    }
-  }, [filledCount, direction, onStatusChange]);
-
-  return (
-    <button type="button" onClick={handleClick}
-      aria-label={`ステータス: ${SS_ARIA[status] ?? status}`}
-      className="shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]"
-    >
-      <div className="flex flex-col gap-[1.5px]">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-[13px] w-[13px] rounded-[2.5px] border-2 border-[var(--solid-ink)]"
-            style={{ background: i < filledCount ? 'var(--solid-ink)' : 'transparent' }} />
-        ))}
-      </div>
-    </button>
   );
 }
 

@@ -14,6 +14,7 @@ import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getVocabularyTypeLabel, getVocabularyTypeShortLabel } from '@/lib/vocabulary-type';
+import { STATUS_LABELS } from '@/lib/words/word-filter';
 import type { VocabularyType, Word, WordStatus } from '@/types';
 
 const POS_JP: Record<string, string> = {
@@ -41,6 +42,29 @@ export function posShort(tag: string): string {
 const PP_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
 const PP_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const PP_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
+
+/**
+ * 習得度のラベル (習得 / 定着中 / 学習中 / 未学習)。
+ *
+ * 3マスだけだと「何段目まで塗られているか」は見えても、その段が4段階の
+ * どれなのかは覚えていないと読み取れない。デスクトップの一覧は行ごとに
+ * 文言を出しているので (DesktopProjectDetail)、モバイルの行にもマスの下に
+ * 同じ文言を添える。文言は `STATUS_LABELS` を共用して表記ゆれを防ぐ。
+ *
+ * 色はマスと同じ黒一色にしている (未学習だけ淡く落とす)。段階そのものは
+ * マスが示しているので、ここで色を増やすと行の情報量が上がるだけで、
+ * ダークモードでのコントラストも取りづらい。
+ */
+export function WordStatusLabel({ status }: { status: WordStatus }) {
+  return (
+    <span
+      className="font-display text-[8.5px] font-bold leading-none tracking-[-0.02em]"
+      style={{ color: status === 'new' ? 'var(--color-muted)' : 'var(--solid-ink)' }}
+    >
+      {STATUS_LABELS[status]}
+    </span>
+  );
+}
 
 export function StatusSquares({
   wordId,
@@ -87,12 +111,17 @@ export function StatusSquares({
     }
   }, [filledCount, direction, onStatusChange]);
 
+  // タップした瞬間はまだ `status` が書き戻ってきていない (書き込みはデバウンス
+  // される) ので、マスと同じく楽観更新した `filledCount` からラベルを引く。
+  // そうしないとマスだけ先に塗られて文言が1タップ遅れる。
+  const shownStatus = PP_STATUS[filledCount] ?? status;
+
   return (
     <button
       type="button"
       onClick={handleClick}
-      aria-label={`ステータス: ${PP_ARIA[status] ?? status}`}
-      className={`shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]${className ? ` ${className}` : ''}`}
+      aria-label={`ステータス: ${PP_ARIA[shownStatus] ?? shownStatus}`}
+      className={`flex shrink-0 flex-col items-center gap-[3px] rounded transition-colors active:bg-[rgba(26,26,26,0.06)]${className ? ` ${className}` : ''}`}
     >
       <div className="flex flex-col gap-[1.5px]">
         {[0, 1, 2].map((i) => (
@@ -103,6 +132,7 @@ export function StatusSquares({
           />
         ))}
       </div>
+      <WordStatusLabel status={shownStatus} />
     </button>
   );
 }
@@ -138,8 +168,9 @@ function MaskedTranslation({
     setRevealed(false);
   }
 
-  // 2行までなのは、行の高さを決めているステータスの3マス (42px) に収まる行数だから。
-  // 3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の `...` で示す。
+  // 2行までなのは、行の高さを決めているステータス列 (3マス + 習得度ラベル) に
+  // 収まる行数だから。3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の
+  // `...` で示す。
   const content = <TranslationDisplay word={word} compact stacked={stacked} maxLines={2} />;
 
   // 縦積みのときは語義ごとに `...` を出すので、ラッパ側では1行に潰さない。
@@ -299,7 +330,12 @@ export function WordRow({
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <SelectCheckbox checked={selected} size={26} />
+          {/* 選択モードでもマスの代わりにラベルだけは残す (選ぶ前に習得度で
+              選別できるように)。ここではタップで段階を変えられないので文言のみ。 */}
+          <div className="flex shrink-0 flex-col items-center gap-[3px]">
+            <SelectCheckbox checked={selected} size={26} />
+            <WordStatusLabel status={word.status} />
+          </div>
           <div className={`min-w-0 flex-1${splitMeaning ? ' flex self-stretch overflow-visible' : ''}`}>
             <WordRowText
               word={word}
