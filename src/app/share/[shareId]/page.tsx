@@ -17,6 +17,7 @@ import { isBillingEnabled } from '@/lib/billing/feature';
 import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
+import { resolveUniqueProjectTitle } from '@/lib/projects/unique-title';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { generateWordShareImage } from '@/lib/reels/share-image';
 import { saveSharedWordbookTags } from '@/lib/shared-projects/client';
@@ -296,8 +297,14 @@ export default function SharedDetailPage() {
     setImporting(true);
     try {
       const repo = getRepository(subscriptionStatus, wasPro);
+      // 同名の単語帳が既にあると一覧で見分けが付かないので「（1）」を付けて逃がす。
+      // 一覧が引けなかったときは元の名前のまま作る（取り込み自体は通す）。
+      const existingTitles = await repo.getProjects(user.id)
+        .then((projects) => projects.map((item) => item.title))
+        .catch(() => [] as string[]);
+      const importTitle = resolveUniqueProjectTitle(project.title, existingTitles);
       const newProject = await repo.createProject({
-        title: project.title,
+        title: importTitle,
         userId: user.id,
         importedFromShareId: shareId,
         iconImage: project.iconImage,
@@ -327,7 +334,12 @@ export default function SharedDetailPage() {
       setBookPickerWords([]);
       setActionWord(null);
       invalidateHomeCache();
-      showToast({ message: `${targetWords.length}語を追加しました`, type: 'success' });
+      showToast({
+        message: importTitle === project.title
+          ? `${targetWords.length}語を追加しました`
+          : `「${importTitle}」として${targetWords.length}語を追加しました`,
+        type: 'success',
+      });
 
       // Best-effort: let the original owner know their wordbook was imported.
       // Failure here must not affect the import itself.

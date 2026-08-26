@@ -7,6 +7,7 @@ import { useReelFeed } from '@/hooks/use-reel-feed';
 import { getRepository } from '@/lib/db';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { triggerHaptic } from '@/lib/haptics';
+import { resolveUniqueProjectTitle } from '@/lib/projects/unique-title';
 import { useToast } from '@/components/ui';
 import { Icon } from '@/components/ui/Icon';
 import { DesktopTopbar } from '@/components/desktop/DesktopChrome';
@@ -129,9 +130,14 @@ function ReelsPageInner() {
           return;
         }
 
+        // 同名の単語帳が既にあるときは「（1）」を付けて重複を避ける。
+        // 一覧が引けなかったら元の名前のまま作る（取り込み自体は通す）。
+        const existingTitles = await repository.getProjects(user.id)
+          .then((projects) => projects.map((item) => item.title))
+          .catch(() => [] as string[]);
         const newProject = await repository.createProject({
           userId: user.id,
-          title: book.title,
+          title: resolveUniqueProjectTitle(book.title, existingTitles),
           iconImage: book.iconImage ?? undefined,
           ...(book.type === 'shared' && book.shareId
             ? { importedFromShareId: book.shareId }
