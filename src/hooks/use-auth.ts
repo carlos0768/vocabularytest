@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import type { Subscription, SubscriptionPlan } from '@/types';
+import type { PayPayGatewayId, Subscription, SubscriptionPlan } from '@/types';
 import { hybridRepository, shouldRunFullSync } from '@/lib/db';
 import { invalidateStatsCache } from '@/lib/stats-cache';
 import { clearHomeCache } from '@/lib/home-cache';
@@ -64,10 +64,13 @@ function mapSubscriptionRow(
     userId: row.user_id as string,
     status,
     plan,
-    proSource: (row.pro_source as 'none' | 'billing' | 'test' | 'appstore' | null) ?? 'none',
+    proSource:
+      (row.pro_source as 'none' | 'billing' | 'test' | 'appstore' | 'paypay' | null) ?? 'none',
     testProExpiresAt: (row.test_pro_expires_at as string | null | undefined) ?? null,
     stripeSubscriptionId: row.stripe_subscription_id as string | undefined,
     stripeCustomerId: row.stripe_customer_id as string | undefined,
+    paypayProvider: row.paypay_provider as PayPayGatewayId | undefined,
+    paypaySubscriptionId: row.paypay_subscription_id as string | undefined,
     currentPeriodStart: row.current_period_start as string | undefined,
     currentPeriodEnd: row.current_period_end as string | undefined,
     cancelAtPeriodEnd: (row.cancel_at_period_end as boolean | null) ?? false,

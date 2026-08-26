@@ -168,3 +168,55 @@ test('effective status cancels expired billing subscription', () => {
   );
   assert.equal(status, 'cancelled');
 });
+
+test('paypay source with future period is active', () => {
+  const active = isActiveProSubscription(
+    {
+      status: 'active',
+      plan: 'pro',
+      proSource: 'paypay',
+      testProExpiresAt: null,
+      currentPeriodEnd: '2026-03-01T00:00:00.000Z',
+    },
+    FIXED_NOW
+  );
+  assert.equal(active, true);
+});
+
+test('paypay source with past period is inactive', () => {
+  const active = isActiveProSubscription(
+    {
+      status: 'active',
+      plan: 'pro',
+      proSource: 'paypay',
+      testProExpiresAt: null,
+      currentPeriodEnd: '2026-01-01T00:00:00.000Z',
+    },
+    FIXED_NOW
+  );
+  assert.equal(active, false);
+});
+
+test('paypay source resolves to cancelled once the period has ended', () => {
+  const status = getEffectiveSubscriptionStatus(
+    'active',
+    'pro',
+    'paypay',
+    null,
+    '2026-01-01T00:00:00.000Z',
+    FIXED_NOW
+  );
+  assert.equal(status, 'cancelled');
+});
+
+test('pro_source none still resolves to cancelled after the paypay branch was added', () => {
+  const status = getEffectiveSubscriptionStatus(
+    'active',
+    'pro',
+    'none',
+    null,
+    '2026-12-01T00:00:00.000Z',
+    FIXED_NOW
+  );
+  assert.equal(status, 'cancelled');
+});

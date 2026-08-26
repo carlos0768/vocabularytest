@@ -254,7 +254,12 @@ coin pack purchase (web only, Pro only)
 
 Tables: `user_coin_balances` (one row per user), `coin_transactions` (append-only ledger). Both are SELECT-own via RLS; all writes go through SECURITY DEFINER RPCs (see `docs/invariants.md` INV-09a–09c). Rates live in both `src/lib/coins/rates.ts` and the migration SQL, pinned together by `src/lib/coins/rates.test.ts`.
 
-Phase 2 (planned): PayPay recurring for the Pro subscription via GMO Payment Gateway — `pro_source='gmo'` follows the `appstore` extension pattern; the coin RPCs need no changes because they key off `is_active_pro` only. KOMOJU references in this doc are historical.
+PayPay recurring for the Pro subscription follows the `appstore` extension pattern. Phase 1 (landed) adds the source itself; Phase 2 wires the gateway.
+
+- **Source name**: `pro_source='paypay'`, not `'gmo'` — Stripe cannot bill PayPay recurring, and the gateway that can (GMO PG or KOMOJU) is swappable. The gateway is stored as data in `subscriptions.paypay_provider` (`'gmo' | 'komoju'`), so switching it never needs another migration.
+- **Phase 1 (`20260826120000_add_paypay_subscription_foundation.sql`)**: `pro_source` CHECK extended, `paypay_*` columns + constraints added, `is_active_pro()` treats `'paypay'` as period-based alongside `'billing'`/`'appstore'`. TS side: `src/lib/subscription/status.ts` (`PERIOD_BASED_PRO_SOURCES`), `display.ts`, `paypay-activation.ts` (gateway-agnostic state transitions), `src/lib/paypay/config.ts` (flag + gateway selection). `/api/subscription/cancel` returns 409 for a `paypay` row and `/api/account/delete` blocks deletion while one is live, rather than silently leaving a billable contract running.
+- **Phase 2 (not started)**: the gateway adapter — checkout creation, notification signature verification, and the cancel API — plus `/api/subscription/paypay/*` routes. Gated behind `PAYPAY_SUBSCRIPTION_ENABLED` (default off) and `PAYPAY_GATEWAY`.
+- The coin RPCs need no changes because they key off `is_active_pro` only. KOMOJU references elsewhere in this doc are historical.
 
 ---
 

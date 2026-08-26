@@ -404,15 +404,21 @@ export interface ProgressStep {
 export type SubscriptionStatus = 'free' | 'active' | 'cancelled' | 'past_due';
 export type SubscriptionPlan = 'free' | 'pro';
 
+// Gateway backing a `pro_source='paypay'` subscription. Stripe cannot bill PayPay
+// on a recurring basis, so PayPay Pro runs through a separate JP gateway.
+export type PayPayGatewayId = 'gmo' | 'komoju';
+
 export interface Subscription {
   id: string;
   userId: string;
   status: SubscriptionStatus;
   plan: SubscriptionPlan;
-  proSource: 'none' | 'billing' | 'test' | 'appstore';
+  proSource: 'none' | 'billing' | 'test' | 'appstore' | 'paypay';
   testProExpiresAt: string | null;
   stripeSubscriptionId?: string;
   stripeCustomerId?: string;
+  paypayProvider?: PayPayGatewayId;
+  paypaySubscriptionId?: string;
   currentPeriodStart?: string;
   currentPeriodEnd?: string;
   cancelAtPeriodEnd?: boolean;

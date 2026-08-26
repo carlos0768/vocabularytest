@@ -93,6 +93,19 @@ export async function handleAccountDelete(
       );
     }
 
+    // App Store と同じ扱い: 外部ゲートウェイの契約が生きたままユーザー行を
+    // 消すと、解約できない継続課金だけが残る。先に解約させる。
+    if (
+      subscriptionIsActive
+      && subscription?.pro_source === 'paypay'
+      && !subscription.cancel_at_period_end
+    ) {
+      return buildConflictResponse(
+        'PayPayでのご契約が有効です。先に解約手続きを完了してください',
+        'active_paypay_subscription',
+      );
+    }
+
     if (subscriptionIsActive && subscription?.pro_source === 'billing') {
       const stripeSubscriptionId = subscription.stripe_subscription_id;
       if (!stripeSubscriptionId) {

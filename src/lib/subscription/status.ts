@@ -3,13 +3,25 @@ import type { SubscriptionStatus } from '@/types';
 type SubscriptionShape = {
   status?: string | null;
   plan?: string | null;
-  proSource?: 'none' | 'billing' | 'test' | 'appstore' | string | null;
+  proSource?: 'none' | 'billing' | 'test' | 'appstore' | 'paypay' | string | null;
   testProExpiresAt?: string | null;
   currentPeriodEnd?: string | null;
 };
 
-function resolveProSource(source?: string | null): 'none' | 'billing' | 'test' | 'appstore' | null {
-  if (source === 'none' || source === 'billing' || source === 'test' || source === 'appstore') {
+// Sources whose entitlement is bounded by current_period_end. Keep in sync with
+// the is_active_pro() SQL function — RLS gates every Pro write through it.
+const PERIOD_BASED_PRO_SOURCES = new Set(['billing', 'appstore', 'paypay']);
+
+function resolveProSource(
+  source?: string | null
+): 'none' | 'billing' | 'test' | 'appstore' | 'paypay' | null {
+  if (
+    source === 'none' ||
+    source === 'billing' ||
+    source === 'test' ||
+    source === 'appstore' ||
+    source === 'paypay'
+  ) {
     return source;
   }
   return null;
@@ -40,7 +52,7 @@ export function isActiveProSubscription(
     return !hasSubscriptionPeriodEnded(subscription.testProExpiresAt ?? null, now);
   }
 
-  if (source === 'billing' || source === 'appstore') {
+  if (source !== null && PERIOD_BASED_PRO_SOURCES.has(source)) {
     return !hasSubscriptionPeriodEnded(subscription.currentPeriodEnd ?? null, now);
   }
 
@@ -66,7 +78,7 @@ export function getEffectiveSubscriptionStatus(
       if (hasSubscriptionPeriodEnded(testProExpiresAt, now)) {
         return 'cancelled';
       }
-    } else if (source === 'billing' || source === 'appstore') {
+    } else if (source !== null && PERIOD_BASED_PRO_SOURCES.has(source)) {
       if (hasSubscriptionPeriodEnded(currentPeriodEnd, now)) {
         return 'cancelled';
       }

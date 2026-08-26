@@ -29,7 +29,9 @@ export function getSubscriptionDisplayDate(
   }
 
   if (
-    (subscription.proSource === 'billing' || subscription.proSource === 'appstore') &&
+    (subscription.proSource === 'billing' ||
+      subscription.proSource === 'appstore' ||
+      subscription.proSource === 'paypay') &&
     subscription.currentPeriodEnd
   ) {
     return {

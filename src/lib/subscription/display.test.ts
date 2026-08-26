@@ -68,3 +68,31 @@ test('test subscriptions without testProExpiresAt do not render a billing date',
 
   assert.equal(result, null);
 });
+
+test('paypay subscriptions show the next renewal date like billing ones', () => {
+  const result = getSubscriptionDisplayDate({
+    proSource: 'paypay',
+    testProExpiresAt: null,
+    currentPeriodEnd: '2026-09-24T00:00:00.000Z',
+    cancelAtPeriodEnd: false,
+  });
+
+  assert.deepEqual(result, {
+    label: '次回更新',
+    isoDate: '2026-09-24T00:00:00.000Z',
+  });
+});
+
+test('paypay subscriptions with cancellation scheduled show the cancellation date', () => {
+  const result = getSubscriptionDisplayDate({
+    proSource: 'paypay',
+    testProExpiresAt: null,
+    currentPeriodEnd: '2026-09-24T00:00:00.000Z',
+    cancelAtPeriodEnd: true,
+  });
+
+  assert.deepEqual(result, {
+    label: '解約予定日',
+    isoDate: '2026-09-24T00:00:00.000Z',
+  });
+});

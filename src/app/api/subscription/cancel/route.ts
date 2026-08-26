@@ -57,6 +57,21 @@ export async function POST() {
       );
     }
 
+    // PayPay 継続課金はゲートウェイ側の解約APIを叩く必要があり、Stripe の
+    // cancel_at_period_end では止まらない。Phase 2 でアダプタを繋ぐまでは
+    // 「このルートでは解約できない」と明示して落とす — 400 の汎用文言のまま
+    // 放置すると、解約したつもりで課金され続ける事故になる。
+    if (subscription.pro_source === 'paypay') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'PayPayでのご契約はこちらから解約できません。サポートまでご連絡ください',
+          reason: 'paypay_cancel_not_supported',
+        },
+        { status: 409 }
+      );
+    }
+
     if (subscription.pro_source !== 'billing') {
       return NextResponse.json(
         { success: false, error: '課金サブスクリプションのみ解約できます' },
