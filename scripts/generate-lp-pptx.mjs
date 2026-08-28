@@ -7,13 +7,18 @@
  * 使い方:
  *   npm run build && npm run start                    # 別ターミナルで起動しておく
  *   npm i --no-save playwright-core pptxgenjs         # 実行時のみ必要 (依存には入れていない)
- *   node scripts/generate-lp-pptx.mjs
+ *   node scripts/generate-lp-pptx.mjs                 # A4横 (既定)
+ *   LP_PPTX_LAYOUT=wide node scripts/generate-lp-pptx.mjs   # 16:9
  *
  * 環境変数:
- *   LP_URL           対象URL             (既定: http://localhost:3000/)
- *   LP_PPTX_OUT      出力ファイル        (既定: output/pptx/merken-lp.pptx)
+ *   LP_URL           対象URL              (既定: http://localhost:3000/)
+ *   LP_PPTX_LAYOUT   a4 | a4-portrait | wide (既定: a4 = A4横)
+ *   LP_PPTX_OUT      出力ファイル         (既定: output/pptx/merken-lp-<layout>.pptx)
  *   LP_SHOT_DIR      切り出し画像の置き場 (既定: output/pptx/shots)
- *   CHROMIUM_PATH    Chromium実行パス    (未指定ならplaywright同梱を使う)
+ *   CHROMIUM_PATH    Chromium実行パス     (未指定ならplaywright同梱を使う)
+ *
+ * 座標はすべてスライド寸法から計算しているので、レイアウトを変えても各要素は
+ * 同じ比率で収まる。
  *
  * 注意: アイコンは Google Fonts の Material Symbols なので、ネットワークが無い環境では
  * リガチャ名の文字列として写り込む。切り出し前に非表示にしている。
@@ -24,21 +29,51 @@ import { chromium } from 'playwright-core';
 import PptxGenJS from 'pptxgenjs';
 
 const url = process.env.LP_URL ?? 'http://localhost:3000/';
-const outFile = process.env.LP_PPTX_OUT ?? 'output/pptx/merken-lp.pptx';
 const shotDir = process.env.LP_SHOT_DIR ?? 'output/pptx/shots';
 const executablePath = process.env.CHROMIUM_PATH || undefined;
+
+const LAYOUTS = {
+  // A4 = 210mm x 297mm。インチ換算した実寸なのでA4用紙にそのまま印刷できる。
+  a4: { name: 'A4', width: 11.69, height: 8.27, suffix: 'a4' },
+  'a4-portrait': { name: 'A4_PORTRAIT', width: 8.27, height: 11.69, suffix: 'a4-portrait' },
+  wide: { name: 'WIDE', width: 13.333, height: 7.5, suffix: '16x9' },
+};
+
+const layoutKey = process.env.LP_PPTX_LAYOUT ?? 'a4';
+const layout = LAYOUTS[layoutKey];
+if (!layout) {
+  throw new Error(`LP_PPTX_LAYOUT は ${Object.keys(LAYOUTS).join(' / ')} のいずれかです: ${layoutKey}`);
+}
+const outFile = process.env.LP_PPTX_OUT ?? `output/pptx/merken-lp-${layout.suffix}.pptx`;
 
 // LPの配色 (src/app/globals.css / GuestLanding.tsx と同じ値)
 const INK = '1A1A1A';
 const CREAM = 'F3F0E9';
 const CARD = 'FAF7F1';
+const BODY_INK = '4A4740';
 const ACCENT = '15803D';
 const ACCENT_ON_DARK = '4ADE80';
 const MUTED = '8A857A';
 const WHITE = 'FFFFFF';
+const ON_DARK_BODY = 'D8D4CA';
 
 const BODY_FONT = 'Arial';
 const MONO_FONT = 'Courier New';
+
+// スライド寸法から引く共通の寸法
+const W = layout.width;
+const H = layout.height;
+const M = W * 0.05; // 外余白
+const CONTENT_W = W - M * 2;
+const GAP = W * 0.023;
+
+/** 見出しブロックの下端 (本文の有無で変わる)。 */
+const HEADING_TOP = H * 0.055;
+const HEADING_BOTTOM = HEADING_TOP + H * 0.155;
+
+/** n個を横に並べたときの1枚の幅。 */
+const colWidth = (n, width = CONTENT_W, gap = GAP) => (width - gap * (n - 1)) / n;
+const colX = (i, n, { x = M, width = CONTENT_W, gap = GAP } = {}) => x + i * (colWidth(n, width, gap) + gap);
 
 // ---------------------------------------------------------------- LPの文言
 
@@ -46,6 +81,7 @@ const HERO = {
   eyebrow: 'AI VOCABULARY NOTEBOOK',
   title: ['手入力ゼロで、', '単語帳。'],
   body: '教科書・ノート・プリントを撮影するだけ。AIが英単語、和訳、例文、発音記号、クイズ素材を作り、あなた専用の単語帳として保存できます（AIスキャンはProプラン）。無料でも共有ライブラリから単語帳を取り込んで、すぐに学習を始められます。',
+  shortBody: '教科書・ノート・プリントを撮影するだけ。AIが英単語、和訳、例文、発音記号、クイズ素材を作り、あなた専用の単語帳として保存できます。',
   stats: [
     ['4', '抽出モード（Pro）'],
     ['無料', '共有単語帳の取込'],
@@ -81,6 +117,8 @@ const REEL_POINTS = [
   ['語源つきカードは1画面で', '接頭辞・語根・接尾辞の組み立てと解説をまとめて表示。丸暗記にしないための手がかりが付きます。'],
   ['出典の単語帳をワンタップで取り込み', 'カードの下には、その単語が入っている単語帳と作成者が出ます。気に入ればまるごと追加できます。'],
 ];
+
+const WORD_DATA_ITEMS = ['和訳・品詞', '例文（英日）', '発音記号', 'クイズ用の選択肢', '習得度・復習履歴'];
 
 const PROGRESS_ITEMS = [
   ['習得度', '習得、学習中、未学習を単語ごとに管理'],
@@ -170,30 +208,43 @@ async function captureShots() {
 
 // -------------------------------------------------------------- スライド組み
 
-/** LPのカード (2px黒枠 + ずらした黒影) を再現する。影は毎回作り直す必要がある。 */
-function addCard(slide, { x, y, w, h, fill = CARD, line = INK }) {
+/** LPのカード (黒枠 + ずらした黒影) を再現する。影は毎回作り直す必要がある。 */
+function addCard(slide, { x, y, w, h, fill = CARD }) {
   slide.addShape('roundRect', {
     x, y, w, h,
-    rectRadius: 0.12,
+    rectRadius: 0.1,
     fill: { color: fill },
-    line: { color: line, width: 1.5 },
+    line: { color: INK, width: 1.5 },
     shadow: { type: 'outer', color: INK, blur: 0, offset: 0.05, angle: 45, opacity: 1 },
   });
 }
 
-/** 見出し (通し番号 + ラベル + タイトル)。LPのセクション見出しに合わせている。 */
-function addSectionHeading(slide, { number, label, title, x = 0.65, y = 0.5, w = 8 }) {
+/** セクション見出し (通し番号 + ラベル + タイトル)。戻り値は本文を置ける y。 */
+function addSectionHeading(slide, { number, label, title, body, bodyW = CONTENT_W }) {
   slide.addText(
     [
       { text: `${number} `, options: { color: ACCENT, bold: true } },
       { text: label.toUpperCase(), options: { color: MUTED, bold: true } },
     ],
-    { x, y, w, h: 0.28, fontFace: MONO_FONT, fontSize: 11, charSpacing: 1.5, margin: 0, isTextBox: true },
+    { x: M, y: HEADING_TOP, w: CONTENT_W, h: 0.26, fontFace: MONO_FONT, fontSize: 11, charSpacing: 1.5, margin: 0, isTextBox: true },
   );
   slide.addText(title, {
-    x, y: y + 0.3, w, h: 0.72,
-    fontFace: BODY_FONT, fontSize: 30, bold: true, color: INK, margin: 0, isTextBox: true,
+    x: M, y: HEADING_TOP + 0.28, w: CONTENT_W, h: 0.62,
+    fontFace: BODY_FONT, fontSize: 27, bold: true, color: INK, margin: 0, isTextBox: true,
   });
+  if (!body) return HEADING_BOTTOM;
+
+  // 本文の行数を幅から見積もる。全角1文字 ≒ フォントサイズ分の幅なので、
+  // 折り返し行数ぶんの高さを確保しないと下のカードに潜り込む。
+  const fontSize = 12;
+  const charW = fontSize / 72;
+  const lines = Math.max(1, Math.ceil(body.length / Math.floor(bodyW / charW)));
+  const bodyH = lines * (fontSize * 1.35) / 72;
+  slide.addText(body, {
+    x: M, y: HEADING_BOTTOM, w: bodyW, h: bodyH,
+    fontFace: BODY_FONT, fontSize, color: BODY_INK, lineSpacingMultiple: 1.3, valign: 'top', margin: 0, isTextBox: true,
+  });
+  return HEADING_BOTTOM + bodyH + 0.22;
 }
 
 function newSlide(pres, { dark = false } = {}) {
@@ -204,7 +255,8 @@ function newSlide(pres, { dark = false } = {}) {
 
 async function buildDeck() {
   const pres = new PptxGenJS();
-  pres.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 inch
+  pres.defineLayout({ name: layout.name, width: W, height: H });
+  pres.layout = layout.name;
   pres.author = 'MERKEN';
   pres.title = 'MERKEN サービス紹介';
 
@@ -213,61 +265,71 @@ async function buildDeck() {
   // 1. 表紙 --------------------------------------------------------------
   {
     const slide = newSlide(pres, { dark: true });
+    const textW = CONTENT_W * 0.58;
     slide.addText('M E R K E N', {
-      x: 0.75, y: 0.55, w: 5, h: 0.4,
-      fontFace: BODY_FONT, fontSize: 16, bold: true, color: WHITE, charSpacing: 3, margin: 0, isTextBox: true,
+      x: M, y: H * 0.07, w: textW, h: 0.36,
+      fontFace: BODY_FONT, fontSize: 15, bold: true, color: WHITE, charSpacing: 3, margin: 0, isTextBox: true,
     });
     slide.addText(HERO.eyebrow, {
-      x: 0.75, y: 2.15, w: 6, h: 0.3,
-      fontFace: MONO_FONT, fontSize: 12, bold: true, color: ACCENT_ON_DARK, charSpacing: 2, margin: 0, isTextBox: true,
+      x: M, y: H * 0.28, w: textW, h: 0.28,
+      fontFace: MONO_FONT, fontSize: 11, bold: true, color: ACCENT_ON_DARK, charSpacing: 2, margin: 0, isTextBox: true,
     });
     slide.addText(
       [
         { text: HERO.title[0], options: { color: WHITE, breakLine: true } },
         { text: HERO.title[1], options: { color: ACCENT_ON_DARK } },
       ],
-      { x: 0.75, y: 2.5, w: 7.4, h: 1.9, fontFace: BODY_FONT, fontSize: 44, bold: true, lineSpacingMultiple: 1.1, margin: 0, isTextBox: true },
+      {
+        x: M, y: H * 0.34, w: textW, h: H * 0.24,
+        fontFace: BODY_FONT, fontSize: 38, bold: true, lineSpacingMultiple: 1.1, margin: 0, isTextBox: true,
+      },
     );
-    slide.addText(
-      '教科書・ノート・プリントを撮影するだけ。AIが英単語、和訳、例文、発音記号、クイズ素材を作り、あなた専用の単語帳として保存できます。',
-      { x: 0.75, y: 4.5, w: 6.9, h: 1.0, fontFace: BODY_FONT, fontSize: 13, color: 'D8D4CA', lineSpacingMultiple: 1.3, margin: 0, isTextBox: true },
-    );
-    slide.addText('www.merken.jp', {
-      x: 0.75, y: 6.45, w: 4, h: 0.3,
-      fontFace: MONO_FONT, fontSize: 12, color: ACCENT_ON_DARK, margin: 0, isTextBox: true,
+    slide.addText(HERO.shortBody, {
+      x: M, y: H * 0.61, w: textW, h: H * 0.14,
+      fontFace: BODY_FONT, fontSize: 12, color: ON_DARK_BODY, lineSpacingMultiple: 1.3, margin: 0, isTextBox: true,
     });
-    slide.addImage({ path: shot('flashcard-demo'), x: 8.3, y: 2.35, w: 4.3, h: 3.1, sizing: { type: 'contain', w: 4.3, h: 3.1 } });
+    slide.addText('www.merken.jp', {
+      x: M, y: H - M - 0.3, w: 3, h: 0.3,
+      fontFace: MONO_FONT, fontSize: 11, color: ACCENT_ON_DARK, margin: 0, isTextBox: true,
+    });
+
+    const imgW = CONTENT_W * 0.38;
+    slide.addImage({
+      path: shot('flashcard-demo'),
+      x: W - M - imgW, y: H * 0.3, w: imgW, h: H * 0.42,
+      sizing: { type: 'contain', w: imgW, h: H * 0.42 },
+    });
     slide.addNotes('MERKENのトップページ（未ログイン時のランディングページ）の内容をスライドにしたものです。');
   }
 
   // 2. 概要と数字 --------------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '00', label: 'Overview', title: '写真から、単語帳ができる。' });
-    slide.addText(HERO.body, {
-      x: 0.65, y: 1.6, w: 12.05, h: 0.95,
-      fontFace: BODY_FONT, fontSize: 13, color: '4A4740', lineSpacingMultiple: 1.35, margin: 0, isTextBox: true,
+    const top = addSectionHeading(slide, {
+      number: '00', label: 'Overview', title: '写真から、単語帳ができる。', body: HERO.body,
     });
 
-    const cardW = 2.85;
-    const gap = 0.28;
+    const cardW = colWidth(4);
+    const statH = (H - M - top - GAP) * 0.55;
     HERO.stats.forEach(([num, label], i) => {
-      const x = 0.65 + i * (cardW + gap);
-      addCard(slide, { x, y: 2.95, w: cardW, h: 1.85 });
+      const x = colX(i, 4);
+      addCard(slide, { x, y: top, w: cardW, h: statH });
       slide.addText(num, {
-        x: x + 0.3, y: 3.25, w: cardW - 0.6, h: 0.7,
-        fontFace: BODY_FONT, fontSize: 34, bold: true, color: i === 0 ? ACCENT : INK, margin: 0, isTextBox: true,
+        x: x + 0.25, y: top + statH * 0.2, w: cardW - 0.5, h: statH * 0.4,
+        fontFace: BODY_FONT, fontSize: 30, bold: true, color: i === 0 ? ACCENT : INK, margin: 0, isTextBox: true,
       });
       slide.addText(label, {
-        x: x + 0.3, y: 4.05, w: cardW - 0.6, h: 0.5,
-        fontFace: BODY_FONT, fontSize: 11, color: MUTED, margin: 0, isTextBox: true,
+        x: x + 0.25, y: top + statH * 0.66, w: cardW - 0.5, h: statH * 0.28,
+        fontFace: BODY_FONT, fontSize: 10.5, color: MUTED, margin: 0, isTextBox: true,
       });
     });
 
-    addCard(slide, { x: 0.65, y: 5.2, w: 12.05, h: 1.5, fill: INK });
+    const bannerY = top + statH + GAP;
+    const bannerH = H - M - bannerY;
+    addCard(slide, { x: M, y: bannerY, w: CONTENT_W, h: bannerH, fill: INK });
     slide.addText('スキャンはProプラン。無料プランでも共有ライブラリの単語帳を取り込んで、クイズとフラッシュカードで学習できます。', {
-      x: 1.05, y: 5.55, w: 11.25, h: 0.8,
-      fontFace: BODY_FONT, fontSize: 14, bold: true, color: WHITE, lineSpacingMultiple: 1.25, margin: 0, isTextBox: true,
+      x: M + 0.35, y: bannerY + bannerH * 0.28, w: CONTENT_W - 0.7, h: bannerH * 0.45,
+      fontFace: BODY_FONT, fontSize: 13, bold: true, color: WHITE, lineSpacingMultiple: 1.2, margin: 0, isTextBox: true,
     });
     slide.addNotes('ヒーローの数字はLPと同じ（4抽出モード・共有単語帳の取込は無料・リールは無料プランで1日50枚・無料保存枠100語）。');
   }
@@ -275,36 +337,36 @@ async function buildDeck() {
   // 3. HOW IT WORKS ------------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '01', label: 'How it works', title: '撮る、確認する、覚える。' });
-    slide.addText('手入力やコピペを前提にせず、教材の写真から単語帳を作ります。登録後すぐにホーム、単語帳、クイズへ進める構成です。', {
-      x: 0.65, y: 1.6, w: 12.05, h: 0.5,
-      fontFace: BODY_FONT, fontSize: 13, color: '4A4740', margin: 0, isTextBox: true,
+    const top = addSectionHeading(slide, {
+      number: '01', label: 'How it works', title: '撮る、確認する、覚える。',
+      body: '手入力やコピペを前提にせず、教材の写真から単語帳を作ります。登録後すぐにホーム、単語帳、クイズへ進める構成です。',
     });
 
-    const cardW = 2.85;
-    const gap = 0.28;
+    const cardW = colWidth(4);
+    const cardH = Math.min(H - M - top, W * 0.38);
     WORKFLOW.forEach(([step, label, title, body], i) => {
-      const x = 0.65 + i * (cardW + gap);
-      addCard(slide, { x, y: 2.5, w: cardW, h: 3.6 });
+      const x = colX(i, 4);
+      addCard(slide, { x, y: top, w: cardW, h: cardH });
+      const pad = 0.28;
       slide.addShape('ellipse', {
-        x: x + 0.32, y: 2.85, w: 0.62, h: 0.62,
+        x: x + pad, y: top + 0.3, w: 0.55, h: 0.55,
         fill: { color: i % 2 === 0 ? ACCENT : INK }, line: { color: INK, width: 1 },
       });
       slide.addText(step, {
-        x: x + 0.32, y: 2.98, w: 0.62, h: 0.36,
-        align: 'center', fontFace: MONO_FONT, fontSize: 13, bold: true, color: WHITE, margin: 0, isTextBox: true,
+        x: x + pad, y: top + 0.41, w: 0.55, h: 0.33,
+        align: 'center', fontFace: MONO_FONT, fontSize: 12, bold: true, color: WHITE, margin: 0, isTextBox: true,
       });
       slide.addText(label, {
-        x: x + 0.32, y: 3.65, w: cardW - 0.64, h: 0.28,
-        fontFace: MONO_FONT, fontSize: 10, bold: true, color: MUTED, charSpacing: 1, margin: 0, isTextBox: true,
+        x: x + pad, y: top + 1.0, w: cardW - pad * 2, h: 0.26,
+        fontFace: MONO_FONT, fontSize: 9.5, bold: true, color: MUTED, charSpacing: 1, margin: 0, isTextBox: true,
       });
       slide.addText(title, {
-        x: x + 0.32, y: 3.95, w: cardW - 0.64, h: 0.45,
-        fontFace: BODY_FONT, fontSize: 19, bold: true, color: INK, margin: 0, isTextBox: true,
+        x: x + pad, y: top + 1.28, w: cardW - pad * 2, h: 0.42,
+        fontFace: BODY_FONT, fontSize: 18, bold: true, color: INK, margin: 0, isTextBox: true,
       });
       slide.addText(body, {
-        x: x + 0.32, y: 4.5, w: cardW - 0.64, h: 1.35,
-        fontFace: BODY_FONT, fontSize: 11.5, color: '4A4740', lineSpacingMultiple: 1.3, margin: 0, isTextBox: true,
+        x: x + pad, y: top + 1.8, w: cardW - pad * 2, h: cardH - 2.1,
+        fontFace: BODY_FONT, fontSize: 11, color: BODY_INK, lineSpacingMultiple: 1.3, valign: 'top', margin: 0, isTextBox: true,
       });
     });
     slide.addNotes('LPの「01 HOW IT WORKS」セクションと同じ4ステップ。');
@@ -313,59 +375,74 @@ async function buildDeck() {
   // 4. 抽出モード --------------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '02', label: 'Scan modes', title: '目的に合わせて、抽出方法を選ぶ。' });
-    slide.addText('まずは「すべての単語」で広く取り込み、必要に応じて丸囲み、英検、熟語・イディオムへ切り替えます。抽出後は確認画面で編集してから保存できます（スキャンはProプランの機能です）。', {
-      x: 0.65, y: 1.6, w: 8.1, h: 0.7,
-      fontFace: BODY_FONT, fontSize: 12.5, color: '4A4740', lineSpacingMultiple: 1.3, margin: 0, isTextBox: true,
+    const leftW = CONTENT_W * 0.66;
+    const top = addSectionHeading(slide, {
+      number: '02', label: 'Scan modes', title: '目的に合わせて、抽出方法を選ぶ。',
+      body: 'まずは「すべての単語」で広く取り込み、必要に応じて丸囲み、英検、熟語・イディオムへ切り替えます。抽出後は確認画面で編集してから保存できます（スキャンはProプランの機能です）。',
+      bodyW: leftW,
     });
 
-    const cardW = 3.9;
-    const cardH = 1.85;
+    const cardW = colWidth(2, leftW);
+    const cardH = (H - M - top - GAP) / 2;
     SCAN_MODES.forEach(([label, title, body], i) => {
-      const x = 0.65 + (i % 2) * (cardW + 0.3);
-      const y = 2.5 + Math.floor(i / 2) * (cardH + 0.3);
+      const x = colX(i % 2, 2, { width: leftW });
+      const y = top + Math.floor(i / 2) * (cardH + GAP);
       addCard(slide, { x, y, w: cardW, h: cardH });
+      const pad = 0.24;
       slide.addText(label, {
-        x: x + 0.28, y: y + 0.22, w: cardW - 0.56, h: 0.26,
-        fontFace: MONO_FONT, fontSize: 10, bold: true, color: ACCENT, charSpacing: 1, margin: 0, isTextBox: true,
+        x: x + pad, y: y + 0.2, w: cardW - pad * 2, h: 0.24,
+        fontFace: MONO_FONT, fontSize: 9.5, bold: true, color: ACCENT, charSpacing: 1, margin: 0, isTextBox: true,
       });
       slide.addText(title, {
-        x: x + 0.28, y: y + 0.5, w: cardW - 0.56, h: 0.4,
-        fontFace: BODY_FONT, fontSize: 16, bold: true, color: INK, margin: 0, isTextBox: true,
+        x: x + pad, y: y + 0.46, w: cardW - pad * 2, h: 0.38,
+        fontFace: BODY_FONT, fontSize: 15, bold: true, color: INK, margin: 0, isTextBox: true,
       });
       slide.addText(body, {
-        x: x + 0.28, y: y + 0.95, w: cardW - 0.56, h: 0.75,
-        fontFace: BODY_FONT, fontSize: 10.5, color: '4A4740', lineSpacingMultiple: 1.25, margin: 0, isTextBox: true,
+        x: x + pad, y: y + 0.88, w: cardW - pad * 2, h: cardH - 1.1,
+        fontFace: BODY_FONT, fontSize: 10.5, color: BODY_INK, lineSpacingMultiple: 1.25, valign: 'top', margin: 0, isTextBox: true,
       });
     });
 
-    slide.addImage({ path: 'public/lp/scan-modes.png', x: 9.3, y: 1.35, w: 3.4, h: 5.6, sizing: { type: 'contain', w: 3.4, h: 5.6 } });
-    slide.addNotes('抽出モードは4種類。カスタム抽出モードを含めるとProではさらに細かく指定できる。');
+    const imgW = CONTENT_W - leftW - GAP;
+    const imgY = HEADING_BOTTOM;
+    slide.addImage({
+      path: 'public/lp/scan-modes.png',
+      x: W - M - imgW, y: imgY, w: imgW, h: H - M - imgY,
+      sizing: { type: 'contain', w: imgW, h: H - M - imgY },
+    });
+    slide.addNotes('抽出モードは4種類。Proではユーザ定義のカスタム抽出モードも使える。');
   }
 
   // 5. 単語データ --------------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '03', label: 'Word detail', title: '保存した単語は、学習用データになる。' });
-    slide.addText('和訳だけでなく、例文、品詞、発音記号、クイズ用の選択肢を持てる構造です。2語以上の表現は語順クイズとして扱い、4択だけに寄せすぎないようにしています。', {
-      x: 0.65, y: 1.6, w: 5.3, h: 1.1,
-      fontFace: BODY_FONT, fontSize: 12.5, color: '4A4740', lineSpacingMultiple: 1.35, margin: 0, isTextBox: true,
+    const leftW = CONTENT_W * 0.44;
+    const top = addSectionHeading(slide, {
+      number: '03', label: 'Word detail', title: '保存した単語は、学習用データになる。',
+      body: '和訳だけでなく、例文、品詞、発音記号、クイズ用の選択肢を持てる構造です。2語以上の表現は語順クイズとして扱い、4択だけに寄せすぎないようにしています。',
+      bodyW: leftW,
     });
 
-    const items = ['和訳・品詞', '例文（英日）', '発音記号', 'クイズ用の選択肢', '習得度・復習履歴'];
-    items.forEach((item, i) => {
-      const y = 2.9 + i * 0.72;
-      addCard(slide, { x: 0.65, y, w: 5.3, h: 0.58, fill: i === 0 ? INK : CARD });
+    const rowH = (H - M - top - GAP * 4) / WORD_DATA_ITEMS.length;
+    WORD_DATA_ITEMS.forEach((item, i) => {
+      const y = top + i * (rowH + GAP);
+      addCard(slide, { x: M, y, w: leftW, h: rowH, fill: i === 0 ? INK : CARD });
       slide.addText(item, {
-        x: 0.95, y: y + 0.12, w: 4.7, h: 0.34,
-        fontFace: BODY_FONT, fontSize: 13, bold: true, color: i === 0 ? WHITE : INK, margin: 0, isTextBox: true,
+        x: M + 0.28, y: y + rowH * 0.25, w: leftW - 0.56, h: rowH * 0.5,
+        fontFace: BODY_FONT, fontSize: 12.5, bold: true, color: i === 0 ? WHITE : INK, margin: 0, isTextBox: true,
       });
     });
 
-    slide.addImage({ path: shot('word-detail'), x: 6.6, y: 2.4, w: 6.1, h: 2.8, sizing: { type: 'contain', w: 6.1, h: 2.8 } });
+    const imgW = CONTENT_W - leftW - GAP;
+    const imgX = W - M - imgW;
+    const imgH = (H - M - top) * 0.6;
+    slide.addImage({
+      path: shot('word-detail'), x: imgX, y: top, w: imgW, h: imgH,
+      sizing: { type: 'contain', w: imgW, h: imgH },
+    });
     slide.addText('単語カードの例（LPの実画面）', {
-      x: 6.6, y: 5.35, w: 6.1, h: 0.3,
-      fontFace: MONO_FONT, fontSize: 10, color: MUTED, margin: 0, isTextBox: true,
+      x: imgX, y: top + imgH + 0.1, w: imgW, h: 0.3,
+      fontFace: MONO_FONT, fontSize: 9.5, color: MUTED, margin: 0, isTextBox: true,
     });
     slide.addNotes('LPの「02 WORD DETAIL」に対応。take care のような複数語表現も1件として扱う。');
   }
@@ -373,28 +450,40 @@ async function buildDeck() {
   // 6. 学習機能 ----------------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '04', label: 'Study', title: '4つの復習の形。' });
+    const leftW = CONTENT_W * 0.5;
+    const top = addSectionHeading(slide, {
+      number: '04', label: 'Study', title: '4つの復習の形。',
+      body: '保存した単語は、4択・語順・カードの3系統で復習できます。結果は習得度に反映されます。',
+      bodyW: leftW,
+    });
 
-    const cardW = 3.05;
-    const cardH = 2.15;
+    const cardW = colWidth(2, leftW);
+    const cardH = (H - M - top - GAP) / 2;
     STUDY_FEATURES.forEach(([title, body], i) => {
-      const x = 0.65 + (i % 2) * (cardW + 0.3);
-      const y = 1.85 + Math.floor(i / 2) * (cardH + 0.3);
+      const x = colX(i % 2, 2, { width: leftW });
+      const y = top + Math.floor(i / 2) * (cardH + GAP);
       addCard(slide, { x, y, w: cardW, h: cardH });
+      const pad = 0.24;
       slide.addText(title, {
-        x: x + 0.26, y: y + 0.28, w: cardW - 0.52, h: 0.4,
-        fontFace: BODY_FONT, fontSize: 16, bold: true, color: INK, margin: 0, isTextBox: true,
+        x: x + pad, y: y + 0.24, w: cardW - pad * 2, h: 0.38,
+        fontFace: BODY_FONT, fontSize: 15, bold: true, color: INK, margin: 0, isTextBox: true,
       });
       slide.addText(body, {
-        x: x + 0.26, y: y + 0.75, w: cardW - 0.52, h: 1.2,
-        fontFace: BODY_FONT, fontSize: 10.5, color: '4A4740', lineSpacingMultiple: 1.25, margin: 0, isTextBox: true,
+        x: x + pad, y: y + 0.66, w: cardW - pad * 2, h: cardH - 0.9,
+        fontFace: BODY_FONT, fontSize: 10.5, color: BODY_INK, lineSpacingMultiple: 1.25, valign: 'top', margin: 0, isTextBox: true,
       });
     });
 
-    slide.addImage({ path: shot('quiz-demo'), x: 7.5, y: 1.9, w: 5.2, h: 4.4, sizing: { type: 'contain', w: 5.2, h: 4.4 } });
+    const imgW = CONTENT_W - leftW - GAP;
+    const imgX = W - M - imgW;
+    const imgH = H - M - top - 0.4;
+    slide.addImage({
+      path: shot('quiz-demo'), x: imgX, y: top, w: imgW, h: imgH,
+      sizing: { type: 'contain', w: imgW, h: imgH },
+    });
     slide.addText('登録なしで試せるデモ（LPの実画面）', {
-      x: 7.5, y: 6.4, w: 5.2, h: 0.3,
-      fontFace: MONO_FONT, fontSize: 10, color: MUTED, margin: 0, isTextBox: true,
+      x: imgX, y: top + imgH + 0.08, w: imgW, h: 0.3,
+      fontFace: MONO_FONT, fontSize: 9.5, color: MUTED, margin: 0, isTextBox: true,
     });
     slide.addNotes('LPでは登録前にフラッシュカードと4択クイズをその場で試せる。');
   }
@@ -402,92 +491,114 @@ async function buildDeck() {
   // 7. リール ------------------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '05', label: 'Reels', title: 'スワイプするだけで、単語に出会う。' });
+    const leftW = CONTENT_W * 0.72;
+    const top = addSectionHeading(slide, {
+      number: '05', label: 'Reels', title: 'スワイプするだけで、単語に出会う。',
+      body: 'みんなが公開した単語帳と公式単語帳の単語が、1枚ずつ流れてくる縦スクロールのフィードです。',
+      bodyW: leftW,
+    });
 
-    const cardW = 4.35;
-    const cardH = 1.9;
+    const bannerH = 0.75;
+    const gridH = H - M - top - bannerH - GAP;
+    const cardW = colWidth(2, leftW);
+    const cardH = (gridH - GAP) / 2;
     REEL_POINTS.forEach(([title, body], i) => {
-      const x = 0.65 + (i % 2) * (cardW + 0.3);
-      const y = 1.75 + Math.floor(i / 2) * (cardH + 0.3);
+      const x = colX(i % 2, 2, { width: leftW });
+      const y = top + Math.floor(i / 2) * (cardH + GAP);
       addCard(slide, { x, y, w: cardW, h: cardH });
+      const pad = 0.24;
       slide.addText(title, {
-        x: x + 0.26, y: y + 0.22, w: cardW - 0.52, h: 0.38,
-        fontFace: BODY_FONT, fontSize: 15, bold: true, color: INK, margin: 0, isTextBox: true,
+        x: x + pad, y: y + 0.2, w: cardW - pad * 2, h: 0.36,
+        fontFace: BODY_FONT, fontSize: 14, bold: true, color: INK, margin: 0, isTextBox: true,
       });
       slide.addText(body, {
-        x: x + 0.26, y: y + 0.65, w: cardW - 0.52, h: 1.05,
-        fontFace: BODY_FONT, fontSize: 10.5, color: '4A4740', lineSpacingMultiple: 1.25, margin: 0, isTextBox: true,
+        x: x + pad, y: y + 0.72, w: cardW - pad * 2, h: cardH - 0.94,
+        fontFace: BODY_FONT, fontSize: 10.5, color: BODY_INK, lineSpacingMultiple: 1.25, valign: 'top', margin: 0, isTextBox: true,
       });
     });
 
-    addCard(slide, { x: 0.65, y: 6.05, w: 9.0, h: 0.85, fill: INK });
+    const bannerY = top + gridH + GAP;
+    addCard(slide, { x: M, y: bannerY, w: leftW, h: bannerH, fill: INK });
     slide.addText('リールの閲覧は無料プランでも1日50枚まで（要ログイン）。Proは上限なし・広告なし。', {
-      x: 1.0, y: 6.28, w: 8.4, h: 0.4,
-      fontFace: BODY_FONT, fontSize: 12.5, bold: true, color: WHITE, margin: 0, isTextBox: true,
+      x: M + 0.3, y: bannerY + bannerH * 0.26, w: leftW - 0.6, h: bannerH * 0.5,
+      fontFace: BODY_FONT, fontSize: 12, bold: true, color: WHITE, margin: 0, isTextBox: true,
     });
 
-    slide.addImage({ path: shot('reel-phone'), x: 10.15, y: 1.3, w: 2.55, h: 5.6, sizing: { type: 'contain', w: 2.55, h: 5.6 } });
-    slide.addNotes('公開単語帳と公式単語帳の単語が1枚ずつ流れるフィード。語源つきカードは接頭辞・語根・接尾辞まで1画面。');
+    const imgW = CONTENT_W - leftW - GAP;
+    const imgY = HEADING_BOTTOM;
+    slide.addImage({
+      path: shot('reel-phone'), x: W - M - imgW, y: imgY, w: imgW, h: H - M - imgY,
+      sizing: { type: 'contain', w: imgW, h: H - M - imgY },
+    });
+    slide.addNotes('語源つきカードは接頭辞・語根・接尾辞まで1画面。出典の単語帳はワンタップで取り込める。');
   }
 
   // 8. ホーム / 進捗 -----------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '06', label: 'Progress', title: 'ホームで、今日やることがすぐ見える。' });
-    slide.addText('単語帳、習得度、連続日数、保存済み単語へアクセスできます。学習の入口をホームに集約し、スキャンから復習まで迷わない構成にしています。', {
-      x: 0.65, y: 1.6, w: 7.5, h: 0.75,
-      fontFace: BODY_FONT, fontSize: 12.5, color: '4A4740', lineSpacingMultiple: 1.3, margin: 0, isTextBox: true,
+    const leftW = CONTENT_W * 0.6;
+    const top = addSectionHeading(slide, {
+      number: '06', label: 'Progress', title: 'ホームで、今日やることがすぐ見える。',
+      body: '単語帳、習得度、連続日数、保存済み単語へアクセスできます。学習の入口をホームに集約し、スキャンから復習まで迷わない構成にしています。',
+      bodyW: leftW,
     });
 
+    const rowH = (H - M - top - GAP * 3) / PROGRESS_ITEMS.length;
     PROGRESS_ITEMS.forEach(([title, body], i) => {
-      const y = 2.6 + i * 1.05;
-      addCard(slide, { x: 0.65, y, w: 7.5, h: 0.9 });
+      const y = top + i * (rowH + GAP);
+      addCard(slide, { x: M, y, w: leftW, h: rowH });
       slide.addText(title, {
-        x: 0.95, y: y + 0.13, w: 2.2, h: 0.32,
-        fontFace: BODY_FONT, fontSize: 15, bold: true, color: INK, margin: 0, isTextBox: true,
+        x: M + 0.28, y: y + rowH * 0.16, w: leftW - 0.56, h: rowH * 0.36,
+        fontFace: BODY_FONT, fontSize: 14, bold: true, color: INK, margin: 0, isTextBox: true,
       });
       slide.addText(body, {
-        x: 0.95, y: y + 0.47, w: 6.9, h: 0.3,
-        fontFace: BODY_FONT, fontSize: 11, color: '4A4740', margin: 0, isTextBox: true,
+        x: M + 0.28, y: y + rowH * 0.54, w: leftW - 0.56, h: rowH * 0.34,
+        fontFace: BODY_FONT, fontSize: 10.5, color: BODY_INK, margin: 0, isTextBox: true,
       });
     });
 
-    slide.addImage({ path: 'public/lp/home.png', x: 8.6, y: 1.35, w: 4.1, h: 5.6, sizing: { type: 'contain', w: 4.1, h: 5.6 } });
+    const imgW = CONTENT_W - leftW - GAP;
+    const imgY = HEADING_BOTTOM;
+    slide.addImage({
+      path: 'public/lp/home.png', x: W - M - imgW, y: imgY, w: imgW, h: H - M - imgY,
+      sizing: { type: 'contain', w: imgW, h: H - M - imgY },
+    });
     slide.addNotes('ホーム画面には連続学習日数、クイズ導線、最近の単語帳が並ぶ。');
   }
 
   // 9. 料金 --------------------------------------------------------------
   {
     const slide = newSlide(pres);
-    addSectionHeading(slide, { number: '07', label: 'Pricing', title: '無料で始めて、必要ならProへ。' });
-    slide.addText('まずは無料で試し、AIスキャンや同期が必要になったらProへ切り替えられます。', {
-      x: 0.65, y: 1.6, w: 12.05, h: 0.4,
-      fontFace: BODY_FONT, fontSize: 12.5, color: '4A4740', margin: 0, isTextBox: true,
+    const top = addSectionHeading(slide, {
+      number: '07', label: 'Pricing', title: '無料で始めて、必要ならProへ。',
+      body: 'まずは無料で試し、AIスキャンや同期が必要になったらProへ切り替えられます。',
     });
 
+    const cardW = colWidth(2);
+    const cardH = H - M - top;
     PLANS.forEach((plan, i) => {
-      const x = 0.65 + i * 6.2;
-      const w = 5.9;
-      addCard(slide, { x, y: 2.3, w, h: 4.4, fill: plan.pro ? INK : CARD });
+      const x = colX(i, 2);
+      addCard(slide, { x, y: top, w: cardW, h: cardH, fill: plan.pro ? INK : CARD });
       const fg = plan.pro ? WHITE : INK;
+      const pad = 0.35;
       slide.addText(plan.plan, {
-        x: x + 0.35, y: 2.55, w: w - 0.7, h: 0.3,
-        fontFace: MONO_FONT, fontSize: 11, bold: true, color: plan.pro ? ACCENT_ON_DARK : MUTED, charSpacing: 2, margin: 0, isTextBox: true,
+        x: x + pad, y: top + 0.28, w: cardW - pad * 2, h: 0.28,
+        fontFace: MONO_FONT, fontSize: 10.5, bold: true, color: plan.pro ? ACCENT_ON_DARK : MUTED, charSpacing: 2, margin: 0, isTextBox: true,
       });
       slide.addText(plan.name, {
-        x: x + 0.35, y: 2.85, w: w - 0.7, h: 0.45,
-        fontFace: BODY_FONT, fontSize: 22, bold: true, color: fg, margin: 0, isTextBox: true,
+        x: x + pad, y: top + 0.58, w: cardW - pad * 2, h: 0.45,
+        fontFace: BODY_FONT, fontSize: 20, bold: true, color: fg, margin: 0, isTextBox: true,
       });
       slide.addText(
         [
-          { text: plan.price, options: { fontSize: 40, bold: true, color: fg } },
-          { text: ' 円 / 月', options: { fontSize: 14, bold: true, color: plan.pro ? 'C9C6BE' : MUTED } },
+          { text: plan.price, options: { fontSize: 34, bold: true, color: fg } },
+          { text: ' 円 / 月', options: { fontSize: 13, bold: true, color: plan.pro ? 'C9C6BE' : MUTED } },
         ],
-        { x: x + 0.35, y: 3.4, w: w - 0.7, h: 0.75, fontFace: BODY_FONT, margin: 0, isTextBox: true },
+        { x: x + pad, y: top + 1.1, w: cardW - pad * 2, h: 0.65, fontFace: BODY_FONT, margin: 0, isTextBox: true },
       );
       slide.addText(plan.description, {
-        x: x + 0.35, y: 4.25, w: w - 0.7, h: 0.55,
-        fontFace: BODY_FONT, fontSize: 11, color: plan.pro ? 'C9C6BE' : '4A4740', lineSpacingMultiple: 1.25, margin: 0, isTextBox: true,
+        x: x + pad, y: top + 1.85, w: cardW - pad * 2, h: 0.5,
+        fontFace: BODY_FONT, fontSize: 10.5, color: plan.pro ? 'C9C6BE' : BODY_INK, lineSpacingMultiple: 1.25, margin: 0, isTextBox: true,
       });
       slide.addText(
         plan.features.map((feature, index) => ({
@@ -495,8 +606,8 @@ async function buildDeck() {
           options: { bullet: true, breakLine: index !== plan.features.length - 1 },
         })),
         {
-          x: x + 0.35, y: 4.9, w: w - 0.7, h: 1.5,
-          fontFace: BODY_FONT, fontSize: 11.5, color: fg, paraSpaceAfter: 6, margin: 0, isTextBox: true,
+          x: x + pad, y: top + 2.45, w: cardW - pad * 2, h: cardH - 2.8,
+          fontFace: BODY_FONT, fontSize: 11.5, color: fg, paraSpaceAfter: 6, valign: 'top', margin: 0, isTextBox: true,
         },
       );
     });
@@ -507,36 +618,41 @@ async function buildDeck() {
   {
     const slide = newSlide(pres, { dark: true });
     slide.addText('READY', {
-      x: 0.9, y: 2.1, w: 6, h: 0.3,
-      fontFace: MONO_FONT, fontSize: 12, bold: true, color: ACCENT_ON_DARK, charSpacing: 2, margin: 0, isTextBox: true,
+      x: M, y: H * 0.28, w: CONTENT_W, h: 0.28,
+      fontFace: MONO_FONT, fontSize: 11, bold: true, color: ACCENT_ON_DARK, charSpacing: 2, margin: 0, isTextBox: true,
     });
     slide.addText('単語帳を、\nもう手で作らなくていい。', {
-      x: 0.9, y: 2.5, w: 8.6, h: 1.9,
-      fontFace: BODY_FONT, fontSize: 38, bold: true, color: WHITE, lineSpacingMultiple: 1.15, margin: 0, isTextBox: true,
+      x: M, y: H * 0.34, w: CONTENT_W * 0.8, h: H * 0.24,
+      fontFace: BODY_FONT, fontSize: 34, bold: true, color: WHITE, lineSpacingMultiple: 1.15, margin: 0, isTextBox: true,
     });
     slide.addText('ブラウザからすぐに開始できます。メールOTP、Google、Appleのいずれかで登録し、最初の単語帳を作成してください。', {
-      x: 0.9, y: 4.5, w: 7.8, h: 0.7,
-      fontFace: BODY_FONT, fontSize: 13, color: 'D8D4CA', lineSpacingMultiple: 1.3, margin: 0, isTextBox: true,
+      x: M, y: H * 0.62, w: CONTENT_W * 0.72, h: H * 0.11,
+      fontFace: BODY_FONT, fontSize: 12, color: ON_DARK_BODY, lineSpacingMultiple: 1.3, margin: 0, isTextBox: true,
     });
+    const btnW = 2.3;
+    const btnH = 0.66;
+    const btnY = H * 0.77;
     slide.addShape('roundRect', {
-      x: 0.9, y: 5.5, w: 2.6, h: 0.72,
+      x: M, y: btnY, w: btnW, h: btnH,
       rectRadius: 0.1, fill: { color: ACCENT_ON_DARK }, line: { color: ACCENT_ON_DARK, width: 1 },
     });
     slide.addText('無料で始める', {
-      x: 0.9, y: 5.65, w: 2.6, h: 0.42,
-      align: 'center', fontFace: BODY_FONT, fontSize: 14, bold: true, color: INK, margin: 0, isTextBox: true,
+      x: M, y: btnY + btnH * 0.22, w: btnW, h: btnH * 0.55,
+      align: 'center', fontFace: BODY_FONT, fontSize: 13, bold: true, color: INK, margin: 0, isTextBox: true,
     });
     slide.addText('www.merken.jp', {
-      x: 3.8, y: 5.68, w: 3, h: 0.36,
-      fontFace: MONO_FONT, fontSize: 13, color: WHITE, margin: 0, isTextBox: true,
+      x: M + btnW + 0.35, y: btnY + btnH * 0.25, w: 2.5, h: 0.35,
+      fontFace: MONO_FONT, fontSize: 12, color: WHITE, margin: 0, isTextBox: true,
     });
     slide.addNotes('LP末尾のCTAと同じ文言。');
   }
 
   await mkdir(path.dirname(outFile), { recursive: true });
   await pres.writeFile({ fileName: outFile });
-  console.log(`wrote ${outFile}`);
+  console.log(`wrote ${outFile} (${layout.name} ${W}x${H}in)`);
 }
 
-await captureShots();
+if (process.env.LP_PPTX_SKIP_CAPTURE !== '1') {
+  await captureShots();
+}
 await buildDeck();
