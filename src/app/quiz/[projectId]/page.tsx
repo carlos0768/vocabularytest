@@ -349,15 +349,15 @@ function DSWordOrderPanel({
   }));
 
   return (
-    <div className="mt-[18px] space-y-4">
-      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
-        <div className="flex min-h-[76px] flex-wrap items-center gap-2">
+    <div className="mt-[18px] space-y-4 tablet:mt-7 tablet:space-y-6">
+      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4 tablet:rounded-[24px] tablet:p-6">
+        <div className="flex min-h-[76px] flex-wrap items-center gap-2 tablet:min-h-[104px] tablet:gap-3">
           {sentenceItems.map(({ token, index, answerIndex }) => {
             if (token !== WORD_ORDER_BLANK_TOKEN) {
               return (
                 <span
                   key={`${token}-${index}`}
-                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
+                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-3 text-[15px] font-bold text-[var(--solid-ink)] tablet:min-h-14 tablet:px-4 tablet:text-[19px]"
                 >
                   {token}
                 </span>
@@ -372,7 +372,7 @@ function DSWordOrderPanel({
                 type="button"
                 onClick={() => selected && answerIndex !== null && onRemoveToken(answerIndex)}
                 disabled={isRevealed || !selected}
-                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-default"
+                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-default tablet:min-h-14 tablet:min-w-[100px] tablet:px-4 tablet:text-[19px]"
               >
                 {selected || ''}
               </button>
@@ -381,14 +381,14 @@ function DSWordOrderPanel({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 tablet:gap-3">
         {availableTokens.map((token) => (
           <button
             key={token}
             type="button"
             onClick={() => onSelectToken(token)}
             disabled={isRevealed || selectedTokens.length >= question.answerTokens.length}
-            className="relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)]"
+            className="relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)] tablet:min-h-16 tablet:px-4 tablet:text-[19px]"
           >
             {token}
           </button>
@@ -400,7 +400,7 @@ function DSWordOrderPanel({
           variant="accent"
           onClick={onSubmit}
           disabled={!isReady}
-          className="w-full justify-center"
+          className="w-full justify-center tablet:px-7 tablet:py-4 tablet:text-[18px]"
         >
           回答する
         </SolidButton>
@@ -408,27 +408,27 @@ function DSWordOrderPanel({
 
       {isRevealed && (
         <div
-          className="rounded-xl border-2 p-3 text-center"
+          className="rounded-xl border-2 p-3 text-center tablet:p-5"
           style={{
             borderColor: result === 'correct' ? 'var(--color-accent-ink)' : '#b91c1c',
             background: result === 'correct' ? 'var(--color-accent)' : 'var(--color-error)',
           }}
         >
-          <p className="text-sm font-bold text-white/85">
+          <p className="text-sm font-bold text-white/85 tablet:text-[17px]">
             {result === 'correct' ? '正解' : '不正解'}
           </p>
-          <p className="mt-1 text-lg font-black text-white">{question.word.english}</p>
+          <p className="mt-1 text-lg font-black text-white tablet:mt-2 tablet:text-[26px]">{question.word.english}</p>
         </div>
       )}
 
       {isRevealed && example && (
-        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
-          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] tablet:rounded-2xl tablet:p-5">
+          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)] tablet:mb-2 tablet:text-[12px]">EXAMPLE</div>
+          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)] tablet:text-[17px]">
             {example.sentence}
           </div>
           {example.translation && (
-            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
+            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)] tablet:mt-1.5 tablet:text-[15px]">{example.translation}</div>
           )}
         </div>
       )}
@@ -1361,9 +1361,9 @@ export default function QuizPage() {
             type="button"
             onClick={backToProject}
             aria-label="閉じる"
-            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)] tablet:h-11 tablet:w-11"
           >
-            <Icon name="close" size={22} />
+            <Icon name="close" size={22} className="tablet:text-[28px]!" />
           </button>
         </div>
         <div className="flex flex-1 items-center justify-center px-6 pb-16">
@@ -1406,18 +1406,18 @@ export default function QuizPage() {
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3">
         <div className="flex items-center gap-2.5 px-4 pb-3.5 pt-2">
-          <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
-            <Icon name="close" size={18} />
+          <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)] tablet:h-11 tablet:w-11">
+            <Icon name="close" size={18} className="tablet:text-[26px]!" />
           </button>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center p-6">
-          <div className="w-full max-w-sm">
+          <div className="w-full max-w-sm tablet:max-w-[560px]">
             <div className="mb-5">
               {/* タブは選ばれたキーを渡してくるので、遷移オプションと混ざらないよう包む。 */}
               <QuizModeTabs active="normal" onSelect={() => goToVoiceQuiz()} />
             </div>
-            <h1 className="mb-2 text-center font-display text-2xl font-black text-[var(--solid-ink)]">問題数を入力</h1>
-            <p className="mb-4 text-center text-[var(--color-muted)]">1〜{maxQ}問まで</p>
+            <h1 className="mb-2 text-center font-display text-2xl font-black text-[var(--solid-ink)] tablet:mb-3 tablet:text-4xl">問題数を入力</h1>
+            <p className="mb-4 text-center text-[var(--color-muted)] tablet:mb-6 tablet:text-lg">1〜{maxQ}問まで</p>
             <div className="space-y-6">
               <div className="flex items-center justify-center gap-3">
                 <input
@@ -1425,22 +1425,22 @@ export default function QuizPage() {
                   value={inputCount} onChange={(e) => setInputCount(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && isValid) handleSelectCount(parsed); }}
                   placeholder={String(DEFAULT_QUESTION_COUNT)}
-                  className="w-24 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-center text-3xl font-bold text-[var(--solid-ink)] focus:outline-none"
+                  className="w-24 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-center text-3xl font-bold text-[var(--solid-ink)] focus:outline-none tablet:w-32 tablet:py-5 tablet:text-5xl"
                   autoFocus
                 />
-                <span className="text-xl text-[var(--color-muted)]">問</span>
+                <span className="text-xl text-[var(--color-muted)] tablet:text-2xl">問</span>
               </div>
               <div className="flex items-center justify-center">
-                <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+                <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1 tablet:p-1.5">
                   {(['en-to-ja', 'ja-to-en'] as const).map((dir) => (
                     <button key={dir} type="button" onClick={() => setQuizDirection(dir)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${quizDirection === dir ? 'bg-[var(--solid-ink)] text-white' : 'text-[var(--color-muted)]'}`}>
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors tablet:px-6 tablet:py-3 tablet:text-base ${quizDirection === dir ? 'bg-[var(--solid-ink)] text-white' : 'text-[var(--color-muted)]'}`}>
                       {dir === 'en-to-ja' ? '英→日' : '日→英'}
                     </button>
                   ))}
                 </div>
               </div>
-              <SolidButton variant="inverse" onClick={() => handleSelectCount(parsed)} disabled={!isValid} className="w-full justify-center">スタート</SolidButton>
+              <SolidButton variant="inverse" onClick={() => handleSelectCount(parsed)} disabled={!isValid} className="w-full justify-center tablet:px-7 tablet:py-4 tablet:text-[18px]">スタート</SolidButton>
             </div>
           </div>
         </div>
@@ -1527,54 +1527,54 @@ export default function QuizPage() {
       {/* Mobile completion */}
       <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))' }}>
-          <div className="mx-auto w-full max-w-sm px-5 pb-4">
+          <div className="mx-auto w-full max-w-sm px-5 pb-4 tablet:max-w-[640px] tablet:px-8 tablet:pb-6">
             {/* Score card */}
-            <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4">
-              <div className="flex items-center gap-3">
-                <div className="font-display text-[32px] font-black tabular-nums text-[var(--solid-ink)]">
-                  {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
+            <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4 tablet:rounded-[20px] tablet:px-7 tablet:py-7">
+              <div className="flex items-center gap-3 tablet:gap-5">
+                <div className="font-display text-[32px] font-black tabular-nums text-[var(--solid-ink)] tablet:text-[46px]">
+                  {results.correct}<span className="text-[16px] text-[var(--color-muted)] tablet:text-[24px]">/{results.total}</span>
                 </div>
                 <div className="flex flex-1 flex-col gap-1">
-                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)] tablet:h-[10px]">
                     <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
                   </div>
                 </div>
-                <span className="font-display text-[20px] font-black tabular-nums text-[var(--solid-ink)]">{percentage}%</span>
+                <span className="font-display text-[20px] font-black tabular-nums text-[var(--solid-ink)] tablet:text-[30px]">{percentage}%</span>
               </div>
-              <p className="mt-2.5 text-[13px] font-bold text-[var(--color-secondary-text)]">{getQuizCompletionMessage(percentage)}</p>
-              <div className="mt-3 flex gap-3">
-                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
-                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-success)]" />正解 {answerResults.filter(r => r === true).length}
+              <p className="mt-2.5 text-[13px] font-bold text-[var(--color-secondary-text)] tablet:mt-4 tablet:text-[17px]">{getQuizCompletionMessage(percentage)}</p>
+              <div className="mt-3 flex gap-3 tablet:mt-5 tablet:gap-5">
+                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)] tablet:gap-1.5 tablet:text-[15px]">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-success)] tablet:h-[9px] tablet:w-[9px]" />正解 {answerResults.filter(r => r === true).length}
                 </span>
-                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
-                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-error)]" />不正解 {answerResults.filter(r => r === false).length}
+                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)] tablet:gap-1.5 tablet:text-[15px]">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-error)] tablet:h-[9px] tablet:w-[9px]" />不正解 {answerResults.filter(r => r === false).length}
                 </span>
-                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)]">
-                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-warning)]" />スキップ {answerResults.filter(r => r === 'skip').length}
+                <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-muted)] tablet:gap-1.5 tablet:text-[15px]">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--color-warning)] tablet:h-[9px] tablet:w-[9px]" />スキップ {answerResults.filter(r => r === 'skip').length}
                 </span>
               </div>
             </div>
             {/* Word results list */}
-            <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
-              <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3">
-                <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)]" />
-                <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">解答一覧</h3>
+            <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white tablet:mt-5 tablet:rounded-[20px]">
+              <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3 tablet:gap-3 tablet:px-6 tablet:py-4">
+                <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)] tablet:text-[22px]!" />
+                <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)] tablet:text-[19px]">解答一覧</h3>
               </div>
               <div className="divide-y divide-[rgba(26,26,26,0.08)]">
                 {wordResultRows.map((row, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-5 text-center text-[16px] font-black" style={{ color: row.markerColor }}>
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5 tablet:gap-4 tablet:px-6 tablet:py-4">
+                    <span className="w-5 text-center text-[16px] font-black tablet:w-8 tablet:text-[22px]" style={{ color: row.markerColor }}>
                       {row.marker}
                     </span>
                     <div className="min-w-0 flex-1">
                       <span
-                        className="text-[14px] font-bold"
+                        className="text-[14px] font-bold tablet:text-[19px]"
                         style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--solid-ink)' }}
                       >
                         {row.word.english}
                       </span>
                       <span
-                        className="ml-2 text-[12px]"
+                        className="ml-2 text-[12px] tablet:text-[16px]"
                         style={{ color: row.isIncorrect ? 'var(--color-error)' : 'var(--color-muted)', opacity: row.isIncorrect ? 0.8 : 1 }}
                       >
                         {formatJapaneseForDisplay(row.word)}
@@ -1588,9 +1588,9 @@ export default function QuizPage() {
         </div>
         {/* Fixed bottom buttons */}
         <div className="shrink-0 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-background)]" style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))' }}>
-          <div className="mx-auto w-full max-w-sm space-y-2 px-5 pt-3">
-            <SolidButton variant="accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart} iconRight="arrow_forward" className="w-full justify-center">次へ</SolidButton>
-            <SolidButton onClick={backToProject} className="w-full justify-center">終了する</SolidButton>
+          <div className="mx-auto w-full max-w-sm space-y-2 px-5 pt-3 tablet:max-w-[640px] tablet:space-y-3 tablet:px-8 tablet:pt-5">
+            <SolidButton variant="accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart} iconRight="arrow_forward" className="w-full justify-center tablet:px-7 tablet:py-4 tablet:text-[18px]">次へ</SolidButton>
+            <SolidButton onClick={backToProject} className="w-full justify-center tablet:px-7 tablet:py-4 tablet:text-[18px]">終了する</SolidButton>
           </div>
         </div>
       </div>
@@ -1865,18 +1865,19 @@ export default function QuizPage() {
     <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       {/* Header: close + progress dots + flag */}
       <div
-        className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5"
+        className="mx-auto flex w-full shrink-0 items-center gap-2.5 px-4 pb-3.5 tablet:max-w-[760px] tablet:gap-4 tablet:px-8 tablet:pb-5"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
-        <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
-          <Icon name="close" size={22} />
+        <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)] tablet:h-11 tablet:w-11">
+          {/* Icon の size は inline style で当たるので、タブレットでの拡大は ! 付きクラスで上書きする */}
+          <Icon name="close" size={22} className="tablet:text-[28px]!" />
         </button>
-        <div className="flex flex-1 items-center gap-2">
-          <div className="flex flex-1 gap-[3px]">
+        <div className="flex flex-1 items-center gap-2 tablet:gap-3.5">
+          <div className="flex flex-1 gap-[3px] tablet:gap-[5px]">
             {Array.from({ length: total }).map((_, i) => (
               <div
                 key={i}
-                className="h-[5px] flex-1 rounded-sm"
+                className="h-[5px] flex-1 rounded-sm tablet:h-[8px]"
                 style={{
                   background:
                     i < currentIndex
@@ -1895,7 +1896,7 @@ export default function QuizPage() {
               />
             ))}
           </div>
-          <span className="font-mono text-[11px] font-bold tabular-nums text-[var(--solid-ink)]">
+          <span className="font-mono text-[11px] font-bold tabular-nums text-[var(--solid-ink)] tablet:text-[15px]">
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
@@ -1904,9 +1905,9 @@ export default function QuizPage() {
             type="button"
             onClick={() => setShowModeSwitch(true)}
             aria-label="クイズの解き方を変える"
-            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)] tablet:h-11 tablet:w-11"
           >
-            <Icon name="mic" size={19} />
+            <Icon name="mic" size={19} className="tablet:text-[26px]!" />
           </button>
         )}
         {(reviewMode || learnMode) && (
@@ -1914,12 +1915,12 @@ export default function QuizPage() {
             type="button"
             onClick={() => setReviewFilterSheetOpen(true)}
             aria-label="出題する単語帳を選ぶ"
-            className="relative inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+            className="relative inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)] tablet:h-11 tablet:w-11"
           >
-            <Icon name="tune" size={19} />
+            <Icon name="tune" size={19} className="tablet:text-[26px]!" />
             {reviewProjectFilter && reviewProjectFilter.length > 0 && (
               <span
-                className="absolute right-0.5 top-0.5 h-[7px] w-[7px] rounded-full border border-white"
+                className="absolute right-0.5 top-0.5 h-[7px] w-[7px] rounded-full border border-white tablet:h-[9px] tablet:w-[9px]"
                 style={{ background: 'var(--color-accent)' }}
               />
             )}
@@ -1928,128 +1929,136 @@ export default function QuizPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
-        <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'タイプ入力' : '意味を選ぼう'}
-        </div>
+      {/* タブレットでは列幅を絞って中央に置き、左右に余白が散らばらないようにする */}
+      <div className="mx-auto flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5 tablet:max-w-[760px] tablet:px-8 tablet:pb-8 tablet:pt-7">
+        {/*
+          タブレットは画面が縦に長く、上詰めのままだと下半分が空いてしまう。
+          flex-1 + justify-center なので、収まるときは上下中央、はみ出すときは
+          コンテンツの高さのまま（＝上が切れずにスクロールできる）。
+        */}
+        <div className="tablet:flex tablet:flex-1 tablet:flex-col tablet:justify-center">
+          <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)] tablet:mb-3 tablet:text-[13px]">
+            {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'タイプ入力' : '意味を選ぼう'}
+          </div>
 
-        {/* Word display — big solid plate */}
-        <div>
-          <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
-            <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
-              {currentIsWordOrder
-                ? displayJapanese
-                : isTypeInMode
+          {/* Word display — big solid plate */}
+          <div>
+            <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center tablet:rounded-[24px] tablet:px-8 tablet:py-10">
+              <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)] tablet:text-[52px]">
+                {currentIsWordOrder
                   ? displayJapanese
-                  : quizDirection === 'en-to-ja'
-                    ? currentQuestion?.word.english
-                    : displayJapanese}
+                  : isTypeInMode
+                    ? displayJapanese
+                    : quizDirection === 'en-to-ja'
+                      ? currentQuestion?.word.english
+                      : displayJapanese}
+              </div>
+              {!isTypeInMode && !currentIsWordOrder && (
+                <div className="mt-2.5 flex justify-center tablet:mt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      speakEnglish(currentQuestion?.word.english);
+                    }}
+                    className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)] tablet:gap-2 tablet:px-4 tablet:py-2 tablet:text-[15px]"
+                  >
+                    <Icon name="volume_up" size={12} className="tablet:text-[18px]!" /> 読み上げ
+                  </button>
+                </div>
+              )}
             </div>
-            {!isTypeInMode && !currentIsWordOrder && (
-              <div className="mt-2.5 flex justify-center">
+          </div>
+
+          {/* Options or type-in */}
+          {isWordOrderQuestion(currentQuestion) ? (
+            <DSWordOrderPanel
+              question={currentQuestion}
+              selectedTokens={wordOrderSelectedTokens}
+              result={wordOrderResult}
+              isRevealed={isRevealed}
+              onSelectToken={handleWordOrderTokenSelect}
+              onRemoveToken={handleWordOrderTokenRemove}
+              onSubmit={handleWordOrderSubmit}
+            />
+          ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
+            <div className="mt-[18px] flex flex-col gap-2 tablet:mt-7 tablet:gap-3">
+              {currentQuestion?.options.map((option, i) => (
+                <DSQuizOption
+                  key={i}
+                  label={option}
+                  index={i}
+                  isSelected={selectedIndex === i}
+                  isCorrect={i === currentQuestion.correctIndex}
+                  isRevealed={isRevealed}
+                  onSelect={() => handleSelect(i)}
+                  disabled={isRevealed}
+                />
+              ))}
+              {!isRevealed && (
                 <button
                   type="button"
-                  onClick={() => {
-                    speakEnglish(currentQuestion?.word.english);
-                  }}
-                  className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
+                  onClick={handleSkip}
+                  className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-white py-3 text-center text-[14px] font-bold text-[var(--color-muted)] tablet:mt-2 tablet:py-5 tablet:text-[18px]"
                 >
-                  <Icon name="volume_up" size={12} /> 読み上げ
+                  わからない
                 </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Options or type-in */}
-        {isWordOrderQuestion(currentQuestion) ? (
-          <DSWordOrderPanel
-            question={currentQuestion}
-            selectedTokens={wordOrderSelectedTokens}
-            result={wordOrderResult}
-            isRevealed={isRevealed}
-            onSelectToken={handleWordOrderTokenSelect}
-            onRemoveToken={handleWordOrderTokenRemove}
-            onSubmit={handleWordOrderSubmit}
-          />
-        ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
-          <div className="mt-[18px] flex flex-col gap-2">
-            {currentQuestion?.options.map((option, i) => (
-              <DSQuizOption
-                key={i}
-                label={option}
-                index={i}
-                isSelected={selectedIndex === i}
-                isCorrect={i === currentQuestion.correctIndex}
-                isRevealed={isRevealed}
-                onSelect={() => handleSelect(i)}
-                disabled={isRevealed}
-              />
-            ))}
-            {!isRevealed && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-white py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
-              >
-                わからない
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="mt-[18px] w-full space-y-4">
-            <TypeInQuizField
-              ref={typeInFieldMobileRef}
-              answer={typeInExpectedAnswer}
-              spaceAsGap={isActiveVocab}
-              value={typeInAnswer}
-              onChange={setTypeInAnswer}
-              normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
-              onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
-              disabled={isRevealed}
-              result={typeInResult}
-              variant="solid"
-            />
-            {!isRevealed && (
-              <SolidButton variant="accent" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
-                回答する
-              </SolidButton>
-            )}
-            {isRevealed && typeInResult === 'wrong' && currentQuestion && (
-              <div
-                className="rounded-xl border-2 p-3 text-center"
-                style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
-              >
-                <p className="text-sm font-bold text-white/85">正解</p>
-                <p className="mt-1 text-lg font-black text-white">
-                  {currentQuestion.word.english}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Example sentence revealed */}
-        {isRevealed && !currentIsWordOrder && currentQuestion?.word.exampleSentence && (
-          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
-            <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
-              {currentQuestion.word.exampleSentence}
+              )}
             </div>
-            {currentQuestion.word.exampleSentenceJa && (
-              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{currentQuestion.word.exampleSentenceJa}</div>
-            )}
-          </div>
-        )}
+          ) : (
+            <div className="mt-[18px] w-full space-y-4 tablet:mt-7 tablet:space-y-6">
+              <TypeInQuizField
+                ref={typeInFieldMobileRef}
+                answer={typeInExpectedAnswer}
+                spaceAsGap={isActiveVocab}
+                value={typeInAnswer}
+                onChange={setTypeInAnswer}
+                normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
+                onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
+                disabled={isRevealed}
+                result={typeInResult}
+                variant="solid"
+              />
+              {!isRevealed && (
+                <SolidButton variant="accent" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center tablet:px-7 tablet:py-4 tablet:text-[18px]">
+                  回答する
+                </SolidButton>
+              )}
+              {isRevealed && typeInResult === 'wrong' && currentQuestion && (
+                <div
+                  className="rounded-xl border-2 p-3 text-center tablet:p-5"
+                  style={{ borderColor: 'var(--color-accent-ink)', background: 'var(--color-accent)' }}
+                >
+                  <p className="text-sm font-bold text-white/85 tablet:text-[17px]">正解</p>
+                  <p className="mt-1 text-lg font-black text-white tablet:mt-2 tablet:text-[26px]">
+                    {currentQuestion.word.english}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Example sentence revealed */}
+          {isRevealed && !currentIsWordOrder && currentQuestion?.word.exampleSentence && (
+            <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] tablet:mt-6 tablet:rounded-2xl tablet:p-5">
+              <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)] tablet:mb-2 tablet:text-[12px]">EXAMPLE</div>
+              <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)] tablet:text-[17px]">
+                {currentQuestion.word.exampleSentence}
+              </div>
+              {currentQuestion.word.exampleSentenceJa && (
+                <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)] tablet:mt-1.5 tablet:text-[15px]">{currentQuestion.word.exampleSentenceJa}</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bottom CTA — only shown after reveal */}
       {isRevealed && (
         <div
-          className="shrink-0 bg-[var(--color-background)] px-5 pt-3"
+          className="mx-auto w-full shrink-0 bg-[var(--color-background)] px-5 pt-3 tablet:max-w-[760px] tablet:px-8 tablet:pt-5"
           style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))' }}
         >
-          <SolidButton variant="accent" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
+          <SolidButton variant="accent" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center tablet:px-7 tablet:py-4 tablet:text-[18px]">
             次へ
           </SolidButton>
         </div>

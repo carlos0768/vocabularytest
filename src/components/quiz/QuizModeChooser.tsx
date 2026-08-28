@@ -8,7 +8,7 @@ const SOLID_SURFACE =
   'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
 const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-ink)]';
 const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-ink)]';
-const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em]';
+const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em] tablet:text-[12px]';
 
 const MODES: ReadonlyArray<{
   key: QuizMode;
@@ -54,12 +54,12 @@ export function QuizModeChooser({
   warning?: string;
 }) {
   return (
-    <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-6 animate-fade-in-up')}>
+    <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-6 animate-fade-in-up tablet:max-w-[560px] tablet:p-8')}>
       <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Quiz Mode</p>
-      <h2 className="mt-1 font-display text-xl font-black leading-snug text-[var(--solid-ink)]">
+      <h2 className="mt-1 font-display text-xl font-black leading-snug text-[var(--solid-ink)] tablet:text-2xl">
         {title}
       </h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{description}</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--color-muted)] tablet:text-base tablet:leading-7">{description}</p>
 
       {warning && (
         <p className="mt-3 rounded-[var(--solid-radius-sm)] border-2 border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs font-bold leading-5 text-[var(--color-warning)]">
@@ -77,7 +77,7 @@ export function QuizModeChooser({
               onClick={() => onSelect(mode.key)}
               aria-current={isCurrent || undefined}
               className={cn(
-                'flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] p-4 text-left transition-all duration-100 active:translate-x-px active:translate-y-px',
+                'flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] p-4 text-left transition-all duration-100 active:translate-x-px active:translate-y-px tablet:gap-4 tablet:p-5',
                 HARD_SHADOW_SM,
                 isCurrent
                   ? 'bg-[var(--color-accent-light)]'
@@ -86,22 +86,22 @@ export function QuizModeChooser({
             >
               <span
                 className={cn(
-                  'flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[var(--solid-ink)]',
+                  'flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[var(--solid-ink)] tablet:h-14 tablet:w-14',
                   isCurrent ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
                 )}
               >
-                <Icon name={mode.icon} size={22} />
+                <Icon name={mode.icon} size={22} className="tablet:text-[28px]!" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
-                  <span className="font-display text-base font-black text-[var(--solid-ink)]">
+                  <span className="font-display text-base font-black text-[var(--solid-ink)] tablet:text-lg">
                     {mode.title}
                   </span>
                   {isCurrent && (
                     <span className={cn(EYEBROW, 'text-[var(--color-accent)]')}>いま</span>
                   )}
                 </span>
-                <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)]">
+                <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)] tablet:text-sm tablet:leading-6">
                   {mode.description}
                 </span>
               </span>
@@ -114,7 +114,7 @@ export function QuizModeChooser({
         <button
           type="button"
           onClick={onCancel}
-          className="mt-4 w-full py-2 text-sm font-bold text-[var(--color-muted)] underline underline-offset-4"
+          className="mt-4 w-full py-2 text-sm font-bold text-[var(--color-muted)] underline underline-offset-4 tablet:py-3 tablet:text-base"
         >
           このまま続ける
         </button>

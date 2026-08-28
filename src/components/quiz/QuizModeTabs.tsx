@@ -26,7 +26,7 @@ export function QuizModeTabs({
   return (
     <div className="flex justify-center">
       <div
-        className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1"
+        className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1 tablet:p-1.5"
         role="tablist"
         aria-label="クイズの種類"
       >
@@ -39,7 +39,7 @@ export function QuizModeTabs({
               role="tab"
               aria-selected={selected}
               onClick={() => { if (!selected) onSelect(tab.key); }}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors tablet:px-6 tablet:py-3 tablet:text-base ${
                 // ダークでは --solid-ink が明色に反転するので、前景は白固定にしない。
                 selected ? 'bg-[var(--solid-ink)] text-[var(--color-surface)]' : 'text-[var(--color-muted)]'
               }`}
