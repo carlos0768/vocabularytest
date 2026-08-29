@@ -17,6 +17,8 @@ import {
 } from '@/lib/adsense';
 import './globals.css';
 import './desktop.css';
+// タブレット向けの全体スケール。上2つの後に読み込んで打ち消せるようにする。
+import './tablet.css';
 
 const lexend = Lexend({
   variable: '--font-lexend',
