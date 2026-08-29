@@ -505,7 +505,12 @@ export default function SharedDetailPage() {
       const skipped = targetWords.length - newWords.length;
 
       if (newWords.length === 0) {
-        showToast({ message: `「${target.title}」には既に登録済みです`, type: 'warning' });
+        showToast({
+          message: `「${target.title}」には既に登録済みです`,
+          type: 'warning',
+          action: { label: '開く', onClick: () => router.push(`/project/${target.id}`) },
+          duration: 6000,
+        });
         return;
       }
 
@@ -530,6 +535,13 @@ export default function SharedDetailPage() {
           ? `「${target.title}」に${newWords.length}語を追加しました（${skipped}語は登録済み）`
           : `「${target.title}」に${newWords.length}語を追加しました`,
         type: 'success',
+        // 単語帳まるごとの取り込みには「追加済み — 単語帳を開く」があるのに、
+        // 単語だけ足したときは追加先へ行く導線が無かったのでここで開けるようにする。
+        action: {
+          label: '開く',
+          onClick: () => router.push(`/project/${target.id}`),
+        },
+        duration: 6000,
       });
       setBookPickerOpen(false);
       setBookPickerWords([]);
