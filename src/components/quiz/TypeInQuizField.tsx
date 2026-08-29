@@ -104,12 +104,12 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
 
   const underscoreClass = `${
     result ? 'text-white/60' : 'text-[var(--color-muted)]/50'
-  } font-medium text-xl tablet:text-[28px] min-w-[0.55em] text-center`;
-  const hintClass = 'text-[var(--color-muted)]/70 font-medium text-xl tablet:text-[28px]';
+  } font-medium text-xl min-w-[0.55em] text-center`;
+  const hintClass = 'text-[var(--color-muted)]/70 font-medium text-xl';
   const caretClass = isSolid ? 'bg-[var(--color-accent)]' : 'bg-blue-600';
 
   const content = (
-    <div className="flex items-center justify-center min-h-[3.5rem] px-5 py-4 gap-x-1 flex-wrap text-xl select-none tablet:min-h-[5rem] tablet:px-7 tablet:py-6 tablet:text-[28px]">
+    <div className="flex items-center justify-center min-h-[3.5rem] px-5 py-4 gap-x-1 flex-wrap text-xl select-none">
       {slots.map((slot, slotIndex) => {
         if (slot.kind === 'gap') {
           return <span key={`gap-${slotIndex}`} className="inline-block w-[0.5em] shrink-0" aria-hidden />;
@@ -117,7 +117,7 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
         const i = slot.index;
         if (i < t) {
           return (
-            <span key={`typed-${i}`} className={`font-black text-xl tablet:text-[28px] ${typedColorClass}`}>
+            <span key={`typed-${i}`} className={`font-black text-xl ${typedColorClass}`}>
               {visibleTyped[i]}
             </span>
           );
@@ -147,7 +147,7 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
         <Icon
           name={result === 'correct' ? 'check' : 'close'}
           size={20}
-          className="ml-1.5 shrink-0 text-white tablet:text-[26px]!"
+          className="ml-1.5 shrink-0 text-white"
         />
       )}
     </div>

@@ -41,7 +41,7 @@ export function DSQuizOption({
     textColor = '#fff';
     badgeBg = 'rgba(255,255,255,0.22)';
     badgeColor = '#fff';
-    icon = <Icon name="check" size={18} className="text-white tablet:text-[24px]!" />;
+    icon = <Icon name="check" size={18} className="text-white" />;
   } else if (isWrongAnswer) {
     faceBg = 'var(--color-error)';
     borderColor = '#b91c1c';
@@ -49,7 +49,7 @@ export function DSQuizOption({
     textColor = '#fff';
     badgeBg = 'rgba(255,255,255,0.22)';
     badgeColor = '#fff';
-    icon = <Icon name="close" size={18} className="text-white tablet:text-[24px]!" />;
+    icon = <Icon name="close" size={18} className="text-white" />;
   } else if (isInactive) {
     borderColor = 'var(--color-border)';
     shadowColor = 'var(--color-border)';
@@ -69,16 +69,16 @@ export function DSQuizOption({
         style={{ transform: 'translate(2.5px, 2.5px)', background: shadowColor }}
       />
       <div
-        className="relative flex items-center gap-[11px] rounded-xl border-2 px-3.5 py-3.5 tablet:gap-4 tablet:px-5 tablet:py-[18px]"
+        className="relative flex items-center gap-[11px] rounded-xl border-2 px-3.5 py-3.5"
         style={{ background: faceBg, borderColor }}
       >
         <div
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 border-[var(--solid-ink)] font-mono text-[11px] font-bold tablet:h-9 tablet:w-9 tablet:rounded-lg tablet:text-[15px]"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 border-[var(--solid-ink)] font-mono text-[11px] font-bold"
           style={{ background: badgeBg, color: badgeColor }}
         >
           {String.fromCharCode(65 + index)}
         </div>
-        <div className="flex-1 text-[15px] font-semibold leading-[1.35] tablet:text-[19px]" style={{ color: textColor }}>
+        <div className="flex-1 text-[15px] font-semibold leading-[1.35]" style={{ color: textColor }}>
           {label}
         </div>
         {icon}
