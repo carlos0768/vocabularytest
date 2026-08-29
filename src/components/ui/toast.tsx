@@ -68,13 +68,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           >
             <span className="text-sm flex-1">{toast.message}</span>
 
+            {/* 文字色はトーストの地色に合わせる（warning は明るい地に黒文字なので、
+                白固定にするとアクションだけ読めなくなる）。 */}
             {toast.action && (
               <button
                 onClick={() => {
                   toast.action?.onClick();
                   hideToast(toast.id);
                 }}
-                className="flex items-center gap-1 text-sm font-medium text-white/90 hover:text-white shrink-0"
+                className="flex items-center gap-1 text-sm font-bold text-current opacity-90 hover:opacity-100 shrink-0"
               >
                 {toast.action.label}
                 <Icon name="chevron_right" size={16} />

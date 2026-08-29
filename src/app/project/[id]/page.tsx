@@ -669,6 +669,13 @@ export default function ProjectPage() {
       showToast({
         message: `${targets.length}語を「${targetProject?.title ?? '単語帳'}」にコピーしました`,
         type: 'success',
+        // コピーしただけだと結果を確かめに行く導線が無いので、その場で
+        // コピー先の単語帳を開けるようにする（タップする間だけ表示を延ばす）。
+        action: {
+          label: '開く',
+          onClick: () => router.push(`/project/${targetProjectId}`),
+        },
+        duration: 6000,
       });
       setBulkImportModalOpen(false);
       setSelectedWordIds(new Set());
