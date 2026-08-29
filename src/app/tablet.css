@@ -1,18 +1,25 @@
 /*
  * ===== タブレット (iPad) 向けの全体スケール =====
  *
- * iPad の縦画面 (744〜1023px) はデスクトップ用レイアウト (`lg:` = 1024px 以上)
- * に届かないため、スマホ用レイアウトがそのまま表示される。アプリのUIは px 直書きの
- * サイズ (`text-[15px]` や `<Icon size={22} />` など) が大半なので、画面だけ広くなって
- * 文字・アイコンはスマホのままになり、小さく見えて余白ばかりが増えていた。
+ * iPad はどのサイズでも「画面は広いのに文字・アイコンはスマホ／ノートPCのまま」に
+ * なりやすい。アプリのUIは px 直書きのサイズが大半 (`text-[15px]` 等が約1,500箇所、
+ * `<Icon size={22} />` の inline style が約1,000箇所) で、クラスを個別に足す方法では
+ * そこに手が届かないため、アプリのシェル (`.ds-live-shell`) 全体を `zoom` で拡大する。
  *
- * 個別にクラスを足す方法では px 直書き (約1,500箇所) と inline style のアイコン
- * (約1,000箇所) に手が届かないため、シェル全体を `zoom` で拡大して「画面の大きさに
- * 比例して全部が大きくなる」形にしている。iPhone アプリを iPad で動かしたときの
- * 2倍表示と同じ考え方。
+ * 対象は `.ds-live-shell` (= アプリ本体の画面) のみ。LP・利用規約・ログインなどは
+ * このシェルを使わず独自のレスポンシブ設計を持っているので拡大しない。
  *
- * 対象は `.ds-live-shell` (= アプリ本体の画面) のみ。LP・ログイン・利用規約などは
- * このシェルを使わず独自のレスポンシブ設計を持っているので、そちらは拡大しない。
+ * 拡大率は「どちらのレイアウトが出ている幅か」で二段構えになっている:
+ *
+ *  1. 〜1023px … スマホ用レイアウトが出る帯 (iPad mini / Air / Pro 11" の縦など)。
+ *     元がスマホ1カラム設計なので、画面幅に比例して大きく引き伸ばせる (1.55〜1.9倍)。
+ *  2. 1024px〜 … デスクトップ用レイアウトが出る帯 (iPad Pro 13" の縦 1024×1366 や
+ *     各機種の横向き)。サイドバー + 2カラムを組む設計で横幅を必要とするため、
+ *     拡大するとレイアウトに使える幅が減る。破綻しない範囲に抑える (1.15〜1.3倍)。
+ *
+ * 2 の帯は PC のウィンドウとサイズが重なるので、`pointer: coarse` (＝主入力がタッチ)
+ * でタッチ端末に限定している。判定できない環境では拡大が効かないだけで、
+ * レイアウトが崩れることはない。
  */
 
 :root {
@@ -20,13 +27,14 @@
   --ui-scale: 1;
 }
 
-/*
- * 拡大率は画面幅に応じて段階的に上げる。CSS では `calc(100vw / 480px)` のような
- * 単位の割り算ができないので、実質的な作業幅が 450〜540px あたりに収まるよう
- * 幅の帯ごとに固定値を置いている (例: 820px なら 820 / 1.7 ≒ 482px)。
+/* ── 1. スマホ用レイアウトの帯 ─────────────────────────────
+ *
+ * CSS では `calc(100vw / 480px)` のような単位の割り算ができないので、実質的な
+ * 作業幅が 450〜540px あたりに収まるよう幅の帯ごとに固定値を置いている
+ * (例: 820px なら 820 / 1.7 ≒ 482px)。
  *
  * 高さ 700px 以上を条件にしているのは、スマホを横向きにしただけの「幅は広いが
- * 背が低い」画面を除外するため。上限 1023.98px から上はデスクトップ版に切り替わる。
+ * 背が低い」画面を除外するため。
  */
 @media (min-width: 700px) and (max-width: 1023.98px) and (min-height: 700px) {
   :root { --ui-scale: 1.55; }
@@ -38,18 +46,34 @@
   :root { --ui-scale: 1.9; }
 }
 
-@media (min-width: 700px) and (max-width: 1023.98px) and (min-height: 700px) {
+/* ── 2. デスクトップ用レイアウトの帯 (タッチ端末のみ) ──────────
+ *
+ * 縦向き (iPad Pro 13" の 1024×1366 など) は横幅がぎりぎりなので 1.3 倍まで。
+ * 横向きは高さが足りなくなる方が先に問題になるため 1.15 倍に留め、拡大後も
+ * 実質 700px 以上の高さが残るよう `min-height: 800px` を条件に入れている。
+ */
+@media (min-width: 1024px) and (orientation: portrait) and (pointer: coarse) {
+  :root { --ui-scale: 1.3; }
+}
+@media (min-width: 1024px) and (orientation: landscape) and (min-height: 800px) and (pointer: coarse) {
+  :root { --ui-scale: 1.15; }
+}
+
+/* ── 共通の適用 ──────────────────────────────────────── */
+@media (min-width: 700px) and (max-width: 1023.98px) and (min-height: 700px),
+       (min-width: 1024px) and (orientation: portrait) and (pointer: coarse),
+       (min-width: 1024px) and (orientation: landscape) and (min-height: 800px) and (pointer: coarse) {
   .ds-live-shell {
     zoom: var(--ui-scale);
   }
 
   /*
-   * `zoom` は配下の長さを拡大するが、ビューポート単位 (vh/dvh) は拡大前の
-   * ビューポートを指したままなので、そのままだと画面の 1.7 倍の高さになる。
+   * `zoom` は配下の長さを拡大するが、ビューポート単位 (vh/dvh) だけは拡大前の
+   * ビューポートを指したままなので、そのままだと画面の n 倍の高さになる。
    * 「画面いっぱい」を意図している指定はここで拡大率で割り戻す。
    *
-   * `position: fixed` の基準 (inset-0 など) は zoom 済みで正しく扱われるので、
-   * 割り戻しが要るのは高さを単位で書いているものだけ。
+   * 幅は `width: 100%` のような割合指定が zoom をまたいで正しく解決されるので
+   * 割り戻し不要。`position: fixed` の基準 (inset-0 など) も同様に正しく扱われる。
    */
   .ds-live-shell { min-height: calc(100dvh / var(--ui-scale)); }
 
@@ -68,4 +92,18 @@
   .ds-live-shell .max-h-\[86dvh\] { max-height: calc(86dvh / var(--ui-scale)); }
   .ds-live-shell .max-h-\[80dvh\] { max-height: calc(80dvh / var(--ui-scale)); }
   .ds-live-shell .max-h-\[52dvh\] { max-height: calc(52dvh / var(--ui-scale)); }
+}
+
+/*
+ * デスクトップ用レイアウトの帯だけの割り戻し。
+ * こちらはシェル・サイドバー・本体が画面ぴったりの高さ (100dvh) で組まれていて、
+ * スマホ用レイアウトの帯では高さ指定自体が無いため、条件を分けている。
+ */
+@media (min-width: 1024px) and (orientation: portrait) and (pointer: coarse),
+       (min-width: 1024px) and (orientation: landscape) and (min-height: 800px) and (pointer: coarse) {
+  .ds-live-shell,
+  .ds-live-shell > .ds-side,
+  .ds-live-shell .ds-live-main {
+    height: calc(100dvh / var(--ui-scale));
+  }
 }
