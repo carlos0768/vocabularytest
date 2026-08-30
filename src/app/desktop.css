@@ -496,6 +496,34 @@
 .ds-table td.star .material-symbols-outlined.on { color: var(--color-warning); font-variation-settings: 'FILL' 1; }
 .ds-table .cefr-pill { font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--color-surface-secondary); border: 1px solid var(--color-border); }
 
+/* ── Home grid (main + right study rail) ─────────────────── */
+.ds-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+.ds-home-main { min-width: 0; }
+.ds-home-side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+
+/*
+ * 横幅が足りないときは右サイドを本文の下に送る。単語帳詳細のレビューレール
+ * (.ds-project-detail-grid) と同じ閾値・同じ挙動に揃えている。
+ * iPad Pro 13" の縦 (1024px) はここに入るので、左のナビと右サイドに挟まれて
+ * 本文が細くなるのを避けられる。
+ */
+@media (max-width: 1180px) {
+  .ds-home-grid { grid-template-columns: minmax(0, 1fr); }
+  .ds-home-side { position: static; }
+}
+
 /* ── Project detail review rail ──────────────────────────── */
 .ds-project-detail-grid {
   display: grid;

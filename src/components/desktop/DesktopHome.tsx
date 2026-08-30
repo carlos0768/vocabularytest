@@ -137,8 +137,8 @@ export function DesktopHomeView({
         <DesktopWordSearchOverlay onClose={() => setWordSearchOpen(false)} userId={user.id} />
       )}
 
-      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
-        <div style={{ minWidth: 0 }}>
+      <div className="ds-scroll ds-home-grid">
+        <div className="ds-home-main">
           {error && (
             <div className="ds-card" style={{ padding: 14, marginBottom: 18, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
               {error}
@@ -315,8 +315,8 @@ export function DesktopHomeView({
 
         </div>
 
-        {/* 右サイド（モバイルと違い維持） */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
+        {/* 右サイド（モバイルと違い維持）。幅が足りないときは本文の下に回る。 */}
+        <div className="ds-home-side">
           {showUpgrade && <DesktopUpgradeCard onDismiss={onDismissUpgrade} />}
           <DesktopStudySidebar
             stats={stats}

@@ -303,13 +303,13 @@ function DSDesktopWordOrderPanel({
       </div>
 
       {isRevealed && example && (
-        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left">
-          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+        <div className="ds-quiz-example w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left">
+          <div className="lbl mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+          <div className="en text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
             {example.sentence}
           </div>
           {example.translation && (
-            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
+            <div className="ja mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
           )}
         </div>
       )}
@@ -1766,13 +1766,13 @@ export default function QuizPage() {
         )}
 
         {isRevealed && desktopExample && (
-          <div className="w-full max-w-[780px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left" style={{ marginTop: 16 }}>
-            <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
+          <div className="ds-quiz-example w-full max-w-[780px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left" style={{ marginTop: 16 }}>
+            <div className="lbl mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
+            <div className="en text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
               {desktopExample.sentence}
             </div>
             {desktopExample.translation && (
-              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{desktopExample.translation}</div>
+              <div className="ja mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{desktopExample.translation}</div>
             )}
           </div>
         )}
