@@ -54,17 +54,10 @@ export function DesktopContactView({ onBack }: { onBack: () => void }) {
       <div className="ds-main">
         <SupportTopbar title="お問い合わせ" onBack={onBack} />
         <div
-          className="ds-scroll"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 300px',
-            gap: 26,
-            alignItems: 'start',
-            width: 'min(100%, 980px)',
-            margin: '0 auto',
-          }}
+          className="ds-scroll ds-rail-grid ds-rail-grid--wide"
+          style={{ width: 'min(100%, 980px)', margin: '0 auto' }}
         >
-          <div style={{ maxWidth: 620 }}>
+          <div className="ds-rail-main" style={{ maxWidth: 620 }}>
             <p className="muted" style={{ fontSize: 14, lineHeight: 1.7, marginTop: 0, marginBottom: 24 }}>
               不具合のご報告や機能のご要望をお寄せください。内容を確認のうえ、通常2営業日以内にメールでご返信します。
             </p>
@@ -101,7 +94,7 @@ export function DesktopContactView({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
+          <div className="ds-rail-side">
             <a href="mailto:support@merken.jp?cc=ahoperson@merken.jp" className="ds-card ds-contact-method" style={{ color: 'inherit', textDecoration: 'none' }}>
               <div className="ic"><Icon name="mail" style={{ color: 'var(--color-accent)' }} /></div>
               <div style={{ flex: 1 }}>

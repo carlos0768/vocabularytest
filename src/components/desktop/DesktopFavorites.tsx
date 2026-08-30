@@ -102,15 +102,16 @@ export function DesktopFavoritesView({
         )}
 
         <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="ds-table">
+          {/* 列幅は desktop.css の .ds-table--favorites 側。狭い画面で詰められるようにするため */}
+          <table className="ds-table ds-table--favorites">
             <thead>
               <tr>
-                <th style={{ width: 42 }} />
-                <th style={{ minWidth: 150 }}>英単語</th>
-                <th style={{ width: 70 }}>品詞</th>
-                <th>日本語</th>
-                <th style={{ width: 64, textAlign: 'center' }}>A/P</th>
-                <th style={{ width: 220 }}>出典</th>
+                <th className="star" />
+                <th className="en">英単語</th>
+                <th className="pos">品詞</th>
+                <th className="ja">日本語</th>
+                <th className="ap">A/P</th>
+                <th className="src">出典</th>
               </tr>
             </thead>
             <tbody>
@@ -132,13 +133,13 @@ export function DesktopFavoritesView({
                   <td className="en">{word.english}</td>
                   <td className="pos">{desktopPosShort(word.partOfSpeechTags)}</td>
                   <td className="ja"><TranslationDisplay word={word} compact /></td>
-                  <td style={{ textAlign: 'center' }} onClick={(event) => event.stopPropagation()}>
+                  <td className="ap" onClick={(event) => event.stopPropagation()}>
                     <DesktopVocabularyTypeBadge
                       vocabularyType={word.vocabularyType}
                       onClick={() => onCycleVocabularyType(word)}
                     />
                   </td>
-                  <td>
+                  <td className="src">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-secondary-text)' }}>
                       <span className="ds-project-icon ds-project-icon--xs" style={{ background: desktopThumbColor(word.projectId) }} />
                       {word.projectTitle || '単語帳'}
@@ -206,7 +207,7 @@ export function DesktopWrongAnswersView({
       </DesktopTopbar>
 
       <div className="ds-scroll">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 18 }}>
+        <div className="ds-kpi-grid ds-kpi-grid--3" style={{ marginBottom: 18 }}>
           <div className="ds-card ds-kpi">
             <div className="ic" style={{ background: 'var(--color-error-light)' }}><Icon name="flag" style={{ color: 'var(--color-error)' }} /></div>
             <div className="v">{wrongAnswers.length}<span className="u">語</span></div>
@@ -225,15 +226,16 @@ export function DesktopWrongAnswersView({
         </div>
 
         <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="ds-table">
+          {/* 列幅は desktop.css の .ds-table--wrong 側 */}
+          <table className="ds-table ds-table--wrong">
             <thead>
               <tr>
-                <th style={{ minWidth: 150 }}>英単語</th>
-                <th>日本語</th>
-                <th style={{ width: 180 }}>出典</th>
-                <th style={{ width: 110 }}>間違い回数</th>
-                <th style={{ width: 90 }}>最終</th>
-                <th style={{ width: 110 }} />
+                <th className="en">英単語</th>
+                <th className="ja">日本語</th>
+                <th className="src">出典</th>
+                <th className="cnt">間違い回数</th>
+                <th className="last">最終</th>
+                <th className="act" />
               </tr>
             </thead>
             <tbody>
@@ -241,7 +243,7 @@ export function DesktopWrongAnswersView({
                 <tr key={word.wordId}>
                   <td className="en">{word.english}</td>
                   <td className="ja"><TranslationDisplay word={word} compact /></td>
-                  <td>
+                  <td className="src">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-secondary-text)' }}>
                       <span className="ds-project-icon ds-project-icon--xs" style={{ background: desktopThumbColor(word.projectId || word.wordId) }} />
                       {word.projectTitle || '単語帳'}

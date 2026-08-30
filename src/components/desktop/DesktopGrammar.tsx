@@ -155,8 +155,8 @@ export function DesktopGrammarBooksView({
         )}
       </DesktopTopbar>
 
-      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
-        <div>
+      <div className="ds-scroll ds-rail-grid">
+        <div className="ds-rail-main">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <button type="button" className={'ds-chip' + (filter === 'all' ? ' active' : '')} onClick={() => onFilterChange('all')}>
               すべて <span className="tnum" style={{ opacity: 0.7 }}>{allBooks.length}</span>
@@ -309,6 +309,7 @@ export function DesktopGrammarBooksView({
           )}
         </div>
 
+        <div className="ds-rail-side">
         <aside className="ds-card" style={{ padding: 20 }}>
           <div className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em' }}>MASTERY</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 12 }}>
@@ -327,6 +328,7 @@ export function DesktopGrammarBooksView({
             <span className="tnum" style={{ fontWeight: 700 }}>{allBooks.filter((book) => book.isFavorite).length}</span>
           </div>
         </aside>
+        </div>
       </div>
     </div>
   );

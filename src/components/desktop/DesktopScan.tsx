@@ -473,15 +473,7 @@ export function DesktopScanView({
         className="sr-only"
         onChange={handleInputChange}
       />
-      <div
-        className="ds-scroll"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: hasFixedDestination ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 320px',
-          gap: 24,
-          alignItems: 'start',
-        }}
-      >
+      <div className={'ds-scroll ds-rail-grid ds-rail-grid--wide' + (hasFixedDestination ? ' ds-rail-grid--single' : '')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div
             onDragOver={(event) => {
@@ -726,7 +718,7 @@ export function DesktopScanView({
         </div>
 
         {!hasFixedDestination && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0, minHeight: 'min(620px, calc(100dvh - 150px))' }}>
+          <div className="ds-rail-side" style={{ minHeight: 'min(620px, calc(100dvh - 150px))' }}>
             <div className="ds-card" style={{ padding: '18px 20px', flex: 1, minHeight: 460, display: 'flex', flexDirection: 'column' }}>
               <div className="muted" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>保存先の単語帳</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 2 }}>
@@ -844,9 +836,9 @@ export function DesktopScanConfirmView({
           {saving ? '保存中...' : isAddingToExisting ? `${selectedCount}語を追加` : `${selectedCount}語を保存`}
         </button>
       </DesktopTopbar>
-      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: isAddingToExisting ? 'minmax(0, 1fr)' : '380px minmax(0, 1fr)', gap: 24, alignItems: 'start' }}>
+      <div className={'ds-scroll ds-rail-grid ds-rail-grid--left' + (isAddingToExisting ? ' ds-rail-grid--single' : '')}>
         {!isAddingToExisting && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
+          <div className="ds-rail-side">
             <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ aspectRatio: '3/4', background: STRIPE_BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--color-secondary-text)' }}>
                 <Icon name="image" style={{ fontSize: 40, color: 'var(--color-muted)' }} />

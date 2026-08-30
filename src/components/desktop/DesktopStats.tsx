@@ -97,7 +97,7 @@ export function DesktopStatsView({
               <DesktopBarChart data={chartData} height={300} showAxis />
             </div>
 
-            <div className="ds-stats-kpis">
+            <div className="ds-kpi-grid">
               <div className="ds-card ds-kpi" style={{ borderColor: 'var(--color-accent-ink)' }}>
                 <div className="l" style={{ marginBottom: 2 }}>習得済み</div>
                 <div className="v" style={{ color: 'var(--color-accent-ink)' }}>{mastered}</div>

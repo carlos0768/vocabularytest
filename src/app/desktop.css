@@ -496,6 +496,21 @@
 .ds-table td.star .material-symbols-outlined.on { color: var(--color-warning); font-variation-settings: 'FILL' 1; }
 .ds-table .cefr-pill { font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--color-surface-secondary); border: 1px solid var(--color-border); }
 
+/* 単語テーブルの列幅。狭い画面で詰め直せるよう inline style ではなく CSS 側に持つ。 */
+.ds-table th.ap, .ds-table td.ap { text-align: center; }
+
+.ds-table--favorites th.star { width: 42px; }
+.ds-table--favorites th.en { min-width: 150px; }
+.ds-table--favorites th.pos { width: 70px; }
+.ds-table--favorites th.ap { width: 64px; }
+.ds-table--favorites th.src { width: 220px; }
+
+.ds-table--wrong th.en { min-width: 150px; }
+.ds-table--wrong th.src { width: 180px; }
+.ds-table--wrong th.cnt { width: 110px; }
+.ds-table--wrong th.last { width: 90px; }
+.ds-table--wrong th.act { width: 110px; }
+
 /* ── 本文 + 右レールの共通グリッド ─────────────────────────
  *
  * ホーム・共有ライブラリ・統計など「本文の右に固定幅のレールを置く」画面で共用する。
@@ -509,6 +524,10 @@
   align-items: start;
 }
 .ds-rail-grid--wide { --ds-rail-width: 320px; gap: 26px; }
+/* スキャンの確認画面だけレールが左（撮影した写真のプレビュー） */
+.ds-rail-grid--left { grid-template-columns: var(--ds-rail-left-width, 380px) minmax(0, 1fr); }
+/* 画面の状態によってレール自体を出さないことがある（保存先が決まっている場合など） */
+.ds-rail-grid--single { grid-template-columns: minmax(0, 1fr); }
 .ds-rail-main { min-width: 0; }
 .ds-rail-side {
   display: flex;
@@ -526,7 +545,8 @@
  * 本文が細くなるのを避けられる。
  */
 @media (max-width: 1180px) {
-  .ds-rail-grid { grid-template-columns: minmax(0, 1fr); }
+  .ds-rail-grid,
+  .ds-rail-grid--left { grid-template-columns: minmax(0, 1fr); }
   .ds-rail-side { position: static; }
 }
 
@@ -560,11 +580,14 @@
   .ds-shared-top-spacer { display: none; }
 }
 
-/* ── 統計のKPIカード列 ─────────────────────────────────── */
-.ds-stats-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+/* ── KPIカードの横並び ───────────────────────────────────
+ * 既定4列。3列で使う画面は .ds-kpi-grid--3 を足す。
+ */
+.ds-kpi-grid { display: grid; grid-template-columns: repeat(var(--ds-kpi-cols, 4), minmax(0, 1fr)); gap: 16px; }
+.ds-kpi-grid--3 { --ds-kpi-cols: 3; }
 @media (max-width: 1180px) {
-  /* 4枚横並びだと1枚あたりが細くなりすぎるので2列に折る */
-  .ds-stats-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 横並びのままだと1枚が細くなりすぎ、ラベルが数文字で折り返すので2列に折る */
+  .ds-kpi-grid { --ds-kpi-cols: 2; }
 }
 
 /* ── 保存ページのヘッダー行 ─────────────────────────────── */

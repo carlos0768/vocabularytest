@@ -97,8 +97,8 @@ export function DesktopProjectsView({
         </DesktopButton>
       </DesktopTopbar>
 
-      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
-        <div>
+      <div className="ds-scroll ds-rail-grid">
+        <div className="ds-rail-main">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <span className="mono muted tnum" style={{ fontSize: 12 }}>
               {rows.length} 冊 ・ 合計 {totalWords} 語
@@ -175,7 +175,9 @@ export function DesktopProjectsView({
           </div>
         </div>
 
-        <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} learnHref={learnHref} />
+        <div className="ds-rail-side">
+          <DesktopStudySidebar stats={summaryStats} reviewHref={reviewHref} learnHref={learnHref} />
+        </div>
             </div>
 
       <ProjectFilterSheet
