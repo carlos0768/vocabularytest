@@ -496,15 +496,21 @@
 .ds-table td.star .material-symbols-outlined.on { color: var(--color-warning); font-variation-settings: 'FILL' 1; }
 .ds-table .cefr-pill { font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--color-surface-secondary); border: 1px solid var(--color-border); }
 
-/* ── Home grid (main + right study rail) ─────────────────── */
-.ds-home-grid {
+/* ── 本文 + 右レールの共通グリッド ─────────────────────────
+ *
+ * ホーム・共有ライブラリ・統計など「本文の右に固定幅のレールを置く」画面で共用する。
+ * レール幅は --ds-rail-width で変えられる。
+ */
+.ds-rail-grid {
+  --ds-rail-width: 300px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) var(--ds-rail-width);
   gap: 24px;
   align-items: start;
 }
-.ds-home-main { min-width: 0; }
-.ds-home-side {
+.ds-rail-grid--wide { --ds-rail-width: 320px; gap: 26px; }
+.ds-rail-main { min-width: 0; }
+.ds-rail-side {
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -514,14 +520,59 @@
 }
 
 /*
- * 横幅が足りないときは右サイドを本文の下に送る。単語帳詳細のレビューレール
+ * 横幅が足りないときは右レールを本文の下に送る。単語帳詳細のレビューレール
  * (.ds-project-detail-grid) と同じ閾値・同じ挙動に揃えている。
- * iPad Pro 13" の縦 (1024px) はここに入るので、左のナビと右サイドに挟まれて
+ * iPad Pro 13" の縦 (1024px) はここに入るので、左のナビと右レールに挟まれて
  * 本文が細くなるのを避けられる。
  */
 @media (max-width: 1180px) {
-  .ds-home-grid { grid-template-columns: minmax(0, 1fr); }
-  .ds-home-side { position: static; }
+  .ds-rail-grid { grid-template-columns: minmax(0, 1fr); }
+  .ds-rail-side { position: static; }
+}
+
+/* ── 共有ライブラリのヘッダー ───────────────────────────────
+ *
+ * 本文の右レールと桁を揃えるため、ヘッダーも「本文幅 + レール幅」の2カラムで、
+ * 左カラムの中で検索窓を中央に置くために更に3カラムを組んでいる。
+ * 幅が足りないと見出しの列が潰れて1文字ずつ折り返すので、レールと同じ閾値で
+ * 「見出し＋検索窓を縦に積み、ボタンは右」に組み替える。
+ */
+.ds-shared-top {
+  display: grid;
+  /* 右の 320px は本文右レールの幅と揃える。左カラムは本文メインカラム
+     （サイドバー右端〜右レール左端）と同じ幅になる。 */
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 26px;
+  align-items: center;
+}
+.ds-shared-top-main {
+  display: grid;
+  /* 検索窓を左カラムの中央に置くための3カラム */
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .ds-shared-top { grid-template-columns: minmax(0, 1fr) auto; gap: 14px; }
+  .ds-shared-top-main { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .ds-shared-top-spacer { display: none; }
+}
+
+/* ── 統計のKPIカード列 ─────────────────────────────────── */
+.ds-stats-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1180px) {
+  /* 4枚横並びだと1枚あたりが細くなりすぎるので2列に折る */
+  .ds-stats-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── 保存ページのヘッダー行 ─────────────────────────────── */
+.ds-fav-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+@media (max-width: 1180px) {
+  /* 件数・内訳バッジ・検索窓が1行に収まらないので折り返す */
+  .ds-fav-head { flex-wrap: wrap; row-gap: 10px; }
+  .ds-fav-head .ds-fav-head-spacer { display: none; }
 }
 
 /* ── Project detail review rail ──────────────────────────── */

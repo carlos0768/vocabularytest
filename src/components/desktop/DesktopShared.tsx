@@ -112,27 +112,10 @@ export function DesktopSharedView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <div
-        className="ds-top"
-        style={{
-          display: 'grid',
-          // 右の 320px は本文右レールの幅と揃える。左カラムは本文メインカラム
-          // （サイドバー右端〜右レール左端）と同じ幅になる。
-          gridTemplateColumns: 'minmax(0, 1fr) 320px',
-          gap: 26,
-          alignItems: 'center',
-        }}
-      >
+      {/* 桁組みは desktop.css の .ds-shared-top を参照（幅が足りないときに組み替えるため） */}
+      <div className="ds-top ds-shared-top">
         {/* 検索窓を左カラム＝サイドバー右端〜右セクション左端の中央に置く */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 420px) minmax(0, 1fr)',
-            alignItems: 'center',
-            gap: 12,
-            minWidth: 0,
-          }}
-        >
+        <div className="ds-shared-top-main">
           <div style={{ minWidth: 0 }}>
             <div className="crumb">{isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}</div>
             <h1>{isCategory ? activeMeta!.label : '共有ライブラリ'}</h1>
@@ -175,7 +158,7 @@ export function DesktopSharedView({
               style={{ width: '100%', minWidth: 0 }}
             />
           )}
-          <div aria-hidden="true" />
+          <div className="ds-shared-top-spacer" aria-hidden="true" />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
           <FollowNotificationsButton variant="desktop" />
@@ -186,11 +169,8 @@ export function DesktopSharedView({
       </div>
 
       {showDashboard ? (
-        <div
-          className="ds-scroll"
-          style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 26, alignItems: 'start' }}
-        >
-          <div style={{ minWidth: 0 }}>
+        <div className="ds-scroll ds-rail-grid ds-rail-grid--wide">
+          <div className="ds-rail-main">
             {error && (
               <div className="ds-card" style={{ marginBottom: 16, padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
                 {error}
@@ -203,7 +183,7 @@ export function DesktopSharedView({
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
+          <div className="ds-rail-side">
             <PopularWordbooksRail projects={feed.projects.length > 0 ? feed.projects : payload.projects} />
             <PublicGrammarRail
               books={publicGrammar.books}

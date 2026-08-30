@@ -50,8 +50,8 @@ export function DesktopStatsView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title="学習の推移" crumb="進歩 / トレンド" />
-      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
-        <div>
+      <div className="ds-scroll ds-rail-grid">
+        <div className="ds-rail-main">
           {loading ? (
             <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)' }}>
               <Icon name="progress_activity" className="animate-spin" />
@@ -97,7 +97,7 @@ export function DesktopStatsView({
               <DesktopBarChart data={chartData} height={300} showAxis />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <div className="ds-stats-kpis">
               <div className="ds-card ds-kpi" style={{ borderColor: 'var(--color-accent-ink)' }}>
                 <div className="l" style={{ marginBottom: 2 }}>習得済み</div>
                 <div className="v" style={{ color: 'var(--color-accent-ink)' }}>{mastered}</div>
@@ -129,11 +129,13 @@ export function DesktopStatsView({
           )}
         </div>
 
+        <div className="ds-rail-side">
         <DesktopStudySidebar
           stats={summaryStats}
           reviewHref={summaryStats.totalWords > 0 ? '/quiz/all?review=1&from=/stats' : '/projects'}
           learnHref={summaryStats.totalWords > 0 ? '/quiz/all?learn=1&from=/stats' : '/projects'}
         />
+        </div>
       </div>
     </div>
   );

@@ -76,7 +76,7 @@ export function DesktopFavoritesView({
       </DesktopTopbar>
 
       <div className="ds-scroll">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div className="ds-fav-head">
           <Icon name="bookmark" filled style={{ color: 'var(--color-accent)', fontSize: 22 }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>{favorites.length} <span style={{ fontSize: 13 }}>語</span></span>
           <span className="muted" style={{ fontSize: 13 }}>を保存中</span>
@@ -86,7 +86,7 @@ export function DesktopFavoritesView({
             <span className="ds-status review"><span className="ds-sdot c-review" />学習中 {counts.review}</span>
             <span className="ds-status new"><span className="ds-sdot c-new" />未学習 {counts.newCount}</span>
           </div>
-          <div style={{ flex: 1 }} />
+          <div className="ds-fav-head-spacer" style={{ flex: 1 }} />
           <DesktopSearchBox
             placeholder="保存した単語を検索"
             value={query}

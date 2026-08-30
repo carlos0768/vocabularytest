@@ -121,4 +121,55 @@
   .ds-live-shell .ds-quiz-example .lbl { font-size: 12px; margin-bottom: 8px; }
   .ds-live-shell .ds-quiz-example .en { font-size: 19px; }
   .ds-live-shell .ds-quiz-example .ja { font-size: 16px; margin-top: 6px; }
+
+  /*
+   * デスクトップ版のデザイントークンは 1280px 以上のノートPCを想定していて、
+   * 補助テキストが 10〜13px と小さい。拡大率 1.3 倍では読みづらいので、
+   * 共有ライブラリ・保存・統計をはじめ各画面で使う共通クラスを一段上げる。
+   */
+  .ds-live-shell .ds-top h1 { font-size: 28px; }
+  .ds-live-shell .ds-top .crumb { font-size: 15px; }
+  .ds-live-shell .ds-sec-head h2 { font-size: 23px; }
+  .ds-live-shell .ds-sec-head .link { font-size: 15px; }
+
+  .ds-live-shell .ds-btn { font-size: 16px; padding: 11px 20px; }
+  .ds-live-shell .ds-btn.sm { font-size: 15px; padding: 8px 14px; }
+  .ds-live-shell .ds-btn .material-symbols-outlined { font-size: 21px; }
+  .ds-live-shell .ds-chip { font-size: 15px; padding: 7px 14px; }
+  .ds-live-shell .ds-tag { font-size: 12px; padding: 4px 8px; }
+  .ds-live-shell .ds-status { font-size: 15px; }
+  .ds-live-shell .ds-search input { font-size: 16px; }
+  .ds-live-shell .ds-search .material-symbols-outlined { font-size: 21px; }
+
+  /* 統計: KPI・凡例・指標 */
+  .ds-live-shell .ds-kpi { padding: 22px 24px; }
+  .ds-live-shell .ds-kpi .v { font-size: 38px; }
+  .ds-live-shell .ds-kpi .v .u { font-size: 18px; }
+  .ds-live-shell .ds-kpi .l { font-size: 15px; }
+  .ds-live-shell .ds-legend .row { font-size: 15px; }
+  .ds-live-shell .ds-metric { padding: 18px 20px; }
+  .ds-live-shell .ds-metric .v { font-size: 30px; }
+  .ds-live-shell .ds-metric .l { font-size: 14px; }
+
+  /* 共有ライブラリ: 単語帳タイル */
+  .ds-live-shell .ds-book .bk-title { font-size: 17px; }
+  .ds-live-shell .ds-book .bk-n { font-size: 29px; }
+  .ds-live-shell .ds-book .bk-n .u { font-size: 15px; }
+  .ds-live-shell .ds-book .bk-foot { font-size: 13px; }
+
+  /* 保存: 単語テーブル */
+  .ds-live-shell .ds-table thead th { font-size: 12px; padding: 13px 14px; }
+  .ds-live-shell .ds-table td { font-size: 15.5px; padding: 14px 14px; }
+  .ds-live-shell .ds-table td.en { font-size: 17px; }
+  .ds-live-shell .ds-table td.pos { font-size: 14px; }
+  .ds-live-shell .ds-table td.cefr { font-size: 13px; }
+  .ds-live-shell .ds-table .cefr-pill { font-size: 12px; }
+
+  /*
+   * 本文の左右余白。34px は 1.3 倍で 44px 相当になり、ただでさえ狭い本文を
+   * さらに削ってしまうので詰める。上下は読みやすさのため据え置き。
+   */
+  .ds-live-shell .ds-scroll { padding-left: 22px; padding-right: 22px; }
+  .ds-live-shell .ds-scroll.flush { padding-left: 0; padding-right: 0; }
+  .ds-live-shell .ds-top { padding-left: 22px; padding-right: 22px; }
 }
