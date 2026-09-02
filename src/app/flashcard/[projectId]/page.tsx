@@ -131,28 +131,6 @@ function ActionChip({
   );
 }
 
-/* ---------- Nav button (for prev/flip/next) ---------- */
-function NavBtn({
-  children,
-  onClick,
-  'aria-label': ariaLabel,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  'aria-label'?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => { triggerHaptic(); onClick?.(); }}
-      aria-label={ariaLabel}
-      className="flex h-[42px] w-[42px] scale-[1.3] items-center justify-center rounded-[21px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-    >
-      {children}
-    </button>
-  );
-}
-
 /* ---------- スワイプ仕分けのスタンプ（覚えてる / 覚えてない） ---------- */
 const SORT_MODE_STORAGE_KEY = 'flashcard-sort-mode';
 
@@ -177,23 +155,6 @@ function SwipeStamp({ verdict, intensity }: { verdict: SwipeVerdict; intensity: 
     >
       {SWIPE_VERDICT_LABELS[verdict]}
     </div>
-  );
-}
-
-/* ---------- 覚えてる / 覚えてない の大きなボタン（スワイプの代わり） ---------- */
-function VerdictBtn({ verdict, onClick }: { verdict: SwipeVerdict; onClick: () => void }) {
-  const tint = VERDICT_TINT[verdict];
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={SWIPE_VERDICT_LABELS[verdict]}
-      className="flex h-[46px] flex-1 items-center justify-center gap-1.5 rounded-[14px] border-2 bg-white font-display text-[13.5px] font-extrabold transition-all duration-100 active:translate-x-px active:translate-y-px"
-      style={{ borderColor: tint, color: tint, boxShadow: `3px 3px 0 ${tint}` }}
-    >
-      <Icon name={verdict === 'known' ? 'check' : 'close'} size={16} />
-      {SWIPE_VERDICT_LABELS[verdict]}
-    </button>
   );
 }
 
@@ -1448,41 +1409,21 @@ export default function FlashcardPage() {
         <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
       </div>
 
-      {/* Navigation row: 仕分けモードでは 覚えてない | 回転 | 覚えてる */}
+      {/* カード送り・回転はスワイプとカードのタップに任せ、下段のボタンは置かない。
+          仕分けモードの取り消しだけは指の届く位置に残す。 */}
       <div
         className="flex shrink-0 flex-col items-center gap-2 px-5 pt-3"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
-        {sortMode ? (
-          <>
-            <div className="flex w-full items-center justify-center gap-3">
-              <VerdictBtn verdict="unknown" onClick={() => commitVerdict('unknown')} />
-              <NavBtn onClick={handleFlip} aria-label="カードを回転">
-                <Icon name="cached" size={18} />
-              </NavBtn>
-              <VerdictBtn verdict="known" onClick={() => commitVerdict('known')} />
-            </div>
-            <button
-              type="button"
-              onClick={handleUndoSwipe}
-              disabled={currentIndex === 0}
-              className="flex items-center gap-1 text-[11.5px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
-            >
-              <Icon name="undo" size={14} />1枚戻す
-            </button>
-          </>
-        ) : (
-          <div className="flex items-center justify-center gap-6">
-            <NavBtn onClick={() => handlePrev(true)} aria-label="前のカード">
-              <Icon name="chevron_left" size={18} />
-            </NavBtn>
-            <NavBtn onClick={handleFlip} aria-label="カードを回転">
-              <Icon name="cached" size={18} />
-            </NavBtn>
-            <NavBtn onClick={() => handleNext(true)} aria-label="次のカード">
-              <Icon name="chevron_right" size={18} />
-            </NavBtn>
-          </div>
+        {sortMode && (
+          <button
+            type="button"
+            onClick={handleUndoSwipe}
+            disabled={currentIndex === 0}
+            className="flex items-center gap-1 text-[11.5px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
+          >
+            <Icon name="undo" size={14} />1枚戻す
+          </button>
         )}
       </div>
 
