@@ -41,11 +41,13 @@ import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
 import {
+  buildProjectWordOrderSnapshot,
   countProjectWordStats,
   isProjectWordFilterActive,
   selectAvailableProjectPartsOfSpeech,
   selectFilteredProjectWords,
   type ProjectWordActivenessFilter,
+  type ProjectWordOrderSnapshot,
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus, WordTranslation } from '@/types';
@@ -152,6 +154,10 @@ export default function ProjectPage() {
   const [wordsLoaded, setWordsLoaded] = useState(false);
   const [query, setQuery] = useState('');
   const [wordSortOrder, setWordSortOrder] = useState<ProjectWordSortOrder>('priority');
+  // 学習順・未習得順は学習タグ (定着度) で並ぶので、タグを押すたびに並べ替えると
+  // その行が目の前で飛んでしまう。並びに使う学習タグはこのスナップショットに
+  // 凍結し、ページを開き直したとき (と並べ替えを選び直したとき) だけ取り直す。
+  const [wordOrderSnapshot, setWordOrderSnapshot] = useState<ProjectWordOrderSnapshot | null>(null);
   const [wordShowSortSheet, setWordShowSortSheet] = useState(false);
   const [wordShowFilterSheet, setWordShowFilterSheet] = useState(false);
   const [wordFilterBookmark, setWordFilterBookmark] = useState(false);
@@ -276,6 +282,7 @@ export default function ProjectPage() {
         setLoading(false);
         const loadedWords = await wordRepo.getWords(projectId);
         setWords(loadedWords);
+        setWordOrderSnapshot(buildProjectWordOrderSnapshot(loadedWords));
         setWordsLoaded(true);
       } else {
         if (user && navigator.onLine) {
@@ -391,8 +398,9 @@ export default function ProjectPage() {
       bookmark: wordFilterBookmark,
       activeness: wordFilterActiveness,
       partOfSpeech: wordFilterPos,
+      orderSnapshot: wordOrderSnapshot,
     });
-  }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
+  }, [query, words, wordSortOrder, wordOrderSnapshot, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
 
   // モバイル専用: 20語を超える単語帳は10語ずつページ送りする (フロントのみで完結)
   const MOBILE_WORDS_PER_PAGE = 10;
@@ -1830,7 +1838,11 @@ export default function ProjectPage() {
         open={wordShowSortSheet}
         onClose={() => setWordShowSortSheet(false)}
         sortOrder={wordSortOrder}
-        onSortOrderChange={setWordSortOrder}
+        onSortOrderChange={(next) => {
+          // 並べ替えを選び直したときは、その時点の学習タグで並びを取り直す
+          setWordOrderSnapshot(buildProjectWordOrderSnapshot(words));
+          setWordSortOrder(next);
+        }}
       />
       {/* バインダー (フォルダ) の設定。モバイル・デスクトップ共通のピッカー */}
       <BinderPickerSheet

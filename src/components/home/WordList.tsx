@@ -6,17 +6,13 @@ import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton'
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { Button } from '@/components/ui';
 import { formatJapaneseForDisplay } from '@/lib/words/display';
+import {
+  getNextWordStatus,
+  getWordStatusForStep,
+  getWordStatusStep,
+} from '@/lib/words/status-cycle';
 import type { Word, WordStatus } from '@/types';
 
-export function nextStatus(current: WordStatus): WordStatus {
-  if (current === 'new') return 'review';
-  if (current === 'review') return 'active';
-  if (current === 'active') return 'mastered';
-  return 'new';
-}
-
-const STATUS_TO_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
-const FILLED_TO_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const STATUS_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済' };
 
 export function NotionCheckbox({
@@ -28,35 +24,23 @@ export function NotionCheckbox({
   status: WordStatus;
   onStatusChange: (newStatus: WordStatus) => void;
 }) {
-  const [filledCount, setFilledCount] = useState(() => STATUS_TO_FILLED[status] ?? 0);
-  const [direction, setDirection] = useState<'up' | 'down'>(() => status === 'mastered' ? 'down' : 'up');
+  const [filledCount, setFilledCount] = useState(() => getWordStatusStep(status));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setFilledCount(STATUS_TO_FILLED[status] ?? 0);
-      setDirection(status === 'mastered' ? 'down' : 'up');
+      setFilledCount(getWordStatusStep(status));
     }, 0);
     return () => window.clearTimeout(timer);
   }, [status, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (direction === 'up') {
-      if (filledCount < 3) {
-        const next = filledCount + 1;
-        setFilledCount(next);
-        if (next === 3) setDirection('down');
-        onStatusChange(FILLED_TO_STATUS[next]);
-      }
-    } else {
-      if (filledCount > 0) {
-        const next = filledCount - 1;
-        setFilledCount(next);
-        if (next === 0) setDirection('up');
-        onStatusChange(FILLED_TO_STATUS[next]);
-      }
-    }
-  }, [filledCount, direction, onStatusChange]);
+    // 未学習 → 学習中 → 定着中 → 習得済み → 未学習 と一方向に回す (一覧の
+    // マス目と同じ順番)。
+    const next = getNextWordStatus(getWordStatusForStep(filledCount));
+    setFilledCount(getWordStatusStep(next));
+    onStatusChange(next);
+  }, [filledCount, onStatusChange]);
 
   return (
     <button

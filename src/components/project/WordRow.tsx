@@ -15,6 +15,11 @@ import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton'
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getVocabularyTypeLabel, getVocabularyTypeShortLabel } from '@/lib/vocabulary-type';
 import { STATUS_LABELS } from '@/lib/words/word-filter';
+import {
+  getNextWordStatus,
+  getWordStatusForStep,
+  getWordStatusStep,
+} from '@/lib/words/status-cycle';
 import type { VocabularyType, Word, WordStatus } from '@/types';
 
 const POS_JP: Record<string, string> = {
@@ -39,8 +44,6 @@ export function posShort(tag: string): string {
   return `(${jp[0]})`;
 }
 
-const PP_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
-const PP_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const PP_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
 
 /**
@@ -94,44 +97,31 @@ export function StatusSquares({
   onStatusChange: (newStatus: WordStatus) => void;
   className?: string;
 }) {
-  const [filledCount, setFilledCount] = useState(() => PP_FILLED[status] ?? 0);
-  const [direction, setDirection] = useState<'up' | 'down'>(() =>
-    status === 'mastered' ? 'down' : 'up'
-  );
+  const [filledCount, setFilledCount] = useState(() => getWordStatusStep(status));
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setFilledCount(PP_FILLED[status] ?? 0);
-      setDirection(status === 'mastered' ? 'down' : 'up');
+      setFilledCount(getWordStatusStep(status));
     });
     return () => { cancelled = true; };
   }, [status, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (direction === 'up') {
-      if (filledCount < 3) {
-        const next = filledCount + 1;
-        setFilledCount(next);
-        if (next === 3) setDirection('down');
-        onStatusChange(PP_STATUS[next]);
-      }
-    } else {
-      if (filledCount > 0) {
-        const next = filledCount - 1;
-        setFilledCount(next);
-        if (next === 0) setDirection('up');
-        onStatusChange(PP_STATUS[next]);
-      }
-    }
-  }, [filledCount, direction, onStatusChange]);
+    // 未学習 → 学習中 → 定着中 → 習得済み → 未学習 と一方向に回す。
+    // 表示中のマス目を起点にするので、書き込みのデバウンス中に連打しても
+    // 進む順番が飛んだり止まったりしない。
+    const next = getNextWordStatus(getWordStatusForStep(filledCount));
+    setFilledCount(getWordStatusStep(next));
+    onStatusChange(next);
+  }, [filledCount, onStatusChange]);
 
   // タップした瞬間はまだ `status` が書き戻ってきていない (書き込みはデバウンス
   // される) ので、マスと同じく楽観更新した `filledCount` からラベルを引く。
   // そうしないとマスだけ先に塗られて文言が1タップ遅れる。
-  const shownStatus = PP_STATUS[filledCount] ?? status;
+  const shownStatus = getWordStatusForStep(filledCount);
 
   return (
     <button
