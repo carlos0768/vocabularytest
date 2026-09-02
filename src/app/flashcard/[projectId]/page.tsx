@@ -46,33 +46,6 @@ import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
 
-/* ---------- Mastery level (mirrors iOS) ---------- */
-function getMasteryLevel(repetition: number): number {
-  if (repetition === 0) return 0;
-  if (repetition <= 2) return 1;
-  if (repetition <= 5) return 2;
-  return 3;
-}
-
-/* ---------- Mastery dots ---------- */
-function MasteryDots({ level }: { level: number }) {
-  return (
-    <div className="flex items-center gap-[5px]">
-      <span className="mr-1 font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--color-muted)]">MASTERY</span>
-      {[0, 1, 2, 3].map((i) => (
-        <span
-          key={i}
-          className="h-2.5 w-2.5 rounded-full"
-          style={{
-            background: i < level ? 'var(--color-success)' : 'rgba(26,26,26,0.08)',
-            border: `1px solid ${i < level ? 'var(--color-success)' : 'var(--color-border)'}`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 /* ---------- HeaderBtn (立体スケッチ風) ---------- */
 function HeaderBtn({
   children,
@@ -875,8 +848,6 @@ export default function FlashcardPage() {
     );
   }
 
-  const swipeTally = countSwipes(swipeSession);
-  const masteryLevel = getMasteryLevel(currentWord?.repetition ?? 0);
   const total = words.length;
   const currentPartOfSpeechLabel = formatPartOfSpeechLabels(currentWord?.partOfSpeechTags);
   const tutorialTarget = Math.min(10, total);
@@ -910,10 +881,6 @@ export default function FlashcardPage() {
 
         {/* 流す単語の絞り込み。0件の軸は押せない（空の山札にしないため） */}
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 font-mono text-[11px] font-bold tabular-nums">
-            <span style={{ color: 'var(--color-success)' }}>◯{swipeTally.known}</span>
-            <span style={{ color: 'var(--color-error)', marginLeft: 6 }}>✕{swipeTally.unknown}</span>
-          </span>
           {FLASHCARD_FILTERS.map((option) => {
             const count = filterCounts[option.key];
             const active = option.key === deckFilter;
@@ -1092,10 +1059,6 @@ export default function FlashcardPage() {
           <div className="h-1 w-[120px] overflow-hidden rounded-sm bg-[rgba(26,26,26,0.08)]">
             <div className="h-full bg-[var(--solid-ink)]" style={{ width: `${((currentIndex + 1) / total) * 100}%` }} />
           </div>
-          <div className="flex items-center gap-2 font-mono text-[10px] font-bold tabular-nums">
-            <span style={{ color: 'var(--color-success)' }}>覚えてる {swipeTally.known}</span>
-            <span style={{ color: 'var(--color-error)' }}>覚えてない {swipeTally.unknown}</span>
-          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -1192,20 +1155,13 @@ export default function FlashcardPage() {
                 WebkitBackfaceVisibility: 'hidden',
               }}
             >
-              {/* POS badge + favorite */}
-              <div className="flex items-center justify-between">
-                {currentWord?.partOfSpeechTags?.[0] ? (
+              {/* POS badge */}
+              <div className="flex items-center">
+                {currentWord?.partOfSpeechTags?.[0] && (
                   <div className="rounded border border-[var(--solid-ink)] bg-white px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--solid-ink)]">
                     {getPartOfSpeechLabel(currentWord.partOfSpeechTags[0])}
                   </div>
-                ) : <div />}
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleToggleFavorite(); }}
-                  className={`inline-flex ${currentWord?.isFavorite ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}`}
-                >
-                  <Icon name="bookmark" size={18} filled={currentWord?.isFavorite} />
-                </button>
+                )}
               </div>
 
               {/* Big word */}
@@ -1226,27 +1182,18 @@ export default function FlashcardPage() {
                 </button>
               </div>
 
-              {/* Mastery + status at bottom */}
-              <div className="mt-3 flex items-center justify-between border-t border-dashed border-[var(--color-border)] pt-3">
-                <MasteryDots level={masteryLevel} />
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); void handleCycleStatus(); }}
-                  className="rounded-full px-2 py-[3px] font-mono text-[9px] font-bold"
-                  style={{
-                    color: statusColor(currentWord?.status ?? 'new'),
-                    border: `1px solid ${statusColor(currentWord?.status ?? 'new')}`,
-                    background: 'white',
-                  }}
-                >
-                  {statusLabel(currentWord?.status ?? 'new')}
-                </button>
-              </div>
-
-              {/* Tap hint */}
-              <div className="mt-2 text-center text-[11px] font-semibold text-[var(--color-muted)]">
-                タップで意味 · 左右にスワイプで仕分け
-              </div>
+              {/* 保存はカード右下。カード送りの邪魔にならず、親指の届く位置に置く */}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleToggleFavorite(); }}
+                aria-label={currentWord?.isFavorite ? '保存を解除' : '保存'}
+                aria-pressed={currentWord?.isFavorite}
+                className={`absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white ${
+                  currentWord?.isFavorite ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'
+                }`}
+              >
+                <Icon name="bookmark" size={18} filled={currentWord?.isFavorite} />
+              </button>
             </div>
 
             <div
@@ -1277,10 +1224,6 @@ export default function FlashcardPage() {
                   </div>
                 )}
               </div>
-              {/* Mastery inside back too */}
-              <div className="mt-3 flex items-center justify-center border-t border-white/10 pt-3">
-                <MasteryDots level={masteryLevel} />
-              </div>
               <div className="mt-2 text-center text-[11px] font-semibold text-white/50">タップで戻る</div>
             </div>
           </div>
@@ -1309,25 +1252,6 @@ export default function FlashcardPage() {
         >
           <Icon name="chevron_right" size={20} />
         </div>
-      </div>
-
-      {/* 5 Action chips */}
-      <div className="flex shrink-0 justify-center gap-3 px-5 pt-3.5">
-        <ActionChip icon="search" label="英辞郎" onClick={handleSearchEijiro} />
-        <ActionChip icon="volume_up" label="発音" onClick={speakWord} />
-        <ActionChip
-          icon="task_alt"
-          label={statusLabel(currentWord?.status ?? 'new')}
-          tint={statusColor(currentWord?.status ?? 'new')}
-          onClick={handleCycleStatus}
-        />
-        <ActionChip
-          icon="bookmark" label="保存"
-          tint={currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--solid-ink)'}
-          filled={currentWord?.isFavorite}
-          onClick={handleToggleFavorite}
-        />
-        <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
       </div>
 
       {/* 判定はスワイプ、回転はカードのタップに任せ、下段は取り消しだけ残す。 */}
