@@ -132,8 +132,6 @@ function ActionChip({
 }
 
 /* ---------- スワイプ仕分けのスタンプ（覚えてる / 覚えてない） ---------- */
-const SORT_MODE_STORAGE_KEY = 'flashcard-sort-mode';
-
 const VERDICT_TINT: Record<SwipeVerdict, string> = {
   known: 'var(--color-success)',
   unknown: 'var(--color-error)',
@@ -199,16 +197,6 @@ export default function FlashcardPage() {
     () => new Map(getWrongAnswers().map((wrong) => [wrong.wordId, wrong.wrongCount])),
     [],
   );
-  /**
-   * スワイプ仕分けモード。右＝覚えてる / 左＝覚えてない でカードを振り分ける。
-   * 切ると従来どおりスワイプは前後送りになる。選択は端末に覚えさせる。
-   */
-  const [sortMode, setSortMode] = useState(true);
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(SORT_MODE_STORAGE_KEY) === 'off') setSortMode(false);
-    } catch { /* localStorage が使えない環境ではモードの記憶だけ諦める */ }
-  }, []);
   const [swipeSession, setSwipeSession] = useState<SwipeSession>(EMPTY_SWIPE_SESSION);
   const [finished, setFinished] = useState(false);
   /** 「未習得だけもう一度」で山札を細くしたときの単語ID順。null＝全部。 */
@@ -464,18 +452,6 @@ export default function FlashcardPage() {
     setIsFlipped(false);
   }, []);
 
-  const toggleSortMode = useCallback(() => {
-    triggerHaptic();
-    setSortMode((prev) => {
-      const next = !prev;
-      try { window.localStorage.setItem(SORT_MODE_STORAGE_KEY, next ? 'on' : 'off'); }
-      catch { /* 記憶できなくてもモード自体は切り替わる */ }
-      return next;
-    });
-    setSwipeSession(EMPTY_SWIPE_SESSION);
-    setFinished(false);
-  }, []);
-
   const handleFlip = useCallback(() => {
     if (!isAnimating && !isSwiping.current) setIsFlipped((prev) => !prev);
   }, [isAnimating]);
@@ -527,18 +503,13 @@ export default function FlashcardPage() {
     const deltaX = swipeX;
     setSwipeX(0);
     setTimeout(() => { isSwiping.current = false; }, 50);
-    if (sortMode) {
-      // 仕分けモードでは左右どちらも「判定して次へ」。しきい値に届かなければ戻すだけ。
-      const verdict = getSwipeVerdict(deltaX);
-      if (verdict) commitVerdict(verdict);
-      return;
-    }
-    if (deltaX < -80) handleNext(true);
-    else if (deltaX > 80) handlePrev(true);
+    // 左右どちらのスワイプも「判定して次へ」。しきい値に届かなければ元に戻すだけ。
+    const verdict = getSwipeVerdict(deltaX);
+    if (verdict) commitVerdict(verdict);
   };
 
-  /** ドラッグ中に出す判定スタンプ。仕分けモードのときだけ。 */
-  const swipePreview = sortMode ? getSwipePreview(swipeX) : null;
+  /** ドラッグ中に出す判定スタンプ。 */
+  const swipePreview = getSwipePreview(swipeX);
 
   /* Keyboard nav */
   useEffect(() => {
@@ -547,25 +518,17 @@ export default function FlashcardPage() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (isAnimating) return;
       switch (e.key) {
-        // 仕分けモードでは左右キーもスワイプと同じ判定にする（キーボードでも同じ操作感にするため）
-        case 'ArrowLeft':
-          e.preventDefault();
-          if (sortMode) commitVerdict('unknown'); else handlePrev(true);
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          if (sortMode) commitVerdict('known'); else handleNext(true);
-          break;
-        case 'Backspace':
-          if (!sortMode) break;
-          e.preventDefault(); handleUndoSwipe(); break;
+        // 左右キーもスワイプと同じ判定にする（キーボードでも操作感を揃えるため）
+        case 'ArrowLeft': e.preventDefault(); commitVerdict('unknown'); break;
+        case 'ArrowRight': e.preventDefault(); commitVerdict('known'); break;
+        case 'Backspace': e.preventDefault(); handleUndoSwipe(); break;
         case ' ': case 'ArrowUp': case 'ArrowDown': e.preventDefault(); handleFlip(); break;
         case 'Escape': backToProject(); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAnimating, currentIndex, words.length, isFlipped, handlePrev, handleNext, handleFlip, backToProject, sortMode, commitVerdict, handleUndoSwipe]);
+  }, [isAnimating, currentIndex, words.length, isFlipped, handleFlip, backToProject, commitVerdict, handleUndoSwipe]);
 
   // handleNext/handlePrev は isAnimating などが変わるたびに再生成されるため、
   // ref 越しに呼ぶことで自動再生ループの useEffect を無駄に再起動させない。
@@ -834,7 +797,7 @@ export default function FlashcardPage() {
   }
 
   /* ---------- 仕分け終了（習得済み / 未習得の2つの山） ---------- */
-  if (sortMode && finished) {
+  if (finished) {
     const tally = countSwipes(swipeSession);
     const unknownIds = [...swipeSession.unknown];
     const unknownWords = unknownIds
@@ -947,25 +910,10 @@ export default function FlashcardPage() {
 
         {/* 流す単語の絞り込み。0件の軸は押せない（空の山札にしないため） */}
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            aria-pressed={sortMode}
-            onClick={toggleSortMode}
-            className={`flex h-[30px] shrink-0 items-center gap-1 rounded-full border-2 px-3 font-display text-[12px] font-extrabold transition-colors duration-100 ${
-              sortMode
-                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-surface)]'
-                : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'
-            }`}
-          >
-            <Icon name="swipe" size={14} filled={sortMode} />
-            仕分け
-          </button>
-          {sortMode && (
-            <span className="mr-1 font-mono text-[11px] font-bold tabular-nums">
-              <span style={{ color: 'var(--color-success)' }}>◯{swipeTally.known}</span>
-              <span style={{ color: 'var(--color-error)', marginLeft: 6 }}>✕{swipeTally.unknown}</span>
-            </span>
-          )}
+          <span className="mr-1 font-mono text-[11px] font-bold tabular-nums">
+            <span style={{ color: 'var(--color-success)' }}>◯{swipeTally.known}</span>
+            <span style={{ color: 'var(--color-error)', marginLeft: 6 }}>✕{swipeTally.unknown}</span>
+          </span>
           {FLASHCARD_FILTERS.map((option) => {
             const count = filterCounts[option.key];
             const active = option.key === deckFilter;
@@ -1093,53 +1041,37 @@ export default function FlashcardPage() {
           <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
         </div>
 
-        {sortMode ? (
-          <>
-            <div className="ds-fc-controls" style={{ marginTop: 18 }}>
-              <button
-                type="button"
-                className="ds-fc-big dunno"
-                style={{ color: VERDICT_TINT.unknown }}
-                onClick={() => commitVerdict('unknown')}
-              >
-                <Icon name="close" />覚えてない
-              </button>
-              <button type="button" className="ds-fc-big know" onClick={() => { triggerHaptic(); handleFlip(); }} aria-label="カードを回転">
-                <Icon name="cached" />回転
-              </button>
-              <button
-                type="button"
-                className="ds-fc-big dunno"
-                style={{ color: VERDICT_TINT.known }}
-                onClick={() => commitVerdict('known')}
-              >
-                <Icon name="check" />覚えてる
-              </button>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
-              <button
-                type="button"
-                onClick={handleUndoSwipe}
-                disabled={currentIndex === 0}
-                className="flex items-center gap-1 text-[12px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
-              >
-                <Icon name="undo" size={14} />1枚戻す
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="ds-fc-controls" style={{ marginTop: 18 }}>
-            <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handlePrev(); }}>
-              <Icon name="chevron_left" />前へ
-            </button>
-            <button type="button" className="ds-fc-big know" onClick={() => { triggerHaptic(); handleFlip(); }} aria-label="カードを回転">
-              <Icon name="cached" />回転
-            </button>
-            <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handleNext(); }}>
-              次へ<Icon name="chevron_right" />
-            </button>
-          </div>
-        )}
+        <div className="ds-fc-controls" style={{ marginTop: 18 }}>
+          <button
+            type="button"
+            className="ds-fc-big dunno"
+            style={{ color: VERDICT_TINT.unknown }}
+            onClick={() => commitVerdict('unknown')}
+          >
+            <Icon name="close" />覚えてない
+          </button>
+          <button type="button" className="ds-fc-big know" onClick={() => { triggerHaptic(); handleFlip(); }} aria-label="カードを回転">
+            <Icon name="cached" />回転
+          </button>
+          <button
+            type="button"
+            className="ds-fc-big dunno"
+            style={{ color: VERDICT_TINT.known }}
+            onClick={() => commitVerdict('known')}
+          >
+            <Icon name="check" />覚えてる
+          </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+          <button
+            type="button"
+            onClick={handleUndoSwipe}
+            disabled={currentIndex === 0}
+            className="flex items-center gap-1 text-[12px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
+          >
+            <Icon name="undo" size={14} />1枚戻す
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1160,24 +1092,13 @@ export default function FlashcardPage() {
           <div className="h-1 w-[120px] overflow-hidden rounded-sm bg-[rgba(26,26,26,0.08)]">
             <div className="h-full bg-[var(--solid-ink)]" style={{ width: `${((currentIndex + 1) / total) * 100}%` }} />
           </div>
-          {sortMode && (
-            <div className="flex items-center gap-2 font-mono text-[10px] font-bold tabular-nums">
-              <span style={{ color: 'var(--color-success)' }}>覚えてる {swipeTally.known}</span>
-              <span style={{ color: 'var(--color-error)' }}>覚えてない {swipeTally.unknown}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 font-mono text-[10px] font-bold tabular-nums">
+            <span style={{ color: 'var(--color-success)' }}>覚えてる {swipeTally.known}</span>
+            <span style={{ color: 'var(--color-error)' }}>覚えてない {swipeTally.unknown}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* スワイプ仕分け（右＝覚えてる / 左＝覚えてない）の入切 */}
-          <HeaderBtn
-            onClick={toggleSortMode}
-            active={sortMode}
-            aria-label={sortMode ? 'スワイプ仕分けをやめる' : 'スワイプで覚えてる・覚えてないを仕分ける'}
-          >
-            <Icon name="swipe" size={16} filled={sortMode} />
-          </HeaderBtn>
-
           {/* 流す単語の絞り込み（保存済み・間違えた など） */}
           <div className="relative">
             <HeaderBtn
@@ -1324,7 +1245,7 @@ export default function FlashcardPage() {
 
               {/* Tap hint */}
               <div className="mt-2 text-center text-[11px] font-semibold text-[var(--color-muted)]">
-                {sortMode ? 'タップで意味 · 左右にスワイプで仕分け' : 'タップで意味を見る'}
+                タップで意味 · 左右にスワイプで仕分け
               </div>
             </div>
 
@@ -1378,13 +1299,13 @@ export default function FlashcardPage() {
         {/* Swipe hints */}
         <div
           className="pointer-events-none absolute left-0.5 top-1/2 -translate-y-1/2"
-          style={{ color: sortMode ? VERDICT_TINT.unknown : 'var(--color-muted)' }}
+          style={{ color: VERDICT_TINT.unknown }}
         >
           <Icon name="chevron_left" size={20} />
         </div>
         <div
           className="pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2"
-          style={{ color: sortMode ? VERDICT_TINT.known : 'var(--color-muted)' }}
+          style={{ color: VERDICT_TINT.known }}
         >
           <Icon name="chevron_right" size={20} />
         </div>
@@ -1409,22 +1330,19 @@ export default function FlashcardPage() {
         <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
       </div>
 
-      {/* カード送り・回転はスワイプとカードのタップに任せ、下段のボタンは置かない。
-          仕分けモードの取り消しだけは指の届く位置に残す。 */}
+      {/* 判定はスワイプ、回転はカードのタップに任せ、下段は取り消しだけ残す。 */}
       <div
         className="flex shrink-0 flex-col items-center gap-2 px-5 pt-3"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
-        {sortMode && (
-          <button
-            type="button"
-            onClick={handleUndoSwipe}
-            disabled={currentIndex === 0}
-            className="flex items-center gap-1 text-[11.5px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
-          >
-            <Icon name="undo" size={14} />1枚戻す
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleUndoSwipe}
+          disabled={currentIndex === 0}
+          className="flex items-center gap-1 text-[11.5px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
+        >
+          <Icon name="undo" size={14} />1枚戻す
+        </button>
       </div>
 
     </div>
