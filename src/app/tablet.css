@@ -193,4 +193,37 @@
   .ds-live-shell .ds-scroll { padding-left: 22px; padding-right: 22px; }
   .ds-live-shell .ds-scroll.flush { padding-left: 0; padding-right: 0; }
   .ds-live-shell .ds-top { padding-left: 22px; padding-right: 22px; }
+
+  /*
+   * 右レールはタブレットでは常に畳む。
+   *
+   * 縦向きは desktop.css の 1180px ルールで畳まれるが、横向き (1194〜1366px) は
+   * ビューポート幅がしきい値を超えるので残ってしまう。しかも判定に使われる幅は
+   * zoom 前のビューポートなので、実際の作業幅 (ここでは 1/1.15) とはズレる。
+   * 320px のレールが載ると本文が画面の半分を切るため、タッチ端末では一律で外す。
+   */
+  .ds-live-shell .ds-rail-grid,
+  .ds-live-shell .ds-rail-grid--left { grid-template-columns: minmax(0, 1fr); }
+  .ds-live-shell .ds-rail-side { position: static; }
+}
+
+/*
+ * 横向きタブレット向けの共有ライブラリのヘッダー。
+ *
+ * このヘッダーは「本文幅 + レール幅(320px)」の2カラムを組み、左カラムの中では
+ * 検索窓を中央に置くために [1fr][280〜420px][1fr] の3カラムを組んでいる。
+ * 見出しの列は余りの 1fr なので、幅が足りないと真っ先に潰れる。実測では
+ * iPad Pro 13" 横 (1366x1024) で見出し列が 52px まで潰れて「共有ライブラリ」が
+ * 1文字ずつ縦に折り返し、ヘッダーだけで画面の 47% (484px) を占めていた。
+ *
+ * 横向きは縦積みするほど狭くはないので、中央寄せをやめて「見出し + 検索窓」を
+ * 1行に置き、右カラムもボタンの実寸 (auto) に詰める。
+ * 縦向きは desktop.css の 1180px ルールで縦積みになるためここでは触らない。
+ */
+@media (min-width: 1024px) and (orientation: landscape) and (min-height: 800px) and (pointer: coarse) {
+  .ds-live-shell .ds-shared-top { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
+  /* 見出し側を max-content にして、幅が減るときは検索窓から先に詰まるようにする
+     (auto のままだと 11" 横 (1194x834) で見出しが2行に折り返した) */
+  .ds-live-shell .ds-shared-top-main { grid-template-columns: max-content minmax(200px, 420px); gap: 12px; }
+  .ds-live-shell .ds-shared-top-spacer { display: none; }
 }
