@@ -434,7 +434,7 @@ function DesktopProfileView({
       </DesktopTopbar>
 
       <div className="ds-scroll">
-        <div style={{ maxWidth: 1160, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1440, margin: '0 auto' }}>
           {/* プロフィール: 左にアバター + 名前、右にフォロー数 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 24, paddingTop: 6, alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
