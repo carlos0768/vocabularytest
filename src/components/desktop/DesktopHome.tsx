@@ -19,6 +19,7 @@ import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { GrammarBook } from '@/components/desktop/DesktopGrammar';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
+import type { BinderIconMap } from '@/lib/binders/icons';
 import { buildHomeShortcutTiles, homeShortcutContentSlots } from '@/lib/home/shortcut-tiles';
 import {
   prefetchGroupOverview,
@@ -73,6 +74,7 @@ export function DesktopHomeView({
   goal,
   grammarBooks = [],
   recommendedBooks = [],
+  binderIcons = {},
   onStartScan,
   showUpgrade = false,
   onDismissUpgrade,
@@ -86,6 +88,8 @@ export function DesktopHomeView({
   goal: DesktopHomeGoal;
   grammarBooks?: GrammarBook[];
   recommendedBooks?: HomeRecommendedBook[];
+  /** バインダー名 -> アイコン画像 (/binder/[name]/settings で設定)。飾りなので無くてもよい */
+  binderIcons?: BinderIconMap;
   onStartScan: () => void;
   showUpgrade?: boolean;
   onDismissUpgrade?: () => void;
@@ -190,7 +194,7 @@ export function DesktopHomeView({
                   </div>
                   <div className="ds-tile-row">
                     {homeBinders.map((binder) => (
-                      <DesktopBinderTile key={binder.name} name={binder.name} count={binder.count} />
+                      <DesktopBinderTile key={binder.name} name={binder.name} count={binder.count} iconImage={binderIcons[binder.name] ?? null} />
                     ))}
                   </div>
                 </div>
@@ -502,10 +506,21 @@ function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
 }
 
 // バインダー (フォルダ) タイル。DesktopBookTile と同じ ds-book シェル・配色
-// (desktopThumbColor) で、キーは binder 名。
-function DesktopBinderTile({ name, count }: { name: string; count: number }) {
+// (desktopThumbColor) で、キーは binder 名。アイコン画像が設定されていれば
+// モバイルのホームと同じくそれを面に敷く。
+function DesktopBinderTile({ name, count, iconImage }: { name: string; count: number; iconImage?: string | null }) {
   return (
-    <Link href={`/binder/${encodeURIComponent(name)}`} className="ds-book" style={{ background: desktopThumbColor(name) }}>
+    <Link
+      href={`/binder/${encodeURIComponent(name)}`}
+      className="ds-book"
+      style={{
+        background: iconImage ? undefined : desktopThumbColor(name),
+        backgroundImage: iconImage ? `url(${iconImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        textShadow: iconImage ? '1px 1px 0 rgba(0,0,0,0.35)' : undefined,
+      }}
+    >
       <div className="bk-spine" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <Icon name="folder" filled style={{ fontSize: 15 }} />

@@ -624,6 +624,7 @@ export function HomeClient() {
         goal={{ state: goalState, count: goalCount }}
         grammarBooks={grammarBooks}
         recommendedBooks={visibleRecommendedBooks}
+        binderIcons={binderIcons}
         onStartScan={() => setDesktopCreateOpen(true)}
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
