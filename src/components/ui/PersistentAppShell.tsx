@@ -36,6 +36,14 @@ const HIDE_BOTTOM_NAV_PATHS = [
   '/binder/',
 ];
 
+// デスクトップのヘッダー(ロゴ + ピル型タブ)を出さないパス。
+// 単語帳詳細は画面上部に戻るボタン付きの自前ヘッダーを持つので、共通ヘッダーは重ねない。
+const HIDE_DESKTOP_HEADER_PATHS = ['/project/'];
+
+function shouldHideDesktopHeader(pathname: string): boolean {
+  return HIDE_DESKTOP_HEADER_PATHS.some((p) => pathname.startsWith(p));
+}
+
 function shouldHideShell(pathname: string): boolean {
   return NO_SHELL_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
 }
@@ -102,10 +110,11 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   }
 
   const hideNav = shouldHideBottomNav(pathname);
+  const hideDesktopHeader = shouldHideDesktopHeader(pathname);
 
   return (
     <div className="ds-live-shell relative">
-      <DesktopHeader />
+      {!hideDesktopHeader && <DesktopHeader />}
       <div className="ds-live-main relative">
         {children}
       </div>
