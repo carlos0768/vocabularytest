@@ -72,7 +72,7 @@ function ToolButton({
 }
 
 const ACTION_BUTTON: React.CSSProperties = {
-  display: 'flex', height: 40, alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 14px',
+  display: 'flex', height: 46, alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 16px',
   borderRadius: 10, border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--color-ink)',
   fontSize: 13, fontWeight: 700, boxShadow: '2px 2px 0 var(--solid-ink)', cursor: 'pointer',
   textDecoration: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap',
@@ -272,57 +272,6 @@ export function DesktopProjectDetailView({
             {project.title}
           </div>
         </div>
-      {/* クイズ / カード / 単語を追加: 上部バーの右側に置く */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {counts.total > 0 ? (
-          <Link
-            href={`/quiz/${projectId}`}
-            className="ds-project-action ds-project-action--accent"
-            style={{ ...ACTION_BUTTON, border: '2px solid var(--color-accent)', background: 'var(--color-accent)', color: '#fff', fontSize: 14 }}
-          >
-            <Icon name="check" size={16} />
-            クイズを始める
-          </Link>
-        ) : (
-          <span style={{ ...ACTION_BUTTON, opacity: 0.45, cursor: 'not-allowed', boxShadow: 'none' }}>
-            <Icon name="check" size={16} />
-            クイズを始める
-          </span>
-        )}
-        <Link href={`/flashcard/${projectId}`} className="ds-project-action" style={ACTION_BUTTON}>
-          <Icon name="style" size={18} />
-          カード
-        </Link>
-        <div ref={addMenuRef} style={{ position: 'relative' }}>
-          <button type="button" className="ds-project-action" style={ACTION_BUTTON} onClick={() => setAddMenuOpen((v) => !v)} aria-expanded={addMenuOpen}>
-            <Icon name="add" size={20} />
-            単語を追加
-          </button>
-          {addMenuOpen && (
-            <>
-              <button
-                type="button"
-                className="fixed inset-0 z-40 cursor-default bg-transparent"
-                aria-label="メニューを閉じる"
-                onClick={() => setAddMenuOpen(false)}
-              />
-              <div
-                className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
-                style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
-              >
-                <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onScan(); }}>
-                  <Icon name="photo_camera" style={{ fontSize: 18 }} />
-                  スキャンで追加
-                </button>
-                <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onManualAdd(); }}>
-                  <Icon name="edit" style={{ fontSize: 18 }} />
-                  手動で追加
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
         {onShare && (
           <button type="button" className="ds-iconbtn-round sm" onClick={onShare} aria-label="共有" title="共有">
             <Icon name="ios_share" />
@@ -371,7 +320,7 @@ export function DesktopProjectDetailView({
       <div className={`ds-scroll ds-project-detail-grid${railCollapsed ? ' ds-project-detail-grid--rail-collapsed' : ''}`}>
         <div style={{ minWidth: 0 }}>
           {/* アイコン + タイトル + 習得度 */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '8px 4px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '22px 4px 12px' }}>
             <div
               style={{
                 display: 'flex', height: 72, width: 72, flexShrink: 0, alignItems: 'center', justifyContent: 'center',
@@ -396,6 +345,58 @@ export function DesktopProjectDetailView({
               <div style={{ marginTop: 10, maxWidth: 520 }}>
                 <StackedBar total={counts.total} m={counts.mastered} a={activeCount} l={learningCount} n={counts.newCount} />
               </div>
+            </div>
+          </div>
+
+          {/* クイズ / カード / 単語を追加 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px 16px' }}>
+            {counts.total > 0 ? (
+              <Link
+                href={`/quiz/${projectId}`}
+                className="ds-project-action ds-project-action--accent"
+                style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360, border: '2px solid var(--color-accent)', background: 'var(--color-accent)', color: '#fff', fontSize: 14 }}
+              >
+                <Icon name="check" size={16} />
+                クイズを始める
+              </Link>
+            ) : (
+              <span style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360, opacity: 0.45, cursor: 'not-allowed', boxShadow: 'none' }}>
+                <Icon name="check" size={16} />
+                クイズを始める
+              </span>
+            )}
+            <Link href={`/flashcard/${projectId}`} className="ds-project-action" style={ACTION_BUTTON}>
+              <Icon name="style" size={18} />
+              カード
+            </Link>
+            <div ref={addMenuRef} style={{ position: 'relative' }}>
+              <button type="button" className="ds-project-action" style={ACTION_BUTTON} onClick={() => setAddMenuOpen((v) => !v)} aria-expanded={addMenuOpen}>
+                <Icon name="add" size={20} />
+                単語を追加
+              </button>
+              {addMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-40 cursor-default bg-transparent"
+                    aria-label="メニューを閉じる"
+                    onClick={() => setAddMenuOpen(false)}
+                  />
+                  <div
+                    className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                    style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+                  >
+                    <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onScan(); }}>
+                      <Icon name="photo_camera" style={{ fontSize: 18 }} />
+                      スキャンで追加
+                    </button>
+                    <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onManualAdd(); }}>
+                      <Icon name="edit" style={{ fontSize: 18 }} />
+                      手動で追加
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
