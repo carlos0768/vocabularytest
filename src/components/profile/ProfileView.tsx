@@ -115,6 +115,7 @@ export function ProfileView({
     <>
     <DesktopProfileView
       title={title}
+      backHref={backHref}
       editHref={editHref}
       settingsHref={settingsHref}
       name={name}
@@ -373,6 +374,7 @@ type ProfileDerivedStats = {
 
 function DesktopProfileView({
   title,
+  backHref,
   editHref,
   settingsHref,
   name,
@@ -392,6 +394,7 @@ function DesktopProfileView({
   derived,
 }: {
   title: string;
+  backHref?: string;
   editHref?: string;
   settingsHref?: string;
   name: string;
@@ -420,7 +423,7 @@ function DesktopProfileView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title={title} crumb="ACCOUNT">
+      <DesktopTopbar title={title} crumb="ACCOUNT" back={Boolean(backHref)} backFallbackHref={backHref ?? '/'}>
         {editHref && (
           <DesktopButton href={editHref} icon="edit" className="pill">
             編集

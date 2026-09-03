@@ -7,15 +7,20 @@
  * アイコン）＋ 2×2 の大きなタイル（ランキング・単語帳・対戦・単語一覧）だけ。
  * 各機能の中身はそれぞれの専用ページに置き、このページには積まない。
  *
- * デスクトップ（lg 以上）は従来どおり ds-top / ds-scroll の2カラム表示。
+ * デスクトップ（lg 以上）は ds-top（戻る / アイコン / 名前 / メンバー / 招待）＋
+ * 4枚のハブタイル → KPI → 単語帳の本棚 と、右レールにランキング / メンバー /
+ * 苦戦中 を置く2カラム表示。
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { DesktopButton } from '@/components/desktop/DesktopChrome';
-import { GroupHubTiles, buildGroupHubTiles } from '@/components/groups/GroupHubTiles';
+import { DesktopBackButton } from '@/components/desktop/DesktopChrome';
+import { GroupAvatar } from '@/components/groups/GroupAvatar';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { profileAvatarColor } from '@/components/profile/ProfileView';
+import { GroupHubTiles, buildGroupHubTiles, type GroupHubTile } from '@/components/groups/GroupHubTiles';
 import { GroupLeaderboard, findViewerRank } from '@/components/groups/GroupLeaderboard';
 import { GroupRoomHeader } from '@/components/groups/GroupRoomHeader';
 import { GroupTopThree } from '@/components/groups/GroupTopThree';
@@ -146,23 +151,29 @@ export default function GroupPage() {
     <>
       {/* Desktop */}
       <div className="hidden h-full min-h-0 flex-col lg:flex">
-        <div className="ds-top">
+        <div className="ds-top" style={{ gap: 12 }}>
+          <DesktopBackButton fallbackHref="/shared" />
+          {group && <GroupAvatar group={group} size={40} />}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="crumb">共有ライブラリ / グループ</div>
-            <h1 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {group?.name ?? 'グループ'}
-            </h1>
+            <div className="crumb">
+              GROUP{group ? ` · ${group.memberCount}人 · ${group.projectCount}冊` : ''}
+            </div>
+            <h1>{group?.name ?? 'グループ'}</h1>
           </div>
           {group && (
             <>
-              <button type="button" className="ds-btn" onClick={() => void copyInvite()} title="招待コードをコピー">
+              <DesktopMemberStack members={members} href={membersHref} />
+              <button type="button" className="ds-btn pill" onClick={() => void copyInvite()} title="招待コードをコピー">
                 <Icon name="content_copy" />
-                <span className="mono">{group.inviteCode}</span>
+                <span className="tnum">{group.inviteCode}</span>
               </button>
-              <DesktopButton variant="dark" icon="ios_share" onClick={() => setInviteShareOpen(true)}>
+              <button type="button" className="ds-btn dark pill" onClick={() => setInviteShareOpen(true)}>
+                <Icon name="ios_share" />
                 シェア
-              </DesktopButton>
-              <DesktopButton href={settingsHref} icon="settings" variant="ghost" title="グループ設定">{''}</DesktopButton>
+              </button>
+              <Link href={settingsHref} className="ds-iconbtn-round sm" aria-label="グループ設定" title="グループ設定">
+                <Icon name="settings" />
+              </Link>
             </>
           )}
         </div>
@@ -171,22 +182,44 @@ export default function GroupPage() {
             loading ? (
               <LoadingState />
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
-                <GroupWordbooksSection groupId={groupId} projects={projects} />
-                <div className="flex flex-col gap-5">
-                  <DesktopSection icon="emoji_events" title="今週のランキング" accent="#FFC800" href={`${groupPath}/ranking`}>
-                    <GroupLeaderboard leaderboard={leaderboard.slice(0, 5)} />
-                  </DesktopSection>
-                  <DesktopSection
-                    icon="local_fire_department"
-                    title="みんなが苦戦中"
-                    accent="#CC4D59"
-                    href={`${groupPath}/words?filter=struggling`}
-                  >
-                    <MissedWordList missedWords={missedWords} totalCount={missedWordsTotalCount} />
-                  </DesktopSection>
+              <>
+                {/* ハブ: ランキング / 単語帳 / 対戦 / 単語一覧 */}
+                <div className="ds-hub-grid">
+                  {tiles.map((tile) => (
+                    <DesktopHubTile key={tile.key} tile={tile} />
+                  ))}
                 </div>
-              </div>
+
+                {/* 今週の数字 */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, paddingTop: 14 }}>
+                  <GroupKpi icon="emoji_events" iconColor="#FFC800" label="あなたの順位" value={viewerRank ? `${viewerRank}` : '–'} suffix={viewerRank ? '位' : ''} />
+                  <GroupKpi icon="bolt" iconColor="var(--color-accent)" label="今週のあなた" value={`${viewerQuizCount}`} suffix="問" />
+                  <GroupKpi icon="groups" iconColor="var(--color-muted)" label="今週のグループ" value={`${totalQuiz}`} suffix="問" />
+                  <GroupKpi icon="menu_book" iconColor="var(--color-muted)" label="共有中の単語" value={`${totalWords}`} suffix="語" />
+                </div>
+
+                <div className="ds-two-col" style={{ gridTemplateColumns: 'minmax(0, 1fr) 340px', paddingTop: 22 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <GroupWordbooksSection groupId={groupId} projects={projects} />
+                  </div>
+                  <div className="ds-rail">
+                    <DesktopRailCard eyebrow="THIS WEEK" title="今週のランキング" href={`${groupPath}/ranking`}>
+                      <GroupLeaderboard leaderboard={leaderboard.slice(0, 5)} />
+                      {leaderboard.length > 0 && (
+                        <p className="muted" style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 10.5, fontWeight: 700 }}>
+                          毎週月曜0時にリセット · 今週このグループで {totalQuiz} 問
+                        </p>
+                      )}
+                    </DesktopRailCard>
+                    <DesktopRailCard eyebrow="MEMBERS" title={`メンバー ${members.length}人`} href={membersHref}>
+                      <DesktopMemberList members={members} />
+                    </DesktopRailCard>
+                    <DesktopRailCard eyebrow="STRUGGLING" title="みんなが苦戦中" href={`${groupPath}/words?filter=struggling`}>
+                      <MissedWordList missedWords={missedWords} totalCount={missedWordsTotalCount} />
+                    </DesktopRailCard>
+                  </div>
+                </div>
+              </>
             )
           ))}
         </div>
@@ -277,43 +310,136 @@ function ActionPill({
   );
 }
 
-/* ---------------- デスクトップ側（従来レイアウトを維持） ---------------- */
+/* ---------------- デスクトップ側 ---------------- */
 
-function DesktopSection({
-  icon,
-  title,
-  accent,
-  href,
-  children,
-}: {
-  icon: string;
-  title: string;
-  accent: string;
-  href: string;
-  children: React.ReactNode;
-}) {
+/** ハブタイル。モバイルの 2×2 と同じ面（グラデーション + 透かしアイコン）を横1列に並べる */
+function DesktopHubTile({ tile }: { tile: GroupHubTile }) {
+  const ink = tile.foreground === 'dark';
+  const text = ink ? '#1a1a1a' : '#fff';
   return (
-    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
-      <div className="mb-3 flex items-center gap-2.5">
-        <span
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"
-          style={{ backgroundColor: accent }}
-        >
-          <Icon name={icon} size={18} />
-        </span>
-        <h2 className="min-w-0 flex-1 font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">
-          {title}
-        </h2>
-        <Link
-          href={href}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1.5 font-display text-[12px] font-extrabold text-[var(--solid-ink)]"
-        >
+    <Link
+      href={tile.href}
+      className="ds-hub-tile"
+      style={{ background: tile.background, color: text }}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-1/2"
+        style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0))' }}
+      />
+      <Icon name={tile.icon} size={96} filled aria-hidden className="pointer-events-none absolute -bottom-6 -right-4 opacity-[0.18]" />
+      <span
+        className="ic"
+        style={{
+          borderColor: ink ? '#1a1a1a' : 'rgba(255,255,255,0.7)',
+          background: ink ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.22)',
+        }}
+      >
+        <Icon name={tile.icon} size={20} />
+      </span>
+      <span style={{ position: 'relative', zIndex: 1 }}>
+        <span className="lb">{tile.label}</span>
+        <span className="dt">{tile.detail}</span>
+      </span>
+    </Link>
+  );
+}
+
+function GroupKpi({ icon, iconColor, label, value, suffix }: { icon: string; iconColor: string; label: string; value: string; suffix: string }) {
+  return (
+    <div style={{ borderRadius: 12, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)', padding: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: iconColor }}>
+        <Icon name={icon} size={13} filled />
+        <span className="ds-eyebrow" style={{ fontSize: 9 }}>{label}</span>
+      </div>
+      <div style={{ marginTop: 6, display: 'flex', alignItems: 'baseline', gap: 3 }}>
+        <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, lineHeight: 1, color: 'var(--solid-ink)' }}>{value}</span>
+        {suffix && <span className="muted" style={{ fontSize: 11, fontWeight: 700 }}>{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+function DesktopRailCard({ eyebrow, title, href, children }: { eyebrow: string; title: string; href: string; children: React.ReactNode }) {
+  return (
+    <section className="ds-card" style={{ padding: '16px 18px', boxShadow: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="ds-eyebrow">{eyebrow}</div>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: 'var(--solid-ink)' }}>{title}</h2>
+        </div>
+        <Link href={href} className="ds-see-all">
           すべて見る
-          <Icon name="chevron_right" size={14} />
+          <Icon name="chevron_right" />
         </Link>
       </div>
       {children}
     </section>
+  );
+}
+
+const MAX_STACK = 5;
+
+/** トップバー右のメンバーアイコン（重ねて表示、クリックでメンバー一覧） */
+function DesktopMemberStack({ members, href }: { members: StudyGroupMember[]; href: string }) {
+  if (members.length === 0) return null;
+  const visible = members.slice(0, MAX_STACK);
+  const overflow = members.length - visible.length;
+  return (
+    <Link href={href} className="ds-member-stack" aria-label={`メンバー ${members.length}人を見る`} title="メンバー">
+      {visible.map((member) => (
+        <ProfileAvatar
+          key={member.userId}
+          avatarUrl={member.avatarUrl}
+          initial={memberLabel(member).charAt(0).toUpperCase()}
+          color={profileAvatarColor(member.accountId ?? member.userId)}
+          size={30}
+          radius={15}
+          fontSize={12}
+        />
+      ))}
+      {overflow > 0 && <span className="more">+{overflow}</span>}
+    </Link>
+  );
+}
+
+function memberLabel(member: StudyGroupMember): string {
+  return member.username ?? (member.accountId ? `@${member.accountId}` : '匿名');
+}
+
+function DesktopMemberList({ members }: { members: StudyGroupMember[] }) {
+  if (members.length === 0) return <EmptyRow message="メンバーを読み込み中..." />;
+  const shown = members.slice(0, 8);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {shown.map((member) => {
+        const label = memberLabel(member);
+        return (
+          <div key={member.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: '1px solid var(--color-border)' }}>
+            <ProfileAvatar
+              avatarUrl={member.avatarUrl}
+              initial={label.charAt(0).toUpperCase()}
+              color={profileAvatarColor(member.accountId ?? member.userId)}
+              size={30}
+              radius={15}
+              fontSize={12}
+            />
+            <span style={{ minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 800, color: member.isViewer ? 'var(--color-accent)' : 'var(--solid-ink)' }}>
+              {label}
+              {member.isViewer && <span className="muted" style={{ marginLeft: 4, fontSize: 10 }}>あなた</span>}
+            </span>
+            {member.role === 'owner' && (
+              <span style={{ flexShrink: 0, borderRadius: 999, border: '1px solid var(--color-border)', padding: '2px 6px', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+                owner
+              </span>
+            )}
+          </div>
+        );
+      })}
+      {members.length > shown.length && (
+        <p className="muted" style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 11, fontWeight: 700 }}>ほか {members.length - shown.length} 人</p>
+      )}
+    </div>
   );
 }
 
@@ -361,33 +487,25 @@ function MissedWordList({
   );
 }
 
-// デスクトップ用: グループの単語帳をそのままグリッドで表示する。
+// デスクトップ用: グループの単語帳をホームの本棚と同じ正方形タイルで並べる。
 // 共有・解除の管理は従来どおり本棚ページで行う。
 function GroupWordbooksSection({ groupId, projects }: { groupId: string; projects: SharedProjectCard[] }) {
   return (
     <section>
-      <div className="mb-3 flex items-center gap-2.5">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#F5A623] text-white">
-          <Icon name="auto_stories" size={18} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">単語帳</h2>
-          <div className="text-[11px] font-bold text-[var(--color-muted)]">
-            {projects.length > 0 ? `みんなの単語帳 ${projects.length}冊` : 'みんなの単語帳が並ぶ場所'}
-          </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 2px 12px' }}>
+        <div>
+          <div className="ds-eyebrow">SHARED BOOKS</div>
+          <h2 className="ds-h2">みんなの単語帳<span className="muted" style={{ marginLeft: 8, fontSize: 12, fontWeight: 700 }}>{projects.length}冊</span></h2>
         </div>
-        <Link
-          href={`/groups/${encodeURIComponent(groupId)}/bookshelf`}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1.5 font-display text-[12px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
+        <Link href={`/groups/${encodeURIComponent(groupId)}/bookshelf`} className="ds-btn pill">
+          <Icon name="library_add" />
           共有・管理
-          <Icon name="chevron_right" size={14} />
         </Link>
       </div>
       {projects.length === 0 ? (
         <EmptyRow message="まだ単語帳がありません。最初の1冊を共有しよう！" />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
           {projects.map((card) => (
             <GroupBookTile key={card.project.id} card={card} />
           ))}
@@ -399,33 +517,24 @@ function GroupWordbooksSection({ groupId, projects }: { groupId: string; project
 
 function GroupBookTile({ card }: { card: SharedProjectCard }) {
   const href = card.project.shareId ? `/share/${card.project.shareId}` : '#';
+  const hasImage = Boolean(card.project.iconImage);
   return (
     <Link
       href={href}
       onClick={() => triggerHaptic()}
-      className="block overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] transition-all duration-100 hover:-translate-y-0.5 active:translate-y-0"
+      className="ds-book"
+      style={{
+        background: hasImage ? undefined : thumbColor(card.project.id),
+        backgroundImage: hasImage ? `url(${card.project.iconImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
     >
-      <div
-        className="relative flex h-[92px] items-center justify-center bg-cover bg-center"
-        style={{
-          backgroundColor: thumbColor(card.project.id),
-          backgroundImage: card.project.iconImage ? `url(${card.project.iconImage})` : undefined,
-        }}
-      >
-        {!card.project.iconImage && (
-          <span className="font-display text-[30px] font-extrabold text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.25)]">
-            {card.project.title.charAt(0)}
-          </span>
-        )}
-        <span className="absolute bottom-1.5 right-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2 py-0.5 font-mono text-[10px] font-extrabold tabular-nums text-[var(--solid-ink)]">
-          {card.wordCount ?? 0}語
-        </span>
-      </div>
-      <div className="border-t-2 border-[var(--solid-ink)] p-2.5">
-        <div className="line-clamp-2 font-display text-[13px] font-extrabold leading-snug text-[var(--solid-ink)]">
-          {card.project.title}
-        </div>
-        <div className="mt-1 truncate text-[10px] font-bold text-[var(--color-muted)]">
+      <div className="bk-spine" />
+      <div className="bk-title" style={{ paddingLeft: 0, textShadow: hasImage ? '1px 1px 0 rgba(0,0,0,0.35)' : undefined }}>{card.project.title}</div>
+      <div>
+        <div className="bk-n">{card.wordCount ?? 0}<span className="u">語</span></div>
+        <div className="bk-foot" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {card.ownerUsername ? `@${card.ownerUsername}` : '共有ユーザー'}
         </div>
       </div>
