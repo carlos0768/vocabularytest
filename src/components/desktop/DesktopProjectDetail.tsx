@@ -261,64 +261,64 @@ export function DesktopProjectDetailView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
+      {/* 戻る / BOOK / 共有 / その他: スクロールしても上に固定される */}
+      <div className="ds-top" style={{ gap: 10 }}>
+        <button type="button" className="ds-iconbtn-round sm" onClick={goBack} aria-label="戻る" title="戻る">
+          <Icon name="arrow_back" />
+        </button>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="ds-eyebrow" style={{ fontSize: 9, letterSpacing: '0.08em' }}>BOOK</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, lineHeight: 1.2, color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {project.title}
+          </div>
+        </div>
+        {onShare && (
+          <button type="button" className="ds-iconbtn-round sm" onClick={onShare} aria-label="共有" title="共有">
+            <Icon name="ios_share" />
+          </button>
+        )}
+        {/* 「...」メニュー: 名称変更 / バインダー設定 / 削除 */}
+        <div ref={moreMenuRef} style={{ position: 'relative' }}>
+          <button type="button" className="ds-iconbtn-round sm" onClick={() => setMoreMenuOpen((v) => !v)} aria-label="その他の操作" title="その他の操作">
+            <Icon name="more_horiz" />
+          </button>
+          {moreMenuOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-40 cursor-default bg-transparent"
+                aria-label="メニューを閉じる"
+                onClick={() => setMoreMenuOpen(false)}
+              />
+              <div
+                className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+              >
+                <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onRename(); }}>
+                  <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
+                  名称変更
+                </button>
+                <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onSetBinder(); }}>
+                  <Icon name="folder" style={{ fontSize: 18 }} />
+                  バインダー設定
+                </button>
+                <button
+                  type="button"
+                  className={MENU_ITEM}
+                  style={{ color: 'var(--color-error, #cc4d59)' }}
+                  onClick={() => { setMoreMenuOpen(false); onDeleteProject(); }}
+                >
+                  <Icon name="delete" style={{ fontSize: 18 }} />
+                  単語帳を削除
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className={`ds-scroll ds-project-detail-grid${railCollapsed ? ' ds-project-detail-grid--rail-collapsed' : ''}`}>
         <div style={{ minWidth: 0 }}>
-          {/* 戻る / BOOK / 共有 / その他 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button type="button" className="ds-iconbtn-round sm" onClick={goBack} aria-label="戻る" title="戻る">
-              <Icon name="arrow_back" />
-            </button>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="ds-eyebrow" style={{ fontSize: 9, letterSpacing: '0.08em' }}>BOOK</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, lineHeight: 1.2, color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {project.title}
-              </div>
-            </div>
-            {onShare && (
-              <button type="button" className="ds-iconbtn-round sm" onClick={onShare} aria-label="共有" title="共有">
-                <Icon name="ios_share" />
-              </button>
-            )}
-            {/* 「...」メニュー: 名称変更 / バインダー設定 / 削除 */}
-            <div ref={moreMenuRef} style={{ position: 'relative' }}>
-              <button type="button" className="ds-iconbtn-round sm" onClick={() => setMoreMenuOpen((v) => !v)} aria-label="その他の操作" title="その他の操作">
-                <Icon name="more_horiz" />
-              </button>
-              {moreMenuOpen && (
-                <>
-                  <button
-                    type="button"
-                    className="fixed inset-0 z-40 cursor-default bg-transparent"
-                    aria-label="メニューを閉じる"
-                    onClick={() => setMoreMenuOpen(false)}
-                  />
-                  <div
-                    className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
-                    style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
-                  >
-                    <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onRename(); }}>
-                      <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
-                      名称変更
-                    </button>
-                    <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onSetBinder(); }}>
-                      <Icon name="folder" style={{ fontSize: 18 }} />
-                      バインダー設定
-                    </button>
-                    <button
-                      type="button"
-                      className={MENU_ITEM}
-                      style={{ color: 'var(--color-error, #cc4d59)' }}
-                      onClick={() => { setMoreMenuOpen(false); onDeleteProject(); }}
-                    >
-                      <Icon name="delete" style={{ fontSize: 18 }} />
-                      単語帳を削除
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
           {/* アイコン + タイトル + 習得度 */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '22px 4px 12px' }}>
             <div

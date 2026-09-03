@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
@@ -176,22 +176,43 @@ export function DesktopTopbar({
   title,
   crumb,
   leading,
+  back = true,
+  backFallbackHref = '/',
   children,
 }: {
   title: string;
   crumb?: string;
+  /** 左端に置く任意の要素。指定したときは既定の戻るボタンを出さない */
   leading?: ReactNode;
+  /** 戻るボタン。タブの起点になるページ（共有・アカウントなど）だけ false にする */
+  back?: boolean;
+  /** 履歴が無いとき（直接URLを開いたとき）の戻り先 */
+  backFallbackHref?: string;
   children?: ReactNode;
 }) {
   return (
     <div className="ds-top">
-      {leading}
+      {leading ?? (back && <DesktopBackButton fallbackHref={backFallbackHref} />)}
       <div style={{ flex: 1, minWidth: 0 }}>
         {crumb && <div className="crumb">{crumb}</div>}
         <h1>{title}</h1>
       </div>
       {children}
     </div>
+  );
+}
+
+/** 丸い戻るボタン。直前の画面に戻り、履歴が無ければ fallbackHref へ */
+export function DesktopBackButton({ fallbackHref = '/', className }: { fallbackHref?: string; className?: string }) {
+  const router = useRouter();
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push(fallbackHref);
+  };
+  return (
+    <button type="button" className={cn('ds-iconbtn-round sm', className)} onClick={goBack} aria-label="戻る" title="戻る">
+      <Icon name="arrow_back" />
+    </button>
   );
 }
 

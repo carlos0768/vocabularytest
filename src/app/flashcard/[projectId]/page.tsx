@@ -77,33 +77,6 @@ function HeaderBtn({
   );
 }
 
-/* ---------- Action chip ---------- */
-function ActionChip({
-  icon,
-  label,
-  tint = 'var(--solid-ink)',
-  filled,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  tint?: string;
-  filled?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <button type="button" onClick={onClick} className="flex flex-col items-center gap-[5px]">
-      <div
-        className="flex h-[42px] w-[42px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]"
-        style={{ color: tint }}
-      >
-        <Icon name={icon} size={16} filled={filled} />
-      </div>
-      <span className="text-[10px] font-semibold text-[var(--color-muted)]">{label}</span>
-    </button>
-  );
-}
-
 /* ---------- スワイプ仕分けのスタンプ（覚えてる / 覚えてない） ---------- */
 const VERDICT_TINT: Record<SwipeVerdict, string> = {
   known: 'var(--color-success)',
@@ -132,12 +105,6 @@ function SwipeStamp({ verdict, intensity }: { verdict: SwipeVerdict; intensity: 
 // 自動再生: 英語読み上げ後の間、日本語読み上げ後に次のカードへ進むまでの間 (ms)
 const AUTOPLAY_GAP_MS = 500;
 const AUTOPLAY_NEXT_DELAY_MS = 1200;
-
-function nextWordStatus(current: string): 'new' | 'review' | 'mastered' {
-  if (current === 'new') return 'review';
-  if (current === 'review') return 'mastered';
-  return 'new';
-}
 
 // フラッシュカードはクイズと同じ優先度順（sortWordsByPriority）でカードを並べる。
 // 表示順はクイズ出題順と常に一致し、状態保存は行わない。ロジックはすべて
@@ -664,25 +631,6 @@ export default function FlashcardPage() {
     setAllWords(prev => prev.map(w => (w.id === currentWord.id ? { ...w, isFavorite: newFavorite } : w)));
   };
 
-  const handleCycleStatus = async () => {
-    if (!currentWord) return;
-    const newStatus = nextWordStatus(currentWord.status);
-    await repository.updateWord(currentWord.id, { status: newStatus });
-    setAllWords(prev => prev.map(w => (w.id === currentWord.id ? { ...w, status: newStatus } : w)));
-  };
-
-  const handleDeleteWord = async () => {
-    if (!currentWord) return;
-    const confirmed = window.confirm(`「${currentWord.english}」を削除しますか？`);
-    if (!confirmed) return;
-    await repository.deleteWord(currentWord.id);
-    const remaining = words.filter((w) => w.id !== currentWord.id);
-    if (allWords.length <= 1) { backToProject(); return; }
-    if (currentIndex >= remaining.length) setCurrentIndex(Math.max(0, remaining.length - 1));
-    setAllWords((prev) => prev.filter((w) => w.id !== currentWord.id));
-    setIsFlipped(false);
-  };
-
   /** 絞り込みを変えたら山札の先頭から。裏返し・自動再生の状態も畳む。 */
   const handleChangeFilter = useCallback((next: FlashcardFilter) => {
     triggerHaptic();
@@ -701,14 +649,6 @@ export default function FlashcardPage() {
     speakEnglish(currentWord?.english);
   }
 
-  const handleSearchEijiro = () => {
-    const term = currentWord?.english?.trim();
-    if (!term || typeof window === 'undefined') return;
-    triggerHaptic();
-    const url = `https://eow.alc.co.jp/search?q=${encodeURIComponent(term)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   /* Card transform */
   const getCardTransform = () => {
     // 早送り中は少し引いて、指の下を高速で流れている束であることを見せる。
@@ -724,11 +664,6 @@ export default function FlashcardPage() {
     if (swipeX !== 0) return `translateX(${swipeX}px) rotate(${swipeX * 0.02}deg)`;
     return 'translateX(0)';
   };
-
-  /* Status label */
-  const statusLabel = (s: string) => ({ new: '未学習', review: '学習中', active: '定着中', mastered: '習得' }[s] ?? s);
-  const statusColor = (s: string) =>
-    s === 'mastered' ? 'var(--color-success)' : s === 'active' ? '#2563eb' : s === 'review' ? '#137fec' : 'var(--color-muted)';
 
   /* ---------- Loading ---------- */
   if (loading) {
@@ -908,19 +843,30 @@ export default function FlashcardPage() {
         <div className="ds-fc-scene">
           <div className={'ds-fc-card' + (isFlipped ? ' flipped' : '')} onClick={handleFlip}>
             <div className="ds-fc-face front">
-              <button
-                type="button"
-                onClick={(event) => { event.stopPropagation(); handleToggleFavorite(); }}
-                aria-label="保存"
-                style={{ position: 'absolute', top: 18, right: 18, color: currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--color-muted)' }}
-              >
-                <Icon name="bookmark" filled={currentWord?.isFavorite} />
-              </button>
               <div className="en" style={{ fontSize: currentWord?.english && currentWord.english.length > 14 ? 46 : undefined }}>
                 {currentWord?.english}
               </div>
               <div className="ph">{currentWord?.pronunciation || '\u00a0'}</div>
               {currentPartOfSpeechLabel && <span className="ds-tag accent">{currentPartOfSpeechLabel}</span>}
+              {/* モバイルと同じ: 発音はカード内のピル、保存はカード右下の丸ボタン */}
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); speakWord(); }}
+                className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-[13px] py-[7px] text-xs font-bold text-[var(--solid-ink)]"
+              >
+                <Icon name="volume_up" size={14} /> 発音
+              </button>
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); handleToggleFavorite(); }}
+                aria-label={currentWord?.isFavorite ? '保存を解除' : '保存'}
+                aria-pressed={currentWord?.isFavorite}
+                className={`absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white ${
+                  currentWord?.isFavorite ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'
+                }`}
+              >
+                <Icon name="bookmark" size={18} filled={currentWord?.isFavorite} />
+              </button>
               <div className="hint"><Icon name="touch_app" style={{ fontSize: 14 }} />クリックで意味を表示</div>
             </div>
             <div className="ds-fc-face back" style={{ overflowY: 'auto', justifyContent: 'flex-start', padding: '28px 40px 40px' }}>
@@ -986,26 +932,6 @@ export default function FlashcardPage() {
             onSeek={handleSeek}
             onScrubbingChange={handleScrubbingChange}
           />
-        </div>
-
-        {/* モバイルと同じアクションチップ（回転などのナビの上段） */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginTop: 20 }}>
-          <ActionChip icon="search" label="英辞郎" onClick={handleSearchEijiro} />
-          <ActionChip icon="volume_up" label="発音" onClick={speakWord} />
-          <ActionChip
-            icon="task_alt"
-            label={statusLabel(currentWord?.status ?? 'new')}
-            tint={statusColor(currentWord?.status ?? 'new')}
-            onClick={handleCycleStatus}
-          />
-          <ActionChip
-            icon="bookmark"
-            label="保存"
-            tint={currentWord?.isFavorite ? 'var(--color-accent)' : 'var(--solid-ink)'}
-            filled={currentWord?.isFavorite}
-            onClick={handleToggleFavorite}
-          />
-          <ActionChip icon="delete" label="削除" tint="var(--color-error)" onClick={handleDeleteWord} />
         </div>
 
         <div className="ds-fc-controls" style={{ marginTop: 18 }}>

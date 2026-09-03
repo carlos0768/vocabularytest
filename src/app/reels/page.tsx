@@ -190,7 +190,7 @@ function ReelsPageInner() {
     <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)] lg:static lg:inset-auto lg:z-auto lg:h-full lg:min-h-0">
       {/* Desktop top bar */}
       <div className="hidden flex-shrink-0 lg:block">
-        <DesktopTopbar title="リール" crumb="学習 / フィード">
+        <DesktopTopbar title="リール" crumb="学習 / フィード" back={false}>
           {remainingLabel && (
             <span className="rounded-full border border-[var(--color-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-secondary-text)]">
               {remainingLabel}

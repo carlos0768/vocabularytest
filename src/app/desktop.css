@@ -23,7 +23,7 @@
 /* ── Header (ロゴ / ピル型タブ / コイン・検索) ───────────────── */
 .ds-header {
   display: flex; align-items: center; justify-content: space-between;
-  height: 76px; padding: 0 32px; flex-shrink: 0;
+  height: 76px; padding: 0 24px; flex-shrink: 0;
   background: #f6f5f1;
   position: relative; z-index: 40;
 }
@@ -97,10 +97,10 @@
 
 /* ── Main / topbar ───────────────────────────────────────── */
 .ds-main { display: flex; flex-direction: column; min-width: 0; flex: 1; min-height: 0; overflow: hidden; }
-/* 本文は最大 1160px の中央カラム。左右の余白は 32px を下限に画面幅から算出する */
+/* 本文は最大 1440px の中央カラム。左右の余白は 24px を下限に画面幅から算出する */
 .ds-top {
   display: flex; align-items: center; gap: 12px;
-  padding: 12px max(32px, calc((100% - 1160px) / 2)) 6px;
+  padding: 12px max(24px, calc((100% - 1440px) / 2)) 6px;
   flex-shrink: 0;
   /* トップバーの「...」ドロップダウンがスクロール領域内の sticky 要素
      （復習レール等）の下に潜らないよう前面に出す */
@@ -122,7 +122,7 @@
 }
 .ds-search input { border: none; outline: none; background: none; font-family: var(--font-body); font-size: 13px; flex: 1; min-width: 0; color: var(--color-foreground); }
 .ds-search .material-symbols-outlined { font-size: 15px; }
-.ds-scroll { flex: 1; overflow-y: auto; padding: 10px max(32px, calc((100% - 1160px) / 2)) 60px; }
+.ds-scroll { flex: 1; overflow-y: auto; padding: 10px max(24px, calc((100% - 1440px) / 2)) 60px; }
 .ds-scroll.tight { padding-top: 6px; }
 /* フルブリード表示（フィードなど、コンテンツを本文幅いっぱいに広げるページ用） */
 .ds-scroll.flush { padding: 0; }
@@ -393,6 +393,27 @@
 .ds-cat-card .t { position: relative; z-index: 1; display: block; font-family: var(--font-display); font-size: 16px; font-weight: 800; }
 .ds-cat-card .d { position: relative; z-index: 1; display: block; margin-top: 3px; font-size: 10px; font-weight: 600; opacity: 0.85; }
 .ds-cat-card .bg { position: absolute; right: -8px; bottom: -12px; font-size: 64px; opacity: 0.25; transform: rotate(18deg); }
+
+/* ── グループ: ハブタイル / メンバー ─────────────────────────── */
+.ds-hub-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.ds-hub-tile {
+  position: relative; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+  min-height: 124px; padding: 14px; border-radius: 16px; border: 2px solid var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-ink); text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.ds-hub-tile:hover { transform: translateY(-2px); box-shadow: 2px 5px 0 var(--solid-ink); }
+.ds-hub-tile .ic { position: relative; z-index: 1; display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 11px; border: 2px solid; }
+.ds-hub-tile .lb { display: block; font-family: var(--font-display); font-size: 16px; font-weight: 800; line-height: 1.2; }
+.ds-hub-tile .dt { display: block; margin-top: 3px; font-size: 11px; font-weight: 700; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-member-stack { display: inline-flex; align-items: center; padding-left: 8px; text-decoration: none; color: inherit; }
+.ds-member-stack > * { margin-left: -8px; }
+.ds-member-stack .more {
+  display: inline-flex; align-items: center; justify-content: center; height: 30px; min-width: 30px; padding: 0 6px;
+  border-radius: 999px; border: 2px solid var(--solid-ink); background: #fff;
+  font-family: var(--font-display); font-size: 10px; font-weight: 800; color: var(--color-ink);
+}
+@media (max-width: 1180px) { .ds-hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ── Spotify-style shelves + media cards ─────────────────── */
 .ds-shelf { margin-top: 28px; }

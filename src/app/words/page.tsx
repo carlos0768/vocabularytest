@@ -172,7 +172,7 @@ export default function WordsPage() {
 
   return (
     <div
-      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 lg:mx-auto lg:max-w-[1224px] lg:px-8 lg:pb-10"
+      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 lg:mx-auto lg:max-w-[1488px] lg:px-6 lg:pb-10"
       style={{ fontFamily: 'var(--font-body)' }}
     >
       {/* スクロールしても上部に固定されるヘッダー(単語帳詳細と同じパターン)。
