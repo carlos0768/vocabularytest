@@ -814,32 +814,6 @@ export default function FlashcardPage() {
           {favoritesOnly ? '保存済み' : collectionId ? 'コレクション' : binderName ? 'バインダー' : '単語帳'} · フラッシュカード
         </div>
 
-        {/* 流す単語の絞り込み。0件の軸は押せない（空の山札にしないため） */}
-        <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          {FLASHCARD_FILTERS.map((option) => {
-            const count = filterCounts[option.key];
-            const active = option.key === deckFilter;
-            return (
-              <button
-                key={option.key}
-                type="button"
-                aria-pressed={active}
-                disabled={count === 0}
-                onClick={() => handleChangeFilter(option.key)}
-                className={`flex h-[30px] shrink-0 items-center gap-1 rounded-full border-2 px-3 font-display text-[12px] font-extrabold transition-colors duration-100 disabled:opacity-40 ${
-                  active
-                    ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-surface)]'
-                    : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'
-                }`}
-              >
-                <Icon name={option.icon} size={14} filled={active} />
-                {option.label}
-                <span className="font-mono text-[10px] tabular-nums opacity-80">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
         <div className="ds-fc-scene">
           <div className={'ds-fc-card' + (isFlipped ? ' flipped' : '')} onClick={handleFlip}>
             <div className="ds-fc-face front">
@@ -934,26 +908,11 @@ export default function FlashcardPage() {
           />
         </div>
 
-        <div className="ds-fc-controls" style={{ marginTop: 18 }}>
-          <button
-            type="button"
-            className="ds-fc-big dunno"
-            style={{ color: VERDICT_TINT.unknown }}
-            onClick={() => commitVerdict('unknown')}
-          >
-            <Icon name="close" />覚えてない
-          </button>
-          <button type="button" className="ds-fc-big know" onClick={() => { triggerHaptic(); handleFlip(); }} aria-label="カードを回転">
-            <Icon name="cached" />回転
-          </button>
-          <button
-            type="button"
-            className="ds-fc-big dunno"
-            style={{ color: VERDICT_TINT.known }}
-            onClick={() => commitVerdict('known')}
-          >
-            <Icon name="check" />覚えてる
-          </button>
+        {/* 判定は ← / → キー、回転はカードのクリック。ボタンは置かず、下段は取り消しだけ */}
+        <div className="mono muted" style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 18, fontSize: 11 }}>
+          <span><b style={{ color: VERDICT_TINT.unknown }}>←</b> 覚えてない</span>
+          <span>クリックで回転</span>
+          <span><b style={{ color: VERDICT_TINT.known }}>→</b> 覚えてる</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
           <button

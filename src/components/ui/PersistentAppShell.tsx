@@ -38,7 +38,9 @@ const HIDE_BOTTOM_NAV_PATHS = [
 
 // デスクトップのヘッダー(ロゴ + ピル型タブ)を出さないパス。
 // 単語帳詳細は画面上部に戻るボタン付きの自前ヘッダーを持つので、共通ヘッダーは重ねない。
-const HIDE_DESKTOP_HEADER_PATHS = ['/project/'];
+// クイズ / フラッシュカードなどの学習画面は全画面 (ds-fixed-main) なので、ヘッダーが
+// その上に被らないよう出さない。
+const HIDE_DESKTOP_HEADER_PATHS = ['/project/', '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/'];
 
 function shouldHideDesktopHeader(pathname: string): boolean {
   return HIDE_DESKTOP_HEADER_PATHS.some((p) => pathname.startsWith(p));
