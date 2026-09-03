@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { DesktopBackButton } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui/Icon';
 import { StackedBar } from '@/components/project/WordStatusBar';
 import { useAuth } from '@/hooks/use-auth';
@@ -14,6 +15,7 @@ import { invalidateHomeCache } from '@/lib/home-cache';
 import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import { normalizeBinder, thumbColor } from '@/lib/binders/display';
+import { getCachedBinderIcons, loadBinderIcons } from '@/lib/binders/icons';
 import type { Project, SubscriptionStatus } from '@/types';
 
 // バインダー (フォルダ) 詳細。中の単語帳を進捗つきで一覧し、そこから
@@ -43,6 +45,15 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
   const [busyId, setBusyId] = useState<string | null>(null);
   /** 単語帳ID -> 学習度。語の読み込みは一覧より遅れて入るので別状態に持つ。 */
   const [progressByProject, setProgressByProject] = useState<Record<string, ProjectProgress>>({});
+  /** バインダーのアイコン画像 (設定ページで登録)。飾りなので best-effort */
+  const [iconImage, setIconImage] = useState<string | null>(() => getCachedBinderIcons()?.[binderName] ?? null);
+  useEffect(() => {
+    let cancelled = false;
+    void loadBinderIcons().then((icons) => {
+      if (!cancelled) setIconImage(icons[binderName] ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [binderName]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,12 +148,174 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
     }
   };
 
+  const masteredPct = binderProgress.total > 0 ? Math.round((binderProgress.mastered / binderProgress.total) * 100) : 0;
+
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 font-[var(--font-body)] lg:max-w-[720px] lg:px-8">
+    <>
+    {/* Desktop: 上部バー (戻る / アイコン / 名前 / クイズ / カード / 追加 / 設定) +
+        本棚タイルのグリッド。右レールに学習度と「追加できる単語帳」 */}
+    <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="ds-top" style={{ gap: 12 }}>
+        <DesktopBackButton fallbackHref="/" />
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center text-white"
+          style={{ backgroundColor: thumbColor(binderName), backgroundImage: iconImage ? `url(${iconImage})` : undefined }}
+          aria-hidden="true"
+        >
+          {!iconImage && <Icon name="folder" size={20} filled />}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="crumb">BINDER · {inBinder.length}冊{hasWords ? ` · ${binderProgress.total}語` : ''}</div>
+          <h1>{binderName}</h1>
+        </div>
+        {hasWords ? (
+          <Link href={`/quiz/all?${studyQuery}`} className="ds-btn accent">
+            <Icon name="check" />
+            クイズを始める
+          </Link>
+        ) : (
+          <span className="ds-btn accent" style={{ opacity: 0.4, pointerEvents: 'none' }}>
+            <Icon name="check" />
+            クイズを始める
+          </span>
+        )}
+        {hasWords ? (
+          <Link href={`/flashcard/all?${studyQuery}`} className="ds-btn">
+            <Icon name="style" />
+            カード
+          </Link>
+        ) : (
+          <span className="ds-btn" style={{ opacity: 0.4, pointerEvents: 'none' }}>
+            <Icon name="style" />
+            カード
+          </span>
+        )}
+        <button type="button" className="ds-btn" onClick={() => setAddOpen(true)}>
+          <Icon name="add" />
+          単語帳を追加
+        </button>
+        <Link href={`${binderHref}/settings`} className="ds-iconbtn-round sm" aria-label="バインダーの設定" title="バインダーの設定">
+          <Icon name="settings" />
+        </Link>
+      </div>
+      <div className="ds-scroll ds-two-col">
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 2px 12px' }}>
+            <div>
+              <div className="ds-eyebrow">BOOKS</div>
+              <h2 className="ds-h2">バインダーの単語帳</h2>
+            </div>
+          </div>
+          {loading ? (
+            <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)', boxShadow: 'none' }}>
+              <Icon name="progress_activity" className="animate-spin" />
+              <span style={{ marginLeft: 8 }}>読み込み中...</span>
+            </div>
+          ) : inBinder.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="ds-book ds-book--new"
+              style={{ width: 176 }}
+            >
+              <Icon name="add" style={{ fontSize: 28, color: 'var(--color-ink)' }} />
+              <div className="nt">単語帳を追加</div>
+              <div className="ns">まだ単語帳がありません</div>
+            </button>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(176px, 1fr))', gap: 14 }}>
+              {inBinder.map((project) => (
+                <DesktopBinderBookTile
+                  key={project.id}
+                  project={project}
+                  progress={progressByProject[project.id]}
+                  disabled={busyId !== null}
+                  onRemove={() => void setBinder(project.id, null, '解除に失敗しました')}
+                />
+              ))}
+              <button type="button" onClick={() => setAddOpen(true)} className="ds-book ds-book--new">
+                <Icon name="add" style={{ fontSize: 28, color: 'var(--color-ink)' }} />
+                <div className="nt">単語帳を追加</div>
+                <div className="ns">{addable.length}冊から選ぶ</div>
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="ds-rail">
+          <div className="ds-card" style={{ padding: '18px 20px' }}>
+            <div className="ds-eyebrow">BINDER PROGRESS</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: 'var(--color-ink)' }}>このバインダーの学習度</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 10 }}>
+              <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40, lineHeight: 1 }}>{masteredPct}</span>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>%</span>
+              <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>習得済 · {binderProgress.total}語</span>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <StackedBar
+                total={binderProgress.total}
+                m={binderProgress.mastered}
+                a={binderProgress.active}
+                l={binderProgress.learning}
+                n={binderProgress.unlearned}
+              />
+            </div>
+          </div>
+          {addable.length > 0 && (
+            <div className="ds-card" style={{ padding: '16px 18px', boxShadow: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <div className="ds-eyebrow">ADD</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: 'var(--color-ink)' }}>追加できる単語帳</div>
+                </div>
+                <button type="button" className="ds-see-all" onClick={() => setAddOpen(true)}>
+                  すべて見る
+                  <Icon name="chevron_right" />
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {addable.slice(0, 6).map((project) => (
+                  <div key={project.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: '1px solid var(--color-border)' }}>
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[13px] font-extrabold text-white"
+                      style={{ backgroundColor: thumbColor(project.id), backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined }}
+                    >
+                      {!project.iconImage && project.title.charAt(0)}
+                    </span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span className="block truncate text-[12.5px] font-bold text-[var(--solid-ink)]">{project.title}</span>
+                      {normalizeBinder(project.binder) && (
+                        <span className="block truncate text-[10px] text-[var(--color-muted)]">現在: {normalizeBinder(project.binder)}</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void setBinder(project.id, binderName, '追加に失敗しました')}
+                      disabled={busyId !== null}
+                      className="ds-iconbtn-round sm"
+                      style={{ width: 30, height: 30 }}
+                      aria-label={`「${project.title}」を追加`}
+                      title="このバインダーに追加"
+                    >
+                      <Icon name="add" size={15} />
+                    </button>
+                  </div>
+                ))}
+                {addable.length > 6 && (
+                  <p className="muted" style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 11, fontWeight: 700 }}>ほか {addable.length - 6} 冊</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* Mobile */}
+    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 font-[var(--font-body)] lg:hidden">
       {/* Header: スクロールしても上部に固定 (/project/* 等と同じパターン)。
           ノッチ帯は全体共通の StatusBarCover が覆う */}
       <header
-        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md lg:-mx-8 lg:px-8 ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <button
@@ -207,7 +380,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         ) : (
           /* 1冊ずつ枠で囲わず、上下の境界線だけで区切る音楽アプリ風の並び。
              線は画面幅いっぱいに引きたいので、行も -mx で端まで抜く */
-          <div className="-mx-[18px] divide-y divide-[var(--color-border)] border-b border-[var(--color-border)] lg:-mx-8">
+          <div className="-mx-[18px] divide-y divide-[var(--color-border)] border-b border-[var(--color-border)]">
             {inBinder.map((project) => (
               <BinderProjectRow
                 key={project.id}
@@ -228,7 +401,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md"
         style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
       >
-        <div className="mx-auto flex w-full max-w-[560px] items-center gap-2 px-[18px] pt-3 lg:max-w-[720px] lg:px-8">
+        <div className="mx-auto flex w-full max-w-[560px] items-center gap-2 px-[18px] pt-3">
           <div className="relative flex-1">
             <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
             {hasWords ? (
@@ -279,11 +452,13 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         </div>
       </div>
 
+    </div>
+
       {/* 単語帳を追加するピッカー */}
       {addOpen && (
         <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
           <div className="absolute inset-0" style={{ background: 'rgba(26,26,26,0.45)' }} onClick={() => setAddOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)]" style={{ maxHeight: '78dvh' }}>
+          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] lg:inset-auto lg:left-1/2 lg:top-1/2 lg:w-[480px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-[20px] lg:shadow-[6px_8px_0_var(--solid-ink)]" style={{ maxHeight: '78dvh' }}>
             <div className="flex items-center justify-between border-b-2 border-[var(--color-border)] px-4 py-3">
               <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">バインダーに追加</span>
               <button type="button" onClick={() => setAddOpen(false)} aria-label="閉じる" className="flex h-8 w-8 items-center justify-center text-[var(--color-secondary-text)]">
@@ -323,6 +498,65 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
             </div>
           </div>
         </div>
+      )}
+    </>
+  );
+}
+
+// デスクトップ: バインダー内の単語帳をホームと同じ正方形タイルで並べる。
+// 右下の再生でその単語帳のクイズ、右上の小ボタンでバインダーから外す。
+function DesktopBinderBookTile({
+  project,
+  progress,
+  disabled,
+  onRemove,
+}: {
+  project: Project;
+  progress: ProjectProgress | undefined;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  const total = progress?.total ?? 0;
+  const pct = progress && progress.total > 0 ? Math.round((progress.mastered / progress.total) * 100) : 0;
+  return (
+    <div style={{ position: 'relative' }}>
+      <Link
+        href={`/project/${project.id}`}
+        className="ds-book"
+        style={{
+          background: project.iconImage ? undefined : thumbColor(project.id),
+          backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="bk-spine" />
+        <div className="bk-title" style={{ paddingLeft: 0, paddingRight: 28 }}>{project.title}</div>
+        <div>
+          <div className="bk-n">{total}<span className="u">語</span></div>
+          <div className="bk-bar"><i style={{ width: `${pct}%` }} /></div>
+        </div>
+      </Link>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled}
+        aria-label={`「${project.title}」をバインダーから外す`}
+        title="バインダーから外す"
+        className="ds-iconbtn-round sm"
+        style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, zIndex: 2 }}
+      >
+        <Icon name="folder_off" size={14} />
+      </button>
+      {total > 0 && (
+        <Link
+          href={`/quiz/${project.id}?from=${encodeURIComponent(`/binder/${encodeURIComponent(normalizeBinder(project.binder))}`)}`}
+          className="ds-book-play"
+          aria-label={`${project.title}のクイズを開始`}
+          title="クイズを開始"
+        >
+          <Icon name="play_arrow" size={18} filled />
+        </Link>
       )}
     </div>
   );
