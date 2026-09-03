@@ -1,12 +1,10 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
+import { DesktopHeader } from '@/components/desktop/DesktopChrome';
 import { useAuth } from '@/hooks/use-auth';
 import { BottomNav } from './bottom-nav';
-
-const SIDEBAR_STORAGE_KEY = 'merken-sidebar-collapsed';
 
 const NO_SHELL_PATHS = [
   '/lp', '/login', '/signup', '/reset-password', '/auth',
@@ -15,8 +13,8 @@ const NO_SHELL_PATHS = [
   '/offline', '/share-target', '/admin',
   '/level-test', '/ops',
   '/tips',
-  // 共有(公開)ページは自前で ds-app シェル(サイドバー付き)を描画するため、
-  // 共通シェルを重ねるとサイドバーが二重表示になる。共通シェルを外す。
+  // 共有(公開)ページは自前で ds-app シェル(ヘッダー付き)を描画するため、
+  // 共通シェルを重ねるとヘッダーが二重表示になる。共通シェルを外す。
   '/shared/share-wordbook',
 ];
 
@@ -51,22 +49,6 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [scrollEnding, setScrollEnding] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next)); } catch {}
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
     let touchStartX = 0;
     let touchStartY = 0;
@@ -122,8 +104,8 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   const hideNav = shouldHideBottomNav(pathname);
 
   return (
-    <div className={`ds-live-shell relative${sidebarCollapsed ? ' ds-live-shell--collapsed' : ''}`}>
-      <DesktopSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+    <div className="ds-live-shell relative">
+      <DesktopHeader />
       <div className="ds-live-main relative">
         {children}
       </div>

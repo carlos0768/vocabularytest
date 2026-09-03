@@ -4,7 +4,7 @@
  * ホームの語法問題集セクション（グループ表示の上に配置）。
  * 単語帳と同じ正方形の本棚タイルを横スクロールで並べる。
  * - HomeGrammarBooksSection: モバイル向け。横スライドの正方形タイル
- * - DesktopHomeGrammarBooks: デスクトップ向け。マイ単語帳と同じ ds-book 棚
+ * - DesktopHomeGrammarBooks: デスクトップ向け。ホームの2カラム (バインダーの隣) に置く 150px タイル列
  * 語法問題集はPro限定のため、問題集が0件（Free含む）のときは何も表示しない。
  */
 
@@ -68,19 +68,18 @@ export function DesktopHomeGrammarBooks({ books }: { books: GrammarBook[] }) {
   if (books.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 28 }}>
-      <div className="ds-sec-head" style={{ marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <h2>語法問題集</h2>
-          <span className="mono muted" style={{ fontSize: 12 }}>{books.length} 冊</span>
-        </div>
-        <Link href="/grammar" className="ds-btn ghost sm" style={{ textDecoration: 'none', fontSize: 13 }}>
-          すべて表示
-          <Icon name="chevron_right" style={{ fontSize: 16 }} />
+    <div style={{ minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 2px 12px' }}>
+        <Icon name="menu_book" size={20} style={{ color: 'var(--color-ink)' }} />
+        <h2 className="ds-h2" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em' }}>語法問題集</h2>
+        <span className="ds-count-badge">{books.length}</span>
+        <Link href="/grammar" className="ds-see-all" style={{ marginLeft: 'auto' }}>
+          すべて見る
+          <Icon name="chevron_right" />
         </Link>
       </div>
-      {/* マイ単語帳と同じ ds-book タイルの横スクロール棚 (タイル幅は保ち、横スクロール) */}
-      <div className="ds-shelf-row">
+      {/* マイ単語帳と同じ ds-book タイル (150px) を横に並べる */}
+      <div className="ds-tile-row">
         {books.map((book) => (
           <Link
             key={book.id}
@@ -89,12 +88,12 @@ export function DesktopHomeGrammarBooks({ books }: { books: GrammarBook[] }) {
             style={{ background: desktopThumbColor(book.id) }}
           >
             <div className="bk-spine" />
+            <div className="bk-title" style={{ paddingLeft: 0 }}>{book.title}</div>
             <div>
-              <div className="bk-title">{book.title}</div>
-              <div className="bk-foot mono">GRAMMAR</div>
-            </div>
-            <div>
-              <Icon name="menu_book" style={{ fontSize: 20 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="menu_book" style={{ fontSize: 14 }} />
+                <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em' }}>GRAMMAR</span>
+              </div>
               <div className="bk-foot">更新 {desktopUpdatedLabel(book.updatedAt)}</div>
             </div>
           </Link>

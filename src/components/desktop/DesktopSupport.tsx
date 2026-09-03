@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
+import { DesktopHeader } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui/Icon';
 
 type Article = {
@@ -19,7 +19,7 @@ function DesktopStandaloneShell({ children }: { children: ReactNode }) {
   return (
     <div className="hidden h-screen lg:block">
       <div className="ds-app">
-        <DesktopSidebar />
+        <DesktopHeader />
         {children}
       </div>
     </div>

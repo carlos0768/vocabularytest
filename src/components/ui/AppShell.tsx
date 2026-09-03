@@ -1,13 +1,13 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
+import { DesktopHeader } from '@/components/desktop/DesktopChrome';
 import { BottomNav } from './bottom-nav';
 
 export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
   return (
     <div className="ds-live-shell relative">
-      <DesktopSidebar />
+      <DesktopHeader />
       <div className="ds-live-main relative">
         {children}
       </div>

@@ -2,27 +2,23 @@
 
 /**
  * デスクトップホーム。
- * 上部: Spotify 風ショートカットグリッド（TODAY'S GOAL + 保存済み + 単語帳/グループ/おすすめ）
- * 下部: マイ単語帳は従来の本棚タイル（グリッド/リスト切替）。上部グリッドに
- *       載った単語帳は除外して表示する。おすすめの単語帳/リールはシェルフのまま。
- * 右サイドの学習サイドバー・アップグレードカードはモバイルと違い維持する。
+ * 上部: ショートカットグリッド（今日の目標 + 保存済み + 単語帳/グループ/おすすめ）
+ * 中段: マイ単語帳（176px の正方形タイルを横スクロールで並べる本棚）
+ *       バインダーと語法問題集を2カラムで並べる
+ * 下段: 参加中のグループ（3カラム）+ リアルタイム対戦の導線（Pro）
+ * 右レール: 今日の目標 / 習得サマリー / 連続学習（DesktopStudySidebar）
  */
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
-import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
-import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { useAuth } from '@/hooks/use-auth';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
-import { JoinedGroupGrid } from '@/components/groups/JoinedGroupsSection';
+import { GroupAvatar } from '@/components/groups/GroupAvatar';
 import { DesktopHomeGrammarBooks } from '@/components/home/HomeGrammarBooks';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { GrammarBook } from '@/components/desktop/DesktopGrammar';
-import {
-  desktopSourceLabel,
-  desktopThumbColor,
-  desktopUpdatedLabel,
-} from '@/components/desktop/desktop-data';
+import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import { buildHomeShortcutTiles, homeShortcutContentSlots } from '@/lib/home/shortcut-tiles';
 import {
   prefetchGroupOverview,
@@ -30,7 +26,7 @@ import {
 } from '@/lib/shared-projects/group-overview-cache';
 import type { HomeRecommendedBook } from '@/lib/home/recommendations-types';
 import type { Project } from '@/types';
-import type { StudyGroupSummary } from '@/lib/shared-projects/types';
+import type { StudyGroupSummary, StudyGroupTopMember } from '@/lib/shared-projects/types';
 
 type DesktopHomeProject = Project & {
   totalWords: number;
@@ -64,6 +60,9 @@ type DesktopPendingScan = {
   iconDataUrl?: string;
 };
 
+// 1位/2位/3位のメダル色（グループのランキングページの podium と同じ）
+const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
+
 export function DesktopHomeView({
   projects,
   stats,
@@ -91,17 +90,7 @@ export function DesktopHomeView({
   showUpgrade?: boolean;
   onDismissUpgrade?: () => void;
 }) {
-  const { user } = useAuth();
-  // 単語検索（旧サイドバー下部のボタンから移設）。開くたびに初期化する。
-  const [wordSearchOpen, setWordSearchOpen] = useState(false);
-  const [view, setView] = useState<'grid' | 'list'>('grid');
-  // 上部ショートカットグリッドに載った単語帳は下の一覧から除外し、
-  // 溢れた分だけを表示する。
-  const gridProjectCount = Math.min(
-    projects.length,
-    homeShortcutContentSlots(stats.favoriteCount > 0),
-  );
-  const shelfProjects = projects.slice(gridProjectCount);
+  const { isPro } = useAuth();
 
   // バインダー (フォルダ) 一覧を binder 名で集計する
   const homeBinders = (() => {
@@ -116,28 +105,13 @@ export function DesktopHomeView({
       .map(([name, count]) => ({ name, count }));
   })();
 
+  const showShelfLoading = loading && projects.length === 0 && pendingScans.length === 0;
+  const showBinderRow = homeBinders.length > 0 || grammarBooks.length > 0;
+  const showGroupsSection = joinedGroups.length > 0 || isPro;
+
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title="ホーム" crumb="HOME / ライブラリ">
-        {/* 自分の単語帳内の単語検索（サイドバー下部から移設） */}
-        {user && (
-          <DesktopButton
-            icon="manage_search"
-            onClick={() => setWordSearchOpen(true)}
-            title="自分の単語帳から単語を検索"
-          >
-            {''}
-          </DesktopButton>
-        )}
-        <DesktopButton variant="accent" icon="add" onClick={onStartScan}>
-          新規作成
-        </DesktopButton>
-      </DesktopTopbar>
-      {wordSearchOpen && user && (
-        <DesktopWordSearchOverlay onClose={() => setWordSearchOpen(false)} userId={user.id} />
-      )}
-
-      <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+      <div className="ds-scroll ds-two-col">
         <div style={{ minWidth: 0 }}>
           {error && (
             <div className="ds-card" style={{ padding: 14, marginBottom: 18, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
@@ -145,7 +119,7 @@ export function DesktopHomeView({
             </div>
           )}
 
-          {/* Spotify風ショートカットグリッド */}
+          {/* ショートカットグリッド */}
           <DesktopShortcutGrid
             goal={goal}
             favoriteCount={stats.favoriteCount}
@@ -155,168 +129,129 @@ export function DesktopHomeView({
             onStartScan={onStartScan}
           />
 
-          {/* マイ単語帳（従来の本棚タイル。上部グリッドに載った単語帳は除外） */}
-          <div style={{ marginTop: 28 }}>
-            <div className="ds-sec-head" style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                <h2>マイ単語帳</h2>
-                <span className="mono muted" style={{ fontSize: 12 }}>
-                  {projects.length + pendingScans.length} 冊 · {stats.totalWords} 語
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button
-                  type="button"
-                  className="ds-btn ghost sm"
-                  onClick={() => setView('grid')}
-                  style={view === 'grid' ? { background: 'rgba(26,26,26,0.06)' } : undefined}
-                  aria-label="グリッド表示"
-                >
-                  <Icon name="grid_view" />
-                </button>
-                <button
-                  type="button"
-                  className="ds-btn ghost sm"
-                  onClick={() => setView('list')}
-                  style={view === 'list' ? { background: 'rgba(26,26,26,0.06)' } : undefined}
-                  aria-label="リスト表示"
-                >
-                  <Icon name="view_list" />
-                </button>
-                <Link
-                  href="/projects"
-                  className="ds-btn ghost sm"
-                  style={{ textDecoration: 'none', fontSize: 13 }}
-                >
-                  すべて表示
-                  <Icon name="chevron_right" style={{ fontSize: 16 }} />
-                </Link>
-              </div>
+          {/* マイ単語帳: 176px の本棚 */}
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '26px 2px 12px' }}>
+            <div>
+              <div className="ds-eyebrow">MY BOOKS</div>
+              <h2 className="ds-h2">マイ単語帳</h2>
             </div>
-
-            {loading && shelfProjects.length === 0 && pendingScans.length === 0 ? (
-              <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)' }}>
-                <Icon name="progress_activity" className="animate-spin" />
-                <span style={{ marginLeft: 8 }}>読み込み中...</span>
-              </div>
-            ) : projects.length === 0 && pendingScans.length === 0 ? (
-              <button
-                type="button"
-                onClick={onStartScan}
-                className="ds-book"
-                style={{
-                  width: 220,
-                  background: '#fff',
-                  color: 'var(--color-muted)',
-                  border: '1.5px dashed var(--solid-ink)',
-                  boxShadow: 'none',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-              >
-                <Icon name="add" style={{ fontSize: 30, color: 'var(--color-ink)' }} />
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--color-ink)' }}>
-                  新しい単語帳
-                </div>
-                <div className="mono" style={{ fontSize: 10, textAlign: 'center' }}>
-                  写真を撮るだけ
-                </div>
-              </button>
-            ) : view === 'grid' ? (
-              /* 横スクロールの棚に従来の本棚タイルを並べる (タイル幅は保ち、冊数が多いときは横スクロール) */
-              <div className="ds-shelf-row">
-                {pendingScans.map((scan) => (
-                  <DesktopGeneratingBookTile key={scan.id} scan={scan} />
-                ))}
-                {shelfProjects.map((project) => (
-                  <DesktopBookTile key={project.id} project={project} />
-                ))}
-                <button
-                  type="button"
-                  onClick={onStartScan}
-                  className="ds-book"
-                  style={{
-                    background: '#fff',
-                    color: 'var(--color-muted)',
-                    border: '1.5px dashed var(--solid-ink)',
-                    boxShadow: 'none',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <Icon name="add" style={{ fontSize: 30, color: 'var(--color-ink)' }} />
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--color-ink)' }}>
-                    新しい単語帳
-                  </div>
-                  <div className="mono" style={{ fontSize: 10, textAlign: 'center' }}>
-                    写真を撮るだけ
-                  </div>
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {pendingScans.map((scan) => (
-                  <DesktopGeneratingProjectRow key={scan.id} scan={scan} />
-                ))}
-                {shelfProjects.map((project) => (
-                  <DesktopProjectRow key={project.id} project={project} />
-                ))}
-              </div>
-            )}
+            <Link href="/projects" className="ds-see-all">
+              すべて見る
+              <Icon name="chevron_right" />
+            </Link>
           </div>
-
-          {/* バインダー (フォルダ): マイ単語帳と同じ配色のタイルで表示 */}
-          {homeBinders.length > 0 && (
-            <div style={{ marginTop: 28 }}>
-              <div className="ds-sec-head" style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <h2>バインダー</h2>
-                  <span className="mono muted" style={{ fontSize: 12 }}>{homeBinders.length}</span>
+          {showShelfLoading ? (
+            <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)', boxShadow: 'none' }}>
+              <Icon name="progress_activity" className="animate-spin" />
+              <span style={{ marginLeft: 8 }}>読み込み中...</span>
+            </div>
+          ) : (
+            <div className="ds-bookshelf">
+              {pendingScans.map((scan) => (
+                <div key={scan.id}>
+                  <DesktopGeneratingBookTile scan={scan} />
                 </div>
-              </div>
-              <div className="ds-shelf-row">
-                {homeBinders.map((binder) => (
-                  <DesktopBinderTile key={binder.name} name={binder.name} count={binder.count} />
-                ))}
+              ))}
+              {projects.map((project) => (
+                <div key={project.id}>
+                  <DesktopBookTile project={project} />
+                  {project.totalWords > 0 && (
+                    <Link
+                      href={`/quiz/${project.id}?from=/`}
+                      className="ds-book-play"
+                      aria-label={`${project.title}のクイズを開始`}
+                      title="クイズを開始"
+                    >
+                      <Icon name="play_arrow" size={18} filled />
+                    </Link>
+                  )}
+                </div>
+              ))}
+              <div>
+                <button type="button" onClick={onStartScan} className="ds-book ds-book--new">
+                  <Icon name="add" style={{ fontSize: 28, color: 'var(--color-ink)' }} />
+                  <div className="nt">新しい単語帳</div>
+                  <div className="ns">写真を撮るだけ</div>
+                </button>
               </div>
             </div>
           )}
 
-          {/* 語法問題集（グループ表示の上） */}
-          <DesktopHomeGrammarBooks books={grammarBooks} />
+          {/* バインダー / 語法問題集 */}
+          {showBinderRow && (
+            <div style={{ display: 'grid', gridTemplateColumns: homeBinders.length > 0 && grammarBooks.length > 0 ? '1fr 1fr' : '1fr', gap: 24, paddingTop: 22 }}>
+              {homeBinders.length > 0 && (
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 2px 12px' }}>
+                    <div>
+                      <div className="ds-eyebrow">BINDERS</div>
+                      <h2 className="ds-h2">バインダー</h2>
+                    </div>
+                  </div>
+                  <div className="ds-tile-row">
+                    {homeBinders.map((binder) => (
+                      <DesktopBinderTile key={binder.name} name={binder.name} count={binder.count} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <DesktopHomeGrammarBooks books={grammarBooks} />
+            </div>
+          )}
 
-          {/* 参加中のグループ */}
-          <div style={{ marginTop: 28 }}>
-            <JoinedGroupGrid groups={joinedGroups} columns={3} />
-          </div>
+          {/* 参加中のグループ + リアルタイム対戦 */}
+          {showGroupsSection && (
+            <div style={{ paddingTop: 26 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 2px 12px' }}>
+                <Icon name="groups" size={20} style={{ color: 'var(--color-ink)' }} />
+                <h2 className="ds-h2" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.02em' }}>参加中のグループ</h2>
+                <span className="ds-count-badge">{joinedGroups.length}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, alignItems: 'start' }}>
+                {joinedGroups.map((group) => (
+                  <DesktopGroupCard key={group.id} group={group} />
+                ))}
+                {isPro && (
+                  <Link href="/battle" className="ds-battle-cta">
+                    <span className="spine" />
+                    <Icon name="bolt" style={{ fontSize: 28, marginLeft: 4 }} />
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span className="t">リアルタイム対戦</span>
+                      <span className="s">早押し4択 / フレンド・ランダム</span>
+                    </span>
+                    <Icon name="chevron_right" style={{ fontSize: 18 }} />
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
 
-          {/* おすすめの単語帳（マイ単語帳と同じ横スクロール棚）。
-              1行で表示し、冊数が多いときは折り返さず横スクロールする */}
+          {/* おすすめの単語帳 */}
           {recommendedBooks.length > 0 && (
-            <div style={{ marginTop: 28 }}>
-              <div className="ds-sec-head" style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <h2>おすすめの単語帳</h2>
+            <div style={{ paddingTop: 26 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 2px 12px' }}>
+                <div>
+                  <div className="ds-eyebrow">RECOMMENDED</div>
+                  <h2 className="ds-h2">おすすめの単語帳</h2>
                 </div>
-                <Link href="/shared" className="ds-btn ghost sm" style={{ textDecoration: 'none', fontSize: 13 }}>
-                  すべて表示
-                  <Icon name="chevron_right" style={{ fontSize: 16 }} />
+                <Link href="/shared" className="ds-see-all">
+                  すべて見る
+                  <Icon name="chevron_right" />
                 </Link>
               </div>
-              <div className="ds-shelf-row">
+              <div className="ds-bookshelf">
                 {recommendedBooks.map((book) => (
-                  <DesktopRecommendedBookTile key={book.shareId} book={book} />
+                  <div key={book.shareId}>
+                    <DesktopRecommendedBookTile book={book} />
+                  </div>
                 ))}
               </div>
             </div>
           )}
-
         </div>
 
-        {/* 右サイド（モバイルと違い維持） */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
+        {/* 右レール */}
+        <div className="ds-rail">
           {showUpgrade && <DesktopUpgradeCard onDismiss={onDismissUpgrade} />}
           <DesktopStudySidebar
             stats={stats}
@@ -329,7 +264,7 @@ export function DesktopHomeView({
   );
 }
 
-/* ============ ショートカットグリッド（Spotify のクイックアクセス風） ============ */
+/* ============ ショートカットグリッド ============ */
 
 function DesktopShortcutGrid({
   goal,
@@ -517,7 +452,7 @@ function ShortcutTile({
   return <div className="ds-shortcut" style={{ cursor: 'default' }}>{inner}</div>;
 }
 
-/* ============ マイ単語帳（従来の本棚タイル/行） ============ */
+/* ============ マイ単語帳（本棚タイル） ============ */
 
 function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
   return (
@@ -538,10 +473,8 @@ function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
       <div className="bk-spine" />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
-          <div className="bk-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {scan.project_title}
-          </div>
-          <div className="bk-foot mono">単語を抽出中...</div>
+          <div className="bk-title" style={{ paddingLeft: 0 }}>{scan.project_title}</div>
+          <div className="bk-foot">単語を抽出中...</div>
         </div>
         <div
           className="scanvocab-generating-spin"
@@ -558,10 +491,10 @@ function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
       </div>
       <div>
         <div className="bk-n">AI<span className="u">解析</span></div>
-        <div style={{ display: 'flex', gap: 7, marginTop: 12 }}>
-          <span className="scanvocab-generating-pulse" style={{ height: 9, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.78)' }} />
-          <span className="scanvocab-generating-pulse" style={{ height: 9, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.58)', animationDelay: '0.16s' }} />
-          <span className="scanvocab-generating-pulse" style={{ height: 9, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.38)', animationDelay: '0.32s' }} />
+        <div style={{ display: 'flex', gap: 7, marginTop: 10 }}>
+          <span className="scanvocab-generating-pulse" style={{ height: 7, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.78)' }} />
+          <span className="scanvocab-generating-pulse" style={{ height: 7, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.58)', animationDelay: '0.16s' }} />
+          <span className="scanvocab-generating-pulse" style={{ height: 7, flex: 1, borderRadius: 999, background: 'rgba(255,255,255,0.38)', animationDelay: '0.32s' }} />
         </div>
       </div>
     </div>
@@ -569,17 +502,17 @@ function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
 }
 
 // バインダー (フォルダ) タイル。DesktopBookTile と同じ ds-book シェル・配色
-// (desktopThumbColor) で、キーは binder 名。単語帳タイルと見た目を揃える。
+// (desktopThumbColor) で、キーは binder 名。
 function DesktopBinderTile({ name, count }: { name: string; count: number }) {
   return (
     <Link href={`/binder/${encodeURIComponent(name)}`} className="ds-book" style={{ background: desktopThumbColor(name) }}>
       <div className="bk-spine" />
-      <div>
-        <div className="bk-title">{name}</div>
-        <div className="bk-foot mono">BINDER</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Icon name="folder" filled style={{ fontSize: 15 }} />
+        <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em' }}>BINDER</span>
       </div>
       <div>
-        <Icon name="folder" filled style={{ fontSize: 20 }} />
+        <div className="bk-title" style={{ paddingLeft: 0, fontSize: 14 }}>{name}</div>
         <div className="bk-foot">{count}冊</div>
       </div>
     </Link>
@@ -601,97 +534,21 @@ function DesktopBookTile({ project }: { project: DesktopHomeProject }) {
       }}
     >
       <div className="bk-spine" />
-      <div>
-        <div className="bk-title">{project.title}</div>
-        <div className="bk-foot mono">{desktopSourceLabel(project)}</div>
-      </div>
+      <div className="bk-title" style={{ paddingLeft: 0 }}>{project.title}</div>
       <div>
         <div className="bk-n">{project.totalWords}<span className="u">語</span></div>
         <div className="bk-bar"><i style={{ width: `${pct}%` }} /></div>
-        <div className="bk-foot">習得 {pct}% · 更新 {desktopUpdatedLabel(project.lastUsedAt ?? project.createdAt)}</div>
       </div>
     </Link>
   );
 }
 
-function DesktopGeneratingProjectRow({ scan }: { scan: DesktopPendingScan }) {
-  return (
-    <div className="ds-prow" role="status" aria-live="polite" aria-busy="true" style={{ cursor: 'default', pointerEvents: 'none' }}>
-      <div
-        className="tn"
-        style={{
-          background: scan.iconDataUrl
-            ? `center / cover url(${scan.iconDataUrl})`
-            : 'linear-gradient(135deg, #137FEC, #3DA1B8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <div
-          className="scanvocab-generating-spin"
-          style={{
-            width: 25,
-            height: 25,
-            border: '3px solid rgba(255,255,255,0.35)',
-            borderTopColor: '#fff',
-            borderRadius: 999,
-          }}
-          aria-hidden="true"
-        />
-      </div>
-      <div className="body">
-        <div className="ttl">{scan.project_title}</div>
-        <div className="sub">AI が単語を抽出しています</div>
-      </div>
-      <div className="count" style={{ fontSize: 18 }}>生成中</div>
-    </div>
-  );
-}
-
-function DesktopProjectRow({ project }: { project: DesktopHomeProject }) {
-  const hasWords = project.totalWords > 0;
-  return (
-    <div className="ds-prow">
-      <Link href={`/project/${project.id}`} className="ds-prow-main">
-        <div
-          className="tn"
-          style={{
-            background: desktopThumbColor(project.id),
-            backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        >
-          {!project.iconImage && project.title.charAt(0)}
-        </div>
-        <div className="body">
-          <div className="ttl">{project.title}</div>
-          <div className="sub">{desktopSourceLabel(project)} · 更新 {desktopUpdatedLabel(project.lastUsedAt ?? project.createdAt)}</div>
-        </div>
-        <div className="count">{project.totalWords}<span className="u">語</span></div>
-      </Link>
-      {hasWords && (
-        <Link
-          href={`/quiz/${project.id}?from=/`}
-          className="ds-prow-play"
-          aria-label={`${project.title}のクイズを開始`}
-          title="クイズを開始"
-        >
-          <Icon name="play_arrow" size={20} filled />
-        </Link>
-      )}
-      <Icon name="chevron_right" style={{ color: 'var(--color-muted)' }} />
-    </div>
-  );
-}
-
-function DesktopRecommendedBookTile({ book, compact = false }: { book: HomeRecommendedBook; compact?: boolean }) {
+function DesktopRecommendedBookTile({ book }: { book: HomeRecommendedBook }) {
   const bg = book.iconImage ? undefined : desktopThumbColor(book.shareId);
   return (
     <Link
       href={`/share/${book.shareId}`}
-      className={compact ? 'ds-book ds-book--compact' : 'ds-book'}
+      className="ds-book"
       style={{
         background: bg,
         backgroundImage: book.iconImage ? `url(${book.iconImage})` : undefined,
@@ -701,10 +558,8 @@ function DesktopRecommendedBookTile({ book, compact = false }: { book: HomeRecom
     >
       <div className="bk-spine" />
       <div>
-        <div className="bk-title">{book.title}</div>
-        <div className="bk-foot mono">
-          {book.eikenLevelTag ? `おすすめ · ${book.eikenLevelTag}` : 'おすすめ'}
-        </div>
+        <div className="bk-title" style={{ paddingLeft: 0 }}>{book.title}</div>
+        <div className="bk-foot">{book.eikenLevelTag ? `おすすめ · ${book.eikenLevelTag}` : 'おすすめ'}</div>
       </div>
       <div>
         <div className="bk-n">{book.wordCount}<span className="u">語</span></div>
@@ -717,7 +572,80 @@ function DesktopRecommendedBookTile({ book, compact = false }: { book: HomeRecom
   );
 }
 
-/* ============ 右サイド ============ */
+/* ============ 参加中のグループ ============ */
+
+function topMemberLabel(member: StudyGroupTopMember): string {
+  return member.username ?? (member.accountId ? `@${member.accountId}` : '匿名');
+}
+
+function DesktopGroupCard({ group }: { group: StudyGroupSummary }) {
+  const top = (group.topMembers ?? []).slice(0, 3);
+  const maxCount = Math.max(...top.map((member) => member.quizCount), 1);
+  const viewerRank = top.findIndex((member) => member.isViewer);
+  const handlePress = () => {
+    // タップ時点で概要をシード+先読みし、グループページのヘッダーを即描画できるようにする
+    seedGroupSummary(group);
+    prefetchGroupOverview(group.id);
+  };
+
+  return (
+    <Link
+      href={`/groups/${group.id}`}
+      className="ds-group-card"
+      onPointerDown={handlePress}
+      onClick={handlePress}
+      aria-label={`${group.name}のグループを開く`}
+    >
+      <div className="head" style={{ background: desktopThumbColor(group.id) }}>
+        <span className="spine" />
+        {group.iconImage ? (
+          <GroupAvatar group={group} size={28} borderWidth={0} />
+        ) : (
+          <Icon name="groups" style={{ fontSize: 18 }} />
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="nm">{group.name}</div>
+          <div className="mt">{group.memberCount}人 · {group.projectCount}冊</div>
+        </div>
+        {viewerRank >= 0 && (
+          <span className="rank">
+            <Icon name="emoji_events" filled style={{ fontSize: 12, color: '#FFC800' }} />
+            {viewerRank + 1}位
+          </span>
+        )}
+      </div>
+      {top.length === 0 ? (
+        <div className="empty">今週の記録はまだありません</div>
+      ) : (
+        <div className="body">
+          {top.map((member, index) => {
+            const label = topMemberLabel(member);
+            return (
+              <div key={member.userId} className="mem">
+                <div style={{ position: 'relative' }}>
+                  <ProfileAvatar
+                    avatarUrl={member.avatarUrl}
+                    initial={label.charAt(0).toUpperCase()}
+                    color={profileAvatarColor(member.accountId ?? member.userId)}
+                    size={34}
+                    radius={17}
+                    fontSize={13}
+                  />
+                  <span className="medal" style={{ background: MEDALS[index] ?? '#fff' }}>{index + 1}</span>
+                </div>
+                <span className="nm" style={{ color: member.isViewer ? 'var(--color-accent)' : 'var(--color-ink)' }}>{label}</span>
+                <div className="bar"><i style={{ width: `${Math.round((member.quizCount / maxCount) * 100)}%` }} /></div>
+                <span className="ct">{member.quizCount}<span className="u">問</span></span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Link>
+  );
+}
+
+/* ============ 右レール ============ */
 
 function DesktopUpgradeCard({ onDismiss }: { onDismiss?: () => void }) {
   return (
@@ -748,48 +676,46 @@ function DesktopUpgradeCard({ onDismiss }: { onDismiss?: () => void }) {
           <Icon name="close" size={13} />
         </button>
       )}
-    <Link
-      href="/subscription"
-      className="ds-card"
-      style={{
-        display: 'block',
-        padding: 16,
-        textDecoration: 'none',
-        color: 'inherit',
-        background: 'linear-gradient(135deg, oklch(0.96 0.04 130), #fff)',
-      }}
-    >
-      <div className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--color-accent)' }}>
-        UPGRADE
-      </div>
-      <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16, color: 'var(--solid-ink)' }}>
-        Pro でぜんぶ使う
-      </div>
-      <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.6, color: 'var(--color-muted)' }}>
-        写真スキャンで単語帳を自動作成。単語帳の作成数も無制限に。
-      </div>
-      <div
+      <Link
+        href="/subscription"
+        className="ds-card"
         style={{
-          marginTop: 12,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-          borderRadius: 10,
-          border: '2px solid var(--solid-ink)',
-          background: 'var(--solid-ink)',
-          color: '#fff',
-          padding: '10px 0',
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          fontSize: 13,
-          boxShadow: '2px 2px 0 var(--color-accent)',
+          display: 'block',
+          padding: 16,
+          textDecoration: 'none',
+          color: 'inherit',
+          background: 'linear-gradient(135deg, oklch(0.96 0.04 130), #fff)',
         }}
       >
-        <Icon name="auto_awesome" size={16} filled />
-        Proプランを見る
-      </div>
-    </Link>
+        <div className="ds-eyebrow" style={{ color: 'var(--color-accent)' }}>UPGRADE</div>
+        <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16, color: 'var(--solid-ink)' }}>
+          Pro でぜんぶ使う
+        </div>
+        <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.6, color: 'var(--color-muted)' }}>
+          写真スキャンで単語帳を自動作成。単語帳の作成数も無制限に。
+        </div>
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            borderRadius: 10,
+            border: '2px solid var(--solid-ink)',
+            background: 'var(--solid-ink)',
+            color: '#fff',
+            padding: '10px 0',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            fontSize: 13,
+            boxShadow: '2px 2px 0 var(--color-accent)',
+          }}
+        >
+          <Icon name="auto_awesome" size={16} filled />
+          Proプランを見る
+        </div>
+      </Link>
     </div>
   );
 }

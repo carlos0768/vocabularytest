@@ -172,19 +172,19 @@ export default function WordsPage() {
 
   return (
     <div
-      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 lg:pb-10"
+      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 lg:mx-auto lg:max-w-[1224px] lg:px-8 lg:pb-10"
       style={{ fontFamily: 'var(--font-body)' }}
     >
       {/* スクロールしても上部に固定されるヘッダー(単語帳詳細と同じパターン)。
           下線はコンテンツがヘッダの下に潜り込んだときだけ出す。 */}
       <header
-        className={`sticky z-40 border-b-2 bg-[var(--color-background)]/95 px-[14px] pb-2.5 pt-2.5 backdrop-blur-md ${
+        className={`sticky z-40 border-b-2 bg-[var(--color-background)]/95 px-[14px] pb-2.5 pt-2.5 backdrop-blur-md lg:px-0 lg:pt-3 ${
           pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'
         }`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="flex min-w-0 items-baseline gap-2">
-          <span className="shrink-0 font-display text-[18px] font-extrabold leading-none tracking-[-0.02em] text-[var(--solid-ink)]">
+          <span className="shrink-0 font-display text-[18px] font-extrabold leading-none tracking-[-0.02em] text-[var(--solid-ink)] lg:text-[20px]">
             単語一覧
           </span>
           <span className="min-w-0 truncate font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
@@ -258,7 +258,7 @@ export default function WordsPage() {
 
       {/* 学習度の内訳。単語帳詳細と同じバーを、枠を持たせず背景の上に置く */}
       {results.length > 0 && (
-        <div className="px-4 pb-1 pt-3 lg:px-5">
+        <div className="px-4 pb-1 pt-3 lg:px-0.5">
           <StackedBar
             total={results.length}
             m={statusSummary.mastered}
@@ -269,7 +269,7 @@ export default function WordsPage() {
         </div>
       )}
 
-      <div className="px-4 pt-2.5 lg:grid lg:grid-cols-[286px_1fr] lg:items-start lg:gap-6 lg:px-5">
+      <div className="px-4 pt-2.5 lg:grid lg:grid-cols-[260px_1fr] lg:items-start lg:gap-6 lg:px-0 lg:pt-3.5">
         {/* デスクトップ: 左に絞り込みを常設 */}
         <aside className="sticky top-[104px] hidden max-h-[calc(100dvh-124px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 lg:block">
           <WordFilterPanel {...panelProps} />

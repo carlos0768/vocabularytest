@@ -1329,6 +1329,39 @@ export default function QuizPage() {
   };
 
   /* ---------- Loading ---------- */
+  // デスクトップ: キーボードの 1〜4 で選択肢を選び、Enter で次の問題へ進む。
+  // ハンドラは毎レンダー差し替え、リスナーは1回だけ登録する。
+  const desktopKeyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
+  desktopKeyHandlerRef.current = (event) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    if (!currentQuestion) return;
+    if (event.key === 'Enter') {
+      if (isRevealed && !isTransitioning) {
+        event.preventDefault();
+        moveToNext();
+      }
+      return;
+    }
+    const n = Number(event.key);
+    if (
+      n >= 1 && n <= 4 && !isRevealed && !isTypeInMode &&
+      isMultipleChoiceQuestion(currentQuestion) && n <= currentQuestion.options.length
+    ) {
+      event.preventDefault();
+      void handleSelect(n - 1);
+    }
+  };
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (mediaQuery.matches) desktopKeyHandlerRef.current(event);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   if (loading || !modeLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
@@ -1687,177 +1720,181 @@ export default function QuizPage() {
           <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
             <Icon name="close" />
           </button>
-          <div className="ds-qbar"><div className="fi" style={{ width: `${Math.round((currentIndex / Math.max(total, 1)) * 100)}%` }} /></div>
-          <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
-          {!voiceQuizUnavailable && (
+          <div className="ds-quiz-prog">
+            {/* 問題ごとの結果を色分けしたセグメント (緑=正解 / 赤=不正解 / 黄=スキップ / 黒=現在) */}
+            <div className="ds-qsegs" aria-hidden="true">
+              {questions.map((_, i) => {
+                const result = answerResults[i];
+                const cls = i < currentIndex
+                  ? (result === true ? 'ok' : result === false ? 'ng' : 'skip')
+                  : i === currentIndex ? 'cur' : '';
+                return <div key={i} className={`ds-qseg ${cls}`} />;
+              })}
+            </div>
+            <span className="ds-qcount">{currentIndex + 1}<span className="muted">/{total}</span></span>
+          </div>
+          {!voiceQuizUnavailable ? (
             <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
               <Icon name="mic" />
             </button>
+          ) : (
+            <span style={{ width: 40, flexShrink: 0 }} aria-hidden="true" />
           )}
         </div>
-        <div className="mono muted" style={{ fontSize: 12, marginTop: 6 }}>{desktopSubtitle}</div>
 
-        {!currentIsWordOrder && (
-          <div className="ds-qword">
-            <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 42 : undefined }}>{desktopPrompt}</div>
-            {isActiveVocab && desktopPartOfSpeechLabel ? (
-              <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
-                <span className="ds-tag accent">{desktopPartOfSpeechLabel}</span>
+        <div className="ds-quiz-scroll">
+          <div className="ds-quiz-body">
+            <div className="ds-qeyebrow">{desktopSubtitle}</div>
+
+            {!currentIsWordOrder && (
+              <div className="ds-qword">
+                <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 34 : undefined }}>{desktopPrompt}</div>
+                {isActiveVocab && desktopPartOfSpeechLabel ? (
+                  <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+                    <span className="ds-tag accent">{desktopPartOfSpeechLabel}</span>
+                  </div>
+                ) : (
+                  <div className="ph">{desktopPhonetic || '\u00a0'}</div>
+                )}
+              </div>
+            )}
+
+            {isWordOrderQuestion(currentQuestion) ? (
+              <DSDesktopWordOrderPanel
+                question={currentQuestion}
+                selectedTokens={wordOrderSelectedTokens}
+                result={wordOrderResult}
+                isRevealed={isRevealed}
+                onSelectToken={handleWordOrderTokenSelect}
+                onRemoveToken={handleWordOrderTokenRemove}
+              />
+            ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
+              <div className="ds-qopts">
+                {currentQuestion.options.map((option, i) => {
+                  let cls = 'ds-qopt';
+                  if (isRevealed) {
+                    if (i === currentQuestion.correctIndex) cls += ' correct';
+                    else if (i === selectedIndex) cls += ' wrong';
+                    else cls += ' dim';
+                  }
+                  return (
+                    <button key={i} type="button" className={cls} onClick={() => handleSelect(i)} disabled={isRevealed}>
+                      <span className="lbl">{String.fromCharCode(65 + i)}</span>
+                      <span style={{ flex: 1 }}>{option}</span>
+                      {isRevealed && i === currentQuestion.correctIndex && <Icon name="check" />}
+                      {isRevealed && i === selectedIndex && i !== currentQuestion.correctIndex && <Icon name="close" />}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
-              <div className="ph">{desktopPhonetic || '\u00a0'}</div>
-            )}
-          </div>
-        )}
-
-        {isWordOrderQuestion(currentQuestion) ? (
-          <DSDesktopWordOrderPanel
-            question={currentQuestion}
-            selectedTokens={wordOrderSelectedTokens}
-            result={wordOrderResult}
-            isRevealed={isRevealed}
-            onSelectToken={handleWordOrderTokenSelect}
-            onRemoveToken={handleWordOrderTokenRemove}
-          />
-        ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
-          <div className="ds-qopts">
-            {currentQuestion.options.map((option, i) => {
-              let cls = 'ds-qopt';
-              if (isRevealed) {
-                if (i === currentQuestion.correctIndex) cls += ' correct';
-                else if (i === selectedIndex) cls += ' wrong';
-                else cls += ' dim';
-              }
-              return (
-                <button key={i} type="button" className={cls} onClick={() => handleSelect(i)} disabled={isRevealed}>
-                  <span className="lbl">{String.fromCharCode(65 + i)}</span>
-                  <span style={{ flex: 1 }}>{option}</span>
-                  {isRevealed && i === currentQuestion.correctIndex && <Icon name="check" />}
-                  {isRevealed && i === selectedIndex && i !== currentQuestion.correctIndex && <Icon name="close" />}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ width: '100%', maxWidth: 520 }}>
-            <TypeInQuizField
-              ref={typeInFieldDesktopRef}
-              answer={typeInExpectedAnswer}
-              spaceAsGap={isActiveVocab}
-              value={typeInAnswer}
-              onChange={setTypeInAnswer}
-              normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
-              onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
-              disabled={isRevealed}
-              result={typeInResult}
-            />
-            {!isRevealed && (
-              <button
-                type="button"
-                className="ds-btn accent"
-                onClick={handleTypeInSubmit}
-                disabled={!typeInAnswer.trim()}
-                style={{ width: '100%', marginTop: 16 }}
-              >
-                回答する
-              </button>
-            )}
-          </div>
-        )}
-
-        {isRevealed && desktopExample && (
-          <div className="w-full max-w-[780px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left" style={{ marginTop: 16 }}>
-            <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
-              {desktopExample.sentence}
-            </div>
-            {desktopExample.translation && (
-              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{desktopExample.translation}</div>
-            )}
-          </div>
-        )}
-
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', marginTop: 16, gap: 14 }}>
-          {currentIsWordOrder ? (
-            isRevealed ? (
-              <>
-                <span
-                  className="ds-status"
-                  style={{
-                    color: wordOrderResult === 'wrong' ? 'var(--color-error)' : 'var(--color-accent-ink)',
-                    fontSize: 15,
-                  }}
-                >
-                  <Icon name={wordOrderResult === 'wrong' ? 'cancel' : 'check_circle'} filled />
-                  {wordOrderResult === 'wrong' ? '不正解' : '正解'}
-                </span>
-                {wordOrderResult === 'wrong' && (
-                  <span className="muted" style={{ fontSize: 13.5 }}>
-                    正解：<b style={{ color: 'var(--color-ink)' }}>{desktopWordOrderAnswer}</b>
-                  </span>
-                )}
-                <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
-                  次の問題<Icon name="arrow_forward" />
-                </button>
-              </>
-            ) : (
-              <>
-                {wordOrderSelectedTokens.length > 0 && (
+              <div style={{ width: '100%', maxWidth: 520 }}>
+                <TypeInQuizField
+                  ref={typeInFieldDesktopRef}
+                  answer={typeInExpectedAnswer}
+                  spaceAsGap={isActiveVocab}
+                  value={typeInAnswer}
+                  onChange={setTypeInAnswer}
+                  normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
+                  onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
+                  disabled={isRevealed}
+                  result={typeInResult}
+                />
+                {!isRevealed && (
                   <button
                     type="button"
-                    className="ds-btn ghost"
-                    onClick={() => setWordOrderSelectedTokens([])}
+                    className="ds-btn accent"
+                    onClick={handleTypeInSubmit}
+                    disabled={!typeInAnswer.trim()}
+                    style={{ width: '100%', marginTop: 16 }}
                   >
-                    <Icon name="restart_alt" />クリア
+                    回答する
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="ds-btn accent"
-                  disabled={!desktopWordOrderReady}
-                  style={!desktopWordOrderReady ? { opacity: 0.5 } : undefined}
-                  onClick={handleWordOrderSubmit}
-                >
-                  <Icon name="check" />答え合わせ
+              </div>
+            )}
+
+
+            {isRevealed && desktopExample && (
+              <div style={{ marginTop: 16, borderRadius: 12, border: '1px dashed var(--color-border)', background: '#fff', padding: '13px 14px', textAlign: 'left' }}>
+                <div className="ds-eyebrow" style={{ marginBottom: 5, fontSize: 9 }}>EXAMPLE</div>
+                <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.55, color: 'var(--color-ink)' }}>
+                  {desktopExample.sentence}
+                </div>
+                {desktopExample.translation && (
+                  <div className="muted" style={{ marginTop: 4, fontSize: 12, lineHeight: 1.55 }}>{desktopExample.translation}</div>
+                )}
+              </div>
+            )}
+
+            {currentIsWordOrder ? (
+              isRevealed ? (
+                <>
+                  <div className="ds-qresult">
+                    <span
+                      className="ds-status"
+                      style={{ color: wordOrderResult === 'wrong' ? 'var(--color-error)' : 'var(--color-accent-ink)', fontSize: 15 }}
+                    >
+                      <Icon name={wordOrderResult === 'wrong' ? 'cancel' : 'check_circle'} filled />
+                      {wordOrderResult === 'wrong' ? '不正解' : '正解'}
+                    </span>
+                    {wordOrderResult === 'wrong' && (
+                      <span className="muted" style={{ fontSize: 13.5 }}>
+                        正解：<b style={{ color: 'var(--color-ink)' }}>{desktopWordOrderAnswer}</b>
+                      </span>
+                    )}
+                  </div>
+                  <button type="button" className="ds-qnext" onClick={moveToNext} disabled={isTransitioning}>
+                    次へ<Icon name="chevron_right" />
+                  </button>
+                </>
+              ) : (
+                <div className="ds-qresult" style={{ justifyContent: 'flex-end' }}>
+                  {wordOrderSelectedTokens.length > 0 && (
+                    <button type="button" className="ds-btn ghost" onClick={() => setWordOrderSelectedTokens([])}>
+                      <Icon name="restart_alt" />クリア
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="ds-btn accent"
+                    disabled={!desktopWordOrderReady}
+                    onClick={handleWordOrderSubmit}
+                  >
+                    <Icon name="check" />答え合わせ
+                  </button>
+                </div>
+              )
+            ) : isRevealed ? (
+              <>
+                <div className="ds-qresult">
+                  <span
+                    className="ds-status"
+                    style={{ color: desktopAnswerWrong ? 'var(--color-error)' : 'var(--color-accent-ink)', fontSize: 15 }}
+                  >
+                    <Icon name={desktopAnswerWrong ? 'cancel' : 'check_circle'} filled />
+                    {desktopAnswerWrong ? '不正解' : '正解'}
+                  </span>
+                  {desktopAnswerWrong && desktopCorrectAnswer && (
+                    <span className="muted" style={{ fontSize: 13.5 }}>
+                      正解：<b style={{ color: 'var(--color-ink)' }}>{desktopCorrectAnswer}</b>
+                    </span>
+                  )}
+                </div>
+                <button type="button" className="ds-qnext" onClick={moveToNext} disabled={isTransitioning}>
+                  次へ<Icon name="chevron_right" />
                 </button>
+                <div className="ds-qhint"><b>Enter</b> で次へ</div>
               </>
-            )
-          ) : isRevealed ? (
-            <>
-              <span
-                className="ds-status"
-                style={{
-                  color: desktopAnswerWrong ? 'var(--color-error)' : 'var(--color-accent-ink)',
-                  fontSize: 15,
-                }}
-              >
-                <Icon
-                  name={desktopAnswerWrong ? 'cancel' : 'check_circle'}
-                  filled
-                />
-                {desktopAnswerWrong ? '不正解' : '正解'}
-              </span>
-              {desktopAnswerWrong && desktopCorrectAnswer && (
-                <span className="muted" style={{ fontSize: 13.5 }}>
-                  正解：<b style={{ color: 'var(--color-ink)' }}>{desktopCorrectAnswer}</b>
-                </span>
-              )}
-              <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
-                次の問題<Icon name="arrow_forward" />
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="muted mono" style={{ fontSize: 12 }}>
-                {isTypeInMode ? '答えを入力してください' : '意味として正しいものを選んでください'}
-              </span>
-              {!isTypeInMode && !currentIsWordOrder && (
-                <button type="button" className="ds-btn ghost" onClick={handleSkip} style={{ marginLeft: 'auto' }}>
-                  わからない
-                </button>
-              )}
-            </>
-          )}
+            ) : isTypeInMode ? (
+              <div className="ds-qhint">答えを入力して <b>Enter</b> で回答</div>
+            ) : (
+              <>
+                <button type="button" className="ds-qskip" onClick={handleSkip}>わからない</button>
+                <div className="ds-qhint">キーボード <b>1〜4</b> で選択 · <b>Enter</b> で次へ</div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

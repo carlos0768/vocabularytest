@@ -4,7 +4,6 @@ import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { DesktopButton, DesktopSearchBox } from '@/components/desktop/DesktopChrome';
 import { DesktopMediaCard } from '@/components/desktop/DesktopMediaShelf';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
@@ -24,10 +23,17 @@ import type {
 type DesktopSharedCategory = Exclude<SharedDiscoverCategory, 'all'> | 'groups' | 'grammar';
 
 const CATEGORY_META: Record<DesktopSharedCategory, { label: string; icon: string; description: string }> = {
-  users: { label: 'ユーザー', icon: 'person', description: '学習者アカウント' },
-  projects: { label: '単語帳', icon: 'menu_book', description: 'みんなが公開している単語帳' },
-  grammar: { label: '語法', icon: 'rule', description: 'みんなが公開している語法問題集' },
-  groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探して参加' },
+  users: { label: 'ユーザー', icon: 'person', description: '学習者をフォロー' },
+  projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳' },
+  grammar: { label: '語法', icon: 'rule', description: '公開されている語法問題集' },
+  groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探す' },
+};
+
+const CATEGORY_COLORS: Record<DesktopSharedCategory, string> = {
+  users: '#137FEC',
+  projects: '#228B22',
+  grammar: '#CC4D59',
+  groups: '#D97340',
 };
 
 const FEED_PAGE_SIZE = 12;
@@ -110,86 +116,91 @@ export function DesktopSharedView({
     onProjectMissing(projectId);
   };
 
+  // 検索窓。カテゴリ (グループ / 語法) ごとに送信先が違う
+  const searchBar = isGroups ? (
+    <form
+      onSubmit={(event) => { event.preventDefault(); onGroupSearch(); }}
+      className="ds-shared-search"
+    >
+      <Icon name="search" />
+      <input
+        placeholder="グループ名で検索"
+        value={groupQuery}
+        onChange={(event) => onGroupQueryChange(event.target.value)}
+      />
+      <button type="submit" className="go" disabled={groupLoading} aria-label="グループを検索">
+        <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
+      </button>
+    </form>
+  ) : isGrammar ? (
+    <form
+      onSubmit={(event) => { event.preventDefault(); onGrammarSearch(); }}
+      className="ds-shared-search"
+    >
+      <Icon name="search" />
+      <input
+        placeholder="問題集名・ユーザーで検索"
+        value={grammarQuery}
+        onChange={(event) => onGrammarQueryChange(event.target.value)}
+      />
+      <button type="submit" className="go" disabled={grammarLoading} aria-label="語法問題集を検索">
+        <Icon name={grammarLoading ? 'progress_activity' : 'arrow_forward'} className={grammarLoading ? 'animate-spin' : undefined} />
+      </button>
+    </form>
+  ) : (
+    <label className="ds-shared-search">
+      <Icon name="search" />
+      <input
+        placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+      />
+    </label>
+  );
+
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <div
-        className="ds-top"
-        style={{
-          display: 'grid',
-          // 右の 320px は本文右レールの幅と揃える。左カラムは本文メインカラム
-          // （サイドバー右端〜右レール左端）と同じ幅になる。
-          gridTemplateColumns: 'minmax(0, 1fr) 320px',
-          gap: 26,
-          alignItems: 'center',
-        }}
-      >
-        {/* 検索窓を左カラム＝サイドバー右端〜右セクション左端の中央に置く */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 420px) minmax(0, 1fr)',
-            alignItems: 'center',
-            gap: 12,
-            minWidth: 0,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div className="crumb">{isCategory ? `共有ライブラリ / ${activeMeta!.label}` : 'コレクション / 探す'}</div>
-            <h1>{isCategory ? activeMeta!.label : '共有ライブラリ'}</h1>
-          </div>
-          {isGroups ? (
-            <form
-              onSubmit={(event) => { event.preventDefault(); onGroupSearch(); }}
-              style={{ display: 'flex', gap: 8, minWidth: 0 }}
-            >
-              <DesktopSearchBox
-                placeholder="グループ名で検索"
-                value={groupQuery}
-                onChange={(event) => onGroupQueryChange(event.target.value)}
-                style={{ width: '100%', minWidth: 0 }}
-              />
-              <button type="submit" className="ds-btn dark" disabled={groupLoading} aria-label="グループを検索">
-                <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
-              </button>
-            </form>
-          ) : isGrammar ? (
-            <form
-              onSubmit={(event) => { event.preventDefault(); onGrammarSearch(); }}
-              style={{ display: 'flex', gap: 8, minWidth: 0 }}
-            >
-              <DesktopSearchBox
-                placeholder="問題集名・ユーザーで検索"
-                value={grammarQuery}
-                onChange={(event) => onGrammarQueryChange(event.target.value)}
-                style={{ width: '100%', minWidth: 0 }}
-              />
-              <button type="submit" className="ds-btn dark" disabled={grammarLoading} aria-label="語法問題集を検索">
-                <Icon name={grammarLoading ? 'progress_activity' : 'arrow_forward'} className={grammarLoading ? 'animate-spin' : undefined} />
-              </button>
-            </form>
-          ) : (
-            <DesktopSearchBox
-              placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              style={{ width: '100%', minWidth: 0 }}
-            />
-          )}
-          <div aria-hidden="true" />
+      <div className="ds-top" style={{ gap: 10 }}>
+        {isCategory && (
+          <button type="button" className="ds-iconbtn-round sm" onClick={onBackToAll} aria-label="共有単語帳に戻る" title="戻る">
+            <Icon name="arrow_back" />
+          </button>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="crumb">{isCategory ? `COMMUNITY / ${activeMeta!.label}` : 'COMMUNITY'}</div>
+          <h1>{isCategory ? activeMeta!.label : '共有単語帳'}</h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          <FollowNotificationsButton variant="desktop" />
-          <DesktopButton variant="dark" icon="add" onClick={onOpenShareSheet}>
-            共有
-          </DesktopButton>
-        </div>
+        <FollowNotificationsButton variant="desktop" />
+        <button type="button" className="ds-btn dark pill" onClick={onOpenShareSheet}>
+          <Icon name="add" />
+          共有する
+        </button>
       </div>
 
       {showDashboard ? (
-        <div
-          className="ds-scroll"
-          style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 26, alignItems: 'start' }}
-        >
+        <div className="ds-scroll">
+          {searchBar}
+          <div className="ds-cat-grid">
+            {(Object.keys(CATEGORY_META) as DesktopSharedCategory[]).map((key) => {
+              const meta = CATEGORY_META[key];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className="ds-cat-card"
+                  style={{ background: CATEGORY_COLORS[key] }}
+                  onClick={() => onCategorySelect(key)}
+                >
+                  <span className="t">{meta.label}</span>
+                  <span className="d">{meta.description}</span>
+                  <Icon name={meta.icon} className="bg" />
+                </button>
+              );
+            })}
+          </div>
+          <div
+            style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 26, alignItems: 'start', paddingTop: 22 }}
+          >
           <div style={{ minWidth: 0 }}>
             {error && (
               <div className="ds-card" style={{ marginBottom: 16, padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
@@ -218,18 +229,14 @@ export function DesktopSharedView({
             />
             <TrendingTagsRail projects={feed.projects} onSelectTag={onQueryChange} />
           </div>
+          </div>
         </div>
       ) : (
         <div className="ds-scroll">
+          {searchBar}
           {isCategory && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-              <button type="button" className="ds-btn ghost" onClick={onBackToAll}>
-                <Icon name="arrow_back" />
-                戻る
-              </button>
-              <div className="muted" style={{ fontSize: 13 }}>
-                {activeMeta!.description}
-              </div>
+            <div className="muted" style={{ fontSize: 13, margin: '10px 2px 18px' }}>
+              {activeMeta!.description}
             </div>
           )}
 

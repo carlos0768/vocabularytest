@@ -2,137 +2,175 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { InputHTMLAttributes, ReactNode } from 'react';
+import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
+import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
-import { useProfile } from '@/hooks/use-profile';
+import { prefetchReelFeed } from '@/hooks/use-reel-feed';
 import { cn } from '@/lib/utils';
 
-type NavKey = 'home' | 'books' | 'stats' | 'reels' | 'feed' | 'shared' | 'fav' | 'scan' | 'settings';
+/* ────────────────────────────────────────────────────────────
+   デスクトップヘッダー
+   左: ロゴ / 中央: ピル型タブ (モバイルのボトムナビと同じ並び) / 右: コイン + 検索
+   ──────────────────────────────────────────────────────────── */
 
-type NavItem = { key: NavKey; href: string; icon: string; label: string; count?: number };
+type TabKey = 'home' | 'words' | 'create' | 'shared' | 'reels' | 'account';
 
-// Pro: リールなし。Free: 従来のナビ(リール入り)を維持する。
-// 単語一覧はモバイルのボトムナビ専用。語法問題集はホームのセクションから開く。
-const PRO_NAV_ITEMS: NavItem[] = [
-  { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
-  { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
-  { key: 'fav', href: '/favorites', icon: 'bookmark', label: '保存', count: 21 },
-  { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
-  { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
-];
+type TabItem = {
+  k: TabKey;
+  label: string;
+  href?: string;
+  /** 前方一致で判定するパス */
+  matchPaths?: string[];
+  /** 完全一致で判定するパス (例: /profile は自分のプロフィールだけ) */
+  exactPaths?: string[];
+  /** 中央の「＋」ボタン */
+  primary?: boolean;
+  /** アイコンの SVG パス (stroke ベース) */
+  d: string;
+  /** アクティブ時に塗りつぶす */
+  fillWhenActive?: boolean;
+};
 
-const FREE_NAV_ITEMS: NavItem[] = [
-  { key: 'home', href: '/', icon: 'home', label: 'ホーム' },
-  { key: 'reels', href: '/reels', icon: 'movie', label: 'リール' },
-  { key: 'shared', href: '/shared', icon: 'group', label: '共有ライブラリ', count: 6 },
-  { key: 'fav', href: '/favorites', icon: 'bookmark', label: '保存', count: 21 },
-  { key: 'stats', href: '/stats', icon: 'bar_chart', label: '統計' },
-  { key: 'settings', href: '/settings', icon: 'settings', label: '設定' },
-];
+const ICON_PATHS = {
+  home: 'M3 10l9-7 9 7V20a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V10z',
+  words: 'M4 6h16M4 12h16M4 18h10 M16 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0',
+  shared:
+    'M3.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M15.5 6a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M15.5 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M8 11l8-4M8 13l8 4',
+  account: 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M4 21a8 8 0 0116 0',
+  reels: 'M4 3h16v18H4z M4 8h16 M10.5 12.2l4 2.3-4 2.3v-4.6z',
+  create: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 8v8M8 12h8',
+};
 
-function activeKeyForPath(pathname: string): NavKey {
-  if (pathname === '/') return 'home';
-  if (pathname === '/projects' || pathname.startsWith('/project/') || pathname.startsWith('/word/')) return 'books';
-  if (pathname === '/stats') return 'stats';
-  if (pathname === '/reels') return 'reels';
-  if (pathname === '/follows' || pathname.startsWith('/profile')) return 'feed';
-  if (pathname === '/shared' || pathname.startsWith('/share/') || pathname.startsWith('/groups/')) return 'shared';
-  if (pathname === '/favorites' || pathname.startsWith('/collections')) return 'fav';
-  if (pathname.startsWith('/scan')) return 'scan';
-  if (pathname === '/settings' || pathname.startsWith('/settings/') || pathname.startsWith('/subscription')) return 'settings';
-  return 'home';
+const HOME_TAB: TabItem = { k: 'home', label: 'ホーム', href: '/', matchPaths: ['/'], d: ICON_PATHS.home, fillWhenActive: true };
+const WORDS_TAB: TabItem = { k: 'words', label: '単語', href: '/words', matchPaths: ['/words'], d: ICON_PATHS.words };
+const CREATE_TAB: TabItem = { k: 'create', label: '作成', primary: true, d: ICON_PATHS.create };
+const SHARED_TAB: TabItem = { k: 'shared', label: '共有', href: '/shared', matchPaths: ['/shared', '/groups', '/share'], d: ICON_PATHS.shared, fillWhenActive: true };
+const REELS_TAB: TabItem = { k: 'reels', label: 'リール', href: '/reels', matchPaths: ['/reels'], d: ICON_PATHS.reels };
+const ACCOUNT_TAB: TabItem = {
+  k: 'account',
+  label: 'アカウント',
+  href: '/profile',
+  matchPaths: ['/settings', '/subscription', '/stats', '/favorites', '/coins', '/follows'],
+  exactPaths: ['/profile'],
+  d: ICON_PATHS.account,
+  fillWhenActive: true,
+};
+
+// Pro: 単語一覧入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)。モバイルのボトムナビと同じ。
+const PRO_TABS: TabItem[] = [HOME_TAB, WORDS_TAB, CREATE_TAB, SHARED_TAB, ACCOUNT_TAB];
+const FREE_TABS: TabItem[] = [HOME_TAB, SHARED_TAB, CREATE_TAB, REELS_TAB, ACCOUNT_TAB];
+
+function isTabActive(tab: TabItem, pathname: string): boolean {
+  if (!tab.href) return false;
+  if (tab.exactPaths?.some((path) => pathname === path)) return true;
+  if (!tab.matchPaths) return false;
+  return tab.matchPaths.some((path) => (path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(path + '/')));
 }
 
-export function DesktopSidebar({
-  collapsed = false,
-  onToggle,
-}: {
-  collapsed?: boolean;
-  onToggle?: () => void;
-}) {
+function TabIcon({ d, filled, size = 22 }: { d: string; filled: boolean; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
+export function DesktopHeader() {
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
-  const { avatarUrl } = useProfile();
-  const active = activeKeyForPath(pathname);
-  const userInitial = user?.email?.charAt(0).toUpperCase() || 'R';
+  const [createOpen, setCreateOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const tabs = isPro ? PRO_TABS : FREE_TABS;
 
   return (
-    <aside className={cn('ds-side', collapsed && 'ds-side--collapsed')} aria-label="デスクトップナビゲーション">
-      <div className="ds-side-head">
-        <div className="ds-brand">
-          <div className="ds-brand-row">
-            <span className="ds-wordmark">{collapsed ? 'M' : 'MERKEN'}</span>
-            <span className="ds-brand-dot" />
-          </div>
-          {!collapsed && <span className="ds-brand-sub">単語帳 · Desktop</span>}
-        </div>
-        {onToggle && (
-          <button
-            type="button"
-            className="ds-sidebar-toggle"
-            onClick={onToggle}
-            title={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
-            aria-label={collapsed ? 'サイドバーを展開' : 'サイドバーを折りたたむ'}
-          >
-            <Icon name={collapsed ? 'chevron_right' : 'chevron_left'} />
-          </button>
-        )}
-      </div>
+    <header className="ds-header" aria-label="デスクトップナビゲーション">
+      <Link href="/" className="ds-header-brand" aria-label="MERKEN ホーム">
+        MERKEN<span className="dot" />
+      </Link>
 
-      <nav className="ds-nav">
-        {(isPro ? PRO_NAV_ITEMS : FREE_NAV_ITEMS).map((item) => {
-          const isActive = active === item.key;
+      <nav className="ds-pillnav">
+        {tabs.map((tab) => {
+          if (tab.primary) {
+            return (
+              <button
+                key={tab.k}
+                type="button"
+                className="ds-pillnav-create"
+                onClick={() => setCreateOpen(true)}
+                aria-label="作成"
+                title="新しい単語帳"
+              >
+                <span>
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 8v8M8 12h8" />
+                  </svg>
+                </span>
+              </button>
+            );
+          }
+          const active = isTabActive(tab, pathname);
           return (
             <Link
-              key={item.key}
-              href={item.href}
-              className={cn('ds-nav-item', isActive && 'active')}
-              title={collapsed ? item.label : undefined}
+              key={tab.k}
+              href={tab.href!}
+              className={cn('ds-pillnav-item', active && 'active')}
+              aria-current={active ? 'page' : undefined}
+              onPointerDown={tab.k === 'reels' ? () => prefetchReelFeed() : undefined}
             >
-              <Icon name={item.icon} filled={isActive} />
-              {!collapsed && <span className="ds-nav-text">{item.label}</span>}
-              {!collapsed && item.count != null && <span className="ds-nav-count">{item.count}</span>}
+              <TabIcon d={tab.d} filled={active && Boolean(tab.fillWhenActive)} />
+              <span>{tab.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="ds-side-foot">
+      <div className="ds-header-side">
         {coinsEnabled && isPro && (
-          <Link href="/coins" className="ds-coins" title={collapsed ? `コイン ${coinBalance.totalRemaining}枚` : undefined}>
-            <Icon name="toll" className="ico" filled />
-            {!collapsed && (
-              <div>
-                <div className="n">
-                  {coinBalance.totalRemaining}
-                  <span> 枚</span>
-                </div>
-                <div className="l">今月分 {coinBalance.monthlyRemaining} / 購入 {coinBalance.purchasedRemaining}</div>
-              </div>
-            )}
+          <Link href="/coins" className="ds-header-coins" aria-label={`コイン残高 ${coinBalance.totalRemaining}枚`} title={`今月分 ${coinBalance.monthlyRemaining} / 購入 ${coinBalance.purchasedRemaining}`}>
+            <Icon name="toll" />
+            <span className="n">{coinBalance.totalRemaining}</span>
+            <span className="u">枚</span>
           </Link>
         )}
-        {!collapsed && (
-          <Link href="/profile" className="ds-user" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }} title="プロフィールを開く">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="" className="ds-avatar" style={{ objectFit: 'cover' }} />
-            ) : (
-              <div className="ds-avatar">{userInitial}</div>
-            )}
-            <div>
-              <div className="nm">{user?.email?.split('@')[0] ?? 'ゲスト'}</div>
-              <div className="pl">{isPro ? 'Pro メンバー' : 'Free メンバー'}</div>
-            </div>
-          </Link>
+        {user && (
+          <button
+            type="button"
+            className="ds-iconbtn-round"
+            onClick={() => setSearchOpen(true)}
+            aria-label="自分の単語帳から単語を検索"
+            title="単語を検索"
+          >
+            <Icon name="search" />
+          </button>
         )}
       </div>
-    </aside>
+
+      {/* 「＋作成」: モバイルのボトムナビと同じ作成フローを中央モーダルで出す */}
+      <CreateWordbookSheet isOpen={createOpen} onClose={() => setCreateOpen(false)} variant="modal" />
+      {/* 単語検索。開くたびにマウントし直して状態を初期化する */}
+      {searchOpen && user && <DesktopWordSearchOverlay onClose={() => setSearchOpen(false)} userId={user.id} />}
+    </header>
   );
 }
+
+/* ────────────────────────────────────────────────────────────
+   ページ内トップバー (小見出し + タイトル + 右側アクション)
+   ──────────────────────────────────────────────────────────── */
 
 export function DesktopTopbar({
   title,
@@ -199,13 +237,13 @@ export function DesktopButton({
   const classes = cn('ds-btn', variant, iconOnly && 'ds-btn--icon', className);
   if (href) {
     return (
-      <Link href={href} className={classes} title={title}>
+      <Link href={href} className={classes} title={title} aria-label={iconOnly ? title : undefined}>
         {content}
       </Link>
     );
   }
   return (
-    <button type="button" className={classes} onClick={onClick} title={title} disabled={disabled}>
+    <button type="button" className={classes} onClick={onClick} title={title} aria-label={iconOnly ? title : undefined} disabled={disabled}>
       {content}
     </button>
   );
