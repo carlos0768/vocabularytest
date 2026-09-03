@@ -1,28 +1,27 @@
 'use client';
 
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+/**
+ * 単語帳詳細 (デスクトップ)。
+ * 上から: 戻る/共有/その他 → 単語帳アイコン + タイトル + 習得度バー
+ *       → クイズ/カード/単語追加 → 検索・絞り込み・並べ替え・選択・赤シート
+ *       → 単語一覧 (モバイルと同じ WordRow: 3段の習得度マス / 語彙タイプ / ブックマーク)
+ * 右レール: 最近間違えた単語 / 復習時期が近い単語 (ReviewRail)
+ */
+
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import {
-  DesktopButton,
-  DesktopDonut,
-  DesktopSearchBox,
-  DesktopTopbar,
-} from '@/components/desktop/DesktopChrome';
-import {
-  DESKTOP_STATUS_LABEL,
-  desktopPosLabel,
-  desktopSourceLabel,
-  desktopThumbColor,
-} from '@/components/desktop/desktop-data';
-import { DesktopVocabularyTypeBadge } from '@/components/desktop/DesktopVocabularyTypeBadge';
+import { DesktopButton } from '@/components/desktop/DesktopChrome';
+import { desktopSourceLabel, desktopThumbColor } from '@/components/desktop/desktop-data';
 import { DesktopWordDetailModal } from '@/components/desktop/DesktopWordDetailModal';
+import { WordRow } from '@/components/project/WordRow';
+import { StackedBar } from '@/components/project/WordStatusBar';
+import { WordListFrame } from '@/components/words/WordListFrame';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
-type SortKey = 'order' | 'en' | 'vocabularyType' | 'status';
 type ReviewRailMode = 'wrong' | 'review';
 
 type RecentWrongRailItem = {
@@ -42,14 +41,44 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const DESKTOP_WORDS_PER_PAGE = 10;
 
-/** 英単語列と日本語訳列の間の仕切り。ds-table は他画面でも使うのでこの表だけに当てる。 */
-const JA_COL_DIVIDER: CSSProperties = { borderLeft: '1px solid var(--color-border)' };
-
-function vocabularyTypeSortRank(value: Word['vocabularyType']): number {
-  if (value === 'active') return 0;
-  if (value === 'passive') return 1;
-  return 2;
+/** 34px の正方形ツールボタン (絞り込み / 並べ替え / 選択) */
+function ToolButton({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      style={{
+        display: 'inline-flex', height: 34, width: 34, alignItems: 'center', justifyContent: 'center',
+        borderRadius: 9, border: '2px solid var(--solid-ink)', cursor: 'pointer', flexShrink: 0, padding: 0,
+        background: active ? 'var(--solid-ink)' : '#fff', color: active ? '#fff' : 'var(--color-ink)',
+      }}
+    >
+      <Icon name={icon} size={15} />
+    </button>
+  );
 }
+
+const ACTION_BUTTON: React.CSSProperties = {
+  display: 'flex', height: 46, alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 16px',
+  borderRadius: 10, border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--color-ink)',
+  fontSize: 13, fontWeight: 700, boxShadow: '2px 2px 0 var(--solid-ink)', cursor: 'pointer',
+  textDecoration: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap',
+};
+
+const MENU_ITEM = 'flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]';
 
 export function DesktopProjectDetailView({
   project,
@@ -71,7 +100,9 @@ export function DesktopProjectDetailView({
   onRename,
   onSetBinder,
   onDeleteProject,
+  onShare,
   onToggleFavorite,
+  onCycleStatus,
   onCycleVocabularyType,
   onDeleteWord,
   onScan,
@@ -96,7 +127,9 @@ export function DesktopProjectDetailView({
   onRename: () => void;
   onSetBinder: () => void;
   onDeleteProject: () => void;
+  onShare?: () => void;
   onToggleFavorite: (word: Word) => void;
+  onCycleStatus: (word: Word, newStatus: WordStatus) => void;
   onCycleVocabularyType: (word: Word) => void;
   onDeleteWord: (wordId: string) => void;
   onScan: () => void;
@@ -107,10 +140,9 @@ export function DesktopProjectDetailView({
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
-  const [sortKey, setSortKey] = useState<SortKey>('order');
-  const [sortDir, setSortDir] = useState(1);
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
-  const [hiddenCols, setHiddenCols] = useState<Set<'en' | 'ja'>>(new Set());
+  // 赤シート: 一覧の訳を赤いベタで隠す (モバイルと同じ)
+  const [redSheet, setRedSheet] = useState(false);
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
   const [nowMs, setNowMs] = useState(0);
   const [railCollapsed, setRailCollapsed] = useState(() => {
@@ -142,20 +174,17 @@ export function DesktopProjectDetailView({
     return () => window.clearInterval(timer);
   }, []);
 
-  const rows = useMemo(() => {
-    // 'order' keeps the shared filter/sort order from the sheets as-is
-    if (sortKey === 'order') {
-      return sortDir === 1 ? filteredWords : [...filteredWords].reverse();
+  // 絞り込み・並べ替えはシート側 (filteredWords) で決まった順をそのまま使う
+  const rows = filteredWords;
+
+  const wrongCountByWordId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const wrongAnswer of wrongAnswers) {
+      if (wrongAnswer.projectId && wrongAnswer.projectId !== projectId) continue;
+      map.set(wrongAnswer.wordId, wrongAnswer.wrongCount);
     }
-    const order: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
-    return [...filteredWords].sort((a, b) => {
-      let result = 0;
-      if (sortKey === 'en') result = a.english.localeCompare(b.english);
-      else if (sortKey === 'vocabularyType') result = vocabularyTypeSortRank(a.vocabularyType) - vocabularyTypeSortRank(b.vocabularyType);
-      else result = order[a.status] - order[b.status];
-      return result * sortDir;
-    });
-  }, [filteredWords, sortDir, sortKey]);
+    return map;
+  }, [projectId, wrongAnswers]);
 
   const recentWrongRows = useMemo<RecentWrongRailItem[]>(() => {
     const wordById = new Map(words.map((word) => [word.id, word]));
@@ -198,8 +227,8 @@ export function DesktopProjectDetailView({
   const paginateRows = rows.length > DESKTOP_WORDS_PER_PAGE * 2;
   const pageCount = paginateRows ? Math.ceil(rows.length / DESKTOP_WORDS_PER_PAGE) : 1;
   const [storedWordPage, setWordPage] = useState(0);
-  // 検索語や並べ替えを変えたら先頭ページから見せる (レンダー中に前回値と比べて直す React 公式パターン)
-  const pageResetKey = `${query}|${sortKey}|${sortDir}`;
+  // 検索語を変えたら先頭ページから見せる (レンダー中に前回値と比べて直す React 公式パターン)
+  const pageResetKey = `${query}|${sortActive}|${filterActive}`;
   const [prevPageResetKey, setPrevPageResetKey] = useState(pageResetKey);
   if (prevPageResetKey !== pageResetKey) {
     setPrevPageResetKey(pageResetKey);
@@ -219,342 +248,213 @@ export function DesktopProjectDetailView({
       ? rows
       : [selectedWord, ...rows];
   }, [selectedWord, rows]);
-  const pctMastered = counts.total > 0 ? Math.round((counts.mastered / counts.total) * 100) : 0;
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((current) => -current);
-    } else {
-      setSortKey(key);
-      setSortDir(1);
-    }
+  // 習得度の内訳 (定着中は counts に無いので単語から数える)
+  const activeCount = useMemo(() => words.filter((word) => word.status === 'active').length, [words]);
+  const learningCount = Math.max(0, counts.learning - activeCount);
+
+  const goBack = () => {
+    // 直前の画面（単語帳一覧・バインダーなど）へ戻す。履歴が無ければ一覧へ。
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push('/projects');
   };
-
-  const toggleCol = (col: 'en' | 'ja') => {
-    setHiddenCols((prev) => {
-      const next = new Set(prev);
-      if (next.has(col)) next.delete(col);
-      else next.add(col);
-      return next;
-    });
-  };
-
-  const sortHead = (key: SortKey, label: string, extra?: CSSProperties) => (
-    <th onClick={() => toggleSort(key)} style={extra}>
-      {label} {sortKey === key && <Icon name={sortDir === 1 ? 'arrow_downward' : 'arrow_upward'} />}
-    </th>
-  );
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar
-        title={project.title}
-        crumb="単語帳 / 一覧"
-        leading={
-          <DesktopButton
-            onClick={() => {
-              // 直前の画面（単語帳一覧・バインダーなど）へ戻す。履歴が無ければ一覧へ。
-              if (typeof window !== 'undefined' && window.history.length > 1) router.back();
-              else router.push('/projects');
-            }}
-            icon="arrow_back"
-            title="戻る"
-          >{''}</DesktopButton>
-        }
-      >
-        {/* 「...」メニュー: 名称変更 / バインダー設定 / 削除。
-            単語の追加はフラッシュカードの右隣の専用ボタンに移動済み */}
-        <div ref={moreMenuRef} style={{ position: 'relative' }}>
-          <DesktopButton onClick={() => setMoreMenuOpen((v) => !v)} icon="more_horiz" title="その他の操作">{''}</DesktopButton>
-          {moreMenuOpen && (
-            <>
-              <button
-                type="button"
-                className="fixed inset-0 z-40 cursor-default bg-transparent"
-                aria-label="メニューを閉じる"
-                onClick={() => setMoreMenuOpen(false)}
-              />
-              <div
-                className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
-                style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
-              >
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setMoreMenuOpen(false); onRename(); }}
-                >
-                  <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
-                  名称変更
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  onClick={() => { setMoreMenuOpen(false); onSetBinder(); }}
-                >
-                  <Icon name="folder" style={{ fontSize: 18 }} />
-                  バインダー設定
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                  style={{ color: 'var(--color-error, #cc4d59)' }}
-                  onClick={() => { setMoreMenuOpen(false); onDeleteProject(); }}
-                >
-                  <Icon name="delete" style={{ fontSize: 18 }} />
-                  単語帳を削除
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </DesktopTopbar>
-
       <div className={`ds-scroll ds-project-detail-grid${railCollapsed ? ' ds-project-detail-grid--rail-collapsed' : ''}`}>
         <div style={{ minWidth: 0 }}>
-          <div className="ds-card" style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 20, marginBottom: 18, flexShrink: 0 }}>
+          {/* 戻る / BOOK / 共有 / その他 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" className="ds-iconbtn-round sm" onClick={goBack} aria-label="戻る" title="戻る">
+              <Icon name="arrow_back" />
+            </button>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="ds-eyebrow" style={{ fontSize: 9, letterSpacing: '0.08em' }}>BOOK</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, lineHeight: 1.2, color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {project.title}
+              </div>
+            </div>
+            {onShare && (
+              <button type="button" className="ds-iconbtn-round sm" onClick={onShare} aria-label="共有" title="共有">
+                <Icon name="ios_share" />
+              </button>
+            )}
+            {/* 「...」メニュー: 名称変更 / バインダー設定 / 削除 */}
+            <div ref={moreMenuRef} style={{ position: 'relative' }}>
+              <button type="button" className="ds-iconbtn-round sm" onClick={() => setMoreMenuOpen((v) => !v)} aria-label="その他の操作" title="その他の操作">
+                <Icon name="more_horiz" />
+              </button>
+              {moreMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-40 cursor-default bg-transparent"
+                    aria-label="メニューを閉じる"
+                    onClick={() => setMoreMenuOpen(false)}
+                  />
+                  <div
+                    className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                    style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+                  >
+                    <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onRename(); }}>
+                      <Icon name="drive_file_rename_outline" style={{ fontSize: 18 }} />
+                      名称変更
+                    </button>
+                    <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onSetBinder(); }}>
+                      <Icon name="folder" style={{ fontSize: 18 }} />
+                      バインダー設定
+                    </button>
+                    <button
+                      type="button"
+                      className={MENU_ITEM}
+                      style={{ color: 'var(--color-error, #cc4d59)' }}
+                      onClick={() => { setMoreMenuOpen(false); onDeleteProject(); }}
+                    >
+                      <Icon name="delete" style={{ fontSize: 18 }} />
+                      単語帳を削除
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* アイコン + タイトル + 習得度 */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '22px 4px 12px' }}>
             <div
-              className="ds-project-icon ds-project-icon--lg"
               style={{
-                background: bg,
+                display: 'flex', height: 72, width: 72, flexShrink: 0, alignItems: 'center', justifyContent: 'center',
+                borderRadius: 14, border: '2px solid var(--solid-ink)', fontFamily: 'var(--font-display)',
+                fontSize: 30, fontWeight: 800, color: '#fff', background: bg, overflow: 'hidden',
                 backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
+                backgroundSize: 'cover', backgroundPosition: 'center',
               }}
             >
               {!project.iconImage && project.title.charAt(0)}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>
-                  {counts.total} <span style={{ fontSize: 13 }}>語</span>
-                </span>
-                <span className="mono muted" style={{ fontSize: 12 }}>{desktopSourceLabel(project)}</span>
-                {project.description && <span className="muted" style={{ fontSize: 12 }}>{project.description}</span>}
+            <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+              <div className="ds-eyebrow" style={{ fontWeight: 600, letterSpacing: '0.04em' }}>
+                BOOK · {counts.total} words · {desktopSourceLabel(project)}
               </div>
-              <div className="ds-dist" style={{ marginTop: 10, maxWidth: 460 }}>
-                <span className="c-mastered" style={{ flex: counts.mastered || 0.0001 }} />
-                <span className="c-review" style={{ flex: counts.learning || 0.0001 }} />
-                <span className="c-new" style={{ flex: counts.newCount || 0.0001 }} />
-              </div>
-              <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                <span className="ds-status mastered"><span className="ds-sdot c-mastered" />習得 {counts.mastered}</span>
-                <span className="ds-status review"><span className="ds-sdot c-review" />学習中 {counts.learning}</span>
-                <span className="ds-status new"><span className="ds-sdot c-new" />未学習 {counts.newCount}</span>
+              <h1 style={{ margin: '2px 0 0', fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.01em', color: 'var(--color-ink)' }}>
+                {project.title}
+              </h1>
+              {project.description && (
+                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{project.description}</div>
+              )}
+              <div style={{ marginTop: 10, maxWidth: 520 }}>
+                <StackedBar total={counts.total} m={counts.mastered} a={activeCount} l={learningCount} n={counts.newCount} />
               </div>
             </div>
-            <DesktopDonut mastered={counts.mastered} review={counts.learning} total={counts.total} size={84} stroke={11} percent={pctMastered} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
-            {/* クイズ（再生）とフラッシュカード。カードは緑（アクセント）の次に
-                目を引く dark 配色にする。単語追加はフラッシュカードの右隣 */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <DesktopButton href={`/quiz/${projectId}`} variant="accent" icon="play_arrow" title="クイズを開始">{''}</DesktopButton>
-              <DesktopButton href={`/flashcard/${projectId}`} variant="dark" icon="style" title="フラッシュカード">{''}</DesktopButton>
-              <div ref={addMenuRef} style={{ position: 'relative' }}>
-                <DesktopButton
-                  onClick={() => setAddMenuOpen((v) => !v)}
-                  icon="add"
-                  title="単語を追加"
-                >{''}</DesktopButton>
-                {addMenuOpen && (
-                  <>
-                    <button
-                      type="button"
-                      className="fixed inset-0 z-40 cursor-default bg-transparent"
-                      aria-label="メニューを閉じる"
-                      onClick={() => setAddMenuOpen(false)}
-                    />
-                    <div
-                      className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
-                      style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
-                    >
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                        onClick={() => { setAddMenuOpen(false); onScan(); }}
-                      >
-                        <Icon name="photo_camera" style={{ fontSize: 18 }} />
-                        スキャンで追加
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]"
-                        onClick={() => { setAddMenuOpen(false); onManualAdd(); }}
-                      >
-                        <Icon name="edit" style={{ fontSize: 18 }} />
-                        手動で追加
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-            {hiddenCols.size > 0 && (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {hiddenCols.has('en') && (
-                  <button type="button" className="ds-btn sm" onClick={() => toggleCol('en')} style={{ fontSize: 11, gap: 4 }}>
-                    <Icon name="visibility" style={{ fontSize: 14 }} />英単語
-                  </button>
-                )}
-                {hiddenCols.has('ja') && (
-                  <button type="button" className="ds-btn sm" onClick={() => toggleCol('ja')} style={{ fontSize: 11, gap: 4 }}>
-                    <Icon name="visibility" style={{ fontSize: 14 }} />日本語
-                  </button>
-                )}
-              </div>
+          {/* クイズ / カード / 単語を追加 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px 16px' }}>
+            {counts.total > 0 ? (
+              <Link
+                href={`/quiz/${projectId}`}
+                className="ds-project-action ds-project-action--accent"
+                style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360, border: '2px solid var(--color-accent)', background: 'var(--color-accent)', color: '#fff', fontSize: 14 }}
+              >
+                <Icon name="check" size={16} />
+                クイズを始める
+              </Link>
+            ) : (
+              <span style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360, opacity: 0.45, cursor: 'not-allowed', boxShadow: 'none' }}>
+                <Icon name="check" size={16} />
+                クイズを始める
+              </span>
             )}
+            <Link href={`/flashcard/${projectId}`} className="ds-project-action" style={ACTION_BUTTON}>
+              <Icon name="style" size={18} />
+              カード
+            </Link>
+            <div ref={addMenuRef} style={{ position: 'relative' }}>
+              <button type="button" className="ds-project-action" style={ACTION_BUTTON} onClick={() => setAddMenuOpen((v) => !v)} aria-expanded={addMenuOpen}>
+                <Icon name="add" size={20} />
+                単語を追加
+              </button>
+              {addMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-40 cursor-default bg-transparent"
+                    aria-label="メニューを閉じる"
+                    onClick={() => setAddMenuOpen(false)}
+                  />
+                  <div
+                    className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                    style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
+                  >
+                    <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onScan(); }}>
+                      <Icon name="photo_camera" style={{ fontSize: 18 }} />
+                      スキャンで追加
+                    </button>
+                    <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onManualAdd(); }}>
+                      <Icon name="edit" style={{ fontSize: 18 }} />
+                      手動で追加
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 検索 / 絞り込み / 並べ替え / 選択 / 赤シート */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px 8px' }}>
+            <label
+              style={{
+                display: 'flex', minWidth: 0, flex: 1, maxWidth: 420, alignItems: 'center', gap: 6,
+                borderRadius: 999, border: '2px solid var(--solid-ink)', background: '#fff', padding: '7px 12px', color: 'var(--color-muted)',
+              }}
+            >
+              <Icon name="search" size={14} />
+              <input
+                value={query}
+                onChange={(event) => onQueryChange(event.target.value)}
+                placeholder="単語を検索"
+                style={{ minWidth: 0, flex: 1, background: 'transparent', border: 0, outline: 0, fontSize: 12, fontFamily: 'inherit', color: 'var(--color-ink)' }}
+              />
+              {query && (
+                <button type="button" onClick={() => onQueryChange('')} aria-label="検索をクリア" style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', color: 'var(--color-muted)', display: 'inline-flex' }}>
+                  <Icon name="close" size={14} />
+                </button>
+              )}
+            </label>
+            <ToolButton icon="filter_list" label="絞り込み" active={filterActive} onClick={onOpenFilterSheet} />
+            <ToolButton icon="swap_vert" label="並べ替え" active={sortActive} onClick={onOpenSortSheet} />
+            <ToolButton icon="check_box" label="選択" active={selectMode} onClick={onToggleSelectMode} />
             {(filterActive || query.trim()) && (
-              <span className="mono muted tnum" style={{ fontSize: 12 }}>
+              <span className="muted tnum" style={{ fontSize: 11, fontWeight: 700 }}>
                 {rows.length} / {counts.total}
               </span>
             )}
-            <div style={{ flex: 1 }} />
-            {/* フィルタ・ソート・選択（正方形）は検索窓の左に配置 */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                className={'ds-btn sm' + (filterActive ? ' dark' : '')}
-                style={{ width: 36, height: 36, padding: 0 }}
-                onClick={onOpenFilterSheet}
-                aria-pressed={filterActive}
-                aria-label="フィルタ"
-              >
-                <Icon name="filter_list" />
-              </button>
-              <button
-                type="button"
-                className={'ds-btn sm' + (sortActive ? ' dark' : '')}
-                style={{ width: 36, height: 36, padding: 0 }}
-                onClick={onOpenSortSheet}
-                aria-pressed={sortActive}
-                aria-label="並べ替え"
-              >
-                <Icon name="swap_vert" />
-              </button>
-              <button
-                type="button"
-                className={'ds-btn sm' + (selectMode ? ' dark' : '')}
-                style={{ width: 36, height: 36, padding: 0 }}
-                onClick={onToggleSelectMode}
-                aria-pressed={selectMode}
-                aria-label="選択"
-              >
-                <Icon name="check_box" />
-              </button>
-            </div>
-            <DesktopSearchBox
-              placeholder="英単語・日本語を検索"
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              style={{ minWidth: 240 }}
-            />
+            <button
+              type="button"
+              onClick={() => setRedSheet((v) => !v)}
+              aria-pressed={redSheet}
+              style={{
+                marginLeft: 'auto', display: 'inline-flex', height: 34, alignItems: 'center', gap: 6, padding: '0 12px',
+                borderRadius: 9, border: `2px solid ${redSheet ? 'var(--solid-ink)' : 'var(--color-border)'}`,
+                background: redSheet ? 'var(--solid-ink)' : '#fff', color: redSheet ? '#fff' : 'var(--color-secondary-text)',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+              }}
+            >
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: '#e0483f', border: '1px solid var(--solid-ink)' }} />
+              赤シート
+            </button>
           </div>
 
-          <div className="ds-card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table className="ds-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 42 }} />
-                  <th style={{ minWidth: 150 }}>
-                    {hiddenCols.has('en') ? null : (
-                      <>
-                        英単語
-                        <span
-                          role="button"
-                          style={{ cursor: 'pointer', verticalAlign: 'middle', marginLeft: 4, opacity: 0.35 }}
-                          onClick={(e) => { e.stopPropagation(); toggleCol('en'); }}
-                        >
-                          <Icon name="visibility_off" style={{ fontSize: 14 }} />
-                        </span>
-                      </>
-                    )}
-                  </th>
-                  <th style={{ width: 70 }}>品詞</th>
-                  {hiddenCols.has('ja') ? null : (
-                    <th style={JA_COL_DIVIDER}>
-                      日本語
-                      <span
-                        role="button"
-                        style={{ cursor: 'pointer', verticalAlign: 'middle', marginLeft: 4, opacity: 0.35 }}
-                        onClick={() => toggleCol('ja')}
-                      >
-                        <Icon name="visibility_off" style={{ fontSize: 14 }} />
-                      </span>
-                    </th>
-                  )}
-                  {sortHead('vocabularyType', 'A/P', { width: 64, textAlign: 'center' })}
-                  {sortHead('status', 'ステータス', { width: 130 })}
-                </tr>
-              </thead>
-              <tbody>
-                {pagedRows.map((word) => {
-                  const isChecked = selectedWordIds.has(word.id);
-                  const displayStatus = word.status;
-                  return (
-                  <tr
-                    key={word.id}
-                    onClick={() => (selectMode ? onToggleSelectWord(word) : setSelectedWordId(word.id))}
-                    style={
-                      (selectMode ? isChecked : selectedWordId === word.id)
-                        ? { background: 'var(--color-accent-subtle)' }
-                        : undefined
-                    }
-                  >
-                    <td
-                      className="star"
-                      onClick={selectMode ? undefined : (event) => {
-                        event.stopPropagation();
-                        onToggleFavorite(word);
-                      }}
-                    >
-                      {selectMode ? (
-                        <span className={'ds-check' + (isChecked ? ' on' : '')} aria-hidden>
-                          {isChecked && <Icon name="check" style={{ fontSize: 15, color: '#fff' }} />}
-                        </span>
-                      ) : (
-                        <Icon
-                          name="bookmark"
-                          filled={word.isFavorite}
-                          style={word.isFavorite ? { color: 'var(--color-accent)' } : undefined}
-                        />
-                      )}
-                    </td>
-                    <td className="en">
-                      {hiddenCols.has('en') ? null : (
-                        <>
-                          {word.english}
-                          <div className="mono" style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 400 }}>
-                            {word.pronunciation || '-'}
-                          </div>
-                        </>
-                      )}
-                    </td>
-                    <td className="pos">{desktopPosLabel(word.partOfSpeechTags)}</td>
-                    {hiddenCols.has('ja') ? null : (
-                      <td className="ja" style={JA_COL_DIVIDER}>
-                        <TranslationDisplay word={word} compact stacked maxLines={2} />
-                      </td>
-                    )}
-                    <td style={{ textAlign: 'center' }}>
-                      <DesktopVocabularyTypeBadge
-                        vocabularyType={word.vocabularyType}
-                        onClick={() => onCycleVocabularyType(word)}
-                      />
-                    </td>
-                    <td><span className={'ds-status ' + displayStatus}><span className={'ds-sdot c-' + displayStatus} />{DESKTOP_STATUS_LABEL[displayStatus]}</span></td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {!wordsLoaded && (
+          {/* 単語一覧 */}
+          <div style={{ padding: '0 2px' }}>
+            {!wordsLoaded ? (
               <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>
                 <Icon name="progress_activity" className="animate-spin" style={{ marginRight: 8 }} />
                 単語を読み込み中...
               </div>
-            )}
-            {wordsLoaded && rows.length === 0 && (
+            ) : rows.length === 0 ? (
               counts.total === 0 ? (
-                <div style={{ textAlign: 'center', padding: '54px 24px' }}>
+                <div style={{ textAlign: 'center', padding: '54px 24px', borderRadius: 16, border: '2px solid var(--solid-ink)', background: '#fff' }}>
                   <div style={{ width: 58, height: 58, borderRadius: 16, background: 'var(--color-accent-light)', border: '2px solid var(--solid-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon name="menu_book" style={{ fontSize: 28, color: 'var(--color-accent-ink)' }} />
                   </div>
@@ -576,52 +476,57 @@ export function DesktopProjectDetailView({
               ) : (
                 <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
               )
+            ) : (
+              <WordListFrame>
+                {pagedRows.map((word) => (
+                  <WordRow
+                    key={word.id}
+                    word={word}
+                    selectMode={selectMode}
+                    selected={selectedWordIds.has(word.id)}
+                    wrongCount={wrongCountByWordId.get(word.id) ?? 0}
+                    hideMeaning={redSheet}
+                    splitMeaning
+                    onToggleSelect={() => onToggleSelectWord(word)}
+                    onCycleStatus={(newStatus) => onCycleStatus(word, newStatus)}
+                    onCycleVocabularyType={() => onCycleVocabularyType(word)}
+                    onToggleFavorite={() => onToggleFavorite(word)}
+                    onSelect={() => setSelectedWordId(word.id)}
+                  />
+                ))}
+              </WordListFrame>
             )}
           </div>
+
           {/* 20語を超えるときは10語ずつページ送り。件数表示の右に前後ボタンを置く */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-              marginTop: 10,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div className="mono muted" style={{ fontSize: 11 }}>
-              {paginateRows
-                ? `${wordPage * DESKTOP_WORDS_PER_PAGE + 1}–${Math.min(rows.length, (wordPage + 1) * DESKTOP_WORDS_PER_PAGE)} / ${rows.length} 語を表示・行をクリックで詳細を表示`
-                : `${rows.length} / ${counts.total} 語を表示・行をクリックで詳細を表示`}
-            </div>
-            {paginateRows && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  type="button"
-                  className="ds-btn sm"
-                  style={{ width: 32, height: 32, padding: 0 }}
-                  onClick={() => setWordPage(Math.max(0, wordPage - 1))}
-                  disabled={wordPage === 0}
-                  aria-label="前の10語"
-                >
-                  <Icon name="chevron_left" />
-                </button>
-                <span className="mono" style={{ fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                  {wordPage + 1} / {pageCount}
-                </span>
-                <button
-                  type="button"
-                  className="ds-btn sm"
-                  style={{ width: 32, height: 32, padding: 0 }}
-                  onClick={() => setWordPage(Math.min(pageCount - 1, wordPage + 1))}
-                  disabled={wordPage >= pageCount - 1}
-                  aria-label="次の10語"
-                >
-                  <Icon name="chevron_right" />
-                </button>
+          {wordsLoaded && rows.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginTop: 12,
+                padding: '0 4px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div className="muted tnum" style={{ fontSize: 11 }}>
+                {paginateRows
+                  ? `${wordPage * DESKTOP_WORDS_PER_PAGE + 1}–${Math.min(rows.length, (wordPage + 1) * DESKTOP_WORDS_PER_PAGE)} / ${rows.length} 語を表示・行をクリックで詳細を表示`
+                  : `${rows.length} / ${counts.total} 語を表示・行をクリックで詳細を表示`}
               </div>
-            )}
-          </div>
+              {paginateRows && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ToolButton icon="chevron_left" label="前の10語" onClick={() => setWordPage(Math.max(0, wordPage - 1))} />
+                  <span className="tnum" style={{ fontSize: 11, fontWeight: 700 }}>
+                    {wordPage + 1} / {pageCount}
+                  </span>
+                  <ToolButton icon="chevron_right" label="次の10語" onClick={() => setWordPage(Math.min(pageCount - 1, wordPage + 1))} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <ReviewRail
@@ -655,7 +560,7 @@ export function DesktopProjectDetailView({
             if (currentIndex < 0 || ids.length === 0) return;
             const nextId = ids[(currentIndex + dir + ids.length) % ids.length] ?? selectedWord.id;
             setSelectedWordId(nextId);
-            // 背後の表も、移動先の単語が載っているページに合わせる
+            // 背後の一覧も、移動先の単語が載っているページに合わせる
             if (paginateRows) {
               const rowIndex = rows.findIndex((row) => row.id === nextId);
               if (rowIndex >= 0) setWordPage(Math.floor(rowIndex / DESKTOP_WORDS_PER_PAGE));

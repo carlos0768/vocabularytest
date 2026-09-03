@@ -1360,7 +1360,9 @@ export default function ProjectPage() {
         onRename={handleOpenRename}
         onSetBinder={() => void handleOpenBinderPicker()}
         onDeleteProject={() => setDeleteModalOpen(true)}
+        onShare={handleOpenShareSheet}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
+        onCycleStatus={(word, newStatus) => handleCycleStatus(word.id, newStatus)}
         onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
         onDeleteWord={handleOpenDeleteWord}
         onScan={() => setShowScanCaptureModal(true)}

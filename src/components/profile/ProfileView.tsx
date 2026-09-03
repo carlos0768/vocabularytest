@@ -411,114 +411,124 @@ function DesktopProfileView({
   derived: ProfileDerivedStats;
 }) {
   const { recentWeek, weekTotal, maxWeekValue, heat, totalDays, avgPerDay, mastered, review, newWords, masteryPercent } = derived;
+  const kpis: Array<{ label: string; value: number; suffix: string; icon?: string; iconColor: string }> = [
+    { label: '連続日数', value: stats?.quizStats.streakDays ?? 0, suffix: '日', icon: 'local_fire_department', iconColor: 'var(--color-warning)' },
+    { label: '累計学習日', value: totalDays, suffix: '日', iconColor: 'var(--color-muted)' },
+    { label: '今週の復習', value: weekTotal, suffix: '語', iconColor: 'var(--color-muted)' },
+    { label: '1日平均', value: avgPerDay, suffix: '語', iconColor: 'var(--color-muted)' },
+  ];
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
-      <DesktopTopbar title={title} crumb="アカウント">
+      <DesktopTopbar title={title} crumb="ACCOUNT">
         {editHref && (
-          <DesktopButton href={editHref} icon="edit">
-            プロフィールを編集
+          <DesktopButton href={editHref} icon="edit" className="pill">
+            編集
           </DesktopButton>
         )}
         {settingsHref && (
-          <DesktopButton href={settingsHref} icon="settings">
+          <DesktopButton href={settingsHref} icon="settings" className="pill">
             設定
           </DesktopButton>
         )}
       </DesktopTopbar>
 
       <div className="ds-scroll">
-        <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          {/* Profile header */}
-          <div className="ds-card" style={{ padding: '26px 30px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 26, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 0, flex: 1 }}>
+        <div style={{ maxWidth: 1160, margin: '0 auto' }}>
+          {/* プロフィール: 左にアバター + 名前、右にフォロー数 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 24, paddingTop: 6, alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
               <ProfileAvatar
                 avatarUrl={avatarUrl}
                 initial={initial}
                 color={color}
-                size={84}
-                radius={22}
-                fontSize={38}
+                size={80}
+                radius={20}
+                fontSize={36}
               />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, lineHeight: 1.2, color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {name}
                 </div>
                 {accountId && (
-                  <div className="mono muted" style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>@{accountId}</div>
+                  <div className="muted" style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>@{accountId}</div>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-                  {planLabel && <span className="ds-tag accent">{planLabel}</span>}
-                  {joined && <span className="mono muted" style={{ fontSize: 11, fontWeight: 700 }}>{joined}から</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                  {planLabel && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 5, background: 'var(--solid-ink)', padding: '2px 7px', fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', color: '#fff' }}>
+                      <Icon name="auto_awesome" size={10} />
+                      {planLabel}
+                    </span>
+                  )}
+                  {joined && <span className="muted" style={{ fontSize: 10, fontWeight: 700 }}>{joined}から</span>}
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 26, flexShrink: 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', overflow: 'hidden', borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff' }}>
               <DesktopCountCell href={followingHref} label="フォロー中" value={counts?.following} />
-              <DesktopCountCell href={followersHref} label="フォロワー" value={counts?.followers} />
-              <DesktopCountCell href={friendsHref} label="フレンド" value={counts?.friends} />
+              <DesktopCountCell href={followersHref} label="フォロワー" value={counts?.followers} border />
+              <DesktopCountCell href={friendsHref} label="フレンド" value={counts?.friends} border />
             </div>
           </div>
 
           {actions && (
-            <div style={{ display: 'flex', gap: 10, marginBottom: 18, maxWidth: 420 }}>{actions}</div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 18, maxWidth: 420 }}>{actions}</div>
           )}
+
+          <div style={{ padding: '24px 2px 10px' }}>
+            <div className="ds-eyebrow" style={{ letterSpacing: '0.08em' }}>OVERVIEW</div>
+            <div style={{ marginTop: 2, fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: 'var(--color-ink)' }}>学習の記録</div>
+          </div>
 
           {/* Overview / stats */}
           {statsLoading ? (
-            <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)' }}>
+            <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)', boxShadow: 'none' }}>
               <Icon name="progress_activity" className="animate-spin" />
               <span style={{ marginLeft: 8 }}>読み込み中...</span>
             </div>
           ) : !stats ? (
-            <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)' }}>
+            <div className="ds-card" style={{ padding: 42, textAlign: 'center', color: 'var(--color-muted)', boxShadow: 'none' }}>
               統計を読み込めませんでした
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16, marginBottom: 18 }}>
-                <div className="ds-card ds-kpi">
-                  <div className="ic" style={{ background: 'rgba(249,115,22,0.12)' }}><Icon name="local_fire_department" style={{ color: '#f97316' }} /></div>
-                  <div className="v">{stats.quizStats.streakDays}<span className="u">日</span></div>
-                  <div className="l">連続日数</div>
-                </div>
-                <div className="ds-card ds-kpi">
-                  <div className="ic" style={{ background: 'var(--color-surface-secondary)' }}><Icon name="event_available" style={{ color: 'var(--color-ink)' }} /></div>
-                  <div className="v">{totalDays}<span className="u">日</span></div>
-                  <div className="l">累計学習日</div>
-                </div>
-                <div className="ds-card ds-kpi">
-                  <div className="ic" style={{ background: 'var(--color-accent-light)' }}><Icon name="quiz" style={{ color: 'var(--color-accent-ink)' }} /></div>
-                  <div className="v">{weekTotal}<span className="u">語</span></div>
-                  <div className="l">今週の復習</div>
-                </div>
-                <div className="ds-card ds-kpi">
-                  <div className="ic" style={{ background: 'var(--color-surface-secondary)' }}><Icon name="speed" style={{ color: 'var(--color-ink)' }} /></div>
-                  <div className="v">{avgPerDay}<span className="u">語</span></div>
-                  <div className="l">1日平均</div>
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+                {kpis.map((kpi) => (
+                  <div key={kpi.label} style={{ borderRadius: 12, border: '2px solid var(--solid-ink)', background: '#fff', padding: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: kpi.iconColor }}>
+                      {kpi.icon && <Icon name={kpi.icon} size={13} filled />}
+                      <span className="ds-eyebrow" style={{ fontSize: 9 }}>{kpi.label}</span>
+                    </div>
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                      <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, lineHeight: 1, color: 'var(--color-ink)' }}>
+                        {kpi.value.toLocaleString()}
+                      </span>
+                      <span className="muted" style={{ fontSize: 11, fontWeight: 700 }}>{kpi.suffix}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16, marginBottom: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, paddingTop: 12 }}>
                 {/* Weekly bars */}
-                <div className="ds-card" style={{ padding: '22px 26px' }}>
-                  <div className="ds-sec-head" style={{ marginBottom: 18 }}>
+                <div style={{ borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+                  <div style={{ marginBottom: 12, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                     <div>
-                      <h2 style={{ fontSize: 16 }}>過去 7 日間</h2>
-                      <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>復習した単語数</div>
+                      <div className="ds-eyebrow">WEEKLY</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-ink)' }}>過去 7 日間</div>
                     </div>
-                    <span className="mono tnum" style={{ fontSize: 12 }}>
-                      <b style={{ fontSize: 15 }}>{weekTotal}</b> 語
-                    </span>
+                    <div className="muted tnum" style={{ fontSize: 11 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-ink)' }}>{weekTotal}</span> 語
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 150 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 120 }}>
                     {recentWeek.map((item, i) => {
                       const isToday = i === recentWeek.length - 1;
-                      const h = Math.max(4, (item.totalCount / maxWeekValue) * 110);
+                      const h = Math.max(4, (item.totalCount / maxWeekValue) * 90);
                       const date = new Date(`${item.date}T00:00:00`);
                       return (
-                        <div key={item.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                          <div className="mono tnum" style={{ fontSize: 10, fontWeight: 700, color: isToday ? 'var(--solid-ink)' : 'var(--color-muted)' }}>
+                        <div key={item.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                          <div className="tnum" style={{ fontSize: 9, fontWeight: 700, color: isToday ? 'var(--solid-ink)' : 'var(--color-muted)' }}>
                             {item.totalCount}
                           </div>
                           <div
@@ -526,12 +536,13 @@ function DesktopProfileView({
                               width: '100%',
                               maxWidth: 38,
                               height: h,
-                              borderRadius: 4,
+                              borderRadius: 3,
                               border: '1px solid var(--solid-ink)',
-                              background: isToday ? 'var(--color-accent)' : 'rgba(26,26,26,0.82)',
+                              background: isToday ? 'var(--solid-ink)' : 'rgba(26,26,26,0.85)',
+                              boxShadow: isToday ? '2px 2px 0 var(--color-accent)' : 'none',
                             }}
                           />
-                          <div style={{ fontSize: 11, color: isToday ? 'var(--solid-ink)' : 'var(--color-muted)', fontWeight: isToday ? 700 : 500 }}>
+                          <div style={{ fontSize: 10, color: isToday ? 'var(--solid-ink)' : 'var(--color-muted)', fontWeight: isToday ? 700 : 500 }}>
                             {date.toLocaleDateString('ja-JP', { weekday: 'short' }).replace('曜日', '')}
                           </div>
                         </div>
@@ -541,13 +552,13 @@ function DesktopProfileView({
                 </div>
 
                 {/* Heatmap */}
-                <div className="ds-card" style={{ padding: '22px 26px' }}>
-                  <div className="ds-sec-head" style={{ marginBottom: 18 }}>
+                <div style={{ borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+                  <div style={{ marginBottom: 10, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                     <div>
-                      <h2 style={{ fontSize: 16 }}>過去 12 週</h2>
-                      <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>学習ヒートマップ</div>
+                      <div className="ds-eyebrow">HEATMAP</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-ink)' }}>過去 12 週</div>
                     </div>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-muted)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, color: 'var(--color-muted)' }}>
                       少
                       {[0, 1, 2, 3].map((l) => (
                         <HeatCell key={l} level={l} size={10} />
@@ -559,12 +570,12 @@ function DesktopProfileView({
                     {Array.from({ length: 12 }).map((_, col) => (
                       <div key={col} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {Array.from({ length: 7 }).map((__, row) => (
-                          <HeatCell key={row} level={heat[col * 7 + row] ?? 0} size={16} />
+                          <HeatCell key={row} level={heat[col * 7 + row] ?? 0} />
                         ))}
                       </div>
                     ))}
                   </div>
-                  <div className="mono muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 8 }}>
+                  <div className="muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, marginTop: 6 }}>
                     <span>12週前</span>
                     <span>今週</span>
                   </div>
@@ -572,24 +583,22 @@ function DesktopProfileView({
               </div>
 
               {/* Breakdown */}
-              <div className="ds-card" style={{ padding: '22px 26px' }}>
-                <div className="mono muted" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-                  BREAKDOWN
-                </div>
+              <div style={{ marginTop: 14, borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+                <div className="ds-eyebrow" style={{ marginBottom: 8 }}>BREAKDOWN</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                  <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 34, lineHeight: 1 }}>{masteryPercent}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>%</span>
-                  <span className="muted" style={{ fontSize: 12, marginLeft: 6 }}>習得済</span>
+                  <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, lineHeight: 1, color: 'var(--color-ink)' }}>{masteryPercent}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-ink)' }}>%</span>
+                  <span className="muted" style={{ fontSize: 11, marginLeft: 4 }}>習得済</span>
                 </div>
-                <div className="ds-dist" style={{ margin: '14px 0 12px' }}>
-                  <span className="c-mastered" style={{ flex: mastered || 0.0001 }} />
-                  <span className="c-review" style={{ flex: review || 0.0001 }} />
-                  <span className="c-new" style={{ flex: newWords || 0.0001 }} />
+                <div style={{ marginTop: 10, display: 'flex', height: 10, overflow: 'hidden', borderRadius: 4, border: '2px solid var(--solid-ink)' }}>
+                  <div style={{ flex: mastered || 0.0001, background: 'var(--color-success)' }} />
+                  <div style={{ flex: review || 0.0001, background: 'var(--color-warning)' }} />
+                  <div style={{ flex: newWords || 0.0001, background: 'rgba(26,26,26,0.15)' }} />
                 </div>
-                <div style={{ display: 'flex', gap: 22 }}>
-                  <span className="ds-status mastered"><span className="ds-sdot c-mastered" />習得 {mastered.toLocaleString()}</span>
-                  <span className="ds-status review"><span className="ds-sdot c-review" />学習中 {review.toLocaleString()}</span>
-                  <span className="ds-status new"><span className="ds-sdot c-new" />未学習 {newWords.toLocaleString()}</span>
+                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 10, maxWidth: 420 }}>
+                  <BreakLeg color="var(--color-success)" label="習得" v={mastered} />
+                  <BreakLeg color="var(--color-warning)" label="学習中" v={review} />
+                  <BreakLeg color="rgba(26,26,26,0.15)" label="未学習" v={newWords} />
                 </div>
               </div>
             </>
@@ -600,13 +609,19 @@ function DesktopProfileView({
   );
 }
 
-function DesktopCountCell({ href, label, value }: { href: string; label: string; value: number | undefined }) {
+function DesktopCountCell({ href, label, value, border }: { href: string; label: string; value: number | undefined; border?: boolean }) {
   return (
-    <Link href={href} style={{ textAlign: 'center', textDecoration: 'none', color: 'inherit', minWidth: 72 }}>
-      <span className="tnum" style={{ display: 'block', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, lineHeight: 1 }}>
+    <Link
+      href={href}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 0',
+        textDecoration: 'none', color: 'inherit', borderLeft: border ? '2px solid var(--solid-ink)' : undefined,
+      }}
+    >
+      <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, lineHeight: 1 }}>
         {value ?? '–'}
       </span>
-      <span className="mono muted" style={{ display: 'block', fontSize: 10, fontWeight: 700, marginTop: 5 }}>
+      <span className="muted" style={{ marginTop: 4, fontSize: 9, fontWeight: 700, letterSpacing: '0.04em' }}>
         {label}
       </span>
     </Link>

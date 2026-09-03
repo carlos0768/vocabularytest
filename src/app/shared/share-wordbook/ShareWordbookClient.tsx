@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
+import { DesktopHeader } from '@/components/desktop/DesktopChrome';
 import { Icon } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/components/ui/toast';
@@ -275,10 +275,10 @@ export default function ShareWordbookClient() {
 
   return (
     <>
-      {/* Desktop: サイドバー付きの標準シェル。公開フォームは右カラムに常設 */}
+      {/* Desktop: ヘッダー付きの標準シェル。公開フォームは右カラムに常設 */}
       <div className="hidden h-screen lg:block">
         <div className="ds-app">
-          <DesktopSidebar />
+          <DesktopHeader />
           <div className="ds-main">
             <div className="ds-top">
               <button
