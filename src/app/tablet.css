@@ -220,6 +220,43 @@
  * 1行に置き、右カラムもボタンの実寸 (auto) に詰める。
  * 縦向きは desktop.css の 1180px ルールで縦積みになるためここでは触らない。
  */
+
+/*
+ * アカウント画面 (/profile) は縦向きタブレットではモバイル版で表示する。
+ *
+ * この画面はデスクトップ版が「サイドバー + トップバー + 2カラムの統計カード」で
+ * 組まれていて、iPad Pro 13" の縦 (1024x1366) では本文が約480pxしか取れず、
+ * 見出しの「プロフィール」が1文字ずつ縦に折り返し、カードのラベルも数文字で
+ * 割れていた。同じ画面をモバイル版で出すと、本文の実寸が iPad mini とほぼ同じに
+ * なる (mini: 744/1.55 ≒ 480px、Pro縦: 中身が max-w-xl=576px で頭打ち) ので、
+ * 作り直さずに mini と同じ見た目にできる。
+ *
+ * デスクトップ用シェルは「画面ぴったりの高さ + overflow:hidden、スクロールは
+ * 各ページの .ds-scroll が持つ」前提なので、モバイル版を出すときはシェル側の
+ * 高さ固定を外してドキュメントスクロールに戻す。サイドバーの代わりにボトムナビを
+ * 出して、移動手段が無くならないようにする。
+ *
+ * :has() が使えない環境ではこのブロックごと無効になり、従来のデスクトップ版
+ * 表示のままになる (中途半端な適用にはならない)。
+ */
+@media (min-width: 1024px) and (orientation: portrait) and (pointer: coarse) {
+  .ds-live-shell:has(.ds-account-mobile) {
+    display: block;
+    height: auto;
+    min-height: calc(100dvh / var(--ui-scale));
+    overflow: visible;
+  }
+  .ds-live-shell:has(.ds-account-mobile) > .ds-side { display: none; }
+  .ds-live-shell:has(.ds-account-mobile) .ds-live-main {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .ds-live-shell:has(.ds-account-mobile) .ds-account-mobile { display: block; }
+  .ds-live-shell:has(.ds-account-mobile) .ds-account-desktop { display: none; }
+  .ds-live-shell:has(.ds-account-mobile) .ds-bottom-nav { display: block; }
+}
+
 @media (min-width: 1024px) and (orientation: landscape) and (min-height: 800px) and (pointer: coarse) {
   .ds-live-shell .ds-shared-top { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
   /* 見出し側を max-content にして、幅が減るときは検索窓から先に詰まるようにする

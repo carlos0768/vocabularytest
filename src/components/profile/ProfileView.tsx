@@ -134,7 +134,7 @@ export function ProfileView({
       derived={{ recentWeek, weekTotal, maxWeekValue, heat, totalDays, avgPerDay, totalWords, mastered, review, newWords, masteryPercent }}
     />
     <div
-      className={`relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden ${
+      className={`ds-account-mobile relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden ${
         withBottomNav ? 'pb-[110px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'
       }`}
     >
@@ -413,7 +413,7 @@ function DesktopProfileView({
   const { recentWeek, weekTotal, maxWeekValue, heat, totalDays, avgPerDay, mastered, review, newWords, masteryPercent } = derived;
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="ds-account-desktop hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title={title} crumb="アカウント">
         {editHref && (
           <DesktopButton href={editHref} icon="edit">

@@ -127,7 +127,7 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
       <div className="ds-live-main relative">
         {children}
       </div>
-      {!hideNav && <div className="lg:hidden"><BottomNav /></div>}
+      {!hideNav && <div className="ds-bottom-nav lg:hidden"><BottomNav /></div>}
       {scrollEnding && (
         <div
           className="fixed inset-0 z-[9998]"
