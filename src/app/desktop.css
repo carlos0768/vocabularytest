@@ -1350,8 +1350,11 @@ a.ds-feed-avatar:hover { transform: translateY(-1px); }
     flex-direction: column;
   }
 
+  /* 子はページ本体。縮ませない (min-height:0 + flex-shrink で本体が画面の高さに
+     潰れると、モバイル由来のページの sticky なヘッダ / 絞り込みパネルが途中で
+     基準を失って消える・跳ねる)。Desktop* ビューは h-full なのでそのまま収まる */
   .ds-live-main > * {
-    min-height: 0;
+    flex-shrink: 0;
   }
 
   .ds-fixed-main {
