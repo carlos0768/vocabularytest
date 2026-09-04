@@ -15,6 +15,7 @@ import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
 import { CoinBalancePill } from '@/components/coins/CoinBalancePill';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { HomeAnnouncementSpotlight } from '@/components/announcements/HomeAnnouncementSpotlight';
 import { JoinedGroupsSection } from '@/components/groups/JoinedGroupsSection';
@@ -637,6 +638,8 @@ export function HomeClient() {
         </div>
         <div className="flex items-center gap-2">
           <CoinBalancePill />
+          {/* 通知（フォローリクエスト / フォロー通知）。共有ページと同じベルをホームにも置く */}
+          <FollowNotificationsButton variant="mobile" />
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
