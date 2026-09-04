@@ -11,10 +11,22 @@ export function usePageScrolled(threshold = 4): boolean {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold);
+    // モバイルは window がスクロールする。デスクトップはシェルの本文
+    // (.ds-live-main) がスクロールするので、そちらの scrollTop も見る。
+    // 絞り込みパネルなど内側のスクロールは無視する。
+    const readScrollTop = (target: EventTarget | null): number | null => {
+      if (target === document || target === window || target == null) return window.scrollY;
+      if (target instanceof Element && target.classList.contains('ds-live-main')) return target.scrollTop;
+      return null;
+    };
+    const onScroll = (event?: Event) => {
+      const top = readScrollTop(event?.target ?? null);
+      if (top === null) return;
+      setScrolled(top > threshold);
+    };
     onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
   }, [threshold]);
 
   return scrolled;
