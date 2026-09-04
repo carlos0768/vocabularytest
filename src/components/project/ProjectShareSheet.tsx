@@ -70,23 +70,20 @@ export function ProjectShareSheet({
         style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
       />
 
-      <div className="absolute inset-x-0 bottom-0 flex justify-center">
+      {/* モバイルは下からのボトムシート、デスクトップ (lg 以上) は中央のダイアログ。
+          角丸・下線・シャドウは inline style だと lg: で上書きできないので class で持つ */}
+      <div className="absolute inset-x-0 bottom-0 flex justify-center lg:inset-0 lg:items-center lg:px-6 lg:py-10">
         <div
-          className="w-full animate-fade-in-up"
+          className="w-full animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:animate-none lg:rounded-[20px] lg:border-b-2 lg:shadow-[0_10px_30px_rgba(26,26,26,0.22)]"
           style={{
             maxWidth: 480,
             background: '#faf7f1',
-            border: '2px solid var(--solid-ink)',
-            borderBottomWidth: 0,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
             padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
             maxHeight: 'min(88vh, 720px)',
             overflowY: 'auto',
           }}
         >
-          <div className="mb-2.5 flex justify-center">
+          <div className="mb-2.5 flex justify-center lg:hidden">
             <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
           </div>
 
