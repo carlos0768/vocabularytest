@@ -23,6 +23,8 @@
   --color-success-light: #dcfce7;
   --color-error: #ef4444;
   --color-error-light: #fee2e2;
+  /* 教材の重要単語（太字・赤字） */
+  --color-keyword: #d12a2a;
   --color-warning: #f59e0b;
   --color-warning-light: #fef3c7;
 
@@ -92,6 +94,7 @@
   --color-primary-light: #1e242b;
   --color-success-light: #14291e;
   --color-error-light: #2e1a1a;
+  --color-keyword: #ff7b7b;
   --color-warning-light: #2e2a1a;
 
   --color-hero: #1e242b;
@@ -116,6 +119,7 @@
   --color-success-light: var(--color-success-light);
   --color-error: var(--color-error);
   --color-error-light: var(--color-error-light);
+  --color-keyword: var(--color-keyword);
   --color-warning: var(--color-warning);
   --color-warning-light: var(--color-warning-light);
   --color-background: var(--color-background);
@@ -1143,6 +1147,13 @@ body {
 
 .rich-text-block .merken-highlighted-word:hover {
   background: color-mix(in srgb, var(--color-primary) 32%, transparent);
+}
+
+/* ===== 教材の重要単語 (EmphasisText) ===== */
+
+.keyword-emphasis {
+  font-weight: 700;
+  color: var(--color-keyword);
 }
 
 /* ===== Circular Progress ===== */
