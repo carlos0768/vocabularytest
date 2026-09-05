@@ -129,9 +129,22 @@
 /* 本文 + 右レール(300px) の2カラム */
 .ds-two-col { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; }
 .ds-rail { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 0; min-width: 0; }
+/* レールが画面 (ヘッダー 76px + トップバー ≈ 58px を除いた高さ) より高いときは
+   レールの中だけをスクロールさせ、末尾のパネルがページを最後まで送らないと
+   見えない状態にしない。sticky はそのまま効く */
+.ds-rail--fit {
+  max-height: calc(100dvh - 150px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+/* flex 列なので、max-height に収めようとパネルが潰れないようにする (潰さず溢れさせてスクロール) */
+.ds-rail--fit > * { flex-shrink: 0; }
 @media (max-width: 1180px) {
   .ds-two-col { grid-template-columns: minmax(0, 1fr); }
   .ds-rail { position: static; }
+  .ds-rail--fit { max-height: none; overflow: visible; }
 }
 /* 見出しの上に置く小さな英字ラベル (MY BOOKS / TODAY など) */
 .ds-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--color-muted); }
@@ -383,6 +396,30 @@
   border: none; background: var(--solid-ink); color: #fff; cursor: pointer; margin: -3px -4px -3px 0;
 }
 .ds-shared-search .go:disabled { opacity: 0.5; cursor: default; }
+/* 検索範囲 (すべて / ユーザー / 単語帳 / 語法 / グループ) のセレクト。窓の左端に置く */
+.ds-shared-search .scope {
+  position: relative; display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;
+  margin: -3px 0 -3px -2px; padding: 0 4px 0 10px; height: 30px; border-radius: 8px;
+  border: 1.5px solid var(--color-border); background: var(--color-surface-secondary);
+  color: var(--color-ink); font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.ds-shared-search .scope:hover, .ds-shared-search .scope:focus-within { border-color: var(--solid-ink); }
+.ds-shared-search .scope select {
+  appearance: none; -webkit-appearance: none; border: 0; background: transparent; outline: 0;
+  font: inherit; color: inherit; cursor: pointer; padding: 0; margin: 0;
+}
+.ds-shared-search .scope .material-symbols-outlined { font-size: 18px; color: var(--color-muted); pointer-events: none; }
+
+/* 人気のタグ。検索窓の直下に横並びで出す */
+.ds-shared-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 2px 0; }
+.ds-shared-tags .lb {
+  display: inline-flex; align-items: center; gap: 3px; margin-right: 2px;
+  font-size: 11px; font-weight: 700; color: var(--color-muted); white-space: nowrap;
+}
+.ds-shared-tags .lb .material-symbols-outlined { font-size: 14px; }
+.ds-shared-tags .ds-chip .n { font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); }
+.ds-shared-tags .ds-chip.active .n { color: rgba(255,255,255,0.7); }
 .ds-cat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-top: 12px; }
 .ds-cat-card {
   position: relative; height: 84px; overflow: hidden; border-radius: 12px; border: 2px solid var(--solid-ink);

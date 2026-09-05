@@ -38,6 +38,20 @@ const CATEGORY_COLORS: Record<DesktopSharedCategory, string> = {
 
 const FEED_PAGE_SIZE = 12;
 
+/** 検索窓の「検索範囲」。カテゴリ (ユーザー / 単語帳 / 語法 / グループ) を検索時の
+    オプションとして選ぶ。'all' はユーザー + 単語帳の横断検索 */
+type SearchScope = 'all' | DesktopSharedCategory;
+
+const SEARCH_SCOPES: Array<{ value: SearchScope; label: string; placeholder: string }> = [
+  { value: 'all', label: 'すべて', placeholder: 'ユーザー・単語帳を検索' },
+  { value: 'users', label: 'ユーザー', placeholder: 'ユーザー名・IDで検索' },
+  { value: 'projects', label: '単語帳', placeholder: '単語帳名・タグで検索' },
+  { value: 'grammar', label: '語法', placeholder: '問題集名・ユーザーで検索' },
+  { value: 'groups', label: 'グループ', placeholder: 'グループ名で検索' },
+];
+
+const TRENDING_TAG_LIMIT = 8;
+
 export function DesktopSharedView({
   category,
   query,
@@ -116,47 +130,91 @@ export function DesktopSharedView({
     onProjectMissing(projectId);
   };
 
-  // 検索窓。カテゴリ (グループ / 語法) ごとに送信先が違う
-  const searchBar = isGroups ? (
+  // 検索窓は1つ。検索範囲 (すべて / ユーザー / 単語帳 / 語法 / グループ) は
+  // 検索時のオプションとしてセレクトで選ぶ。範囲 = ページのカテゴリ状態そのもの。
+  // ユーザー・単語帳は入力に追従して検索し、語法・グループは送信 (Enter / →) で検索する。
+  const scope: SearchScope = category;
+  const submitToSearch = isGroups || isGrammar;
+  const searchText = isGroups ? groupQuery : isGrammar ? grammarQuery : query;
+  const scopeMeta = SEARCH_SCOPES.find((item) => item.value === scope) ?? SEARCH_SCOPES[0];
+
+  const handleSearchTextChange = (value: string) => {
+    if (isGroups) onGroupQueryChange(value);
+    else if (isGrammar) onGrammarQueryChange(value);
+    else onQueryChange(value);
+  };
+
+  const handleScopeChange = (next: SearchScope) => {
+    if (next === scope) return;
+    // 入力中の文字は次の範囲に引き継ぐ。語法・グループはカテゴリに入った時点で
+    // 一覧側 (SharedPageClient の各セクション) が初回検索を走らせるので、ここでは
+    // 検索語を渡すだけでよい。
+    if (next === 'groups') onGroupQueryChange(searchText);
+    else if (next === 'grammar') onGrammarQueryChange(searchText);
+    else onQueryChange(searchText);
+    if (next === 'all') onBackToAll();
+    else onCategorySelect(next);
+  };
+
+  // タグは単語帳に付くものなので、タグ検索は「単語帳」範囲で行う。
+  // 選択中のタグをもう一度押すと解除する。
+  const activeTag = !isGroups && !isGrammar ? query.trim().toLowerCase() : '';
+  const handleSelectTag = (tag: string) => {
+    if (tag.toLowerCase() === activeTag) {
+      onQueryChange('');
+      return;
+    }
+    onQueryChange(tag);
+    onCategorySelect('projects');
+  };
+
+  const searchBar = (
     <form
-      onSubmit={(event) => { event.preventDefault(); onGroupSearch(); }}
+      role="search"
       className="ds-shared-search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (isGroups) onGroupSearch();
+        else if (isGrammar) onGrammarSearch();
+      }}
     >
       <Icon name="search" />
+      <label className="scope" title="検索範囲">
+        <span className="sr-only">検索範囲</span>
+        <select value={scope} onChange={(event) => handleScopeChange(event.target.value as SearchScope)}>
+          {SEARCH_SCOPES.map((item) => (
+            <option key={item.value} value={item.value}>{item.label}</option>
+          ))}
+        </select>
+        <Icon name="expand_more" />
+      </label>
       <input
-        placeholder="グループ名で検索"
-        value={groupQuery}
-        onChange={(event) => onGroupQueryChange(event.target.value)}
+        placeholder={scopeMeta.placeholder}
+        value={searchText}
+        onChange={(event) => handleSearchTextChange(event.target.value)}
+        aria-label={`${scopeMeta.label}を検索`}
       />
-      <button type="submit" className="go" disabled={groupLoading} aria-label="グループを検索">
-        <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
-      </button>
+      {submitToSearch && (
+        <button
+          type="submit"
+          className="go"
+          disabled={isGroups ? groupLoading : grammarLoading}
+          aria-label={isGroups ? 'グループを検索' : '語法問題集を検索'}
+        >
+          <Icon
+            name={(isGroups ? groupLoading : grammarLoading) ? 'progress_activity' : 'arrow_forward'}
+            className={(isGroups ? groupLoading : grammarLoading) ? 'animate-spin' : undefined}
+          />
+        </button>
+      )}
     </form>
-  ) : isGrammar ? (
-    <form
-      onSubmit={(event) => { event.preventDefault(); onGrammarSearch(); }}
-      className="ds-shared-search"
-    >
-      <Icon name="search" />
-      <input
-        placeholder="問題集名・ユーザーで検索"
-        value={grammarQuery}
-        onChange={(event) => onGrammarQueryChange(event.target.value)}
-      />
-      <button type="submit" className="go" disabled={grammarLoading} aria-label="語法問題集を検索">
-        <Icon name={grammarLoading ? 'progress_activity' : 'arrow_forward'} className={grammarLoading ? 'animate-spin' : undefined} />
-      </button>
-    </form>
-  ) : (
-    <label className="ds-shared-search">
-      <Icon name="search" />
-      <input
-        placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
-        value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
-      />
-    </label>
   );
+
+  // 人気のタグは検索窓の直下に置く (右レールの最下段だと画面外に隠れて気づけない)。
+  // 語法・グループの範囲では単語帳のタグは使えないので出さない。
+  const trendingTags = !isGroups && !isGrammar ? (
+    <TrendingTagsRow projects={feed.projects} activeTag={activeTag} onSelectTag={handleSelectTag} />
+  ) : null;
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -180,6 +238,7 @@ export function DesktopSharedView({
       {showDashboard ? (
         <div className="ds-scroll">
           {searchBar}
+          {trendingTags}
           <div className="ds-cat-grid">
             {(Object.keys(CATEGORY_META) as DesktopSharedCategory[]).map((key) => {
               const meta = CATEGORY_META[key];
@@ -214,7 +273,9 @@ export function DesktopSharedView({
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
+          {/* 右レール。スクロールしても画面内に留まり、レール自体が画面より
+              高いときは中だけスクロールする (末尾のパネルが隠れっぱなしにならない) */}
+          <div className="ds-rail ds-rail--fit" style={{ gap: 18 }}>
             <PopularWordbooksRail projects={feed.projects.length > 0 ? feed.projects : payload.projects} />
             <PublicGrammarRail
               books={publicGrammar.books}
@@ -227,13 +288,13 @@ export function DesktopSharedView({
               joinedGroups={joinedGroups}
               onSeeAll={() => onCategorySelect('groups')}
             />
-            <TrendingTagsRail projects={feed.projects} onSelectTag={onQueryChange} />
           </div>
           </div>
         </div>
       ) : (
         <div className="ds-scroll">
           {searchBar}
+          {trendingTags}
           {isCategory && (
             <div className="muted" style={{ fontSize: 13, margin: '10px 2px 18px' }}>
               {activeMeta!.description}
@@ -777,13 +838,16 @@ function PublicGroupsRail({
   );
 }
 
-// Tag chips aggregated from the feed page — clicking one runs the discover
-// search with the raw tag text (the API matches shared_tags).
-function TrendingTagsRail({
+// フィードに載っている単語帳のタグを集計したチップ列。検索窓の直下に出し、
+// 押すと「単語帳」範囲でそのタグを検索する (API は shared_tags を照合する)。
+function TrendingTagsRow({
   projects,
+  activeTag,
   onSelectTag,
 }: {
   projects: SharedProjectCard[];
+  /** 選択中のタグ (小文字)。空文字なら未選択 */
+  activeTag: string;
   onSelectTag: (tag: string) => void;
 }) {
   const counts = new Map<string, { tag: string; count: number }>();
@@ -797,21 +861,32 @@ function TrendingTagsRail({
   }
   const topTags = Array.from(counts.values())
     .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
+    .slice(0, TRENDING_TAG_LIMIT);
 
   if (topTags.length === 0) return null;
 
   return (
-    <RailPanel title="人気のタグ" icon="tag">
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {topTags.map(({ tag, count }) => (
-          <button key={tag} type="button" className="ds-chip" onClick={() => onSelectTag(tag)}>
+    <div className="ds-shared-tags" aria-label="人気のタグ">
+      <span className="lb">
+        <Icon name="tag" />
+        人気のタグ
+      </span>
+      {topTags.map(({ tag, count }) => {
+        const active = tag.toLowerCase() === activeTag;
+        return (
+          <button
+            key={tag}
+            type="button"
+            className={active ? 'ds-chip active' : 'ds-chip'}
+            aria-pressed={active}
+            onClick={() => onSelectTag(tag)}
+          >
             {formatSharedTag(tag)}
-            <span className="mono" style={{ fontSize: 11, color: 'var(--color-muted)' }}>{count}</span>
+            <span className="n">{count}</span>
           </button>
-        ))}
-      </div>
-    </RailPanel>
+        );
+      })}
+    </div>
   );
 }
 
