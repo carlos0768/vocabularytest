@@ -3,6 +3,7 @@ import { Lexend, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
+import { WebPushSync } from '@/components/pwa/WebPushSync';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import { OfflineBanner } from '@/components/pwa/OfflineBanner';
 import { StatsSync } from '@/components/StatsSync';
@@ -151,6 +152,7 @@ export default function RootLayout({
           <PendingOnboardingSync />
           <HomeOpenLogger />
           <ServiceWorkerRegistration />
+          <WebPushSync />
         </ThemeProvider>
       </body>
     </html>
