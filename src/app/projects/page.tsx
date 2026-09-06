@@ -25,7 +25,11 @@ import {
 import { summarizeWordMemory } from '@/lib/words/memory';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getGuestUserId } from '@/lib/utils';
-import { invalidateHomeCache } from '@/lib/home-cache';
+import {
+  invalidateHomeCache,
+  markRemoteWordbooksRefreshed,
+  shouldRefreshRemoteWordbooks,
+} from '@/lib/home-cache';
 import type { Project, SubscriptionStatus } from '@/types';
 
 const SORTS = [
@@ -104,20 +108,31 @@ export default function ProjectListPage() {
       const userId = user ? user.id : getGuestUserId();
       let rawProjects: Project[] = [];
       let repo: WordReadRepository = repository;
+      let localPainted = false;
 
       try {
         rawProjects = await localRepository.getProjects(userId);
         if (rawProjects.length > 0) {
           await showProjects(rawProjects, localRepository);
           setLoading(false);
+          localPainted = true;
         }
       } catch (localError) {
         console.error('Local projects preload failed:', localError);
       }
 
-      if (user && navigator.onLine) {
+      // ローカルを描画できていて、直近に Supabase から取り直したばかりなら
+      // 全単語の再ダウンロードはしない（ホームと同じ間引き。home-cache.ts 参照）。
+      const needsRemote =
+        Boolean(user) && navigator.onLine && (!localPainted || shouldRefreshRemoteWordbooks(userId));
+      if (localPainted && !needsRemote) {
+        return;
+      }
+
+      if (user && needsRemote) {
         try {
           const remoteProjects = await remoteRepository.getProjects(user.id);
+          markRemoteWordbooksRefreshed(userId);
           if (remoteProjects.length > 0 || isPro || rawProjects.length === 0) {
             rawProjects = remoteProjects;
             repo = remoteRepository;

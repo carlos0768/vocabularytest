@@ -192,6 +192,30 @@ const SSR_AUTH_INITIAL: AuthState = {
 
 let globalAuthState: AuthState = { ...SSR_AUTH_INITIAL };
 
+// 一度でもクライアント側のページ遷移が起きた後にマウントされる useAuth() は
+// ハイドレーション対象ではないので、SSR_AUTH_INITIAL から始めて useLayoutEffect で
+// 差し替える必要がない。以前は遷移のたびに全 useAuth() 利用コンポーネント
+// （1ページに 3〜11 個）が loading:true で一度描画され、authLoading で待っている
+// effect が空振り→本番の 2 回走っていた。PersistentAppShell が最初の遷移で立てる。
+let hasClientNavigated = false;
+
+export function markClientNavigation(): void {
+  hasClientNavigated = true;
+}
+
+function isSameAuthState(a: AuthState, b: AuthState): boolean {
+  return (
+    a.user?.id === b.user?.id &&
+    a.loading === b.loading &&
+    a.sessionExpired === b.sessionExpired &&
+    a.error === b.error &&
+    a.subscription?.status === b.subscription?.status &&
+    a.subscription?.plan === b.subscription?.plan &&
+    a.subscription?.cancelAtPeriodEnd === b.subscription?.cancelAtPeriodEnd &&
+    a.subscription?.proSource === b.subscription?.proSource
+  );
+}
+
 // Track if we've done the instant-load optimization
 let hasOptimisticLoad = false;
 
@@ -241,21 +265,65 @@ const globalListeners: Set<(state: AuthState) => void> = new Set();
 let isGlobalLoading = false;
 let hasInitialized = false;
 
+// Page-wide Supabase auth listener (registered once, see ensureGlobalAuthListeners).
+let hasGlobalAuthListeners = false;
+let latestLoadUser: (() => Promise<void>) | null = null;
+
+function ensureGlobalAuthListeners(supabase: ReturnType<typeof createBrowserClient>): void {
+  if (hasGlobalAuthListeners) return;
+  hasGlobalAuthListeners = true;
+
+  // Refresh session when tab becomes visible again (prevents stale sessions)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      supabase.auth.getSession().catch(() => {
+        // Session refresh failed - will be handled by auth state change
+      });
+    }
+  });
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    // Handle specific events
+    if (event === 'SIGNED_OUT') {
+      resetClientScopedData();
+      notifyListeners({ user: null, subscription: null, loading: false, error: null, sessionExpired: false });
+      hasInitialized = false;
+      hasOptimisticLoad = false;
+    } else if (event === 'SIGNED_IN') {
+      const previousUserId = globalAuthState.user?.id ?? null;
+      const nextUserId = session?.user?.id ?? null;
+      if (previousUserId !== nextUserId) {
+        resetClientScopedData();
+      }
+      void latestLoadUser?.();
+    } else if (event === 'TOKEN_REFRESHED') {
+      // Reload user state on sign-in (e.g., after email confirmation callback)
+      // and on token refresh
+      void latestLoadUser?.();
+    }
+    // Ignore INITIAL_SESSION - handled by hasInitialized check in useAuth
+  });
+}
+
 function notifyListeners(newState: AuthState) {
   globalAuthState = newState;
   globalListeners.forEach(listener => listener(newState));
 }
 
 export function useAuth() {
-  // Always start with SSR_AUTH_INITIAL so server HTML and client hydration match.
-  const [state, setState] = useState<AuthState>(SSR_AUTH_INITIAL);
+  // Initial page load: start with SSR_AUTH_INITIAL so server HTML and client
+  // hydration match. After a client-side navigation: start from the live global
+  // state so the component renders correctly on its very first render.
+  const [state, setState] = useState<AuthState>(() =>
+    hasClientNavigated ? globalAuthState : SSR_AUTH_INITIAL
+  );
 
   // Sync to cached / optimistic state after hydration (paint-blocking to avoid flash).
+  // Bails out when the state is already current so this no longer forces a second
+  // render on every mount.
   useLayoutEffect(() => {
     tryOptimisticLoad();
-    if (globalAuthState !== SSR_AUTH_INITIAL) {
-      setState({ ...globalAuthState });
-    }
+    setState((prev) => (isSameAuthState(prev, globalAuthState) ? prev : globalAuthState));
   }, []);
 
   // Refs to track component lifecycle
@@ -265,26 +333,11 @@ export function useAuth() {
   useEffect(() => {
     const listener = (newState: AuthState) => {
       if (!isMountedRef.current) return;
-      setState(prev => {
-        if (
-          prev.user?.id === newState.user?.id &&
-          prev.loading === newState.loading &&
-          prev.sessionExpired === newState.sessionExpired &&
-          prev.error === newState.error &&
-          prev.subscription?.status === newState.subscription?.status &&
-          prev.subscription?.plan === newState.subscription?.plan &&
-          prev.subscription?.cancelAtPeriodEnd === newState.subscription?.cancelAtPeriodEnd &&
-          prev.subscription?.proSource === newState.subscription?.proSource
-        ) {
-          return prev;
-        }
-        return newState;
-      });
+      setState(prev => (isSameAuthState(prev, newState) ? prev : newState));
     };
     globalListeners.add(listener);
-    if (state !== globalAuthState) {
-      setState(globalAuthState);
-    }
+    // Catch up on anything that changed between render and subscription.
+    setState(prev => (isSameAuthState(prev, globalAuthState) ? prev : globalAuthState));
 
     return () => {
       globalListeners.delete(listener);
@@ -609,45 +662,17 @@ export function useAuth() {
       loadUser();
     }
 
-    // Refresh session when tab becomes visible again (prevents stale sessions)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        supabase.auth.getSession().catch(() => {
-          // Session refresh failed - will be handled by auth state change
-        });
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Listen for auth changes - only set up once per component instance
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        // Handle specific events
-        if (event === 'SIGNED_OUT') {
-          resetClientScopedData();
-          notifyListeners({ user: null, subscription: null, loading: false, error: null, sessionExpired: false });
-          hasInitialized = false;
-          hasOptimisticLoad = false;
-        } else if (event === 'SIGNED_IN') {
-          const previousUserId = globalAuthState.user?.id ?? null;
-          const nextUserId = session?.user?.id ?? null;
-          if (previousUserId !== nextUserId) {
-            resetClientScopedData();
-          }
-          loadUser();
-        } else if (event === 'TOKEN_REFRESHED') {
-          // Reload user state on sign-in (e.g., after email confirmation callback)
-          // and on token refresh
-          loadUser();
-        }
-        // Ignore INITIAL_SESSION - handled by hasInitialized check above
-      }
-    );
+    // The auth-change / visibility listeners only touch module-level state, so one
+    // subscription for the whole page is enough. Previously every useAuth() instance
+    // registered its own onAuthStateChange, and supabase-js answers each new
+    // subscriber with an INITIAL_SESSION that acquires the navigator.locks auth
+    // lock and re-parses the session cookie — N instances per page transition
+    // meant N serialized lock acquisitions on the main thread.
+    latestLoadUser = loadUser;
+    ensureGlobalAuthListeners(supabase);
 
     return () => {
       isMountedRef.current = false;
-      subscription.unsubscribe();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [getSupabase, loadUser]);
 

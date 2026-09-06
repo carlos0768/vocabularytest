@@ -41,6 +41,12 @@ import {
 } from '@/lib/projects/load-helpers';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getCachedBinderIcons, loadBinderIcons, type BinderIconMap } from '@/lib/binders/icons';
+import {
+  getHomeViewSnapshot,
+  markRemoteWordbooksRefreshed,
+  setHomeViewSnapshot,
+  shouldRefreshRemoteWordbooks,
+} from '@/lib/home-cache';
 import { imageToneTextStyle, useImageTone } from '@/lib/ui/image-tone';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { countHomeWordStatuses } from '@/lib/home/home-page-selectors';
@@ -242,6 +248,8 @@ async function mergePendingLocalWordsIntoRemoteResult(
   };
 }
 
+type HomeViewSnapshot = { projects: HomeProjectStats[]; stats: HomeStats };
+
 const EMPTY_STATS: HomeStats = {
   dueCount: 0,
   completedToday: 0,
@@ -261,9 +269,18 @@ export function HomeClient() {
   useOnboarding();
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
   const isMobileViewport = useIsMobileViewport();
-  const [projects, setProjects] = useState<HomeProjectStats[]>([]);
-  const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
-  const [loading, setLoading] = useState(true);
+  // 前回このユーザーで描画した内容があれば最初のレンダーからそれを出す
+  // （ホームへ戻るたびにスケルトンから始めない）。マウント後に IndexedDB を
+  // 読み直して上書きする。
+  const [projects, setProjects] = useState<HomeProjectStats[]>(
+    () => (user ? getHomeViewSnapshot<HomeViewSnapshot>(user.id)?.projects : undefined) ?? [],
+  );
+  const [stats, setStats] = useState<HomeStats>(
+    () => (user ? getHomeViewSnapshot<HomeViewSnapshot>(user.id)?.stats : undefined) ?? EMPTY_STATS,
+  );
+  const [loading, setLoading] = useState(
+    () => !(user && getHomeViewSnapshot<HomeViewSnapshot>(user.id)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [pendingScans, setPendingScans] = useState<HomePendingScan[]>([]);
   const [recentScanJobs, setRecentScanJobs] = useState<RecentScanJob[]>([]);
@@ -280,7 +297,7 @@ export function HomeClient() {
   // デスクトップの新規作成はページ遷移せず中央モーダルで完結させる
   const [desktopCreateOpen, setDesktopCreateOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const loadHomeRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const loadHomeRef = useRef<(options?: { forceRemote?: boolean }) => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -293,7 +310,21 @@ export function HomeClient() {
     setPendingGeneratingWordbook(withHomeGeneratingFallbackId(payload));
   }, []);
 
-  const loadHome = useCallback(async () => {
+  const applyHomeResult = useCallback(
+    (userId: string, result: { projectsWithStats: HomeProjectStats[]; allWords: Word[] }) => {
+      const nextStats = buildHomeStats(result.allWords);
+      setProjects(result.projectsWithStats);
+      setStats(nextStats);
+      setHomeViewSnapshot<HomeViewSnapshot>(userId, { projects: result.projectsWithStats, stats: nextStats });
+    },
+    [],
+  );
+
+  // forceRemote: バックグラウンドスキャン完了などサーバー側で単語帳が増えたときに
+  // 呼ぶ。通常の表示はローカル(IndexedDB)を描画し、Supabase からの取り直しは
+  // shouldRefreshRemoteWordbooks が許すときだけ行う（以前はホームを開くたびに
+  // 全単語帳・全単語を再ダウンロードして IndexedDB を全件書き換えていた）。
+  const loadHome = useCallback(async (options?: { forceRemote?: boolean }) => {
     if (authLoading) return;
     if (!user) {
       setProjects([]);
@@ -306,29 +337,42 @@ export function HomeClient() {
       return;
     }
 
-    setLoading(true);
+    // 既に前回の内容を出しているならスケルトンには戻さない
+    if (!getHomeViewSnapshot<HomeViewSnapshot>(user.id)) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const userId = user.id;
       let rawProjects: Project[] = [];
       let readRepo: WordReadRepository = repository;
+      let localPainted = false;
 
       try {
         rawProjects = await localRepository.getProjects(userId);
         if (rawProjects.length > 0) {
           const localResult = await getProjectsWithWords(rawProjects, localRepository);
-          setProjects(localResult.projectsWithStats);
-          setStats(buildHomeStats(localResult.allWords));
+          applyHomeResult(userId, localResult);
           setLoading(false);
+          localPainted = true;
         }
       } catch (localError) {
         console.error('Local home preload failed:', localError);
       }
 
-      if (user && navigator.onLine) {
+      const needsRemote =
+        navigator.onLine &&
+        (options?.forceRemote === true || !localPainted || shouldRefreshRemoteWordbooks(userId));
+
+      if (localPainted && !needsRemote) {
+        return;
+      }
+
+      if (needsRemote) {
         try {
           const remoteProjects = await remoteRepository.getProjects(user.id);
+          markRemoteWordbooksRefreshed(userId);
           if (remoteProjects.length > 0 || rawProjects.length === 0 || isPro) {
             rawProjects = remoteProjects;
             readRepo = remoteRepository;
@@ -347,8 +391,7 @@ export function HomeClient() {
       if (readRepo === remoteRepository) {
         result = await mergePendingLocalWordsIntoRemoteResult(result.projectsWithStats, result.allWords);
       }
-      setProjects(result.projectsWithStats);
-      setStats(buildHomeStats(result.allWords));
+      applyHomeResult(userId, result);
 
       // Write remote data to local IndexedDB so the next navigation shows it instantly (no flash)
       if (readRepo === remoteRepository && rawProjects.length > 0) {
@@ -370,7 +413,7 @@ export function HomeClient() {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, isPro, repository, user]);
+  }, [applyHomeResult, authLoading, isPro, repository, user]);
 
   useEffect(() => {
     loadHomeRef.current = loadHome;
@@ -428,7 +471,8 @@ export function HomeClient() {
         if (active.length === 0) {
           if (hadActiveRef.current) {
             hadActiveRef.current = false;
-            void loadHomeRef.current();
+            // 単語帳はサーバー側で作られたので、ローカルの再読込では出てこない
+            void loadHomeRef.current({ forceRemote: true });
             if (intervalId) { clearInterval(intervalId); intervalId = null; }
           }
         } else {
@@ -464,7 +508,7 @@ export function HomeClient() {
     }
 
     if (linkedJob.status === 'completed') {
-      void loadHomeRef.current();
+      void loadHomeRef.current({ forceRemote: true });
     }
 
     // 失敗（単語ゼロなど）した場合、以前は「生成中」カードが理由も出さず
