@@ -20,7 +20,9 @@
 //     though cross-origin, so icons don't render as raw ligature text offline.
 //   - Public shared-wordbook reads (/api/shared-projects/share/**) -> network-first,
 //     so a wordbook the user merely viewed (never imported) still opens offline.
-//   - RSC payloads & other GETs      -> network-first with cache fallback.
+//   - RSC payloads (?_rsc= / RSC: 1) -> never touched (always network). See the
+//     fetch handler for why caching them only cost navigation time.
+//   - Other same-origin GETs         -> network-first with cache fallback.
 //   - Media element loads (audio/video, byte-range) -> never touched. WebKit is
 //     unreliable about playing media served through a worker.
 //   - Other API / auth / cross-origin / non-GET -> never touched (always network).
@@ -39,7 +41,7 @@ const SW_VERSION = 'v1';
 const CACHE_PREFIX = 'merken-';
 const STATIC_CACHE = `${CACHE_PREFIX}static-${SW_VERSION}`; // immutable hashed build assets
 const ASSET_CACHE = `${CACHE_PREFIX}assets-${SW_VERSION}`; // icons, manifest, images (SWR)
-const PAGE_CACHE = `${CACHE_PREFIX}pages-${SW_VERSION}`; // navigations / RSC / misc GET
+const PAGE_CACHE = `${CACHE_PREFIX}pages-${SW_VERSION}`; // navigations / misc GET
 const FONT_CACHE = `${CACHE_PREFIX}fonts-${SW_VERSION}`; // Google Fonts CSS + font files (icons)
 const SHARED_CACHE = `${CACHE_PREFIX}shared-${SW_VERSION}`; // viewed shared-wordbook API responses
 const CURRENT_CACHES = [STATIC_CACHE, ASSET_CACHE, PAGE_CACHE, FONT_CACHE, SHARED_CACHE];
@@ -201,7 +203,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // RSC payloads and any other same-origin GET: network-first, cache fallback.
+  // Next.js RSC payloads (client-side navigations and <Link> prefetches) go
+  // straight to the network. Caching them bought nothing offline — Next varies
+  // them on router-state headers so a cached entry is never matched again and
+  // the router hard-navigates on failure anyway — while every page transition
+  // paid a serialized caches.open() + clone() + cache.put() inside the worker
+  // and PAGE_CACHE grew by one entry per navigation.
+  if (url.searchParams.has('_rsc') || request.headers.get('RSC') === '1') {
+    return;
+  }
+
+  // Any other same-origin GET: network-first, cache fallback.
   event.respondWith(networkFirst(request, PAGE_CACHE));
 });
 

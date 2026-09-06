@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { DesktopHeader } from '@/components/desktop/DesktopChrome';
-import { useAuth } from '@/hooks/use-auth';
+import { markClientNavigation, useAuth } from '@/hooks/use-auth';
 import { BottomNav } from './bottom-nav';
 
 const NO_SHELL_PATHS = [
@@ -59,6 +59,13 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [scrollEnding, setScrollEnding] = useState(false);
+  // 最初に描画したパスから変わったら「クライアント遷移済み」を useAuth に伝える。
+  // このシェルは新しいページより先に描画されるので、遷移先のコンポーネントは
+  // 最初のレンダーからログイン状態を持てる（render 中に立てる冪等なフラグ）。
+  const [initialPathname] = useState(pathname);
+  if (pathname !== initialPathname) {
+    markClientNavigation();
+  }
   useEffect(() => {
     let touchStartX = 0;
     let touchStartY = 0;
