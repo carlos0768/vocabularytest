@@ -16,20 +16,28 @@ import {
   type FlashcardFilter,
 } from '@/lib/quiz/flashcard-filter';
 import {
-  EMPTY_SWIPE_SESSION,
-  SWIPE_FLY_MS,
-  SWIPE_VERDICT_LABELS,
-  buildSwipeWordUpdate,
-  countSwipes,
-  forgetSwipe,
-  getSwipePreview,
-  getSwipeVerdict,
-  recordSwipe,
-  type SwipeSession,
-  type SwipeVerdict,
-} from '@/lib/quiz/flashcard-swipe';
+  EMPTY_GRADE_SESSION,
+  FLASHCARD_GRADES,
+  FLASHCARD_GRADE_HINTS,
+  FLASHCARD_GRADE_KEYS,
+  FLASHCARD_GRADE_LABELS,
+  buildGradeWordUpdate,
+  collectGradedWords,
+  countGrades,
+  gradeForKey,
+  isPassingGrade,
+  recordGrade,
+  type FlashcardGrade,
+  type GradeSession,
+} from '@/lib/quiz/flashcard-grade';
 import { remoteRepository } from '@/lib/db/remote-repository';
-import { getGuestUserId, getWrongAnswers } from '@/lib/utils';
+import {
+  getGuestUserId,
+  getWrongAnswers,
+  recordActivity,
+  recordCorrectAnswer,
+  recordWrongAnswer,
+} from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { speakEnglish, speakAndWait, stopSpeaking } from '@/lib/speech';
 import { afterPaint, isPageHidden } from '@/lib/ui/after-paint';
@@ -77,27 +85,82 @@ function HeaderBtn({
   );
 }
 
-/* ---------- スワイプ仕分けのスタンプ（覚えてる / 覚えてない） ---------- */
-const VERDICT_TINT: Record<SwipeVerdict, string> = {
-  known: 'var(--color-success)',
-  unknown: 'var(--color-error)',
+/* ---------- NavBtn (前へ / 回転 / 次へ の丸ボタン) ---------- */
+function NavBtn({
+  children,
+  onClick,
+  'aria-label': ariaLabel,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  'aria-label'?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => { triggerHaptic(); onClick?.(); }}
+      aria-label={ariaLabel}
+      className="flex h-[46px] w-[46px] items-center justify-center rounded-[23px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ---------- SM-2 4段階評価 (もう一度 / 難しい / 普通 / 簡単) ---------- */
+const GRADE_TINT: Record<FlashcardGrade, string> = {
+  again: 'var(--color-error)',
+  hard: 'var(--color-warning)',
+  good: 'var(--color-accent)',
+  easy: 'var(--color-success)',
 };
 
-function SwipeStamp({ verdict, intensity }: { verdict: SwipeVerdict; intensity: number }) {
-  const tint = VERDICT_TINT[verdict];
+function GradeBar({
+  visible,
+  disabled,
+  onGrade,
+  showKeys = false,
+}: {
+  /** 裏面を見ているときだけ押せる。表面のときは同じ高さの案内文に差し替える。 */
+  visible: boolean;
+  disabled?: boolean;
+  onGrade: (grade: FlashcardGrade) => void;
+  /** デスクトップではキーの数字を添える。 */
+  showKeys?: boolean;
+}) {
+  if (!visible) {
+    return (
+      <div
+        className="flex h-[64px] w-full items-center justify-center gap-1.5 font-mono text-[11px] font-bold text-[var(--color-muted)]"
+        aria-live="polite"
+      >
+        <Icon name="touch_app" size={14} />
+        カードを裏返して意味を確かめたら、4段階で評価
+      </div>
+    );
+  }
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute top-6 z-20 rounded-[10px] border-[3px] bg-white/90 px-3 py-1.5 font-display text-[16px] font-extrabold tracking-[0.04em]"
-      style={{
-        [verdict === 'known' ? 'left' : 'right']: 18,
-        color: tint,
-        borderColor: tint,
-        opacity: 0.25 + intensity * 0.75,
-        transform: `rotate(${verdict === 'known' ? -12 : 12}deg) scale(${0.9 + intensity * 0.15})`,
-      }}
-    >
-      {SWIPE_VERDICT_LABELS[verdict]}
+    <div className="grid h-[64px] w-full grid-cols-4 gap-2" role="group" aria-label="思い出せた度合い">
+      {FLASHCARD_GRADES.map((grade) => {
+        const tint = GRADE_TINT[grade];
+        return (
+          <button
+            key={grade}
+            type="button"
+            disabled={disabled}
+            onClick={() => onGrade(grade)}
+            className="flex flex-col items-center justify-center gap-[2px] rounded-[12px] border-2 bg-white px-1 py-1.5 transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+            style={{ borderColor: tint, boxShadow: `2px 3px 0 ${tint}`, color: tint }}
+          >
+            <span className="font-display text-[14px] font-extrabold leading-none">
+              {FLASHCARD_GRADE_LABELS[grade]}
+            </span>
+            <span className="text-[10px] font-bold leading-none text-[var(--color-muted)]">
+              {showKeys ? `${FLASHCARD_GRADE_KEYS[grade]} · ` : ''}{FLASHCARD_GRADE_HINTS[grade]}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -105,6 +168,10 @@ function SwipeStamp({ verdict, intensity }: { verdict: SwipeVerdict; intensity: 
 // 自動再生: 英語読み上げ後の間、日本語読み上げ後に次のカードへ進むまでの間 (ms)
 const AUTOPLAY_GAP_MS = 500;
 const AUTOPLAY_NEXT_DELAY_MS = 1200;
+// 横スワイプでカードを送るしきい値 (px)。届かなければ元の位置に戻るだけ。
+const SWIPE_NAV_PX = 80;
+// 評価後にカードが画面外へ流れる演出の長さ (ms)
+const GRADE_FLY_MS = 200;
 
 // フラッシュカードはクイズと同じ優先度順（sortWordsByPriority）でカードを並べる。
 // 表示順はクイズ出題順と常に一致し、状態保存は行わない。ロジックはすべて
@@ -137,9 +204,10 @@ export default function FlashcardPage() {
     () => new Map(getWrongAnswers().map((wrong) => [wrong.wordId, wrong.wrongCount])),
     [],
   );
-  const [swipeSession, setSwipeSession] = useState<SwipeSession>(EMPTY_SWIPE_SESSION);
+  /** この周回で付けた評価。単語ID → 評価。 */
+  const [gradeSession, setGradeSession] = useState<GradeSession>(EMPTY_GRADE_SESSION);
   const [finished, setFinished] = useState(false);
-  /** 「未習得だけもう一度」で山札を細くしたときの単語ID順。null＝全部。 */
+  /** 「もう一度だけもう一周」で山札を細くしたときの単語ID順。null＝全部。 */
   const [retryIds, setRetryIds] = useState<string[] | null>(null);
   const words = useMemo(() => {
     const filtered = filterFlashcardWords(allWords, deckFilter, wrongCounts);
@@ -177,7 +245,7 @@ export default function FlashcardPage() {
   const tutorialActive = tutorialStage === 'view-cards' && isMobileViewport;
   const [tutorialAdvances, setTutorialAdvances] = useState(0);
 
-  /* Swipe state */
+  /* Swipe state (横スワイプは前後送り。判定はしない) */
   const [swipeX, setSwipeX] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
@@ -327,34 +395,44 @@ export default function FlashcardPage() {
   }, [isAnimating, currentIndex, words.length]);
 
   /**
-   * スワイプ仕分けの確定。カードを飛ばしつつ、覚えてる＝正解・覚えてない＝不正解
-   * としてクイズと同じ重みで単語を更新する。保存はローカル反映を先に出して
-   * 待たせない（失敗しても山札は進める。次の周回でまた出てくるだけ）。
+   * SM-2 4段階評価の確定。
+   *
+   * 評価をクイズと同じ SM-2 関数で単語に反映し、日次の学習記録
+   * (正解数・連続日数・間違えた単語) も同じ物差しで積む。保存はローカル反映を
+   * 先に出して待たせない（失敗しても山札は進める。次の周回でまた出てくるだけ）。
+   * 最後の1枚を評価したら結果画面へ。
    */
-  const commitVerdict = useCallback((verdict: SwipeVerdict) => {
+  const commitGrade = useCallback((grade: FlashcardGrade) => {
     if (isAnimating) return;
     const target = words[currentIndex];
     if (!target) return;
     triggerHaptic();
     setIsAutoPlaying(false);
     stopSpeaking();
-    setSwipeSession((prev) => recordSwipe(prev, target.id, verdict));
-    const update = buildSwipeWordUpdate(target, verdict);
+    setGradeSession((prev) => recordGrade(prev, target.id, grade));
+    const update = buildGradeWordUpdate(target, grade);
     setAllWords((prev) => prev.map((w) => (w.id === target.id ? { ...w, ...update } : w)));
     void repository.updateWord(target.id, update).catch((error) => {
-      console.error('Failed to save flashcard swipe:', error);
+      console.error('Failed to save flashcard grade:', error);
     });
+    if (isPassingGrade(grade)) {
+      recordCorrectAnswer(target.status !== 'mastered' && update.status === 'mastered');
+    } else {
+      recordWrongAnswer(target.id, target.english, target.japanese, target.projectId, target.distractors);
+    }
+    recordActivity();
 
     const isLast = currentIndex >= words.length - 1;
     setSwipeX(0);
     setIsAnimating(true);
-    setSlideDirection(verdict === 'known' ? 'right' : 'left');
+    setSlideDirection('left');
     setSlidePhase('exit');
     setTimeout(() => {
       setSlidePhase(null);
       if (isLast) {
         setSlideDirection(null);
         setIsAnimating(false);
+        setIsFlipped(false);
         setFinished(true);
         return;
       }
@@ -366,27 +444,14 @@ export default function FlashcardPage() {
         setSlidePhase(null);
         setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
       });
-    }, SWIPE_FLY_MS);
+    }, GRADE_FLY_MS);
   }, [isAnimating, words, currentIndex, repository, tutorialActive]);
 
-  /** 直前の仕分けを取り消して1枚戻す。結果画面からは最後の1枚に戻る。 */
-  const handleUndoSwipe = useCallback(() => {
-    if (isAnimating) return;
-    const targetIndex = finished ? words.length - 1 : currentIndex - 1;
-    if (targetIndex < 0) return;
-    triggerHaptic();
-    const target = words[targetIndex];
-    if (target) setSwipeSession((prev) => forgetSwipe(prev, target.id));
-    setFinished(false);
-    setCurrentIndex(targetIndex);
-    setIsFlipped(false);
-  }, [isAnimating, finished, words, currentIndex]);
-
-  /** 山札を引き直して仕分けをやり直す。ids=null で読み込んだ全部に戻す。 */
+  /** 山札を引き直して最初から。ids=null で読み込んだ全部に戻す。 */
   const restartDeck = useCallback((ids: string[] | null) => {
     triggerHaptic();
     setRetryIds(ids);
-    setSwipeSession(EMPTY_SWIPE_SESSION);
+    setGradeSession(EMPTY_GRADE_SESSION);
     setFinished(false);
     setCurrentIndex(0);
     setIsFlipped(false);
@@ -443,13 +508,10 @@ export default function FlashcardPage() {
     const deltaX = swipeX;
     setSwipeX(0);
     setTimeout(() => { isSwiping.current = false; }, 50);
-    // 左右どちらのスワイプも「判定して次へ」。しきい値に届かなければ元に戻すだけ。
-    const verdict = getSwipeVerdict(deltaX);
-    if (verdict) commitVerdict(verdict);
+    // 左に払えば次へ、右に払えば前へ。しきい値に届かなければ元に戻すだけ。
+    if (deltaX <= -SWIPE_NAV_PX) handleNext(true);
+    else if (deltaX >= SWIPE_NAV_PX) handlePrev(true);
   };
-
-  /** ドラッグ中に出す判定スタンプ。 */
-  const swipePreview = getSwipePreview(swipeX);
 
   /* Keyboard nav */
   useEffect(() => {
@@ -457,18 +519,22 @@ export default function FlashcardPage() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (isAnimating) return;
+      // 裏面を見ているときだけ 1〜4 で評価できる (表面で押しても何も起きない)
+      const grade = gradeForKey(e.key);
+      if (grade) {
+        if (isFlipped) { e.preventDefault(); commitGrade(grade); }
+        return;
+      }
       switch (e.key) {
-        // 左右キーもスワイプと同じ判定にする（キーボードでも操作感を揃えるため）
-        case 'ArrowLeft': e.preventDefault(); commitVerdict('unknown'); break;
-        case 'ArrowRight': e.preventDefault(); commitVerdict('known'); break;
-        case 'Backspace': e.preventDefault(); handleUndoSwipe(); break;
+        case 'ArrowLeft': e.preventDefault(); handlePrev(true); break;
+        case 'ArrowRight': e.preventDefault(); handleNext(true); break;
         case ' ': case 'ArrowUp': case 'ArrowDown': e.preventDefault(); handleFlip(); break;
         case 'Escape': backToProject(); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAnimating, currentIndex, words.length, isFlipped, handleFlip, backToProject, commitVerdict, handleUndoSwipe]);
+  }, [isAnimating, isFlipped, handleFlip, handlePrev, handleNext, backToProject, commitGrade]);
 
   // handleNext/handlePrev は isAnimating などが変わるたびに再生成されるため、
   // ref 越しに呼ぶことで自動再生ループの useEffect を無駄に再起動させない。
@@ -637,7 +703,7 @@ export default function FlashcardPage() {
     setFilterMenuOpen(false);
     setDeckFilter(next);
     setRetryIds(null);
-    setSwipeSession(EMPTY_SWIPE_SESSION);
+    setGradeSession(EMPTY_GRADE_SESSION);
     setFinished(false);
     setCurrentIndex(0);
     setIsFlipped(false);
@@ -661,7 +727,7 @@ export default function FlashcardPage() {
       if (slideDirection === 'left') return 'translateX(120%)';
       if (slideDirection === 'right') return 'translateX(-120%)';
     }
-    if (swipeX !== 0) return `translateX(${swipeX}px) rotate(${swipeX * 0.02}deg)`;
+    if (swipeX !== 0) return `translateX(${swipeX}px)`;
     return 'translateX(0)';
   };
 
@@ -704,40 +770,38 @@ export default function FlashcardPage() {
     );
   }
 
-  /* ---------- 仕分け終了（習得済み / 未習得の2つの山） ---------- */
+  /* ---------- 一周し終えたとき（4段階の内訳と「もう一度」の単語） ---------- */
   if (finished) {
-    const tally = countSwipes(swipeSession);
-    const unknownIds = [...swipeSession.unknown];
-    const unknownWords = unknownIds
-      .map((id) => allWords.find((w) => w.id === id))
-      .filter((w): w is Word => Boolean(w));
+    const tally = countGrades(gradeSession);
+    const againWords = collectGradedWords(words, gradeSession, 'again');
+    const againIds = againWords.map((w) => w.id);
     return (
       <div className="fixed inset-0 z-30 overflow-y-auto bg-[var(--color-background)] font-[var(--font-body)]">
         <div className="mx-auto flex min-h-full w-full max-w-[520px] flex-col gap-5 px-6 py-10">
           <div className="text-center">
             <div className="font-mono text-[11px] font-bold tracking-[0.08em] text-[var(--color-muted)]">RESULT</div>
-            <h1 className="mt-1.5 font-display text-[24px] font-extrabold text-[var(--solid-ink)]">仕分け完了</h1>
-            <p className="mt-1 text-[12.5px] font-semibold text-[var(--color-muted)]">{tally.total}枚を振り分けました</p>
+            <h1 className="mt-1.5 font-display text-[24px] font-extrabold text-[var(--solid-ink)]">一周おつかれさま</h1>
+            <p className="mt-1 text-[12.5px] font-semibold text-[var(--color-muted)]">{tally.total}枚を評価しました</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 text-center shadow-[3px_3px_0_var(--solid-ink)]">
-              <Icon name="check_circle" size={20} className="text-[var(--color-success)]" filled />
-              <div className="mt-1 font-mono text-[26px] font-extrabold tabular-nums text-[var(--solid-ink)]">{tally.known}</div>
-              <div className="text-[11.5px] font-bold text-[var(--color-muted)]">習得済み</div>
-            </div>
-            <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 text-center shadow-[3px_3px_0_var(--solid-ink)]">
-              <Icon name="replay" size={20} className="text-[var(--color-error)]" />
-              <div className="mt-1 font-mono text-[26px] font-extrabold tabular-nums text-[var(--solid-ink)]">{tally.unknown}</div>
-              <div className="text-[11.5px] font-bold text-[var(--color-muted)]">未習得</div>
-            </div>
+          <div className="grid grid-cols-4 gap-2">
+            {FLASHCARD_GRADES.map((grade) => (
+              <div
+                key={grade}
+                className="rounded-[14px] border-2 bg-[var(--color-surface)] p-3 text-center"
+                style={{ borderColor: GRADE_TINT[grade], boxShadow: `2px 3px 0 ${GRADE_TINT[grade]}` }}
+              >
+                <div className="font-mono text-[24px] font-extrabold tabular-nums" style={{ color: GRADE_TINT[grade] }}>{tally[grade]}</div>
+                <div className="text-[11px] font-bold text-[var(--solid-ink)]">{FLASHCARD_GRADE_LABELS[grade]}</div>
+              </div>
+            ))}
           </div>
 
-          {unknownWords.length > 0 && (
+          {againWords.length > 0 && (
             <div className="rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-3.5">
-              <div className="mb-2 font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">覚えてない単語</div>
+              <div className="mb-2 font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">「もう一度」の単語</div>
               <div className="flex flex-wrap gap-1.5">
-                {unknownWords.map((w) => (
+                {againWords.map((w) => (
                   <span key={w.id} className="rounded-full border border-[var(--color-border)] bg-white px-2.5 py-1 text-[12px] font-bold text-[var(--solid-ink)]">
                     {w.english}
                   </span>
@@ -747,13 +811,13 @@ export default function FlashcardPage() {
           )}
 
           <div className="flex flex-col gap-2.5">
-            {unknownWords.length > 0 && (
+            {againWords.length > 0 && (
               <button
                 type="button"
-                onClick={() => restartDeck(unknownIds)}
+                onClick={() => restartDeck(againIds)}
                 className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[14px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
-                <Icon name="replay" size={16} />未習得だけもう一度 ({unknownWords.length})
+                <Icon name="replay" size={16} />「もう一度」だけもう一周 ({againWords.length})
               </button>
             )}
             <button
@@ -762,13 +826,6 @@ export default function FlashcardPage() {
               className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[14px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="restart_alt" size={16} />最初からやり直す
-            </button>
-            <button
-              type="button"
-              onClick={handleUndoSwipe}
-              className="text-[12.5px] font-bold text-[var(--color-muted)] underline"
-            >
-              最後の1枚をやり直す
             </button>
             <button
               type="button"
@@ -820,7 +877,7 @@ export default function FlashcardPage() {
               <div className="en" style={{ fontSize: currentWord?.english && currentWord.english.length > 14 ? 46 : undefined }}>
                 {currentWord?.english}
               </div>
-              <div className="ph">{currentWord?.pronunciation || '\u00a0'}</div>
+              <div className="ph">{currentWord?.pronunciation || ' '}</div>
               {currentPartOfSpeechLabel && <span className="ds-tag accent">{currentPartOfSpeechLabel}</span>}
               {/* モバイルと同じ: 発音はカード内のピル、保存はカード右下の丸ボタン */}
               <button
@@ -908,27 +965,32 @@ export default function FlashcardPage() {
           />
         </div>
 
-        {/* 判定は ← / → キー、回転はカードのクリック。ボタンは置かず、下段は取り消しだけ */}
-        <div className="mono muted" style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 18, fontSize: 11 }}>
-          <span><b style={{ color: VERDICT_TINT.unknown }}>←</b> 覚えてない</span>
-          <span>クリックで回転</span>
-          <span><b style={{ color: VERDICT_TINT.known }}>→</b> 覚えてる</span>
+        {/* 裏返したら SM-2 の4段階評価 (1〜4 キーでも押せる) */}
+        <div style={{ width: '100%', maxWidth: 560, marginTop: 16 }}>
+          <GradeBar visible={isFlipped} disabled={isAnimating} onGrade={commitGrade} showKeys />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
-          <button
-            type="button"
-            onClick={handleUndoSwipe}
-            disabled={currentIndex === 0}
-            className="flex items-center gap-1 text-[12px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
-          >
-            <Icon name="undo" size={14} />1枚戻す
+
+        <div className="ds-fc-controls" style={{ marginTop: 14 }}>
+          <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handlePrev(true); }}>
+            <Icon name="chevron_left" />前へ
           </button>
+          <button type="button" className="ds-fc-big know" onClick={() => { triggerHaptic(); handleFlip(); }} aria-label="カードを回転">
+            <Icon name="cached" />回転
+          </button>
+          <button type="button" className="ds-fc-big dunno" onClick={() => { triggerHaptic(); handleNext(true); }}>
+            次へ<Icon name="chevron_right" />
+          </button>
+        </div>
+        <div className="mono muted" style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 12, fontSize: 11 }}>
+          <span><b>←</b> / <b>→</b> 前後のカード</span>
+          <span><b>Space</b> 回転</span>
+          <span><b>1〜4</b> 評価</span>
         </div>
       </div>
     </div>
 
     <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
-      {/* Header: HeaderBtn close | progress | HeaderBtn details */}
+      {/* Header: HeaderBtn close | progress | HeaderBtn filter / autoplay */}
       <div
         className="flex shrink-0 items-center justify-between px-4 pb-2.5"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
@@ -1006,7 +1068,7 @@ export default function FlashcardPage() {
         </div>
       </div>
 
-      {/* Card area (no ghost cards) */}
+      {/* Card area */}
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5">
         {/* Flashcard */}
         <div
@@ -1021,7 +1083,6 @@ export default function FlashcardPage() {
             perspective: '1200px',
           }}
         >
-          {swipePreview && <SwipeStamp verdict={swipePreview.verdict} intensity={swipePreview.intensity} />}
           <div
             className="grid w-full grid-cols-[minmax(0,1fr)]"
             style={{
@@ -1065,6 +1126,10 @@ export default function FlashcardPage() {
                 >
                   <Icon name="volume_up" size={14} /> 発音
                 </button>
+              </div>
+
+              <div className="flex items-center justify-center gap-1 font-mono text-[10px] font-bold text-[var(--color-muted)]">
+                <Icon name="touch_app" size={12} />タップで意味を表示
               </div>
 
               {/* 保存はカード右下。カード送りの邪魔にならず、親指の届く位置に置く */}
@@ -1123,35 +1188,25 @@ export default function FlashcardPage() {
             onScrubbingChange={handleScrubbingChange}
           />
         </div>
-
-        {/* Swipe hints */}
-        <div
-          className="pointer-events-none absolute left-0.5 top-1/2 -translate-y-1/2"
-          style={{ color: VERDICT_TINT.unknown }}
-        >
-          <Icon name="chevron_left" size={20} />
-        </div>
-        <div
-          className="pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2"
-          style={{ color: VERDICT_TINT.known }}
-        >
-          <Icon name="chevron_right" size={20} />
-        </div>
       </div>
 
-      {/* 判定はスワイプ、回転はカードのタップに任せ、下段は取り消しだけ残す。 */}
+      {/* 下段: 裏返したら SM-2 の4段階評価、その下に前へ / 回転 / 次へ */}
       <div
-        className="flex shrink-0 flex-col items-center gap-2 px-5 pt-3"
+        className="flex shrink-0 flex-col items-center gap-3 px-5 pt-2"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
-        <button
-          type="button"
-          onClick={handleUndoSwipe}
-          disabled={currentIndex === 0}
-          className="flex items-center gap-1 text-[11.5px] font-bold text-[var(--color-muted)] underline disabled:opacity-40"
-        >
-          <Icon name="undo" size={14} />1枚戻す
-        </button>
+        <GradeBar visible={isFlipped} disabled={isAnimating} onGrade={commitGrade} />
+        <div className="flex items-center justify-center gap-6">
+          <NavBtn onClick={() => handlePrev(true)} aria-label="前のカード">
+            <Icon name="chevron_left" size={20} />
+          </NavBtn>
+          <NavBtn onClick={handleFlip} aria-label="カードを回転">
+            <Icon name="cached" size={20} />
+          </NavBtn>
+          <NavBtn onClick={() => handleNext(true)} aria-label="次のカード">
+            <Icon name="chevron_right" size={20} />
+          </NavBtn>
+        </div>
       </div>
 
     </div>
