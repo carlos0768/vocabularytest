@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DesktopSharedView } from '@/components/desktop/DesktopShared';
@@ -13,7 +13,13 @@ import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { ShareTypeChooser } from './ShareTypeChooser';
 import { triggerHaptic } from '@/lib/haptics';
-import { appendDiscoverPage, mergeUniqueProjectCards, removeProjectFromDiscover } from './shared-page-utils';
+import {
+  appendDiscoverPage,
+  buildSharedPageSearch,
+  mergeUniqueProjectCards,
+  parseSharedPageTab,
+  removeProjectFromDiscover,
+} from './shared-page-utils';
 import type {
   SharedDiscoverCategory,
   SharedDiscoverPayload,
@@ -104,6 +110,10 @@ function buildDiscoverUrl(category: SharedDiscoverCategory, query: string, curso
   if (cursor) params.set('cursor', cursor);
   return `/api/shared-projects/discover?${params.toString()}`;
 }
+
+// タブの URL 同期はクライアント限定。ハイドレーション後・描画前に走らせたいので
+// 通常は useLayoutEffect、SSR では警告を避けるため useEffect にフォールバックする。
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedDiscoverPayload {
   return Boolean(payload && 'category' in payload && Array.isArray(payload.projects));
@@ -232,14 +242,33 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     showToast({ message: 'この単語帳は共有が停止されています', type: 'warning' });
   }
 
-  function handleSelectCategory(nextCategory: PageCategory) {
+  // タブを切り替えるときは URL の ?tab= も書き換える。グループページなどから
+  // 戻ってきたときに同じタブで復元するための唯一の手がかりで、これが無いと
+  // グループ検索から開いたグループから戻ったときに共有単語帳のトップに落ちる。
+  // Next のルーターを通すと RSC を取り直して一覧が組み直されるので、
+  // App Router 公認の history.replaceState で URL だけを差し替える。
+  const applyCategory = useCallback((nextCategory: PageCategory | 'all') => {
     setCategory(nextCategory);
     setError(null);
+    if (typeof window === 'undefined') return;
+    const search = buildSharedPageSearch(window.location.search, nextCategory);
+    window.history.replaceState(null, '', `${window.location.pathname}${search}`);
+  }, []);
+
+  // 戻る操作で `/shared?tab=groups` に戻ってきたときにタブを復元する。
+  // useSearchParams はこのページ全体を Suspense のフォールバックに落として
+  // ISR プリレンダリングを捨ててしまうので使わない。
+  useIsomorphicLayoutEffect(() => {
+    const tab = parseSharedPageTab(window.location.search);
+    if (tab !== 'all') setCategory(tab);
+  }, []);
+
+  function handleSelectCategory(nextCategory: PageCategory) {
+    applyCategory(nextCategory);
   }
 
   function handleBackToAll() {
-    setCategory('all');
-    setError(null);
+    applyCategory('all');
   }
 
   async function handleGroupSearch() {
