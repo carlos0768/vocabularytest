@@ -17,7 +17,7 @@ const PERMISSIONS = [
 ];
 
 function AuthorizeForm() {
-  usePageBackground('#f3f0e9');
+  usePageBackground('var(--color-paper-alt)');
 
   const searchParams = useSearchParams();
   const clientId = searchParams.get('client_id') ?? '';
@@ -63,7 +63,7 @@ function AuthorizeForm() {
   };
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[#f3f0e9] px-6 pt-[calc(env(safe-area-inset-top,0px)+40px)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-paper-alt)] px-6 pt-[calc(env(safe-area-inset-top,0px)+40px)] [background-image:radial-gradient(color-mix(in_srgb,_var(--solid-ink)_4.5%,_transparent)_1px,transparent_1px)] [background-size:22px_22px]">
       <div className="pb-2 text-center">
         <div className="inline-block font-display text-[34px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN
@@ -71,7 +71,7 @@ function AuthorizeForm() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-6">
+      <div className="mt-6 rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6">
         <h1 className="font-display text-xl font-extrabold leading-[1.3] text-[var(--solid-ink)]">
           ChatGPTにMERKENへの
           <br />
@@ -95,7 +95,7 @@ function AuthorizeForm() {
                 </li>
               ))}
             </ul>
-            <p className="mt-4 rounded-lg bg-[#f3f0e9] p-3 text-xs leading-relaxed text-[var(--solid-ink)]">
+            <p className="mt-4 rounded-lg bg-[var(--color-paper-alt)] p-3 text-xs leading-relaxed text-[var(--solid-ink)]">
               ChatGPT経由の単語追加はPro限定機能です。Freeプランの場合、接続はできますが単語追加時にアップグレード案内が表示されます。
             </p>
 
@@ -108,7 +108,7 @@ function AuthorizeForm() {
                 type="button"
                 onClick={() => submitDecision('approve')}
                 disabled={submitting}
-                className="h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                className="h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
               >
                 {submitting ? '処理中...' : '許可する'}
               </button>
@@ -116,7 +116,7 @@ function AuthorizeForm() {
                 type="button"
                 onClick={() => submitDecision('deny')}
                 disabled={submitting}
-                className="h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                className="h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
               >
                 許可しない
               </button>

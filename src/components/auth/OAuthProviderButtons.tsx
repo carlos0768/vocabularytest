@@ -73,7 +73,7 @@ export function OAuthProviderButtons({
             type="button"
             onClick={() => void handleProviderClick(provider.id)}
             disabled={disabled || Boolean(loadingProvider)}
-            className="w-full bg-white"
+            className="w-full bg-[var(--color-surface)]"
             size="md"
             aria-label={`${label}で続ける`}
           >

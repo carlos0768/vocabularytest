@@ -716,7 +716,7 @@ export default function SharedDetailPage() {
           type="button"
           onClick={() => router.back()}
           aria-label="戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
         </button>
@@ -773,7 +773,7 @@ export default function SharedDetailPage() {
               {(project.sharedTags ?? []).map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-white px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                  className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--color-muted)]"
                 >
                   {formatSharedTag(tag)}
                 </span>
@@ -782,7 +782,7 @@ export default function SharedDetailPage() {
                 <button
                   type="button"
                   onClick={handleOpenTags}
-                  className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--color-border)] bg-white px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--color-muted)]"
+                  className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--color-muted)]"
                 >
                   <Icon name="edit" size={11} />
                   {(project.sharedTags?.length ?? 0) > 0 ? 'タグを編集' : 'タグを追加'}
@@ -813,7 +813,7 @@ export default function SharedDetailPage() {
             aria-label={selectMode ? '選択を終了' : '単語を選択'}
             aria-pressed={selectMode}
             className={`inline-flex h-[30px] shrink-0 items-center gap-1 rounded-[9px] border-2 border-[var(--solid-ink)] px-2.5 text-[11px] font-extrabold transition-all duration-100 active:translate-x-px active:translate-y-px ${
-              selectMode ? 'bg-[var(--solid-ink)] text-white' : 'bg-white text-[var(--solid-ink)]'
+              selectMode ? 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]' : 'bg-[var(--color-surface)] text-[var(--solid-ink)]'
             }`}
           >
             <Icon name="check_box" size={14} />
@@ -852,12 +852,12 @@ export default function SharedDetailPage() {
       >
         {selectMode ? (
           <>
-            <div className="flex items-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-2.5">
+            <div className="flex items-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-2.5">
               <button
                 type="button"
                 onClick={handleExitSelectMode}
                 aria-label="選択を終了"
-                className="inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+                className="inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
                 <Icon name="close" size={16} />
               </button>
@@ -865,7 +865,7 @@ export default function SharedDetailPage() {
                 type="button"
                 onClick={handleToggleSelectAll}
                 disabled={selectableWords.length === 0}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px] text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[7px] text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
               >
                 <SharedSelectCheckbox checked={allSelected} size={16} />
                 {allSelected ? '解除' : '全選択'}
@@ -885,7 +885,7 @@ export default function SharedDetailPage() {
                 type="button"
                 onClick={() => void handleOpenBookPicker(selectedWords)}
                 disabled={selectedWords.length === 0 || importBusy || addingToBookId !== null}
-                className="inline-flex h-[36px] shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[12px] font-extrabold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+                className="inline-flex h-[36px] shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[12px] font-extrabold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
               >
                 <Icon
                   name={importBusy || addingToBookId !== null ? 'progress_activity' : 'bookmark_add'}
@@ -906,7 +906,7 @@ export default function SharedDetailPage() {
                 type="button"
                 onClick={handleOpenRename}
                 disabled={ownerActionBusy}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-[14px] font-extrabold text-[var(--solid-ink)] disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-[14px] font-extrabold text-[var(--solid-ink)] disabled:opacity-50"
               >
                 <Icon name="edit" size={16} />
                 名前を変更
@@ -915,7 +915,7 @@ export default function SharedDetailPage() {
                 type="button"
                 onClick={() => void handleUnpublish()}
                 disabled={ownerActionBusy}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-error)] bg-white px-4 py-3 text-[14px] font-extrabold text-[var(--color-error)] disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] px-4 py-3 text-[14px] font-extrabold text-[var(--color-error)] disabled:opacity-50"
               >
                 <Icon name={ownerActionBusy ? 'progress_activity' : 'public_off'} size={16} className={ownerActionBusy ? 'animate-spin' : undefined} />
                 公開を停止
@@ -966,11 +966,11 @@ export default function SharedDetailPage() {
             className="relative w-full animate-fade-in-up"
             style={{
               maxWidth: 360,
-              background: '#faf7f1',
+              background: 'var(--color-paper)',
               border: '2px solid var(--solid-ink)',
               borderRadius: 18,
               padding: '18px',
-              boxShadow: '0 12px 32px rgba(26,26,26,0.22)',
+              boxShadow: '0 12px 32px color-mix(in srgb, var(--solid-ink) 22%, transparent)',
             }}
           >
             <div className="mb-3 font-display text-[17px] font-extrabold text-[var(--solid-ink)]">名前を変更</div>
@@ -979,13 +979,13 @@ export default function SharedDetailPage() {
               onChange={(event) => setRenameDraft(event.target.value)}
               maxLength={80}
               autoFocus
-              className="mb-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
+              className="mb-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setRenameOpen(false)}
-                className="inline-flex h-[44px] flex-1 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[13px] font-extrabold text-[var(--solid-ink)]"
+                className="inline-flex h-[44px] flex-1 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[13px] font-extrabold text-[var(--solid-ink)]"
               >
                 キャンセル
               </button>
@@ -993,7 +993,7 @@ export default function SharedDetailPage() {
                 type="button"
                 onClick={() => void handleRename()}
                 disabled={ownerActionBusy || !renameDraft.trim()}
-                className="inline-flex h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-extrabold text-white disabled:opacity-45"
+                className="inline-flex h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-extrabold text-[var(--color-on-ink)] disabled:opacity-45"
               >
                 <Icon name={ownerActionBusy ? 'progress_activity' : 'check'} size={15} className={ownerActionBusy ? 'animate-spin' : undefined} />
                 保存
@@ -1016,11 +1016,11 @@ export default function SharedDetailPage() {
             className="relative w-full animate-fade-in-up"
             style={{
               maxWidth: 360,
-              background: '#faf7f1',
+              background: 'var(--color-paper)',
               border: '2px solid var(--solid-ink)',
               borderRadius: 18,
               padding: '18px',
-              boxShadow: '0 12px 32px rgba(26,26,26,0.22)',
+              boxShadow: '0 12px 32px color-mix(in srgb, var(--solid-ink) 22%, transparent)',
             }}
           >
             <div className="mb-3 font-display text-[17px] font-extrabold text-[var(--solid-ink)]">タグを編集</div>
@@ -1029,13 +1029,13 @@ export default function SharedDetailPage() {
               onChange={(event) => setTagsDraft(event.target.value)}
               placeholder="例: #TOEIC, #熟語, #高校英語"
               autoFocus
-              className="mb-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
+              className="mb-3 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setTagsOpen(false)}
-                className="inline-flex h-[44px] flex-1 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[13px] font-extrabold text-[var(--solid-ink)]"
+                className="inline-flex h-[44px] flex-1 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[13px] font-extrabold text-[var(--solid-ink)]"
               >
                 キャンセル
               </button>
@@ -1043,7 +1043,7 @@ export default function SharedDetailPage() {
                 type="button"
                 onClick={() => void handleSaveTags()}
                 disabled={tagsSaving}
-                className="inline-flex h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-extrabold text-white disabled:opacity-45"
+                className="inline-flex h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-extrabold text-[var(--color-on-ink)] disabled:opacity-45"
               >
                 <Icon name={tagsSaving ? 'progress_activity' : 'check'} size={15} className={tagsSaving ? 'animate-spin' : undefined} />
                 保存
@@ -1114,7 +1114,7 @@ export default function SharedDetailPage() {
               onClick={() => void handleCreateBookFromPicker()}
               className="flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-secondary)] disabled:opacity-60"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] border-2 border-dashed border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]">
                 <Icon name={importing ? 'progress_activity' : 'add'} size={18} className={importing ? 'animate-spin' : undefined} />
               </span>
               <span className="min-w-0 flex-1">
@@ -1186,7 +1186,7 @@ function SharedHeaderBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white px-2 text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex h-[38px] min-w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2 text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>
@@ -1211,8 +1211,8 @@ function SharedSelectCheckbox({ checked, size = 20 }: { checked: boolean; size?:
     <span
       className={`inline-flex shrink-0 items-center justify-center border-2 transition-colors ${
         checked
-          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-          : 'border-[var(--solid-ink)] bg-white text-transparent'
+          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
+          : 'border-[var(--solid-ink)] bg-[var(--color-surface)] text-transparent'
       }`}
       style={{ width: size, height: size, borderRadius: size * 0.25 }}
       aria-hidden

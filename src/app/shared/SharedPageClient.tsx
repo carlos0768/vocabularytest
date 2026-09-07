@@ -503,7 +503,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             type="button"
             onClick={handleOpenShareSheet}
             aria-label="共有する"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="add" size={18} />
           </button>
@@ -511,7 +511,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
         {category !== 'groups' && category !== 'users' && category !== 'grammar' && category !== 'official' && (
           <div className="px-[14px] pt-2">
-            <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
+            <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[var(--color-muted)]">
               <Icon name="search" size={16} />
               <span className="sr-only">共有ライブラリを検索</span>
               <input
@@ -532,7 +532,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             <button
               type="button"
               onClick={handleBackToAll}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
               aria-label="カテゴリ一覧に戻る"
             >
               <Icon name="arrow_back" size={15} />
@@ -698,7 +698,7 @@ function LoadMoreSentinel({
         <button
           type="button"
           onClick={onLoadMore}
-          className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-4 text-[12px] font-extrabold text-[var(--solid-ink)]"
+          className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 text-[12px] font-extrabold text-[var(--solid-ink)]"
         >
           <Icon name="refresh" size={14} />
           再読み込み
@@ -864,7 +864,7 @@ function UserSection({ users }: { users: SharedDiscoverPayload['users'] }) {
                     type="button"
                     onClick={() => void handleFollow(user.accountId)}
                     disabled={Boolean(followLoading)}
-                    className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2 text-[11px] font-bold text-white disabled:opacity-50"
+                    className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2 text-[11px] font-bold text-[var(--color-on-ink)] disabled:opacity-50"
                   >
                     <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
                     フォロー
@@ -948,7 +948,7 @@ function ProjectCard({
 
   return (
     <Link href={href} onClick={(event) => void handleClick(event)} className="block">
-      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div className="flex items-center gap-[11px]">
           <div
             className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 bg-cover bg-center font-display text-[22px] font-extrabold text-white"
@@ -995,7 +995,7 @@ function ProjectCard({
 
 function LoadingBox() {
   return (
-    <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-5 text-sm font-bold text-[var(--color-muted)]">
+    <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-5 text-sm font-bold text-[var(--color-muted)]">
       <Icon name="progress_activity" size={16} className="mr-1 inline animate-spin" />
       検索中...
     </div>
@@ -1012,7 +1012,7 @@ function ErrorBox({ message }: { message: string }) {
 
 function EmptyBox({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
+    <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-12 text-center text-sm font-bold text-[var(--color-muted)]">
       {message}
     </div>
   );
@@ -1067,7 +1067,7 @@ function UserSearchSection({
         onSubmit={(e) => { e.preventDefault(); onSearch(); }}
         className="flex gap-2"
       >
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
           <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
           <input
             value={userQuery}
@@ -1079,7 +1079,7 @@ function UserSearchSection({
         <button
           type="submit"
           disabled={userLoading || !userQuery.trim()}
-          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
+          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] disabled:opacity-50"
           aria-label="検索"
         >
           <Icon name={userLoading ? 'progress_activity' : 'arrow_forward'} className={userLoading ? 'animate-spin' : ''} size={16} />
@@ -1126,7 +1126,7 @@ function UserSearchSection({
                       type="button"
                       onClick={() => void handleFollow(result.accountId)}
                       disabled={Boolean(followLoading)}
-                      className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2 text-[11px] font-bold text-white disabled:opacity-50"
+                      className="inline-flex h-7 items-center gap-1 rounded-[7px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2 text-[11px] font-bold text-[var(--color-on-ink)] disabled:opacity-50"
                     >
                       <Icon name={isLoading ? 'progress_activity' : 'person_add'} className={isLoading ? 'animate-spin' : ''} size={13} />
                       フォロー
@@ -1191,7 +1191,7 @@ function OfficialSearchSection({
         onSubmit={(event) => { event.preventDefault(); onSearch(); }}
         className="flex gap-2"
       >
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
           <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
           <input
             value={officialQuery}
@@ -1203,7 +1203,7 @@ function OfficialSearchSection({
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
+          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] disabled:opacity-50"
           aria-label="検索"
         >
           <Icon name={loading ? 'progress_activity' : 'arrow_forward'} className={loading ? 'animate-spin' : ''} size={16} />
@@ -1236,7 +1236,7 @@ function OfficialSearchSection({
 function OfficialWordbookCardItem({ book }: { book: OfficialWordbookCard }) {
   return (
     <Link href={`/official/${encodeURIComponent(book.slug)}`} className="block">
-      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div className="flex items-center gap-[11px]">
           <div
             className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center text-white"
@@ -1317,7 +1317,7 @@ function GrammarSearchSection({
         onSubmit={(event) => { event.preventDefault(); onSearch(); }}
         className="flex gap-2"
       >
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
           <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
           <input
             value={grammarQuery}
@@ -1329,7 +1329,7 @@ function GrammarSearchSection({
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
+          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] disabled:opacity-50"
           aria-label="検索"
         >
           <Icon name={loading ? 'progress_activity' : 'arrow_forward'} className={loading ? 'animate-spin' : ''} size={16} />
@@ -1368,7 +1368,7 @@ function GrammarBookCard({ book }: { book: PublicGrammarBookCard }) {
 
   return (
     <Link href={`/grammar/share/${encodeURIComponent(book.shareId)}`} className="block">
-      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
         <div className="flex items-center gap-[11px]">
           <div
             className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"
@@ -1441,7 +1441,7 @@ function GroupSearchSection({
         onSubmit={(e) => { e.preventDefault(); onSearch(); }}
         className="flex gap-2"
       >
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
           <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
           <input
             value={groupQuery}
@@ -1453,7 +1453,7 @@ function GroupSearchSection({
         <button
           type="submit"
           disabled={groupLoading}
-          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
+          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] disabled:opacity-50"
           aria-label="検索"
         >
           <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : ''} size={16} />
@@ -1472,7 +1472,7 @@ function GroupSearchSection({
               href={`/groups/${group.id}/join`}
               onPointerDown={() => triggerHaptic()}
               aria-label={`${group.name}に参加`}
-              className="block rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3 transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="block rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3 transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <div className="flex items-center gap-3">
                 <div

@@ -29,8 +29,8 @@ export function ReviewLimitPicker({ className }: { className?: string }) {
             }}
             className={`rounded-full border-2 px-3 py-1.5 font-display text-[12.5px] font-bold transition-all ${
               active
-                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-                : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
+                : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'
             }`}
           >
             {dailyReviewLimitLabel(option)}

@@ -153,7 +153,7 @@ export function AffixTipsPage({ kind }: { kind: AffixKind }) {
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="chevron_left" size={16} />
             </button>
@@ -165,7 +165,7 @@ export function AffixTipsPage({ kind }: { kind: AffixKind }) {
 
         {/* Intro */}
         <div className="px-[18px] pb-3.5">
-          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
+          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[12px_14px]">
             <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]"><EmphasisText text={meta.intro} /></p>
           </div>
         </div>
@@ -196,7 +196,7 @@ function Section({ num, label, children }: { num: string; label: string; childre
         <span className="text-[var(--solid-ink)]">§{num}</span>
         <span>{label}</span>
       </div>
-      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[12px_14px]">
         {children}
       </div>
     </div>

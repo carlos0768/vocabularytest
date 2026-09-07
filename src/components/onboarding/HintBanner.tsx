@@ -16,21 +16,29 @@ interface HintBannerProps {
   className?: string;
 }
 
+/**
+ * Tone tints are mixed into --color-surface rather than written as literal
+ * pastels: the same expression yields a pale wash on the white light surface
+ * and a deep wash on the dark one, so the banner never glares in dark mode.
+ */
+const tint = (hue: string) =>
+  `linear-gradient(132deg, color-mix(in srgb, ${hue} 6%, var(--color-surface)) 0%, color-mix(in srgb, ${hue} 14%, var(--color-surface)) 100%)`;
+
 const TONE = {
   accent: {
-    bg: 'linear-gradient(132deg, #ecfdf5 0%, #dcfce7 100%)',
-    accent: '#15803d',
-    accentInk: '#14532d',
+    bg: tint('var(--color-accent)'),
+    accent: 'var(--color-accent)',
+    accentInk: 'var(--color-accent-ink)',
   },
   amber: {
-    bg: 'linear-gradient(132deg, #fffbeb 0%, #fef3c7 100%)',
-    accent: '#b45309',
-    accentInk: '#78350f',
+    bg: tint('var(--color-warning)'),
+    accent: 'var(--color-warning-ink)',
+    accentInk: 'var(--color-warning-ink)',
   },
   violet: {
-    bg: 'linear-gradient(132deg, #f5f3ff 0%, #ede9fe 100%)',
-    accent: '#6d28d9',
-    accentInk: '#4c1d95',
+    bg: tint('var(--color-violet)'),
+    accent: 'var(--color-violet)',
+    accentInk: 'var(--color-violet-ink)',
   },
 } as const;
 
@@ -62,7 +70,7 @@ export function HintBanner({
           initial={{ scale: 0.85, rotate: -8 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]"
           style={{ color: palette.accent }}
         >
           <Icon name={icon} size={20} filled />

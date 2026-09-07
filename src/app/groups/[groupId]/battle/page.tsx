@@ -238,7 +238,7 @@ export default function GroupBattlePage() {
         type="button"
         onClick={startMatching}
         disabled={busy || booksLoading || !hasBooks}
-        className="mt-4 flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-white shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-ink)] disabled:opacity-50 disabled:shadow-none"
+        className="mt-4 flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-[var(--color-on-accent)] shadow-[3px_4px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-shadow)] disabled:opacity-50 disabled:shadow-none"
       >
         <Icon name="swords" size={20} />
         グループ内でマッチング

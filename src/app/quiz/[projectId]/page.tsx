@@ -303,7 +303,7 @@ function DSDesktopWordOrderPanel({
       </div>
 
       {isRevealed && example && (
-        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left">
+        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px] text-left">
           <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
           <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
             {example.sentence}
@@ -350,14 +350,14 @@ function DSWordOrderPanel({
 
   return (
     <div className="mt-[18px] space-y-4">
-      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
         <div className="flex min-h-[76px] flex-wrap items-center gap-2">
           {sentenceItems.map(({ token, index, answerIndex }) => {
             if (token !== WORD_ORDER_BLANK_TOKEN) {
               return (
                 <span
                   key={`${token}-${index}`}
-                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
+                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
                 >
                   {token}
                 </span>
@@ -422,7 +422,7 @@ function DSWordOrderPanel({
       )}
 
       {isRevealed && example && (
-        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
           <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
           <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
             {example.sentence}
@@ -1467,7 +1467,7 @@ export default function QuizPage() {
                 <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
                   {(['en-to-ja', 'ja-to-en'] as const).map((dir) => (
                     <button key={dir} type="button" onClick={() => setQuizDirection(dir)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${quizDirection === dir ? 'bg-[var(--solid-ink)] text-white' : 'text-[var(--color-muted)]'}`}>
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${quizDirection === dir ? 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]' : 'text-[var(--color-muted)]'}`}>
                       {dir === 'en-to-ja' ? '英→日' : '日→英'}
                     </button>
                   ))}
@@ -1520,7 +1520,7 @@ export default function QuizPage() {
             </div>
             {/* Desktop word results */}
             <div className="ds-card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(26,26,26,0.1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ padding: '12px 18px', borderBottom: '1px solid color-mix(in srgb, var(--solid-ink) 10%, transparent)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon name="format_list_bulleted" style={{ fontSize: 18, color: 'var(--color-muted)' }} />
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14 }}>解答一覧</span>
               </div>
@@ -1546,7 +1546,7 @@ export default function QuizPage() {
           </div>
         </div>
         {/* Fixed footer buttons */}
-        <div style={{ borderTop: '1px solid rgba(26,26,26,0.1)', background: 'var(--color-background)', padding: '14px 0' }}>
+        <div style={{ borderTop: '1px solid color-mix(in srgb, var(--solid-ink) 10%, transparent)', background: 'var(--color-background)', padding: '14px 0' }}>
           <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', display: 'flex', gap: 8, justifyContent: 'center' }}>
             <button type="button" className="ds-btn accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart}>
               <Icon name="arrow_forward" />次へ
@@ -1568,7 +1568,7 @@ export default function QuizPage() {
                   {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
                 </div>
                 <div className="flex flex-1 flex-col gap-1">
-                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]">
                     <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
                   </div>
                 </div>
@@ -1588,12 +1588,12 @@ export default function QuizPage() {
               </div>
             </div>
             {/* Word results list */}
-            <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
-              <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3">
+            <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
+              <div className="flex items-center gap-2 border-b border-[color-mix(in_srgb,_var(--solid-ink)_10%,_transparent)] px-4 py-3">
                 <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)]" />
                 <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">解答一覧</h3>
               </div>
-              <div className="divide-y divide-[rgba(26,26,26,0.08)]">
+              <div className="divide-y divide-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]">
                 {wordResultRows.map((row, i) => (
                   <div key={i} className="flex items-center gap-3 px-4 py-2.5">
                     <span className="w-5 text-center text-[16px] font-black" style={{ color: row.markerColor }}>
@@ -1620,7 +1620,7 @@ export default function QuizPage() {
           </div>
         </div>
         {/* Fixed bottom buttons */}
-        <div className="shrink-0 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-background)]" style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))' }}>
+        <div className="shrink-0 border-t border-[color-mix(in_srgb,_var(--solid-ink)_10%,_transparent)] bg-[var(--color-background)]" style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))' }}>
           <div className="mx-auto w-full max-w-sm space-y-2 px-5 pt-3">
             <SolidButton variant="accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart} iconRight="arrow_forward" className="w-full justify-center">次へ</SolidButton>
             <SolidButton onClick={backToProject} className="w-full justify-center">終了する</SolidButton>
@@ -1816,7 +1816,7 @@ export default function QuizPage() {
 
 
             {isRevealed && desktopExample && (
-              <div style={{ marginTop: 16, borderRadius: 12, border: '1px dashed var(--color-border)', background: '#fff', padding: '13px 14px', textAlign: 'left' }}>
+              <div style={{ marginTop: 16, borderRadius: 12, border: '1px dashed var(--color-border)', background: 'var(--color-surface)', padding: '13px 14px', textAlign: 'left' }}>
                 <div className="ds-eyebrow" style={{ marginBottom: 5, fontSize: 9 }}>EXAMPLE</div>
                 <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.55, color: 'var(--color-ink)' }}>
                   {desktopExample.sentence}
@@ -1923,10 +1923,10 @@ export default function QuizPage() {
                           ? 'var(--color-error)'
                           : answerResults[i] === 'skip'
                             ? 'var(--color-warning)'
-                            : 'rgba(26,26,26,0.1)'
+                            : 'color-mix(in srgb, var(--solid-ink) 10%, transparent)'
                       : i === currentIndex
                         ? 'var(--solid-ink)'
-                        : 'rgba(26,26,26,0.1)',
+                        : 'color-mix(in srgb, var(--solid-ink) 10%, transparent)',
                   border: i === currentIndex ? '0.5px solid var(--solid-ink)' : 'none',
                 }}
               />
@@ -1989,7 +1989,7 @@ export default function QuizPage() {
                   onClick={() => {
                     speakEnglish(currentQuestion?.word.english);
                   }}
-                  className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
+                  className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
                 >
                   <Icon name="volume_up" size={12} /> 読み上げ
                 </button>
@@ -2027,7 +2027,7 @@ export default function QuizPage() {
               <button
                 type="button"
                 onClick={handleSkip}
-                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-white py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
+                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
               >
                 わからない
               </button>
@@ -2068,7 +2068,7 @@ export default function QuizPage() {
 
         {/* Example sentence revealed */}
         {isRevealed && !currentIsWordOrder && currentQuestion?.word.exampleSentence && (
-          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
             <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
             <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
               {currentQuestion.word.exampleSentence}

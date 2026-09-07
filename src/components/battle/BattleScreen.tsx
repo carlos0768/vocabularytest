@@ -163,7 +163,7 @@ export function BattleNotice({
   secondaryAction?: { label: string; href: string };
 }) {
   return (
-    <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-7 text-center shadow-[3px_4px_0_var(--solid-ink)]">
+    <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-7 text-center shadow-[3px_4px_0_var(--solid-shadow)]">
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
         <Icon name={icon} size={26} className="text-[var(--solid-ink)]" />
       </div>
@@ -174,7 +174,7 @@ export function BattleNotice({
       {action && (
         <Link
           href={action.href}
-          className="mt-5 flex h-12 items-center justify-center rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="mt-5 flex h-12 items-center justify-center rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           {action.label}
         </Link>
@@ -209,7 +209,7 @@ export function BattleWaitingPanel({
     <div className="flex flex-col items-center text-center">
       <div className="relative mb-6 flex h-[72px] w-[72px] items-center justify-center">
         <span className="absolute inset-0 animate-ping rounded-full border-2 border-[var(--color-accent)] opacity-40" />
-        <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[3px_4px_0_var(--solid-ink)]">
+        <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)] shadow-[3px_4px_0_var(--solid-shadow)]">
           <Icon name="swords" size={30} />
         </span>
       </div>

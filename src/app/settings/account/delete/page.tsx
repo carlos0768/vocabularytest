@@ -137,7 +137,7 @@ export default function DeleteAccountPage() {
             router.push('/settings/account');
           }}
           aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="chevron_left" size={20} />
         </button>
@@ -146,7 +146,7 @@ export default function DeleteAccountPage() {
       </div>
 
       <div className="px-[18px] pb-4">
-        <div className="overflow-hidden rounded-[12px] border-2 border-[var(--color-error)] bg-white p-4">
+        <div className="overflow-hidden rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] p-4">
           <div className="space-y-2 text-[13px] leading-[1.7] text-[var(--color-muted)]">
             <p>アカウントを削除すると、以下のデータが完全に削除されます：</p>
             <ul className="ml-4 list-disc space-y-1">
@@ -165,7 +165,7 @@ export default function DeleteAccountPage() {
           <button
             type="button"
             onClick={() => setShowConfirm(true)}
-            className="mt-4 w-full rounded-[10px] border-2 border-[var(--color-error)] bg-white py-3 font-display text-[13px] font-bold text-[var(--color-error)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="mt-4 w-full rounded-[10px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] py-3 font-display text-[13px] font-bold text-[var(--color-error)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             アカウントを削除する
           </button>
@@ -197,7 +197,7 @@ export default function DeleteAccountPage() {
               type="button"
               onClick={closeModal}
               disabled={deleteLoading}
-              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               戻る
             </button>
@@ -205,7 +205,7 @@ export default function DeleteAccountPage() {
               type="button"
               onClick={handleDeleteAccount}
               disabled={deleteLoading}
-              className="flex-1 rounded-[10px] border-2 border-[var(--color-error)] bg-[var(--color-error)] py-3 font-display text-[13px] font-bold text-white transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px"
+              className="flex-1 rounded-[10px] border-2 border-[var(--color-error)] bg-[var(--color-error-fill)] py-3 font-display text-[13px] font-bold text-white transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px"
             >
               {deleteLoading ? '削除中...' : '削除する'}
             </button>

@@ -58,10 +58,10 @@ export default function TipsIndexPage() {
           初見の単語でも意味と品詞を推測できます。
         </p>
 
-        <div className="mt-3.5 divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
+        <div className="mt-3.5 divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
           {TIPS.map((tip) => (
             <Link key={tip.href} href={tip.href} className="flex items-center gap-2.5 px-3 py-[13px]">
-              <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
+              <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)] text-[var(--solid-ink)]">
                 <Icon name="text_fields" size={16} />
               </span>
               <span className="min-w-0 flex-1">

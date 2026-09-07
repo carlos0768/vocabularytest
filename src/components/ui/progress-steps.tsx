@@ -44,7 +44,7 @@ export function ProgressSteps({ steps, className }: ProgressStepsProps) {
               <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
             )}
             {step.status === 'error' && (
-              <div className="w-5 h-5 rounded-full bg-[var(--color-error)] flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full bg-[var(--color-error-fill)] flex items-center justify-center">
                 <span className="text-white text-xs font-bold">!</span>
               </div>
             )}

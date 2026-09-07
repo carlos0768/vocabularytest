@@ -32,7 +32,7 @@ import { storePendingOnboarding } from '@/lib/auth/pending-onboarding';
 import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 import { usePageBackground } from '@/hooks/use-page-background';
 
-const SIGNUP_BG = '#f3f0e9';
+const SIGNUP_BG = 'var(--color-paper-alt)';
 
 const STEP_THEMES: Record<SignupStep, {
   icon: string;
@@ -334,7 +334,7 @@ function SignupForm() {
           >
             <SolidPanel className="mx-6 !rounded-xl" faceClassName="!p-4">
               <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#fee2e2] text-[#dc2626]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-error-light)] text-[var(--color-danger)]">
                   <Icon name="mail" size={20} />
                 </div>
                 <div className="min-w-0">
@@ -565,7 +565,7 @@ function SignupForm() {
             <div className="flex flex-col gap-2 px-6 pb-3">
               <Link
                 href={`/login?redirect=${encodeURIComponent(redirect)}`}
-                className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+                className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
               >
                 <Icon name="login" size={16} />
                 ログインする
@@ -782,7 +782,7 @@ function SignupForm() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-0 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px]">
+              <div className="flex items-center gap-0 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-[11px]">
                 <span className="mr-1 text-sm font-bold text-[var(--color-muted)]">@</span>
                 <input
                   type="text"
@@ -818,7 +818,7 @@ function SignupForm() {
           <div className="flex flex-col gap-2 px-6 pb-3">
             <Link
               href={`/login?redirect=${encodeURIComponent(redirect)}`}
-              className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+              className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
             >
               <Icon name="login" size={16} />
               ログインする
@@ -852,13 +852,13 @@ function SignupShell({
   onBack?: () => void;
   children: ReactNode;
 }) {
-  const backClassName = 'flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px';
+  const backClassName = 'flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px';
   const theme = STEP_THEMES[step];
   const stepIndex = SIGNUP_STEPS.indexOf(step) + 1;
   const totalSteps = SIGNUP_STEPS.length;
 
   return (
-    <div className="relative min-h-screen w-full bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <div className="relative min-h-screen w-full bg-[var(--color-paper-alt)] font-[var(--font-body)] [background-image:radial-gradient(color-mix(in_srgb,_var(--solid-ink)_4.5%,_transparent)_1px,transparent_1px)] [background-size:22px_22px]">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-hidden pb-4 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
         {/* Decorative accent blobs + confetti */}
         <div
@@ -905,7 +905,7 @@ function SignupShell({
           )}
           <div className="flex-1" />
           <div className="mr-1.5 flex items-center gap-1.5">
-            <span className="font-mono text-[10px] font-bold tabular-nums text-[#8a857a]">
+            <span className="font-mono text-[10px] font-bold tabular-nums text-[var(--color-ink-mute)]">
               {stepIndex}/{totalSteps}
             </span>
             <div className="flex gap-[3px]">
@@ -934,7 +934,7 @@ function SignupShell({
 
         <div className="relative px-6 pb-4 pt-5">
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--solid-ink)]"
+            className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--solid-ink)]"
           >
             <span
               className="inline-block h-1.5 w-1.5 rounded-full"
@@ -944,7 +944,7 @@ function SignupShell({
           </span>
           <div className="mt-3 flex items-start gap-3">
             <div
-              className="flex h-12 w-12 shrink-0 -rotate-2 items-center justify-center rounded-[13px] border-2 border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)]"
+              className="flex h-12 w-12 shrink-0 -rotate-2 items-center justify-center rounded-[13px] border-2 border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)]"
               style={{ background: theme.accentSub, color: theme.accent }}
             >
               <Icon name={theme.icon} size={24} />
@@ -953,7 +953,7 @@ function SignupShell({
               <div className="font-display text-[22px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
                 {title}
               </div>
-              <div className="mt-1 text-xs leading-relaxed text-[#8a857a]">{description}</div>
+              <div className="mt-1 text-xs leading-relaxed text-[var(--color-ink-mute)]">{description}</div>
             </div>
           </div>
         </div>
@@ -995,7 +995,7 @@ function PrimaryAction({
       onClick={onClick}
       className="group w-full disabled:pointer-events-none disabled:opacity-60"
     >
-      <div className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-3.5 text-center text-sm font-bold text-white shadow-[3px_4px_0_var(--solid-ink)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_var(--solid-ink)]">
+      <div className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-3.5 text-center text-sm font-bold text-[var(--color-on-accent)] shadow-[3px_4px_0_var(--solid-shadow)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_var(--solid-shadow)]">
         {children}
       </div>
     </button>
@@ -1017,8 +1017,8 @@ function LevelChip({
       onClick={onClick}
       className={`rounded-[10px] border-2 px-3.5 py-2 text-[12px] font-bold transition-all ${
         active
-          ? 'border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_3px_0_var(--solid-ink)]'
-          : 'border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]'
+          ? 'border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)] shadow-[2px_3px_0_var(--solid-shadow)]'
+          : 'border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]'
       }`}
     >
       {children}
@@ -1030,7 +1030,7 @@ function SignupFallback() {
   usePageBackground(SIGNUP_BG);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#f3f0e9] font-[var(--font-body)] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[var(--color-paper-alt)] font-[var(--font-body)] [background-image:radial-gradient(color-mix(in_srgb,_var(--solid-ink)_4.5%,_transparent)_1px,transparent_1px)] [background-size:22px_22px]">
       <Icon name="progress_activity" size={28} className="animate-spin text-[var(--solid-ink)]" />
     </div>
   );
@@ -1065,10 +1065,10 @@ function FormField({
 }) {
   return (
     <label className="block">
-      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[#8a857a]">
+      <div className="mb-[5px] pl-0.5 font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-ink-mute)]">
         {label}
       </div>
-      <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px]">
+      <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-[11px]">
         <input
           type={type || 'text'}
           value={value}

@@ -75,19 +75,19 @@ export function ProjectShareSheet({
           className="w-full animate-fade-in-up"
           style={{
             maxWidth: 480,
-            background: '#faf7f1',
+            background: 'var(--color-paper)',
             border: '2px solid var(--solid-ink)',
             borderBottomWidth: 0,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+            boxShadow: '0 -8px 24px color-mix(in srgb, var(--solid-ink) 18%, transparent)',
             maxHeight: 'min(88vh, 720px)',
             overflowY: 'auto',
           }}
         >
           <div className="mb-2.5 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+            <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
 
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -103,7 +103,7 @@ export function ProjectShareSheet({
               type="button"
               onClick={onClose}
               aria-label="閉じる"
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
             >
               <Icon name="close" size={14} />
             </button>
@@ -115,9 +115,9 @@ export function ProjectShareSheet({
                 type="button"
                 disabled={preparing || !onSaveSharedTags}
                 onClick={() => setTagsOpen(true)}
-                className="flex w-full items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-left disabled:opacity-40"
+                className="flex w-full items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-left disabled:opacity-40"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]">
                   <Icon name="sell" size={15} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -141,13 +141,13 @@ export function ProjectShareSheet({
                     defaultValue={sharedTagsValue}
                     autoFocus
                     placeholder="例: #TOEIC, #熟語, #高校英語"
-                    className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] outline-none"
+                    className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] outline-none"
                   />
                   <button
                     type="button"
                     disabled={preparing || updatingTags || !onSaveSharedTags}
                     onClick={() => void onSaveSharedTags?.(parseSharedTagsInput(tagInputRef.current?.value ?? sharedTagsValue))}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
                   >
                     <Icon name={updatingTags ? 'progress_activity' : 'check'} size={14} className={updatingTags ? 'animate-spin' : undefined} />
                     保存
@@ -162,7 +162,7 @@ export function ProjectShareSheet({
               type="button"
               disabled={preparing || !shareUrl}
               onClick={() => void onShareLink(shareUrl)}
-              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
             >
               <Icon name={preparing ? 'progress_activity' : 'ios_share'} size={15} className={preparing ? 'animate-spin' : undefined} />
               共有
@@ -171,7 +171,7 @@ export function ProjectShareSheet({
               type="button"
               disabled={preparing || !shareUrl}
               onClick={() => void onCopyShareLink(shareUrl)}
-              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
             >
               <Icon name={shareLinkCopied ? 'check' : preparing ? 'progress_activity' : 'content_copy'} size={15} className={preparing ? 'animate-spin' : undefined} />
               コピー

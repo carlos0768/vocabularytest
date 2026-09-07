@@ -6,6 +6,7 @@ import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui';
 import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 import { SolidPanel } from '@/components/redesign/SolidPage';
+import { ThemeSetting } from '@/components/settings/ThemeSetting';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -96,7 +97,7 @@ export default function SettingsPage() {
                 {accountId && (
                   <div className="mt-0.5 truncate font-mono text-[10px] font-bold text-[var(--color-muted)]">@{accountId}</div>
                 )}
-                <div className="mt-1.5 inline-flex items-center gap-1 rounded-[4px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-white">
+                <div className="mt-1.5 inline-flex items-center gap-1 rounded-[4px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-[var(--color-on-ink)]">
                   <Icon name="auto_awesome" size={10} />
                   {isPro ? 'PRO PLAN' : 'FREE PLAN'}
                 </div>
@@ -113,7 +114,7 @@ export default function SettingsPage() {
                 <div className="font-display text-base font-bold text-[var(--solid-ink)]">ゲスト</div>
                 <div className="mt-0.5 text-xs text-[var(--color-muted)]">ログインしてデータを保存</div>
               </div>
-              <Link href="/login" className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 font-display text-sm font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px">
+              <Link href="/login" className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 font-display text-sm font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px">
                 ログイン
               </Link>
             </div>
@@ -135,7 +136,7 @@ export default function SettingsPage() {
                 <div className="mt-[3px] font-display text-sm font-bold text-[var(--solid-ink)]">Pro でぜんぶ使う</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">スキャン無制限・デバイス無制限</div>
               </div>
-              <div className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-white shadow-[2px_2px_0_var(--color-accent)]">見る</div>
+              <div className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)]">見る</div>
             </Link>
           </div>
         </div>
@@ -146,10 +147,10 @@ export default function SettingsPage() {
         <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">学習ツール</div>
         <Link
           href="/level-test"
-          className="block rounded-[14px] p-[3px] shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-ink)]"
+          className="block rounded-[14px] p-[3px] shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-shadow)]"
           style={{ background: 'linear-gradient(120deg,#15803d,#137FEC,#7C3AED,#EE2A7B,#F9CE34)' }}
         >
-          <div className="flex items-center gap-3 rounded-[11px] bg-white px-3 py-3">
+          <div className="flex items-center gap-3 rounded-[11px] bg-[var(--color-surface)] px-3 py-3">
             <span
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] text-white"
               style={{ background: 'linear-gradient(135deg,#137FEC,#7C3AED,#EE2A7B)' }}
@@ -181,6 +182,7 @@ export default function SettingsPage() {
       </SettingsGroup>
 
       <SettingsGroup label="カスタマイズ">
+        <ThemeSetting />
         <SettingsRow icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
       </SettingsGroup>
 
@@ -204,7 +206,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full rounded-[12px] border-2 border-[var(--color-error)] bg-white py-3 font-display text-[13px] font-bold text-[var(--color-error)]"
+            className="w-full rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] py-3 font-display text-[13px] font-bold text-[var(--color-error)]"
           >
             ログアウト
           </button>
@@ -222,7 +224,7 @@ function SettingsGroup({ label, children }: { label: string; children: React.Rea
   return (
     <div className="px-[18px] pb-3">
       <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</div>
-      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
+      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
         {children}
       </div>
     </div>
@@ -255,7 +257,7 @@ function SettingsRow({
   const iconClass = tone === 'danger' ? 'text-[var(--color-error)]' : 'text-[var(--solid-ink)]';
   const inner = (
     <div className={`flex items-center gap-2.5 px-3 py-[11px] ${disabled ? 'opacity-55' : ''} ${isInteractive && !disabled ? 'cursor-pointer' : ''}`}>
-      <span className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] ${iconClass}`}>
+      <span className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)] ${iconClass}`}>
         <Icon name={icon} size={16} />
       </span>
       <div className="min-w-0 flex-1">

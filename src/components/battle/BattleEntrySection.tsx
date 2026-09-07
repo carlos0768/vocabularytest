@@ -21,7 +21,7 @@ export function BattleEntrySection({ isPro }: { isPro: boolean }) {
       <div className="px-[18px]">
         <Link
           href="/battle"
-          className="relative flex items-center gap-3 overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] p-4 text-white shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+          className="relative flex items-center gap-3 overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] p-4 text-[var(--color-on-accent)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
         >
           <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />
           <Icon name="bolt" size={28} className="ml-1 shrink-0 drop-shadow-[1px_1px_0_rgba(0,0,0,0.25)]" />

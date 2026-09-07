@@ -82,7 +82,7 @@ export default function ChatGptTipsPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             aria-label="戻る"
           >
             <Icon name="chevron_left" size={16} />
@@ -99,7 +99,7 @@ export default function ChatGptTipsPage() {
 
       {/* Intro */}
       <div className="pb-4">
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[12px_14px]">
           <p className="m-0 text-[12px] leading-[1.8] text-[var(--solid-ink)]">
             ChatGPTとの会話に出てきた英単語を、そのままMERKENの単語帳に追加できます。
             調べものや英語の質問のついでに、気になった単語をためていきましょう。
@@ -112,8 +112,8 @@ export default function ChatGptTipsPage() {
         <div className="mb-2 font-display text-base font-extrabold text-[var(--solid-ink)]">できること</div>
         <div className="flex flex-col gap-2.5">
           {FEATURES.map((feature) => (
-            <div key={feature.title} className="flex items-start gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+            <div key={feature.title} className="flex items-start gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[12px_14px]">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
                 <Icon name={feature.icon} size={18} />
               </span>
               <div>
@@ -130,8 +130,8 @@ export default function ChatGptTipsPage() {
         <div className="mb-2 font-display text-base font-extrabold text-[var(--solid-ink)]">はじめかた</div>
         <div className="flex flex-col gap-2.5">
           {STEPS.map((step, index) => (
-            <div key={step.title} className="flex items-start gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
-              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-mono text-[12px] font-bold text-white">
+            <div key={step.title} className="flex items-start gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[12px_14px]">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-mono text-[12px] font-bold text-[var(--color-on-ink)]">
                 {index + 1}
               </span>
               <div>
@@ -146,7 +146,7 @@ export default function ChatGptTipsPage() {
       {/* 頼み方の例 */}
       <div className="pb-4">
         <div className="mb-2 font-display text-base font-extrabold text-[var(--solid-ink)]">頼み方の例</div>
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[12px_14px]">
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {EXAMPLE_PHRASES.map((phrase) => (
               <li key={phrase} className="flex items-start gap-2 text-[12px] leading-[1.7] text-[var(--solid-ink)]">
@@ -163,7 +163,7 @@ export default function ChatGptTipsPage() {
         <div className="mb-2 font-display text-base font-extrabold text-[var(--solid-ink)]">よくある質問</div>
         <div className="flex flex-col gap-2.5">
           {FAQS.map((faq) => (
-            <div key={faq.q} className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
+            <div key={faq.q} className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[12px_14px]">
               <div className="text-[12.5px] font-bold text-[var(--solid-ink)]">Q. {faq.q}</div>
               <p className="m-0 mt-1.5 text-[11.5px] leading-[1.7] text-[var(--solid-ink)]">A. {faq.a}</p>
             </div>
@@ -178,14 +178,14 @@ export default function ChatGptTipsPage() {
             href={GPT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-12 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="flex h-12 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             MERKEN公式GPTを開く
           </a>
         ) : null}
         <a
           href="/subscription"
-          className="flex h-12 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-12 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           Proプランを見る
         </a>

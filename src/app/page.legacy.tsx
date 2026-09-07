@@ -1623,7 +1623,7 @@ export default function HomePage() {
           <main className="min-h-[calc(100vh-14rem)] px-4 py-10">
             <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
               <section className="solid-panel p-6 text-center">
-                <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border-2 border-[var(--solid-ink)] bg-[var(--color-mint)] shadow-[4px_4px_0_var(--solid-ink)]">
+                <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border-2 border-[var(--solid-ink)] bg-[var(--color-mint)] shadow-[4px_4px_0_var(--solid-shadow)]">
                   <Icon name="menu_book" size={38} className="text-[var(--solid-ink)]" />
                 </div>
                 <h2 className="mb-2 text-xl font-extrabold text-[var(--solid-ink)]">単語帳がありません</h2>

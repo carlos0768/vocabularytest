@@ -31,7 +31,9 @@ import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/
 import type { EikenLevel } from '@/app/api/extract/route';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
-const STRIPE_BG = 'repeating-linear-gradient(135deg, #ecebe6, #ecebe6 10px, #e3e1da 10px, #e3e1da 20px)';
+// Two ink washes over the page ground, so the hatch stays a hatch in both themes.
+const STRIPE_BG =
+  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)), color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 20px)';
 
 type EditableScanWord = AIWordExtraction & {
   tempId: string;
@@ -510,7 +512,7 @@ export function DesktopScanView({
             }}
             onClick={openFilePicker}
           >
-            <div style={{ width: 74, height: 74, borderRadius: 20, background: '#fff', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+            <div style={{ width: 74, height: 74, borderRadius: 20, background: 'var(--color-surface)', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
               <Icon name="cloud_upload" style={{ fontSize: 36, color: 'var(--color-accent)' }} />
             </div>
             <div>
@@ -647,8 +649,8 @@ export function DesktopScanView({
                           padding: '10px 6px',
                           borderRadius: 10,
                           border: `2px solid ${active ? 'var(--solid-ink)' : 'var(--color-border)'}`,
-                          background: active ? 'var(--color-accent)' : '#fff',
-                          color: active ? '#fff' : 'var(--solid-ink)',
+                          background: active ? 'var(--color-accent)' : 'var(--color-surface)',
+                          color: active ? 'var(--color-on-accent)' : 'var(--solid-ink)',
                           boxShadow: active ? '2px 2px 0 var(--solid-ink)' : 'none',
                           fontFamily: 'var(--font-display)',
                           fontWeight: 700,
@@ -985,7 +987,7 @@ function DesktopScanConfirmRow({
     <tr onClick={() => onToggleWord(word.tempId)} style={!word.isSelected ? { opacity: 0.45 } : undefined}>
       <td>
         <span className={'ds-check' + (word.isSelected ? ' on' : '')}>
-          {word.isSelected && <Icon name="check" style={{ fontSize: 16, color: '#fff' }} />}
+          {word.isSelected && <Icon name="check" style={{ fontSize: 16, color: 'var(--color-on-accent)' }} />}
         </span>
       </td>
       <td className="en">{word.english || `単語 ${index + 1}`}</td>

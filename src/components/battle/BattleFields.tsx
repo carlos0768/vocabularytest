@@ -167,7 +167,7 @@ export function BattleSetupCard({
   const selected = projects.find((project) => project.id === projectId) ?? null;
 
   return (
-    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]">
+    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]">
       {/* 単語帳 */}
       <div className="relative flex items-center gap-2.5 border-b-2 border-[var(--color-border)] p-3">
         {projects.length > 0 && (
@@ -264,7 +264,7 @@ export function BattleGroupSetupCard({
   const titles = books.map((book) => book.title).join('・');
 
   return (
-    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]">
+    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]">
       <div className="flex items-center gap-2.5 border-b-2 border-[var(--color-border)] p-3">
         <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]">
           <Icon name="auto_stories" size={19} />
@@ -347,7 +347,7 @@ export function BattleInviteCode({ code }: { code: string }) {
       {code.split('').map((char, index) => (
         <span
           key={`${char}-${index}`}
-          className="flex h-[52px] w-[38px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[24px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)]"
+          className="flex h-[52px] w-[38px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[24px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)]"
         >
           {char}
         </span>

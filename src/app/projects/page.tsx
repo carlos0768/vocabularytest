@@ -300,7 +300,7 @@ export default function ProjectListPage() {
             onClick={() => setSort(s.k)}
             className={`inline-flex shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
               sort === s.k
-                ? 'border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                ? 'border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
                 : 'border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
             }`}
           >
@@ -414,11 +414,11 @@ function BookRow({
                 {project.totalWords}語
               </div>
               {project.totalWords > 0 && (
-                <div className="mt-1.5 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                <div className="mt-1.5 flex h-[4px] overflow-hidden rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]">
                   {project.masteredWords > 0 && <div style={{ flex: project.masteredWords, background: 'var(--color-success)' }} />}
                   {project.activeWords > 0 && <div style={{ flex: project.activeWords, background: '#2563eb' }} />}
                   {project.reviewWords > 0 && <div style={{ flex: project.reviewWords, background: 'var(--color-warning)' }} />}
-                  {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'rgba(26,26,26,0.12)' }} />}
+                  {project.newWords > 0 && <div style={{ flex: project.newWords, background: 'color-mix(in srgb, var(--solid-ink) 12%, transparent)' }} />}
                 </div>
               )}
             </div>
@@ -436,7 +436,7 @@ function BookRow({
           type="button"
           onClick={(e) => { e.preventDefault(); setMenuOpen(true); }}
           aria-label={`「${project.title}」のメニュー`}
-          className="absolute right-[11px] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-opacity duration-100 active:opacity-60"
+          className="absolute right-[11px] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-opacity duration-100 active:opacity-60"
         >
           <Icon name="more_horiz" size={17} />
         </button>
@@ -449,7 +449,7 @@ function BookRow({
             aria-label="メニューを閉じる"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="absolute right-[11px] top-[52px] z-[71] w-[178px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)]">
+          <div className="absolute right-[11px] top-[52px] z-[71] w-[178px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]">
             {onSetBinder && (
               <button
                 type="button"

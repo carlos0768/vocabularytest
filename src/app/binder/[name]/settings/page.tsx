@@ -210,7 +210,7 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="バインダーに戻る"
         >
           <Icon name="chevron_left" size={16} />
@@ -241,7 +241,7 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <label
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${savingIcon ? 'opacity-60' : ''}`}
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${savingIcon ? 'opacity-60' : ''}`}
                 >
                   <input
                     type="file"
@@ -266,7 +266,7 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
                     type="button"
                     disabled={savingIcon}
                     onClick={() => void handleRemoveIcon()}
-                    className="inline-flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--color-border)] bg-white px-3 py-2 text-[12.5px] font-bold text-[var(--color-muted)] disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[12.5px] font-bold text-[var(--color-muted)] disabled:opacity-60"
                   >
                     <Icon name="delete" size={15} />
                     削除
@@ -291,13 +291,13 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
               disabled={renaming}
               onChange={(event) => setNameDraft(event.target.value)}
               placeholder="バインダー名"
-              className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[13.5px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
+              className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[13.5px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
             />
             <button
               type="button"
               onClick={() => void handleRename()}
               disabled={renaming || !nameChanged}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 text-[12.5px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
             >
               {renaming && <Icon name="progress_activity" size={14} className="animate-spin" />}
               {renaming ? '変更中...' : '保存'}
@@ -315,7 +315,7 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
             type="button"
             onClick={() => void handlePublishBinder()}
             disabled={publishing || inBinder.length === 0}
-            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
           >
             <Icon name={publishing ? 'progress_activity' : 'public'} size={17} className={publishing ? 'animate-spin' : ''} />
             {publishing ? '公開中...' : `${inBinder.length}冊を公開`}
@@ -340,7 +340,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
       <div className="mb-3 flex items-center gap-2.5">
         <span
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"

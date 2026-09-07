@@ -120,8 +120,8 @@ export function CustomScanModePanel({
                     className="inline-flex items-center gap-1 rounded-[8px] border-2 py-1.5 pl-2.5 pr-1.5 text-[11px] font-bold transition-all"
                     style={{
                       borderColor: on ? 'var(--solid-ink)' : 'var(--color-border)',
-                      background: on ? 'var(--color-accent)' : '#fff',
-                      color: on ? '#fff' : 'var(--solid-ink)',
+                      background: on ? 'var(--color-accent)' : 'var(--color-surface)',
+                      color: on ? 'var(--color-on-accent)' : 'var(--solid-ink)',
                       boxShadow: on ? '1.5px 1.5px 0 var(--solid-ink)' : 'none',
                     }}
                   >
@@ -154,7 +154,7 @@ export function CustomScanModePanel({
         type="button"
         onClick={() => setPromptOpenOverride(!promptOpen)}
         aria-expanded={promptOpen}
-        className="flex w-full items-center gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all"
+        className="flex w-full items-center gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
         style={{
           borderColor: promptOpen ? 'var(--solid-ink)' : 'var(--color-border)',
           boxShadow: promptOpen ? '2px 2px 0 var(--solid-ink)' : 'none',
@@ -189,7 +189,7 @@ export function CustomScanModePanel({
             onChange={(event) => handlePromptChange(event.target.value)}
             rows={4}
             placeholder="例: 赤ペンで書かれた単語だけを抽出してください。黒字の単語は抽出しないでください。"
-            className="w-full rounded-[10px] border-2 bg-white px-3 py-2.5 text-[12px] leading-[1.6] text-[var(--solid-ink)] outline-none"
+            className="w-full rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-[12px] leading-[1.6] text-[var(--solid-ink)] outline-none"
             style={{ borderColor: promptTooLong ? 'var(--color-error)' : 'var(--color-border)' }}
           />
           <p className="mt-1 text-[10px] leading-[1.5] text-[var(--color-muted)]">
@@ -204,7 +204,7 @@ export function CustomScanModePanel({
                   key={example.name}
                   type="button"
                   onClick={() => onChange({ modeId: null, prompt: example.prompt })}
-                  className="rounded-[8px] border border-dashed border-[var(--color-border)] bg-white px-2.5 py-1.5 text-[10px] font-bold text-[var(--color-muted)]"
+                  className="rounded-[8px] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[10px] font-bold text-[var(--color-muted)]"
                 >
                   {example.name}
                 </button>
@@ -215,7 +215,7 @@ export function CustomScanModePanel({
           {/* モードとして保存 */}
           {selection.modeId === null && canSave && (
             saveOpen ? (
-              <div className="mt-2.5 rounded-[10px] border-2 border-[var(--color-border)] bg-white p-2.5">
+              <div className="mt-2.5 rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-2.5">
                 <input
                   value={saveName}
                   onChange={(event) => setSaveName(event.target.value)}
@@ -235,7 +235,7 @@ export function CustomScanModePanel({
                     type="button"
                     onClick={() => void handleSave()}
                     disabled={saving || saveName.trim().length === 0}
-                    className="flex-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-2 text-[11px] font-bold text-white disabled:opacity-40"
+                    className="flex-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-2 text-[11px] font-bold text-[var(--color-on-accent)] disabled:opacity-40"
                   >
                     {saving ? '保存中...' : '保存する'}
                   </button>
@@ -246,7 +246,7 @@ export function CustomScanModePanel({
                 type="button"
                 onClick={() => setSaveOpen(true)}
                 disabled={!canSaveMore}
-                className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-dashed border-[var(--solid-ink)] bg-white py-2.5 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+                className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] py-2.5 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
               >
                 <Icon name="bookmark_add" size={14} />
                 {canSaveMore ? 'このプロンプトをモードとして保存' : `保存できるのは${limit}個までです`}

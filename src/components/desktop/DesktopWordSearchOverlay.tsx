@@ -63,7 +63,7 @@ export function DesktopWordSearchOverlay({
             maxWidth: 560,
             maxHeight: '64vh',
             height: 'fit-content',
-            background: '#faf7f1',
+            background: 'var(--color-paper)',
             border: '2px solid var(--solid-ink)',
             borderRadius: 18,
             boxShadow: '4px 4px 0 var(--solid-ink)',
@@ -121,7 +121,7 @@ export function DesktopWordSearchOverlay({
                       key={word.id}
                       type="button"
                       onClick={() => setSelectedWord(word)}
-                      className="block w-full px-1 py-2.5 text-left transition-colors hover:bg-[rgba(26,26,26,0.04)]"
+                      className="block w-full px-1 py-2.5 text-left transition-colors hover:bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)]"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="min-w-0 flex-1">
@@ -167,7 +167,7 @@ export function DesktopWordSearchOverlay({
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
-                background: '#faf7f1',
+                background: 'var(--color-paper)',
                 border: '2px solid var(--solid-ink)',
                 borderRadius: 20,
               }}

@@ -93,20 +93,20 @@ export default function GroupBookshelfClient() {
     <LoadingState />
   ) : !isAuthenticated ? (
     <CenteredCard icon="lock" title="ログインが必要です">
-      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
+      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-[var(--color-on-ink)]">
         ログイン
       </Link>
     </CenteredCard>
   ) : error || !group ? (
     <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
-      <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
+      <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
         再読み込み
       </button>
     </CenteredCard>
   ) : null;
 
   const emptyShelf = (
-    <div className="rounded-[16px] border-2 border-dashed border-[var(--color-border)] bg-white px-4 py-10 text-center">
+    <div className="rounded-[16px] border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center">
       <Icon name="auto_stories" size={34} className="mx-auto text-[var(--color-muted)]" />
       <div className="mt-2 text-[13px] font-extrabold text-[var(--solid-ink)]">本棚はまだ空っぽ</div>
       <div className="mt-1 text-[12px] font-bold text-[var(--color-muted)]">最初の1冊を共有して本棚を作ろう！</div>
@@ -178,7 +178,7 @@ export default function GroupBookshelfClient() {
             <button
               type="button"
               onClick={() => { triggerHaptic(); setShareSheetOpen(true); }}
-              className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+              className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-[var(--color-on-ink)] shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
             >
               <Icon name="library_add" size={18} />
               単語帳を共有
@@ -212,7 +212,7 @@ function BookshelfHeader({ onBack, groupName, bookCount }: { onBack: () => void;
           type="button"
           onClick={onBack}
           aria-label="グループに戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
         </button>
@@ -257,7 +257,7 @@ function BookCard({
           aria-label={`「${card.project.title}」のグループ共有を解除`}
           disabled={removeDisabled}
           onClick={onRemove}
-          className="absolute -right-2 -top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+          className="absolute -right-2 -top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
         >
           <Icon name={removing ? 'progress_activity' : 'remove_circle'} size={16} className={removing ? 'animate-spin' : undefined} />
         </button>
@@ -265,7 +265,7 @@ function BookCard({
       <Link
         href={href}
         onClick={() => triggerHaptic()}
-        className="block overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-white shadow-[4px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
+        className="block overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[4px_4px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
       >
         <div
           className="relative flex h-[104px] items-center justify-center bg-cover bg-center"
@@ -280,7 +280,7 @@ function BookCard({
               {card.project.title.charAt(0)}
             </span>
           )}
-          <span className="absolute bottom-1.5 right-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2 py-0.5 font-mono text-[10px] font-extrabold tabular-nums text-[var(--solid-ink)]">
+          <span className="absolute bottom-1.5 right-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2 py-0.5 font-mono text-[10px] font-extrabold tabular-nums text-[var(--solid-ink)]">
             {card.wordCount ?? 0}語
           </span>
         </div>
@@ -309,7 +309,7 @@ function LoadingState() {
 function CenteredCard({ icon, title, children }: { icon: string; title: string; children?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-center px-[18px] py-20">
-      <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-6 text-center">
+      <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 text-center">
         <Icon name={icon} size={30} className="mx-auto text-[var(--color-muted)]" />
         <div className="mt-3 font-display text-lg font-bold text-[var(--solid-ink)]">{title}</div>
         {children}

@@ -135,7 +135,7 @@ export default function GroupPage() {
     <LoadingState />
   ) : !isAuthenticated ? (
     <CenteredCard icon="lock" title="ログインが必要です">
-      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
+      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-[var(--color-on-ink)]">
         ログイン
       </Link>
     </CenteredCard>
@@ -315,7 +315,7 @@ function ActionPill({
 /** ハブタイル。モバイルの 2×2 と同じ面（グラデーション + 透かしアイコン）を横1列に並べる */
 function DesktopHubTile({ tile }: { tile: GroupHubTile }) {
   const ink = tile.foreground === 'dark';
-  const text = ink ? '#1a1a1a' : '#fff';
+  const text = ink ? 'var(--color-ink-fixed)' : '#fff';
   return (
     <Link
       href={tile.href}
@@ -331,7 +331,7 @@ function DesktopHubTile({ tile }: { tile: GroupHubTile }) {
       <span
         className="ic"
         style={{
-          borderColor: ink ? '#1a1a1a' : 'rgba(255,255,255,0.7)',
+          borderColor: ink ? 'var(--color-ink-fixed)' : 'rgba(255,255,255,0.7)',
           background: ink ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.22)',
         }}
       >
@@ -459,7 +459,7 @@ function MissedWordList({
     <div className="flex flex-col gap-1.5">
       {missedWords.map((word, index) => (
         <div key={word.englishKey} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-          <span className="w-5 shrink-0 text-center font-mono text-[13px] font-extrabold tabular-nums text-[#CC4D59]">
+          <span className="w-5 shrink-0 text-center font-mono text-[13px] font-extrabold tabular-nums text-[var(--color-rose)]">
             {index + 1}
           </span>
           <div className="min-w-0 flex-1">
@@ -467,13 +467,13 @@ function MissedWordList({
             <div className="truncate text-[11px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
             <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-secondary)]">
               <div
-                className="h-full rounded-full bg-[#CC4D59]"
+                className="h-full rounded-full bg-[var(--color-rose)]"
                 style={{ width: `${Math.max(12, Math.round((word.missCount / max) * 100))}%` }}
               />
             </div>
           </div>
           <div className="shrink-0 text-right">
-            <span className="font-mono text-[14px] font-extrabold tabular-nums text-[#CC4D59]">{word.missCount}</span>
+            <span className="font-mono text-[14px] font-extrabold tabular-nums text-[var(--color-rose)]">{word.missCount}</span>
             <span className="ml-0.5 text-[10px] font-bold text-[var(--color-muted)]">回</span>
           </div>
         </div>

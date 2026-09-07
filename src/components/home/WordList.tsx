@@ -315,7 +315,7 @@ export function WordList({
                   onAddClick();
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--color-primary)] text-white rounded-full text-sm font-semibold hover:bg-[var(--color-primary)]/90 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--color-primary)] text-[var(--color-on-ink)] rounded-full text-sm font-semibold hover:bg-[var(--color-primary)]/90 transition-colors"
               aria-label="単語を追加"
             >
               <Icon name="add" size={16} />

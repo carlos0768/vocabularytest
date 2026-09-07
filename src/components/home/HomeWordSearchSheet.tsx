@@ -61,7 +61,7 @@ export function HomeWordSearchSheet({
             maxWidth: 560,
             maxHeight: '62dvh',
             height: 'fit-content',
-            background: '#faf7f1',
+            background: 'var(--color-paper)',
             border: '2px solid var(--solid-ink)',
             borderRadius: 18,
           }}
@@ -163,7 +163,7 @@ export function HomeWordSearchSheet({
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
-                background: '#faf7f1',
+                background: 'var(--color-paper)',
                 border: '2px solid var(--solid-ink)',
                 borderRadius: 20,
               }}

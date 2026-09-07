@@ -194,14 +194,17 @@ export function BottomNav() {
           bottom: 0,
           zIndex: 40,
           paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-          background: 'linear-gradient(to top, #faf7f1 70%, rgba(250,247,241,0))',
+          // Fades the page out behind the floating nav, so it has to track the
+          // page ground — a literal cream here painted a bright band across the
+          // bottom of every screen in dark mode.
+          background: 'linear-gradient(to top, var(--color-background) 70%, transparent)',
           pointerEvents: 'none',
         }}
       >
         <div
           style={{
             margin: '0 14px',
-            background: '#fff',
+            background: 'var(--color-surface)',
             border: '2px solid var(--solid-ink)',
             borderRadius: 22,
             padding: '8px 10px',
@@ -237,7 +240,7 @@ export function BottomNav() {
                       height: 36,
                       borderRadius: 18,
                       background: 'var(--solid-ink)',
-                      color: '#fff',
+                      color: 'var(--color-on-ink)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

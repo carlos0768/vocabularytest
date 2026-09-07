@@ -100,7 +100,7 @@ export function ProjectSelectionSheet({
                     <p className="text-sm text-[var(--color-muted)] mt-0.5">{wrongAnswers.length}語の間違えた単語</p>
                   </div>
                   {showWrongAnswers && (
-                    <div className="w-6 h-6 bg-[var(--color-error)] rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-[var(--color-error-fill)] rounded-full flex items-center justify-center">
                       <Icon name="check" size={16} className="text-white" />
                     </div>
                   )}
@@ -133,7 +133,7 @@ export function ProjectSelectionSheet({
                   </div>
                   {showFavoritesOnly && (
                     <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                      <Icon name="check" size={16} className="text-white" />
+                      <Icon name="check" size={16} className="text-[var(--color-on-ink)]" />
                     </div>
                   )}
                 </div>
@@ -165,7 +165,7 @@ export function ProjectSelectionSheet({
                   </div>
                   {showAllProjects && (
                     <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                      <Icon name="check" size={16} className="text-white" />
+                      <Icon name="check" size={16} className="text-[var(--color-on-ink)]" />
                     </div>
                   )}
                 </div>
@@ -283,7 +283,7 @@ export function ProjectSelectionSheet({
                         </button>
                         {isSelected && (
                           <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                            <Icon name="check" size={16} className="text-white" />
+                            <Icon name="check" size={16} className="text-[var(--color-on-ink)]" />
                           </div>
                         )}
                       </div>

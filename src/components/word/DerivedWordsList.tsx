@@ -23,7 +23,7 @@ export function DerivedWordsList({ derivedWords }: { derivedWords: WordDerivedWo
               <span className="font-display text-[15px] font-black leading-snug text-[var(--solid-ink)]">
                 {item.english}
               </span>
-              <span className="rounded-full border border-[var(--color-border)] bg-white px-1.5 py-0.5 text-[10px] font-bold leading-none text-[var(--color-ink-muted)]">
+              <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-[var(--color-ink-muted)]">
                 {DERIVED_WORD_POS_LABELS[item.partOfSpeech] ?? item.partOfSpeech}
               </span>
             </div>

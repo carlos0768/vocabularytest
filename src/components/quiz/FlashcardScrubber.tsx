@@ -229,7 +229,7 @@ export function FlashcardScrubber({
   if (dots.length <= 1) return null;
 
   const dark = tone === 'dark';
-  const idleDot = dark ? 'rgba(255,255,255,0.28)' : 'rgba(26,26,26,0.18)';
+  const idleDot = dark ? 'rgba(255,255,255,0.28)' : 'color-mix(in srgb, var(--solid-ink) 18%, transparent)';
   const activeColor = dark ? '#fff' : 'var(--solid-ink)';
 
   return (
@@ -259,7 +259,7 @@ export function FlashcardScrubber({
           ref={trackRef}
           className="flex h-full w-full max-w-[280px] items-center justify-center rounded-full transition-colors duration-150"
           style={{
-            background: isScrubbing ? (dark ? 'rgba(255,255,255,0.12)' : 'rgba(26,26,26,0.06)') : 'transparent',
+            background: isScrubbing ? (dark ? 'rgba(255,255,255,0.12)' : 'color-mix(in srgb, var(--solid-ink) 6%, transparent)') : 'transparent',
           }}
         >
           {/* key はカード番号ではなくスロット位置。窓がずれても同じ要素が

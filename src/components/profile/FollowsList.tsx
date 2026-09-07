@@ -199,12 +199,12 @@ function TabButton({
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 font-display text-[13px] font-bold transition-all ${
         active
-          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
           : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'
       }`}
     >
       {label}
-      <span className={`font-mono text-[11px] tabular-nums ${active ? 'text-white' : 'text-[var(--color-muted)]'}`}>{count}</span>
+      <span className={`font-mono text-[11px] tabular-nums ${active ? 'text-[var(--color-on-ink)]' : 'text-[var(--color-muted)]'}`}>{count}</span>
     </button>
   );
 }

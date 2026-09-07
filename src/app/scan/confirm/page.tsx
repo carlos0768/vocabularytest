@@ -374,7 +374,7 @@ export default function ConfirmPage() {
       <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
-        <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
+        <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
           <Icon name="chevron_left" size={18} />
         </button>
         <div className="flex flex-1 flex-col items-center gap-px">
@@ -383,7 +383,7 @@ export default function ConfirmPage() {
             {isAddingToExisting ? '追加する単語を確認' : '確認・編集'}
           </div>
         </div>
-        <button type="button" onClick={handleAddManualWord} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
+        <button type="button" onClick={handleAddManualWord} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">
           <Icon name="add" size={18} />
         </button>
       </div>
@@ -401,11 +401,11 @@ export default function ConfirmPage() {
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] font-bold tracking-[0.06em] text-[var(--color-muted)]">PROJECT</div>
           {isAddingToExisting ? (
-            <div className="mt-[3px] rounded-lg border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px]">
+            <div className="mt-[3px] rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[7px]">
               <div className="text-sm font-bold text-[var(--solid-ink)]">既存の単語帳に追加</div>
             </div>
           ) : (
-            <div className="mt-[3px] flex items-center gap-1.5 rounded-lg border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px]">
+            <div className="mt-[3px] flex items-center gap-1.5 rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[7px]">
               <input
                 type="text"
                 value={projectTitle}
@@ -468,11 +468,11 @@ export default function ConfirmPage() {
       </div>
 
       {/* Bottom action */}
-      <div className="fixed inset-x-0 bottom-0 flex gap-2 bg-gradient-to-t from-[#fafaf7] via-[#fafaf7] to-transparent px-[18px] pb-[30px] pt-3.5">
+      <div className="fixed inset-x-0 bottom-0 flex gap-2 bg-gradient-to-t from-[var(--color-paper)] via-[var(--color-paper)] to-transparent px-[18px] pb-[30px] pt-3.5">
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-1 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+          className="inline-flex items-center gap-1 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-[13px] font-bold text-[var(--solid-ink)]"
         >
           <Icon name="close" size={13} />
         </button>
@@ -481,10 +481,10 @@ export default function ConfirmPage() {
             type="button"
             onClick={handleSaveProject}
             disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 text-sm font-bold text-white disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 text-sm font-bold text-[var(--color-on-ink)] disabled:opacity-50"
           >
             {saving ? (
-              <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> 保存中...</>
+              <><div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-on-ink)] border-t-transparent" /> 保存中...</>
             ) : (
               <><Icon name="check" size={14} /> {isAddingToExisting ? `${selectedCount}語を追加` : `${selectedCount}語を保存`}</>
             )}
@@ -499,7 +499,7 @@ export default function ConfirmPage() {
 /* ---------- Stat chip ---------- */
 function StatChip({ label, value, accent = 'var(--solid-ink)' }: { label: string; value: number; accent?: string }) {
   return (
-    <div className="flex flex-1 flex-col gap-0.5 rounded-lg border-2 border-[var(--color-border)] bg-white px-2.5 py-2">
+    <div className="flex flex-1 flex-col gap-0.5 rounded-lg border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2">
       <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">{label}</span>
       <span className="font-display text-lg font-extrabold tabular-nums leading-none" style={{ color: accent }}>{value}</span>
     </div>
@@ -520,7 +520,7 @@ function WordRow({
 }) {
   return (
     <div
-      className="flex items-center gap-2.5 rounded-[10px] bg-white px-3 py-2.5"
+      className="flex items-center gap-2.5 rounded-[10px] bg-[var(--color-surface)] px-3 py-2.5"
       style={{ border: `1.25px solid var(--color-border)` }}
     >
       <div className="min-w-0 flex-1">
@@ -543,14 +543,14 @@ function WordRow({
         <button
           type="button"
           onClick={() => onEdit(w.tempId)}
-          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-[var(--color-border)] bg-white text-[var(--color-muted)]"
+          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]"
         >
           <Icon name="edit" size={12} />
         </button>
         <button
           type="button"
           onClick={() => onDelete(w.tempId)}
-          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-[var(--color-border)] bg-white text-[var(--color-error)]"
+          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-error)]"
         >
           <Icon name="delete" size={12} />
         </button>
@@ -573,7 +573,7 @@ function EditingWordRow({
   const [japanese, setJapanese] = useState(w.japanese);
 
   return (
-    <div className="rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-3">
+    <div className="rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-3">
       <div className="mb-2 flex gap-2">
         <div className="flex-1">
           <div className="mb-[3px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">英単語</div>
@@ -584,7 +584,7 @@ function EditingWordRow({
               onChange={(e) => setEnglish(e.target.value)}
               autoFocus
               placeholder="英単語"
-              className="w-full rounded-md border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px] font-display text-[13px] font-bold text-[var(--solid-ink)] focus:outline-none"
+              className="w-full rounded-md border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[7px] font-display text-[13px] font-bold text-[var(--solid-ink)] focus:outline-none"
             />
           </div>
         </div>
@@ -595,7 +595,7 @@ function EditingWordRow({
             value={japanese}
             onChange={(e) => setJapanese(e.target.value)}
             placeholder="日本語訳"
-            className="w-full rounded-md border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[7px] text-xs text-[var(--solid-ink)] focus:outline-none"
+            className="w-full rounded-md border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[7px] text-xs text-[var(--solid-ink)] focus:outline-none"
           />
         </div>
       </div>
@@ -603,14 +603,14 @@ function EditingWordRow({
         <button
           type="button"
           onClick={() => onCancel(w.tempId)}
-          className="rounded-md border border-[var(--color-border)] bg-white px-2.5 py-[5px] text-[11px] font-bold text-[var(--color-muted)]"
+          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-[5px] text-[11px] font-bold text-[var(--color-muted)]"
         >
           キャンセル
         </button>
         <button
           type="button"
           onClick={() => onSave(w.tempId, english, japanese)}
-          className="rounded-md border border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-[5px] text-[11px] font-bold text-white"
+          className="rounded-md border border-[var(--solid-ink)] bg-[var(--solid-ink)] px-2.5 py-[5px] text-[11px] font-bold text-[var(--color-on-ink)]"
         >
           保存
         </button>

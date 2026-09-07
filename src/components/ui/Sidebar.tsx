@@ -90,11 +90,11 @@ export function Sidebar() {
                     />
                     <span className="flex-1 truncate">{item.label}</span>
                     {item.badge ? (
-                      <span className="rounded-[3px] bg-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] font-black tracking-[0.04em] text-white">
+                      <span className="rounded-[3px] bg-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] font-black tracking-[0.04em] text-[var(--color-on-accent)]">
                         {item.badge}
                       </span>
                     ) : item.count ? (
-                      <span className={cn('font-mono text-[10px]', active ? 'text-white/60' : 'text-[var(--color-muted)]')}>
+                      <span className={cn('font-mono text-[10px]', active ? 'text-[var(--color-on-ink)]/60' : 'text-[var(--color-muted)]')}>
                         {item.count}
                       </span>
                     ) : null}
@@ -109,7 +109,7 @@ export function Sidebar() {
       <div className="px-5 py-5 border-t border-dashed border-[var(--color-border)]">
         <Link
           href="/scan"
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[var(--color-foreground)] text-white font-bold text-sm border-2 border-[var(--solid-ink)] transition-all hover:opacity-90 active:translate-x-px active:translate-y-px"
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[var(--color-foreground)] text-[var(--color-on-ink)] font-bold text-sm border-2 border-[var(--solid-ink)] transition-all hover:opacity-90 active:translate-x-px active:translate-y-px"
         >
           <Icon name="add" size={18} />
           新規スキャン

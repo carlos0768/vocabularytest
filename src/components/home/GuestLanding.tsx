@@ -37,11 +37,11 @@ const ROOT_LANDING_SCAN_MODES = [
  * 正解=success / 不正解=error / 現在の問題=ink / 未回答=薄いink。
  */
 const HERO_QUIZ_SEGMENTS = [
-  '#22c55e',
-  '#22c55e',
-  '#ef4444',
-  '#1a1a1a',
-  ...Array.from({ length: 6 }, () => 'rgba(26,26,26,0.1)'),
+  'var(--color-success)',
+  'var(--color-success)',
+  'var(--color-error)',
+  'var(--solid-ink)',
+  ...Array.from({ length: 6 }, () => 'color-mix(in srgb, var(--solid-ink) 10%, transparent)'),
 ];
 
 const HERO_QUIZ_OPTIONS = [
@@ -128,9 +128,9 @@ export function GuestLanding() {
   const billingEnabled = isBillingEnabled();
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f3f0e9] font-[var(--font-body)] text-[#1a1a1a] [background-image:radial-gradient(rgba(26,26,26,0.045)_1px,transparent_1px)] [background-size:22px_22px]">
+    <main className="min-h-screen overflow-x-hidden bg-[var(--color-paper-alt)] font-[var(--font-body)] text-[var(--solid-ink)] [background-image:radial-gradient(color-mix(in_srgb,_var(--solid-ink)_4.5%,_transparent)_1px,transparent_1px)] [background-size:22px_22px]">
       <header className="mx-auto max-w-[1200px] px-5 md:px-10">
-        <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] py-6">
+        <div className="flex items-center justify-between border-b-2 border-[var(--solid-ink)] py-6">
           <RootLandingBrand />
           <nav className="flex items-center gap-7">
             <Link href="#how" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">使い方</Link>
@@ -141,7 +141,7 @@ export function GuestLanding() {
             <Link href="/login?redirect=/" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">ログイン</Link>
             <Link
               href="/signup?redirect=/"
-              className="inline-flex items-center gap-2 rounded-full bg-[#1a1a1a] px-4 py-2 text-sm font-bold text-white"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--solid-ink)] px-4 py-2 text-sm font-bold text-[var(--color-on-ink)]"
             >
               無料で始める
               <Icon name="arrow_forward" size={16} />
@@ -151,7 +151,7 @@ export function GuestLanding() {
       </header>
 
       <section className="mx-auto max-w-[1200px] px-5 md:px-10">
-        <div className="grid items-center gap-10 border-b-2 border-[#1a1a1a] py-14 lg:grid-cols-[1.05fr_1fr] lg:py-20">
+        <div className="grid items-center gap-10 border-b-2 border-[var(--solid-ink)] py-14 lg:grid-cols-[1.05fr_1fr] lg:py-20">
           <div>
             <p className="mb-5 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)] before:h-[1.5px] before:w-5 before:bg-[var(--color-accent)]">
               AI vocabulary notebook
@@ -160,26 +160,26 @@ export function GuestLanding() {
               手入力ゼロで、<br />
               <span className="text-[var(--color-accent)]">単語帳。</span>
             </h1>
-            <p className="mt-6 max-w-[520px] text-base leading-8 text-[#555]">
+            <p className="mt-6 max-w-[520px] text-base leading-8 text-[var(--color-ink-soft)]">
               教科書・ノート・プリントを撮影するだけ。AIが英単語、和訳、例文、発音記号、クイズ素材を作り、あなた専用の単語帳として保存できます（AIスキャンはProプラン）。無料でも共有ライブラリから単語帳を取り込んで、すぐに学習を始められます。
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-4">
               <Link
                 href="/signup?redirect=/"
-                className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[#1a1a1a] bg-[#1a1a1a] px-7 text-base font-bold text-white shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-7 text-base font-bold text-[var(--color-on-ink)] shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]"
               >
                 無料で始める
                 <Icon name="arrow_forward" size={18} />
               </Link>
               <Link
                 href="#how"
-                className="inline-flex items-center gap-2 border-b-2 border-[#1a1a1a] px-1 py-1 font-display text-sm font-bold text-[#1a1a1a] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                className="inline-flex items-center gap-2 border-b-2 border-[var(--solid-ink)] px-1 py-1 font-display text-sm font-bold text-[var(--solid-ink)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
               >
                 使い方を見る
                 <Icon name="arrow_forward" size={16} />
               </Link>
             </div>
-            <div className="mt-9 flex flex-wrap gap-7 border-t border-dashed border-[#1a1a1a]/20 pt-6">
+            <div className="mt-9 flex flex-wrap gap-7 border-t border-dashed border-[var(--solid-ink)]/20 pt-6">
               {[
                 ['4', '抽出モード（Pro）'],
                 ['無料', '共有単語帳の取込'],
@@ -188,7 +188,7 @@ export function GuestLanding() {
               ].map(([num, label]) => (
                 <div key={label}>
                   <div className="font-display text-2xl font-black leading-none">{num}</div>
-                  <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[#8a857a]">{label}</div>
+                  <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">{label}</div>
                 </div>
               ))}
             </div>
@@ -198,16 +198,16 @@ export function GuestLanding() {
       </section>
 
       {/* 語彙力レベル診断 — 登録不要で遊べるバイラル導線 */}
-      <section className="border-b-2 border-[#1a1a1a] bg-[#1a1a1a] text-white" aria-label="語彙力レベル診断">
+      <section className="border-b-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]" aria-label="語彙力レベル診断">
         <div className="mx-auto flex max-w-[1200px] flex-col items-start gap-5 px-5 py-10 md:flex-row md:items-center md:justify-between md:px-10">
           <div>
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)]">
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent-on-ink)]">
               Vocabulary level test
             </p>
             <h2 className="mt-2 font-display text-[clamp(26px,4vw,40px)] font-black leading-tight">
-              あなたの語彙力は<span className="text-[var(--color-accent)]">英検何級</span>レベル?
+              あなたの語彙力は<span className="text-[var(--color-accent-on-ink)]">英検何級</span>レベル?
             </h2>
-            <p className="mt-2 text-sm leading-6 text-white/70">
+            <p className="mt-2 text-sm leading-6 text-[var(--color-on-ink)]/70">
               20問・約3分の4択クイズで語彙レベルと推定語彙数を診断。無料・登録不要。
             </p>
           </div>
@@ -222,10 +222,10 @@ export function GuestLanding() {
         </div>
       </section>
 
-      <section className="overflow-hidden border-b-2 border-[#1a1a1a] py-5" aria-label="MERKENで扱える教材">
+      <section className="overflow-hidden border-b-2 border-[var(--solid-ink)] py-5" aria-label="MERKENで扱える教材">
         <div className="mx-auto flex max-w-[1200px] flex-wrap gap-x-8 gap-y-3 px-5 font-display text-lg font-black md:px-10">
           {['教科書', 'プリント', 'ノート', '英検対策', '熟語・イディオム', 'リール', '保存済み復習', 'フラッシュカード'].map((item, index) => (
-            <span key={item} className={`inline-flex items-center gap-3 ${index % 2 === 1 ? 'text-[#8a857a]' : 'text-[#1a1a1a]'}`}>
+            <span key={item} className={`inline-flex items-center gap-3 ${index % 2 === 1 ? 'text-[var(--color-ink-mute)]' : 'text-[var(--solid-ink)]'}`}>
               {item}
               <span className="h-1.5 w-1.5 bg-[var(--color-accent)]" />
             </span>
@@ -233,23 +233,23 @@ export function GuestLanding() {
         </div>
       </section>
 
-      <section id="how" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section id="how" className="mx-auto max-w-[1200px] border-b-2 border-[var(--solid-ink)] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="01"
           label="How it works"
           title={<>撮る、確認する、<br />覚える。</>}
           body="手入力やコピペを前提にせず、教材の写真から単語帳を作ります（AIスキャンはProプラン）。登録後すぐにホーム、単語帳、クイズへ進める構成です。"
         />
-        <div className="grid border-l-[1.5px] border-t-2 border-[#1a1a1a] md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid border-l-[1.5px] border-t-2 border-[var(--solid-ink)] md:grid-cols-2 lg:grid-cols-4">
           {ROOT_LANDING_WORKFLOW.map((item, index) => (
-            <article key={item.step} className="flex min-h-[280px] flex-col gap-4 border-b-2 border-r-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-6">
-              <div className="flex items-baseline gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a857a]">
+            <article key={item.step} className="flex min-h-[280px] flex-col gap-4 border-b-2 border-r-[1.5px] border-[var(--solid-ink)] bg-[var(--color-paper)] p-6">
+              <div className="flex items-baseline gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">
                 <span className="text-[var(--color-accent)]">{item.step}</span>
                 {item.label}
               </div>
               <h3 className="font-display text-2xl font-black">{item.title}</h3>
-              <p className="text-[13px] leading-6 text-[#555]">{item.body}</p>
-              <div className="mt-auto flex h-[130px] items-center justify-center overflow-hidden rounded-[10px] border-2 border-[#1a1a1a] bg-white p-4">
+              <p className="text-[13px] leading-6 text-[var(--color-ink-soft)]">{item.body}</p>
+              <div className="mt-auto flex h-[130px] items-center justify-center overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
                 <RootLandingStepArt index={index} />
               </div>
             </article>
@@ -257,7 +257,7 @@ export function GuestLanding() {
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section id="features" className="mx-auto max-w-[1200px] border-b-2 border-[var(--solid-ink)] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="02"
           label="What's inside"
@@ -267,80 +267,80 @@ export function GuestLanding() {
 
         <div className="grid gap-16 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div>
-            <p className="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a857a]">
+            <p className="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">
               <span className="text-[var(--color-accent)]">01</span> Scan modes
             </p>
             <h3 className="font-display text-[clamp(28px,3vw,40px)] font-black leading-[1.1]">目的に合わせて、抽出方法を選ぶ。</h3>
-            <p className="mt-5 max-w-[500px] text-[15px] leading-8 text-[#555]">
+            <p className="mt-5 max-w-[500px] text-[15px] leading-8 text-[var(--color-ink-soft)]">
               まずは「すべての単語」で広く取り込み、必要に応じて丸囲み、英検、熟語・イディオムへ切り替えます。抽出後は確認画面で編集してから保存できます（スキャンはProプランの機能です）。
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {ROOT_LANDING_SCAN_MODES.map((mode) => (
-                <article key={mode.label} className="rounded-[14px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[3px_4px_0_#1a1a1a]">
+                <article key={mode.label} className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-4 shadow-[3px_4px_0_var(--solid-shadow)]">
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
                     <Icon name={mode.icon} size={20} />
                   </div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-accent)]">{mode.label}</p>
                   <h4 className="mt-1 font-display text-lg font-black">{mode.title}</h4>
-                  <p className="mt-2 text-xs leading-6 text-[#555]">{mode.body}</p>
+                  <p className="mt-2 text-xs leading-6 text-[var(--color-ink-soft)]">{mode.body}</p>
                 </article>
               ))}
             </div>
           </div>
-          <div className="rounded-[18px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[4px_6px_0_#1a1a1a]">
+          <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-4 shadow-[4px_6px_0_var(--solid-shadow)]">
             <Image
               src="/lp/scan-modes.png"
               alt="MERKENのスキャンモード画面"
               width={900}
               height={720}
-              className="h-auto w-full rounded-[12px] border border-[#1a1a1a]/15"
+              className="h-auto w-full rounded-[12px] border border-[var(--solid-ink)]/15"
             />
           </div>
         </div>
 
-        <div className="mt-20 grid gap-16 border-t border-dashed border-[#1a1a1a]/20 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div className="order-2 rounded-[16px] border-2 border-[#1a1a1a] bg-[#fffdf7] p-7 shadow-[4px_6px_0_#1a1a1a] [background-image:linear-gradient(transparent_31px,rgba(26,26,26,0.08)_32px,transparent_33px)] [background-size:100%_32px] lg:order-1">
-            <div className="border-l border-[#e8b4b8] pl-6">
+        <div className="mt-20 grid gap-16 border-t border-dashed border-[var(--solid-ink)]/20 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div className="order-2 rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-notebook-paper)] p-7 shadow-[4px_6px_0_var(--solid-shadow)] [background-image:linear-gradient(transparent_31px,color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)_32px,transparent_33px)] [background-size:100%_32px] lg:order-1">
+            <div className="border-l border-[var(--color-notebook-margin)] pl-6">
               <div className="flex items-baseline justify-between gap-4">
                 <div>
                   <p className="font-display text-4xl font-black">take care</p>
-                  <p className="mt-1 font-mono text-xs text-[#8a857a]">AI generated pronunciation</p>
+                  <p className="mt-1 font-mono text-xs text-[var(--color-ink-mute)]">AI generated pronunciation</p>
                 </div>
-                <span className="rounded-full border border-[#1a1a1a]/40 px-3 py-1 font-mono text-[10px]">phrase</span>
+                <span className="rounded-full border border-[var(--solid-ink)]/40 px-3 py-1 font-mono text-[10px]">phrase</span>
               </div>
               <p className="mt-5 text-base leading-8">世話をする、気をつける</p>
               <div className="mt-4">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">example</p>
-                <p className="mt-1 text-sm leading-8 text-[#555]">
-                  Please <em className="border-b border-[#1a1a1a]/30 text-[#1a1a1a]">take care</em> of your notes after class.
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">example</p>
+                <p className="mt-1 text-sm leading-8 text-[var(--color-ink-soft)]">
+                  Please <em className="border-b border-[var(--solid-ink)]/30 text-[var(--solid-ink)]">take care</em> of your notes after class.
                 </p>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 {['4択', '語順クイズ', '例文', '発音記号'].map((tag) => (
-                  <span key={tag} className="rounded-full border border-[#1a1a1a]/40 px-3 py-1 font-mono text-[10px] font-bold text-[#555]">{tag}</span>
+                  <span key={tag} className="rounded-full border border-[var(--solid-ink)]/40 px-3 py-1 font-mono text-[10px] font-bold text-[var(--color-ink-soft)]">{tag}</span>
                 ))}
               </div>
             </div>
           </div>
           <div className="order-1 lg:order-2">
-            <p className="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a857a]">
+            <p className="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">
               <span className="text-[var(--color-accent)]">02</span> Word detail
             </p>
             <h3 className="font-display text-[clamp(28px,3vw,40px)] font-black leading-[1.1]">保存した単語は、学習用データになる。</h3>
-            <p className="mt-5 max-w-[500px] text-[15px] leading-8 text-[#555]">
+            <p className="mt-5 max-w-[500px] text-[15px] leading-8 text-[var(--color-ink-soft)]">
               和訳だけでなく、例文、品詞、発音記号、クイズ用の選択肢を持てる構造です。2語以上の表現は語順クイズとして扱い、4択だけに寄せすぎないようにしています。
             </p>
           </div>
         </div>
 
-        <div className="mt-20 grid gap-6 border-t border-dashed border-[#1a1a1a]/20 pt-20 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-20 grid gap-6 border-t border-dashed border-[var(--solid-ink)]/20 pt-20 sm:grid-cols-2 lg:grid-cols-4">
           {ROOT_LANDING_STUDY_FEATURES.map((feature) => (
-            <article key={feature.title} className="rounded-[16px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-6 shadow-[4px_6px_0_#1a1a1a]">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#1a1a1a] text-white">
+            <article key={feature.title} className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-6 shadow-[4px_6px_0_var(--solid-shadow)]">
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
                 <Icon name={feature.icon} size={24} />
               </div>
               <h3 className="font-display text-xl font-black">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-[#555]">{feature.body}</p>
+              <p className="mt-3 text-sm leading-7 text-[var(--color-ink-soft)]">{feature.body}</p>
             </article>
           ))}
         </div>
@@ -350,7 +350,7 @@ export function GuestLanding() {
 
       <LpReelSection />
 
-      <section className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section className="mx-auto max-w-[1200px] border-b-2 border-[var(--solid-ink)] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="05"
           label="Progress"
@@ -365,26 +365,26 @@ export function GuestLanding() {
               ['マイ単語帳', '直近の単語帳をホームから開ける'],
               ['保存済み', 'あとで見返したい単語だけを集めて復習'],
             ].map(([title, body]) => (
-              <div key={title} className="rounded-[14px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-5 shadow-[3px_4px_0_#1a1a1a]">
+              <div key={title} className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-5 shadow-[3px_4px_0_var(--solid-shadow)]">
                 <h3 className="font-display text-xl font-black">{title}</h3>
-                <p className="mt-2 text-sm leading-7 text-[#555]">{body}</p>
+                <p className="mt-2 text-sm leading-7 text-[var(--color-ink-soft)]">{body}</p>
               </div>
             ))}
           </div>
-          <div className="rounded-[18px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-4 shadow-[4px_6px_0_#1a1a1a]">
+          <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-4 shadow-[4px_6px_0_var(--solid-shadow)]">
             <Image
               src="/lp/home.png"
               alt="MERKENのホーム画面"
               width={900}
               height={720}
-              className="h-auto w-full rounded-[12px] border border-[#1a1a1a]/15"
+              className="h-auto w-full rounded-[12px] border border-[var(--solid-ink)]/15"
             />
           </div>
         </div>
       </section>
 
       {billingEnabled && (
-        <section id="pricing" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+        <section id="pricing" className="mx-auto max-w-[1200px] border-b-2 border-[var(--solid-ink)] px-5 py-16 md:px-10 lg:py-24">
           <RootLandingSectionHeading
             number="06"
             label="Pricing"
@@ -409,53 +409,53 @@ export function GuestLanding() {
         </section>
       )}
 
-      <section id="faq" className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24">
+      <section id="faq" className="mx-auto max-w-[1200px] border-b-2 border-[var(--solid-ink)] px-5 py-16 md:px-10 lg:py-24">
         <RootLandingSectionHeading
           number="07"
           label="FAQ"
           title={<>よくある質問。</>}
           body="プランの違いや使い方について、よくいただく質問をまとめました。さらに詳しい解説は使い方ガイドと学習コラムにあります。"
         />
-        <div className="border-t-2 border-[#1a1a1a]">
+        <div className="border-t-2 border-[var(--solid-ink)]">
           {ROOT_LANDING_FAQS.map((item, index) => (
-            <details key={item.q} className="group border-b-2 border-[#1a1a1a] py-6" open={index === 0}>
+            <details key={item.q} className="group border-b-2 border-[var(--solid-ink)] py-6" open={index === 0}>
               <summary className="grid cursor-pointer list-none grid-cols-[64px_1fr_32px] items-start gap-4">
-                <span className="pt-1 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a857a]">
+                <span className="pt-1 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">
                   Q. {String(index + 1).padStart(2, '0')}
                 </span>
                 <span className="font-display text-xl font-black leading-7">{item.q}</span>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1a1a1a] transition-transform group-open:rotate-45 group-open:bg-[#1a1a1a] group-open:text-white">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] transition-transform group-open:rotate-45 group-open:bg-[var(--solid-ink)] group-open:text-[var(--color-on-ink)]">
                   +
                 </span>
               </summary>
-              <p className="ml-[80px] mt-4 max-w-[720px] text-sm leading-7 text-[#555]">{item.a}</p>
+              <p className="ml-[80px] mt-4 max-w-[720px] text-sm leading-7 text-[var(--color-ink-soft)]">{item.a}</p>
             </details>
           ))}
         </div>
       </section>
 
-      <section className="bg-[#1a1a1a] px-5 py-20 text-white md:px-10 lg:py-24">
+      <section className="bg-[var(--solid-ink)] px-5 py-20 text-[var(--color-on-ink)] md:px-10 lg:py-24">
         <div className="mx-auto max-w-[1200px]">
-          <p className="mb-4 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)] before:h-[1.5px] before:w-5 before:bg-[var(--color-accent)]">
+          <p className="mb-4 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent-on-ink)] before:h-[1.5px] before:w-5 before:bg-[var(--color-accent)]">
             Ready
           </p>
           <h2 className="max-w-[900px] font-display text-[clamp(40px,6vw,74px)] font-black leading-[1.02] tracking-normal">
             単語帳を、<br />もう手で作らなくていい。
           </h2>
-          <p className="mt-6 max-w-[560px] text-base leading-8 text-white/70">
+          <p className="mt-6 max-w-[560px] text-base leading-8 text-[var(--color-on-ink)]/70">
             ブラウザからすぐに開始できます。メールOTP、Google、Appleのいずれかで登録し、最初の単語帳を作成してください。
           </p>
           <div className="mt-9 flex flex-wrap gap-4">
             <Link
               href="/signup?redirect=/"
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[#14532d] bg-[var(--color-accent)] px-7 text-base font-bold text-white shadow-[3px_4px_0_#14532d]"
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-7 text-base font-bold text-[var(--color-on-accent)] shadow-[3px_4px_0_#14532d]"
             >
               無料で始める
               <Icon name="arrow_forward" size={18} />
             </Link>
             <Link
               href="/login?redirect=/"
-              className="inline-flex items-center justify-center gap-2 border-b-2 border-white/40 px-1 py-1 font-display text-sm font-bold text-white transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              className="inline-flex items-center justify-center gap-2 border-b-2 border-[var(--color-on-ink)]/40 px-1 py-1 font-display text-sm font-bold text-[var(--color-on-ink)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent-on-ink)]"
             >
               ログイン
               <Icon name="arrow_forward" size={16} />
@@ -465,15 +465,15 @@ export function GuestLanding() {
       </section>
 
       <footer className="mx-auto max-w-[1200px] px-5 py-12 md:px-10">
-        <div className="grid gap-10 border-b border-dashed border-[#1a1a1a]/20 pb-9 md:grid-cols-[1.7fr_1fr_1fr_1fr]">
+        <div className="grid gap-10 border-b border-dashed border-[var(--solid-ink)]/20 pb-9 md:grid-cols-[1.7fr_1fr_1fr_1fr]">
           <div>
             <RootLandingBrand />
-            <p className="mt-4 max-w-[360px] text-sm leading-7 text-[#555]">
+            <p className="mt-4 max-w-[360px] text-sm leading-7 text-[var(--color-ink-soft)]">
               手入力ゼロで単語帳を作成。スキャン、単語帳、クイズ、フラッシュカードで英単語を復習するための学習アプリです。
             </p>
           </div>
           <div>
-            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">Product</p>
+            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">Product</p>
             <ul className="flex flex-col gap-2 text-sm">
               <li><Link href="#features" className="hover:text-[var(--color-accent)]">機能</Link></li>
               <li><Link href="#reels" className="hover:text-[var(--color-accent)]">リール</Link></li>
@@ -483,7 +483,7 @@ export function GuestLanding() {
             </ul>
           </div>
           <div>
-            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">Account</p>
+            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">Account</p>
             <ul className="flex flex-col gap-2 text-sm">
               <li><Link href="/signup?redirect=/" className="hover:text-[var(--color-accent)]">新規登録</Link></li>
               <li><Link href="/login?redirect=/" className="hover:text-[var(--color-accent)]">ログイン</Link></li>
@@ -491,7 +491,7 @@ export function GuestLanding() {
             </ul>
           </div>
           <div>
-            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">Legal</p>
+            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">Legal</p>
             <ul className="flex flex-col gap-2 text-sm">
               <li><Link href="/terms" className="hover:text-[var(--color-accent)]">利用規約</Link></li>
               <li><Link href="/privacy" className="hover:text-[var(--color-accent)]">プライバシー</Link></li>
@@ -500,7 +500,7 @@ export function GuestLanding() {
             </ul>
           </div>
         </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.04em] text-[#8a857a]">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.04em] text-[var(--color-ink-mute)]">
           <p>© {new Date().getFullYear()} MERKEN. All rights reserved.</p>
           <p>Built for English learners.</p>
         </div>
@@ -511,7 +511,7 @@ export function GuestLanding() {
 function RootLandingBrand() {
   return (
     <Link href="/" className="flex items-baseline gap-2" aria-label="MERKEN home">
-      <span className="font-display text-[22px] font-black tracking-[0.14em] text-[#1a1a1a]">MERKEN</span>
+      <span className="font-display text-[22px] font-black tracking-[0.14em] text-[var(--solid-ink)]">MERKEN</span>
       <span className="inline-block h-1.5 w-1.5 bg-[var(--color-accent)]" />
     </Link>
   );
@@ -532,14 +532,14 @@ function RootLandingSectionHeading({
     <div className="mb-10 grid gap-5 lg:mb-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
       <div>
         <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)]">
-          <span className="mr-3 text-[#8a857a]">{number} /</span>
+          <span className="mr-3 text-[var(--color-ink-mute)]">{number} /</span>
           {label}
         </p>
-        <h2 className="mt-3 font-display text-[clamp(30px,4vw,48px)] font-black leading-[1.06] tracking-normal text-[#1a1a1a]">
+        <h2 className="mt-3 font-display text-[clamp(30px,4vw,48px)] font-black leading-[1.06] tracking-normal text-[var(--solid-ink)]">
           {title}
         </h2>
       </div>
-      <p className="max-w-[560px] text-[15px] leading-8 text-[#555] lg:pt-8">{body}</p>
+      <p className="max-w-[560px] text-[15px] leading-8 text-[var(--color-ink-soft)] lg:pt-8">{body}</p>
     </div>
   );
 }
@@ -547,9 +547,9 @@ function RootLandingSectionHeading({
 function RootLandingHeroVisual() {
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[560px]" aria-label="MERKENで写真からクイズまで作る流れ">
-      <div className="absolute left-[2%] top-[12%] w-[62%] -rotate-[4deg] rounded-sm bg-[#fffdf7] px-6 py-7 shadow-[0_12px_28px_rgba(26,26,26,0.10),0_0_0_1px_rgba(26,26,26,0.10)] [background-image:linear-gradient(transparent_27px,rgba(26,26,26,0.08)_28px,transparent_29px)] [background-size:100%_28px]">
-        <div className="absolute bottom-3 left-9 top-0 w-px bg-[#e8b4b8]" />
-        <p className="absolute right-4 top-3 font-mono text-[10px] uppercase tracking-[0.08em] text-[#8a857a]">P. 142</p>
+      <div className="absolute left-[2%] top-[12%] w-[62%] -rotate-[4deg] rounded-sm bg-[var(--color-notebook-paper)] px-6 py-7 shadow-[0_12px_28px_color-mix(in_srgb,_var(--solid-ink)_10%,_transparent),0_0_0_1px_color-mix(in_srgb,_var(--solid-ink)_10%,_transparent)] [background-image:linear-gradient(transparent_27px,color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)_28px,transparent_29px)] [background-size:100%_28px]">
+        <div className="absolute bottom-3 left-9 top-0 w-px bg-[var(--color-notebook-margin)]" />
+        <p className="absolute right-4 top-3 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">P. 142</p>
         <p className="relative z-10 mb-3 pl-5 font-display text-[13px] font-bold">Lesson 7 — Reading</p>
         {[
           ['The pattern was', 'ubiquitous', 'in'],
@@ -557,17 +557,17 @@ function RootLandingHeroVisual() {
           ['Critics', 'lamented', 'the loss of'],
           ['others', 'embraced', 'its charm.'],
         ].map(([a, b, c]) => (
-          <p key={`${a}-${b}`} className="relative z-10 pl-5 text-sm leading-7 text-[#1a1a1a]">
-            {a} <span className="bg-[#f59e0b]/25 px-1">{b}</span> {c}
+          <p key={`${a}-${b}`} className="relative z-10 pl-5 text-sm leading-7 text-[var(--solid-ink)]">
+            {a} <span className="bg-[var(--color-warning)]/25 px-1">{b}</span> {c}
           </p>
         ))}
       </div>
 
       <div className="absolute left-[6%] top-[8%] z-20 aspect-[1/1.1] w-[58%]">
-        <span className="absolute left-0 top-0 h-7 w-7 border-l-[2.5px] border-t-[2.5px] border-[#1a1a1a]" />
-        <span className="absolute right-0 top-0 h-7 w-7 border-r-[2.5px] border-t-[2.5px] border-[#1a1a1a]" />
-        <span className="absolute bottom-0 left-0 h-7 w-7 border-b-[2.5px] border-l-[2.5px] border-[#1a1a1a]" />
-        <span className="absolute bottom-0 right-0 h-7 w-7 border-b-[2.5px] border-r-[2.5px] border-[#1a1a1a]" />
+        <span className="absolute left-0 top-0 h-7 w-7 border-l-[2.5px] border-t-[2.5px] border-[var(--solid-ink)]" />
+        <span className="absolute right-0 top-0 h-7 w-7 border-r-[2.5px] border-t-[2.5px] border-[var(--solid-ink)]" />
+        <span className="absolute bottom-0 left-0 h-7 w-7 border-b-[2.5px] border-l-[2.5px] border-[var(--solid-ink)]" />
+        <span className="absolute bottom-0 right-0 h-7 w-7 border-b-[2.5px] border-r-[2.5px] border-[var(--solid-ink)]" />
       </div>
 
       <svg className="absolute left-[54%] top-[34%] z-20 h-20 w-24" viewBox="0 0 90 80" fill="none" aria-hidden="true">
@@ -577,7 +577,7 @@ function RootLandingHeroVisual() {
 
       <RootLandingQuizPhone />
 
-      <span className="absolute bottom-[8%] left-[4%] z-40 rounded-full bg-[#1a1a1a] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-white">
+      <span className="absolute bottom-[8%] left-[4%] z-40 rounded-full bg-[var(--solid-ink)] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-on-ink)]">
         AI 抽出
       </span>
       {/*
@@ -586,7 +586,7 @@ function RootLandingHeroVisual() {
         またぐ形で、例文ブロックと「次へ」の間の余白（端末基準で 77〜87%）に置く。
         端末上端側はヘッダーと重なるため使わない。
       */}
-      <span className="absolute right-[47%] top-[74%] z-40 rotate-[4deg] rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-white">
+      <span className="absolute right-[47%] top-[74%] z-40 rotate-[4deg] rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-on-accent)]">
         + 単語帳へ
       </span>
     </div>
@@ -610,11 +610,11 @@ function RootLandingQuizPhone() {
     >
       <div
         aria-hidden="true"
-        className="rounded-[2.25em] bg-[#1a1a1a] p-[0.5em] shadow-[0_24px_50px_rgba(26,26,26,0.22),0_0_0_1.5px_#1a1a1a]"
+        className="rounded-[2.25em] bg-[var(--solid-ink)] p-[0.5em] shadow-[0_24px_50px_color-mix(in_srgb,_var(--solid-ink)_22%,_transparent),0_0_0_1.5px_var(--solid-ink)]"
         style={{ fontSize: '4cqw' }}
       >
-        <div className="relative flex aspect-[375/812] flex-col overflow-hidden rounded-[1.75em] bg-[#f6f5f1] text-[#1a1a1a]">
-          <div className="absolute left-1/2 top-[0.5em] z-10 h-[1.375em] w-[5.375em] -translate-x-1/2 rounded-full bg-[#1a1a1a]" />
+        <div className="relative flex aspect-[375/812] flex-col overflow-hidden rounded-[1.75em] bg-[var(--color-background)] text-[var(--solid-ink)]">
+          <div className="absolute left-1/2 top-[0.5em] z-10 h-[1.375em] w-[5.375em] -translate-x-1/2 rounded-full bg-[var(--solid-ink)]" />
 
           {/* Status bar */}
           <div className="flex shrink-0 items-center justify-between px-[1.25em] pt-[0.6em]">
@@ -638,23 +638,23 @@ function RootLandingQuizPhone() {
                 ))}
               </div>
               <span className="text-[0.6875em] font-bold tabular-nums">
-                4<span className="text-[#9ca3af]">/10</span>
+                4<span className="text-[var(--color-muted)]">/10</span>
               </span>
             </div>
           </div>
 
           {/* 出題 */}
           <div className="flex min-h-0 flex-1 flex-col px-[1.25em] pt-[0.625em]">
-            <div className="mb-[0.6em] text-[0.625em] font-bold uppercase tracking-[0.08em] text-[#9ca3af]">
+            <div className="mb-[0.6em] text-[0.625em] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
               意味を選ぼう
             </div>
 
-            <div className="rounded-[1.125em] border-[0.125em] border-[#1a1a1a] bg-white px-[1.125em] py-[1.5em] text-center">
+            <div className="rounded-[1.125em] border-[0.125em] border-[var(--solid-ink)] bg-[var(--color-surface)] px-[1.125em] py-[1.5em] text-center">
               <div className="font-display text-[2.125em] font-extrabold leading-[1.1] tracking-[-0.01em]">
                 ubiquitous
               </div>
               <div className="mt-[0.625em] flex justify-center">
-                <span className="inline-flex items-center gap-[0.45em] rounded-full border border-[#e5e7eb] bg-[rgba(26,26,26,0.04)] px-[0.91em] py-[0.45em] text-[0.6875em] font-semibold text-[#9ca3af]">
+                <span className="inline-flex items-center gap-[0.45em] rounded-full border border-[var(--color-border)] bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)] px-[0.91em] py-[0.45em] text-[0.6875em] font-semibold text-[var(--color-muted)]">
                   <Icon name="volume_up" style={{ fontSize: '1.09em' }} />
                   読み上げ
                 </span>
@@ -667,12 +667,12 @@ function RootLandingQuizPhone() {
               ))}
             </div>
 
-            <div className="mt-[1em] rounded-[0.75em] border border-dashed border-[#e5e7eb] bg-white px-[0.875em] py-[0.8125em]">
-              <div className="mb-[0.55em] text-[0.5625em] font-bold tracking-[0.06em] text-[#9ca3af]">EXAMPLE</div>
+            <div className="mt-[1em] rounded-[0.75em] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] px-[0.875em] py-[0.8125em]">
+              <div className="mb-[0.55em] text-[0.5625em] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
               <div className="text-[0.875em] font-medium leading-[1.55]">
                 Digital screens have become ubiquitous in everyday classrooms.
               </div>
-              <div className="mt-[0.33em] text-[0.75em] leading-[1.55] text-[#9ca3af]">
+              <div className="mt-[0.33em] text-[0.75em] leading-[1.55] text-[var(--color-muted)]">
                 デジタル画面は日常の教室でどこにでもあるものになった。
               </div>
             </div>
@@ -680,7 +680,7 @@ function RootLandingQuizPhone() {
 
           {/* 解答後のみ出る「次へ」 */}
           <div className="shrink-0 px-[1.25em] pb-[2em] pt-[0.75em]">
-            <span className="flex w-full items-center justify-center gap-[0.5em] rounded-[0.75em] border-[0.125em] border-[#14532d] bg-[#15803d] px-[1.25em] py-[0.75em] font-display font-bold text-white">
+            <span className="flex w-full items-center justify-center gap-[0.5em] rounded-[0.75em] border-[0.125em] border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-[1.25em] py-[0.75em] font-display font-bold text-[var(--color-on-accent)]">
               <span className="text-[0.9375em]">次へ</span>
               <Icon name="chevron_right" style={{ fontSize: '1.125em' }} />
             </span>
@@ -694,9 +694,9 @@ function RootLandingQuizPhone() {
 /** `DSQuizOption` の解答後スタイルをそのまま写した表示専用の選択肢。 */
 function RootLandingQuizOption({ label, index, correct }: { label: string; index: number; correct: boolean }) {
   const face = correct
-    ? { background: '#15803d', borderColor: '#14532d', color: '#fff' }
-    : { background: '#fff', borderColor: '#e5e7eb', color: '#9ca3af' };
-  const shadow = correct ? '#14532d' : '#e5e7eb';
+    ? { background: 'var(--color-accent)', borderColor: 'var(--color-accent-ink)', color: 'var(--color-on-accent)' }
+    : { background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-muted)' };
+  const shadow = correct ? 'var(--color-accent-ink)' : 'var(--color-border)';
 
   return (
     <div className="relative">
@@ -706,8 +706,8 @@ function RootLandingQuizOption({ label, index, correct }: { label: string; index
         style={{ background: face.background, borderColor: face.borderColor }}
       >
         <div
-          className="flex h-[1.5em] w-[1.5em] shrink-0 items-center justify-center rounded-[0.375em] border-[0.125em] border-[#1a1a1a]"
-          style={{ background: correct ? 'rgba(255,255,255,0.22)' : '#fff', color: correct ? '#fff' : '#1a1a1a' }}
+          className="flex h-[1.5em] w-[1.5em] shrink-0 items-center justify-center rounded-[0.375em] border-[0.125em] border-[var(--solid-ink)]"
+          style={{ background: correct ? 'rgba(255,255,255,0.22)' : 'var(--color-surface)', color: correct ? 'var(--color-on-accent)' : 'var(--solid-ink)' }}
         >
           <span className="text-[0.6875em] font-bold leading-none">{String.fromCharCode(65 + index)}</span>
         </div>
@@ -723,8 +723,8 @@ function RootLandingQuizOption({ label, index, correct }: { label: string; index
 function RootLandingStepArt({ index }: { index: number }) {
   if (index === 0) {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-[#f5f1e8] to-[#e8e0d0]">
-        <div className="relative flex h-16 w-20 items-center justify-center rounded-xl border-[2px] border-[#1a1a1a] bg-white">
+      <div className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-[var(--color-paper-alt)] to-[var(--color-notebook-rule)]">
+        <div className="relative flex h-16 w-20 items-center justify-center rounded-xl border-[2px] border-[var(--solid-ink)] bg-[var(--color-surface)]">
           <Icon name="photo_camera" size={30} />
         </div>
       </div>
@@ -733,10 +733,10 @@ function RootLandingStepArt({ index }: { index: number }) {
 
   if (index === 1) {
     return (
-      <div className="w-full font-display text-[11px] leading-6 text-[#555]">
-        <p>The pattern was <span className="rounded bg-[var(--color-accent)] px-1 text-white">ubiquitous</span></p>
+      <div className="w-full font-display text-[11px] leading-6 text-[var(--color-ink-soft)]">
+        <p>The pattern was <span className="rounded bg-[var(--color-accent)] px-1 text-[var(--color-on-accent)]">ubiquitous</span></p>
         <p>in modern <span className="rounded bg-[var(--color-accent)]/15 px-1 text-[var(--color-accent-ink)]">architecture</span></p>
-        <p>critics <span className="rounded bg-[var(--color-accent)] px-1 text-white">lamented</span> the loss</p>
+        <p>critics <span className="rounded bg-[var(--color-accent)] px-1 text-[var(--color-on-accent)]">lamented</span> the loss</p>
       </div>
     );
   }
@@ -744,11 +744,11 @@ function RootLandingStepArt({ index }: { index: number }) {
   if (index === 2) {
     return (
       <div className="w-full">
-        <div className="mb-3 font-display text-lg font-black text-[#1a1a1a]">austere</div>
+        <div className="mb-3 font-display text-lg font-black text-[var(--solid-ink)]">austere</div>
         {['厳格な', '簡素な', '派手な'].map((item, itemIndex) => (
           <div
             key={item}
-            className={`mb-1.5 rounded-md border-2 border-[#1a1a1a] px-2 py-1 text-[10px] ${itemIndex === 1 ? 'bg-[var(--color-accent)] text-white' : 'bg-white text-[#1a1a1a]'}`}
+            className={`mb-1.5 rounded-md border-2 border-[var(--solid-ink)] px-2 py-1 text-[10px] ${itemIndex === 1 ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface)] text-[var(--solid-ink)]'}`}
           >
             {String.fromCharCode(65 + itemIndex)}. {item}
           </div>
@@ -761,7 +761,7 @@ function RootLandingStepArt({ index }: { index: number }) {
     <svg className="h-full w-full" viewBox="0 0 240 130" preserveAspectRatio="none" aria-hidden="true">
       <line x1="10" y1="115" x2="230" y2="115" stroke="#1a1a1a" strokeWidth="1.5" />
       <line x1="10" y1="10" x2="10" y2="115" stroke="#1a1a1a" strokeWidth="1.5" />
-      <path d="M10,15 Q 30,55 60,80 T 130,108 T 230,114" stroke="rgba(26,26,26,0.4)" strokeWidth="1.5" strokeDasharray="3 3" fill="none" />
+      <path d="M10,15 Q 30,55 60,80 T 130,108 T 230,114" stroke="color-mix(in srgb, var(--solid-ink) 40%, transparent)" strokeWidth="1.5" strokeDasharray="3 3" fill="none" />
       <path d="M10,15 Q 25,40 40,55 L 42,18 Q 70,40 90,55 L 92,20 Q 130,40 150,55 L 152,22 Q 200,40 230,52" stroke="#15803d" strokeWidth="2" fill="none" />
       <circle cx="42" cy="18" r="2.5" fill="#15803d" />
       <circle cx="92" cy="20" r="2.5" fill="#15803d" />
@@ -784,24 +784,24 @@ function RootLandingPricingCard({
   pro?: boolean;
 }) {
   return (
-    <article className={`relative flex min-h-[430px] flex-col rounded-[20px] border-2 border-[#1a1a1a] p-8 shadow-[4px_6px_0_#1a1a1a] ${pro ? 'bg-[#1a1a1a] text-white' : 'bg-[#faf7f1] text-[#1a1a1a]'}`}>
+    <article className={`relative flex min-h-[430px] flex-col rounded-[20px] border-2 border-[var(--solid-ink)] p-8 shadow-[4px_6px_0_var(--solid-shadow)] ${pro ? 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]' : 'bg-[var(--color-paper)] text-[var(--solid-ink)]'}`}>
       {pro && (
-        <span className="absolute right-6 top-6 rounded-full bg-[var(--color-accent)] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white">
+        <span className="absolute right-6 top-6 rounded-full bg-[var(--color-accent)] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-on-accent)]">
           Pro
         </span>
       )}
-      <p className={`font-mono text-[11px] font-bold uppercase tracking-[0.14em] ${pro ? 'text-white/60' : 'text-[#8a857a]'}`}>{plan}</p>
+      <p className={`font-mono text-[11px] font-bold uppercase tracking-[0.14em] ${pro ? 'text-[var(--color-on-ink)]/60' : 'text-[var(--color-ink-mute)]'}`}>{plan}</p>
       <h3 className="mt-3 font-display text-3xl font-black">{pro ? 'もっと続ける' : 'まず試す'}</h3>
-      <div className={`my-5 flex items-end gap-2 border-b-2 pb-4 ${pro ? 'border-white/25' : 'border-[#1a1a1a]'}`}>
+      <div className={`my-5 flex items-end gap-2 border-b-2 pb-4 ${pro ? 'border-[var(--color-on-ink)]/25' : 'border-[var(--solid-ink)]'}`}>
         <span className="font-display text-6xl font-black leading-none tracking-normal">{price}</span>
         <span className="pb-1 font-display text-base font-bold">円</span>
-        <span className={`ml-auto pb-1 font-mono text-[11px] ${pro ? 'text-white/60' : 'text-[#8a857a]'}`}>/ 月</span>
+        <span className={`ml-auto pb-1 font-mono text-[11px] ${pro ? 'text-[var(--color-on-ink)]/60' : 'text-[var(--color-ink-mute)]'}`}>/ 月</span>
       </div>
-      <p className={`text-sm leading-7 ${pro ? 'text-white/70' : 'text-[#555]'}`}>{description}</p>
+      <p className={`text-sm leading-7 ${pro ? 'text-[var(--color-on-ink)]/70' : 'text-[var(--color-ink-soft)]'}`}>{description}</p>
       <ul className="mt-6 flex flex-col gap-3">
         {features.map((feature) => (
-          <li key={feature} className={`flex gap-3 text-sm leading-6 ${pro ? 'text-white' : 'text-[#1a1a1a]'}`}>
-            <Icon name="arrow_forward" size={16} className="mt-1 text-[var(--color-accent)]" />
+          <li key={feature} className={`flex gap-3 text-sm leading-6 ${pro ? 'text-[var(--color-on-ink)]' : 'text-[var(--solid-ink)]'}`}>
+            <Icon name="arrow_forward" size={16} className="mt-1 text-[var(--color-accent-on-ink)]" />
             <span>{feature}</span>
           </li>
         ))}
@@ -809,7 +809,7 @@ function RootLandingPricingCard({
       <div className="mt-auto pt-8">
         <Link
           href={pro ? '/signup?redirect=/subscription' : '/signup?redirect=/'}
-          className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border-2 border-[#1a1a1a] text-sm font-bold shadow-[2px_3px_0_#1a1a1a] ${pro ? 'bg-white text-[#1a1a1a]' : 'bg-[#1a1a1a] text-white'}`}
+          className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] text-sm font-bold shadow-[2px_3px_0_var(--solid-shadow)] ${pro ? 'bg-[var(--color-surface)] text-[var(--solid-ink)]' : 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]'}`}
         >
           {pro ? '無料登録して始める' : '無料で始める'}
           <Icon name="arrow_forward" size={16} />

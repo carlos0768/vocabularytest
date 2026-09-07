@@ -237,7 +237,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
         <div
           ref={panelRef}
           className={cn(
-            'z-[120] w-[min(340px,calc(100vw-28px))] border-2 border-[var(--solid-ink)] bg-white shadow-[6px_6px_0_var(--solid-ink)]',
+            'z-[120] w-[min(340px,calc(100vw-28px))] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[6px_6px_0_var(--solid-shadow)]',
             isMobile ? 'fixed rounded-[14px]' : 'absolute right-0 top-[calc(100%+10px)] rounded-[12px]',
           )}
           style={isMobile ? { top: mobilePanelPos.top, right: mobilePanelPos.right } : undefined}
@@ -281,7 +281,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                     : null;
                   const profileContent = (
                     <>
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[13px] font-extrabold text-white">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[13px] font-extrabold text-[var(--color-on-ink)]">
                         {avatarLabel}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -318,7 +318,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                             type="button"
                             disabled={Boolean(respondingId)}
                             onClick={() => void respond(item.followId, 'decline')}
-                            className="inline-flex h-8 items-center rounded-[8px] border border-[var(--color-border)] bg-white px-3 text-[11px] font-bold text-[var(--color-muted)] disabled:opacity-50"
+                            className="inline-flex h-8 items-center rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[11px] font-bold text-[var(--color-muted)] disabled:opacity-50"
                           >
                             削除
                           </button>
@@ -326,7 +326,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                             type="button"
                             disabled={Boolean(respondingId)}
                             onClick={() => void respond(item.followId, 'accept')}
-                            className="inline-flex h-8 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[11px] font-bold text-white disabled:opacity-50"
+                            className="inline-flex h-8 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[11px] font-bold text-[var(--color-on-ink)] disabled:opacity-50"
                           >
                             {isResponding && <Icon name="progress_activity" className="animate-spin" size={13} />}
                             承認
