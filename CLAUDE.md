@@ -114,6 +114,7 @@ getRepository(subscriptionStatus, wasPro)
 | Words per wordbook | Unlimited | Unlimited |
 | Scan modes | — | all, circled, eiken, idiom, custom (ユーザ定義プロンプト・単独指定のみ) |
 | Shared wordbook view/import | Yes (login required) | Yes |
+| Official wordbook (公式単語帳) view/import | Yes (list is public; full word list + import require login) | Yes |
 | Shared wordbook publishing | No (Pro-only) | Yes |
 | Shared 語法問題集 view | Yes (login required) | Yes |
 | Shared 語法問題集 import / publishing | No (Pro-only) | Yes |
@@ -176,7 +177,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - Correct -> green highlight, Wrong -> red highlight with correct answer shown
    - SM-2 spaced repetition: tracks easeFactor, intervalDays, repetition, nextReviewAt
    - Daily stats recorded: todayCount, correctCount, streakDays
-4. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync.
+4. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync. After signup, every active official wordbook is browsable from the shared page's 「公式」 tab (`/shared?tab=official` → `/official/[slug]`) and can be imported at any time — the copy carries `imported_from_official_slug`, the same column the signup seed dedupes on. See `docs/official-wordbook-editor.md`.
 5. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
 6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
 7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit

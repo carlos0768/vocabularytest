@@ -146,6 +146,7 @@ test('parseSharedPageTab restores the tab the viewer left from', () => {
   assert.equal(parseSharedPageTab('?tab=groups'), 'groups');
   assert.equal(parseSharedPageTab('tab=grammar'), 'grammar');
   assert.equal(parseSharedPageTab('?q=abc&tab=users'), 'users');
+  assert.equal(parseSharedPageTab('?tab=official'), 'official');
 });
 
 test('parseSharedPageTab falls back to the top tab for missing or unknown values', () => {
@@ -162,4 +163,5 @@ test('buildSharedPageSearch keeps other params and drops the default tab', () =>
   assert.equal(buildSharedPageSearch('?q=abc', 'groups'), '?q=abc&tab=groups');
   assert.equal(buildSharedPageSearch('?q=abc&tab=groups', 'all'), '?q=abc');
   assert.equal(buildSharedPageSearch('?tab=groups', 'all'), '');
+  assert.equal(buildSharedPageSearch('', 'official'), '?tab=official');
 });

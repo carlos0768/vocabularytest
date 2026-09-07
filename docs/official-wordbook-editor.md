@@ -6,6 +6,8 @@
 公式単語帳は `official_wordbooks` / `official_wordbook_words` に保存され、
 サインアップ時に `seedDefaultOfficialWordbooksForUser()` がユーザーの
 `projects` / `words` へコピーする(`src/lib/official-wordbooks/import-default.ts`)。
+サインアップ以降は共有ページの「公式」タブ (`/shared?tab=official` → `/official/[slug]`)
+から本人が任意のタイミングで取り込める(下記「ユーザー側の導線」)。
 エディターはこのソース側だけを編集する。**配布済みのユーザーのコピーは変更されない。**
 
 ## 公開/既定の意味
@@ -83,6 +85,27 @@
 - 1単語帳あたり `MAX_OFFICIAL_WORDBOOK_WORDS` = 2000語まで。挿入は500行ずつに分割して送る。
 - 単語帳を削除すると収録単語も `ON DELETE CASCADE` で消える。配布済みユーザーのコピーは残る。
 
+## ユーザー側の導線
+
+公開中(`is_active`)の公式単語帳は、共有ページ (`/shared`) の「公式」タブに一覧される。
+カードをタップすると `/official/[slug]` で中身を見て、自分の単語帳へ取り込める。
+
+| 状態 | 見えるもの | 取り込み |
+|------|-----------|---------|
+| 未ログイン | 一覧は全件、単語は先頭5語のプレビュー | ログインへ誘導 |
+| 無料プラン | 一覧・単語ともすべて | できる(単語帳50冊の上限内) |
+| Pro | 一覧・単語ともすべて | できる |
+| 解約後(読み取り専用) | 一覧・単語ともすべて | Pro再登録へ誘導 |
+
+- 一覧 (`/api/official-wordbooks`) はタイトル・英検レベル・語数だけを返すのでログイン不要。
+  単語の全文 (`/api/official-wordbooks/[slug]`) はログイン必須で、未ログインには
+  先頭5語だけを返して `previewOnly: true` を立てる(共有単語帳のプレビューと同じ扱い)。
+- `official_wordbooks` の SELECT ポリシーは `authenticated` 限定なので、どちらの API も
+  service-role client で読む(共有単語帳 discover・語法問題集の公開一覧と同じ方針)。
+- 取り込みは共有単語帳と同じくクライアント側のリポジトリ (`getRepository`) で行い、
+  作成した `projects` 行に `imported_from_official_slug` を残す。サインアップ時の配布も
+  同じ列で重複を判定するので、既に配られている単語帳は「追加済み」と表示される。
+
 ## 実装構成(エンジニア向け)
 
 | パス | 役割 |
@@ -96,6 +119,11 @@
 | `src/lib/official-wordbooks/scan.ts` | スキャン結果の整形・重複排除・不足フィールドの生成指示 |
 | `src/lib/official-wordbooks/editor.ts` | Zodスキーマ・行マッパー・TSVパーサー・AIプロンプト |
 | `src/lib/official-wordbooks/import-default.ts` | サインアップ時の配布(既存・このエディターは書き込み側のみ) |
+| `src/lib/official-wordbooks/catalog.ts` | ユーザー向けカタログ(公開一覧・1冊+単語の取得) |
+| `src/app/api/official-wordbooks/route.ts` | 公開一覧(GET・ログイン不要) |
+| `src/app/api/official-wordbooks/[slug]/route.ts` | 1冊+単語(GET・未ログインは先頭5語のみ) |
+| `src/app/official/[slug]/page.tsx` | 閲覧・取り込みページ |
+| `src/app/shared/SharedPageClient.tsx` / `src/components/desktop/DesktopShared.tsx` | 共有ページの「公式」タブ |
 | `supabase/migrations/20260706082447_restore_dedicated_official_wordbooks.sql` | 対象テーブル(新規マイグレーション不要) |
 
 - 認可は既存の `requireAdminSecret`(`x-admin-secret` ヘッダ)。テーブルの書き込みRLSは
@@ -107,4 +135,6 @@
 - テスト: `src/lib/official-wordbooks/editor.test.ts`(スキーマ・パーサー・マッパー)、
   `src/lib/official-wordbooks/scan.test.ts`(スキャン結果の整形・重複排除・補完)、
   `src/app/api/ops/official-wordbooks/route.security.test.ts` および
-  `src/app/api/ops/official-wordbooks/scan/route.security.test.ts`(認可とペイロード検証)。
+  `src/app/api/ops/official-wordbooks/scan/route.security.test.ts`(認可とペイロード検証)、
+  `src/lib/official-wordbooks/catalog.test.ts`(公開一覧の絞り込み・並び順・検索・プレビュー)、
+  `src/app/api/official-wordbooks/route.test.ts`(一覧APIと、未ログイン時の語数制限)。

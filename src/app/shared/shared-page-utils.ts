@@ -103,9 +103,9 @@ export function collectMetricProjectIds(
  */
 export const SHARED_TAB_PARAM = 'tab';
 
-export type SharedPageTab = 'all' | 'users' | 'projects' | 'grammar' | 'groups';
+export type SharedPageTab = 'all' | 'users' | 'projects' | 'official' | 'grammar' | 'groups';
 
-const SHARED_PAGE_TABS: readonly SharedPageTab[] = ['all', 'users', 'projects', 'grammar', 'groups'];
+const SHARED_PAGE_TABS: readonly SharedPageTab[] = ['all', 'users', 'projects', 'official', 'grammar', 'groups'];
 
 /** `?tab=` を読む。未知の値や欠落は 'all'（従来どおりのトップ）に倒す。 */
 export function parseSharedPageTab(search: string | null | undefined): SharedPageTab {
