@@ -17,7 +17,9 @@ import {
   type OfficialWordbookSummary,
   type OfficialWordbookWordInput,
 } from '@/lib/official-wordbooks/editor';
+import { appendScannedWords } from '@/lib/official-wordbooks/scan';
 import { useAdminSecret } from '../use-admin-secret';
+import { OfficialWordbookScanPanel } from './scan-panel';
 
 // 公式単語帳エディター。単語は表形式で1語ずつ編集でき、スプレッドシートや
 // AIの出力はタブ区切りテキストとして一括で流し込める。
@@ -377,6 +379,33 @@ export default function OpsOfficialWordbooksPage() {
     setBulkOpen(false);
   };
 
+  // カメラスキャンの結果を表に流し込む。「末尾に追加」は既に表にある英単語を
+  // 落として重複を作らない(保存時にユニーク制約で丸ごと失敗するのを防ぐ)。
+  const applyScan = (scanned: OfficialWordbookWordInput[], mode: 'replace' | 'append') => {
+    if (mode === 'replace') {
+      setRows(scanned.length > 0 ? scanned.map(toRow) : [emptyRow()]);
+      setNotice(`スキャンした${scanned.length}語を読み込みました`);
+      return;
+    }
+
+    const merged = appendScannedWords(wordsState.words, scanned);
+    setRows((current) => {
+      const kept = current.filter((row) => !isBlankRow(row));
+      const addedWords = merged.words.slice(wordsState.words.length);
+      return [...kept, ...addedWords.map(toRow)];
+    });
+
+    const skipped = [
+      merged.duplicates > 0 ? `重複${merged.duplicates}語` : '',
+      merged.overflow > 0 ? `上限超過${merged.overflow}語` : '',
+    ].filter(Boolean).join('・');
+    setNotice(
+      skipped
+        ? `スキャンした${merged.added}語を追加しました(${skipped}は除外)`
+        : `スキャンした${merged.added}語を追加しました`,
+    );
+  };
+
   const copyText = async (text: string, message: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -556,6 +585,13 @@ export default function OpsOfficialWordbooksPage() {
             </p>
           )}
         </section>
+
+        {/* カメラスキャン */}
+        <OfficialWordbookScanPanel
+          adminSecret={adminSecret}
+          defaultEikenLevel={eikenLevel}
+          onApply={applyScan}
+        />
 
         {/* 単語エディター */}
         <section className="rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4">

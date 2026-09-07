@@ -27,6 +27,7 @@
 |-----------|------|
 | 認証 | `ADMIN_SECRET` 入力、一覧読み込み、AIプロンプトのコピー |
 | メタ情報 | タイトル / slug / 説明 / 英検レベル / ソースラベル / アイコン / 並び順 / 既定フラグ |
+| カメラスキャン | 紙面を撮影/画像・PDFを選択してAI抽出。読み取った単語を表へ流し込む(置き換え / 末尾に追加) |
 | 収録単語 | 表形式エディター(1行1語)。行の追加・削除・並べ替え、詳細列(発音・品詞)の表示切替 |
 | 一括貼り付け | タブ区切りテキストを読み込み(置き換え / 末尾に追加)。行番号つきで検証エラーを表示 |
 | 保存 | 「非公開で保存」= `is_active=false`、「保存して公開」= `is_active=true` |
@@ -45,6 +46,31 @@
 - 「AIプロンプトをコピー」ボタンで、この形式で出力させるプロンプト
   (`OFFICIAL_WORDBOOK_AUTHORING_PROMPT`)をコピーできる。
 - 「TSVをコピー」で現在の表をこの形式に書き出せる(外部編集・バックアップ用)。
+
+## カメラスキャンで単語を読み込む
+
+紙の単語帳・プリント・PDFを撮影(または選択)すると、AIが英単語と日本語訳を読み取って
+表エディターに流し込む。画像1枚につき1リクエストで、DBには何も書かない
+(保存は従来どおり「非公開で保存」/「保存して公開」で行う)。
+
+| 設定 | 内容 |
+|------|------|
+| 抽出モード | `all`(全単語) / `circled`(丸囲み) / `idiom`(熟語) / `eiken`(英検レベル。レベル指定が必須) |
+| 英検レベル | メタ情報で選んだレベルが初期値。`all` / `circled` では絞り込みとして働く |
+| 不足分をAIで補完 | ダミー選択肢・例文・発音・品詞のうち**空の項目だけ**を生成する。読み取れた値は上書きしない |
+
+- 画像は最大 `MAX_OFFICIAL_WORDBOOK_SCAN_IMAGES` = 20枚。HEIC変換・圧縮・PDFのページ分割は
+  ユーザー向けスキャンと同じ `src/lib/image-utils.ts` を使う(Vercelのボディサイズ制限対策)。
+- 1枚が失敗しても残りの画像は解析を続け、最初の失敗理由を注意書きとして表示する。
+- 画像をまたいだ重複、および「末尾に追加」時の既存行との重複は英単語キー
+  (`lower(btrim(english))`)で潰す。ユニーク制約違反で保存が丸ごと失敗するのを防ぐため。
+- 訳が取れなかった単語は `backfillMissingJapaneseTranslationsWithMetadata()` でAI翻訳を試みる。
+- 熟語(複数語)は `generateQuizContentForWords()` の対象外なので、ダミー選択肢は空のまま残る。
+  補完後も空の項目は「ダミー選択肢が空の単語がN語あります」のように件数で警告する。
+
+**ユーザー向けスキャン(`/api/extract`)とは別ルートで、コイン消費もPro判定も無い。**
+`ADMIN_SECRET` を持つオペレーター専用の経路であり、この2本を統合すると
+コイン消費・課金判定をバイパスする経路を作ることになるので統合しないこと。
 
 ## 保存時の注意
 
@@ -65,6 +91,9 @@
 | `src/app/api/ops/official-wordbooks/route.ts` | 一覧(GET)・作成(POST) |
 | `src/app/api/ops/official-wordbooks/[id]/route.ts` | 詳細(GET)・更新/公開切替(PATCH)・削除(DELETE) |
 | `src/app/api/ops/official-wordbooks/shared.ts` | 単語の挿入・総入れ替えの共通処理 |
+| `src/app/ops/official-wordbooks/scan-panel.tsx` | カメラスキャンUI(撮影・プレビュー・進捗・流し込み) |
+| `src/app/api/ops/official-wordbooks/scan/route.ts` | 画像1枚のAI抽出(POST)。DBには書き込まない |
+| `src/lib/official-wordbooks/scan.ts` | スキャン結果の整形・重複排除・不足フィールドの生成指示 |
 | `src/lib/official-wordbooks/editor.ts` | Zodスキーマ・行マッパー・TSVパーサー・AIプロンプト |
 | `src/lib/official-wordbooks/import-default.ts` | サインアップ時の配布(既存・このエディターは書き込み側のみ) |
 | `supabase/migrations/20260706082447_restore_dedicated_official_wordbooks.sql` | 対象テーブル(新規マイグレーション不要) |
@@ -76,4 +105,6 @@
 - バルクinsertの行は `buildOfficialWordbookWordRows()` で全行同じキー集合に揃える
   (PostgREST の PGRST102 "All object keys must match" 対策。`import-default.ts` と同じ理由)。
 - テスト: `src/lib/official-wordbooks/editor.test.ts`(スキーマ・パーサー・マッパー)、
-  `src/app/api/ops/official-wordbooks/route.security.test.ts`(認可とペイロード検証)。
+  `src/lib/official-wordbooks/scan.test.ts`(スキャン結果の整形・重複排除・補完)、
+  `src/app/api/ops/official-wordbooks/route.security.test.ts` および
+  `src/app/api/ops/official-wordbooks/scan/route.security.test.ts`(認可とペイロード検証)。
