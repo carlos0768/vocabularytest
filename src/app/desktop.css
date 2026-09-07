@@ -420,7 +420,8 @@
 .ds-shared-tags .lb .material-symbols-outlined { font-size: 14px; }
 .ds-shared-tags .ds-chip .n { font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); }
 .ds-shared-tags .ds-chip.active .n { color: rgba(255,255,255,0.7); }
-.ds-cat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-top: 12px; }
+/* 共有ページのカテゴリタイル。公式を足して5枚になったので1行に収める。 */
+.ds-cat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding-top: 12px; }
 .ds-cat-card {
   position: relative; height: 84px; overflow: hidden; border-radius: 12px; border: 2px solid var(--solid-ink);
   padding: 12px; color: #fff; cursor: pointer; text-align: left; font-family: inherit; display: block; width: 100%;
