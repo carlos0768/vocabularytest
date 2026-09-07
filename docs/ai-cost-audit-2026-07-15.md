@@ -14,6 +14,7 @@
 - **M1 対応済み**: `enrich-manual` はlexiconマスター優先参照+AI生成分のfill-if-empty書き戻しに変更。マスター完全ヒット時はAIコールなし。
 - **L2 対応済み**: 訳生成プロンプトを多義語対応（senses形式・最大3件）に変更。resolverが全senseを `lexicon_senses` へinsert-onlyで保存。既存の `translateWithAI`/`translateWordsWithAI` はprimary返却の互換ラッパーとして維持。
 - **L1 手順書作成済み**: `docs/runbook-lexicon-ai-purge.md`（手動実行SQL。**L2デプロイ確認後**に実行。夜間ジョブ3本の停止/再開手順込み — 夜間ジョブはVaultシークレット設定済みで現在稼働中であることを確認済み）。
+- **S6 対応済み（2026-09-07）**: マスター参照の**見出し語フォールバック**を追加（`src/lib/lexicon/master-first-scan.ts` + `supabase/migrations/20260907120000_lexicon_headword_fallback_lookup.sql`）。従来 `get_lexicon_entries_by_keys` は (見出し語, 品詞) の完全一致でしか引けず、抽出AIが `partOfSpeechTags` を返さなかった語（`resolvePrimaryLexiconPos([])` → `'other'`）はマスターに同じ語があってもミス扱いになり、訳語・例文・発音記号・誤答選択肢をすべてAIで作り直していた。完全一致で外した語だけを対象に second pass で見出し語だけ引き直し、**片側の品詞が `'other'`（不明）のときに限り**流用する（双方が別品詞を明言している場合は別語義なので流用しない）。あわせてマスターの品詞で `partOfSpeechTags` を埋めるため、保存後の語彙解決ジョブの品詞判定AIコールも減り、次回スキャンからは完全一致で当たる。`/api/extract`・`/api/scan-jobs/process`・`/api/words/create` の3経路すべてに効く。フォールバック照会が失敗してもAI生成に落ちるだけでスキャンは止めない。ヒット数は `metrics.masterHeadwordFallbackHitCount` で観測できる。
 - **フェーズ3（未着手）**: M3/M4（認証・コイン判定の前倒し）、M5（in-flight重複排除）、S4（語源解析バッチ化）、M6/S5（投機的prefill整理）、ヒント検証プロンプトの複数sense対応。
 
 ## 優先度サマリー
