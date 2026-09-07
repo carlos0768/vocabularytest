@@ -92,3 +92,38 @@ export function collectMetricProjectIds(
 
   return Array.from(projectIds);
 }
+
+/**
+ * 共有ページのタブ（カテゴリ）を URL に残すためのヘルパー。
+ *
+ * タブが React の state だけに乗っていた頃は、グループ検索から開いたグループ
+ * ページから戻ると `/shared` が既定の 'all'（共有単語帳のトップ）で描き直され、
+ * 「グループ検索まで戻れない」状態になっていた。タブを `?tab=` に写しておけば
+ * 戻ったときに同じタブを復元できる。
+ */
+export const SHARED_TAB_PARAM = 'tab';
+
+export type SharedPageTab = 'all' | 'users' | 'projects' | 'grammar' | 'groups';
+
+const SHARED_PAGE_TABS: readonly SharedPageTab[] = ['all', 'users', 'projects', 'grammar', 'groups'];
+
+/** `?tab=` を読む。未知の値や欠落は 'all'（従来どおりのトップ）に倒す。 */
+export function parseSharedPageTab(search: string | null | undefined): SharedPageTab {
+  if (!search) return 'all';
+  const value = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get(SHARED_TAB_PARAM);
+  return SHARED_PAGE_TABS.includes(value as SharedPageTab) ? (value as SharedPageTab) : 'all';
+}
+
+/**
+ * 現在の URL のクエリにタブだけを差し替えたものを返す（他のクエリは保つ）。
+ * 'all' は既定なので付けない＝ `/shared` のままにする。
+ */
+export function buildSharedPageSearch(search: string | null | undefined, tab: SharedPageTab): string {
+  const params = new URLSearchParams(
+    !search ? '' : search.startsWith('?') ? search.slice(1) : search,
+  );
+  if (tab === 'all') params.delete(SHARED_TAB_PARAM);
+  else params.set(SHARED_TAB_PARAM, tab);
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}

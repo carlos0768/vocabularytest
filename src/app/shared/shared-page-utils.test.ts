@@ -4,9 +4,11 @@ import test from 'node:test';
 import type { SharedProjectCard, SharedUserSummary } from '@/lib/shared-projects/types';
 import {
   appendDiscoverPage,
+  buildSharedPageSearch,
   collectMetricProjectIds,
   mergeMetricsIntoCards,
   mergeUniqueProjectCards,
+  parseSharedPageTab,
   removeProjectFromDiscover,
 } from './shared-page-utils';
 import {
@@ -138,4 +140,26 @@ test('parseSharedTagsInput only accepts hash-prefixed tags', () => {
 test('normalizeSharedTags keeps storage markerless while display uses hash', () => {
   assert.deepEqual(normalizeSharedTags(['/TOEIC', '#熟語', '高校英語']), ['TOEIC', '熟語', '高校英語']);
   assert.equal(formatSharedTag('/TOEIC'), '#TOEIC');
+});
+
+test('parseSharedPageTab restores the tab the viewer left from', () => {
+  assert.equal(parseSharedPageTab('?tab=groups'), 'groups');
+  assert.equal(parseSharedPageTab('tab=grammar'), 'grammar');
+  assert.equal(parseSharedPageTab('?q=abc&tab=users'), 'users');
+});
+
+test('parseSharedPageTab falls back to the top tab for missing or unknown values', () => {
+  assert.equal(parseSharedPageTab(''), 'all');
+  assert.equal(parseSharedPageTab(null), 'all');
+  assert.equal(parseSharedPageTab('?tab='), 'all');
+  assert.equal(parseSharedPageTab('?tab=bogus'), 'all');
+  assert.equal(parseSharedPageTab('?q=groups'), 'all');
+});
+
+test('buildSharedPageSearch keeps other params and drops the default tab', () => {
+  assert.equal(buildSharedPageSearch('', 'groups'), '?tab=groups');
+  assert.equal(buildSharedPageSearch('?tab=users', 'groups'), '?tab=groups');
+  assert.equal(buildSharedPageSearch('?q=abc', 'groups'), '?q=abc&tab=groups');
+  assert.equal(buildSharedPageSearch('?q=abc&tab=groups', 'all'), '?q=abc');
+  assert.equal(buildSharedPageSearch('?tab=groups', 'all'), '');
 });
