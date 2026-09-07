@@ -408,6 +408,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       wordCount: extractedWords.length,
       masterHitCount: resolved?.metrics.masterHitCount ?? 0,
       masterTranslationHitCount: resolved?.metrics.masterTranslationHitCount ?? 0,
+      masterHeadwordFallbackHitCount: resolved?.metrics.masterHeadwordFallbackHitCount ?? 0,
       aiJapaneseCount,
       masterLookupKeyCount: resolved?.metrics.lookupKeyCount ?? 0,
       masterLookupElapsedMs: resolved?.metrics.lookupElapsedMs ?? 0,
@@ -477,14 +478,16 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
         // ジャンル指定で個人向けに生成した例文は共有マスターには書き込まない。
         try {
           if (exampleGenres.length === 0 && resolved?.lexiconEntries && resolved.lexiconEntries.length > 0) {
-            const lexiconMap = new Map(resolved.lexiconEntries.map(le => [le.headword.toLowerCase(), le.id]));
+            const knownLexiconIds = new Set(resolved.lexiconEntries.map((le) => le.id));
             const lexiconUpdates = extractedWords
               .filter((w): w is typeof w & { english: string; exampleSentence: string } => {
                 return Boolean(w.exampleSentence && w.english);
               })
               .map((w) => {
-                const lexId = lexiconMap.get(String(w.english).toLowerCase());
-                if (!lexId) return null;
+                // 語に紐づいたマスター行そのものへ書き戻す。見出し語で引き直すと
+                // 同じ見出し語の別品詞の行に例文を書いてしまうことがある。
+                const lexId = (w as { lexiconEntryId?: string }).lexiconEntryId;
+                if (!lexId || !knownLexiconIds.has(lexId)) return null;
                 return {
                   lexiconEntryId: lexId,
                   exampleSentence: w.exampleSentence,
