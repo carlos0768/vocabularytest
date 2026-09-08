@@ -11,7 +11,7 @@ import type { CachedStats } from '@/lib/stats-cache';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 
 const HEAT_COLORS = [
-  'rgba(26,26,26,0.07)',
+  'color-mix(in srgb, var(--solid-ink) 7%, transparent)',
   'rgba(61,122,78,0.35)',
   'rgba(61,122,78,0.7)',
   'var(--color-success)',
@@ -205,7 +205,7 @@ export function ProfileView({
               {(planLabel || joined) && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                   {planLabel && (
-                    <span className="inline-flex items-center gap-1 rounded-[5px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-white">
+                    <span className="inline-flex items-center gap-1 rounded-[5px] bg-[var(--solid-ink)] px-[7px] py-[2px] font-mono text-[9px] font-bold tracking-[0.05em] text-[var(--color-on-ink)]">
                       <Icon name="auto_awesome" size={10} />
                       {planLabel}
                     </span>
@@ -285,7 +285,7 @@ export function ProfileView({
                           className="w-full rounded-[3px] border border-[var(--solid-ink)]"
                           style={{
                             height: h,
-                            background: isToday ? 'var(--solid-ink)' : 'rgba(26,26,26,0.85)',
+                            background: isToday ? 'var(--solid-ink)' : 'color-mix(in srgb, var(--solid-ink) 85%, transparent)',
                             boxShadow: isToday ? '2px 2px 0 var(--color-accent)' : 'none',
                           }}
                         />
@@ -341,12 +341,12 @@ export function ProfileView({
                 <div className="mt-2.5 flex overflow-hidden rounded-[4px] border-2 border-[var(--solid-ink)]" style={{ height: 10 }}>
                   <div style={{ flex: mastered, background: 'var(--color-success)' }} />
                   <div style={{ flex: review, background: 'var(--color-warning)' }} />
-                  <div style={{ flex: newWords, background: 'rgba(26,26,26,0.15)' }} />
+                  <div style={{ flex: newWords, background: 'color-mix(in srgb, var(--solid-ink) 15%, transparent)' }} />
                 </div>
                 <div className="mt-2 flex justify-between font-mono text-[10px]">
                   <BreakLeg color="var(--color-success)" label="習得" v={mastered} />
                   <BreakLeg color="var(--color-warning)" label="学習中" v={review} />
-                  <BreakLeg color="rgba(26,26,26,0.15)" label="未学習" v={newWords} />
+                  <BreakLeg color="color-mix(in srgb, var(--solid-ink) 15%, transparent)" label="未学習" v={newWords} />
                 </div>
               </SolidPanel>
             </div>
@@ -458,7 +458,7 @@ function DesktopProfileView({
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                   {planLabel && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 5, background: 'var(--solid-ink)', padding: '2px 7px', fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', color: '#fff' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 5, background: 'var(--solid-ink)', padding: '2px 7px', fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', color: 'var(--color-on-ink)' }}>
                       <Icon name="auto_awesome" size={10} />
                       {planLabel}
                     </span>
@@ -467,7 +467,7 @@ function DesktopProfileView({
                 </div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', overflow: 'hidden', borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', overflow: 'hidden', borderRadius: 14, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)' }}>
               <DesktopCountCell href={followingHref} label="フォロー中" value={counts?.following} />
               <DesktopCountCell href={followersHref} label="フォロワー" value={counts?.followers} border />
               <DesktopCountCell href={friendsHref} label="フレンド" value={counts?.friends} border />
@@ -497,7 +497,7 @@ function DesktopProfileView({
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
                 {kpis.map((kpi) => (
-                  <div key={kpi.label} style={{ borderRadius: 12, border: '2px solid var(--solid-ink)', background: '#fff', padding: 12 }}>
+                  <div key={kpi.label} style={{ borderRadius: 12, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)', padding: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: kpi.iconColor }}>
                       {kpi.icon && <Icon name={kpi.icon} size={13} filled />}
                       <span className="ds-eyebrow" style={{ fontSize: 9 }}>{kpi.label}</span>
@@ -514,7 +514,7 @@ function DesktopProfileView({
 
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, paddingTop: 12 }}>
                 {/* Weekly bars */}
-                <div style={{ borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+                <div style={{ borderRadius: 14, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)', padding: 14 }}>
                   <div style={{ marginBottom: 12, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                     <div>
                       <div className="ds-eyebrow">WEEKLY</div>
@@ -541,7 +541,7 @@ function DesktopProfileView({
                               height: h,
                               borderRadius: 3,
                               border: '1px solid var(--solid-ink)',
-                              background: isToday ? 'var(--solid-ink)' : 'rgba(26,26,26,0.85)',
+                              background: isToday ? 'var(--solid-ink)' : 'color-mix(in srgb, var(--solid-ink) 85%, transparent)',
                               boxShadow: isToday ? '2px 2px 0 var(--color-accent)' : 'none',
                             }}
                           />
@@ -555,7 +555,7 @@ function DesktopProfileView({
                 </div>
 
                 {/* Heatmap */}
-                <div style={{ borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+                <div style={{ borderRadius: 14, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)', padding: 14 }}>
                   <div style={{ marginBottom: 10, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                     <div>
                       <div className="ds-eyebrow">HEATMAP</div>
@@ -586,7 +586,7 @@ function DesktopProfileView({
               </div>
 
               {/* Breakdown */}
-              <div style={{ marginTop: 14, borderRadius: 14, border: '2px solid var(--solid-ink)', background: '#fff', padding: 14 }}>
+              <div style={{ marginTop: 14, borderRadius: 14, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)', padding: 14 }}>
                 <div className="ds-eyebrow" style={{ marginBottom: 8 }}>BREAKDOWN</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                   <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, lineHeight: 1, color: 'var(--color-ink)' }}>{masteryPercent}</span>
@@ -596,12 +596,12 @@ function DesktopProfileView({
                 <div style={{ marginTop: 10, display: 'flex', height: 10, overflow: 'hidden', borderRadius: 4, border: '2px solid var(--solid-ink)' }}>
                   <div style={{ flex: mastered || 0.0001, background: 'var(--color-success)' }} />
                   <div style={{ flex: review || 0.0001, background: 'var(--color-warning)' }} />
-                  <div style={{ flex: newWords || 0.0001, background: 'rgba(26,26,26,0.15)' }} />
+                  <div style={{ flex: newWords || 0.0001, background: 'color-mix(in srgb, var(--solid-ink) 15%, transparent)' }} />
                 </div>
                 <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 10, maxWidth: 420 }}>
                   <BreakLeg color="var(--color-success)" label="習得" v={mastered} />
                   <BreakLeg color="var(--color-warning)" label="学習中" v={review} />
-                  <BreakLeg color="rgba(26,26,26,0.15)" label="未学習" v={newWords} />
+                  <BreakLeg color="color-mix(in srgb, var(--solid-ink) 15%, transparent)" label="未学習" v={newWords} />
                 </div>
               </div>
             </>
@@ -701,7 +701,7 @@ function HeatCell({ level, size = 13 }: { level: number; size?: number }) {
         height: size,
         borderRadius: 2.5,
         background: HEAT_COLORS[level],
-        border: level > 0 ? '1px solid rgba(26,26,26,0.12)' : 'none',
+        border: level > 0 ? '1px solid color-mix(in srgb, var(--solid-ink) 12%, transparent)' : 'none',
         flexShrink: 0,
       }}
     />

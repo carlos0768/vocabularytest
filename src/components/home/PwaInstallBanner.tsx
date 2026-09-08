@@ -76,8 +76,10 @@ export function PwaInstallBanner() {
           <div
             className="relative overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] px-4 pb-4 pt-4"
             style={{
+              // Mixed into the surface so the wash follows the theme instead of
+              // staying a pale mint card on a dark page.
               background:
-                'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 50%, #fefce8 100%)',
+                'linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 6%, var(--color-surface)) 0%, color-mix(in srgb, var(--color-accent) 3%, var(--color-surface)) 50%, color-mix(in srgb, var(--color-warning) 6%, var(--color-surface)) 100%)',
             }}
           >
             <div
@@ -93,13 +95,13 @@ export function PwaInstallBanner() {
               type="button"
               onClick={dismiss}
               aria-label="閉じる"
-              className="absolute right-2.5 top-2.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--solid-ink)]/30 bg-white/80 text-[var(--solid-ink)] backdrop-blur-sm"
+              className="absolute right-2.5 top-2.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--solid-ink)]/30 bg-[var(--color-surface)]/80 text-[var(--solid-ink)] backdrop-blur-sm"
             >
               <Icon name="close" size={13} />
             </button>
 
             <div className="flex items-start gap-3.5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
                 <Icon name="install_mobile" size={22} className="text-[var(--color-accent)]" />
               </div>
               <div className="min-w-0 flex-1 pr-6">
@@ -113,7 +115,7 @@ export function PwaInstallBanner() {
             </div>
 
             {variant === 'ios' && (
-              <div className="mt-3 rounded-[10px] border border-dashed border-[var(--solid-ink)]/20 bg-white/60 px-3 py-2.5 text-[11px] leading-[1.6] text-[var(--solid-ink)]">
+              <div className="mt-3 rounded-[10px] border border-dashed border-[var(--solid-ink)]/20 bg-[var(--color-surface)]/60 px-3 py-2.5 text-[11px] leading-[1.6] text-[var(--solid-ink)]">
                 <div className="flex items-start gap-2">
                   <Icon
                     name="ios_share"
@@ -133,14 +135,14 @@ export function PwaInstallBanner() {
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[12px] font-bold text-[var(--solid-ink)]"
+                  className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[12px] font-bold text-[var(--solid-ink)]"
                 >
                   あとで
                 </button>
                 <button
                   type="button"
                   onClick={handleInstall}
-                  className="flex-[1.4] rounded-[10px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-3 py-2.5 text-[12px] font-bold text-white shadow-[2px_2px_0_var(--color-accent-ink)]"
+                  className="flex-[1.4] rounded-[10px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-3 py-2.5 text-[12px] font-bold text-[var(--color-on-accent)] shadow-[2px_2px_0_var(--color-accent-ink)]"
                 >
                   <span className="flex items-center justify-center gap-1.5">
                     <Icon name="download" size={14} />

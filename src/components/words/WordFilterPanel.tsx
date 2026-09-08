@@ -90,8 +90,8 @@ function Chip({
       aria-pressed={active}
       className="max-w-full shrink-0 rounded-full px-[11px] py-[6px] text-[11.5px] font-bold leading-none transition-colors"
       style={{
-        background: active ? 'var(--solid-ink)' : '#fff',
-        color: active ? '#fff' : 'var(--solid-ink)',
+        background: active ? 'var(--solid-ink)' : 'var(--color-surface)',
+        color: active ? 'var(--color-on-ink)' : 'var(--solid-ink)',
         border: `1.5px solid ${active ? 'var(--solid-ink)' : 'var(--color-border)'}`,
       }}
     >
@@ -149,7 +149,7 @@ function ClearButton({ onClear, activeCount }: Pick<WordFilterPanelProps, 'onCle
       type="button"
       onClick={onClear}
       disabled={activeCount === 0}
-      className="rounded-full border-[1.5px] border-[var(--color-border)] bg-white px-3 py-1 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+      className="rounded-full border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
     >
       条件をクリア
     </button>
@@ -348,7 +348,7 @@ export function WordFilterSheet({
         aria-label="閉じる"
         onClick={onClose}
         className="absolute inset-0 cursor-default"
-        style={{ background: 'rgba(26,26,26,0.45)' }}
+        style={{ background: 'color-mix(in srgb, var(--solid-ink) 45%, transparent)' }}
       />
       <div className="absolute inset-x-0 bottom-0 flex max-h-[86dvh] flex-col rounded-t-2xl border-t-2 border-x-2 border-[var(--solid-ink)] bg-[var(--color-background)]">
         <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
@@ -359,7 +359,7 @@ export function WordFilterSheet({
               type="button"
               onClick={onClose}
               aria-label="閉じる"
-              className="flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] border-[var(--color-border)] bg-white text-[var(--solid-ink)]"
+              className="flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
             >
               <Icon name="close" size={16} />
             </button>
@@ -371,13 +371,13 @@ export function WordFilterSheet({
         </div>
 
         <div
-          className="border-t border-[var(--color-border)] bg-white px-4 pt-3"
+          className="border-t border-[var(--color-border)] bg-[var(--color-surface)] px-4 pt-3"
           style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom))' }}
         >
           <button
             type="button"
             onClick={onClose}
-            className="flex h-11 w-full items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13.5px] font-bold text-white"
+            className="flex h-11 w-full items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13.5px] font-bold text-[var(--color-on-ink)]"
           >
             {resultCount}語を表示
           </button>

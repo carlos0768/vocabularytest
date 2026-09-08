@@ -843,7 +843,7 @@ export default function QuizPage() {
           <header className="sticky top-0 flex-shrink-0 p-4">
             <button
               onClick={backToProject}
-              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             >
               <Icon name="close" size={24} />
             </button>
@@ -872,7 +872,7 @@ export default function QuizPage() {
           <header className="sticky top-0 flex-shrink-0 p-4">
             <button
               onClick={backToProject}
-              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             >
               <Icon name="close" size={24} />
             </button>
@@ -929,7 +929,7 @@ export default function QuizPage() {
           <header className="sticky top-0 flex-shrink-0 p-4">
             <button
               onClick={backToProject}
-              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             >
               <Icon name="close" size={24} />
             </button>
@@ -969,7 +969,7 @@ export default function QuizPage() {
 
                 {/* Direction toggle */}
                 <div className="flex items-center justify-center">
-                  <div className="inline-flex rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-1 shadow-[2px_3px_0_var(--solid-ink)]">
+                  <div className="inline-flex rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-1 shadow-[2px_3px_0_var(--solid-shadow)]">
                     <button
                       onClick={() => setQuizDirection('en-to-ja')}
                       className={`rounded-[10px] px-4 py-2 text-sm font-bold transition-colors ${
@@ -1020,7 +1020,7 @@ export default function QuizPage() {
           <header className="sticky top-0 p-4">
             <button
               onClick={backToProject}
-              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             >
               <Icon name="close" size={24} />
             </button>
@@ -1029,7 +1029,7 @@ export default function QuizPage() {
           {/* Results */}
           <main className="flex-1 flex flex-col items-center justify-center p-6">
             <div className="solid-panel w-full max-w-sm p-8 text-center animate-fade-in-up">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-success-light)] shadow-[3px_4px_0_var(--solid-ink)]">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-success-light)] shadow-[3px_4px_0_var(--solid-shadow)]">
                 <Icon name="emoji_events" size={40} className="text-[var(--color-success)]" />
               </div>
 
@@ -1106,7 +1106,7 @@ export default function QuizPage() {
           <div className="mx-auto w-full max-w-lg flex items-center gap-4">
             <button
               onClick={backToProject}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             >
               <Icon name="close" size={24} />
             </button>
@@ -1125,7 +1125,7 @@ export default function QuizPage() {
           {/* Mode badges - iOS style */}
           <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
             <span
-              className={`rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] px-3 py-1 text-xs font-black shadow-[2px_3px_0_var(--solid-ink)] ${
+              className={`rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] px-3 py-1 text-xs font-black shadow-[2px_3px_0_var(--solid-shadow)] ${
                 isActiveVocab
                   ? 'bg-[var(--color-accent-blue-light)] text-[var(--color-accent-blue)]'
                   : 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]'
@@ -1241,7 +1241,7 @@ export default function QuizPage() {
               <button
                 onClick={moveToNext}
                 disabled={isTransitioning}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-foreground)] py-4 text-base font-bold text-white shadow-[2px_3px_0_var(--solid-ink)] disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-foreground)] py-4 text-base font-bold text-white shadow-[2px_3px_0_var(--solid-shadow)] disabled:opacity-50"
               >
                 次へ
                 <Icon name="chevron_right" size={20} />

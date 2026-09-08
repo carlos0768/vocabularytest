@@ -74,18 +74,18 @@ export function GroupInviteShareSheet({
       {/* モバイル: ボトムシート / デスクトップ(lg): 中央モーダル */}
       <div className="absolute inset-x-0 bottom-0 flex justify-center lg:inset-0 lg:items-center lg:p-6">
         <div
-          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:animate-fade-in lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-ink)]"
+          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] lg:animate-fade-in lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-shadow)]"
           style={{ maxHeight: 'min(82vh, 680px)' }}
         >
           <div className="mb-2.5 flex justify-center lg:hidden">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+            <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">SHARE GROUP</div>
               <div className="mt-0.5 truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">{group.name}を友達に広めよう</div>
             </div>
-            <button type="button" onClick={onClose} aria-label="閉じる" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+            <button type="button" onClick={onClose} aria-label="閉じる" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]">
               <Icon name="close" size={14} />
             </button>
           </div>
@@ -98,7 +98,7 @@ export function GroupInviteShareSheet({
           <button
             type="button"
             onClick={() => void nativeShare()}
-            className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+            className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-[var(--color-on-ink)] shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
           >
             <Icon name="ios_share" size={18} />
             シェアする
@@ -135,10 +135,10 @@ export function GroupInviteShareSheet({
           <button
             type="button"
             onClick={() => { triggerHaptic(); void copy(shareUrl, '共有リンクをコピーしました'); }}
-            className="mt-3 flex w-full items-center justify-between gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="mt-3 flex w-full items-center justify-between gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <span className="min-w-0 flex-1 truncate font-mono text-[12px] font-bold text-[var(--color-muted)]">{shareUrl}</span>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-[8px] bg-[var(--solid-ink)] px-2.5 py-1.5 text-[11px] font-extrabold text-white">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-[8px] bg-[var(--solid-ink)] px-2.5 py-1.5 text-[11px] font-extrabold text-[var(--color-on-ink)]">
               <Icon name="content_copy" size={13} />リンク
             </span>
           </button>
@@ -163,7 +163,7 @@ function ShareChannelButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-1 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex flex-col items-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-1 py-2.5 transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       <span
         className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] text-white"

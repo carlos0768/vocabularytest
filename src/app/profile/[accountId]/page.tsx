@@ -88,7 +88,7 @@ export default function FriendProfilePage() {
         <div className="font-display text-lg font-bold text-[var(--solid-ink)]">ユーザーが見つかりません</div>
         <Link
           href="/"
-          className="inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white"
+          className="inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-[var(--color-on-ink)]"
         >
           ホームに戻る
         </Link>

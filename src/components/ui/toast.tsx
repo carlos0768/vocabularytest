@@ -61,9 +61,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               'pointer-events-auto bg-[#1A1A2E] text-white px-4 py-3 rounded-[var(--radius-lg)] shadow-card',
               'flex items-center gap-3 max-w-sm w-full',
               'animate-in slide-in-from-bottom-4 fade-in duration-200',
-              toast.type === 'warning' && 'bg-[#f59e0b] text-[#1A1A2E]',
-              toast.type === 'success' && 'bg-[#22c55e] text-white',
-              toast.type === 'error' && 'bg-[#ef4444]'
+              toast.type === 'warning' && 'bg-[var(--color-warning)] text-[#1A1A2E]',
+              toast.type === 'success' && 'bg-[var(--color-success)] text-[var(--color-on-accent)]',
+              toast.type === 'error' && 'bg-[var(--color-error-fill)]'
             )}
           >
             <span className="text-sm flex-1">{toast.message}</span>

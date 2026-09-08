@@ -40,8 +40,8 @@ export function ProjectSortSheet({ open, onClose, sort, onSortChange }: ProjectS
               onClick={() => { onSortChange(opt.value); onClose(); }}
               className="flex items-center gap-[11px] rounded-[10px] border-2 border-[var(--solid-ink)] px-3 py-[11px] text-left transition-all"
               style={{
-                background: selected ? 'var(--solid-ink)' : '#fff',
-                color: selected ? '#fff' : 'var(--solid-ink)',
+                background: selected ? 'var(--solid-ink)' : 'var(--color-surface)',
+                color: selected ? 'var(--color-on-ink)' : 'var(--solid-ink)',
                 boxShadow: selected ? '2px 2px 0 var(--solid-ink)' : 'none',
               }}
             >
@@ -62,7 +62,7 @@ export function ProjectSortSheet({ open, onClose, sort, onSortChange }: ProjectS
                 className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
                 style={{ border: selected ? '1.5px solid #fff' : '1.5px solid var(--solid-ink)' }}
               >
-                {selected && <div className="h-[7px] w-[7px] rounded-full bg-white" />}
+                {selected && <div className="h-[7px] w-[7px] rounded-full bg-[var(--color-surface)]" />}
               </div>
             </button>
           );
@@ -90,7 +90,7 @@ export function ProjectFilterSheet({ open, onClose, filter, onFilterChange }: Pr
       footer={
         <div
           className="flex items-center gap-2.5 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3 lg:pb-5"
-          style={{ borderTop: '1px solid rgba(26,26,26,0.1)' }}
+          style={{ borderTop: '1px solid color-mix(in srgb, var(--solid-ink) 10%, transparent)' }}
         >
           <button
             type="button"
@@ -99,13 +99,13 @@ export function ProjectFilterSheet({ open, onClose, filter, onFilterChange }: Pr
             className="relative flex-1 disabled:opacity-40"
           >
             <div className="absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[13px] font-bold text-[var(--solid-ink)]">
+            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--solid-ink)]">
               リセット
             </span>
           </button>
           <button type="button" onClick={onClose} className="relative flex-1">
             <div className="absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-bold text-white">
+            <span className="relative flex h-[42px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[13px] font-bold text-[var(--color-on-ink)]">
               適用
             </span>
           </button>
@@ -113,7 +113,7 @@ export function ProjectFilterSheet({ open, onClose, filter, onFilterChange }: Pr
       }
     >
       <div className="space-y-5">
-        <label className="flex cursor-pointer items-center justify-between rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3.5 py-3">
+        <label className="flex cursor-pointer items-center justify-between rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3.5 py-3">
           <span className="flex items-center gap-2 text-[13px] font-bold text-[var(--solid-ink)]">
             <Icon name="bookmark" size={15} filled={bookmark} />
             保存した単語帳のみ
@@ -185,8 +185,8 @@ export function BinderPickerSheet({ open, onClose, project, binders, onApply }: 
               onClick={() => onApply(name)}
               className="flex items-center gap-[11px] rounded-[10px] border-2 border-[var(--solid-ink)] px-3 py-[11px] text-left transition-all"
               style={{
-                background: selected ? 'var(--solid-ink)' : '#fff',
-                color: selected ? '#fff' : 'var(--solid-ink)',
+                background: selected ? 'var(--solid-ink)' : 'var(--color-surface)',
+                color: selected ? 'var(--color-on-ink)' : 'var(--solid-ink)',
                 boxShadow: selected ? '2px 2px 0 var(--solid-ink)' : 'none',
               }}
             >
@@ -209,7 +209,7 @@ export function BinderPickerSheet({ open, onClose, project, binders, onApply }: 
           <button
             type="button"
             onClick={() => onApply(null)}
-            className="flex items-center gap-[11px] rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-[11px] text-left text-[var(--color-error)] transition-all"
+            className="flex items-center gap-[11px] rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-[11px] text-left text-[var(--color-error)] transition-all"
           >
             <div
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
@@ -222,7 +222,7 @@ export function BinderPickerSheet({ open, onClose, project, binders, onApply }: 
         )}
 
         {creating ? (
-          <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-2">
+          <div className="flex items-center gap-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-2">
             <Icon name="create_new_folder" size={16} className="shrink-0 text-[var(--color-muted)]" />
             <input
               autoFocus
@@ -240,7 +240,7 @@ export function BinderPickerSheet({ open, onClose, project, binders, onApply }: 
               type="button"
               onClick={submitNew}
               disabled={!newName.trim()}
-              className="shrink-0 rounded-[8px] bg-[var(--solid-ink)] px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-40"
+              className="shrink-0 rounded-[8px] bg-[var(--solid-ink)] px-3 py-1.5 text-[12px] font-bold text-[var(--color-on-ink)] disabled:opacity-40"
             >
               作成
             </button>
@@ -249,7 +249,7 @@ export function BinderPickerSheet({ open, onClose, project, binders, onApply }: 
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex items-center gap-[11px] rounded-[10px] border-2 border-dashed border-[var(--solid-ink)] bg-white px-3 py-[11px] text-left transition-all"
+            className="flex items-center gap-[11px] rounded-[10px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-[11px] text-left transition-all"
           >
             <div
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"

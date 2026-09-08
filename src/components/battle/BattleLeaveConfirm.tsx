@@ -38,7 +38,7 @@ export function BattleLeaveConfirm({
           <button
             type="button"
             onClick={onConfirm}
-            className="h-11 flex-1 rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-error)] font-display text-[14px] font-bold text-white"
+            className="h-11 flex-1 rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-error-fill)] font-display text-[14px] font-bold text-white"
           >
             降参する
           </button>

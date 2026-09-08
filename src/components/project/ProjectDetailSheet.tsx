@@ -53,17 +53,17 @@ function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number
   const pctN = total ? (n / total) * 100 : 0;
   return (
     <div>
-      <div className="flex h-2.5 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-white">
+      <div className="flex h-2.5 overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
         <div style={{ width: `${pctM}%`, background: 'var(--color-success)' }} />
         <div style={{ width: `${pctA}%`, background: '#2563eb' }} />
         <div style={{ width: `${pctL}%`, background: 'var(--color-warning)' }} />
-        <div style={{ width: `${pctN}%`, background: 'rgba(26,26,26,0.12)' }} />
+        <div style={{ width: `${pctN}%`, background: 'color-mix(in srgb, var(--solid-ink) 12%, transparent)' }} />
       </div>
       <div className="mt-[7px] flex flex-wrap gap-3.5">
-        {[['var(--color-success)', '習得', m], ['#2563eb', '定着中', a], ['var(--color-warning)', '学習中', l], ['rgba(26,26,26,0.35)', '未学習', n]].map(([color, label, count]) => (
+        {[['var(--color-success)', '習得', m], ['#2563eb', '定着中', a], ['var(--color-warning)', '学習中', l], ['color-mix(in_srgb,_var(--solid-ink)_35%,_transparent)', '未学習', n]].map(([color, label, count]) => (
           <span key={label as string} className="inline-flex items-center gap-[5px]">
             <span className="h-[7px] w-[7px] rounded-[3.5px]" style={{ background: color as string }} />
-            <span className="text-[11px] font-semibold text-[#4a4a4a]">{label as string}</span>
+            <span className="text-[11px] font-semibold text-[var(--color-ink-dim)]">{label as string}</span>
             <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{count as number}</span>
           </span>
         ))}
@@ -83,7 +83,7 @@ function WordRow({ word, onCycleStatus, onCycleVocabularyType, onToggleFavorite 
   return (
     <div className="relative">
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
-      <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-white px-[13px] py-2">
+      <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[13px] py-2">
         <div className="flex items-center gap-2.5">
           <StatusSquares wordId={word.id} status={displayStatus} onStatusChange={onCycleStatus} />
           <Link href={`/word/${word.id}?from=${encodeURIComponent('/projects')}`} className="min-w-0 flex-1">
@@ -273,12 +273,12 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
       <div
         className="relative w-full animate-fade-in-up"
         style={{
-          background: '#faf7f1',
+          background: 'var(--color-paper)',
           border: '2px solid var(--solid-ink)',
           borderBottomWidth: 0,
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+          boxShadow: '0 -8px 24px color-mix(in srgb, var(--solid-ink) 18%, transparent)',
           maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
@@ -287,7 +287,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <span className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+          <span className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
         </div>
 
         {/* Header: project info + close */}
@@ -308,7 +308,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
               BOOK · {counts.total} words
             </div>
             {loading && !project ? (
-              <div className="mt-1 h-5 w-32 animate-pulse rounded bg-[rgba(26,26,26,0.08)]" />
+              <div className="mt-1 h-5 w-32 animate-pulse rounded bg-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]" />
             ) : (
               <h2 className="mt-0.5 font-display text-[20px] font-extrabold leading-[1.15] tracking-[-0.01em] text-[var(--solid-ink)]">
                 {project?.title ?? ''}
@@ -319,7 +319,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
             type="button"
             onClick={onClose}
             aria-label="閉じる"
-            className="mt-0.5 flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="mt-0.5 flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="close" size={16} />
           </button>
@@ -341,7 +341,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
                 <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--color-accent)]" style={{ transform: 'translate(2px, 2px)' }} />
                 <Link
                   href={`/quiz/${projectId}`}
-                  className="relative flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] py-[11px] text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                  className="relative flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] py-[11px] text-[13px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px"
                 >
                   <Icon name="check" size={14} />
                   クイズを始める
@@ -351,7 +351,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
                 <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
                 <Link
                   href={`/flashcard/${projectId}`}
-                  className="relative flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-[14px] py-[11px] text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+                  className="relative flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[14px] py-[11px] text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
                 >
                   <Icon name="style" size={14} />
                   カード
@@ -367,7 +367,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="単語を検索"
-                className="w-[130px] rounded-full border-2 border-[var(--color-border)] bg-white px-3 py-1.5 text-[12px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                className="w-[130px] rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] text-[var(--solid-ink)] outline-none placeholder:text-[var(--color-muted)]"
               />
             </div>
             <div className="flex items-center gap-1.5">
@@ -377,11 +377,11 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
                 </span>
               )}
               <button type="button" onClick={() => setWordShowFilterSheet(true)} aria-label="フィルタ"
-                className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 transition-colors ${wordFilterActive ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white' : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'}`}>
+                className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 transition-colors ${wordFilterActive ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'}`}>
                 <Icon name="filter_list" size={15} />
               </button>
               <button type="button" onClick={() => setWordShowSortSheet(true)} aria-label="並べ替え"
-                className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 transition-colors ${wordSortOrder !== 'createdAsc' ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white' : 'border-[var(--color-border)] bg-white text-[var(--color-muted)]'}`}>
+                className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 transition-colors ${wordSortOrder !== 'createdAsc' ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]'}`}>
                 <Icon name="swap_vert" size={15} />
               </button>
             </div>
@@ -395,7 +395,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
                 <span className="ml-2 text-sm">単語を読み込み中...</span>
               </div>
             ) : filteredWords.length === 0 ? (
-              <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
+              <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
                 {query ? '一致する単語がありません' : '単語がありません'}
               </div>
             ) : (

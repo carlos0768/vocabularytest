@@ -214,7 +214,7 @@ export default function ShareWordbookClient() {
             key={project.id}
             type="button"
             onClick={() => setSelectedId(project.id)}
-            className="flex items-center gap-3 rounded-[14px] border-2 bg-white px-3 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="flex items-center gap-3 rounded-[14px] border-2 bg-[var(--color-surface)] px-3 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
             style={{ borderColor: selected ? 'var(--color-accent)' : 'var(--solid-ink)' }}
           >
             <span
@@ -257,13 +257,13 @@ export default function ShareWordbookClient() {
         value={tagDraft}
         onChange={(event) => setTagDraft(event.target.value)}
         placeholder="例: #TOEIC, #熟語, #高校英語"
-        className="mb-2.5 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
+        className="mb-2.5 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] outline-none"
       />
       <button
         type="button"
         onClick={() => void handlePublish()}
         disabled={!selectedProject || saving}
-        className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 text-[15px] font-extrabold text-white disabled:opacity-45"
+        className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 text-[15px] font-extrabold text-[var(--color-on-ink)] disabled:opacity-45"
       >
         <Icon name={saving ? 'progress_activity' : 'ios_share'} size={17} className={saving ? 'animate-spin' : undefined} />
         {saving ? '共有中...' : selectedProject ? `「${selectedProject.title}」を共有` : '単語帳を選択'}
@@ -328,7 +328,7 @@ export default function ShareWordbookClient() {
             type="button"
             onClick={() => router.back()}
             aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
           >
             <Icon name="chevron_left" size={18} />
           </button>
@@ -344,7 +344,7 @@ export default function ShareWordbookClient() {
 
         {showPublishPanel && (
           <div
-            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[#faf7f1] px-4 pt-3"
+            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-4 pt-3"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
           >
             {publishForm}
@@ -370,7 +370,7 @@ function SharedWordbookRow({
 }) {
   const { project } = card;
   return (
-    <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
       <span
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[16px] font-extrabold text-white"
         style={{
@@ -399,7 +399,7 @@ function SharedWordbookRow({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-8 items-center rounded-[9px] border-2 border-[var(--color-border)] bg-white px-2.5 text-[12px] font-bold text-[var(--color-muted)]"
+            className="inline-flex h-8 items-center rounded-[9px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] font-bold text-[var(--color-muted)]"
           >
             やめる
           </button>
@@ -416,7 +416,7 @@ function SharedWordbookRow({
         <button
           type="button"
           onClick={onStop}
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[9px] border-2 border-red-700 bg-white px-2.5 text-[12px] font-bold text-red-700 transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[9px] border-2 border-red-700 bg-[var(--color-surface)] px-2.5 text-[12px] font-bold text-red-700 transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="link_off" size={14} />
           共有停止
@@ -448,13 +448,13 @@ function ActionState({
 }) {
   return (
     <div className="px-[18px] pt-10">
-      <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-6 text-center">
+      <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 text-center">
         <Icon name={icon} size={30} className="text-[var(--solid-ink)]" />
         <div className="mt-3 text-[14px] font-bold text-[var(--solid-ink)]">{message}</div>
         <button
           type="button"
           onClick={onAction}
-          className="mt-4 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2.5 text-[13px] font-extrabold text-white"
+          className="mt-4 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2.5 text-[13px] font-extrabold text-[var(--color-on-ink)]"
         >
           {actionLabel}
         </button>

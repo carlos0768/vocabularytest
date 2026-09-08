@@ -321,7 +321,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         <button
           type="button"
           onClick={() => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push('/'))}
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />
@@ -337,7 +337,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         <Link
           href={`${binderHref}/settings`}
           aria-label="バインダーの設定"
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="settings" size={17} />
         </Link>
@@ -372,7 +372,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
             <span className="ml-2 text-sm">読み込み中...</span>
           </div>
         ) : inBinder.length === 0 ? (
-          <div className="mt-3.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+          <div className="mt-3.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
             <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
               このバインダーにはまだ単語帳がありません。「単語帳を追加」から入れましょう。
             </p>
@@ -407,13 +407,13 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
             {hasWords ? (
               <Link
                 href={`/quiz/all?${studyQuery}`}
-                className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-white no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
+                className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-[var(--color-on-accent)] no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
                 <Icon name="check" size={14} />
                 クイズを始める
               </Link>
             ) : (
-              <span className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-white opacity-40">
+              <span className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-[var(--color-on-accent)] opacity-40">
                 <Icon name="check" size={14} />
                 クイズを始める
               </span>
@@ -425,14 +425,14 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
               <Link
                 href={`/flashcard/all?${studyQuery}`}
                 aria-label="フラッシュカード"
-                className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
+                className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] no-underline transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
                 <Icon name="style" size={18} />
               </Link>
             ) : (
               <span
                 aria-label="フラッシュカード"
-                className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] opacity-40"
+                className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] opacity-40"
               >
                 <Icon name="style" size={18} />
               </span>
@@ -444,7 +444,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
               type="button"
               onClick={() => setAddOpen(true)}
               aria-label="単語帳を追加"
-              className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="add" size={20} />
             </button>
@@ -458,7 +458,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
       {addOpen && (
         <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
           <div className="absolute inset-0" style={{ background: 'rgba(26,26,26,0.45)' }} onClick={() => setAddOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] lg:inset-auto lg:left-1/2 lg:top-1/2 lg:w-[480px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-[20px] lg:shadow-[6px_8px_0_var(--solid-ink)]" style={{ maxHeight: '78dvh' }}>
+          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] lg:inset-auto lg:left-1/2 lg:top-1/2 lg:w-[480px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-[20px] lg:shadow-[6px_8px_0_var(--solid-shadow)]" style={{ maxHeight: '78dvh' }}>
             <div className="flex items-center justify-between border-b-2 border-[var(--color-border)] px-4 py-3">
               <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">バインダーに追加</span>
               <button type="button" onClick={() => setAddOpen(false)} aria-label="閉じる" className="flex h-8 w-8 items-center justify-center text-[var(--color-secondary-text)]">
@@ -476,7 +476,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
                       type="button"
                       onClick={() => void setBinder(project.id, binderName, '追加に失敗しました')}
                       disabled={busyId !== null}
-                      className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white p-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                      className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
                     >
                       <span
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[14px] font-extrabold text-white"
@@ -627,7 +627,7 @@ function BinderProjectRow({
             onClick={() => setMenuOpen(false)}
           />
           {/* 行の高さは進捗バーの有無で変わるので、下端を基準に置く */}
-          <div className="absolute right-[18px] top-full z-[71] w-[190px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)] lg:right-8">
+          <div className="absolute right-[18px] top-full z-[71] w-[190px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)] lg:right-8">
             <button
               type="button"
               onClick={() => { setMenuOpen(false); onRemove(); }}

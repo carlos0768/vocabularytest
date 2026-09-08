@@ -398,7 +398,7 @@ export function ScanCapturePanel({
     const billingEnabled = isBillingEnabled();
     return (
       <div
-        className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-5 py-6 text-center"
+        className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-6 text-center"
         style={{ boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}
       >
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent-light)]">
@@ -421,7 +421,7 @@ export function ScanCapturePanel({
             className="relative mt-4 w-full"
           >
             <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-            <div className="relative flex items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-3.5 text-[13px] font-bold text-white">
+            <div className="relative flex items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-3.5 text-[13px] font-bold text-[var(--color-on-accent)]">
               <Icon name="auto_awesome" size={16} />
               Proプランを見る
             </div>
@@ -433,7 +433,7 @@ export function ScanCapturePanel({
             onClose();
             router.push('/shared');
           }}
-          className="mt-3 w-full rounded-[12px] border-2 border-[var(--solid-ink)] bg-white py-3 text-[13px] font-bold text-[var(--solid-ink)]"
+          className="mt-3 w-full rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-3 text-[13px] font-bold text-[var(--solid-ink)]"
         >
           共有ライブラリを見る
         </button>
@@ -453,7 +453,7 @@ export function ScanCapturePanel({
       <div
         className="mb-3 rounded-[10px] p-[11px]"
         style={{
-          background: 'rgba(26,26,26,0.04)',
+          background: 'color-mix(in srgb, var(--solid-ink) 4%, transparent)',
           border: '1px dashed var(--solid-ink)',
         }}
       >
@@ -471,7 +471,7 @@ export function ScanCapturePanel({
                 key={s.k}
                 type="button"
                 onClick={() => selectSubOption(s.k)}
-                className="flex items-start gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all"
+                className="flex items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
                 style={{
                   borderColor: on ? 'var(--solid-ink)' : 'var(--color-border)',
                   boxShadow: on ? '2px 2px 0 var(--solid-ink)' : 'none',
@@ -481,7 +481,7 @@ export function ScanCapturePanel({
                   className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
                   style={{
                     border: `1.25px solid ${on ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                    background: on ? 'var(--color-accent)' : '#fff',
+                    background: on ? 'var(--color-accent)' : 'var(--color-surface)',
                   }}
                 >
                   {on && <Icon name="check" size={11} className="text-white" />}
@@ -519,8 +519,8 @@ export function ScanCapturePanel({
                     className="rounded-[8px] border-2 py-2 text-center text-[11px] font-bold transition-all"
                     style={{
                       borderColor: on ? 'var(--solid-ink)' : 'var(--color-border)',
-                      background: on ? 'var(--color-accent)' : '#fff',
-                      color: on ? '#fff' : 'var(--solid-ink)',
+                      background: on ? 'var(--color-accent)' : 'var(--color-surface)',
+                      color: on ? 'var(--color-on-accent)' : 'var(--solid-ink)',
                       boxShadow: on ? '1.5px 1.5px 0 var(--solid-ink)' : 'none',
                     }}
                   >
@@ -548,7 +548,7 @@ export function ScanCapturePanel({
               triggerHaptic();
               setMorphologyOn((prev) => !prev);
             }}
-            className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all"
+            className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
             style={{
               borderColor: morphologyOn ? 'var(--solid-ink)' : 'var(--color-border)',
               boxShadow: morphologyOn ? '2px 2px 0 var(--solid-ink)' : 'none',
@@ -558,7 +558,7 @@ export function ScanCapturePanel({
               className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
               style={{
                 border: `1.25px solid ${morphologyOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                background: morphologyOn ? 'var(--color-accent)' : '#fff',
+                background: morphologyOn ? 'var(--color-accent)' : 'var(--color-surface)',
               }}
             >
               {morphologyOn && <Icon name="check" size={11} className="text-white" />}
@@ -585,7 +585,7 @@ export function ScanCapturePanel({
               triggerHaptic();
               setDerivedWordsOn((prev) => !prev);
             }}
-            className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-white px-3 py-2.5 text-left transition-all"
+            className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
             style={{
               borderColor: derivedWordsOn ? 'var(--solid-ink)' : 'var(--color-border)',
               boxShadow: derivedWordsOn ? '2px 2px 0 var(--solid-ink)' : 'none',
@@ -595,7 +595,7 @@ export function ScanCapturePanel({
               className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
               style={{
                 border: `1.25px solid ${derivedWordsOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                background: derivedWordsOn ? 'var(--color-accent)' : '#fff',
+                background: derivedWordsOn ? 'var(--color-accent)' : 'var(--color-surface)',
               }}
             >
               {derivedWordsOn && <Icon name="check" size={11} className="text-white" />}
@@ -617,7 +617,7 @@ export function ScanCapturePanel({
 
       {/* Coin cost / balance (コイン制オン時のみ) */}
       {coinsEnabled && isPro && estimatedCoinCost !== null && (
-        <div className="mb-3 flex items-center justify-between rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-2">
+        <div className="mb-3 flex items-center justify-between rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
           <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--solid-ink)]">
             <Icon name="toll" size={14} className="text-[var(--color-accent)]" />
             消費コイン: {estimatedCoinCost}枚
@@ -640,7 +640,7 @@ export function ScanCapturePanel({
       <div className="flex gap-2.5">
         <button type="button" onClick={handleCamera} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
           <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-4 text-white">
+          <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] py-4 text-[var(--color-on-accent)]">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 7h3l2-2h6l2 2h3v12H4z"/>
               <circle cx="12" cy="13" r="4"/>
@@ -651,7 +651,7 @@ export function ScanCapturePanel({
         </button>
         <button type="button" onClick={handleLibrary} disabled={scanDisabled} className="relative flex-1 disabled:opacity-40">
           <div className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white py-4 text-[var(--solid-ink)]">
+          <div className="relative flex flex-col items-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-4 text-[var(--solid-ink)]">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="5" width="18" height="14" rx="2"/>
               <path d="M3 16l5-5 4 4 3-3 6 6"/>
@@ -697,7 +697,7 @@ export function ScanCapturePanel({
               className="absolute inset-0 z-[130] flex items-center justify-center"
               style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
             >
-              <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] px-5 py-3.5">
+              <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-5 py-3.5">
                 <Icon name="progress_activity" size={16} className="animate-spin text-[var(--solid-ink)]" />
                 <span className="text-[13px] font-bold text-[var(--solid-ink)]">
                   {processingLabel ?? (isPro ? 'スキャンを送信中...' : 'AI が単語を抽出中...')}

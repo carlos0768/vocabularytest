@@ -63,7 +63,7 @@ function ToolButton({
       style={{
         display: 'inline-flex', height: 34, width: 34, alignItems: 'center', justifyContent: 'center',
         borderRadius: 9, border: '2px solid var(--solid-ink)', cursor: 'pointer', flexShrink: 0, padding: 0,
-        background: active ? 'var(--solid-ink)' : '#fff', color: active ? '#fff' : 'var(--color-ink)',
+        background: active ? 'var(--solid-ink)' : 'var(--color-surface)', color: active ? 'var(--color-on-ink)' : 'var(--color-ink)',
       }}
     >
       <Icon name={icon} size={15} />
@@ -73,7 +73,7 @@ function ToolButton({
 
 const ACTION_BUTTON: React.CSSProperties = {
   display: 'flex', height: 46, alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 16px',
-  borderRadius: 10, border: '2px solid var(--solid-ink)', background: '#fff', color: 'var(--color-ink)',
+  borderRadius: 10, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)', color: 'var(--color-ink)',
   fontSize: 13, fontWeight: 700, boxShadow: '2px 2px 0 var(--solid-ink)', cursor: 'pointer',
   textDecoration: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap',
 };
@@ -291,7 +291,7 @@ export function DesktopProjectDetailView({
                 onClick={() => setMoreMenuOpen(false)}
               />
               <div
-                className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                className="absolute right-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]"
                 style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
               >
                 <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onRename(); }}>
@@ -354,7 +354,7 @@ export function DesktopProjectDetailView({
               <Link
                 href={`/quiz/${projectId}`}
                 className="ds-project-action ds-project-action--accent"
-                style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360, border: '2px solid var(--color-accent)', background: 'var(--color-accent)', color: '#fff', fontSize: 14 }}
+                style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360, border: '2px solid var(--color-accent)', background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontSize: 14 }}
               >
                 <Icon name="check" size={16} />
                 クイズを始める
@@ -383,7 +383,7 @@ export function DesktopProjectDetailView({
                     onClick={() => setAddMenuOpen(false)}
                   />
                   <div
-                    className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white"
+                    className="absolute left-0 top-[calc(100%+6px)] z-50 w-[180px] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]"
                     style={{ boxShadow: '2px 3px 0 var(--solid-ink)' }}
                   >
                     <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onScan(); }}>
@@ -405,7 +405,7 @@ export function DesktopProjectDetailView({
             <label
               style={{
                 display: 'flex', minWidth: 0, flex: 1, maxWidth: 420, alignItems: 'center', gap: 6,
-                borderRadius: 999, border: '2px solid var(--solid-ink)', background: '#fff', padding: '7px 12px', color: 'var(--color-muted)',
+                borderRadius: 999, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)', padding: '7px 12px', color: 'var(--color-muted)',
               }}
             >
               <Icon name="search" size={14} />
@@ -436,7 +436,7 @@ export function DesktopProjectDetailView({
               style={{
                 marginLeft: 'auto', display: 'inline-flex', height: 34, alignItems: 'center', gap: 6, padding: '0 12px',
                 borderRadius: 9, border: `2px solid ${redSheet ? 'var(--solid-ink)' : 'var(--color-border)'}`,
-                background: redSheet ? 'var(--solid-ink)' : '#fff', color: redSheet ? '#fff' : 'var(--color-secondary-text)',
+                background: redSheet ? 'var(--solid-ink)' : 'var(--color-surface)', color: redSheet ? 'var(--color-on-ink)' : 'var(--color-secondary-text)',
                 fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
               }}
             >
@@ -454,7 +454,7 @@ export function DesktopProjectDetailView({
               </div>
             ) : rows.length === 0 ? (
               counts.total === 0 ? (
-                <div style={{ textAlign: 'center', padding: '54px 24px', borderRadius: 16, border: '2px solid var(--solid-ink)', background: '#fff' }}>
+                <div style={{ textAlign: 'center', padding: '54px 24px', borderRadius: 16, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)' }}>
                   <div style={{ width: 58, height: 58, borderRadius: 16, background: 'var(--color-accent-light)', border: '2px solid var(--solid-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon name="menu_book" style={{ fontSize: 28, color: 'var(--color-accent-ink)' }} />
                   </div>

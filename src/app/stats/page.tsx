@@ -10,7 +10,7 @@ import { getStats, type CachedStats } from '@/lib/stats-cache';
 import type { FriendProfile, FriendTimelineSession } from '@/lib/friends/types';
 
 const HEAT_COLORS = [
-  'rgba(26,26,26,0.07)',
+  'color-mix(in srgb, var(--solid-ink) 7%, transparent)',
   'rgba(61,122,78,0.35)',
   'rgba(61,122,78,0.7)',
   'var(--color-success)',
@@ -218,7 +218,7 @@ export default function StatsPage() {
                                 className="w-full rounded-[3px] border border-[var(--solid-ink)]"
                                 style={{
                                   height: h,
-                                  background: isToday ? 'var(--solid-ink)' : 'rgba(26,26,26,0.85)',
+                                  background: isToday ? 'var(--solid-ink)' : 'color-mix(in srgb, var(--solid-ink) 85%, transparent)',
                                   boxShadow: isToday ? '2px 2px 0 var(--color-accent)' : 'none',
                                 }}
                               />
@@ -274,12 +274,12 @@ export default function StatsPage() {
                       <div className="mt-2.5 flex overflow-hidden rounded-[4px] border-2 border-[var(--solid-ink)]" style={{ height: 10 }}>
                         <div style={{ flex: mastered, background: 'var(--color-success)' }} />
                         <div style={{ flex: review, background: 'var(--color-warning)' }} />
-                        <div style={{ flex: newWords, background: 'rgba(26,26,26,0.15)' }} />
+                        <div style={{ flex: newWords, background: 'color-mix(in srgb, var(--solid-ink) 15%, transparent)' }} />
                       </div>
                       <div className="mt-2 flex justify-between font-mono text-[10px]">
                         <BreakLeg color="var(--color-success)" label="習得" v={mastered} />
                         <BreakLeg color="var(--color-warning)" label="学習中" v={review} />
-                        <BreakLeg color="rgba(26,26,26,0.15)" label="未学習" v={newWords} />
+                        <BreakLeg color="color-mix(in srgb, var(--solid-ink) 15%, transparent)" label="未学習" v={newWords} />
                       </div>
                     </SolidPanel>
                   </div>
@@ -356,7 +356,7 @@ function TimelineItem({
             {session.words.length > 0 ? (
               <div className="flex flex-col gap-2">
                 {session.words.map((word) => (
-                  <div key={word.id} className="rounded-[12px] border border-[#bbf7d0] bg-[var(--color-accent-subtle)] px-4 py-3">
+                  <div key={word.id} className="rounded-[12px] border border-[var(--color-accent-line)] bg-[var(--color-accent-subtle)] px-4 py-3">
                     <div className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">{word.english}</div>
                     <div className="mt-0.5 text-[13px] font-bold text-[var(--color-muted)]">{word.japanese}</div>
                   </div>
@@ -397,8 +397,8 @@ function MetricChip({
   variant?: 'quiz' | 'mastered' | 'default';
 }) {
   const styles = {
-    quiz: 'border-[#bbf7d0] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
-    mastered: 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]',
+    quiz: 'border-[var(--color-accent-line)] bg-[var(--color-accent-light)] text-[var(--color-accent)]',
+    mastered: 'border-[var(--color-warning-line)] bg-[var(--color-warning-light)] text-[var(--color-warning-ink)]',
     default: 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
   };
   return (
@@ -453,7 +453,7 @@ function HeatCell({ level, size = 13 }: { level: number; size?: number }) {
         height: size,
         borderRadius: 2.5,
         background: HEAT_COLORS[level],
-        border: level > 0 ? '1px solid rgba(26,26,26,0.12)' : 'none',
+        border: level > 0 ? '1px solid color-mix(in srgb, var(--solid-ink) 12%, transparent)' : 'none',
         flexShrink: 0,
       }}
     />

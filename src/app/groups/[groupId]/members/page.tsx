@@ -146,7 +146,7 @@ export default function GroupMembersPage() {
                     )}
                   </div>
                   {member.role === 'owner' && (
-                    <span className="shrink-0 rounded-full border-2 border-[var(--solid-ink)] bg-[#FFC800] px-2 py-0.5 font-display text-[10px] font-extrabold text-[var(--solid-ink)]">
+                    <span className="shrink-0 rounded-full border-2 border-[var(--solid-ink)] bg-[#FFC800] px-2 py-0.5 font-display text-[10px] font-extrabold text-[var(--color-ink-fixed)]">
                       オーナー
                     </span>
                   )}
@@ -167,7 +167,7 @@ export default function GroupMembersPage() {
                 <button
                   type="button"
                   onClick={() => { triggerHaptic(); setShareOpen(true); }}
-                  className="flex h-[46px] items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[13px] font-extrabold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                  className="flex h-[46px] items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[13px] font-extrabold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px"
                 >
                   <Icon name="person_add" size={16} />
                   メンバーを招待

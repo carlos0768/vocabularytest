@@ -896,7 +896,7 @@ function BinderSquareTile({ name, count, iconImage }: { name: string; count: num
   return (
     <Link
       href={`/binder/${encodeURIComponent(name)}`}
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
       style={{
         backgroundColor: bg,
         backgroundImage: iconImage ? `url(${iconImage})` : undefined,
@@ -947,7 +947,7 @@ function ProjectSquareTile({
       <Link
         href={`/project/${project.id}`}
         onClick={onCardOpen}
-        className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+        className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
         style={{
           backgroundColor: bg,
           backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
@@ -975,7 +975,7 @@ function ProjectSquareTile({
                 className="h-full"
                 style={{
                   width: `${masteredPct}%`,
-                  background: inkOnLight ? 'rgba(26,26,26,0.85)' : 'rgba(255,255,255,0.92)',
+                  background: inkOnLight ? 'color-mix(in srgb, var(--solid-ink) 85%, transparent)' : 'rgba(255,255,255,0.92)',
                 }}
               />
             </div>
@@ -987,7 +987,7 @@ function ProjectSquareTile({
           href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
           aria-label={`${project.title}のクイズを開始`}
           data-tour={tourAnchor ? 'quiz-start' : undefined}
-          className="absolute bottom-2 right-2 flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+          className="absolute bottom-2 right-2 flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
         >
           <Icon name="play_arrow" size={18} filled />
         </Link>

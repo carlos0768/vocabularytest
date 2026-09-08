@@ -173,7 +173,7 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
       <div className="flex items-center gap-2 pb-3 pt-1">
         <Link
           href="/shared?tab=official"
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="公式単語帳の一覧へ"
         >
           <Icon name="chevron_left" size={16} />
@@ -182,11 +182,11 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
       </div>
 
       {state.kind === 'loading' && (
-        <div className="h-[260px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-white" />
+        <div className="h-[260px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)]" />
       )}
 
       {state.kind === 'not-found' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             公式単語帳が見つかりません。公開が終了した可能性があります。
           </p>
@@ -194,18 +194,18 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
       )}
 
       {state.kind === 'error' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
           <p className="m-0 text-[13px] text-[var(--solid-ink)]">{state.message}</p>
         </div>
       )}
 
       {state.kind === 'ready' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <div className="flex items-start gap-3">
             <span
               className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-cover bg-center text-[var(--solid-ink)]"
               style={{
-                backgroundColor: '#faf7f1',
+                backgroundColor: 'var(--color-paper)',
                 backgroundImage: state.wordbook.iconImage ? `url(${state.wordbook.iconImage})` : undefined,
               }}
             >
@@ -216,7 +216,7 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
                 {state.wordbook.title}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] tracking-[0.04em] text-[var(--color-muted)]">
-                <span className="rounded-[3px] border border-[var(--solid-ink)] bg-white px-1.5 py-[1px] font-bold text-[var(--solid-ink)]">
+                <span className="rounded-[3px] border border-[var(--solid-ink)] bg-[var(--color-surface)] px-1.5 py-[1px] font-bold text-[var(--solid-ink)]">
                   MERKEN公式
                 </span>
                 {state.wordbook.eikenLabel && <span>{state.wordbook.eikenLabel}</span>}
@@ -238,7 +238,7 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
               </div>
               <ul className="m-0 mt-2 flex max-h-[420px] list-none flex-col gap-2 overflow-y-auto p-0">
                 {state.words.map((word, index) => (
-                  <li key={`${word.english}-${index}`} className="rounded-lg bg-[#faf7f1] p-3">
+                  <li key={`${word.english}-${index}`} className="rounded-lg bg-[var(--color-paper)] p-3">
                     <div className="text-[13px] font-bold text-[var(--solid-ink)]">{word.english}</div>
                     {word.japanese && (
                       <div className="mt-0.5 text-[12px] leading-[1.7] text-[var(--color-muted)]">{word.japanese}</div>
@@ -256,7 +256,7 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
               </p>
               <Link
                 href={`/login?redirect=${encodeURIComponent(`/official/${slug}`)}`}
-                className="mt-3 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white"
+                className="mt-3 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)]"
               >
                 ログインしてすべて見る
               </Link>
@@ -264,7 +264,7 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
           ) : importedProjectId ? (
             <Link
               href={`/project/${importedProjectId}`}
-              className="mt-5 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="mt-5 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="check_circle" size={18} />
               追加済み — 単語帳を開く
@@ -274,7 +274,7 @@ export default function OfficialWordbookPage({ params }: { params: Promise<{ slu
               type="button"
               onClick={() => void handleImport()}
               disabled={importing || state.words.length === 0}
-              className="mt-5 h-12 w-full rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              className="mt-5 h-12 w-full rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
             >
               {importing ? '追加中...' : `${state.totalWordCount}語を自分の単語帳に追加`}
             </button>

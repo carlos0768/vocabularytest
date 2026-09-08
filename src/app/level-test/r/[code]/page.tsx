@@ -22,7 +22,7 @@ export default function SharedLevelTestResultPage({
   if (!payload) {
     return (
       <div className="min-h-screen bg-[var(--color-background)] px-4 py-16" style={{ fontFamily: 'var(--font-body)' }}>
-        <div className="mx-auto w-full max-w-[420px] rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center shadow-[4px_4px_0_var(--solid-ink)]">
+        <div className="mx-auto w-full max-w-[420px] rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-8 text-center shadow-[4px_4px_0_var(--solid-shadow)]">
           <Icon name="link_off" size={32} className="mx-auto text-[var(--color-muted)]" />
           <div className="mt-3 font-display text-[20px] font-extrabold text-[var(--solid-ink)]">
             この結果リンクは無効です
@@ -54,7 +54,7 @@ export default function SharedLevelTestResultPage({
 
         <LevelTestResultCard payload={payload} variant="viewer" />
 
-        <div className="mt-6 rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center shadow-[3px_3px_0_var(--solid-ink)]">
+        <div className="mt-6 rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center shadow-[3px_3px_0_var(--solid-shadow)]">
           <div className="font-display text-[17px] font-extrabold text-[var(--solid-ink)]">
             あなたの語彙力は英検何級レベル?
           </div>

@@ -192,7 +192,7 @@ function ReelsPageInner() {
       <div className="hidden flex-shrink-0 lg:block">
         <DesktopTopbar title="リール" crumb="学習 / フィード" back={false}>
           {remainingLabel && (
-            <span className="rounded-full border border-[var(--color-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-secondary-text)]">
+            <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--color-secondary-text)]">
               {remainingLabel}
             </span>
           )}

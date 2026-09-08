@@ -27,7 +27,7 @@ const variantStyles: Record<ColorVariant, {
   glow: string;
 }> = {
   primary: {
-    bg: 'bg-[#2563EB]',
+    bg: 'bg-[var(--color-info-strong)]',
     iconBg: 'bg-white/20',
     iconColor: 'text-white',
     textColor: 'text-white',
@@ -35,7 +35,7 @@ const variantStyles: Record<ColorVariant, {
     glow: 'shadow-glow',
   },
   red: {
-    bg: 'bg-[#2563EB]',
+    bg: 'bg-[var(--color-info-strong)]',
     iconBg: 'bg-white/20',
     iconColor: 'text-white',
     textColor: 'text-white',
@@ -43,7 +43,7 @@ const variantStyles: Record<ColorVariant, {
     glow: 'shadow-glow',
   },
   blue: {
-    bg: 'bg-[#3B82F6]',
+    bg: 'bg-[var(--color-info)]',
     iconBg: 'bg-white/20',
     iconColor: 'text-white',
     textColor: 'text-white',
@@ -59,7 +59,7 @@ const variantStyles: Record<ColorVariant, {
     glow: 'shadow-soft',
   },
   orange: {
-    bg: 'bg-[#60A5FA]',
+    bg: 'bg-[var(--color-info-soft)]',
     iconBg: 'bg-white/20',
     iconColor: 'text-white',
     textColor: 'text-white',

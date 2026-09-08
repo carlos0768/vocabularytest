@@ -225,10 +225,10 @@ export default function ShareGrammarClient() {
             key={book.id}
             type="button"
             onClick={() => setSelectedId(book.id)}
-            className="flex items-center gap-3 rounded-[14px] border-2 bg-white px-3 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="flex items-center gap-3 rounded-[14px] border-2 bg-[var(--color-surface)] px-3 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
             style={{ borderColor: selected ? 'var(--color-accent)' : 'var(--solid-ink)' }}
           >
-            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
               <Icon name="rule" size={22} />
             </span>
             <span className="min-w-0 flex-1">
@@ -261,7 +261,7 @@ export default function ShareGrammarClient() {
         type="button"
         onClick={() => void handlePublish()}
         disabled={!selectedBook || saving}
-        className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 text-[15px] font-extrabold text-white disabled:opacity-45"
+        className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 text-[15px] font-extrabold text-[var(--color-on-ink)] disabled:opacity-45"
       >
         <Icon name={saving ? 'progress_activity' : 'ios_share'} size={17} className={saving ? 'animate-spin' : undefined} />
         {saving ? '共有中...' : selectedBook ? `「${selectedBook.title}」を共有` : '問題集を選択'}
@@ -326,7 +326,7 @@ export default function ShareGrammarClient() {
             type="button"
             onClick={() => router.back()}
             aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
           >
             <Icon name="chevron_left" size={18} />
           </button>
@@ -342,7 +342,7 @@ export default function ShareGrammarClient() {
 
         {showPublishPanel && (
           <div
-            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[#faf7f1] px-4 pt-3"
+            className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-4 pt-3"
             style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
           >
             {publishForm}
@@ -367,8 +367,8 @@ function PublishedGrammarRow({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+    <div className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
         <Icon name="rule" size={18} />
       </span>
       <span className="min-w-0 flex-1">
@@ -390,7 +390,7 @@ function PublishedGrammarRow({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-8 items-center rounded-[9px] border-2 border-[var(--color-border)] bg-white px-2.5 text-[12px] font-bold text-[var(--color-muted)]"
+            className="inline-flex h-8 items-center rounded-[9px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] font-bold text-[var(--color-muted)]"
           >
             やめる
           </button>
@@ -407,7 +407,7 @@ function PublishedGrammarRow({
         <button
           type="button"
           onClick={onStop}
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[9px] border-2 border-red-700 bg-white px-2.5 text-[12px] font-bold text-red-700 transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[9px] border-2 border-red-700 bg-[var(--color-surface)] px-2.5 text-[12px] font-bold text-red-700 transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="link_off" size={14} />
           共有停止
@@ -439,13 +439,13 @@ function ActionState({
 }) {
   return (
     <div className="px-[18px] pt-10">
-      <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-6 text-center">
+      <div className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 text-center">
         <Icon name={icon} size={30} className="text-[var(--solid-ink)]" />
         <div className="mt-3 text-[14px] font-bold text-[var(--solid-ink)]">{message}</div>
         <button
           type="button"
           onClick={onAction}
-          className="mt-4 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2.5 text-[13px] font-extrabold text-white"
+          className="mt-4 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2.5 text-[13px] font-extrabold text-[var(--color-on-ink)]"
         >
           {actionLabel}
         </button>

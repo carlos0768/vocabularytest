@@ -276,9 +276,9 @@ export function StudyReminderSettings({ variant = 'mobile', embedded = false }: 
   return (
     <section>
       <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">通知</div>
-      <div className="overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
+      <div className="overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
         <div className="flex items-center gap-2.5 px-3 py-[11px]">
-          <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)]">
+          <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)]">
             <Icon
               name="notifications"
               size={16}
@@ -444,7 +444,7 @@ function MobileReminderRow({
         value={item.time}
         disabled={disabled}
         onChange={(event) => void onTimeChange(item.id, event.target.value || item.time)}
-        className="w-[88px] rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-2 py-1.5 font-display text-[14px] font-extrabold leading-none text-[var(--solid-ink)] outline-none focus:shadow-[0_0_0_3px_var(--color-accent-light)] disabled:opacity-70"
+        className="w-[88px] rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2 py-1.5 font-display text-[14px] font-extrabold leading-none text-[var(--solid-ink)] outline-none focus:shadow-[0_0_0_3px_var(--color-accent-light)] disabled:opacity-70"
       />
       <p className="min-w-0 flex-1 truncate text-[11px] font-bold text-[var(--color-secondary-text)]">
         {period.label}の通知
@@ -460,7 +460,7 @@ function MobileReminderRow({
         aria-label={`${period.label}の通知を削除`}
         disabled={disabled || !canRemove}
         onClick={() => void onRemove(item.id)}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border-2 border-[var(--color-border)] bg-white text-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Icon name="delete" size={15} />
       </button>

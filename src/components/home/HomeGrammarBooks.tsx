@@ -27,7 +27,7 @@ export function HomeGrammarBooksSection({ books }: { books: GrammarBook[] }) {
       <div className="mb-2.5 flex items-center gap-2 px-[18px]">
         <Icon name="menu_book" size={20} className="text-[var(--solid-ink)]" />
         <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">語法問題集</h2>
-        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-white">
+        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-[var(--color-on-ink)]">
           {books.length}
         </span>
         <Link href="/grammar" className="ml-auto flex items-center gap-[3px] text-[13px] font-semibold text-[var(--color-accent)]">
@@ -41,7 +41,7 @@ export function HomeGrammarBooksSection({ books }: { books: GrammarBook[] }) {
           <Link
             key={book.id}
             href={`/grammar/${book.id}/list`}
-            className="relative flex aspect-square w-[42%] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+            className="relative flex aspect-square w-[42%] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
             style={{ backgroundColor: desktopThumbColor(book.id) }}
           >
             <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />

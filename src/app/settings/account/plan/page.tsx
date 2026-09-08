@@ -100,7 +100,7 @@ export default function PlanSettingsPage() {
             router.push('/settings/account');
           }}
           aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="chevron_left" size={20} />
         </button>
@@ -142,7 +142,7 @@ export default function PlanSettingsPage() {
               <div className="mt-[3px] font-display text-sm font-bold text-[var(--solid-ink)]">Pro でぜんぶ使う</div>
               <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">スキャン無制限・デバイス無制限</div>
             </div>
-            <div className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-white shadow-[2px_2px_0_var(--color-accent)]">見る</div>
+            <div className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)]">見る</div>
           </Link>
         </div>
       )}
@@ -174,7 +174,7 @@ export default function PlanSettingsPage() {
       <Modal isOpen={showCancelModal} onClose={closeModal} showCloseButton={false} closeOnBackdrop={!cancelLoading}>
         <div className="p-5">
           <div className="mb-4 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)] text-[var(--solid-ink)]">
               <Icon name="receipt_long" size={20} />
             </span>
             <div>
@@ -199,7 +199,7 @@ export default function PlanSettingsPage() {
               type="button"
               onClick={closeModal}
               disabled={cancelLoading}
-              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-3 font-display text-[13px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               戻る
             </button>
@@ -207,7 +207,7 @@ export default function PlanSettingsPage() {
               type="button"
               onClick={handleCancelSubscription}
               disabled={cancelLoading}
-              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px"
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3 font-display text-[13px] font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-60 active:translate-x-px active:translate-y-px"
             >
               {cancelLoading ? '処理中...' : '更新停止'}
             </button>
@@ -222,7 +222,7 @@ function SettingsGroup({ label, children }: { label: string; children: React.Rea
   return (
     <div className="px-[18px] pb-3">
       <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</div>
-      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
+      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
         {children}
       </div>
     </div>
@@ -245,7 +245,7 @@ function SettingsRow({
   const isInteractive = Boolean(onClick);
   const inner = (
     <div className={`flex items-center gap-2.5 px-3 py-[11px] ${disabled ? 'opacity-55' : ''} ${isInteractive && !disabled ? 'cursor-pointer' : ''}`}>
-      <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
+      <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)] text-[var(--solid-ink)]">
         <Icon name={icon} size={16} />
       </span>
       <span className="flex-1 text-[13px] font-bold text-[var(--solid-ink)]">{label}</span>

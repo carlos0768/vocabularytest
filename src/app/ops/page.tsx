@@ -110,7 +110,7 @@ export default function OpsHubPage() {
               type="button"
               onClick={() => void handleLoad()}
               disabled={loading || !adminSecret}
-              className="self-end rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="self-end rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2 text-sm font-bold text-[var(--color-on-ink)] disabled:opacity-50"
             >
               {loading ? '読み込み中...' : '読み込む'}
             </button>
@@ -122,7 +122,7 @@ export default function OpsHubPage() {
         <section className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Link href="/ops/official-wordbooks" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-white">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)]">
                 <Icon name="menu_book" size={20} />
               </span>
               <div className="min-w-0 flex-1">
@@ -134,7 +134,7 @@ export default function OpsHubPage() {
           </Link>
           <Link href="/ops/finance" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-white">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)]">
                 <Icon name="account_balance" size={20} />
               </span>
               <div className="min-w-0 flex-1">
@@ -146,7 +146,7 @@ export default function OpsHubPage() {
           </Link>
           <Link href="/ops/announcements" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-white">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)]">
                 <Icon name="campaign" size={20} />
               </span>
               <div className="min-w-0 flex-1">
@@ -158,7 +158,7 @@ export default function OpsHubPage() {
           </Link>
           <Link href="/ops/api-costs" className="block rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-accent)]">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--solid-ink)] text-white">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
                 <Icon name="payments" size={20} />
               </span>
               <div className="min-w-0 flex-1">

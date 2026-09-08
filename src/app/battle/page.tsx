@@ -348,7 +348,7 @@ export default function BattleLobbyPage() {
               type="button"
               onClick={startRandomMatch}
               disabled={!canStart}
-              className="flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-white shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-ink)] disabled:opacity-50 disabled:shadow-none"
+              className="flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-[var(--color-on-accent)] shadow-[3px_4px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-shadow)] disabled:opacity-50 disabled:shadow-none"
             >
               <Icon name="bolt" size={22} />
               マッチングを開始
@@ -364,7 +364,7 @@ export default function BattleLobbyPage() {
                 type="button"
                 onClick={createFriendRoom}
                 disabled={!canStart}
-                className="flex h-[50px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                className="flex h-[50px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
               >
                 <Icon name="add_link" size={18} />
                 招待コードを作る

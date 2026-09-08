@@ -207,7 +207,7 @@ export default function SettingsPage() {
                 aria-pressed={aiEnabled !== false}
               >
                 <span
-                  className={`block h-5 w-5 rounded-full bg-white transition-transform ${
+                  className={`block h-5 w-5 rounded-full bg-[var(--color-surface)] transition-transform ${
                     aiEnabled !== false ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />

@@ -447,7 +447,7 @@ export default function OpsOfficialWordbooksPage() {
               type="button"
               onClick={() => void loadList()}
               disabled={loading || !adminSecret}
-              className="self-end rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="self-end rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2 text-sm font-bold text-[var(--color-on-ink)] disabled:opacity-50"
             >
               {loading ? '読み込み中...' : '一覧を読み込む'}
             </button>
@@ -671,7 +671,7 @@ export default function OpsOfficialWordbooksPage() {
                   type="button"
                   onClick={() => applyBulk('replace')}
                   disabled={!bulkPreview || bulkPreview.words.length === 0}
-                  className="rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                  className="rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-[var(--color-on-ink)] disabled:opacity-50"
                 >
                   置き換えて読み込む
                 </button>
@@ -839,7 +839,7 @@ export default function OpsOfficialWordbooksPage() {
               type="button"
               onClick={() => void save(true)}
               disabled={!canSave}
-              className="rounded-xl border-2 border-[var(--color-accent-ink,var(--color-accent))] bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-xl border-2 border-[var(--color-accent-ink,var(--color-accent))] bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-[var(--color-on-accent)] disabled:opacity-50"
             >
               {saving ? '保存中...' : '保存して公開'}
             </button>
@@ -869,14 +869,14 @@ export default function OpsOfficialWordbooksPage() {
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                         wordbook.isActive
-                          ? 'bg-[var(--color-accent)] text-white'
+                          ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]'
                           : 'bg-[var(--color-border)] text-[var(--color-muted)]'
                       }`}
                     >
                       {wordbook.isActive ? '公開中' : '非公開'}
                     </span>
                     {wordbook.isDefault && (
-                      <span className="rounded-full bg-[var(--solid-ink)] px-2.5 py-0.5 text-[11px] font-bold text-white">
+                      <span className="rounded-full bg-[var(--solid-ink)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-on-ink)]">
                         既定
                       </span>
                     )}

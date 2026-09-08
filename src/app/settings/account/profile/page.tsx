@@ -308,7 +308,7 @@ export default function ProfileSettingsPage() {
       <StickyPageHeader eyebrow="PROFILE" title="プロフィール変更" onBack={handleBack} className="mb-3" />
 
       <div className="px-[18px] pb-4">
-        <div className="overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
+        <div className="overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
           {/* アイコン */}
           <div className="px-4 py-3.5">
             <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
@@ -330,7 +330,7 @@ export default function ProfileSettingsPage() {
                   radius={18}
                   fontSize={28}
                 />
-                <span className="absolute -bottom-1 -right-1 inline-flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+                <span className="absolute -bottom-1 -right-1 inline-flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]">
                   <Icon name={iconAction === 'saving' ? 'progress_activity' : 'photo_camera'} size={14} className={iconAction === 'saving' ? 'animate-spin' : undefined} />
                 </span>
               </button>
@@ -346,7 +346,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={openIconPicker}
                     disabled={iconBusy || profileLoading}
-                    className="inline-flex items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-white px-2.5 py-1.5 font-display text-[11px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1.5 font-display text-[11px] font-bold text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Icon name="photo_camera" size={13} />
                     {iconAction === 'saving' ? '保存中...' : avatarUrl ? '変更' : '画像を選ぶ'}
@@ -356,7 +356,7 @@ export default function ProfileSettingsPage() {
                       type="button"
                       onClick={() => void handleIconRemove()}
                       disabled={iconBusy}
-                      className="inline-flex items-center gap-1 rounded-[8px] border-2 border-[var(--color-error)] bg-white px-2.5 py-1.5 font-display text-[11px] font-bold text-[var(--color-error)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-[8px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] px-2.5 py-1.5 font-display text-[11px] font-bold text-[var(--color-error)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Icon name="delete" size={13} />
                       {iconAction === 'removing' ? '削除中...' : '削除'}
@@ -410,7 +410,7 @@ export default function ProfileSettingsPage() {
                   maxLength={20}
                   autoFocus
                   placeholder="ユーザー名を入力"
-                  className="mt-1.5 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
+                  className="mt-1.5 w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
                 />
                 <div className="mt-1.5 flex items-center justify-between gap-2">
                   <p className="font-mono text-[9px] text-[var(--color-muted)]">1-20文字</p>
@@ -426,7 +426,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={handleSave}
                     disabled={profileSaving || !displayValue.trim()}
-                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
+                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
                   >
                     {profileSaving ? '保存中...' : '保存'}
                   </button>
@@ -434,7 +434,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={cancelEditing}
                     disabled={profileSaving}
-                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     キャンセル
                   </button>
@@ -487,7 +487,7 @@ export default function ProfileSettingsPage() {
                     maxLength={24}
                     autoFocus
                     placeholder="account_id"
-                    className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white py-2.5 pl-8 pr-3 font-mono text-[15px] font-bold text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
+                    className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-2.5 pl-8 pr-3 font-mono text-[15px] font-bold text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
                   />
                 </div>
                 <div className="mt-1.5 flex items-center justify-between gap-2">
@@ -504,7 +504,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={handleSaveAccountId}
                     disabled={profileSaving || !isAccountIdValid}
-                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-white shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
+                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
                   >
                     {profileSaving ? '保存中...' : '保存'}
                   </button>
@@ -512,7 +512,7 @@ export default function ProfileSettingsPage() {
                     type="button"
                     onClick={cancelEditingAccountId}
                     disabled={profileSaving}
-                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     キャンセル
                   </button>

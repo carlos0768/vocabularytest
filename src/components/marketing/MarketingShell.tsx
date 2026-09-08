@@ -31,7 +31,7 @@ export function MarketingShell({ children, active }: MarketingShellProps) {
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <Link href="/features" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white">
+              <div className="w-9 h-9 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-[var(--color-on-ink)]">
                 <Icon name="school" size={18} />
               </div>
               <div>

@@ -304,7 +304,7 @@ export function OfficialWordbookScanPanel({
               type="button"
               onClick={() => cameraInputRef.current?.click()}
               disabled={scanning}
-              className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-sm font-bold text-[var(--color-on-ink)] disabled:opacity-50"
             >
               <span className="inline-flex items-center gap-1.5">
                 <Icon name="photo_camera" size={16} />
@@ -363,7 +363,7 @@ export function OfficialWordbookScanPanel({
               type="button"
               onClick={() => void scan()}
               disabled={scanning || shots.length === 0 || !adminSecret}
-              className="rounded-xl border-2 border-[var(--color-accent-ink,var(--color-accent))] bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-xl border-2 border-[var(--color-accent-ink,var(--color-accent))] bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-[var(--color-on-accent)] disabled:opacity-50"
             >
               {scanning ? '解析中...' : `${shots.length || ''}枚をスキャン`}
             </button>
@@ -393,7 +393,7 @@ export function OfficialWordbookScanPanel({
                 <button
                   type="button"
                   onClick={() => apply('append')}
-                  className="rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-white"
+                  className="rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-[var(--color-on-ink)]"
                 >
                   末尾に追加
                 </button>

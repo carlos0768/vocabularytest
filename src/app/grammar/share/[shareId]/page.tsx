@@ -112,7 +112,7 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
         <button
           type="button"
           onClick={() => router.push('/grammar')}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="語法問題集へ"
         >
           <Icon name="chevron_left" size={16} />
@@ -121,11 +121,11 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
       </div>
 
       {state.kind === 'loading' && (
-        <div className="h-[260px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-white" />
+        <div className="h-[260px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)]" />
       )}
 
       {state.kind === 'not-found' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             共有された問題集が見つかりません。リンクが無効になっている可能性があります。
           </p>
@@ -133,13 +133,13 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
       )}
 
       {state.kind === 'login-required' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             共有された語法問題集を見るにはログインが必要です。
           </p>
           <Link
             href={`/login?redirect=${encodeURIComponent(`/grammar/share/${shareId}`)}`}
-            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white"
+            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)]"
           >
             ログイン
           </Link>
@@ -147,15 +147,15 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
       )}
 
       {state.kind === 'error' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
           <p className="m-0 text-[13px] text-[var(--solid-ink)]">{state.message}</p>
         </div>
       )}
 
       {state.kind === 'ready' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <div className="flex items-start gap-3">
-            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
               <Icon name="menu_book" size={22} />
             </span>
             <div className="min-w-0 flex-1">
@@ -171,10 +171,10 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
               <div className="font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">Preview</div>
               <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
                 {state.book.preview.map((question, index) => (
-                  <li key={index} className="rounded-lg bg-[#faf7f1] p-3 text-[12px] leading-[1.7] text-[var(--solid-ink)]">
+                  <li key={index} className="rounded-lg bg-[var(--color-paper)] p-3 text-[12px] leading-[1.7] text-[var(--solid-ink)]">
                     {question.sentence}
                     {question.grammarPoint && (
-                      <span className="ml-2 rounded-[3px] border border-[var(--solid-ink)] bg-white px-1.5 py-[1px] font-mono text-[9px] font-bold">
+                      <span className="ml-2 rounded-[3px] border border-[var(--solid-ink)] bg-[var(--color-surface)] px-1.5 py-[1px] font-mono text-[9px] font-bold">
                         {question.grammarPoint}
                       </span>
                     )}
@@ -191,7 +191,7 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
               </p>
               <Link
                 href="/subscription"
-                className="mt-3 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white"
+                className="mt-3 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)]"
               >
                 Proプランを見る
               </Link>
@@ -201,7 +201,7 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
               type="button"
               onClick={() => void handleImport()}
               disabled={importing || state.book.questionCount === 0}
-              className="mt-5 h-12 w-full rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              className="mt-5 h-12 w-full rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
             >
               {importing ? '取り込み中...' : '自分の問題集に取り込む'}
             </button>

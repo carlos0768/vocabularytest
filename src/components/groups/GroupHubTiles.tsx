@@ -86,13 +86,13 @@ export function GroupHubTiles({ tiles }: { tiles: GroupHubTile[] }) {
         const ink = tile.foreground === 'dark';
         // 面の色はテーマで変わらないので、文字色もトークンではなく固定値にする
         //（ダークで --solid-ink が明色に反転すると黄色の面で読めなくなる）。
-        const text = ink ? '#1a1a1a' : '#fff';
+        const text = ink ? 'var(--color-ink-fixed)' : '#fff';
         return (
           <Link
             key={tile.key}
             href={tile.href}
             onClick={() => triggerHaptic()}
-            className="relative flex flex-col justify-between overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-3.5 shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-ink)]"
+            className="relative flex flex-col justify-between overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] p-3.5 shadow-[3px_4px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-shadow)]"
             style={{ background: tile.background, color: text }}
           >
             {/* 上端のハイライトで「板」ではなく面に見せる */}
@@ -112,7 +112,7 @@ export function GroupHubTiles({ tiles }: { tiles: GroupHubTile[] }) {
             <span
               className="flex h-9 w-9 items-center justify-center rounded-[11px] border-2"
               style={{
-                borderColor: ink ? '#1a1a1a' : 'rgba(255,255,255,0.7)',
+                borderColor: ink ? 'var(--color-ink-fixed)' : 'rgba(255,255,255,0.7)',
                 background: ink ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.22)',
               }}
             >

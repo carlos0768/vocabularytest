@@ -128,7 +128,7 @@ export function StatusSquares({
       type="button"
       onClick={handleClick}
       aria-label={`ステータス: ${PP_ARIA[shownStatus] ?? shownStatus}`}
-      className={`flex shrink-0 flex-col items-center gap-[3px] rounded transition-colors active:bg-[rgba(26,26,26,0.06)]${className ? ` ${className}` : ''}`}
+      className={`flex shrink-0 flex-col items-center gap-[3px] rounded transition-colors active:bg-[color-mix(in_srgb,_var(--solid-ink)_6%,_transparent)]${className ? ` ${className}` : ''}`}
     >
       <div className="flex flex-col gap-[1.5px]">
         {[0, 1, 2].map((i) => (
@@ -410,9 +410,9 @@ export function VocabularyTypeBadge({
 }) {
   const toneClass =
     vocabularyType === 'active'
-      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-accent)]'
       : vocabularyType === 'passive'
-        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-white'
+        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-[var(--color-on-accent)]'
         : 'border-[var(--color-border)] bg-transparent text-[var(--color-muted)]';
 
   return (
@@ -445,8 +445,8 @@ export function SelectCheckbox({ checked, size = 20 }: { checked: boolean; size?
     <span
       className={`inline-flex shrink-0 items-center justify-center border-2 transition-colors ${
         checked
-          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-          : 'border-[var(--solid-ink)] bg-white text-transparent'
+          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
+          : 'border-[var(--solid-ink)] bg-[var(--color-surface)] text-transparent'
       }`}
       style={{ width: size, height: size, borderRadius: size * 0.25 }}
       aria-hidden

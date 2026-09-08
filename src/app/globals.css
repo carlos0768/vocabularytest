@@ -67,8 +67,57 @@
   --thumb-7: #4d7c0f;
   --thumb-8: #1e3a8a;
 
+  /* Semantic surfaces/ink used directly by components.
+     These exist so screens stop hardcoding hex literals: every one of them
+     resolves to the exact same value the literal used to be, so light mode is
+     unchanged, while `.dark` gets a single place to invert them. */
+  --color-paper: #faf7f1;
+  --color-paper-alt: #f3f0e9;
+  --color-ink-soft: #555555;
+  --color-ink-mute: #8a857a;
+  --color-ink-dim: #4a4a4a;
+  --color-rose: #cc4d59;
+  --color-danger: #dc2626;
+  --color-danger-strong: #b91c1c;
+  --color-danger-soft: #c43d3d;
+  --color-info: #3b82f6;
+  --color-info-strong: #2563eb;
+  --color-info-soft: #60a5fa;
+
   /* Merken Solid */
   --solid-ink: #1a1a1a;
+  /* The hard offset shadow is tracked separately from the outline: in dark mode
+     the outline has to go light to stay visible, but a *shadow* must stay dark
+     or every card grows a glowing slab. */
+  --solid-shadow: #1a1a1a;
+  /* Foreground for anything filled with --solid-ink (inverse chips/buttons).
+     Flips with the ink, so `text-white` on an ink fill can stop being a lie. */
+  --color-on-ink: #ffffff;
+  /* Foregrounds for saturated fills. In light both are white; in dark the fills
+     get lighter, so the text on them has to go dark instead. */
+  --color-on-accent: #ffffff;
+  /* --color-error-fill is dark in both themes, so its label stays white. */
+  --color-on-error: #ffffff;
+  /* Error used as a large *fill* (wrong-answer option). Kept separate from
+     --color-error (icons/text) because a fill has to stay dark enough in dark
+     mode to carry light text without glaring. */
+  --color-error-fill: #ef4444;
+  /* Hairlines + ink for the pale status chips (accent / warning). */
+  --color-accent-line: #bbf7d0;
+  --color-warning-line: #fde68a;
+  --color-warning-ink: #92400e;
+  /* Ink for fills that are light in BOTH themes (gold badges, saturated
+     tiles). Unlike --solid-ink this must never invert, or the label
+     disappears into its own chip in dark mode. */
+  --color-ink-fixed: #1a1a1a;
+  /* Accent for content sitting ON an ink-filled surface. Deliberately the same
+     value in both themes: the ink surface flips from near-black to near-white,
+     and this mid-tone green is the one that clears both (3.0:1 on black,
+     3.4:1 on the light ink) — an inverting accent would fail one of them. */
+  --color-accent-on-ink: #15803d;
+  /* Third hint-banner tone (accent and warning cover the other two). */
+  --color-violet: #6d28d9;
+  --color-violet-ink: #4c1d95;
   --solid-border-w: 1.5px;
   --solid-offset-x: 3px;
   --solid-offset-y: 4px;
@@ -79,30 +128,105 @@
   --solid-press-y: 1px;
 }
 
+/*
+ * Dark palette.
+ *
+ * MERKEN's light theme is warm paper (#f6f5f1 ground, cream cards, forest
+ * accent). A neutral or blue-grey dark theme reads as a different product, so
+ * every neutral here keeps a small warm bias and the elevation ramp goes
+ * lighter as surfaces come forward — the same order the light theme reads in.
+ */
 .dark {
-  --color-background: #111418;
-  --color-surface: #1e242b;
-  --color-surface-secondary: #161a1f;
-  --color-surface-alt: #1a1e24;
-  --color-foreground: #f1f3f5;
-  --color-muted: #9dabb9;
-  --color-secondary-text: #c8d1db;
-  --color-ink-muted: #c8d1db;
-  --color-border: #283039;
-  --color-border-light: #1e242b;
-  --color-primary: #f1f3f5;
-  --color-primary-light: #1e242b;
-  --color-success-light: #14291e;
-  --color-error-light: #2e1a1a;
-  --color-keyword: #ff7b7b;
-  --color-warning-light: #2e2a1a;
+  color-scheme: dark;
 
-  --color-hero: #1e242b;
-  --color-hero-btn: #ffffff;
-  --color-hero-btn-text: #1e242b;
-  --color-hero-btn-border: rgba(255, 255, 255, 0.3);
-  --color-notebook-paper: #1a1e24;
-  --solid-ink: #f1f3f5;
+  /* Elevation ramp: page -> subtle fill -> card -> raised/hover */
+  --color-background: #131211;
+  --color-surface-alt: #1a1917;
+  --color-surface: #201e1b;
+  --color-surface-secondary: #272420;
+
+  /* Ink. Off-white rather than #fff: pure white on a dark ground glares and
+     makes the Japanese body text bloom. */
+  --color-foreground: #f2efe9;
+  --color-ink: #f2efe9;
+  --color-ink-strong: #fdfbf7;
+  --color-secondary-text: #a9a49b;
+  --color-ink-muted: #b5afa5;
+  --color-muted: #8f8a80;
+
+  --color-primary: #f2efe9;
+  --color-primary-dark: #ffffff;
+  --color-primary-light: #272420;
+
+  --color-border: #322e29;
+  --color-border-light: #26231f;
+
+  /* Component-level surfaces/ink (see :root for what these map to in light) */
+  --color-paper: #1a1917;
+  --color-paper-alt: #232019;
+  --color-ink-soft: #a9a49b;
+  --color-ink-mute: #918b81;
+  --color-ink-dim: #b5afa5;
+
+  /* Accents. Saturated mid-tones are lifted so they clear 4.5:1 on the dark
+     ground; the paired *-light tints become deep washes instead of pastels. */
+  --color-accent: #35a35f;
+  --color-accent-hover: #43b76e;
+  --color-accent-light: #143224;
+  --color-accent-subtle: #0f251b;
+  --color-accent-ink: #9fe0b8;
+
+  --color-success: #4ade80;
+  --color-success-light: #143224;
+  --color-error: #f87171;
+  --color-error-light: #33201f;
+  --color-keyword: #ff8f85;
+  --color-warning: #fbbf24;
+  --color-warning-light: #332a12;
+
+  --color-rose: #e2848d;
+  --color-danger: #f87171;
+  --color-danger-strong: #e05a5a;
+  --color-danger-soft: #e5837c;
+  --color-info: #60a5fa;
+  --color-info-strong: #7cb5fb;
+  --color-info-soft: #93c5fd;
+
+  --color-project-header-from: #9f2420;
+  --color-project-header-to: #74201d;
+
+  --color-hero: #201e1b;
+  --color-hero-btn: #f2efe9;
+  --color-hero-btn-text: #17150f;
+  --color-hero-btn-border: rgba(242, 239, 233, 0.32);
+
+  --color-notebook-paper: #1b1915;
+  --color-notebook-rule: #2f2b24;
+  --color-notebook-margin: #7a4a4d;
+
+  /* Thumbnails sit behind white labels in both themes, so these only need
+     enough lift to stop reading as black rectangles. */
+  --thumb-1: #2f9459;
+  --thumb-2: #2c8489;
+  --thumb-3: #c2701a;
+  --thumb-4: #5d6b7d;
+  --thumb-5: #8154e0;
+  --thumb-6: #b8355a;
+  --thumb-7: #6b9a24;
+  --thumb-8: #3358a8;
+
+  /* Outline stays bright (that inversion *is* the Solid look) but the hard
+     shadow goes darker than the page, so depth still reads as depth. */
+  --solid-ink: #d9d4c9;
+  --solid-shadow: #000000;
+  --color-on-ink: #17150f;
+  --color-on-accent: #06210f;
+  --color-error-fill: #9d3535;
+  --color-violet: #a78bfa;
+  --color-violet-ink: #c4b5fd;
+  --color-accent-line: #2f6045;
+  --color-warning-line: #5c4a1e;
+  --color-warning-ink: #f0c473;
 }
 
 @theme inline {
@@ -131,6 +255,28 @@
   --color-secondary-text: var(--color-secondary-text);
   --color-border: var(--color-border);
   --color-border-light: var(--color-border-light);
+  --color-paper: var(--color-paper);
+  --color-paper-alt: var(--color-paper-alt);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-ink-mute: var(--color-ink-mute);
+  --color-ink-dim: var(--color-ink-dim);
+  --color-on-ink: var(--color-on-ink);
+  --color-on-accent: var(--color-on-accent);
+  --color-error-fill: var(--color-error-fill);
+  --color-accent-line: var(--color-accent-line);
+  --color-warning-line: var(--color-warning-line);
+  --color-warning-ink: var(--color-warning-ink);
+  --color-ink-fixed: var(--color-ink-fixed);
+  --color-accent-on-ink: var(--color-accent-on-ink);
+  --color-violet: var(--color-violet);
+  --color-violet-ink: var(--color-violet-ink);
+  --color-rose: var(--color-rose);
+  --color-danger: var(--color-danger);
+  --color-danger-strong: var(--color-danger-strong);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-info: var(--color-info);
+  --color-info-strong: var(--color-info-strong);
+  --color-info-soft: var(--color-info-soft);
 
   /* Fonts */
   --font-display: var(--font-lexend), var(--font-noto-sans-jp), sans-serif;
@@ -205,66 +351,75 @@ body {
   text-transform: uppercase;
 }
 
-/* ===== Dark Mode Overrides ===== */
+/* ===== Dark Mode Compatibility Layer =====
+ *
+ * Screens are expected to theme themselves through the tokens above; this
+ * block only catches the Tailwind palette utilities that carry a baked-in
+ * light value and have no token equivalent.
+ *
+ * Scoped to `html.dark` on purpose. The theme class is `dark`, but
+ * `.ds-btn.dark` in desktop.css is an unrelated *button variant* with the same
+ * name — a bare `.dark .bg-white` descendant rule fires inside those buttons in
+ * light mode too. `html.dark` can only ever match the root element.
+ */
 
-.dark {
-  color-scheme: dark;
+html.dark .bg-gray-50 {
+  background-color: var(--color-surface-alt);
 }
 
-.dark .bg-white {
+html.dark .bg-gray-100 {
   background-color: var(--color-surface);
 }
 
-.dark .bg-background {
-  background-color: var(--color-background);
+html.dark .bg-gray-200 {
+  background-color: var(--color-surface-secondary);
 }
 
-.dark .bg-gray-50 {
-  background-color: #1a2028;
+html.dark .text-gray-900 {
+  color: var(--color-foreground);
 }
 
-.dark .bg-gray-100 {
-  background-color: #1e242b;
+html.dark .text-gray-800,
+html.dark .text-gray-700 {
+  color: var(--color-ink-muted);
 }
 
-.dark .bg-gray-200 {
-  background-color: #283039;
+html.dark .text-gray-600,
+html.dark .text-gray-500 {
+  color: var(--color-secondary-text);
 }
 
-.dark .text-gray-900 {
-  color: #f1f3f5;
+html.dark .text-gray-400 {
+  color: var(--color-muted);
 }
 
-.dark .text-gray-700 {
-  color: #c8d1db;
+html.dark .border-gray-100,
+html.dark .border-gray-200 {
+  border-color: var(--color-border);
 }
 
-.dark .text-gray-600 {
-  color: #b0bcc8;
+html.dark .border-gray-300 {
+  border-color: var(--color-border);
 }
 
-.dark .text-gray-500 {
-  color: #9dabb9;
+html.dark .hover\:bg-gray-50:hover,
+html.dark .hover\:bg-gray-100:hover {
+  background-color: var(--color-surface-alt);
 }
 
-.dark .text-gray-400 {
-  color: #7d8b99;
+html.dark .hover\:bg-gray-200:hover {
+  background-color: var(--color-surface-secondary);
 }
 
-.dark .border-gray-200 {
-  border-color: #283039;
-}
-
-.dark .border-gray-300 {
-  border-color: #3b4754;
-}
-
-.dark .hover\:bg-gray-100:hover {
-  background-color: #1e242b;
-}
-
-.dark .hover\:bg-gray-200:hover {
-  background-color: #283039;
+/* Theme flips are instant, but a lot of surfaces animate `background` on hover
+   (.card, .quiz-option, .ds-*). Without this, switching themes plays every one
+   of those transitions at once and the UI appears to melt for ~150ms. The
+   provider adds `theme-switching` for one frame around the flip. */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
 }
 
 /* ===== Custom Shadows ===== */
@@ -303,11 +458,11 @@ body {
 
 .btn-primary {
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
   font-weight: 600;
   border-radius: var(--radius-lg);
   border: var(--solid-border-w) solid var(--solid-ink);
-  box-shadow: 2px 3px 0 var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-shadow);
   padding: 1rem 1.5rem;
   transition: opacity 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
   will-change: transform;
@@ -320,7 +475,7 @@ body {
 .btn-primary:active {
   opacity: 0.8;
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
 }
 
 .btn-secondary {
@@ -329,7 +484,7 @@ body {
   font-weight: 500;
   border-radius: var(--radius-lg);
   border: var(--solid-border-w) solid var(--solid-ink);
-  box-shadow: 2px 3px 0 var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-shadow);
   padding: 1rem 1.5rem;
   transition: opacity 0.1s ease, transform 0.1s ease, background 0.1s ease, box-shadow 0.1s ease;
   will-change: transform;
@@ -342,7 +497,7 @@ body {
 .btn-secondary:active {
   opacity: 0.8;
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
 }
 
 /* ===== Card Styles ===== */
@@ -356,7 +511,7 @@ body {
   background: var(--color-surface);
   border: var(--solid-border-w) solid var(--solid-ink);
   border-radius: var(--solid-radius);
-  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-ink);
+  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-shadow);
   transition: transform 100ms ease-out, box-shadow 100ms ease-out;
 }
 
@@ -384,7 +539,7 @@ body {
   transform: translate(var(--solid-press-x), var(--solid-press-y));
   box-shadow: calc(var(--solid-offset-x) - var(--solid-press-x))
     calc(var(--solid-offset-y) - var(--solid-press-y))
-    0 var(--solid-ink);
+    0 var(--solid-shadow);
 }
 
 .solid--sm {
@@ -402,13 +557,13 @@ body {
 
 .solid--inverse {
   background: var(--solid-ink);
-  color: var(--color-surface);
+  color: var(--color-on-ink);
 }
 
 .solid--accent {
   background: var(--color-accent);
   border-color: var(--color-accent-ink);
-  color: white;
+  color: var(--color-on-accent);
 }
 
 .solid-btn {
@@ -430,12 +585,12 @@ body {
 
 .solid-btn.solid--inverse .solid-face {
   background: var(--solid-ink);
-  color: var(--color-surface);
+  color: var(--color-on-ink);
 }
 
 .solid-btn.solid--accent .solid-face {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
   border-color: var(--color-accent-ink);
 }
 
@@ -474,7 +629,7 @@ body {
   min-height: 2.75rem;
   border-radius: var(--solid-radius-sm);
   border: var(--solid-border-w) solid var(--solid-ink);
-  box-shadow: 2px 3px 0 var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-shadow);
   padding: 0.75rem 1.1rem;
   font-size: 0.9rem;
   font-weight: 800;
@@ -484,7 +639,7 @@ body {
 
 .solid-link-primary {
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
 }
 
 .solid-link-secondary {
@@ -500,14 +655,14 @@ body {
 .solid-link-primary:active,
 .solid-link-secondary:active {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
 }
 
 .solid-panel {
   background: var(--color-surface);
   border: var(--solid-border-w) solid var(--solid-ink);
   border-radius: var(--solid-radius);
-  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-ink);
+  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-shadow);
 }
 
 .solid-input {
@@ -515,7 +670,7 @@ body {
   border-radius: var(--solid-radius-sm);
   background: var(--color-surface);
   color: var(--color-foreground);
-  box-shadow: 2px 3px 0 var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-shadow);
   outline: none;
   transition: box-shadow 100ms ease, transform 100ms ease, background 100ms ease;
 }
@@ -523,7 +678,7 @@ body {
 .solid-input:focus {
   background: var(--color-surface);
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
 }
 
 .solid-input::placeholder {
@@ -534,13 +689,13 @@ body {
   background: var(--color-surface);
   border-radius: var(--radius-xl);
   border: var(--solid-border-w) solid var(--solid-ink);
-  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-ink);
+  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-shadow);
   transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
 }
 
 .card:has(> a):active {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
 }
 
 .card-interactive {
@@ -550,12 +705,12 @@ body {
 
 .card-interactive:hover {
   transform: translateY(-2px);
-  box-shadow: var(--solid-offset-x) calc(var(--solid-offset-y) + 2px) 0 var(--solid-ink);
+  box-shadow: var(--solid-offset-x) calc(var(--solid-offset-y) + 2px) 0 var(--solid-shadow);
 }
 
 .card-interactive:active {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
 }
 
 /* ===== Header Film ===== */
@@ -570,7 +725,7 @@ body {
   );
 }
 
-.dark .header-film {
+html.dark .header-film {
   background-image: linear-gradient(
     120deg,
     rgba(255, 255, 255, 0.16),
@@ -589,7 +744,7 @@ body {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   border: var(--solid-border-w) solid var(--solid-ink);
-  box-shadow: 2px 3px 0 var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-shadow);
   transition: transform 0.1s ease, opacity 0.1s ease, background 0.1s ease, box-shadow 0.1s ease;
   will-change: transform;
 }
@@ -600,7 +755,7 @@ body {
 
 .quiz-option:active:not(:disabled) {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
   opacity: 0.85;
 }
 
@@ -627,12 +782,12 @@ body {
 
 .quiz-option-correct .quiz-option-label {
   background: var(--color-accent);
-  color: white;
+  color: var(--color-on-accent);
 }
 
 .quiz-option-wrong {
-  background: var(--color-error);
-  border-color: #b91c1c;
+  background: var(--color-error-fill);
+  border-color: var(--color-danger-strong);
 }
 
 .quiz-option-wrong .quiz-option-label {
@@ -670,13 +825,13 @@ body {
 
 .chip-tough {
   background: var(--color-warning-light);
-  color: #B45309;
+  color: var(--color-warning);
   border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .chip-pro {
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
 }
@@ -909,7 +1064,7 @@ body {
   backface-visibility: hidden;
   border-radius: var(--solid-radius);
   border: var(--solid-border-w) solid var(--solid-ink);
-  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-ink);
+  box-shadow: var(--solid-offset-x) var(--solid-offset-y) 0 var(--solid-shadow);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1015,20 +1170,20 @@ body {
 }
 
 /* Dark mode notebook card */
-.dark .notebook-card {
-  background: #1a1e24;
+html.dark .notebook-card {
+  background: var(--color-notebook-paper);
   border-color: var(--color-border);
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.2),
     0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
-.dark .notebook-card::before {
-  background: #6b3a3e;
+html.dark .notebook-card::before {
+  background: var(--color-notebook-margin);
   opacity: 0.35;
 }
 
-.dark .notebook-lined {
+html.dark .notebook-lined {
   background-image:
     repeating-linear-gradient(
       to bottom,
@@ -1039,7 +1194,7 @@ body {
     );
 }
 
-.dark .notebook-section-divider {
+html.dark .notebook-section-divider {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
 
@@ -1054,24 +1209,24 @@ body {
   height: 3.5rem;
   border-radius: 50%;
   background: var(--color-foreground);
-  color: white;
+  color: var(--color-on-ink);
   display: flex;
   align-items: center;
   justify-content: center;
   border: var(--solid-border-w) solid var(--solid-ink);
-  box-shadow: 2px 3px 0 var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-shadow);
   z-index: 51;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .fab:hover {
   transform: scale(1.05);
-  box-shadow: 2px 4px 0 var(--solid-ink);
+  box-shadow: 2px 4px 0 var(--solid-shadow);
 }
 
 .fab:active {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--solid-ink);
+  box-shadow: 1px 1px 0 var(--solid-shadow);
 }
 
 /* ===== Rich Text Block (Notion-style) ===== */

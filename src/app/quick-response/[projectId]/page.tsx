@@ -641,7 +641,7 @@ export default function QuickResponsePage() {
             {phase === 'listening' && (
               <div className="flex flex-col items-center gap-4">
                 <div className="w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center animate-pulse shadow-lg">
-                  <Icon name="mic" size={36} className="text-white" />
+                  <Icon name="mic" size={36} className="text-[var(--color-on-ink)]" />
                 </div>
                 <p className="text-lg font-medium text-[var(--color-foreground)] min-h-[1.75rem]">
                   {recognizedText || (

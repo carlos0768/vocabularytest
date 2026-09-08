@@ -17,7 +17,7 @@ export default function ParserScanPage() {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-[18px]">
-        <div className="flex h-[200px] w-full items-center justify-center rounded-[18px] border-2 border-dashed border-[var(--solid-ink)] bg-[rgba(26,26,26,0.04)]">
+        <div className="flex h-[200px] w-full items-center justify-center rounded-[18px] border-2 border-dashed border-[var(--solid-ink)] bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)]">
           <div className="text-center">
             <Icon name="photo_camera" size={48} className="text-[var(--color-muted)]" />
             <div className="mt-3 text-sm font-bold text-[var(--solid-ink)]">長文を撮影</div>
@@ -27,13 +27,13 @@ export default function ParserScanPage() {
 
         <div className="mt-4 flex gap-2.5">
           <div className="flex-1">
-            <div className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-6 py-3.5 text-sm font-bold text-white">
+            <div className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-6 py-3.5 text-sm font-bold text-[var(--color-on-ink)]">
               <Icon name="photo_camera" size={16} />
               カメラ
             </div>
           </div>
           <div className="flex-1">
-            <div className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-6 py-3.5 text-sm font-bold text-[var(--solid-ink)]">
+            <div className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-6 py-3.5 text-sm font-bold text-[var(--solid-ink)]">
               <Icon name="image" size={16} />
               写真
             </div>

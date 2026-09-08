@@ -17,7 +17,7 @@ function UpgradeButton() {
   return (
     <Link
       href="/subscription"
-      className="mt-5 inline-flex items-center justify-center gap-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-6 py-3 text-sm font-bold text-white transition-transform duration-100 active:translate-x-px active:translate-y-px"
+      className="mt-5 inline-flex items-center justify-center gap-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-6 py-3 text-sm font-bold text-[var(--color-on-accent)] transition-transform duration-100 active:translate-x-px active:translate-y-px"
     >
       Proプランで無制限に見る
     </Link>

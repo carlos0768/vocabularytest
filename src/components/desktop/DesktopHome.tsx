@@ -475,7 +475,7 @@ function DesktopGeneratingBookTile({ scan }: { scan: DesktopPendingScan }) {
       aria-label={`${scan.project_title} を生成中`}
       style={{
         background: scan.iconDataUrl
-          ? `linear-gradient(rgba(26,26,26,0.42), rgba(26,26,26,0.42)), center / cover url(${scan.iconDataUrl})`
+          ? `linear-gradient(color-mix(in srgb, var(--solid-ink) 42%, transparent), color-mix(in srgb, var(--solid-ink) 42%, transparent)), center / cover url(${scan.iconDataUrl})`
           : 'linear-gradient(135deg, #137FEC 0%, #3DA1B8 52%, #228B22 100%)',
         cursor: 'default',
         pointerEvents: 'none',
@@ -653,7 +653,7 @@ function DesktopGroupCard({ group }: { group: StudyGroupSummary }) {
                     radius={17}
                     fontSize={13}
                   />
-                  <span className="medal" style={{ background: MEDALS[index] ?? '#fff' }}>{index + 1}</span>
+                  <span className="medal" style={{ background: MEDALS[index] ?? 'var(--color-surface)' }}>{index + 1}</span>
                 </div>
                 <span className="nm" style={{ color: member.isViewer ? 'var(--color-accent)' : 'var(--color-ink)' }}>{label}</span>
                 <div className="bar"><i style={{ width: `${Math.round((member.quizCount / maxCount) * 100)}%` }} /></div>
@@ -689,7 +689,7 @@ function DesktopUpgradeCard({ onDismiss }: { onDismiss?: () => void }) {
             height: 24,
             borderRadius: 999,
             border: '1.5px solid var(--solid-ink)',
-            background: '#fff',
+            background: 'var(--color-surface)',
             color: 'var(--solid-ink)',
             cursor: 'pointer',
             padding: 0,
@@ -726,7 +726,7 @@ function DesktopUpgradeCard({ onDismiss }: { onDismiss?: () => void }) {
             borderRadius: 10,
             border: '2px solid var(--solid-ink)',
             background: 'var(--solid-ink)',
-            color: '#fff',
+            color: 'var(--color-on-ink)',
             padding: '10px 0',
             fontFamily: 'var(--font-display)',
             fontWeight: 700,

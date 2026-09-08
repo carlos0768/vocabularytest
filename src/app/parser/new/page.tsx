@@ -74,7 +74,7 @@ export default function ParserInputPage() {
       </div>
 
       <div className="px-[18px] pb-3 pt-2">
-        <div className="inline-flex items-center gap-[5px] rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-white">
+        <div className="inline-flex items-center gap-[5px] rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-on-ink)]">
           <Icon name="account_tree" size={11} />
           PARSER · NEW
         </div>
@@ -87,11 +87,11 @@ export default function ParserInputPage() {
       </div>
 
       <div className="px-[18px] pb-3">
-        <div className="grid grid-cols-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[rgba(26,26,26,0.05)] p-[3px]">
+        <div className="grid grid-cols-2 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)] p-[3px]">
           <div className="flex items-center justify-center gap-1.5 rounded-[7px] py-2 text-xs font-bold text-[var(--color-muted)]">
             <Icon name="photo_camera" size={13} /> スキャン
           </div>
-          <div className="flex items-center justify-center gap-1.5 rounded-[7px] border-2 border-[var(--solid-ink)] bg-white py-2 text-xs font-bold text-[var(--solid-ink)]">
+          <div className="flex items-center justify-center gap-1.5 rounded-[7px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-2 text-xs font-bold text-[var(--solid-ink)]">
             <Icon name="edit" size={13} /> 直接入力
           </div>
         </div>
@@ -106,7 +106,7 @@ export default function ParserInputPage() {
               type="button"
               onClick={() => setDepth(option.k)}
               className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] px-2.5 py-1.5 text-[11px] font-bold"
-              style={{ background: depth === option.k ? 'var(--solid-ink)' : '#fff', color: depth === option.k ? '#fff' : 'var(--solid-ink)' }}
+              style={{ background: depth === option.k ? 'var(--solid-ink)' : 'var(--color-surface)', color: depth === option.k ? 'var(--color-on-ink)' : 'var(--solid-ink)' }}
             >
               {option.label}
               {option.pro && <span className="font-mono text-[8px] font-bold tracking-[0.06em] text-[var(--color-accent)]">PRO</span>}
@@ -118,7 +118,7 @@ export default function ParserInputPage() {
       <div className="flex flex-1 px-[18px] pb-3">
         <div className="relative w-full">
           <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <div className="relative min-h-[220px] rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3.5 pb-9 pt-3.5">
+          <div className="relative min-h-[220px] rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3.5 pb-9 pt-3.5">
             <textarea
               value={text}
               maxLength={MAX_CHARS}
@@ -138,7 +138,7 @@ export default function ParserInputPage() {
       <div className="px-[18px] pb-7 pt-1">
         <button type="button" onClick={submit} disabled={submitting || authLoading} className="relative block w-full disabled:opacity-60">
           <span className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <span className="relative flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-white">
+          <span className="relative flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-[var(--color-on-ink)]">
             <Icon name={submitting ? 'progress_activity' : 'account_tree'} size={15} />
             {submitting ? '解析中...' : isPro ? '解析する' : 'Proで解析する'}
           </span>

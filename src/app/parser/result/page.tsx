@@ -21,11 +21,11 @@ const C = {
 } as const;
 
 const SVO_COLORS: Record<string, { bg: string; fg: string; bd?: string }> = {
-  S: { bg: '#1a1a1a', fg: '#fff' },
-  V: { bg: 'var(--color-accent)', fg: '#fff' },
-  O: { bg: '#137fec', fg: '#fff' },
+  S: { bg: 'var(--solid-ink)', fg: 'var(--color-on-ink)' },
+  V: { bg: 'var(--color-accent)', fg: 'var(--color-on-accent)' },
+  O: { bg: 'var(--color-info)', fg: '#fff' },
   C: { bg: '#a8761f', fg: '#fff' },
-  M: { bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--solid-ink)' },
+  M: { bg: 'var(--color-surface)', fg: 'var(--color-muted)', bd: 'var(--solid-ink)' },
 };
 
 function Tag({ k }: { k: string }) {
@@ -46,7 +46,7 @@ function Tok({ children, kind, role }: { children: ReactNode; kind: keyof typeof
 function SVOPill({ k, t }: { k: string; t: string }) {
   const c = SVO_COLORS[k] ?? SVO_COLORS.M;
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-white px-1.5 py-0.5" style={{ border: '1px solid var(--color-border)' }}>
+    <span className="inline-flex items-center gap-1 rounded bg-[var(--color-surface)] px-1.5 py-0.5" style={{ border: '1px solid var(--color-border)' }}>
       <span className="rounded px-1 py-px font-mono text-[8.5px] font-bold" style={{ background: c.bg, color: c.fg }}>{k}</span>
       <span className="font-mono text-[11.5px] font-semibold text-[var(--solid-ink)]">{t}</span>
     </span>
@@ -61,7 +61,7 @@ function TreeNode({ node }: { node: ParserTreeNode }) {
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-[5px] font-mono text-[8.5px] font-bold tracking-[0.06em]" style={{ color: kind.fg }}>
             {node.label}
-            {node.prefix && <span className="rounded-[3px] bg-white px-[5px] py-[1.5px] text-[8.5px]" style={{ border: `1px solid ${kind.bd}`, color: kind.fg }}>&ldquo;{node.prefix}&rdquo;</span>}
+            {node.prefix && <span className="rounded-[3px] bg-[var(--color-surface)] px-[5px] py-[1.5px] text-[8.5px]" style={{ border: `1px solid ${kind.bd}`, color: kind.fg }}>&ldquo;{node.prefix}&rdquo;</span>}
           </div>
           <div className="flex flex-wrap items-center gap-1">
             {node.roles.map((role, i) => <SVOPill key={`${role.role}-${i}`} k={role.role} t={role.text} />)}
@@ -149,7 +149,7 @@ export default function ParserResultPage() {
     return (
       <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-5 text-center font-[var(--font-body)]">
         <div className="mb-3 text-sm font-bold text-[var(--solid-ink)]">{error || '解析結果が見つかりません'}</div>
-        <Link href="/parser/new" className="inline-flex rounded-lg border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-xs font-bold text-[var(--solid-ink)]">新しく解析する</Link>
+        <Link href="/parser/new" className="inline-flex rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-xs font-bold text-[var(--solid-ink)]">新しく解析する</Link>
       </div>
     );
   }
@@ -173,7 +173,7 @@ export default function ParserResultPage() {
           <span className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">① 原文 + 節分け</span>
           <span className="font-mono text-[9px] text-[var(--color-muted)]">{result.wordCount} 語</span>
         </div>
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3.5 py-3.5 text-[13.5px] leading-[2.1] tracking-[0.005em] text-[var(--solid-ink)]" style={{ fontFamily: 'IBM Plex Mono, ui-monospace, monospace' }}>
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3.5 py-3.5 text-[13.5px] leading-[2.1] tracking-[0.005em] text-[var(--solid-ink)]" style={{ fontFamily: 'IBM Plex Mono, ui-monospace, monospace' }}>
           {result.tokens.map((token, i) => (
             <span key={`${token.text}-${i}`}>
               <Tok kind={(token.clauseId ? clauseKindById.get(token.clauseId) : 'phrase') ?? 'phrase'} role={token.role}>{token.text}</Tok>{' '}
@@ -193,9 +193,9 @@ export default function ParserResultPage() {
       <div className="px-[18px] pb-3 pt-3">
         <div className="mb-[7px] flex items-center justify-between">
           <span className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">② 構造ツリー</span>
-          <span className="rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-white">{result.depth}</span>
+          <span className="rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--color-on-ink)]">{result.depth}</span>
         </div>
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3.5 py-3.5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3.5 py-3.5">
           <TreeNode node={result.tree} />
         </div>
       </div>
@@ -212,7 +212,7 @@ export default function ParserResultPage() {
           <div className="mb-[7px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">保存候補 ({result.wordCandidates.length})</div>
           <div className="flex flex-wrap gap-1.5">
             {result.wordCandidates.map((candidate) => (
-              <span key={candidate.id} className="rounded-full border border-[var(--color-border)] bg-white px-2.5 py-1 text-[10px] font-bold text-[var(--solid-ink)]">{candidate.english}</span>
+              <span key={candidate.id} className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[10px] font-bold text-[var(--solid-ink)]">{candidate.english}</span>
             ))}
           </div>
         </div>
@@ -223,13 +223,13 @@ export default function ParserResultPage() {
       <div className="flex gap-2.5 px-[18px] pb-7 pt-2">
         <button type="button" className="relative flex-1">
           <span className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white py-[13px] text-[13px] font-bold text-[var(--solid-ink)]">
+          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-[13px] text-[13px] font-bold text-[var(--solid-ink)]">
             <Icon name="volume_up" size={14} /> 音読
           </span>
         </button>
         <button type="button" onClick={saveWords} disabled={saving || result.wordCandidates.length === 0} className="relative disabled:opacity-60" style={{ flex: 1.4 }}>
           <span className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px,2px)' }} />
-          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-[13px] text-[13px] font-bold text-white">
+          <span className="relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-[13px] text-[13px] font-bold text-[var(--color-on-ink)]">
             <Icon name="menu_book" size={14} /> {saving ? '保存中...' : '単語帳に保存'}
           </span>
         </button>

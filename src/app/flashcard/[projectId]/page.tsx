@@ -78,7 +78,7 @@ function HeaderBtn({
       aria-expanded={ariaExpanded}
       aria-haspopup={ariaHasPopup}
       className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-      style={{ background: active ? 'var(--solid-ink)' : '#fff', color: active ? '#fff' : 'var(--solid-ink)' }}
+      style={{ background: active ? 'var(--solid-ink)' : 'var(--color-surface)', color: active ? 'var(--color-on-ink)' : 'var(--solid-ink)' }}
     >
       {children}
     </button>
@@ -100,7 +100,7 @@ function NavBtn({
       type="button"
       onClick={() => { triggerHaptic(); onClick?.(); }}
       aria-label={ariaLabel}
-      className="flex h-[46px] w-[46px] items-center justify-center rounded-[23px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-ink)]"
+      className="flex h-[46px] w-[46px] items-center justify-center rounded-[23px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
     >
       {children}
     </button>
@@ -149,7 +149,7 @@ function GradeBar({
             type="button"
             disabled={disabled}
             onClick={() => onGrade(grade)}
-            className="flex flex-col items-center justify-center gap-[2px] rounded-[12px] border-2 bg-white px-1 py-1.5 transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+            className="flex flex-col items-center justify-center gap-[2px] rounded-[12px] border-2 bg-[var(--color-surface)] px-1 py-1.5 transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
             style={{ borderColor: tint, boxShadow: `2px 3px 0 ${tint}`, color: tint }}
           >
             <span className="font-display text-[14px] font-extrabold leading-none">
@@ -755,7 +755,7 @@ export default function FlashcardPage() {
         <button
           type="button"
           onClick={() => handleChangeFilter('all')}
-          className="flex h-11 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 font-display text-[13px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-11 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 font-display text-[13px] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           すべての単語に戻す
         </button>
@@ -802,7 +802,7 @@ export default function FlashcardPage() {
               <div className="mb-2 font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">「もう一度」の単語</div>
               <div className="flex flex-wrap gap-1.5">
                 {againWords.map((w) => (
-                  <span key={w.id} className="rounded-full border border-[var(--color-border)] bg-white px-2.5 py-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                  <span key={w.id} className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[12px] font-bold text-[var(--solid-ink)]">
                     {w.english}
                   </span>
                 ))}
@@ -815,7 +815,7 @@ export default function FlashcardPage() {
               <button
                 type="button"
                 onClick={() => restartDeck(againIds)}
-                className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[14px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-display text-[14px] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
                 <Icon name="replay" size={16} />「もう一度」だけもう一周 ({againWords.length})
               </button>
@@ -862,7 +862,7 @@ export default function FlashcardPage() {
             className="x"
             onClick={toggleAutoPlay}
             aria-label={isAutoPlaying ? '自動再生を停止' : '自動再生を開始'}
-            style={isAutoPlaying ? { background: 'var(--solid-ink)', color: '#fff' } : undefined}
+            style={isAutoPlaying ? { background: 'var(--solid-ink)', color: 'var(--color-on-ink)' } : undefined}
           >
             <Icon name={isAutoPlaying ? 'pause' : 'play_arrow'} />
           </button>
@@ -883,7 +883,7 @@ export default function FlashcardPage() {
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); speakWord(); }}
-                className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-[13px] py-[7px] text-xs font-bold text-[var(--solid-ink)]"
+                className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[13px] py-[7px] text-xs font-bold text-[var(--solid-ink)]"
               >
                 <Icon name="volume_up" size={14} /> 発音
               </button>
@@ -892,7 +892,7 @@ export default function FlashcardPage() {
                 onClick={(event) => { event.stopPropagation(); handleToggleFavorite(); }}
                 aria-label={currentWord?.isFavorite ? '保存を解除' : '保存'}
                 aria-pressed={currentWord?.isFavorite}
-                className={`absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white ${
+                className={`absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] ${
                   currentWord?.isFavorite ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'
                 }`}
               >
@@ -1003,7 +1003,7 @@ export default function FlashcardPage() {
           <div className="font-mono text-[11px] font-bold tabular-nums text-[var(--solid-ink)]">
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </div>
-          <div className="h-1 w-[120px] overflow-hidden rounded-sm bg-[rgba(26,26,26,0.08)]">
+          <div className="h-1 w-[120px] overflow-hidden rounded-sm bg-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]">
             <div className="h-full bg-[var(--solid-ink)]" style={{ width: `${((currentIndex + 1) / total) * 100}%` }} />
           </div>
         </div>
@@ -1030,7 +1030,7 @@ export default function FlashcardPage() {
                 />
                 <div
                   role="menu"
-                  className="absolute right-0 top-[44px] z-50 w-[210px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]"
+                  className="absolute right-0 top-[44px] z-50 w-[210px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]"
                 >
                   {FLASHCARD_FILTERS.map((option) => {
                     const count = filterCounts[option.key];
@@ -1093,7 +1093,7 @@ export default function FlashcardPage() {
             }}
           >
             <div
-              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[22px_18px_18px]"
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[22px_18px_18px]"
               style={{
                 backfaceVisibility: 'hidden',
                 boxShadow: '4px 4px 0 var(--solid-ink)',
@@ -1104,7 +1104,7 @@ export default function FlashcardPage() {
               {/* POS badge */}
               <div className="flex items-center">
                 {currentWord?.partOfSpeechTags?.[0] && (
-                  <div className="rounded border border-[var(--solid-ink)] bg-white px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--solid-ink)]">
+                  <div className="rounded border border-[var(--solid-ink)] bg-[var(--color-surface)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--solid-ink)]">
                     {getPartOfSpeechLabel(currentWord.partOfSpeechTags[0])}
                   </div>
                 )}
@@ -1122,7 +1122,7 @@ export default function FlashcardPage() {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); speakWord(); }}
-                  className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-[13px] py-[7px] text-xs font-bold text-[var(--solid-ink)]"
+                  className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[13px] py-[7px] text-xs font-bold text-[var(--solid-ink)]"
                 >
                   <Icon name="volume_up" size={14} /> 発音
                 </button>
@@ -1138,7 +1138,7 @@ export default function FlashcardPage() {
                 onClick={(e) => { e.stopPropagation(); handleToggleFavorite(); }}
                 aria-label={currentWord?.isFavorite ? '保存を解除' : '保存'}
                 aria-pressed={currentWord?.isFavorite}
-                className={`absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white ${
+                className={`absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] ${
                   currentWord?.isFavorite ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'
                 }`}
               >
@@ -1157,24 +1157,24 @@ export default function FlashcardPage() {
               }}
             >
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                <h2 className="max-w-full break-words text-3xl font-bold text-white">
+                <h2 className="max-w-full break-words text-3xl font-bold text-[var(--color-on-ink)]">
                   {currentWord && <TranslationDisplay word={currentWord} />}
                 </h2>
-                <p className="max-w-full break-words text-sm text-white/60">{currentWord?.english}</p>
+                <p className="max-w-full break-words text-sm text-[var(--color-on-ink)]/60">{currentWord?.english}</p>
                 {currentWord?.pronunciation && (
-                  <p className="max-w-full break-words font-mono text-xs text-white/50">{currentWord.pronunciation}</p>
+                  <p className="max-w-full break-words font-mono text-xs text-[var(--color-on-ink)]/50">{currentWord.pronunciation}</p>
                 )}
                 {currentWord?.exampleSentence && (
-                  <div className="mt-2 w-full rounded-xl bg-white/10 p-3.5 text-left">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[1.5px] text-white/50">例文</p>
-                    <p className="text-sm leading-relaxed text-white/90">{currentWord.exampleSentence}</p>
+                  <div className="mt-2 w-full rounded-xl bg-[color-mix(in_srgb,var(--color-on-ink)_10%,transparent)] p-3.5 text-left">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[1.5px] text-[var(--color-on-ink)]/50">例文</p>
+                    <p className="text-sm leading-relaxed text-[var(--color-on-ink)]/90">{currentWord.exampleSentence}</p>
                     {currentWord.exampleSentenceJa && (
-                      <p className="mt-1.5 text-xs leading-relaxed text-white/60">{currentWord.exampleSentenceJa}</p>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[var(--color-on-ink)]/60">{currentWord.exampleSentenceJa}</p>
                     )}
                   </div>
                 )}
               </div>
-              <div className="mt-2 text-center text-[11px] font-semibold text-white/50">タップで戻る</div>
+              <div className="mt-2 text-center text-[11px] font-semibold text-[var(--color-on-ink)]/50">タップで戻る</div>
             </div>
           </div>
         </div>

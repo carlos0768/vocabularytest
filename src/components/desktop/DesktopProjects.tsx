@@ -305,7 +305,7 @@ function DesktopProjectTableRow({
                 overflow: 'hidden',
                 borderRadius: 12,
                 border: '2px solid var(--solid-ink)',
-                background: '#fff',
+                background: 'var(--color-surface)',
                 boxShadow: '2px 3px 0 var(--solid-ink)',
               }}
             >

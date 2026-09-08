@@ -198,7 +198,7 @@ export default function WordsPage() {
 
         {/* 検索・絞り込み・並べ替えを一列に並べる */}
         <div className="mt-2 flex items-center gap-2">
-          <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-3">
+          <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface)] px-3">
             <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
             <input
               value={filter.query}
@@ -222,18 +222,18 @@ export default function WordsPage() {
             type="button"
             onClick={() => setSheetOpen(true)}
             aria-label="絞り込み"
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] lg:hidden"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] lg:hidden"
           >
             <Icon name="tune" size={17} />
             {activeCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1 font-mono text-[9.5px] font-bold tabular-nums text-white">
+              <span className="absolute -right-1.5 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1 font-mono text-[9.5px] font-bold tabular-nums text-[var(--color-on-ink)]">
                 {activeCount}
               </span>
             )}
           </button>
 
           {/* 並べ替え: 端末標準のピッカーを出すため select をそのまま重ねる */}
-          <label className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-white px-2.5 text-[var(--solid-ink)]">
+          <label className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[var(--solid-ink)]">
             <Icon name="swap_vert" size={16} className="shrink-0 text-[var(--color-muted)]" />
             <span className="hidden max-w-[150px] truncate text-[11.5px] font-bold lg:inline">
               {SORT_LABELS[filter.sort]}
@@ -271,7 +271,7 @@ export default function WordsPage() {
 
       <div className="px-4 pt-2.5 lg:grid lg:grid-cols-[260px_1fr] lg:items-start lg:gap-6 lg:px-0 lg:pt-3.5">
         {/* デスクトップ: 左に絞り込みを常設 */}
-        <aside className="sticky top-[104px] hidden max-h-[calc(100dvh-124px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 lg:block">
+        <aside className="sticky top-[104px] hidden max-h-[calc(100dvh-124px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 lg:block">
           <WordFilterPanel {...panelProps} />
         </aside>
 
@@ -288,7 +288,7 @@ export default function WordsPage() {
                   key={chip.id}
                   type="button"
                   onClick={() => setFilter(chip.next)}
-                  className="inline-flex max-w-full items-center gap-1 rounded-full border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[10px] py-[5px] text-[11px] font-bold text-white"
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[10px] py-[5px] text-[11px] font-bold text-[var(--color-on-ink)]"
                 >
                   <span className="truncate">{chip.label}</span>
                   <Icon name="close" size={12} />
@@ -297,7 +297,7 @@ export default function WordsPage() {
               <button
                 type="button"
                 onClick={() => setFilter((prev) => clearFilterConditions(prev))}
-                className="rounded-full border-[1.5px] border-[var(--color-border)] bg-white px-[10px] py-[5px] text-[11px] font-bold text-[var(--solid-ink)]"
+                className="rounded-full border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface)] px-[10px] py-[5px] text-[11px] font-bold text-[var(--solid-ink)]"
               >
                 すべて解除
               </button>
@@ -323,7 +323,7 @@ export default function WordsPage() {
               ))}
             </div>
           ) : entries.length === 0 ? (
-            <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+            <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
               <div className="font-display text-[15px] font-bold text-[var(--solid-ink)]">
                 まだ単語がありません
               </div>
@@ -332,14 +332,14 @@ export default function WordsPage() {
               </p>
             </div>
           ) : results.length === 0 ? (
-            <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+            <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
               <div className="font-display text-[15px] font-bold text-[var(--solid-ink)]">
                 条件に合う単語がありません
               </div>
               <button
                 type="button"
                 onClick={() => setFilter(DEFAULT_WORD_FILTER)}
-                className="mt-3 h-10 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-5 text-[12.5px] font-bold text-[var(--solid-ink)]"
+                className="mt-3 h-10 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 text-[12.5px] font-bold text-[var(--solid-ink)]"
               >
                 条件をすべて解除
               </button>
@@ -384,7 +384,7 @@ export default function WordsPage() {
         <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
           <div
             className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)' }}
+            style={{ background: 'color-mix(in srgb, var(--solid-ink) 45%, transparent)' }}
             onClick={() => setSelectedWord(null)}
           />
           <div
@@ -397,7 +397,7 @@ export default function WordsPage() {
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
-                background: '#faf7f1',
+                background: 'var(--color-paper)',
                 border: '2px solid var(--solid-ink)',
                 borderRadius: 20,
               }}
@@ -429,10 +429,10 @@ export default function WordsPage() {
             onClick={() => {
               if (!deleting) setDeleteTarget(null);
             }}
-            style={{ background: 'rgba(26,26,26,0.45)' }}
+            style={{ background: 'color-mix(in srgb, var(--solid-ink) 45%, transparent)' }}
           />
           <div className="absolute inset-0 flex items-center justify-center px-5">
-            <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5">
+            <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                 DELETE
               </div>
@@ -448,7 +448,7 @@ export default function WordsPage() {
                   onClick={() => {
                     if (!deleting) setDeleteTarget(null);
                   }}
-                  className="h-11 flex-1 rounded-xl border-2 border-[var(--color-border)] bg-white text-[13px] font-bold text-[var(--solid-ink)]"
+                  className="h-11 flex-1 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--solid-ink)]"
                 >
                   キャンセル
                 </button>
@@ -456,7 +456,7 @@ export default function WordsPage() {
                   type="button"
                   onClick={() => void handleConfirmDelete()}
                   disabled={deleting}
-                  className="h-11 flex-1 rounded-xl border-2 border-[var(--color-error)] bg-[var(--color-error)] text-[13px] font-bold text-white disabled:opacity-60"
+                  className="h-11 flex-1 rounded-xl border-2 border-[var(--color-error)] bg-[var(--color-error-fill)] text-[13px] font-bold text-white disabled:opacity-60"
                 >
                   {deleting ? '削除中...' : '削除する'}
                 </button>

@@ -50,9 +50,9 @@ function PhoneFrame({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="relative mx-auto w-[220px] md:w-[260px]">
       {/* Phone bezel */}
-      <div className="rounded-[2rem] border-[6px] border-[#1a1a1a] bg-[#1a1a1a] shadow-xl overflow-hidden">
+      <div className="rounded-[2rem] border-[6px] border-[var(--solid-ink)] bg-[var(--solid-ink)] shadow-xl overflow-hidden">
         {/* Notch */}
-        <div className="absolute top-[6px] left-1/2 -translate-x-1/2 w-20 h-5 bg-[#1a1a1a] rounded-b-xl z-10" />
+        <div className="absolute top-[6px] left-1/2 -translate-x-1/2 w-20 h-5 bg-[var(--solid-ink)] rounded-b-xl z-10" />
         <Image
           src={src}
           alt={alt}
@@ -128,7 +128,7 @@ export default function FeaturesPage() {
             {howItWorksSteps.map((step, i) => (
               <ScrollFadeIn key={step.number} delay={i * 120}>
                 <article className="card p-6 text-center relative">
-                  <div className="w-14 h-14 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center mx-auto mb-4 text-lg font-extrabold">
+                  <div className="w-14 h-14 rounded-full bg-[var(--color-primary)] text-[var(--color-on-ink)] flex items-center justify-center mx-auto mb-4 text-lg font-extrabold">
                     {step.number}
                   </div>
                   <div className="w-12 h-12 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center mx-auto mb-3">
@@ -415,13 +415,13 @@ export default function FeaturesPage() {
         {/* ─── 7. 最終CTA ─── */}
         <section>
           <ScrollFadeIn>
-            <div className="rounded-[var(--radius-2xl)] bg-[var(--color-primary)] p-8 md:p-12 text-center text-white">
+            <div className="rounded-[var(--radius-2xl)] bg-[var(--color-primary)] p-8 md:p-12 text-center text-[var(--color-on-ink)]">
               <h2 className="font-display text-2xl md:text-3xl font-extrabold leading-tight">
                 今日から始めて、
                 <br className="sm:hidden" />
                 合格に近づこう
               </h2>
-              <p className="mt-3 text-white/80 max-w-md mx-auto leading-relaxed">
+              <p className="mt-3 text-[var(--color-on-ink)]/80 max-w-md mx-auto leading-relaxed">
                 共有ライブラリの単語帳で、無料で今すぐ始められます。
                 Proならノートを撮るだけで単語帳が完成。
               </p>

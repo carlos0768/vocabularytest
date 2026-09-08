@@ -39,7 +39,7 @@ export function JoinedGroupsSection({ groups }: { groups: StudyGroupSummary[] })
       <div className="mb-2.5 flex items-center gap-2 px-[14px]">
         <Icon name="groups" size={20} className="text-[var(--solid-ink)]" />
         <h2 className="font-display text-[18px] font-black tracking-tight text-[var(--solid-ink)]">参加中のグループ</h2>
-        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-white">
+        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--solid-ink)] px-1.5 font-mono text-[11px] font-extrabold tabular-nums text-[var(--color-on-ink)]">
           {groups.length}
         </span>
       </div>
@@ -184,7 +184,7 @@ export function JoinedGroupGrid({
             padding: '0 6px',
             borderRadius: 999,
             background: 'var(--solid-ink)',
-            color: '#fff',
+            color: 'var(--color-on-ink)',
             fontFamily: 'var(--font-mono)',
             fontSize: 11,
             fontWeight: 800,

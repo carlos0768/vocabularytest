@@ -6,8 +6,8 @@ import type { QuizMode } from '@/lib/quiz/quiz-mode-preference';
 
 const SOLID_SURFACE =
   'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
-const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-ink)]';
-const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-ink)]';
+const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-shadow)]';
+const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-shadow)]';
 const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em]';
 
 const MODES: ReadonlyArray<{
@@ -87,7 +87,7 @@ export function QuizModeChooser({
               <span
                 className={cn(
                   'flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[var(--solid-ink)]',
-                  isCurrent ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
+                  isCurrent ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
                 )}
               >
                 <Icon name={mode.icon} size={22} />
