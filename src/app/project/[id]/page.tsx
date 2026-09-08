@@ -1713,28 +1713,6 @@ export default function ProjectPage() {
         </div>
       )}
 
-      <ProjectShareSheet
-        open={showShareSheet}
-        onClose={() => setShowShareSheet(false)}
-        projectTitle={project.title}
-        shareId={project.shareId}
-        shareScope={project.shareScope === 'public' ? 'public' : 'private'}
-        preparing={sharePrepareLoading}
-        updatingScope={shareScopeUpdating}
-        sharedTags={project.sharedTags ?? []}
-        updatingTags={shareTagsUpdating}
-        onSelectScope={handleSelectShareScope}
-        onSaveSharedTags={handleSaveSharedTags}
-        onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
-        onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
-        shareLinkCopied={shareLinkCopied}
-        groups={shareGroups}
-        groupsLoading={shareGroupsLoading}
-        groupsError={shareGroupsError}
-        groupSharingUpdatingId={groupSharingUpdatingId}
-        onToggleGroupShare={(group) => void handleToggleGroupShare(group)}
-      />
-
       {selectedWord && (
         <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
           <div
@@ -1774,6 +1752,28 @@ export default function ProjectPage() {
 
       {/* Shared overlays: rendered outside the lg:hidden wrapper so the
           desktop view's filter / sort / select / add buttons can use them too */}
+      <ProjectShareSheet
+        open={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        projectTitle={project.title}
+        shareId={project.shareId}
+        shareScope={project.shareScope === 'public' ? 'public' : 'private'}
+        preparing={sharePrepareLoading}
+        updatingScope={shareScopeUpdating}
+        sharedTags={project.sharedTags ?? []}
+        updatingTags={shareTagsUpdating}
+        onSelectScope={handleSelectShareScope}
+        onSaveSharedTags={handleSaveSharedTags}
+        onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
+        onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
+        shareLinkCopied={shareLinkCopied}
+        groups={shareGroups}
+        groupsLoading={shareGroupsLoading}
+        groupsError={shareGroupsError}
+        groupSharingUpdatingId={groupSharingUpdatingId}
+        onToggleGroupShare={(group) => void handleToggleGroupShare(group)}
+      />
+
       <DeleteProjectModal
         open={deleteModalOpen}
         loading={deleteLoading}
