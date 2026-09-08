@@ -5,10 +5,13 @@
  * /tips/prefixes, /tips/suffixes, /tips/infixes の3ルートが薄いラッパーとして使う。
  * 一覧部分は AFFIX_CATALOG（接辞マスターデータ）から生成するため、
  * カタログを更新するとこのページも自動で追随する。
+ *
+ * 文章中の重要単語は `**語**` で囲む（EmphasisText が太字・赤字で描画する）。
  */
 
 import { useRouter } from 'next/navigation';
 import { DesktopLegalDocView } from '@/components/desktop/DesktopSupport';
+import { EmphasisText } from '@/components/ui/EmphasisText';
 import { Icon } from '@/components/ui/Icon';
 import {
   AFFIX_CATALOG,
@@ -16,6 +19,7 @@ import {
   type AffixKind,
   type AffixSense,
 } from '@/lib/morphology/affix-catalog';
+import { stripEmphasisMarkup } from '@/lib/ui/emphasis-markup';
 
 const KIND_META: Record<AffixKind, {
   title: string;
@@ -29,47 +33,47 @@ const KIND_META: Record<AffixKind, {
     title: '接頭語（プレフィックス）',
     reading: 'PREFIX',
     hyphenate: (form) => `${form}-`,
-    intro: '接頭語は単語の頭に付いて意味を加えるパーツです。接頭語の意味を知っていれば、初見の単語でも「方向」や「否定」などの大まかな意味を推測できます。早慶レベルの長文では、接頭語からの語彙推測が得点に直結します。',
+    intro: '**接頭語**は単語の頭に付いて意味を加えるパーツです。接頭語の意味を知っていれば、初見の単語でも「**方向**」や「**否定**」などの大まかな意味を推測できます。早慶レベルの長文では、接頭語からの**語彙推測**が得点に直結します。',
     whatIs: [
-      '接頭語（prefix）は語根の前に付き、「否定」「方向」「数」「程度」などの意味を加えます。例えば predict は pre（前もって）＋ dict（言う）＝「予言する」。単語を丸暗記するのではなく、パーツに分解して覚えると記憶の負担が大きく減ります。',
-      '注意すべきは、綴りが同じでも意味が違う接頭語があることです。unhappy の un- は「否定」ですが、unanimous の un- は uni-（1つ）の変化形で、uni（1つ）＋ anim（心）＋ ous ＝「心が1つ → 満場一致の」となります。',
+      '接頭語（**prefix**）は**語根**の前に付き、「否定」「方向」「数」「程度」などの意味を加えます。例えば **predict** は **pre**（前もって）＋ **dict**（言う）＝「予言する」。単語を丸暗記するのではなく、**パーツに分解して覚える**と記憶の負担が大きく減ります。',
+      '注意すべきは、**綴りが同じでも意味が違う**接頭語があることです。**unhappy** の **un-** は「否定」ですが、**unanimous** の un- は **uni-**（1つ）の変化形で、**uni**（1つ）＋ **anim**（心）＋ **ous** ＝「心が1つ → 満場一致の」となります。',
     ],
     tips: [
-      '新しい単語に出会ったら、まず頭の部分が既知の接頭語かどうか確認する癖をつける。',
-      '同化（in- → im-/il-/ir-、con- → com-/col-/cor- など）のパターンを覚えると適用範囲が一気に広がる。',
-      '綴りが同じ接頭語（un-「否定」と uni-「1つ」、in-「否定」と in-「中へ」など）は代表語とセットで区別する。',
-      '接頭語＋語根で意味を「推測」した後は、必ず辞書で確認する。推測は読解の補助であり、暗記の代替ではない。',
+      '新しい単語に出会ったら、まず**頭の部分が既知の接頭語かどうか**確認する癖をつける。',
+      '**同化**（**in-** → im-/il-/ir-、**con-** → com-/col-/cor- など）のパターンを覚えると適用範囲が一気に広がる。',
+      '綴りが同じ接頭語（**un-**「否定」と **uni-**「1つ」、**in-**「否定」と **in-**「中へ」など）は**代表語とセット**で区別する。',
+      '接頭語＋語根で意味を「推測」した後は、**必ず辞書で確認**する。推測は読解の補助であり、暗記の代替ではない。',
     ],
   },
   suffix: {
     title: '接尾語（サフィックス）',
     reading: 'SUFFIX',
     hyphenate: (form) => `-${form}`,
-    intro: '接尾語は単語の末尾に付いて、品詞や意味を変えるパーツです。接尾語が分かれば、知らない単語でも品詞を即座に判定でき、文法問題や長文の構造把握で大きな武器になります。',
+    intro: '**接尾語**は単語の末尾に付いて、**品詞**や意味を変えるパーツです。接尾語が分かれば、知らない単語でも品詞を即座に判定でき、文法問題や長文の構造把握で大きな武器になります。',
     whatIs: [
-      '接尾語（suffix）は語根の後ろに付き、主に品詞を決めます。-tion / -ness / -ity は名詞、-ous / -ful / -able は形容詞、-ize / -ify は動詞、-ly は副詞、という具合です。空所補充問題で「ここは名詞が入る」と分かれば、接尾語だけで選択肢を絞れます。',
-      '接尾語にも同綴り異義があります。teacher の -er は「〜する人」ですが、bigger の -er は比較級。friendly の -ly は名詞に付く「形容詞化」で、quickly の -ly は形容詞に付く「副詞化」です。何に付いているか（土台の品詞）で見分けるのがコツです。',
+      '接尾語（**suffix**）は**語根**の後ろに付き、主に**品詞を決めます**。**-tion / -ness / -ity** は名詞、**-ous / -ful / -able** は形容詞、**-ize / -ify** は動詞、**-ly** は副詞、という具合です。空所補充問題で「ここは名詞が入る」と分かれば、接尾語だけで選択肢を絞れます。',
+      '接尾語にも**同綴り異義**があります。**teacher** の **-er** は「〜する人」ですが、**bigger** の -er は**比較級**。**friendly** の **-ly** は名詞に付く「形容詞化」で、**quickly** の -ly は形容詞に付く「副詞化」です。何に付いているか（**土台の品詞**）で見分けるのがコツです。',
     ],
     tips: [
-      '接尾語を見たら品詞を判定する癖をつける（-tion なら名詞、-ous なら形容詞）。',
-      '-er は「〜する人」（動詞に付く）と「比較級」（形容詞に付く）の2種類。土台の品詞で見分ける。',
-      '-able / -ible、-ance / -ence のような綴り違いの同機能ペアはまとめて覚える。',
-      '派生語のセット（decide → decision → decisive → decisively）で覚えると語彙が4倍になる。',
+      '接尾語を見たら**品詞を判定する癖**をつける（**-tion** なら名詞、**-ous** なら形容詞）。',
+      '**-er** は「〜する人」（動詞に付く）と「比較級」（形容詞に付く）の2種類。**土台の品詞**で見分ける。',
+      '**-able / -ible**、**-ance / -ence** のような綴り違いの同機能ペアはまとめて覚える。',
+      '**派生語のセット**（**decide** → decision → decisive → decisively）で覚えると語彙が4倍になる。',
     ],
   },
   infix: {
     title: '接中語（インフィックス）',
     reading: 'INFIX',
     hyphenate: (form) => `-${form}-`,
-    intro: '接中語は単語の内部に入るパーツです。英語では数こそ少ないものの、語根と語根をつなぐ「連結母音」は早慶レベルの学術系単語で頻出します。仕組みを知っていると、長い単語の分解が一気に楽になります。',
+    intro: '**接中語**は単語の内部に入るパーツです。英語では数こそ少ないものの、語根と語根をつなぐ「**連結母音**」は早慶レベルの学術系単語で頻出します。仕組みを知っていると、長い単語の分解が一気に楽になります。',
     whatIs: [
-      '接中語（infix）は語の内部に挿入されるパーツです。英語で実用上重要なのは、2つの語根をつなぐ「連結母音」で、ギリシャ語系では -o-（therm-o-meter ＝ 温度計）、ラテン語系では -i-（herb-i-vore ＝ 草食動物）が使われます。',
-      '長い学術系単語は「語根＋連結母音＋語根＋接尾語」という構造をしていることが多く、insecticide は insect（昆虫）＋ -i- ＋ cide（殺す）＝「殺虫剤」と分解できます。連結母音自体に意味はなく、発音をなめらかにする役割です。',
+      '接中語（**infix**）は語の内部に挿入されるパーツです。英語で実用上重要なのは、2つの語根をつなぐ「**連結母音**」で、ギリシャ語系では **-o-**（**therm-o-meter** ＝ 温度計）、ラテン語系では **-i-**（**herb-i-vore** ＝ 草食動物）が使われます。',
+      '長い学術系単語は「**語根＋連結母音＋語根＋接尾語**」という構造をしていることが多く、**insecticide** は **insect**（昆虫）＋ **-i-** ＋ **cide**（殺す）＝「殺虫剤」と分解できます。**連結母音自体に意味はなく**、発音をなめらかにする役割です。',
     ],
     tips: [
-      '長い単語は連結母音（-o- / -i-）で区切ってみると、既知の語根が見えてくることが多い。',
-      '-o- はギリシャ語系（bio, geo, thermo...）、-i- はラテン語系（herbi, carni, insecti...）とセットで覚える。',
-      '連結母音そのものに意味はない。意味は前後の語根が持っている。',
+      '長い単語は**連結母音（-o- / -i-）で区切って**みると、既知の語根が見えてくることが多い。',
+      '**-o-** は**ギリシャ語系**（bio, geo, thermo...）、**-i-** は**ラテン語系**（herbi, carni, insecti...）とセットで覚える。',
+      '連結母音そのものに意味はない。**意味は前後の語根が持っている**。',
     ],
   },
 };
@@ -77,7 +81,7 @@ const KIND_META: Record<AffixKind, {
 function formatAffixLine(sense: AffixSense, hyphenate: (form: string) => string): string {
   const examples = sense.examples.slice(0, 3).join(' / ');
   const nuance = sense.nuanceJa ? ` — ${sense.nuanceJa}` : '';
-  return `${hyphenate(sense.form)}（${sense.meaningJa}）: ${examples}${nuance}`;
+  return `**${hyphenate(sense.form)}**（**${sense.meaningJa}**）: ${examples}${nuance}`;
 }
 
 /** 同じ綴り・同じ種類で複数の意味を持つ接辞のグループを返す */
@@ -106,24 +110,24 @@ export function AffixTipsPage({ kind }: { kind: AffixKind }) {
   if (basicSenses.length > 0) {
     articles.push({
       h: '基本レベル',
-      p: ['まずはここから。中学〜高校基礎レベルで登場する頻出パーツです。'],
+      p: ['まずはここから。**中学〜高校基礎レベル**で登場する頻出パーツです。'],
       list: basicSenses.map((sense) => formatAffixLine(sense, meta.hyphenate)),
     });
   }
   if (advancedSenses.length > 0) {
     articles.push({
       h: '早慶・難関大レベル',
-      p: ['難関大の長文・語彙問題で差がつくパーツです。'],
+      p: ['**難関大**の長文・語彙問題で差がつくパーツです。'],
       list: advancedSenses.map((sense) => formatAffixLine(sense, meta.hyphenate)),
     });
   }
   if (homographs.length > 0) {
     articles.push({
       h: '同じ綴りで意味が違うものに注意',
-      p: ['綴りが同じでも由来と意味が異なるパーツがあります。単語の成り立ちに合わせて区別しましょう。'],
+      p: ['**綴りが同じでも由来と意味が異なる**パーツがあります。単語の成り立ちに合わせて区別しましょう。'],
       list: homographs.map(({ form, senses }) =>
-        `${meta.hyphenate(form)}: ${senses
-          .map((sense) => `「${sense.meaningJa}」(${sense.examples[0] ?? ''})`)
+        `**${meta.hyphenate(form)}**: ${senses
+          .map((sense) => `「**${sense.meaningJa}**」(${sense.examples[0] ?? ''})`)
           .join(' と ')}`,
       ),
     });
@@ -162,14 +166,14 @@ export function AffixTipsPage({ kind }: { kind: AffixKind }) {
         {/* Intro */}
         <div className="px-[18px] pb-3.5">
           <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-[12px_14px]">
-            <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]">{meta.intro}</p>
+            <p className="m-0 text-[11px] leading-[1.75] text-[var(--solid-ink)]"><EmphasisText text={meta.intro} /></p>
           </div>
         </div>
 
         {articles.map((article, index) => (
           <Section key={article.h} num={String(index + 1)} label={article.h}>
             {article.p?.map((paragraph) => (
-              <P key={paragraph.slice(0, 24)}>{paragraph}</P>
+              <P key={paragraph.slice(0, 24)}><EmphasisText text={paragraph} /></P>
             ))}
             {article.list && <UL items={article.list} />}
           </Section>
@@ -207,7 +211,7 @@ function UL({ items }: { items: string[] }) {
   return (
     <ul className="mt-1.5 space-y-1 pl-[18px]">
       {items.map((item) => (
-        <li key={item.slice(0, 40)} className="list-disc pl-0.5 text-[11.5px] leading-[1.7] text-[var(--solid-ink)]">{item}</li>
+        <li key={stripEmphasisMarkup(item).slice(0, 40)} className="list-disc pl-0.5 text-[11.5px] leading-[1.7] text-[var(--solid-ink)]"><EmphasisText text={item} /></li>
       ))}
     </ul>
   );

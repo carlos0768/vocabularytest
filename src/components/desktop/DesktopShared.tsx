@@ -11,6 +11,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useInfiniteScrollSentinel, type LoadMoreState } from '@/hooks/use-infinite-scroll';
 import { formatSharedTag } from '../../../shared/shared-tags';
 import type { PublicGrammarBookCard } from '@/lib/grammar/types';
+import type { OfficialWordbookCard } from '@/lib/official-wordbooks/catalog';
 import type {
   PublicStudyGroupSummary,
   SharedDiscoverCategory,
@@ -20,9 +21,10 @@ import type {
   StudyGroupSummary,
 } from '@/lib/shared-projects/types';
 
-type DesktopSharedCategory = Exclude<SharedDiscoverCategory, 'all'> | 'groups' | 'grammar';
+type DesktopSharedCategory = Exclude<SharedDiscoverCategory, 'all'> | 'official' | 'groups' | 'grammar';
 
 const CATEGORY_META: Record<DesktopSharedCategory, { label: string; icon: string; description: string }> = {
+  official: { label: '公式', icon: 'verified', description: 'MERKEN公式の単語帳' },
   users: { label: 'ユーザー', icon: 'person', description: '学習者をフォロー' },
   projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳' },
   grammar: { label: '語法', icon: 'rule', description: '公開されている語法問題集' },
@@ -30,6 +32,7 @@ const CATEGORY_META: Record<DesktopSharedCategory, { label: string; icon: string
 };
 
 const CATEGORY_COLORS: Record<DesktopSharedCategory, string> = {
+  official: '#664DB3',
   users: '#137FEC',
   projects: '#228B22',
   grammar: '#CC4D59',
@@ -37,6 +40,21 @@ const CATEGORY_COLORS: Record<DesktopSharedCategory, string> = {
 };
 
 const FEED_PAGE_SIZE = 12;
+
+/** 検索窓の「検索範囲」。カテゴリ (ユーザー / 単語帳 / 語法 / グループ) を検索時の
+    オプションとして選ぶ。'all' はユーザー + 単語帳の横断検索 */
+type SearchScope = 'all' | DesktopSharedCategory;
+
+const SEARCH_SCOPES: Array<{ value: SearchScope; label: string; placeholder: string }> = [
+  { value: 'all', label: 'すべて', placeholder: 'ユーザー・単語帳を検索' },
+  { value: 'users', label: 'ユーザー', placeholder: 'ユーザー名・IDで検索' },
+  { value: 'projects', label: '単語帳', placeholder: '単語帳名・タグで検索' },
+  { value: 'official', label: '公式', placeholder: '単語帳名・英検レベルで検索' },
+  { value: 'grammar', label: '語法', placeholder: '問題集名・ユーザーで検索' },
+  { value: 'groups', label: 'グループ', placeholder: 'グループ名で検索' },
+];
+
+const TRENDING_TAG_LIMIT = 8;
 
 export function DesktopSharedView({
   category,
@@ -60,6 +78,15 @@ export function DesktopSharedView({
   onGrammarQueryChange,
   onGrammarSearch,
   onGrammarLoadMore,
+  officialQuery,
+  officialBooks,
+  officialLoading,
+  officialError,
+  officialLoadMoreState,
+  officialHasMore,
+  onOfficialQueryChange,
+  onOfficialSearch,
+  onOfficialLoadMore,
   onQueryChange,
   onCategorySelect,
   onBackToAll,
@@ -68,7 +95,7 @@ export function DesktopSharedView({
   loadMoreState,
   onLoadMore,
 }: {
-  category: SharedDiscoverCategory | 'groups' | 'grammar';
+  category: SharedDiscoverCategory | 'official' | 'groups' | 'grammar';
   query: string;
   payload: SharedDiscoverPayload;
   loading: boolean;
@@ -89,6 +116,15 @@ export function DesktopSharedView({
   onGrammarQueryChange: (value: string) => void;
   onGrammarSearch: () => void;
   onGrammarLoadMore: () => void;
+  officialQuery: string;
+  officialBooks: OfficialWordbookCard[];
+  officialLoading: boolean;
+  officialError: string | null;
+  officialLoadMoreState: LoadMoreState;
+  officialHasMore: boolean;
+  onOfficialQueryChange: (value: string) => void;
+  onOfficialSearch: () => void;
+  onOfficialLoadMore: () => void;
   onQueryChange: (value: string) => void;
   onCategorySelect: (category: DesktopSharedCategory) => void;
   onBackToAll: () => void;
@@ -100,9 +136,11 @@ export function DesktopSharedView({
   const isCategory = category !== 'all';
   const isGroups = category === 'groups';
   const isGrammar = category === 'grammar';
+  const isOfficial = category === 'official';
   const activeMeta = isCategory ? CATEGORY_META[category] : null;
   const hasQuery = query.trim().length > 0;
-  const shouldShowResults = !isGroups && !isGrammar && (isCategory || hasQuery || loading || Boolean(error));
+  const shouldShowResults = !isGroups && !isGrammar && !isOfficial
+    && (isCategory || hasQuery || loading || Boolean(error));
   const showDashboard = category === 'all' && !hasQuery;
 
   const isDesktop = useIsDesktop();
@@ -116,47 +154,96 @@ export function DesktopSharedView({
     onProjectMissing(projectId);
   };
 
-  // 検索窓。カテゴリ (グループ / 語法) ごとに送信先が違う
-  const searchBar = isGroups ? (
+  // 検索窓は1つ。検索範囲 (すべて / ユーザー / 単語帳 / 語法 / グループ) は
+  // 検索時のオプションとしてセレクトで選ぶ。範囲 = ページのカテゴリ状態そのもの。
+  // ユーザー・単語帳は入力に追従して検索し、語法・グループは送信 (Enter / →) で検索する。
+  const scope: SearchScope = category;
+  const submitToSearch = isGroups || isGrammar || isOfficial;
+  const searchText = isGroups ? groupQuery : isGrammar ? grammarQuery : isOfficial ? officialQuery : query;
+  // 送信で検索する範囲 (語法・公式・グループ) の進捗表示をまとめて扱う。
+  const submitLoading = isGroups ? groupLoading : isGrammar ? grammarLoading : officialLoading;
+  const scopeMeta = SEARCH_SCOPES.find((item) => item.value === scope) ?? SEARCH_SCOPES[0];
+
+  const handleSearchTextChange = (value: string) => {
+    if (isGroups) onGroupQueryChange(value);
+    else if (isGrammar) onGrammarQueryChange(value);
+    else if (isOfficial) onOfficialQueryChange(value);
+    else onQueryChange(value);
+  };
+
+  const handleScopeChange = (next: SearchScope) => {
+    if (next === scope) return;
+    // 入力中の文字は次の範囲に引き継ぐ。語法・グループはカテゴリに入った時点で
+    // 一覧側 (SharedPageClient の各セクション) が初回検索を走らせるので、ここでは
+    // 検索語を渡すだけでよい。
+    if (next === 'groups') onGroupQueryChange(searchText);
+    else if (next === 'grammar') onGrammarQueryChange(searchText);
+    else if (next === 'official') onOfficialQueryChange(searchText);
+    else onQueryChange(searchText);
+    if (next === 'all') onBackToAll();
+    else onCategorySelect(next);
+  };
+
+  // タグは単語帳に付くものなので、タグ検索は「単語帳」範囲で行う。
+  // 選択中のタグをもう一度押すと解除する。
+  const activeTag = !isGroups && !isGrammar && !isOfficial ? query.trim().toLowerCase() : '';
+  const handleSelectTag = (tag: string) => {
+    if (tag.toLowerCase() === activeTag) {
+      onQueryChange('');
+      return;
+    }
+    onQueryChange(tag);
+    onCategorySelect('projects');
+  };
+
+  const searchBar = (
     <form
-      onSubmit={(event) => { event.preventDefault(); onGroupSearch(); }}
+      role="search"
       className="ds-shared-search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (isGroups) onGroupSearch();
+        else if (isGrammar) onGrammarSearch();
+        else if (isOfficial) onOfficialSearch();
+      }}
     >
       <Icon name="search" />
+      <label className="scope" title="検索範囲">
+        <span className="sr-only">検索範囲</span>
+        <select value={scope} onChange={(event) => handleScopeChange(event.target.value as SearchScope)}>
+          {SEARCH_SCOPES.map((item) => (
+            <option key={item.value} value={item.value}>{item.label}</option>
+          ))}
+        </select>
+        <Icon name="expand_more" />
+      </label>
       <input
-        placeholder="グループ名で検索"
-        value={groupQuery}
-        onChange={(event) => onGroupQueryChange(event.target.value)}
+        placeholder={scopeMeta.placeholder}
+        value={searchText}
+        onChange={(event) => handleSearchTextChange(event.target.value)}
+        aria-label={`${scopeMeta.label}を検索`}
       />
-      <button type="submit" className="go" disabled={groupLoading} aria-label="グループを検索">
-        <Icon name={groupLoading ? 'progress_activity' : 'arrow_forward'} className={groupLoading ? 'animate-spin' : undefined} />
-      </button>
+      {submitToSearch && (
+        <button
+          type="submit"
+          className="go"
+          disabled={submitLoading}
+          aria-label={isGroups ? 'グループを検索' : isOfficial ? '公式単語帳を検索' : '語法問題集を検索'}
+        >
+          <Icon
+            name={submitLoading ? 'progress_activity' : 'arrow_forward'}
+            className={submitLoading ? 'animate-spin' : undefined}
+          />
+        </button>
+      )}
     </form>
-  ) : isGrammar ? (
-    <form
-      onSubmit={(event) => { event.preventDefault(); onGrammarSearch(); }}
-      className="ds-shared-search"
-    >
-      <Icon name="search" />
-      <input
-        placeholder="問題集名・ユーザーで検索"
-        value={grammarQuery}
-        onChange={(event) => onGrammarQueryChange(event.target.value)}
-      />
-      <button type="submit" className="go" disabled={grammarLoading} aria-label="語法問題集を検索">
-        <Icon name={grammarLoading ? 'progress_activity' : 'arrow_forward'} className={grammarLoading ? 'animate-spin' : undefined} />
-      </button>
-    </form>
-  ) : (
-    <label className="ds-shared-search">
-      <Icon name="search" />
-      <input
-        placeholder={isCategory ? `${activeMeta!.label}を検索` : 'ユーザー・単語帳を検索'}
-        value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
-      />
-    </label>
   );
+
+  // 人気のタグは検索窓の直下に置く (右レールの最下段だと画面外に隠れて気づけない)。
+  // 語法・グループの範囲では単語帳のタグは使えないので出さない。
+  const trendingTags = !isGroups && !isGrammar && !isOfficial ? (
+    <TrendingTagsRow projects={feed.projects} activeTag={activeTag} onSelectTag={handleSelectTag} />
+  ) : null;
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -180,6 +267,7 @@ export function DesktopSharedView({
       {showDashboard ? (
         <div className="ds-scroll">
           {searchBar}
+          {trendingTags}
           <div className="ds-cat-grid">
             {(Object.keys(CATEGORY_META) as DesktopSharedCategory[]).map((key) => {
               const meta = CATEGORY_META[key];
@@ -214,7 +302,9 @@ export function DesktopSharedView({
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'sticky', top: 0 }}>
+          {/* 右レール。スクロールしても画面内に留まり、レール自体が画面より
+              高いときは中だけスクロールする (末尾のパネルが隠れっぱなしにならない) */}
+          <div className="ds-rail ds-rail--fit" style={{ gap: 18 }}>
             <PopularWordbooksRail projects={feed.projects.length > 0 ? feed.projects : payload.projects} />
             <PublicGrammarRail
               books={publicGrammar.books}
@@ -227,13 +317,13 @@ export function DesktopSharedView({
               joinedGroups={joinedGroups}
               onSeeAll={() => onCategorySelect('groups')}
             />
-            <TrendingTagsRail projects={feed.projects} onSelectTag={onQueryChange} />
           </div>
           </div>
         </div>
       ) : (
         <div className="ds-scroll">
           {searchBar}
+          {trendingTags}
           {isCategory && (
             <div className="muted" style={{ fontSize: 13, margin: '10px 2px 18px' }}>
               {activeMeta!.description}
@@ -247,6 +337,21 @@ export function DesktopSharedView({
               groupLoading={groupLoading}
               groupError={groupError}
             />
+          )}
+
+          {isOfficial && (
+            <>
+              <OfficialWordbookGrid
+                books={officialBooks}
+                loading={officialLoading}
+                error={officialError}
+              />
+              <DesktopLoadMore
+                hasMore={officialHasMore}
+                state={officialLoadMoreState}
+                onLoadMore={onOfficialLoadMore}
+              />
+            </>
           )}
 
           {isGrammar && (
@@ -777,13 +882,16 @@ function PublicGroupsRail({
   );
 }
 
-// Tag chips aggregated from the feed page — clicking one runs the discover
-// search with the raw tag text (the API matches shared_tags).
-function TrendingTagsRail({
+// フィードに載っている単語帳のタグを集計したチップ列。検索窓の直下に出し、
+// 押すと「単語帳」範囲でそのタグを検索する (API は shared_tags を照合する)。
+function TrendingTagsRow({
   projects,
+  activeTag,
   onSelectTag,
 }: {
   projects: SharedProjectCard[];
+  /** 選択中のタグ (小文字)。空文字なら未選択 */
+  activeTag: string;
   onSelectTag: (tag: string) => void;
 }) {
   const counts = new Map<string, { tag: string; count: number }>();
@@ -797,21 +905,32 @@ function TrendingTagsRail({
   }
   const topTags = Array.from(counts.values())
     .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
+    .slice(0, TRENDING_TAG_LIMIT);
 
   if (topTags.length === 0) return null;
 
   return (
-    <RailPanel title="人気のタグ" icon="tag">
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {topTags.map(({ tag, count }) => (
-          <button key={tag} type="button" className="ds-chip" onClick={() => onSelectTag(tag)}>
+    <div className="ds-shared-tags" aria-label="人気のタグ">
+      <span className="lb">
+        <Icon name="tag" />
+        人気のタグ
+      </span>
+      {topTags.map(({ tag, count }) => {
+        const active = tag.toLowerCase() === activeTag;
+        return (
+          <button
+            key={tag}
+            type="button"
+            className={active ? 'ds-chip active' : 'ds-chip'}
+            aria-pressed={active}
+            onClick={() => onSelectTag(tag)}
+          >
             {formatSharedTag(tag)}
-            <span className="mono" style={{ fontSize: 11, color: 'var(--color-muted)' }}>{count}</span>
+            <span className="n">{count}</span>
           </button>
-        ))}
-      </div>
-    </RailPanel>
+        );
+      })}
+    </div>
   );
 }
 
@@ -960,6 +1079,80 @@ function GrammarBookGrid({
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {grammarOwnerLabel(book)}
                 </span>
+              </div>
+            </div>
+            <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function OfficialWordbookGrid({
+  books,
+  loading,
+  error,
+}: {
+  books: OfficialWordbookCard[];
+  loading: boolean;
+  error: string | null;
+}) {
+  if (error) {
+    return (
+      <div className="ds-card" style={{ padding: 14, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>
+        {error}
+      </div>
+    );
+  }
+  if (loading && books.length === 0) {
+    return (
+      <div className="ds-card" style={{ padding: 34, color: 'var(--color-muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Icon name="progress_activity" className="animate-spin" />
+        検索中...
+      </div>
+    );
+  }
+  if (books.length === 0) {
+    return <EmptyCard label="公開されている公式単語帳はまだありません" />;
+  }
+
+  return (
+    <section>
+      <SectionTitle count={books.length}>公式単語帳</SectionTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16 }}>
+        {books.map((book) => (
+          <Link
+            key={book.id}
+            href={`/official/${encodeURIComponent(book.slug)}`}
+            className="ds-card"
+            style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, color: 'inherit', textDecoration: 'none' }}
+          >
+            <div
+              className="ds-project-icon ds-project-icon--lg"
+              style={{
+                background: desktopThumbColor(book.id),
+                backgroundImage: book.iconImage ? `url(${book.iconImage})` : undefined,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              {!book.iconImage && <Icon name="verified" style={{ fontSize: 22 }} />}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {book.title}
+              </div>
+              <div className="muted" style={{ marginTop: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Icon name="verified" style={{ fontSize: 14 }} />MERKEN公式
+                </span>
+                {book.eikenLabel && (
+                  <span style={{ whiteSpace: 'nowrap' }}>{book.eikenLabel}</span>
+                )}
+                {book.wordCount !== null && (
+                  <span className="mono" style={{ whiteSpace: 'nowrap' }}>{book.wordCount}語</span>
+                )}
               </div>
             </div>
             <Icon name="chevron_right" style={{ fontSize: 20, color: 'var(--color-muted)', flexShrink: 0 }} />

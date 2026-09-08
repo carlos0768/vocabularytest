@@ -118,6 +118,15 @@ export default function GroupJoinPage() {
     return submitJoin({ groupId });
   }, [groupId, submitJoin]);
 
+  // 直前の画面（多くはグループ検索タブ）へ戻す。招待リンクから直接開かれて
+  // 履歴が無いときだけ共有ライブラリへ抜ける。/shared を決め打ちで push すると
+  // グループ検索から来た人が共有単語帳のトップに飛ばされる。
+  const goBack = useCallback(() => {
+    triggerHaptic();
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push('/shared');
+  }, [router]);
+
   const stateView = authLoading || checking ? (
     <div className="flex items-center justify-center py-24 text-[var(--color-muted)]">
       <Icon name="progress_activity" className="animate-spin" size={22} />
@@ -240,7 +249,7 @@ export default function GroupJoinPage() {
               {preview?.name ? `${preview.name}に参加` : 'グループに参加'}
             </h1>
           </div>
-          <DesktopButton href="/shared" icon="arrow_back" variant="ghost">共有ライブラリ</DesktopButton>
+          <DesktopButton onClick={goBack} icon="arrow_back" variant="ghost">戻る</DesktopButton>
         </div>
         <div className="ds-scroll">
           <div style={{ maxWidth: 560, width: '100%', margin: '0 auto' }}>
@@ -258,13 +267,14 @@ export default function GroupJoinPage() {
         }}
       >
         <div className="flex items-center gap-2 px-[14px] pt-1">
-          <Link
-            href="/shared"
-            aria-label="共有に戻る"
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="戻る"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="arrow_back" size={16} />
-          </Link>
+          </button>
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
             JOIN GROUP
           </div>

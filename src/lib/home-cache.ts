@@ -75,6 +75,8 @@ export function updateProjectWordsCache(projectId: string, words: Word[]) {
 
 export function invalidateHomeCache() {
   hasLoaded = false;
+  // 単語帳・単語が変わったので、次にホーム/一覧を開いたときは Supabase を読み直す。
+  resetRemoteWordbooksRefresh();
   clearPersistedSnapshot();
 }
 
@@ -86,11 +88,57 @@ export function clearHomeCache() {
   totalWordsCache = 0;
   hasLoaded = false;
   loadedUserId = null;
+  homeViewSnapshot = null;
+  resetRemoteWordbooksRefresh();
 
   // Clear persisted snapshot to avoid restoring another account's cache
   clearPersistedSnapshot();
 
   notifyListeners();
+}
+
+// ---------- Remote wordbook refresh throttle ----------
+//
+// ホームと単語帳一覧は「IndexedDB を先に描画 → Supabase から全単語帳・全単語を
+// 取り直して上書き」という流れで、以前は開くたびに後半を必ず走らせていた。
+// タブを往復するだけで全データの再ダウンロード + IndexedDB の全件書き換えが
+// 起きていたので、直近の再取得から一定時間はローカルの内容だけで済ませる。
+// 単語帳や単語を書き換えた側は invalidateHomeCache() を呼ぶので、その直後の
+// 表示は必ず再取得される。
+
+export const REMOTE_WORDBOOKS_REFRESH_INTERVAL_MS = 60 * 1000;
+
+let lastRemoteWordbooksRefresh: { userId: string; at: number } | null = null;
+
+export function shouldRefreshRemoteWordbooks(userId: string, now: number = Date.now()): boolean {
+  if (!lastRemoteWordbooksRefresh || lastRemoteWordbooksRefresh.userId !== userId) return true;
+  return now - lastRemoteWordbooksRefresh.at >= REMOTE_WORDBOOKS_REFRESH_INTERVAL_MS;
+}
+
+export function markRemoteWordbooksRefreshed(userId: string, now: number = Date.now()): void {
+  lastRemoteWordbooksRefresh = { userId, at: now };
+}
+
+export function resetRemoteWordbooksRefresh(): void {
+  lastRemoteWordbooksRefresh = null;
+}
+
+// ---------- Home view snapshot ----------
+//
+// ホーム画面が最後に描画した内容（統計つき単語帳一覧）をメモリに残し、次にホームへ
+// 戻ったとき最初のレンダーからそのまま出す。以前は毎回スケルトンから始まり、
+// IndexedDB の読み込みが終わるまで何も出なかった。データはマウント直後に
+// IndexedDB から読み直して上書きされるので、古い内容が残るのは数十 ms だけ。
+
+let homeViewSnapshot: { userId: string; data: unknown } | null = null;
+
+export function getHomeViewSnapshot<T>(userId: string): T | null {
+  if (!homeViewSnapshot || homeViewSnapshot.userId !== userId) return null;
+  return homeViewSnapshot.data as T;
+}
+
+export function setHomeViewSnapshot<T>(userId: string, data: T): void {
+  homeViewSnapshot = { userId, data };
 }
 
 // ---------- Storage persistence ----------

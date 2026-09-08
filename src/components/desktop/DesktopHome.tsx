@@ -2,6 +2,7 @@
 
 /**
  * デスクトップホーム。
+ * ヘッダ: ページ内トップバー（タイトル + 通知ベル）
  * 上部: ショートカットグリッド（今日の目標 + 保存済み + 単語帳/グループ/おすすめ）
  * 中段: マイ単語帳（176px の正方形タイルを横スクロールで並べる本棚）
  *       バインダーと語法問題集を2カラムで並べる
@@ -12,7 +13,9 @@
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
+import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { GroupAvatar } from '@/components/groups/GroupAvatar';
 import { DesktopHomeGrammarBooks } from '@/components/home/HomeGrammarBooks';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
@@ -115,6 +118,10 @@ export function DesktopHomeView({
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
+      {/* ホームはタブの起点なので戻るボタンは出さず、右側に通知ベルだけを置く */}
+      <DesktopTopbar title="ホーム" crumb="MERKEN" back={false}>
+        <FollowNotificationsButton variant="desktop" />
+      </DesktopTopbar>
       <div className="ds-scroll ds-two-col">
         <div style={{ minWidth: 0 }}>
           {error && (

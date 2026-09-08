@@ -73,6 +73,8 @@ export interface MasterFirstScanMetrics {
   masterTranslationHitCount: number;
   masterPronunciationHitCount: number;
   masterDistractorHitCount: number;
+  /** 見出し語フォールバック（品詞不一致）でマスターに当たった語数 */
+  masterHeadwordFallbackHitCount: number;
   aiMissCount: number;
   lookupElapsedMs: number;
   translationElapsedMs: number;
@@ -82,6 +84,7 @@ export interface MasterFirstScanMetrics {
 export interface ResolveImmediateWordsDeps {
   supabaseAdmin?: SupabaseClient;
   lookupEntries?: (keys: LexiconLookupKey[]) => Promise<LexiconEntry[]>;
+  lookupEntriesByHeadwords?: (normalizedHeadwords: string[]) => Promise<LexiconEntry[]>;
   translateWords?: (
     inputs: Array<{ english: string; pos: LexiconPos }>
   ) => Promise<Map<string, string | null>>;
@@ -253,6 +256,105 @@ export async function lookupLexiconEntriesByKeys(
   return lookupLexiconEntriesByKeysDirect(supabaseAdmin, uniqueKeys);
 }
 
+async function lookupLexiconEntriesByHeadwordsDirect(
+  supabaseAdmin: SupabaseClient,
+  normalizedHeadwords: string[],
+): Promise<LexiconEntry[]> {
+  const { data, error } = await supabaseAdmin
+    .from('lexicon_entry_resolved_rows')
+    .select('id, headword, normalized_headword, pos, cefr_level, dataset_sources, primary_sense_id, translation_ja, normalized_translation_ja, distinct_key, meaning_summary, usage_notes, translation_source, example_sentence, example_sentence_ja, pronunciation, distractors, created_at, updated_at')
+    .in('normalized_headword', normalizedHeadwords);
+
+  if (error) {
+    throw new Error(`Failed to load lexicon entries by headword: ${error.message}`);
+  }
+
+  return ((data ?? []) as LexiconEntryRow[]).map(mapLexiconEntry);
+}
+
+/**
+ * 見出し語だけでマスター候補を引く（品詞は問わない）。
+ * `lookupLexiconEntriesByKeys` が (見出し語, 品詞) で外したときの second pass 専用。
+ */
+export async function lookupLexiconEntriesByHeadwords(
+  normalizedHeadwords: string[],
+  deps?: Pick<ResolveImmediateWordsDeps, 'lookupEntriesByHeadwords' | 'supabaseAdmin'>,
+): Promise<LexiconEntry[]> {
+  const uniqueHeadwords = Array.from(
+    new Set(normalizedHeadwords.filter((headword) => headword.length > 0)),
+  );
+
+  if (uniqueHeadwords.length === 0) {
+    return [];
+  }
+
+  if (deps?.lookupEntriesByHeadwords) {
+    return deps.lookupEntriesByHeadwords(uniqueHeadwords);
+  }
+
+  const supabaseAdmin = deps?.supabaseAdmin ?? getSupabaseAdmin();
+  const rpcResult = await supabaseAdmin.rpc('get_lexicon_entries_by_headwords', {
+    p_headwords: uniqueHeadwords,
+  });
+
+  if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+    return (rpcResult.data as LexiconEntryRow[]).map(mapLexiconEntry);
+  }
+
+  if (rpcResult.error) {
+    console.warn('[master-first-scan] Falling back to direct headword lexicon lookup', {
+      error: rpcResult.error.message,
+      headwordCount: uniqueHeadwords.length,
+    });
+  }
+
+  return lookupLexiconEntriesByHeadwordsDirect(supabaseAdmin, uniqueHeadwords);
+}
+
+/**
+ * 品詞が一致しないマスター行を流用してよいか。
+ *
+ * `'other'` は「品詞不明」を意味する（AIが partOfSpeechTags を返さなかった語も
+ * マスター側で分類できなかった行もここに落ちる）ので、片側が不明なら同じ見出し語の
+ * 語義とみなして流用する。双方が別々の品詞を明言している場合（noun と verb など）は
+ * 語義が違うため流用しない — 誤訳を単語帳に混ぜるより AI を呼ぶほうがましである。
+ */
+function isPosCompatibleForHeadwordFallback(wordPos: LexiconPos, entryPos: string): boolean {
+  return wordPos === 'other' || entryPos === 'other' || wordPos === entryPos;
+}
+
+/**
+ * 使い回せる中身が多い候補ほど高スコア。0 のままの候補は流用しても
+ * AI 呼び出しを1つも減らせないので採用しない。
+ */
+function scoreHeadwordFallbackEntry(entry: LexiconEntry): number {
+  let score = 0;
+  if (normalizeUsableJapanese(entry.translationJa)) score += 8;
+  if (typeof entry.exampleSentence === 'string' && entry.exampleSentence.trim()) score += 4;
+  if (typeof entry.pronunciation === 'string' && entry.pronunciation.trim()) score += 2;
+  if (entry.pos !== 'other') score += 1;
+  return score;
+}
+
+function pickHeadwordFallbackEntry(
+  candidates: LexiconEntry[],
+  wordPos: LexiconPos,
+): LexiconEntry | undefined {
+  let best: { entry: LexiconEntry; score: number } | undefined;
+
+  for (const entry of candidates) {
+    if (!isPosCompatibleForHeadwordFallback(wordPos, entry.pos)) continue;
+    const score = scoreHeadwordFallbackEntry(entry);
+    if (score === 0) continue;
+    // 同点は id 昇順で決める（同じスキャンを2回投げても同じ行を選ぶため）。
+    if (!best || score > best.score || (score === best.score && entry.id < best.entry.id)) {
+      best = { entry, score };
+    }
+  }
+
+  return best?.entry;
+}
+
 export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWordInput>(
   words: T[],
   deps?: ResolveImmediateWordsDeps,
@@ -318,10 +420,68 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
     ] as const),
   );
 
+  // --- second pass: 見出し語フォールバック ---
+  // (見出し語, 品詞) で外した語は、同じ見出し語のマスター行を品詞不明時に限り流用する。
+  // これがないと、AIが品詞を返さなかった語（pos='other' に落ちる）はマスターに
+  // あっても毎回 訳語・例文・発音記号・誤答選択肢をAIで作り直すことになる。
+  const missedWordPosByHeadword = new Map<string, Set<LexiconPos>>();
+  for (const word of preparedWords) {
+    if (!word.key || entryByKey.has(word.key)) continue;
+    const headword = normalizeHeadword(word.english);
+    if (!headword) continue;
+    const positions = missedWordPosByHeadword.get(headword) ?? new Set<LexiconPos>();
+    positions.add(word.pos);
+    missedWordPosByHeadword.set(headword, positions);
+  }
+
+  // フォールバックは費用削減のための最適化なので、失敗してもスキャンは止めない
+  // （AI呼び出しに落ちるだけで、ユーザから見た結果は変わらない）。
+  let fallbackCandidates: LexiconEntry[] = [];
+  if (missedWordPosByHeadword.size > 0) {
+    try {
+      fallbackCandidates = await lookupLexiconEntriesByHeadwords(
+        Array.from(missedWordPosByHeadword.keys()),
+        deps,
+      );
+    } catch (error) {
+      console.warn('[master-first-scan] Headword fallback lookup failed; falling back to AI', {
+        error: error instanceof Error ? error.message : String(error),
+        headwordCount: missedWordPosByHeadword.size,
+      });
+    }
+  }
+
+  const candidatesByHeadword = new Map<string, LexiconEntry[]>();
+  for (const entry of fallbackCandidates) {
+    const bucket = candidatesByHeadword.get(entry.normalizedHeadword);
+    if (bucket) {
+      bucket.push(entry);
+    } else {
+      candidatesByHeadword.set(entry.normalizedHeadword, [entry]);
+    }
+  }
+
+  const fallbackEntryByKey = new Map<string, LexiconEntry>();
+  for (const [headword, positions] of missedWordPosByHeadword.entries()) {
+    const candidates = candidatesByHeadword.get(headword);
+    if (!candidates || candidates.length === 0) continue;
+    for (const pos of positions) {
+      const picked = pickHeadwordFallbackEntry(candidates, pos);
+      if (picked) {
+        fallbackEntryByKey.set(buildLexiconKey(headword, pos), picked);
+      }
+    }
+  }
+
+  const resolveEntryForKey = (key: string | null): LexiconEntry | undefined => {
+    if (!key) return undefined;
+    return entryByKey.get(key) ?? fallbackEntryByKey.get(key);
+  };
+
   const translationInputsByKey = new Map<string, { english: string; pos: LexiconPos }>();
   for (const word of preparedWords) {
     if (!word.key || word.japanese) continue;
-    const entry = entryByKey.get(word.key);
+    const entry = resolveEntryForKey(word.key);
     if (entry?.translationJa) {
       continue;
     }
@@ -362,10 +522,16 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
   let masterTranslationHitCount = 0;
   let masterPronunciationHitCount = 0;
   let masterDistractorHitCount = 0;
+  let masterHeadwordFallbackHitCount = 0;
   let aiMissCount = 0;
+  const usedFallbackEntriesById = new Map<string, LexiconEntry>();
 
   const resolvedWords = preparedWords.map((word) => {
-    const entry = word.key ? entryByKey.get(word.key) : undefined;
+    const entry = resolveEntryForKey(word.key);
+    if (entry && word.key && !entryByKey.has(word.key)) {
+      masterHeadwordFallbackHitCount += 1;
+      usedFallbackEntriesById.set(entry.id, entry);
+    }
     const masterTranslation = normalizeUsableJapanese(entry?.translationJa);
     const masterExampleSentence = !options?.skipMasterExamples && typeof entry?.exampleSentence === 'string'
       ? entry.exampleSentence.trim()
@@ -422,6 +588,13 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       masterDistractorHitCount += 1;
     }
 
+    // 品詞タグが無い語はマスターの品詞で埋める。埋めておくと保存後の
+    // 語彙解決ジョブが品詞判定のAI呼び出し（classifyPartOfSpeechBatchWithAI）を
+    // 省けるうえ、次回以降は (見出し語, 品詞) の完全一致で当たるようになる。
+    const partOfSpeechTags = word.partOfSpeechTags.length === 0 && entry?.pos && entry.pos !== 'other'
+      ? normalizePartOfSpeechTags([entry.pos])
+      : word.partOfSpeechTags;
+
     return {
       ...word.original,
       english: word.english,
@@ -432,7 +605,7 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       lexiconDistinctKey: usesPrimarySense ? primarySense?.distinctKey : word.original.lexiconDistinctKey,
       lexiconSenseIsPrimary: usesPrimarySense ? true : word.original.lexiconSenseIsPrimary,
       cefrLevel: entry?.cefrLevel ?? word.original.cefrLevel,
-      partOfSpeechTags: word.partOfSpeechTags,
+      partOfSpeechTags,
       pronunciation,
       distractors,
       exampleSentence: word.original.exampleSentence ?? (masterExampleSentence || undefined),
@@ -442,13 +615,18 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
 
   return {
     words: resolvedWords,
-    lexiconEntries,
+    // 実際に採用したフォールバック行だけを足す（同じ見出し語の未採用候補まで
+    // 返すと、呼び出し側が見出し語でマスターを引き当てる処理を誤らせる）。
+    lexiconEntries: usedFallbackEntriesById.size > 0
+      ? [...lexiconEntries, ...usedFallbackEntriesById.values()]
+      : lexiconEntries,
     metrics: {
       lookupKeyCount: lookupKeys.length,
       masterHitCount,
       masterTranslationHitCount,
       masterPronunciationHitCount,
       masterDistractorHitCount,
+      masterHeadwordFallbackHitCount,
       aiMissCount,
       lookupElapsedMs,
       translationElapsedMs,

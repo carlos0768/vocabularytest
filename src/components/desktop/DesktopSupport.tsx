@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { DesktopHeader } from '@/components/desktop/DesktopChrome';
+import { EmphasisText } from '@/components/ui/EmphasisText';
 import { Icon } from '@/components/ui/Icon';
 
 type Article = {
@@ -151,7 +152,7 @@ export function DesktopLegalDocView({
           <div className="ds-doc">
             <div className="ds-doc-head">
               <div className="meta">最終更新日：{updated}</div>
-              <p className="muted" style={{ fontSize: 14, lineHeight: 1.8, marginBottom: 0, marginTop: 14 }}>{intro}</p>
+              <p className="muted" style={{ fontSize: 14, lineHeight: 1.8, marginBottom: 0, marginTop: 14 }}><EmphasisText text={intro} /></p>
               <div className="ds-toc">
                 {toc.map((item, index) => (
                   <a key={item} href={`#article-${index + 1}`}>{`${index + 1}. ${item}`}</a>
@@ -161,10 +162,10 @@ export function DesktopLegalDocView({
             {articles.map((article, index) => (
               <div key={article.h} id={`article-${index + 1}`} className="ds-article">
                 <h2><span className="no">第{index + 1}条</span>{article.h}</h2>
-                {article.p?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                {article.p?.map((paragraph) => <p key={paragraph}><EmphasisText text={paragraph} /></p>)}
                 {article.list && (
                   <ul>
-                    {article.list.map((item) => <li key={item}>{item}</li>)}
+                    {article.list.map((item) => <li key={item}><EmphasisText text={item} /></li>)}
                   </ul>
                 )}
               </div>

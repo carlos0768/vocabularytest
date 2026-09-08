@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DesktopSharedView } from '@/components/desktop/DesktopShared';
@@ -13,7 +13,13 @@ import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { ShareTypeChooser } from './ShareTypeChooser';
 import { triggerHaptic } from '@/lib/haptics';
-import { appendDiscoverPage, mergeUniqueProjectCards, removeProjectFromDiscover } from './shared-page-utils';
+import {
+  appendDiscoverPage,
+  buildSharedPageSearch,
+  mergeUniqueProjectCards,
+  parseSharedPageTab,
+  removeProjectFromDiscover,
+} from './shared-page-utils';
 import type {
   SharedDiscoverCategory,
   SharedDiscoverPayload,
@@ -21,6 +27,7 @@ import type {
 } from '@/lib/shared-projects/types';
 import type { FollowSearchResult, FollowSummary } from '@/lib/follows/types';
 import type { PublicGrammarBookCard } from '@/lib/grammar/types';
+import type { OfficialWordbookCard } from '@/lib/official-wordbooks/catalog';
 import type { PublicStudyGroupSummary, StudyGroupSummary } from '@/lib/shared-projects/types';
 import { formatSharedTag } from '../../../shared/shared-tags';
 
@@ -31,9 +38,10 @@ type SharedPageClientProps = {
 type DiscoverResponse = SharedDiscoverPayload | { error?: string };
 
 type ShareCategory = Exclude<SharedDiscoverCategory, 'all'>;
-type PageCategory = ShareCategory | 'groups' | 'grammar';
+type PageCategory = ShareCategory | 'official' | 'groups' | 'grammar';
 
 const CATEGORY_META: Record<PageCategory, { label: string; icon: string; description: string; color: string }> = {
+  official: { label: '公式', icon: 'verified', description: 'MERKEN公式の単語帳', color: '#664DB3' },
   users: { label: 'ユーザー', icon: 'person', description: '学習者をフォロー', color: '#137FEC' },
   projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳', color: '#228B22' },
   grammar: { label: '語法', icon: 'rule', description: '公開されている語法問題集', color: '#CC4D59' },
@@ -73,7 +81,22 @@ type PublicGrammarApiResponse = {
   error?: string;
 };
 
+type OfficialWordbooksApiResponse = {
+  success?: boolean;
+  items?: OfficialWordbookCard[];
+  nextCursor?: string | null;
+  error?: string;
+};
+
 const GRAMMAR_PAGE_SIZE = 12;
+const OFFICIAL_PAGE_SIZE = 12;
+
+export function buildOfficialWordbooksUrl(query: string, cursor?: string | null) {
+  const params = new URLSearchParams({ limit: String(OFFICIAL_PAGE_SIZE) });
+  if (query.trim()) params.set('q', query.trim());
+  if (cursor) params.set('cursor', cursor);
+  return `/api/official-wordbooks?${params.toString()}`;
+}
 
 export function buildPublicGrammarUrl(query: string, cursor?: string | null) {
   const params = new URLSearchParams({ limit: String(GRAMMAR_PAGE_SIZE) });
@@ -105,6 +128,10 @@ function buildDiscoverUrl(category: SharedDiscoverCategory, query: string, curso
   return `/api/shared-projects/discover?${params.toString()}`;
 }
 
+// タブの URL 同期はクライアント限定。ハイドレーション後・描画前に走らせたいので
+// 通常は useLayoutEffect、SSR では警告を避けるため useEffect にフォールバックする。
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedDiscoverPayload {
   return Boolean(payload && 'category' in payload && Array.isArray(payload.projects));
 }
@@ -114,7 +141,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const { user } = useAuth();
   const { showToast } = useToast();
 
-  const [category, setCategory] = useState<SharedDiscoverCategory | 'groups' | 'grammar'>('all');
+  const [category, setCategory] = useState<PageCategory | 'all'>('all');
   const [query, setQuery] = useState('');
   const [discover, setDiscover] = useState<SharedDiscoverPayload>(initialDiscover);
   const [loading, setLoading] = useState(false);
@@ -134,6 +161,16 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [grammarLoadMoreState, setGrammarLoadMoreState] = useState<LoadMoreState>('idle');
   // 検索条件が変わるたびに増やし、古い結果を捨てるための世代番号。
   const grammarSeqRef = useRef(0);
+
+  // 共有ページに置いた公式単語帳。運営が配る単語帳なので投稿者は出さず、
+  // 語法と同じく専用APIで検索・追加読み込みする。
+  const [officialQuery, setOfficialQuery] = useState('');
+  const [officialBooks, setOfficialBooks] = useState<OfficialWordbookCard[]>([]);
+  const [officialCursor, setOfficialCursor] = useState<string | null>(null);
+  const [officialLoading, setOfficialLoading] = useState(false);
+  const [officialError, setOfficialError] = useState<string | null>(null);
+  const [officialLoadMoreState, setOfficialLoadMoreState] = useState<LoadMoreState>('idle');
+  const officialSeqRef = useRef(0);
   // 参加中のグループ。表示はホームへ移設済みだが、グループ検索の
   // 参加済みフィルタ（モバイル/デスクトップ両方）が引き続き使う。
   const { groups: myGroups } = useMyGroups();
@@ -160,7 +197,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   useEffect(() => {
     discoverSeqRef.current += 1;
-    if (category === 'groups' || category === 'grammar') return;
+    if (category === 'groups' || category === 'grammar' || category === 'official') return;
 
     const canUseInitial = !hasUsedInitialRef.current && category === 'all' && !query.trim() && refreshNonce === 0;
     if (canUseInitial) {
@@ -203,7 +240,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   // 一覧の下端に達したら次ページを取得して追記する（カーソルが無ければ何もしない）。
   function handleLoadMore() {
-    if (category === 'groups' || category === 'grammar' || loading || loadMoreState === 'loading') return;
+    if (category === 'groups' || category === 'grammar' || category === 'official' || loading || loadMoreState === 'loading') return;
     const cursor = discover.nextCursor;
     if (!cursor) return;
 
@@ -232,14 +269,33 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     showToast({ message: 'この単語帳は共有が停止されています', type: 'warning' });
   }
 
-  function handleSelectCategory(nextCategory: PageCategory) {
+  // タブを切り替えるときは URL の ?tab= も書き換える。グループページなどから
+  // 戻ってきたときに同じタブで復元するための唯一の手がかりで、これが無いと
+  // グループ検索から開いたグループから戻ったときに共有単語帳のトップに落ちる。
+  // Next のルーターを通すと RSC を取り直して一覧が組み直されるので、
+  // App Router 公認の history.replaceState で URL だけを差し替える。
+  const applyCategory = useCallback((nextCategory: PageCategory | 'all') => {
     setCategory(nextCategory);
     setError(null);
+    if (typeof window === 'undefined') return;
+    const search = buildSharedPageSearch(window.location.search, nextCategory);
+    window.history.replaceState(null, '', `${window.location.pathname}${search}`);
+  }, []);
+
+  // 戻る操作で `/shared?tab=groups` に戻ってきたときにタブを復元する。
+  // useSearchParams はこのページ全体を Suspense のフォールバックに落として
+  // ISR プリレンダリングを捨ててしまうので使わない。
+  useIsomorphicLayoutEffect(() => {
+    const tab = parseSharedPageTab(window.location.search);
+    if (tab !== 'all') setCategory(tab);
+  }, []);
+
+  function handleSelectCategory(nextCategory: PageCategory) {
+    applyCategory(nextCategory);
   }
 
   function handleBackToAll() {
-    setCategory('all');
-    setError(null);
+    applyCategory('all');
   }
 
   async function handleGroupSearch() {
@@ -311,6 +367,54 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     }
   }
 
+  async function handleOfficialSearch() {
+    officialSeqRef.current += 1;
+    const seq = officialSeqRef.current;
+    setOfficialLoading(true);
+    setOfficialError(null);
+    setOfficialLoadMoreState('idle');
+    try {
+      const response = await fetch(buildOfficialWordbooksUrl(officialQuery), { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as OfficialWordbooksApiResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'official_search_failed');
+      }
+      if (officialSeqRef.current !== seq) return;
+      setOfficialBooks(payload.items ?? []);
+      setOfficialCursor(payload.nextCursor ?? null);
+    } catch {
+      if (officialSeqRef.current !== seq) return;
+      setOfficialError('公式単語帳を読み込めませんでした。');
+      setOfficialBooks([]);
+      setOfficialCursor(null);
+    } finally {
+      if (officialSeqRef.current === seq) setOfficialLoading(false);
+    }
+  }
+
+  async function handleOfficialLoadMore() {
+    if (officialLoading || officialLoadMoreState === 'loading' || !officialCursor) return;
+    const seq = officialSeqRef.current;
+    setOfficialLoadMoreState('loading');
+    try {
+      const response = await fetch(buildOfficialWordbooksUrl(officialQuery, officialCursor), { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as OfficialWordbooksApiResponse | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'official_load_more_failed');
+      }
+      if (officialSeqRef.current !== seq) return;
+      setOfficialBooks((current) => {
+        const known = new Set(current.map((item) => item.id));
+        return [...current, ...(payload.items ?? []).filter((item) => !known.has(item.id))];
+      });
+      setOfficialCursor(payload.nextCursor ?? null);
+      setOfficialLoadMoreState('idle');
+    } catch {
+      if (officialSeqRef.current !== seq) return;
+      setOfficialLoadMoreState('error');
+    }
+  }
+
   async function handleUserSearch() {
     const trimmed = userQuery.trim();
     if (!trimmed) return;
@@ -360,6 +464,15 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         onGrammarQueryChange={setGrammarQuery}
         onGrammarSearch={() => void handleGrammarSearch()}
         onGrammarLoadMore={() => void handleGrammarLoadMore()}
+        officialQuery={officialQuery}
+        officialBooks={officialBooks}
+        officialLoading={officialLoading}
+        officialError={officialError}
+        officialLoadMoreState={officialLoadMoreState}
+        officialHasMore={Boolean(officialCursor)}
+        onOfficialQueryChange={setOfficialQuery}
+        onOfficialSearch={() => void handleOfficialSearch()}
+        onOfficialLoadMore={() => void handleOfficialLoadMore()}
         onQueryChange={setQuery}
         onCategorySelect={handleSelectCategory}
         onBackToAll={handleBackToAll}
@@ -396,7 +509,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </button>
         </header>
 
-        {category !== 'groups' && category !== 'users' && category !== 'grammar' && (
+        {category !== 'groups' && category !== 'users' && category !== 'grammar' && category !== 'official' && (
           <div className="px-[14px] pt-2">
             <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[var(--color-muted)]">
               <Icon name="search" size={16} />
@@ -431,7 +544,19 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         )}
 
-        {category === 'grammar' ? (
+        {category === 'official' ? (
+          <OfficialSearchSection
+            officialQuery={officialQuery}
+            books={officialBooks}
+            loading={officialLoading}
+            error={officialError}
+            hasMore={Boolean(officialCursor)}
+            loadMoreState={officialLoadMoreState}
+            onQueryChange={setOfficialQuery}
+            onSearch={() => void handleOfficialSearch()}
+            onLoadMore={() => void handleOfficialLoadMore()}
+          />
+        ) : category === 'grammar' ? (
           <GrammarSearchSection
             grammarQuery={grammarQuery}
             books={grammarBooks}
@@ -1024,6 +1149,132 @@ function UserSearchSection({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 共有ページの「公式」カテゴリ。MERKEN公式の単語帳を検索・一覧する。
+ * カードのタップで /official/[slug] (閲覧・取り込み) に飛ぶ。
+ */
+function OfficialSearchSection({
+  officialQuery,
+  books,
+  loading,
+  error,
+  hasMore,
+  loadMoreState,
+  onQueryChange,
+  onSearch,
+  onLoadMore,
+}: {
+  officialQuery: string;
+  books: OfficialWordbookCard[];
+  loading: boolean;
+  error: string | null;
+  hasMore: boolean;
+  loadMoreState: LoadMoreState;
+  onQueryChange: (value: string) => void;
+  onSearch: () => void;
+  onLoadMore: () => void;
+}) {
+  const searchedInitiallyRef = useRef(false);
+
+  useEffect(() => {
+    if (searchedInitiallyRef.current) return;
+    searchedInitiallyRef.current = true;
+    onSearch();
+  }, [onSearch]);
+
+  return (
+    <div className="flex flex-col gap-3 px-[14px]">
+      <form
+        onSubmit={(event) => { event.preventDefault(); onSearch(); }}
+        className="flex gap-2"
+      >
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+          <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+          <input
+            value={officialQuery}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="単語帳名・英検レベルで検索"
+            className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={loading}
+          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white disabled:opacity-50"
+          aria-label="検索"
+        >
+          <Icon name={loading ? 'progress_activity' : 'arrow_forward'} className={loading ? 'animate-spin' : ''} size={16} />
+        </button>
+      </form>
+
+      {error && <ErrorBox message={error} />}
+
+      {loading && books.length === 0 && <LoadingBox />}
+
+      {books.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {books.map((book) => (
+            <OfficialWordbookCardItem key={book.id} book={book} />
+          ))}
+        </div>
+      )}
+
+      {!loading && books.length === 0 && !error && (
+        <EmptyBox message="公開されている公式単語帳はまだありません" />
+      )}
+
+      {books.length > 0 && (
+        <LoadMoreSentinel hasMore={hasMore} state={loadMoreState} onLoadMore={onLoadMore} />
+      )}
+    </div>
+  );
+}
+
+function OfficialWordbookCardItem({ book }: { book: OfficialWordbookCard }) {
+  return (
+    <Link href={`/official/${encodeURIComponent(book.slug)}`} className="block">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
+        <div className="flex items-center gap-[11px]">
+          <div
+            className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center text-white"
+            style={{
+              backgroundColor: thumbColor(book.id),
+              backgroundImage: book.iconImage ? `url(${book.iconImage})` : undefined,
+            }}
+          >
+            {!book.iconImage && <Icon name="verified" size={24} />}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <span className="block overflow-hidden text-ellipsis whitespace-nowrap font-display text-[14px] font-bold text-[var(--solid-ink)]">
+              {book.title}
+            </span>
+            <div className="mt-[3px] flex items-center gap-1.5">
+              <span className="whitespace-nowrap text-[11px] text-[var(--color-muted)]">MERKEN公式</span>
+              {book.eikenLabel && (
+                <>
+                  <span className="text-[11px] text-[var(--color-muted)] opacity-50">.</span>
+                  <span className="whitespace-nowrap text-[11px] text-[var(--color-muted)]">{book.eikenLabel}</span>
+                </>
+              )}
+              {book.wordCount !== null && (
+                <>
+                  <span className="text-[11px] text-[var(--color-muted)] opacity-50">.</span>
+                  <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">
+                    {book.wordCount} 語
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
+        </div>
+      </div>
+    </Link>
   );
 }
 
