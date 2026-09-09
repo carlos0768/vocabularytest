@@ -69,6 +69,11 @@ const requestSchema = z.object({
       japanese: z.string().trim().min(1).max(300),
     }).strict(),
   ).min(1).max(30),
+  // 例文生成はスキャン時のオプトイン（+2コイン）。このルートは誤答選択肢の
+  // 補修が本業なので、**既定では例文を作らない**。ここを既定 true にすると、
+  // 例文オフでスキャンした単語がクイズを開くだけで無料の例文を手に入れてしまい、
+  // トグルも課金も素通りする。
+  includeExamples: z.boolean().optional().default(false),
 }).strict();
 
 interface GenerateQuizDistractorsDeps {
@@ -116,7 +121,10 @@ export async function handleGenerateQuizDistractorsPost(
       return bodyResult.response;
     }
 
-    const { words } = bodyResult.data as { words: WordInput[] };
+    const { words, includeExamples } = bodyResult.data as {
+      words: WordInput[];
+      includeExamples: boolean;
+    };
     const multipleChoiceWords = words.filter((word) => !isWordOrderEligible(word));
 
     if (multipleChoiceWords.length === 0) {
@@ -155,7 +163,7 @@ export async function handleGenerateQuizDistractorsPost(
         const existing = existingWordMap.get(word.id);
         const needs: QuizContentFieldNeeds = {
           distractors: !existing || !hasValidDistractors(existing.distractors),
-          example: !existing || !hasExampleSentence(existing.example_sentence),
+          example: includeExamples && (!existing || !hasExampleSentence(existing.example_sentence)),
           pronunciation: !existing || !hasPronunciation(existing.pronunciation),
           pos: !existing || !hasPartOfSpeechTags(existing.part_of_speech_tags),
         };
@@ -212,8 +220,13 @@ export async function handleGenerateQuizDistractorsPost(
         const effectivePronunciation = reusedPronunciation
           ?? (hasPronunciation(row.pronunciation) ? (row.pronunciation as string) : '');
 
+        // 例文生成がオフのときは例文の有無を「満たしている」条件に入れない。
+        // 入れたままだと、masterから誤答・発音を拾えた語が「例文が無いから未充足」
+        // 扱いで生成側へ回り、しかし needs が全部 false なので結果が返らず、
+        // 拾えたはずの誤答が握り潰される（partialReuse は生成結果にしかマージ
+        // されないため）。
         const satisfied = Boolean(effectiveDistractors)
-          && hasExampleSentence(row.example_sentence)
+          && (!includeExamples || hasExampleSentence(row.example_sentence))
           && Boolean(effectivePronunciation)
           && hasPartOfSpeechTags(row.part_of_speech_tags);
         if (!satisfied) {

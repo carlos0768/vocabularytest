@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildQuizPrefillLexiconUpdates,
+  buildQuizPrefillNeeds,
   buildQuizPrefillSeedWords,
   buildQuizPrefillWordUpdatePayload,
 } from '@/lib/scan/quiz-prefill';
@@ -286,4 +287,58 @@ test('buildQuizPrefillWordUpdatePayload does not overwrite existing POS with an 
     distractors: ['短くする', '無視する', '隠す'],
   });
   assert.equal(Object.hasOwn(payload, 'part_of_speech_tags'), false);
+});
+
+// 例文生成オフのとき、prefill が副産物として例文を無料生成しないこと。
+// ここが抜けるとトグルも課金も素通りする。
+test('buildQuizPrefillNeeds does not ask for an example when examples are off', () => {
+  const word = {
+    distractors: [],
+    example_sentence: null,
+    pronunciation: '',
+    part_of_speech_tags: [],
+  };
+
+  assert.deepEqual(buildQuizPrefillNeeds(word, { includeExamples: false }), {
+    distractors: true,
+    example: false,
+    pronunciation: true,
+    pos: true,
+  });
+
+  // 明示的にオンなら従来どおり、省略時も従来どおり（後方互換）
+  assert.equal(buildQuizPrefillNeeds(word, { includeExamples: true }).example, true);
+  assert.equal(buildQuizPrefillNeeds(word).example, true);
+});
+
+test('buildQuizPrefillSeedWords drops words that only needed an example when examples are off', () => {
+  const words = [
+    {
+      id: 'only-example',
+      english: 'adapt',
+      japanese: '適応する',
+      distractors: ['a', 'b', 'c'],
+      example_sentence: null,
+      pronunciation: '/əˈdæpt/',
+      part_of_speech_tags: ['verb'],
+    },
+    {
+      id: 'also-distractors',
+      english: 'concise',
+      japanese: '簡潔な',
+      distractors: [],
+      example_sentence: null,
+      pronunciation: '/kənˈsaɪs/',
+      part_of_speech_tags: ['adjective'],
+    },
+  ];
+
+  // オフ: 例文しか欠けていない語は対象から丸ごと外れる（無駄なAIコールも消える）
+  const off = buildQuizPrefillSeedWords(words, { includeExamples: false });
+  assert.deepEqual(off.map((w) => w.id), ['also-distractors']);
+  assert.equal(off[0]?.needs.example, false);
+
+  // オン: 従来どおり両方が対象
+  const on = buildQuizPrefillSeedWords(words, { includeExamples: true });
+  assert.deepEqual(on.map((w) => w.id), ['only-example', 'also-distractors']);
 });

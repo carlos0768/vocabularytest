@@ -587,7 +587,7 @@ test('/api/extract still generates examples synchronously when AI generation is 
   const calls: string[] = [];
 
   const response = await handleExtractPost(
-    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    jsonRequest({ image: 'data:image/png;base64,AAAA', includeExamples: true }),
     createDeps(client, calls, {
       fetchAiGeneration: async () => false,
       generateExamples: async (words) => {
@@ -622,7 +622,7 @@ test('/api/extract generates examples synchronously for word-order eligible word
   const calls: string[] = [];
 
   const response = await handleExtractPost(
-    jsonRequest({ image: 'data:image/png;base64,AAAA', mode: 'idiom' }),
+    jsonRequest({ image: 'data:image/png;base64,AAAA', mode: 'idiom', includeExamples: true }),
     createDeps(client, calls, {
       fetchAiGeneration: async () => true,
       extractIdioms: async () => {
@@ -669,6 +669,71 @@ test('/api/extract generates examples synchronously for word-order eligible word
     'resolveImmediateWords',
     'generateExamples:give up',
   ]);
+});
+
+test('/api/extract generates no examples when includeExamples is omitted (default off)', async () => {
+  const client = new FakeExtractClient();
+  const calls: string[] = [];
+
+  // AI生成オフ = クイズprefillが走らない条件。この経路でも同期生成が
+  // 走らないことを確認する（既定OFFの本体）。
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client, calls, {
+      fetchAiGeneration: async () => false,
+      generateExamples: async (words) => {
+        calls.push(`generateExamples:${words.map((w) => w.english).join(',')}`);
+        return {
+          examples: [],
+          errors: [],
+          summary: {
+            requested: words.length,
+            generated: 0,
+            failed: 0,
+            retried: 0,
+            retryRecovered: 0,
+            failureKinds: { provider: 0, parse: 0, validation: 0, empty: 0 },
+          },
+        };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ['extractWords:false', 'resolveImmediateWords']);
+});
+
+test('/api/extract skips master-cached examples when includeExamples is off', async () => {
+  const client = new FakeExtractClient();
+  const calls: string[] = [];
+  let skipMasterExamples: unknown;
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client, calls, {
+      fetchAiGeneration: async () => false,
+      resolveImmediateWords: (async (words: unknown[], _unused: unknown, options?: { skipMasterExamples?: boolean }) => {
+        calls.push('resolveImmediateWords');
+        skipMasterExamples = options?.skipMasterExamples;
+        return {
+          words,
+          lexiconEntries: [],
+          metrics: {
+            masterHitCount: 0,
+            masterTranslationHitCount: 0,
+            masterHeadwordFallbackHitCount: 0,
+            lookupKeyCount: 0,
+            lookupElapsedMs: 0,
+            translationElapsedMs: 0,
+          },
+        };
+      }) as never,
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  // 無料の転記まで残すと既定OFFが実質機能しない
+  assert.equal(skipMasterExamples, true);
 });
 
 // ============================================
