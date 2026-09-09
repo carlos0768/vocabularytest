@@ -9,7 +9,6 @@ export interface HomeBackgroundScanJobCreatePayload {
   scanModes?: ExtractMode[];
   eikenLevel: HomeBackgroundScanEikenLevel;
   includeMorphology?: boolean;
-  includeDerivedWords?: boolean;
   customModeId?: string;
   customPrompt?: string;
   targetProjectId?: string;
@@ -22,7 +21,6 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
   scanModes?: readonly ExtractMode[];
   eikenLevel?: HomeBackgroundScanEikenLevel;
   includeMorphology?: boolean;
-  includeDerivedWords?: boolean;
   customModeId?: string | null;
   customPrompt?: string | null;
   projectTitle?: string | null;
@@ -44,7 +42,6 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
       ? params.eikenLevel ?? null
       : null,
     ...(params.includeMorphology ? { includeMorphology: true } : {}),
-    ...(params.includeDerivedWords ? { includeDerivedWords: true } : {}),
     // カスタムモード以外では抽出プロンプトを送らない（サーバー側でも無視される）
     ...(isCustomScan && params.customModeId ? { customModeId: params.customModeId } : {}),
     ...(isCustomScan && !params.customModeId && params.customPrompt

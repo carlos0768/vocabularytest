@@ -98,11 +98,9 @@ import {
   isWordTranslationsSchemaError,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
-import type { CustomSection, WordDerivedWords, WordMorphology, WordTranslation } from '@/types';
+import type { CustomSection, WordMorphology, WordTranslation } from '@/types';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
-import { resolveDerivedWordsForWords } from '@/lib/derived-words/resolve';
-import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
 import { normalizeHeadword } from '../../../../../shared/lexicon';
 import {
   insertProjectWithSourceLabelsCompat,
@@ -157,7 +155,6 @@ export interface ProcessJobDeps {
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
   resolveMorphology?: typeof resolveMorphologyForWords;
-  resolveDerivedWords?: typeof resolveDerivedWordsForWords;
   prefillWordOrderQuizzes?: typeof prefillWordOrderQuizzesForWords;
   sendPushNotifications?: typeof sendScanJobPushNotifications;
   sendApnsNotifications?: typeof sendScanJobApnsNotifications;
@@ -205,7 +202,6 @@ interface ProcessedExtractedWord {
   exampleSentenceJa?: string;
   customSections?: CustomSection[];
   morphology?: WordMorphology;
-  derivedWords?: WordDerivedWords;
 }
 
 type InsertedServerCloudWord =
@@ -882,7 +878,6 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
     const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
     const resolveMorphology = processDeps?.resolveMorphology ?? resolveMorphologyForWords;
-    const resolveDerivedWords = processDeps?.resolveDerivedWords ?? resolveDerivedWordsForWords;
     const prefillWordOrderQuizzes = processDeps?.prefillWordOrderQuizzes ?? prefillWordOrderQuizzesForWords;
     const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
     const sendApnsNotifications = processDeps?.sendApnsNotifications ?? sendScanJobApnsNotifications;
@@ -1201,47 +1196,6 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
       }
 
-      // --- Derived words (派生語): opt-in, best-effort ---
-      // resolver 側で足切りするので、価値のない単語にはAIを呼ばない。
-      const includeDerivedWords =
-        (job as { include_derived_words?: unknown }).include_derived_words === true;
-      if (includeDerivedWords && resolvedWords.length > 0) {
-        const derivedWordsStart = Date.now();
-        try {
-          const derivedMap = await withCloudRunTimingPhase('derivedWordsGeneration', () =>
-            resolveDerivedWords(
-              resolvedWords
-                .map((word) => ({ english: String((word as Record<string, unknown>).english ?? '') }))
-                .filter((word) => word.english.length > 0),
-              apiKeys,
-              { supabaseAdmin },
-            ),
-          );
-          let attachedCount = 0;
-          for (const word of resolvedWords) {
-            const w = word as Record<string, unknown>;
-            const english = String(w.english ?? '');
-            if (!english) continue;
-            const derivedWords = derivedMap.get(normalizeHeadword(english));
-            if (hasDisplayableDerivedWords(derivedWords)) {
-              w.derivedWords = derivedWords;
-              attachedCount++;
-            }
-          }
-          console.log('[scan-jobs/process] Derived words generation completed', {
-            jobId,
-            requested: resolvedWords.length,
-            attached: attachedCount,
-            elapsedMs: Date.now() - derivedWordsStart,
-          });
-        } catch (derivedWordsError) {
-          console.error(
-            '[scan-jobs/process] Derived words generation failed (non-critical):',
-            derivedWordsError,
-          );
-        }
-      }
-
       console.log('[scan-jobs/process] Extraction finished', {
         jobId,
         modes,
@@ -1452,20 +1406,17 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let omitSourceModes = false;
       let omitLexiconSenseId = false;
       let omitMorphology = false;
-      let omitDerivedWords = false;
       let omitClassicalEntryId = false;
 
-      // 互換で落とせる列が1つ増えたので上限も1つ増やす（列の数だけ再試行できる必要がある）
-      for (let attempt = 0; attempt < 6; attempt += 1) {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
         const insertPayload =
           omitJapaneseSource || omitSourceModes || omitLexiconSenseId || omitMorphology
-          || omitDerivedWords || omitClassicalEntryId
+          || omitClassicalEntryId
             ? stripServerCloudWordsInsertPayloadForCompat(wordsToInsert, {
                 omitJapaneseSource,
                 omitSourceModes,
                 omitLexiconSenseId,
                 omitMorphology,
-                omitDerivedWords,
                 omitClassicalEntryId,
               })
             : wordsToInsert;
@@ -1473,7 +1424,6 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           omitJapaneseSource,
           omitLexiconSenseId,
           omitMorphology,
-          omitDerivedWords,
           omitClassicalEntryId,
         });
         const result = await supabaseAdmin
@@ -1513,14 +1463,6 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (missingColumn === 'classical_entry_id' && !omitClassicalEntryId) {
           omitClassicalEntryId = true;
           console.warn('[scan-jobs/process] words.classical_entry_id compatibility fallback used', {
-            jobId,
-            message: result.error?.message,
-          });
-          continue;
-        }
-        if (missingColumn === 'derived_words' && !omitDerivedWords) {
-          omitDerivedWords = true;
-          console.warn('[scan-jobs/process] words.derived_words compatibility fallback used', {
             jobId,
             message: result.error?.message,
           });

@@ -246,7 +246,7 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - **共通辞書**: `classical_entries` / `classical_senses`（`20260909120000_create_classical_lexicon.sql`）。英語側の `lexicon_entries` / `lexicon_senses` と同じ全ユーザー共通マスタ。いちど貯まった見出し語のヒントは誰のスキャンでも流用される（`src/lib/classical/apply.ts`）。画像に語義が一部しか写っていなくても完全な語義セットが得られる
 - 語義のマージは**保存済み優先の和集合**。既存語義は上書きせず、画像にしか無かった語義だけを末尾に足す。滲んだ写真で共有辞書が劣化しないため
 - **学習データは既存の `words` / `word_translations` のまま**。見出し語は `words.english`、訳は `word_translations`、`words.classical_entry_id` で共通辞書を指す。クイズ・SM-2・同期・お気に入り・共有はそのまま動く。`is_classical` 列は作らず、`classical_entry_id` の有無が印
-- 英語専用の後処理（語源解析・派生語・例文・発音・英作文・誤答生成・英語lexicon解決）はすべて `isClassicalWord()` で除外する（INV-19）
+- 英語専用の後処理（語源解析・例文・発音・英作文・誤答生成・英語lexicon解決）はすべて `isClassicalWord()` で除外する（INV-19）
 - 4択クイズの誤答は `quiz-state.ts` の既存フォールバック（同じ単語帳の他の語の訳を集める）で成立するのでクイズ側の変更は不要
 
 ### 5. Realtime word battle (リアルタイム単語対戦) -- Done

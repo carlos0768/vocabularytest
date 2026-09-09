@@ -1,6 +1,6 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
-import type { CustomSection, VocabularyType, WordDerivedWords, WordMorphology } from '@/types';
+import type { CustomSection, VocabularyType, WordMorphology } from '@/types';
 import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
 
 export interface ServerCloudProjectInsertParams {
@@ -32,7 +32,6 @@ export interface ServerCloudWordForInsert {
   sourceModes?: ExtractMode[];
   customSections?: CustomSection[];
   morphology?: WordMorphology;
-  derivedWords?: WordDerivedWords;
   classicalEntryId?: string;
 }
 
@@ -51,7 +50,6 @@ export interface ServerCloudWordInsertPayload {
   source_modes?: ExtractMode[];
   custom_sections: CustomSection[];
   morphology: WordMorphology | null;
-  derived_words: WordDerivedWords | null;
   classical_entry_id: string | null;
   vocabulary_type: VocabularyType;
 }
@@ -68,7 +66,6 @@ export type MissingWordsCompatColumn =
   | 'source_modes'
   | 'lexicon_sense_id'
   | 'morphology'
-  | 'derived_words'
   | 'classical_entry_id';
 
 export type ServerCloudWordsInsertCompatOptions = {
@@ -76,7 +73,6 @@ export type ServerCloudWordsInsertCompatOptions = {
   omitSourceModes?: boolean;
   omitLexiconSenseId?: boolean;
   omitMorphology?: boolean;
-  omitDerivedWords?: boolean;
   omitClassicalEntryId?: boolean;
 };
 
@@ -94,7 +90,6 @@ const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
   'part_of_speech_tags',
   'word_order_quiz',
   'morphology',
-  'derived_words',
   'classical_entry_id',
 ] as const;
 
@@ -135,7 +130,6 @@ export function buildServerCloudWordsInsertPayload(
     source_modes: word.sourceModes,
     custom_sections: word.customSections ?? [],
     morphology: word.morphology ?? null,
-    derived_words: word.derivedWords ?? null,
     classical_entry_id: word.classicalEntryId ?? null,
     // スキャンで拾った語は「見て分かればいい語」から始める。ここを NULL のまま
     // 挿すと、ローカル保存 (local-repository) 経由の語だけ passive になって
@@ -188,14 +182,6 @@ export function getMissingWordsCompatColumn(error: unknown): MissingWordsCompatC
   }
 
   if (
-    message.includes('words.derived_words')
-    || message.includes("'derived_words' column of 'words'")
-    || message.includes('derived_words')
-  ) {
-    return 'derived_words';
-  }
-
-  if (
     message.includes('words.morphology')
     || message.includes("'morphology' column of 'words'")
     || message.includes('morphology')
@@ -221,7 +207,6 @@ export function getServerCloudWordsInsertSelectColumns(
     .filter((column) => !(options.omitJapaneseSource && column === 'japanese_source'))
     .filter((column) => !(options.omitLexiconSenseId && column === 'lexicon_sense_id'))
     .filter((column) => !(options.omitMorphology && column === 'morphology'))
-    .filter((column) => !(options.omitDerivedWords && column === 'derived_words'))
     .filter((column) => !(options.omitClassicalEntryId && column === 'classical_entry_id'))
     .join(', ');
 }
@@ -256,9 +241,6 @@ export function stripServerCloudWordsInsertPayloadForCompat(
     }
     if (!options.omitMorphology) {
       row.morphology = word.morphology;
-    }
-    if (!options.omitDerivedWords) {
-      row.derived_words = word.derived_words;
     }
     if (!options.omitClassicalEntryId) {
       row.classical_entry_id = word.classical_entry_id;
