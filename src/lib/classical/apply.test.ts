@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { applyClassicalDictionary } from '@/lib/classical/apply';
+import {
+  applyClassicalDictionary,
+  type ClassicalApplicableWord,
+} from '@/lib/classical/apply';
 
 /** 「呼ばれたら失敗する」クライアント。DBに触れないことを証明するために使う。 */
 const forbiddenClient = new Proxy({}, {
@@ -42,10 +45,10 @@ function makeClient(tables: Record<string, FakeTable>): SupabaseClient {
 
 test('applyClassicalDictionary touches nothing when the scan has no classical word', async () => {
   // 英単語だけのスキャンにコストを乗せないことが要件
-  const result = await applyClassicalDictionary(
-    [{ english: 'admire', japanese: '敬服する', translations: ['敬服する'] }],
-    { supabaseAdmin: forbiddenClient },
-  );
+  const words: ClassicalApplicableWord[] = [
+    { english: 'admire', japanese: '敬服する', translations: ['敬服する'] },
+  ];
+  const result = await applyClassicalDictionary(words, { supabaseAdmin: forbiddenClient });
 
   assert.equal(result.classicalCount, 0);
   assert.equal(result.resolvedCount, 0);
@@ -55,18 +58,16 @@ test('applyClassicalDictionary touches nothing when the scan has no classical wo
 test('applyClassicalDictionary stamps the dictionary link on a classical word', async () => {
   const client = makeClient({ classical_entries: { rows: [] }, classical_senses: { rows: [] } });
 
-  const result = await applyClassicalDictionary(
-    [
-      {
-        english: 'あさまし',
-        isClassical: true,
-        classicalPos: 'シク活用形容詞',
-        japanese: '驚きあきれるほどだ',
-        translations: ['驚きあきれるほどだ', '情けない'],
-      },
-    ],
-    { supabaseAdmin: client },
-  );
+  const words: ClassicalApplicableWord[] = [
+    {
+      english: 'あさまし',
+      isClassical: true,
+      classicalPos: 'シク活用形容詞',
+      japanese: '驚きあきれるほどだ',
+      translations: ['驚きあきれるほどだ', '情けない'],
+    },
+  ];
+  const result = await applyClassicalDictionary(words, { supabaseAdmin: client });
 
   assert.equal(result.classicalCount, 1);
   assert.equal(result.resolvedCount, 1);
@@ -88,20 +89,20 @@ test('applyClassicalDictionary reuses stored meanings when the image shows fewer
     },
   });
 
-  const result = await applyClassicalDictionary(
-    [
-      {
-        english: 'あさまし',
-        isClassical: true,
-        classicalPos: 'シク活用形容詞',
-        japanese: '驚きあきれるほどだ',
-        translations: ['驚きあきれるほどだ'],
-      },
-    ],
-    { supabaseAdmin: client },
-  );
+  const words: ClassicalApplicableWord[] = [
+    {
+      english: 'あさまし',
+      isClassical: true,
+      classicalPos: 'シク活用形容詞',
+      japanese: '驚きあきれるほどだ',
+      translations: ['驚きあきれるほどだ'],
+    },
+  ];
+  const result = await applyClassicalDictionary(words, { supabaseAdmin: client });
 
-  const word = result.words[0] as { translations?: Array<{ translationJa: string }>; japanese?: string };
+  const word = result.words[0] as ClassicalApplicableWord & {
+    translations?: Array<{ translationJa: string }>;
+  };
   assert.equal(word.japanese, '驚きあきれるほどだ');
   assert.deepEqual(
     word.translations?.map((translation) => translation.translationJa),
@@ -116,10 +117,10 @@ test('applyClassicalDictionary keeps the scan alive when the dictionary throws',
     },
   } as unknown as SupabaseClient;
 
-  const result = await applyClassicalDictionary(
-    [{ english: 'ゆかし', isClassical: true, japanese: '心ひかれる', translations: ['心ひかれる'] }],
-    { supabaseAdmin: throwingClient },
-  );
+  const words: ClassicalApplicableWord[] = [
+    { english: 'ゆかし', isClassical: true, japanese: '心ひかれる', translations: ['心ひかれる'] },
+  ];
+  const result = await applyClassicalDictionary(words, { supabaseAdmin: throwingClient });
 
   assert.equal(result.resolvedCount, 0);
   assert.equal(result.classicalCount, 1);
