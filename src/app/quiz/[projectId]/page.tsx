@@ -1788,7 +1788,7 @@ export default function QuizPage() {
                 })}
               </div>
             ) : (
-              <div style={{ width: '100%', maxWidth: 520 }}>
+              <div style={{ width: '100%', maxWidth: 520, margin: '18px auto 0' }}>
                 <TypeInQuizField
                   ref={typeInFieldDesktopRef}
                   answer={typeInExpectedAnswer}
