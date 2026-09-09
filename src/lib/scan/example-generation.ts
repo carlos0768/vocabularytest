@@ -1,3 +1,4 @@
+import { isClassicalWord } from '@/lib/classical/is-classical';
 import type { ExampleSeedWord, GeneratedExample } from '@/lib/ai/generate-example-sentences';
 
 export interface ClientLocalExampleWord {
@@ -27,7 +28,8 @@ export function buildClientLocalExampleSeedWords(
   const seedWords: ExampleSeedWord[] = [];
 
   for (const word of words) {
-    if (word.exampleSentence) {
+    // 古典語は英語例文の生成対象外
+    if (word.exampleSentence || isClassicalWord(word)) {
       continue;
     }
 
@@ -78,6 +80,7 @@ export function buildServerCloudExampleSeedWords(
   words: readonly ServerCloudExampleCandidateWord[],
 ): ExampleSeedWord[] {
   return words
+    .filter((word) => !isClassicalWord(word))
     .filter((word) => !word.example_sentence || word.example_sentence.trim().length === 0)
     .map((word) => ({
       id: word.id,

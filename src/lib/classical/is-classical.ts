@@ -11,15 +11,27 @@
 // words テーブルに is_classical 列は作っていない。classical_entry_id の有無が
 // そのまま古典語かどうかを表すので、列を2つ持って食い違う余地を作らない。
 
+import { looksLikeClassicalJapanese } from './normalize';
+
 export interface ClassicalWordMarker {
   isClassical?: boolean | null;
   classicalEntryId?: string | null;
+  /** PostgREST から読み戻した行はスネークケースで来る。 */
+  classical_entry_id?: string | null;
+  /** 印が付いていない行のための最後の手がかり。 */
+  english?: string | null;
 }
 
 export function isClassicalWord(word: ClassicalWordMarker | null | undefined): boolean {
   if (!word) return false;
   if (word.isClassical === true) return true;
-  return typeof word.classicalEntryId === 'string' && word.classicalEntryId.length > 0;
+  if (typeof word.classicalEntryId === 'string' && word.classicalEntryId.length > 0) return true;
+  if (typeof word.classical_entry_id === 'string' && word.classical_entry_id.length > 0) return true;
+
+  // 印が落ちている経路のための保険。英語専用の後処理を止めたいだけなので、
+  // 「見出し語が日本語なら英語処理はどのみち無意味」という判断で十分。
+  // 辞書への書き込み判定には使わない（resolve.ts 側で別途チェックしている）。
+  return looksLikeClassicalJapanese(word.english);
 }
 
 /** 英語専用の後処理にかけてよい語だけを残す。 */

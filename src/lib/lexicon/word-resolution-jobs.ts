@@ -1,3 +1,4 @@
+import { isClassicalWord } from '@/lib/classical/is-classical';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { createInternalWorkerUrl, getInternalWorkerAuthorization } from '@/lib/api/internal-worker';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
@@ -160,7 +161,15 @@ function normalizeWordIds(wordIds: string[]): string[] {
 export function needsWordLexiconResolution(word: {
   lexiconEntryId?: string | null;
   partOfSpeechTags?: unknown;
+  isClassical?: boolean | null;
+  classicalEntryId?: string | null;
+  classical_entry_id?: string | null;
+  english?: string | null;
 }): boolean {
+  // 古典語は英語の lexicon に決して解決しないので、これを外すと
+  // 「lexiconEntryId が無い → 解決ジョブを積む → 解決できない」を永久に繰り返し、
+  // そのたびに日本語の見出し語へ英語の品詞分類AIと翻訳AIが走る。
+  if (isClassicalWord(word)) return false;
   return !word.lexiconEntryId || normalizePartOfSpeechTags(word.partOfSpeechTags).length === 0;
 }
 

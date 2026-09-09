@@ -1,3 +1,4 @@
+import { isClassicalWord } from '@/lib/classical/is-classical';
 import {
   generateWordOrderQuizForWords,
   type GeneratedWordOrderQuizResult,
@@ -52,6 +53,8 @@ export function buildWordOrderQuizPrefillSeedWords(
 ): WordOrderQuizWordInput[] {
   return words
     .filter((word) =>
+      // 古典語は英作文・語順クイズの対象外（英語の語順を並べ替える問題なので）
+      !isClassicalWord(word) &&
       isWordOrderEligible(word) &&
       word.japanese.trim().length > 0 &&
       !getExistingWordOrderQuizCache(word)

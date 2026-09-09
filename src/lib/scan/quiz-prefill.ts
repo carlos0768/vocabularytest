@@ -2,6 +2,7 @@ import type { QuizContentFieldNeeds, QuizContentResult } from '@/lib/ai/generate
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import type { LexiconQuizContentUpdate } from '@/lib/lexicon/quiz-content-lexicon';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
+import { isClassicalWord } from '@/lib/classical/is-classical';
 
 export interface QuizPrefillCandidateWord {
   id: string;
@@ -79,7 +80,10 @@ export function buildQuizPrefillSeedWords(
 ): QuizPrefillSeedWord[] {
   return words
     .map((word) => ({ word, needs: buildQuizPrefillNeeds(word) }))
-    .filter(({ word, needs }) => !isWordOrderEligible(word) && hasAnyNeed(needs))
+    // 古典語は除外。誤答生成は英語の語形類似を根拠にするので古典語では意味を成さず、
+    // 発音記号(IPA)も英語専用。除外しても4択は quiz-state.ts の
+    // 「同じ単語帳の他の語の訳から誤答を集める」フォールバックで成立する。
+    .filter(({ word, needs }) => !isClassicalWord(word) && !isWordOrderEligible(word) && hasAnyNeed(needs))
     .map(({ word, needs }) => ({
       id: word.id,
       english: word.english,
