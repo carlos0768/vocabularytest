@@ -29,6 +29,10 @@ import { consumeManualAddIntent } from '@/lib/home/home-session-storage';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import {
+  readManualExamplePref,
+  writeManualExamplePref,
+} from '@/lib/preferences/manual-example-pref';
+import {
   readManualMorphologyPref,
   writeManualMorphologyPref,
 } from '@/lib/preferences/manual-morphology-pref';
@@ -210,6 +214,15 @@ export default function ProjectPage() {
   const handleManualWordMorphologyChange = useCallback((enabled: boolean) => {
     setManualWordMorphologyEnabled(enabled);
     writeManualMorphologyPref(enabled);
+  }, []);
+  // 手動追加時の例文生成トグル。語源解析と違い既定オフ・コイン消費なし。
+  const [manualWordExampleEnabled, setManualWordExampleEnabled] = useState(false);
+  useEffect(() => {
+    setManualWordExampleEnabled(readManualExamplePref());
+  }, []);
+  const handleManualWordExampleChange = useCallback((enabled: boolean) => {
+    setManualWordExampleEnabled(enabled);
+    writeManualExamplePref(enabled);
   }, []);
   useEffect(() => {
   }, []);
@@ -1172,6 +1185,7 @@ export default function ProjectPage() {
         body: JSON.stringify({
           english,
           includeMorphology: manualWordMorphologyEnabled,
+          includeExample: manualWordExampleEnabled,
           ...(japaneseInput ? { japanese: japaneseInput } : {}),
           ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
           ...(userExample ? { exampleSentence: userExample } : {}),
@@ -1775,6 +1789,8 @@ export default function ProjectPage() {
         partOfSpeech={manualWordPartOfSpeech}
         exampleSentence={manualWordExampleSentence}
         morphologyEnabled={manualWordMorphologyEnabled}
+        exampleEnabled={manualWordExampleEnabled}
+        setExampleEnabled={handleManualWordExampleChange}
         onEnglishChange={setManualWordEnglish}
         onJapaneseChange={setManualWordJapanese}
         onPartOfSpeechChange={setManualWordPartOfSpeech}
@@ -2184,6 +2200,8 @@ function ManualWordModal({
   partOfSpeech,
   exampleSentence,
   morphologyEnabled,
+  exampleEnabled,
+  setExampleEnabled,
   onEnglishChange,
   onJapaneseChange,
   onPartOfSpeechChange,
@@ -2201,6 +2219,9 @@ function ManualWordModal({
   partOfSpeech: string;
   exampleSentence: string;
   morphologyEnabled: boolean;
+  /** 例文生成トグル。手動追加は無料なのでコインバッジは付けない。 */
+  exampleEnabled: boolean;
+  setExampleEnabled: (enabled: boolean) => void;
   onEnglishChange: (value: string) => void;
   onJapaneseChange: (value: string) => void;
   onPartOfSpeechChange: (value: string) => void;
@@ -2320,6 +2341,36 @@ function ManualWordModal({
                 </span>
                 <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
                   接頭語・接尾語・接中語と語根の成り立ちを解説
+                </span>
+              </span>
+            </button>
+
+            {/* 例文生成トグル（手動追加はコイン消費なし） */}
+            <button
+              type="button"
+              onClick={() => setExampleEnabled(!exampleEnabled)}
+              disabled={loading}
+              className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all disabled:opacity-60"
+              style={{
+                borderColor: exampleEnabled ? 'var(--solid-ink)' : 'var(--color-border)',
+                boxShadow: exampleEnabled ? '2px 2px 0 var(--solid-ink)' : 'none',
+              }}
+            >
+              <span
+                className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                style={{
+                  border: `1.25px solid ${exampleEnabled ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                  background: exampleEnabled ? 'var(--color-accent)' : 'var(--color-surface)',
+                }}
+              >
+                {exampleEnabled && <Icon name="check" size={11} className="text-white" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12px] font-bold text-[var(--solid-ink)]">
+                  例文生成
+                </span>
+                <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
+                  この単語を使った例文と訳を自動生成（コイン消費なし）
                 </span>
               </span>
             </button>

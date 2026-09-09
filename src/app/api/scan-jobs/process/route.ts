@@ -12,6 +12,8 @@ import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
+import { isClassicalWord } from '@/lib/classical/is-classical';
+import { applyClassicalExamples } from '@/lib/classical/examples';
 import { filterWordsForProjectKind } from '@/lib/classical/purity';
 import { readProjectKind } from '@/lib/classical/project-kind';
 import { normalizeProjectKind, type ProjectKind } from '@/types';
@@ -1134,11 +1136,16 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
       const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
       const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
+      // 例文生成はオプトイン（+2コイン）。列が無い（未適用の）DBでは undefined
+      // なので既定オフに倒れる。
+      const includeExamples = (job as { include_examples?: unknown }).include_examples === true;
       const lexiconResolutionStart = Date.now();
       // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
+      // 例文生成オフのときはマスター由来の転記も止める（無料の転記だけ残すと
+      // 既定オフが実質機能しない）。
       const resolvedResult = masterFirstEnabled
         ? await resolveImmediateWords(dedupedWords, undefined, {
-            skipMasterExamples: exampleGenres.length > 0,
+            skipMasterExamples: exampleGenres.length > 0 || !includeExamples,
           })
         : null;
       const rollbackResult = masterFirstEnabled
@@ -1199,6 +1206,57 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
       }
 
+      // --- Classical (古文) example generation: opt-in, best-effort ---
+      // 語源解析と同じく、client_local / server_cloud の分岐より前に一度だけ
+      // resolvedWords へ付与する。英語の例文生成とは別プロンプト・別生成器で、
+      // 共通辞書に貯まっている例文があれば AI を呼ばずに流用する。
+      if (includeExamples) {
+        const classicalTargets = resolvedWords
+          .map((word, index) => ({ word, index }))
+          .filter(({ word }) => isClassicalWord(word) && !word.exampleSentence);
+
+        if (classicalTargets.length > 0) {
+          const classicalExampleStart = Date.now();
+          try {
+            const applied = await withCloudRunTimingPhase('exampleGeneration', () =>
+              applyClassicalExamples(
+                classicalTargets.map(({ word }) => ({
+                  headword: String((word as Record<string, unknown>).english ?? ''),
+                  meaning: String((word as Record<string, unknown>).japanese ?? ''),
+                  reading: (word as { reading?: string | null }).reading ?? null,
+                  classicalEntryId:
+                    (word as { classicalEntryId?: string | null }).classicalEntryId ?? null,
+                })),
+                apiKeys,
+                { supabaseAdmin },
+              ),
+            );
+
+            let attachedCount = 0;
+            classicalTargets.forEach(({ index }, seedIndex) => {
+              const generated = applied[seedIndex];
+              if (!generated) return;
+              const w = resolvedWords[index] as Record<string, unknown>;
+              w.exampleSentence = generated.exampleSentence;
+              w.exampleSentenceJa = generated.exampleSentenceJa;
+              attachedCount += 1;
+            });
+
+            console.log('[scan-jobs/process] Classical example generation completed', {
+              jobId,
+              requested: classicalTargets.length,
+              attached: attachedCount,
+              elapsedMs: Date.now() - classicalExampleStart,
+            });
+          } catch (classicalExampleError) {
+            console.error(
+              '[scan-jobs/process] Classical example generation failed (non-critical):',
+              classicalExampleError,
+            );
+          }
+        }
+      }
+
       console.log('[scan-jobs/process] Extraction finished', {
         jobId,
         modes,
@@ -1226,7 +1284,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         let exampleGenerationSummary: ExampleGenerationSummary | undefined;
         let exampleGenerationErrors: string[] = [];
         let clientLocalResolvedWords = resolvedWords;
-        const wordsNeedingExamples = buildClientLocalExampleSeedWords(resolvedWords);
+        const wordsNeedingExamples = includeExamples
+          ? buildClientLocalExampleSeedWords(resolvedWords)
+          : [];
 
         if (wordsNeedingExamples.length > 0) {
           const exampleGenerationStart = Date.now();
@@ -1551,11 +1611,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       // --- Synchronous example sentence generation (server_cloud) ---
       // 多肢選択語の例文はクイズprefill（30語/バッチ）が生成するため、
       // 1語1コールの例文生成は語順クイズ対象語（prefill対象外）のみに限定する。
-      const wordsForExampleGen = aiEnabled
-        ? buildServerCloudExampleSeedWords(
-            insertedWordsArray.filter((word: { english: string }) => isWordOrderEligible(word)),
-          )
-        : buildServerCloudExampleSeedWords(insertedWordsArray);
+      const wordsForExampleGen = !includeExamples
+        ? []
+        : aiEnabled
+          ? buildServerCloudExampleSeedWords(
+              insertedWordsArray.filter((word: { english: string }) => isWordOrderEligible(word)),
+            )
+          : buildServerCloudExampleSeedWords(insertedWordsArray);
 
       let exampleGenerationSummary: ExampleGenerationSummary | undefined;
       let exampleGenerationErrors: string[] = [];
@@ -1666,7 +1728,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       if (aiEnabled) {
         const quizPrefillStart = Date.now();
         try {
-          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray);
+          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray, { includeExamples });
 
           let quizPrefillSucceeded = 0;
           const quizPrefillFailedWordIds = new Set<string>();
@@ -1874,7 +1936,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (insertedWordsArray.length === 0) return;
 
         if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
-          const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray);
+          const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray, {
+            includeExamples,
+          });
 
           if (quizSeedWords.length > 0) {
             let quizPrefillSucceeded = 0;

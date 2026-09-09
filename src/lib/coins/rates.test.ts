@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
+  EXAMPLE_COIN_COST,
   EXTRA_IMAGE_COIN_COST,
   MANUAL_MORPHOLOGY_COIN_COST,
   MONTHLY_COIN_ALLOWANCE,
@@ -38,6 +39,25 @@ test('computeScanCoinCost adds the morphology surcharge only when enabled', () =
   assert.equal(computeScanCoinCost(['all', 'idiom'], 2, { includeMorphology: true }), 9);
   assert.equal(computeScanCoinCost(['all'], 1, { includeMorphology: false }), 3);
   assert.equal(computeScanCoinCost(['all'], 1, {}), 3);
+});
+
+test('computeScanCoinCost adds the example surcharge only when enabled', () => {
+  assert.equal(computeScanCoinCost(['circled'], 1, { includeExamples: true }), 4);
+  assert.equal(computeScanCoinCost(['all'], 1, { includeExamples: true }), 5);
+  assert.equal(computeScanCoinCost(['all'], 1, { includeExamples: false }), 3);
+  // 既定（未指定）はオフ。既存ユーザーが気づかず課金されることがない
+  assert.equal(computeScanCoinCost(['all'], 1, {}), 3);
+});
+
+test('computeScanCoinCost stacks the morphology and example surcharges', () => {
+  assert.equal(
+    computeScanCoinCost(['all'], 1, { includeMorphology: true, includeExamples: true }),
+    7,
+  );
+  assert.equal(
+    computeScanCoinCost(['all', 'idiom'], 3, { includeMorphology: true, includeExamples: true }),
+    12,
+  );
 });
 
 test('computeScanCoinCost rejects invalid input', () => {
@@ -138,6 +158,58 @@ test('custom scan mode rate in SQL migration matches the TS mirror', () => {
   // シグネチャ据え置き = DROPしない（PostgRESTのRPCオーバーロード曖昧化を避ける）
   assert.ok(migrationSource.includes('CREATE OR REPLACE FUNCTION public.scan_coin_cost('));
   assert.ok(!migrationSource.includes('DROP FUNCTION'));
+});
+
+// 例文生成サーチャージのTS/SQLリテラル一致。
+// レート変更時は src/lib/coins/rates.ts と
+// supabase/migrations/20260912120000_example_generation_coin_cost.sql を同時に更新すること。
+test('example surcharge in SQL migration matches the TS mirror', () => {
+  const migrationSource = readFileSync(
+    fileURLToPath(
+      new URL(
+        '../../../supabase/migrations/20260912120000_example_generation_coin_cost.sql',
+        import.meta.url,
+      ),
+    ),
+    'utf8',
+  );
+
+  assert.equal(EXAMPLE_COIN_COST, 2);
+  assert.ok(
+    migrationSource.includes(
+      `CASE WHEN COALESCE(p_include_examples, FALSE) THEN ${EXAMPLE_COIN_COST} ELSE 0 END`,
+    ),
+  );
+
+  // 既存レート（モード・追加画像・語源解析）を維持したまま再定義していること
+  assert.ok(migrationSource.includes(`WHEN 'circled' THEN ${SCAN_MODE_COIN_RATES.circled}`));
+  assert.ok(migrationSource.includes(`WHEN 'all'     THEN ${SCAN_MODE_COIN_RATES.all}`));
+  assert.ok(migrationSource.includes(`WHEN 'eiken'   THEN ${SCAN_MODE_COIN_RATES.eiken}`));
+  assert.ok(migrationSource.includes(`WHEN 'idiom'   THEN ${SCAN_MODE_COIN_RATES.idiom}`));
+  assert.ok(migrationSource.includes(`WHEN 'custom'  THEN ${SCAN_MODE_COIN_RATES.custom}`));
+  assert.ok(migrationSource.includes('RETURN v_cost + (p_image_count - 1)'));
+  assert.ok(
+    migrationSource.includes(
+      `CASE WHEN COALESCE(p_include_morphology, FALSE) THEN ${MORPHOLOGY_COIN_COST} ELSE 0 END`,
+    ),
+  );
+
+  // 派生語は機能ごと削除済み。引数は後方互換のため残すが、加算してはいけない。
+  // ここが復活すると、選んでもいないオプションで +2 課金される。
+  assert.ok(migrationSource.includes('p_include_derived_words BOOLEAN DEFAULT FALSE'));
+  assert.ok(!migrationSource.includes('COALESCE(p_include_derived_words, FALSE) THEN 2'));
+
+  // PostgRESTのオーバーロード曖昧化防止: 旧シグネチャのDROPが必須
+  assert.ok(
+    migrationSource.includes(
+      'DROP FUNCTION IF EXISTS public.consume_scan_coins(TEXT[], INTEGER, UUID, BOOLEAN, BOOLEAN);',
+    ),
+  );
+  assert.ok(
+    migrationSource.includes(
+      'DROP FUNCTION IF EXISTS public.scan_coin_cost(TEXT[], INTEGER, BOOLEAN, BOOLEAN);',
+    ),
+  );
 });
 
 test('manual-add morphology cost in SQL migration matches the TS mirror', () => {

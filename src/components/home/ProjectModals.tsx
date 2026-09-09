@@ -299,6 +299,8 @@ export function ManualWordInputModal({
   setExampleSentence,
   morphologyEnabled,
   setMorphologyEnabled,
+  exampleEnabled,
+  setExampleEnabled,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -316,6 +318,9 @@ export function ManualWordInputModal({
   /** 語源解析トグル（未指定なら非表示 = 従来挙動） */
   morphologyEnabled?: boolean;
   setMorphologyEnabled?: (enabled: boolean) => void;
+  /** 例文生成トグル（未指定なら非表示 = 従来挙動）。手動追加は無料。 */
+  exampleEnabled?: boolean;
+  setExampleEnabled?: (enabled: boolean) => void;
 }) {
   const englishInputRef = useRef<HTMLInputElement>(null);
   const [showOptional, setShowOptional] = useState(false);
@@ -428,6 +433,36 @@ export function ManualWordInputModal({
                     </span>
                     <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
                       接頭語・接尾語・接中語と語根の成り立ちを解説
+                    </span>
+                  </span>
+                </button>
+              )}
+
+              {exampleEnabled !== undefined && setExampleEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setExampleEnabled(!exampleEnabled)}
+                  disabled={isLoading}
+                  className="w-full flex items-start gap-2.5 px-4 py-3 border rounded-[var(--radius-lg)] bg-[var(--color-surface)] text-left transition-colors disabled:opacity-60"
+                  style={{
+                    borderColor: exampleEnabled ? 'var(--color-primary)' : 'var(--color-border)',
+                  }}
+                >
+                  <span
+                    className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                    style={{
+                      border: `1.25px solid ${exampleEnabled ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      background: exampleEnabled ? 'var(--color-primary)' : 'transparent',
+                    }}
+                  >
+                    {exampleEnabled && <Icon name="check" size={11} className="text-white" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-[var(--color-foreground)]">
+                      例文生成
+                    </span>
+                    <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
+                      この単語を使った例文と訳を自動生成（コイン消費なし）
                     </span>
                   </span>
                 </button>

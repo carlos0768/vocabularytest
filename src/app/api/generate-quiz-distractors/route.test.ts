@@ -80,6 +80,30 @@ test('generate-quiz-distractors skips generation for multi-word entries', async 
   assert.deepEqual(fake.selectedIds, []);
 });
 
+test('generate-quiz-distractors generates examples only when explicitly asked', async () => {
+  const fake = createClient();
+  const generateCalls: Array<{ needs: unknown }> = [];
+
+  await handleGenerateQuizDistractorsPost(
+    jsonRequest({
+      words: [{ id: 'word-2', english: 'adapt', japanese: '適応する' }],
+      includeExamples: true,
+    }),
+    {
+      createClient: async () => fake.client as never,
+      fetchExampleGenres: async () => [],
+      generate: async (words) => {
+        generateCalls.push({ needs: (words[0] as { needs: unknown }).needs });
+        return [];
+      },
+    },
+  );
+
+  assert.deepEqual(generateCalls, [{
+    needs: { distractors: true, example: true, pronunciation: true, pos: true },
+  }]);
+});
+
 test('generate-quiz-distractors sends only single-word entries to AI generation', async () => {
   const fake = createClient();
   const generateCalls: unknown[] = [];
@@ -120,7 +144,8 @@ test('generate-quiz-distractors sends only single-word entries to AI generation'
       id: 'word-2',
       english: 'adapt',
       japanese: '適応する',
-      needs: { distractors: true, example: true, pronunciation: true, pos: true },
+      // 例文はスキャン時のオプトイン。このルートは既定で作らない
+      needs: { distractors: true, example: false, pronunciation: true, pos: true },
     }],
     genres: ['travel'],
   }]);

@@ -64,6 +64,8 @@ const requestSchema = z.object({
   // 新規単語帳の種別。既存単語帳への追記時は使わない（保存先の種別を読む）。
   projectKind: z.enum(PROJECT_KINDS).optional().default('english'),
   includeMorphology: z.boolean().optional().default(false),
+  // 例文生成（+2コイン）。既定オフ — 未指定の旧クライアントは例文なしになる。
+  includeExamples: z.boolean().optional().default(false),
   // カスタム抽出モード: 保存済みモードのID（優先）か、その場限りの指示文
   customModeId: z.string().uuid().nullable().optional(),
   customPrompt: z.string().max(MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH).nullable().optional(),
@@ -117,6 +119,7 @@ export async function POST(request: NextRequest) {
       imagePath,
       imagePaths: multiplePaths,
       includeMorphology,
+      includeExamples,
       projectKind,
       customModeId,
       customPrompt,
@@ -179,6 +182,7 @@ export async function POST(request: NextRequest) {
       imageCount: imagePaths.length,
       scanJobId: jobId,
       includeMorphology,
+      includeExamples,
     });
 
     if (!gate.ok) {
@@ -230,6 +234,7 @@ export async function POST(request: NextRequest) {
         scan_modes: scanModes,
         eiken_level: eikenLevel,
         include_morphology: includeMorphology,
+        include_examples: includeExamples,
         project_kind: projectKind,
         custom_prompt: resolvedCustomPrompt.prompt,
         custom_scan_mode_id: scanModes.includes('custom') ? customModeId ?? null : null,

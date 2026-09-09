@@ -62,6 +62,9 @@ const requestSchema = z.object({
   partOfSpeechTags: z.array(z.string().trim().min(1).max(32)).max(10).optional(),
   // 語源解析のオン/オフ（省略時はオン=従来挙動）。オフ時は生成もコイン消費もしない。
   includeMorphology: z.boolean().optional().default(true),
+  // 例文生成のオン/オフ（省略時はオン=従来挙動。クライアントは端末設定を送る）。
+  // 手動追加の例文はコインを取らないので、コイン消費の分岐は無い。
+  includeExample: z.boolean().optional().default(true),
 }).strict();
 
 const partOfSpeechTagsSchema = z.preprocess((value) => {
@@ -174,7 +177,10 @@ export async function POST(request: NextRequest) {
     const needsJapanese = filledJapanese.length === 0;
     const needsPronunciation = filledPronunciation.length === 0;
     const needsPos = filledPosTags.length === 0;
-    const needsExample = filledExample.length === 0 || filledExampleJa.length === 0;
+    // 例文生成がオフなら、マスター由来の転記も含めて一切取りに行かない。
+    // スキャン側と同じ規約（OFF なら例文は付かない）。
+    const needsExample =
+      input.includeExample && (filledExample.length === 0 || filledExampleJa.length === 0);
 
     // 古典語（古文単語）の手動追加は英語の補完経路に一切入れない。
     // 英語向けの翻訳AI・発音記号・品詞分類・例文生成はどれも古典語には無意味で、
