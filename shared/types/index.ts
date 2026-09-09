@@ -7,6 +7,18 @@ export type WordStatus = 'new' | 'review' | 'active' | 'mastered';
 export type VocabularyType = 'active' | 'passive';
 export type ProjectShareScope = 'private' | 'public';
 
+/**
+ * 単語帳の種別。英語の単語帳と古典（古文単語）の単語帳を混ぜないために使う。
+ * 保存時、種別に合わない語は落とす（src/lib/classical/purity.ts）。
+ */
+export const PROJECT_KINDS = ['english', 'classical'] as const;
+export type ProjectKind = (typeof PROJECT_KINDS)[number];
+
+/** 未知の値・未設定はすべて 'english'。既存単語帳の圧倒的多数が英語のため。 */
+export function normalizeProjectKind(value: unknown): ProjectKind {
+  return value === 'classical' ? 'classical' : 'english';
+}
+
 export interface RelatedWord {
   term: string;
   relation: string;
@@ -257,6 +269,8 @@ export interface Project {
   isSynced?: boolean; // Local-only flag for cloud sync status
   shareId?: string; // Unique share ID for URL sharing (null = private)
   shareScope?: ProjectShareScope; // Whether the shared project is listed publicly
+  /** 単語帳の種別。未設定は 'english' 扱い。 */
+  kind?: ProjectKind;
   /** Set when this project was created by importing a copy from /share/[shareId] */
   importedFromShareId?: string;
   /** Set when this project was created by importing an official wordbook (reel import) */

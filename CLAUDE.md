@@ -248,6 +248,10 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - **学習データは既存の `words` / `word_translations` のまま**。見出し語は `words.english`、訳は `word_translations`、`words.classical_entry_id` で共通辞書を指す。クイズ・SM-2・同期・お気に入り・共有はそのまま動く。`is_classical` 列は作らず、`classical_entry_id` の有無が印
 - 英語専用の後処理（語源解析・例文・発音・英作文・誤答生成・英語lexicon解決）はすべて `isClassicalWord()` で除外する（INV-19）
 - 4択クイズの誤答は `quiz-state.ts` の既存フォールバック（同じ単語帳の他の語の訳を集める）で成立するのでクイズ側の変更は不要
+- **単語帳には種別がある**（`projects.kind` = `english` / `classical`）。作成時に選び、あとから変更できない。保存時に種別に合わない語は**黙って除外**し、件数だけトーストで知らせる（`filterWordsForProjectKind`）。サーバー側でも `/api/words/create` と `scan-jobs/process` で同じ判定を行う
+- **1枚の画像に英語と古典語が両方あれば英語を優先**し、古典語は捨てる（`preferEnglishOverClassical`）。プロンプトでも同じ優先順位を指示しているが、AI出力は信用せずサーバー側でも当てる
+- **古典語に混入した英語例文は保存前に落とす**（`stripEnglishExampleFromClassicalWord`）。マスター(`lexicon_entries`)由来の例文が prefill される経路が残っているため、表示で隠すのではなく書き込み前に断つ
+- 手動追加で古典語（ラテン文字を含まない見出し語）を入れると、英語の補完経路（翻訳AI・発音記号・品詞分類・例文生成）には一切入らず、共通辞書だけを引く
 
 ### 5. Realtime word battle (リアルタイム単語対戦) -- Done
 - 早押し4択のリアルタイム1対1対戦。**Pro限定・コイン消費なし**。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応

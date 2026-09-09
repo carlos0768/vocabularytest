@@ -127,3 +127,56 @@ test('applyClassicalDictionary keeps the scan alive when the dictionary throws',
   // 画像由来の訳はそのまま残る
   assert.equal(result.words[0].japanese, '心ひかれる');
 });
+
+test('applyClassicalDictionary drops classical words when the page also has English', async () => {
+  // 英語優先。辞書を引く前に落とすので、捨てる語で共通辞書を書き足さない
+  const words: ClassicalApplicableWord[] = [
+    { english: 'admire', japanese: '敬服する' },
+    { english: 'あさまし', isClassical: true, japanese: '驚きあきれるほどだ' },
+  ];
+  const result = await applyClassicalDictionary(words, { supabaseAdmin: forbiddenClient });
+
+  assert.deepEqual(result.words.map((word) => word.english), ['admire']);
+  assert.equal(result.droppedClassicalCount, 1);
+  assert.equal(result.classicalCount, 0);
+});
+
+test('applyClassicalDictionary strips an English example off a classical word', async () => {
+  const client = makeClient({ classical_entries: { rows: [] }, classical_senses: { rows: [] } });
+  const words: ClassicalApplicableWord[] = [
+    {
+      english: 'あさまし',
+      isClassical: true,
+      classicalPos: 'シク活用形容詞',
+      japanese: '驚きあきれるほどだ',
+      translations: ['驚きあきれるほどだ'],
+      exampleSentence: 'I admire her courage.',
+      exampleSentenceJa: '私は彼女の勇気に敬服する。',
+    },
+  ];
+  const result = await applyClassicalDictionary(words, { supabaseAdmin: client });
+
+  assert.equal(result.strippedExampleCount, 1);
+  assert.equal(result.words[0].exampleSentence, undefined);
+  assert.equal(result.words[0].exampleSentenceJa, undefined);
+});
+
+test('applyClassicalDictionary strips English examples even when the dictionary is down', async () => {
+  // 辞書が落ちていても英語例文の混入だけは断つ
+  const throwing = {
+    from() { throw new Error('connection reset'); },
+  } as unknown as SupabaseClient;
+  const words: ClassicalApplicableWord[] = [
+    {
+      english: 'ゆかし',
+      isClassical: true,
+      japanese: '心ひかれる',
+      exampleSentence: 'An English sentence.',
+    },
+  ];
+  const result = await applyClassicalDictionary(words, { supabaseAdmin: throwing });
+
+  assert.equal(result.resolvedCount, 0);
+  assert.equal(result.strippedExampleCount, 1);
+  assert.equal(result.words[0].exampleSentence, undefined);
+});

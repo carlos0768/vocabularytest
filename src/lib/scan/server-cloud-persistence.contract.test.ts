@@ -27,6 +27,7 @@ test('buildServerCloudProjectInsertPayload fixes the projects insert shape for n
     title: 'Scan Result',
     source_labels: ['鉄壁', 'ノート'],
     icon_image: 'data:image/png;base64,icon',
+    kind: 'english',
   });
 });
 
@@ -43,6 +44,7 @@ test('buildServerCloudProjectInsertPayload stores null icon_image when the scan 
     title: 'Scan Result',
     source_labels: ['ノート'],
     icon_image: null,
+    kind: 'english',
   });
 });
 

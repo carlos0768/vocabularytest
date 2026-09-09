@@ -70,6 +70,7 @@ test('the classical rules state the extraction condition and the hint behaviour'
     'すべて translations に入れる',
     '古典語には適用しない',
     'ハルシネーション禁止',
+    '英単語だけを抽出し、古典語は1件も出力しない',
   ];
 
   for (const snippet of required) {

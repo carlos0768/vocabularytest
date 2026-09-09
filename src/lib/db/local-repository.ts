@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './dexie';
 import type { LexiconEntry, Project, Word, WordRepository, Collection, CollectionProject } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '@/lib/spaced-repetition';
+import { normalizeProjectKind } from '../../../shared/types';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
 import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
@@ -19,6 +20,7 @@ export class LocalWordRepository implements WordRepository {
     const newProject: Project = {
       ...project,
       sourceLabels: normalizeSourceLabels(project.sourceLabels),
+      kind: normalizeProjectKind(project.kind),
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       isSynced: false,

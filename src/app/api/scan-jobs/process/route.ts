@@ -12,6 +12,9 @@ import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
+import { filterWordsForProjectKind } from '@/lib/classical/purity';
+import { readProjectKind } from '@/lib/classical/project-kind';
+import { normalizeProjectKind, type ProjectKind } from '@/types';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
@@ -1205,6 +1208,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         rawWordCount: allExtractedWords.length,
         dedupedWordCount: dedupedWords.length,
         wordCount: resolvedWords.length,
+        classicalCount: classicalResult.classicalCount,
+        classicalResolvedCount: classicalResult.resolvedCount,
+        classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
+        classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
         masterHitCount: resolvedResult?.metrics.masterHitCount ?? 0,
         masterTranslationHitCount: resolvedResult?.metrics.masterTranslationHitCount ?? 0,
         aiJapaneseCount,
@@ -1317,6 +1324,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let projectTitleForNotification = job.project_title as string;
       let createdNewProject = false;
       let usedProjectSourceLabelsCompat = false;
+      // 保存先の単語帳の種別。既存単語帳なら実物から読み、新規ならジョブ行の指定を使う。
+      let targetProjectKind: ProjectKind = normalizeProjectKind(
+        (job as { project_kind?: unknown }).project_kind,
+      );
 
       if (targetProjectId) {
         const { data: existingProject, error: existingProjectError, usedLegacyColumns: usedLegacySelectColumns } =
@@ -1337,6 +1348,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
         projectId = existingProject.id;
         projectTitleForNotification = existingProject.title ?? projectTitleForNotification;
+        targetProjectKind = await readProjectKind(supabaseAdmin, existingProject.id);
 
         if (job.project_icon_image) {
           const { error: iconUpdateError } = await supabaseAdmin
@@ -1379,6 +1391,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
               projectTitle: job.project_title,
               sourceLabels: dedupedSourceLabels,
               projectIconImage: job.project_icon_image,
+              kind: targetProjectKind,
             }),
           );
         usedProjectSourceLabelsCompat = usedProjectSourceLabelsCompat || usedLegacyInsertColumns;
@@ -1397,7 +1410,20 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         console.warn('[scan-jobs/process] projects.source_labels compatibility fallback used');
       }
 
-      const wordsToInsert = buildServerCloudWordsInsertPayload(resolvedWords, projectId);
+      // 保存先の単語帳の種別に合わない語は落とす（英語単語帳に古典語、その逆も）。
+      // エラーにはしない。正しく採れた語まで巻き添えで捨てるほうが損なので、
+      // 件数だけ記録して残りを保存する。
+      const kindFiltered = filterWordsForProjectKind(resolvedWords, targetProjectKind);
+      if (kindFiltered.droppedCount > 0) {
+        console.warn('[scan-jobs/process] Dropped words that do not match the wordbook kind', {
+          jobId,
+          projectId,
+          kind: targetProjectKind,
+          droppedCount: kindFiltered.droppedCount,
+        });
+      }
+
+      const wordsToInsert = buildServerCloudWordsInsertPayload(kindFiltered.words, projectId);
 
       const dbInsertStart = Date.now();
       let insertedWords: InsertedServerCloudWord[] | null = null;

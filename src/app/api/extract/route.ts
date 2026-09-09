@@ -408,6 +408,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       wordCount: extractedWords.length,
       classicalCount: classicalResult.classicalCount,
       classicalResolvedCount: classicalResult.resolvedCount,
+      classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
+      classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
       masterHitCount: resolved?.metrics.masterHitCount ?? 0,
       masterTranslationHitCount: resolved?.metrics.masterTranslationHitCount ?? 0,
       masterHeadwordFallbackHitCount: resolved?.metrics.masterHeadwordFallbackHitCount ?? 0,

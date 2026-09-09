@@ -6,6 +6,8 @@ import {
   needsWordLexiconResolution,
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
+import { isClassicalWord } from '@/lib/classical/is-classical';
+import { normalizeProjectKind } from '@/types';
 import { RESOLVED_WORD_SELECT_COLUMNS, withMissingWordColumnFallback } from '@/lib/words/resolved';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
@@ -172,22 +174,67 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
 
     const { words } = parsed.data;
     const projectIds = Array.from(new Set(words.map((word) => word.projectId)));
-    const { data: projects, error: projectError } = await supabase
-      .from('projects')
-      .select('id')
-      .in('id', projectIds)
-      .eq('user_id', user.id);
+    // 所有権チェックのついでに種別も読む。往復を増やさないための相乗り。
+    // kind は後から足した列なので、無いDBでは id だけで引き直す（全部 'english' 扱い）。
+    let projects: Array<{ id: string; kind?: string | null }> | null = null;
+    let projectError: { message?: unknown } | null = null;
+    {
+      const withKind = await supabase
+        .from('projects')
+        .select('id, kind')
+        .in('id', projectIds)
+        .eq('user_id', user.id);
+      if (withKind.error) {
+        const fallback = await supabase
+          .from('projects')
+          .select('id')
+          .in('id', projectIds)
+          .eq('user_id', user.id);
+        projects = fallback.data as Array<{ id: string }> | null;
+        projectError = fallback.error;
+        if (!fallback.error) {
+          console.warn('[words/create] projects.kind compatibility fallback used');
+        }
+      } else {
+        projects = withKind.data as Array<{ id: string; kind?: string | null }> | null;
+      }
+    }
 
     if (projectError) {
       return NextResponse.json({ success: false, error: '単語帳の確認に失敗しました' }, { status: 500 });
     }
 
-    const ownedProjectIds = new Set((projects ?? []).map((project) => project.id as string));
+    const ownedProjectIds = new Set((projects ?? []).map((project) => project.id));
     if (projectIds.some((projectId) => !ownedProjectIds.has(projectId))) {
       return NextResponse.json({ success: false, error: '指定した単語帳にアクセスできません' }, { status: 403 });
     }
 
-    const normalizedRequestWords = words.map((word) => normalizeWordForTranslationPersistence(word));
+    // 単語帳の種別に合わない語は落とす。クライアント側でも弾いているが、
+    // APIを直接叩かれても英語単語帳に古典語が混ざらないようにする最終防衛線。
+    const kindByProjectId = new Map(
+      (projects ?? []).map((project) => [project.id, normalizeProjectKind(project.kind)] as const),
+    );
+    const kindMismatchedCount = words.length - words.filter(
+      (word) => isClassicalWord(word) === (kindByProjectId.get(word.projectId) === 'classical'),
+    ).length;
+    if (kindMismatchedCount > 0) {
+      console.warn('[words/create] Dropped words that do not match the wordbook kind', {
+        userId: user.id,
+        droppedCount: kindMismatchedCount,
+      });
+    }
+
+    const kindMatchedWords = words.filter(
+      (word) => isClassicalWord(word) === (kindByProjectId.get(word.projectId) === 'classical'),
+    );
+    if (kindMatchedWords.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '単語帳の種別に合う単語がありません（英語の単語帳に古典語、またはその逆）' },
+        { status: 400 },
+      );
+    }
+
+    const normalizedRequestWords = kindMatchedWords.map((word) => normalizeWordForTranslationPersistence(word));
     const immediateResolution = await resolveImmediateWords(normalizedRequestWords);
     const wordsNeedingBackfill = immediateResolution.words.filter((word) => word.japanese.trim().length === 0);
     const { words: translatedWordsRaw, aiBackfilledIndexes } = wordsNeedingBackfill.length > 0

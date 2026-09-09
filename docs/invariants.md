@@ -181,6 +181,16 @@ Source: `supabase/migrations/20260909120000_create_classical_lexicon.sql`, `src/
 
 Source: `src/lib/classical/is-classical.ts`, pinned by `src/lib/classical/enrichment-guards.test.ts`.
 
+### INV-20: 単語帳の種別に合わない語は保存しない
+
+`projects.kind`（`english` / `classical`）に合わない語は、クライアント（`scan/confirm`）でもサーバー（`/api/words/create`、`scan-jobs/process`）でも保存前に落とす。エラーにはせず、落ちた件数だけ知らせる。
+
+判定は `isClassicalWord()` と `filterWordsForProjectKind()`（`src/lib/classical/purity.ts`）を通すこと。`readProjectKind()` は列が無いDBでも例外でも `'english'` を返す — 種別が読めないだけでスキャンを止めると、列を足すまで全ユーザーがスキャンできなくなる。
+
+**Consequence of violation**: 英語の単語帳に古典語（またはその逆）が混ざり、クイズの誤答生成や語源解析が成立しなくなる。
+
+Source: `src/lib/classical/purity.ts`, `src/lib/classical/project-kind.ts`, pinned by `purity.test.ts` / `project-kind.test.ts`.
+
 ---
 
 ## Candidate Invariants

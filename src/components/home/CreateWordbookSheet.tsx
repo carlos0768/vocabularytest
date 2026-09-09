@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { saveManualAddIntent } from '@/lib/home/home-session-storage';
 import { getGuestUserId, FREE_WORDBOOK_LIMIT } from '@/lib/utils';
-import type { SubscriptionStatus } from '@/types';
+import type { ProjectKind, SubscriptionStatus } from '@/types';
 
 type CreateMethod = 'scan' | 'chatgpt' | 'blank';
 
@@ -53,6 +53,8 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
   const [step, setStep] = useState<'method' | 'scan'>('method');
   const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'blank');
   const [name, setName] = useState('');
+  // 単語帳の種別。あとから混ぜられないので作成時に決める。
+  const [kind, setKind] = useState<ProjectKind>('english');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -117,7 +119,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
           return;
         }
       }
-      const project = await repository.createProject({ userId, title: trimmedName });
+      const project = await repository.createProject({ userId, title: trimmedName, kind });
       // 空の単語帳は単語ゼロで始まるので、遷移先で手動追加モーダルを自動で開く
       try {
         saveManualAddIntent(sessionStorage, project.id);
@@ -259,6 +261,37 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                 {method === 'scan' && !trimmedName && (
                   <p className="mt-1 text-[10px] text-[var(--color-muted)]">未入力の場合はスキャン内容から自動で名前が付きます</p>
                 )}
+
+                <div className="mt-4">
+                  <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                    種別
+                  </div>
+                  <div className="flex gap-2">
+                    {([
+                      { value: 'english' as const, label: '英語', hint: '英単語と訳' },
+                      { value: 'classical' as const, label: '古典', hint: '古文単語と現代語訳' },
+                    ]).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setKind(option.value)}
+                        aria-pressed={kind === option.value}
+                        disabled={submitting}
+                        className="flex-1 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2 text-left transition-all"
+                        style={{
+                          borderColor: kind === option.value ? 'var(--solid-ink)' : 'var(--color-border)',
+                          boxShadow: kind === option.value ? '2px 2px 0 var(--solid-ink)' : 'none',
+                        }}
+                      >
+                        <span className="block text-[13px] font-bold text-[var(--solid-ink)]">{option.label}</span>
+                        <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">{option.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-[var(--color-muted)]">
+                    あとから変更できません。種別に合わない単語は保存時に除外されます。
+                  </p>
+                </div>
                 {method === 'chatgpt' && (
                   <p className="mt-1 text-[10px] text-[var(--color-muted)]">単語帳の作成・選択はChatGPTとの会話の中で行います</p>
                 )}
