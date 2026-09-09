@@ -117,7 +117,6 @@ type WordsCreateRequestWord = {
   wordOrderQuiz?: Word['wordOrderQuiz'];
   customSections?: Word['customSections'];
   morphology?: Word['morphology'];
-  derivedWords?: Word['derivedWords'];
   classicalEntryId?: string;
   status: Word['status'];
   createdAt: string;
@@ -292,36 +291,6 @@ function normalizeWordsCreateMorphology(morphology: Word['morphology']): Word['m
   return { formula, explanation, version: 1 };
 }
 
-function normalizeWordsCreateDerivedWords(
-  derivedWords: Word['derivedWords'],
-): Word['derivedWords'] | undefined {
-  if (!derivedWords || derivedWords.version !== 1) return undefined;
-  if (derivedWords.none) return undefined; // 「派生語なし」は保存対象にしない
-  if (!Array.isArray(derivedWords.items) || derivedWords.items.length === 0) return undefined;
-
-  const items = derivedWords.items
-    .slice(0, 3)
-    .map((item) => {
-      const english = normalizeRequestText(item.english, 60);
-      const japanese = normalizeRequestText(item.japanese, 60);
-      if (!english || !japanese) return null;
-      if (!['noun', 'verb', 'adjective', 'adverb'].includes(item.partOfSpeech)) return null;
-      const examTags = (item.examTags ?? []).filter((tag) =>
-        ['kyotsu', 'kokkouritsu', 'shiritsu', 'toefl', 'ielts', 'eiken'].includes(tag),
-      );
-      return {
-        english,
-        japanese,
-        partOfSpeech: item.partOfSpeech,
-        ...(examTags.length > 0 ? { examTags } : {}),
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null);
-
-  if (items.length === 0) return undefined;
-  return { items, version: 1 };
-}
-
 /**
  * PostgREST の db-max-rows。これを超える行数を返すクエリは、エラーも警告も
  * 出さずに先頭 N 件で打ち切られる。
@@ -388,7 +357,6 @@ export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord 
     wordOrderQuiz: normalizeWordsCreateWordOrderQuiz(word.wordOrderQuiz),
     customSections: normalizeWordsCreateCustomSections(word.customSections),
     morphology: normalizeWordsCreateMorphology(word.morphology),
-    derivedWords: normalizeWordsCreateDerivedWords(word.derivedWords),
     ...(word.classicalEntryId ? { classicalEntryId: word.classicalEntryId } : {}),
     status: word.status,
     createdAt: word.createdAt,
@@ -436,10 +404,10 @@ export class RemoteWordRepository implements WordRepository {
       label: string;
     },
   ): Promise<T> {
-    // derived_words は後付けの列。未適用DBでは各段が 42703 で落ちるが、
+    // classical_entry_id のような後付けの列は、未適用DBでは各段が 42703 で落ちる。
     // それを「リレーション不足」と誤認して一気に minimal まで劣化させると
     // 語源解析やカスタムセクションまで巻き添えで消える。段ごとに
-    // 「derived_words だけ外して再試行」を挟んで劣化を1列分に留める。
+    // 「足りない列だけ外して再試行」を挟んで劣化を1列分に留める。
     const buildQuery = (cols: string) => withMissingWordColumnFallback(rawBuildQuery, cols);
 
     const primary = await buildQuery(columns.primary);

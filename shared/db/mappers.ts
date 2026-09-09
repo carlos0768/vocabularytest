@@ -14,8 +14,6 @@ import type {
   UsagePattern,
   WordTranslation,
   WordOrderQuizCache,
-  WordDerivedWords,
-  DerivedWordItem,
   WordMorphology,
   WordMorphologyPart,
 } from '../types';
@@ -188,7 +186,6 @@ export interface WordRow {
   insights_version?: number | null;
   word_order_quiz?: unknown | null;
   morphology?: unknown | null;
-  derived_words?: unknown | null;
   classical_entry_id?: string | null;
   status?: string | null;
   created_at: string;
@@ -578,43 +575,6 @@ const DERIVED_WORD_EXAM_TAG_VALUES = new Set([
   'kyotsu', 'kokkouritsu', 'shiritsu', 'toefl', 'ielts', 'eiken',
 ]);
 
-function normalizeWordDerivedWordsValue(value: unknown): WordDerivedWords | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const record = value as Record<string, unknown>;
-  if (record.version !== 1) return undefined;
-  if (!Array.isArray(record.items)) return undefined;
-
-  const items: DerivedWordItem[] = [];
-  for (const entry of record.items) {
-    if (!entry || typeof entry !== 'object') return undefined;
-    const item = entry as Record<string, unknown>;
-    const english = toNonEmptyString(item.english);
-    const japanese = toNonEmptyString(item.japanese);
-    const partOfSpeech = typeof item.partOfSpeech === 'string'
-        && DERIVED_WORD_POS_VALUES.has(item.partOfSpeech)
-      ? (item.partOfSpeech as DerivedWordItem['partOfSpeech'])
-      : undefined;
-    if (!english || !japanese || !partOfSpeech) return undefined;
-
-    const rawTags = Array.isArray(item.examTags) ? item.examTags : [];
-    const examTags = rawTags.filter(
-      (tag): tag is DerivedWordItem['examTags'] extends (infer U)[] | undefined ? U : never =>
-        typeof tag === 'string' && DERIVED_WORD_EXAM_TAG_VALUES.has(tag),
-    );
-    items.push({
-      english,
-      japanese,
-      partOfSpeech,
-      ...(examTags.length > 0 ? { examTags } : {}),
-    });
-  }
-
-  const none = record.none === true;
-  if (!none && items.length === 0) return undefined;
-
-  return { items, version: 1, ...(none ? { none: true } : {}) };
-}
-
 function normalizeWordOrderQuizCache(value: unknown): WordOrderQuizCache | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const record = value as Record<string, unknown>;
@@ -672,7 +632,6 @@ export function mapWordFromRow(row: WordRow): Word {
     insightsVersion: row.insights_version ?? undefined,
     wordOrderQuiz: normalizeWordOrderQuizCache(row.word_order_quiz),
     morphology: normalizeWordMorphologyValue(row.morphology),
-    derivedWords: normalizeWordDerivedWordsValue(row.derived_words),
     classicalEntryId: row.classical_entry_id ?? undefined,
     // words に is_classical 列は無い。辞書へのリンクの有無がそのまま印になる
     ...(row.classical_entry_id ? { isClassical: true } : {}),
@@ -714,7 +673,6 @@ export function mapWordToInsert(word: WordInput): {
   insights_version?: number;
   word_order_quiz?: WordOrderQuizCache;
   morphology?: WordMorphology;
-  derived_words?: WordDerivedWords;
   classical_entry_id?: string;
   status: string;
   ease_factor: number;
@@ -743,7 +701,6 @@ export function mapWordToInsert(word: WordInput): {
     insights_version: word.insightsVersion,
     word_order_quiz: word.wordOrderQuiz,
     morphology: word.morphology,
-    derived_words: word.derivedWords,
     ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
     status: 'new',
     ease_factor: defaultSR.easeFactor,
@@ -774,7 +731,6 @@ export function mapWordToInsertWithId(word: Word): {
   insights_version?: number;
   word_order_quiz?: WordOrderQuizCache;
   morphology?: WordMorphology;
-  derived_words?: WordDerivedWords;
   classical_entry_id?: string;
   status: string;
   created_at: string;
@@ -806,7 +762,6 @@ export function mapWordToInsertWithId(word: Word): {
     insights_version: word.insightsVersion,
     word_order_quiz: word.wordOrderQuiz,
     morphology: word.morphology,
-    derived_words: word.derivedWords,
     ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
     status: word.status,
     created_at: word.createdAt,
@@ -841,7 +796,6 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.insightsVersion !== undefined) updateData.insights_version = updates.insightsVersion;
   if (updates.wordOrderQuiz !== undefined) updateData.word_order_quiz = updates.wordOrderQuiz;
   if (updates.morphology !== undefined) updateData.morphology = updates.morphology;
-  if (updates.derivedWords !== undefined) updateData.derived_words = updates.derivedWords;
   if (updates.classicalEntryId !== undefined) updateData.classical_entry_id = updates.classicalEntryId;
 
   // Spaced repetition fields

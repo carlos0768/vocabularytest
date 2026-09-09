@@ -66,7 +66,6 @@ export async function consumeScanGate(
     imageCount: number;
     scanJobId?: string | null;
     includeMorphology?: boolean;
-    includeDerivedWords?: boolean;
   },
 ): Promise<ScanGateOutcome> {
   const imageCount = Math.max(1, Math.floor(options.imageCount || 1));
@@ -80,9 +79,8 @@ export async function consumeScanGate(
     p_image_count: imageCount,
     p_scan_job_id: options.scanJobId ?? null,
     // 語源解析・派生語オフ時は従来と同一のRPC呼び出しを維持する
-    // （p_include_morphology / p_include_derived_words 未対応のDBでも壊れないように）。
+    // （p_include_morphology 未対応のDBでも壊れないように）。
     ...(options.includeMorphology ? { p_include_morphology: true } : {}),
-    ...(options.includeDerivedWords ? { p_include_derived_words: true } : {}),
   });
 
   if (error || !data) {

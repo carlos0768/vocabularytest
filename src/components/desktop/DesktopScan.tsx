@@ -108,7 +108,6 @@ export function DesktopScanView({
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
-  const [derivedWordsOn, setDerivedWordsOn] = useState(false);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',
@@ -153,7 +152,6 @@ export function DesktopScanView({
     imageCount: 1,
     totalRemaining: coinBalance.totalRemaining,
     includeMorphology: morphologyOn,
-    includeDerivedWords: derivedWordsOn,
   });
 
   const toggleOption = (key: ScanOptionKey) => {
@@ -209,7 +207,6 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
-          includeDerivedWords: derivedWordsOn,
           ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
           ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
           targetProjectId: destinationProjectId || undefined,
@@ -263,7 +260,6 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
-          includeDerivedWords: derivedWordsOn,
           ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
           ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
         }),
@@ -332,7 +328,6 @@ export function DesktopScanView({
         imageCount: files.length,
         totalRemaining: coinBalance.totalRemaining,
         includeMorphology: morphologyOn,
-        includeDerivedWords: derivedWordsOn,
       });
       if (actual.insufficient) {
         setInsufficientCoinInfo(
@@ -702,28 +697,6 @@ export function DesktopScanView({
               </span>
             </button>
 
-            {/* 派生語トグル（+2コイン） */}
-            <button
-              type="button"
-              className={'ds-method' + (derivedWordsOn ? ' sel' : '')}
-              onClick={() => setDerivedWordsOn((prev) => !prev)}
-              aria-pressed={derivedWordsOn}
-              style={{ marginTop: 10, width: '100%' }}
-            >
-              <div className="mic" style={{ background: derivedWordsOn ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)' }}>
-                <Icon name="family_history" style={{ color: derivedWordsOn ? 'var(--color-accent-ink)' : 'var(--color-ink)' }} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="mt">
-                  派生語
-                  <span className="ds-tag accent">+2コイン</span>
-                </div>
-                <div className="md">試験で狙われる派生語を最大3つ（対象語のみ）</div>
-              </div>
-              <span className="mradio">
-                {derivedWordsOn && <Icon name="check" style={{ fontSize: 15 }} />}
-              </span>
-            </button>
           </div>
         </div>
 

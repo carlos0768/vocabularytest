@@ -173,7 +173,7 @@ Source: `supabase/migrations/20260909120000_create_classical_lexicon.sql`, `src/
 
 ### INV-19: 英語専用の後処理は古典語に走らせない
 
-語源解析・派生語・例文生成・発音記号・英作文/語順クイズ・誤答生成・英語 lexicon 解決は、すべて `isClassicalWord()`（`src/lib/classical/is-classical.ts`）で古典語を除外する。判定を各所にベタ書きせず、必ずこの関数を通す。
+語源解析・例文生成・発音記号・英作文/語順クイズ・誤答生成・英語 lexicon 解決は、すべて `isClassicalWord()`（`src/lib/classical/is-classical.ts`）で古典語を除外する。判定を各所にベタ書きせず、必ずこの関数を通す。
 
 とくに `resolveImmediateWordsWithMasterFirst` は古典語に `key` を立てないこと。これを外すと古典語の見出し語が英日翻訳AIに投げ込まれ、日本語をキーにした `lexicon_entries` 行が量産される。`needsWordLexiconResolution` も古典語には `false` を返すこと。返さないと解決ジョブが永久に再投入される。
 
