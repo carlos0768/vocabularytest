@@ -30,6 +30,7 @@ import { refundScanCoinsForJob } from '@/lib/coins/refund';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
+import { applyClassicalDictionary } from '@/lib/classical/apply';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
@@ -84,6 +85,7 @@ export type ExtractRouteDeps = {
   extractCompositeWords?: typeof extractCompositeWordsFromImage;
   extractCustomWords?: typeof extractCustomWordsFromImage;
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
+  applyClassicalDictionary?: typeof applyClassicalDictionary;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
   saveExamples?: typeof saveExamplesToLexicon;
@@ -107,6 +109,7 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     extractCompositeWords: deps?.extractCompositeWords ?? extractCompositeWordsFromImage,
     extractCustomWords: deps?.extractCustomWords ?? extractCustomWordsFromImage,
     resolveImmediateWords: deps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst,
+    applyClassicalDictionary: deps?.applyClassicalDictionary ?? applyClassicalDictionary,
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
     saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
@@ -142,6 +145,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     extractCompositeWords,
     extractCustomWords,
     resolveImmediateWords,
+    applyClassicalDictionary: applyClassical,
     backfillWords,
     generateExamples,
     saveExamples,
@@ -395,10 +399,15 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     const rollbackResult = masterFirstEnabled
       ? null
       : await backfillWords(result.data.words);
-    const extractedWords = applySourceModesFromScanModes(
+    const sourceModedWords = applySourceModesFromScanModes(
       resolved?.words ?? rollbackResult?.words ?? result.data.words,
       modes,
     ).map((word) => normalizeWordForTranslationPersistence(word));
+    // 古典語を共通辞書へ解決し、保存済みのヒント（訳）を流用する。
+    // 古典語が無ければDBには一切触らないので、英単語だけのスキャンには影響しない。
+    // ここより後の語源解析・派生語・例文生成はすべて isClassicalWord() で古典語を弾く。
+    const classicalResult = await applyClassical(sourceModedWords);
+    const extractedWords = classicalResult.words;
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
     console.log('[extract] Extraction done', {
@@ -406,6 +415,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       primaryMode,
       masterFirstEnabled,
       wordCount: extractedWords.length,
+      classicalCount: classicalResult.classicalCount,
+      classicalResolvedCount: classicalResult.resolvedCount,
       masterHitCount: resolved?.metrics.masterHitCount ?? 0,
       masterTranslationHitCount: resolved?.metrics.masterTranslationHitCount ?? 0,
       masterHeadwordFallbackHitCount: resolved?.metrics.masterHeadwordFallbackHitCount ?? 0,

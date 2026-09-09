@@ -33,6 +33,7 @@ export interface ServerCloudWordForInsert {
   customSections?: CustomSection[];
   morphology?: WordMorphology;
   derivedWords?: WordDerivedWords;
+  classicalEntryId?: string;
 }
 
 export interface ServerCloudWordInsertPayload {
@@ -51,6 +52,7 @@ export interface ServerCloudWordInsertPayload {
   custom_sections: CustomSection[];
   morphology: WordMorphology | null;
   derived_words: WordDerivedWords | null;
+  classical_entry_id: string | null;
   vocabulary_type: VocabularyType;
 }
 
@@ -66,7 +68,8 @@ export type MissingWordsCompatColumn =
   | 'source_modes'
   | 'lexicon_sense_id'
   | 'morphology'
-  | 'derived_words';
+  | 'derived_words'
+  | 'classical_entry_id';
 
 export type ServerCloudWordsInsertCompatOptions = {
   omitJapaneseSource?: boolean;
@@ -74,6 +77,7 @@ export type ServerCloudWordsInsertCompatOptions = {
   omitLexiconSenseId?: boolean;
   omitMorphology?: boolean;
   omitDerivedWords?: boolean;
+  omitClassicalEntryId?: boolean;
 };
 
 const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
@@ -91,6 +95,7 @@ const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
   'word_order_quiz',
   'morphology',
   'derived_words',
+  'classical_entry_id',
 ] as const;
 
 export function buildServerCloudProjectInsertPayload(
@@ -131,6 +136,7 @@ export function buildServerCloudWordsInsertPayload(
     custom_sections: word.customSections ?? [],
     morphology: word.morphology ?? null,
     derived_words: word.derivedWords ?? null,
+    classical_entry_id: word.classicalEntryId ?? null,
     // スキャンで拾った語は「見て分かればいい語」から始める。ここを NULL のまま
     // 挿すと、ローカル保存 (local-repository) 経由の語だけ passive になって
     // 端末とバックグラウンドスキャンで既定値が食い違う。
@@ -174,6 +180,14 @@ export function getMissingWordsCompatColumn(error: unknown): MissingWordsCompatC
   }
 
   if (
+    message.includes('words.classical_entry_id')
+    || message.includes("'classical_entry_id' column of 'words'")
+    || message.includes('classical_entry_id')
+  ) {
+    return 'classical_entry_id';
+  }
+
+  if (
     message.includes('words.derived_words')
     || message.includes("'derived_words' column of 'words'")
     || message.includes('derived_words')
@@ -208,6 +222,7 @@ export function getServerCloudWordsInsertSelectColumns(
     .filter((column) => !(options.omitLexiconSenseId && column === 'lexicon_sense_id'))
     .filter((column) => !(options.omitMorphology && column === 'morphology'))
     .filter((column) => !(options.omitDerivedWords && column === 'derived_words'))
+    .filter((column) => !(options.omitClassicalEntryId && column === 'classical_entry_id'))
     .join(', ');
 }
 
@@ -244,6 +259,9 @@ export function stripServerCloudWordsInsertPayloadForCompat(
     }
     if (!options.omitDerivedWords) {
       row.derived_words = word.derived_words;
+    }
+    if (!options.omitClassicalEntryId) {
+      row.classical_entry_id = word.classical_entry_id;
     }
 
     return row;

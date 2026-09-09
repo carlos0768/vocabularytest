@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { RESOLVED_WORD_SELECT_COLUMNS, withDerivedWordsColumnFallback } from '@/lib/words/resolved';
+import { RESOLVED_WORD_SELECT_COLUMNS, withMissingWordColumnFallback } from '@/lib/words/resolved';
 import { mapWordFromRow, type WordRow } from '../../../../../../../shared/db';
 import { requireSharedProjectAccess } from '../../../shared';
 
@@ -59,7 +59,7 @@ export async function PATCH(
       updateRow.insights_version = null;
     }
 
-    const { data, error } = await withDerivedWordsColumnFallback(
+    const { data, error } = await withMissingWordColumnFallback(
       (columns) => admin
         .from('words')
         .update(updateRow)

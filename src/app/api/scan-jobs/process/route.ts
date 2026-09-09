@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
+import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
@@ -1146,10 +1147,16 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         ? null
         : await backfillWords(dedupedWords);
       timing.lexiconResolutionMs = Date.now() - lexiconResolutionStart;
-      const resolvedWords = applySourceModesFromScanModes(
+      const sourceModedWords = applySourceModesFromScanModes(
         resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords,
         modes,
       ).map((word) => normalizeWordForTranslationPersistence(word));
+      // 古典語を共通辞書へ解決し、保存済みのヒント（訳）を流用する。
+      // 語源解析・派生語・例文生成より前に置くこと（それらは isClassicalWord() で
+      // 古典語を弾くので、印がこの時点で付いている必要がある）。
+      // 古典語が無ければDBには一切触らない。
+      const classicalResult = await applyClassical(sourceModedWords, { supabaseAdmin });
+      const resolvedWords = classicalResult.words;
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
       // --- Morphology (語源解析): opt-in, best-effort ---
@@ -1446,17 +1453,20 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let omitLexiconSenseId = false;
       let omitMorphology = false;
       let omitDerivedWords = false;
+      let omitClassicalEntryId = false;
 
-      for (let attempt = 0; attempt < 5; attempt += 1) {
+      // 互換で落とせる列が1つ増えたので上限も1つ増やす（列の数だけ再試行できる必要がある）
+      for (let attempt = 0; attempt < 6; attempt += 1) {
         const insertPayload =
           omitJapaneseSource || omitSourceModes || omitLexiconSenseId || omitMorphology
-          || omitDerivedWords
+          || omitDerivedWords || omitClassicalEntryId
             ? stripServerCloudWordsInsertPayloadForCompat(wordsToInsert, {
                 omitJapaneseSource,
                 omitSourceModes,
                 omitLexiconSenseId,
                 omitMorphology,
                 omitDerivedWords,
+                omitClassicalEntryId,
               })
             : wordsToInsert;
         const selectColumns = getServerCloudWordsInsertSelectColumns({
@@ -1464,6 +1474,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           omitLexiconSenseId,
           omitMorphology,
           omitDerivedWords,
+          omitClassicalEntryId,
         });
         const result = await supabaseAdmin
           .from('words')
@@ -1494,6 +1505,14 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (missingColumn === 'lexicon_sense_id' && !omitLexiconSenseId) {
           omitLexiconSenseId = true;
           console.warn('[scan-jobs/process] words.lexicon_sense_id compatibility fallback used', {
+            jobId,
+            message: result.error?.message,
+          });
+          continue;
+        }
+        if (missingColumn === 'classical_entry_id' && !omitClassicalEntryId) {
+          omitClassicalEntryId = true;
+          console.warn('[scan-jobs/process] words.classical_entry_id compatibility fallback used', {
             jobId,
             message: result.error?.message,
           });

@@ -4,6 +4,9 @@ import type { ExampleSeedWord, GeneratedExample } from '@/lib/ai/generate-exampl
 export interface ClientLocalExampleWord {
   english: string;
   japanese: string;
+  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  classicalEntryId?: string | null;
+  isClassical?: boolean | null;
   partOfSpeechTags?: string[];
   exampleSentence?: string;
   exampleSentenceJa?: string;
@@ -14,6 +17,8 @@ export interface ServerCloudExampleCandidateWord {
   english: string;
   japanese: string;
   example_sentence?: string | null;
+  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  classical_entry_id?: string | null;
 }
 
 export interface ServerCloudExampleUpdatePayload {

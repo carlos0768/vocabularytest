@@ -6,7 +6,7 @@ import {
   needsWordLexiconResolution,
   triggerWordLexiconResolutionProcessing,
 } from '@/lib/lexicon/word-resolution-jobs';
-import { RESOLVED_WORD_SELECT_COLUMNS, withDerivedWordsColumnFallback } from '@/lib/words/resolved';
+import { RESOLVED_WORD_SELECT_COLUMNS, withMissingWordColumnFallback } from '@/lib/words/resolved';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { mapWordFromRow, type WordRow } from '../../../../../shared/db';
@@ -119,6 +119,9 @@ const wordInputSchema = z.object({
   customSections: z.array(customSectionSchema).max(20).optional(),
   morphology: morphologySchema.optional(),
   derivedWords: derivedWordsSchema.optional(),
+  // 古典語の共通辞書へのリンク。スキーマは .strict() なので、
+  // クライアントが送り始める前にサーバ側で受け付けられるようにしておく。
+  classicalEntryId: z.string().uuid().optional(),
   status: z.enum(['new', 'review', 'active', 'mastered']).optional(),
   createdAt: z.string().datetime().optional(),
   lastReviewedAt: z.string().datetime().optional(),
@@ -245,6 +248,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         word_order_quiz: word.wordOrderQuiz ?? null,
         morphology: word.morphology ?? null,
         derived_words: word.derivedWords ?? null,
+        ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
         status: word.status ?? 'new',
         created_at: word.createdAt ?? new Date().toISOString(),
         last_reviewed_at: word.lastReviewedAt ?? null,
@@ -268,7 +272,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       ? supabase.from('words').upsert(rows, { onConflict: 'id', ignoreDuplicates: true })
       : supabase.from('words').insert(rows);
 
-    const { data, error } = await withDerivedWordsColumnFallback(
+    const { data, error } = await withMissingWordColumnFallback(
       (columns) => query.select(columns),
       RESOLVED_WORD_SELECT_COLUMNS,
     );
@@ -295,7 +299,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       .map((word, index) => (word.japaneseSource === 'ai' ? ((data ?? []) as unknown as WordRow[])[index]?.id : null))
       .filter((value): value is string => typeof value === 'string' && value.length > 0);
     const createdWordRowsWithTranslations = translationRows.length > 0
-      ? await withDerivedWordsColumnFallback(
+      ? await withMissingWordColumnFallback(
         (columns) => supabase
           .from('words')
           .select(columns)

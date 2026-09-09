@@ -18,6 +18,9 @@ export interface WordOrderQuizPrefillCandidateWord {
   japanese: string;
   word_order_quiz?: unknown | null;
   wordOrderQuiz?: unknown | null;
+  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  classicalEntryId?: string | null;
+  isClassical?: boolean | null;
 }
 
 export interface WordOrderQuizPrefillSummary {

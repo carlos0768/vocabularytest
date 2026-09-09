@@ -8,6 +8,8 @@ export interface QuizPrefillCandidateWord {
   id: string;
   english: string;
   japanese: string;
+  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  classical_entry_id?: string | null;
   distractors: unknown;
   example_sentence: unknown;
   example_sentence_ja?: unknown;

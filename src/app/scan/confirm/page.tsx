@@ -306,6 +306,7 @@ export default function ConfirmPage() {
         lexiconEntryId: w.lexiconEntryId, lexiconSenseId: w.lexiconSenseId, cefrLevel: w.cefrLevel, distractors: w.distractors,
         partOfSpeechTags: w.partOfSpeechTags, pronunciation: w.pronunciation, exampleSentence: w.exampleSentence, exampleSentenceJa: w.exampleSentenceJa,
         morphology: w.morphology,
+        classicalEntryId: w.classicalEntryId,
       })));
 
       if (aiEnabledForGeneration) void prefillQuizData(createdWords, repository.updateWord.bind(repository));
