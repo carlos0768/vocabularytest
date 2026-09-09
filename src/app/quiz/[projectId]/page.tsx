@@ -48,6 +48,10 @@ import {
 } from '@/lib/quiz/active-answer';
 import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
 import {
+  countWordsByAnswerFormat,
+  filterWordsForAnswerFormat,
+} from '@/lib/quiz/answer-format-words';
+import {
   WORD_ORDER_BLANK_TOKEN,
   buildWordOrderQuestion,
   isWordOrderEligible,
@@ -526,6 +530,13 @@ export default function QuizPage() {
    * 前回の四択の続きを復元して形式まで四択に戻してしまわないため。
    */
   const urlAnswerFormatRef = useRef<QuizAnswerFormat | null>(answerFormat);
+  /**
+   * `answerFormat` の写し。語の読み込み effect から読む。
+   * 依存配列に入れると、解き方を選ぶたびに単語を読み直して出題が作り直され、
+   * 解いている途中の切り替えが二重に走ってしまう。
+   */
+  const answerFormatValueRef = useRef<QuizAnswerFormat | null>(answerFormat);
+  answerFormatValueRef.current = answerFormat;
   /** 右上から開くクイズ形式の切り替え。 */
   const [showModeSwitch, setShowModeSwitch] = useState(false);
   const [inputCount, setInputCount] = useState('');
@@ -533,13 +544,6 @@ export default function QuizPage() {
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
-  // 出題中の問題を記述で見せているか。問題ごとに固定する: 答えたあとに
-  // 右上から解き方を変えられても、いま開示している問題の見た目は変えない
-  // (答え合わせの表示が四択と記述で入れ替わってしまうため)。
-  const answerFormatRef = useRef<{ key: string; value: QuizAnswerFormat }>({ key: '', value: 'normal' });
-  // chooseMode から「いまの問題は答え合わせ中か」を読むための写し。
-  // isRevealed を依存に入れると chooseMode が1問ごとに作り直される。
-  const isRevealedRef = useRef(false);
   // Desktop and mobile layouts each render a TypeInQuizField (one is always
   // display:none). Focusing the hidden one is a silent no-op, so we can safely
   // focus both to reach whichever layout is currently visible.
@@ -586,10 +590,6 @@ export default function QuizPage() {
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
-
-  useEffect(() => {
-    isRevealedRef.current = isRevealed;
-  }, [isRevealed]);
 
   const saveQuizState = useCallback(() => {
     if (questions.length === 0 || !questionCount) return;
@@ -664,33 +664,6 @@ export default function QuizPage() {
     setStoredMode(readQuizMode());
     setModeLoaded(true);
   }, []);
-
-  /**
-   * 解き方を選んだ。四択・記述はこの画面のまま、音読なら音読チャレンジへ移る。
-   * 端末には「次に選択画面を出したときの初期選択」として覚えるだけで、
-   * 覚えた形式で勝手に始めることはしない (毎回選ばせる)。
-   */
-  const chooseMode = useCallback(
-    (mode: QuizMode) => {
-      writeQuizMode(mode);
-      setStoredMode(mode);
-      setShowModeSwitch(false);
-      if (mode === 'voice') {
-        goToVoiceQuiz();
-        return;
-      }
-      setAnswerFormat(mode);
-      // 解き方を変えると入力欄と選択肢が入れ替わる。まだ答えていない問題に
-      // 前の形式の打ちかけが残らないよう、入力を捨てる。開示済みの問題は
-      // `answerFormatRef` が見た目を固定して切り替えを次の問題送りにするので、
-      // 答え合わせの表示を消さないようそのままにする。
-      if (!isRevealedRef.current) {
-        setTypeInAnswer('');
-        setTypeInResult(null);
-      }
-    },
-    [goToVoiceQuiz],
-  );
 
   const goToNextReviewQuiz = useCallback(() => {
     clearQuizState();
@@ -772,25 +745,33 @@ export default function QuizPage() {
     }
   }, [needsWordOrderQuiz, repository]);
 
+  // 出題するのは解き方に合う語だけ (記述=発信A / 四択=受信P)。絞り込みはここに
+  // 一箇所だけ置く —— 呼び出し側でやると、増えた経路が素通ししてしまう。
   const generateQuestions = useCallback((
     words: Word[],
     count: number,
-    direction: QuizDirection = 'en-to-ja',
+    direction: QuizDirection,
+    format: QuizAnswerFormat,
   ): QuizQuestion[] => {
-    return generateQuizQuestions(words, count, direction, undefined, {
+    return generateQuizQuestions(filterWordsForAnswerFormat(words, format), count, direction, undefined, {
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
     });
   }, [isPro, reminderMode]);
 
-  const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
+  const startQuizWithDistractors = useCallback(async (
+    allCandidates: Word[],
+    count: number,
+    format: QuizAnswerFormat,
+  ) => {
+    const words = filterWordsForAnswerFormat(allCandidates, format);
     const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
     const selectedNeedsWordOrderQuiz = selected.some(needsWordOrderQuiz);
     const wordOrderGenerationRun = wordOrderGenerationRunRef.current + 1;
     wordOrderGenerationRunRef.current = wordOrderGenerationRun;
 
-    const nextQuestions = generateQuestions(words, count, quizDirection);
+    const nextQuestions = generateQuestions(words, count, quizDirection, format);
     setQuestions(nextQuestions);
 
     if (selectedNeedsWordOrderQuiz) {
@@ -852,6 +833,56 @@ export default function QuizPage() {
       }
     })();
   }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository, reminderMode]);
+
+  /**
+   * その解き方の出題を組み直して最初から始める。
+   * 四択と記述では出題する語がそもそも違う (受信P / 発信A) ので、途中で切り替える
+   * ときは続きから続けようがない。進捗を捨てて組み直すのが唯一まともな挙動。
+   */
+  const startQuizForFormat = useCallback(async (format: QuizAnswerFormat) => {
+    clearQuizState();
+    hasAnsweredRef.current = false;
+    setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null);
+    setIsRevealed(false); setTypeInAnswer(''); setTypeInResult(null);
+    setResults({ correct: 0, total: 0 }); setAnswerResults([]); setIsComplete(false); setIsTransitioning(false);
+
+    const pool = filterWordsForAnswerFormat(allWords, format);
+    if (pool.length === 0) {
+      // 1問も無いことは呼び出し側では分からない。空のまま置いて、画面に出させる。
+      setQuestions([]);
+      return;
+    }
+    const targetCount = getQuizTargetCount(pool, { primaryOnly: !isPro });
+    const count = Math.max(
+      1,
+      Math.min(questionCount ?? targetCount ?? DEFAULT_QUESTION_COUNT, targetCount || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT),
+    );
+    if (pool.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) {
+      await startQuizWithDistractors(allWords, count, format);
+    } else {
+      setQuestions(generateQuestions(allWords, count, quizDirection, format));
+    }
+  }, [allWords, clearQuizState, generateQuestions, isPro, needsDistractors, needsWordOrderQuiz, questionCount, quizDirection, startQuizWithDistractors]);
+
+  /**
+   * 解き方を選んだ。四択・記述はこの画面のまま、音読なら音読チャレンジへ移る。
+   * 端末には「次に選択画面を出したときの初期選択」として覚えるだけで、
+   * 覚えた形式で勝手に始めることはしない (毎回選ばせる)。
+   */
+  const chooseMode = useCallback(
+    (mode: QuizMode) => {
+      writeQuizMode(mode);
+      setStoredMode(mode);
+      setShowModeSwitch(false);
+      if (mode === 'voice') {
+        goToVoiceQuiz();
+        return;
+      }
+      setAnswerFormat(mode);
+      void startQuizForFormat(mode);
+    },
+    [goToVoiceQuiz, startQuizForFormat],
+  );
 
   useEffect(() => {
     if (authLoading || userPreferencesLoading) return;
@@ -1086,11 +1117,15 @@ export default function QuizPage() {
         const resolvedCount = Math.max(1, Math.min(questionCount ?? targetCount, targetCount, MAX_NORMAL_QUIZ_QUESTION_COUNT));
         if (questionCount !== resolvedCount) setQuestionCount(resolvedCount);
 
-        if (resolvedCount) {
-          if (prioritized.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) {
-            await startQuizWithDistractors(prioritized, resolvedCount);
+        // 解き方がまだ決まっていない (これから選択画面を出す) なら出題は作らない。
+        // 出題する語が解き方で変わるので、決まってから `startQuizForFormat` が作る。
+        const format = answerFormatValueRef.current;
+        if (resolvedCount && format) {
+          const pool = filterWordsForAnswerFormat(prioritized, format);
+          if (pool.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) {
+            await startQuizWithDistractors(prioritized, resolvedCount, format);
           } else {
-            setQuestions(generateQuestions(prioritized, resolvedCount, quizDirection));
+            setQuestions(generateQuestions(prioritized, resolvedCount, quizDirection, format));
           }
         }
       } catch (error) {
@@ -1145,21 +1180,17 @@ export default function QuizPage() {
     return () => { cancelled = true; };
   }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, binderName]);
 
+  // 選択画面に出す「この単語帳で何語出せるか」。
+  const answerFormatWordCounts = useMemo(() => countWordsByAnswerFormat(allWords), [allWords]);
+
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
-  // 記述で見せるかは、この回で選ばれた解き方だけで決まる (単語の状態では
-  // 決めない: 四択を選んだのに一部の語だけ入力欄になってしまうため)。
-  // 問題ごとに固定し、開示済みの問題の見た目が途中の切り替えで入れ替わらない
-  // ようにする。まだ答えていない問題なら、切り替えはその場で効かせる。
-  const answerFormatKey = `${currentIndex}:${currentQuestion?.word.id ?? ''}`;
+  // 記述で見せるかは、この回で選ばれた解き方だけで決まる (単語の状態では決めない:
+  // 四択を選んだのに一部の語だけ入力欄になってしまうため)。解き方を変えると出題が
+  // 組み直されて最初からになるので、問題の途中でここが入れ替わることはない。
   const resolvedAnswerFormat: QuizAnswerFormat = answerFormat ?? 'normal';
-  if (answerFormatRef.current.key !== answerFormatKey) {
-    answerFormatRef.current = { key: answerFormatKey, value: resolvedAnswerFormat };
-  } else if (!isRevealed && answerFormatRef.current.value !== resolvedAnswerFormat) {
-    answerFormatRef.current = { key: answerFormatKey, value: resolvedAnswerFormat };
-  }
-  const isTypeInMode = !currentIsWordOrder && answerFormatRef.current.value === 'typing';
+  const isTypeInMode = !currentIsWordOrder && resolvedAnswerFormat === 'typing';
   // Type-in quizzes always ask for the English word (日英). We never make the
   // user type Japanese, regardless of quiz direction or active source.
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
@@ -1346,16 +1377,7 @@ export default function QuizPage() {
   };
 
   const handleRestart = async () => {
-    clearQuizState();
-    hasAnsweredRef.current = false;
-    const targetCount = getQuizTargetCount(allWords, { primaryOnly: !isPro });
-    const count = Math.max(1, Math.min(questionCount ?? targetCount ?? DEFAULT_QUESTION_COUNT, targetCount || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
-    if (allWords.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count);
-    else setQuestions(generateQuestions(allWords, count, quizDirection));
-    setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null); setIsRevealed(false);
-    setTypeInAnswer(''); setTypeInResult(null);
-    setIsTransitioning(false);
-    setResults({ correct: 0, total: 0 }); setAnswerResults([]); setIsComplete(false);
+    await startQuizForFormat(resolvedAnswerFormat);
   };
 
   const handleSelectCount = async (count: number) => {
@@ -1364,8 +1386,9 @@ export default function QuizPage() {
     if (allWords.length > 0) {
       setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null); setIsRevealed(false);
       setTypeInAnswer(''); setTypeInResult(null);
-      if (allWords.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count);
-      else setQuestions(generateQuestions(allWords, count, quizDirection));
+      const pool = filterWordsForAnswerFormat(allWords, resolvedAnswerFormat);
+      if (pool.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count, resolvedAnswerFormat);
+      else setQuestions(generateQuestions(allWords, count, quizDirection, resolvedAnswerFormat));
     }
   };
 
@@ -1435,6 +1458,7 @@ export default function QuizPage() {
             currentLabel="前回"
             onSelect={chooseMode}
             hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
+            wordCounts={answerFormatWordCounts}
           />
         </div>
       </div>
@@ -1458,10 +1482,37 @@ export default function QuizPage() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6">
         <p className="mb-6 text-center text-[var(--color-error)]">{distractorError}</p>
         <div className="w-full max-w-xs space-y-3">
-          <SolidButton variant="inverse" onClick={() => { setDistractorError(null); if (questionCount) startQuizWithDistractors(allWords, questionCount); }} className="w-full">
+          <SolidButton variant="inverse" onClick={() => { setDistractorError(null); if (questionCount) startQuizWithDistractors(allWords, questionCount, resolvedAnswerFormat); }} className="w-full">
             <Icon name="refresh" size={18} />再試行
           </SolidButton>
           <SolidButton onClick={backToProject} className="w-full">単語一覧に戻る</SolidButton>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- 選んだ解き方に合う単語が1語も無い ---------- */
+  if (questions.length === 0) {
+    const otherFormat: QuizAnswerFormat = resolvedAnswerFormat === 'typing' ? 'normal' : 'typing';
+    const emptyLabel = resolvedAnswerFormat === 'typing' ? '発信 (A)' : '受信 (P)';
+    const otherLabel = otherFormat === 'typing' ? '発信 (A)' : '受信 (P)';
+    const otherCount = answerFormatWordCounts[otherFormat];
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6">
+        <p className="mb-2 text-center font-display text-lg font-black text-[var(--solid-ink)]">
+          出題できる{emptyLabel}の単語がありません
+        </p>
+        <p className="mb-6 max-w-xs text-center text-sm leading-6 text-[var(--color-muted)]">
+          {resolvedAnswerFormat === 'typing' ? '記述' : '四択'}では{emptyLabel}の単語だけを出題します。
+          単語一覧の A / P ボタンで語彙モードを変えるか、別の解き方を選んでください。
+        </p>
+        <div className="w-full max-w-xs space-y-3">
+          {otherCount > 0 && (
+            <SolidButton variant="inverse" onClick={() => chooseMode(otherFormat)} className="w-full justify-center">
+              {otherFormat === 'typing' ? '記述' : '四択'}に切り替える（{otherLabel} {otherCount}語）
+            </SolidButton>
+          )}
+          <SolidButton onClick={backToProject} className="w-full justify-center">単語帳に戻る</SolidButton>
         </div>
       </div>
     );
@@ -1749,8 +1800,14 @@ export default function QuizPage() {
         onSelect={chooseMode}
         onCancel={() => setShowModeSwitch(false)}
         hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
+        wordCounts={answerFormatWordCounts}
         title="クイズの解き方を変える"
-        description="いま解いている問題から切り替わります。次に始めるときの初期選択にもなります。"
+        description="次に始めるときの初期選択にもなります。"
+        warning={
+          hasAnsweredRef.current
+            ? '解き方ごとに出題する単語が違うので、切り替えるといまのクイズは最初からになります。'
+            : undefined
+        }
       />
     </Modal>
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">

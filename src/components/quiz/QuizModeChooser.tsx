@@ -15,18 +15,22 @@ const MODES: ReadonlyArray<{
   icon: string;
   title: string;
   description: string;
+  /** その解き方がどの語を出題するか。語彙モードで出題が分かれるので必ず出す。 */
+  scope?: string;
 }> = [
   {
     key: 'normal',
     icon: 'list',
     title: '四択で解く',
-    description: '選択肢から答えを選びます。入力も声も要りません。',
+    description: '選択肢から答えを選びます。',
+    scope: '受信 (P) の単語だけ出題されます',
   },
   {
     key: 'typing',
     icon: 'keyboard',
     title: '記述で解く',
     description: '日本語の意味を見て、英単語のつづりを入力します。',
+    scope: '発信 (A) の単語だけ出題されます',
   },
   {
     key: 'voice',
@@ -52,6 +56,7 @@ export function QuizModeChooser({
   warning,
   hiddenModes,
   currentLabel = 'いま',
+  wordCounts,
 }: {
   current?: QuizMode;
   onSelect: (mode: QuizMode) => void;
@@ -69,6 +74,11 @@ export function QuizModeChooser({
   hiddenModes?: readonly QuizMode[];
   /** `current` に付ける印の文言。始める前は前回の選択なので「いま」ではない。 */
   currentLabel?: string;
+  /**
+   * 解き方ごとに出題できる語数。渡すと札に出す。
+   * 選んでから「1問も無い」と気づく空振りを、選ぶ前に潰すため。
+   */
+  wordCounts?: Partial<Record<QuizMode, number>>;
 }) {
   const modes = hiddenModes?.length
     ? MODES.filter((mode) => !hiddenModes.includes(mode.key))
@@ -91,6 +101,7 @@ export function QuizModeChooser({
       <div className="mt-5 space-y-3">
         {modes.map((mode) => {
           const isCurrent = current === mode.key;
+          const count = wordCounts?.[mode.key];
           return (
             <button
               key={mode.key}
@@ -125,6 +136,17 @@ export function QuizModeChooser({
                 <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)]">
                   {mode.description}
                 </span>
+                {mode.scope && (
+                  <span
+                    className={cn(
+                      'mt-1 block text-[11px] font-bold leading-4',
+                      count === 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-accent)]',
+                    )}
+                  >
+                    {mode.scope}
+                    {count !== undefined && (count === 0 ? '（0語）' : `（${count}語）`)}
+                  </span>
+                )}
               </span>
             </button>
           );
