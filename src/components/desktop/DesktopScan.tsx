@@ -108,6 +108,8 @@ export function DesktopScanView({
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
+  // 例文生成。語源解析と同じく既定オフ。
+  const [examplesOn, setExamplesOn] = useState(false);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',
@@ -152,6 +154,7 @@ export function DesktopScanView({
     imageCount: 1,
     totalRemaining: coinBalance.totalRemaining,
     includeMorphology: morphologyOn,
+    includeExamples: examplesOn,
   });
 
   const toggleOption = (key: ScanOptionKey) => {
@@ -207,6 +210,7 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
+          includeExamples: examplesOn,
           ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
           ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
           targetProjectId: destinationProjectId || undefined,
@@ -260,6 +264,7 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
+          includeExamples: examplesOn,
           ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
           ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
         }),
@@ -328,6 +333,7 @@ export function DesktopScanView({
         imageCount: files.length,
         totalRemaining: coinBalance.totalRemaining,
         includeMorphology: morphologyOn,
+        includeExamples: examplesOn,
       });
       if (actual.insufficient) {
         setInsufficientCoinInfo(
@@ -694,6 +700,29 @@ export function DesktopScanView({
               </div>
               <span className="mradio">
                 {morphologyOn && <Icon name="check" style={{ fontSize: 15 }} />}
+              </span>
+            </button>
+
+            {/* 例文生成トグル（+2コイン） */}
+            <button
+              type="button"
+              className={'ds-method' + (examplesOn ? ' sel' : '')}
+              onClick={() => setExamplesOn((prev) => !prev)}
+              aria-pressed={examplesOn}
+              style={{ marginTop: 10, width: '100%' }}
+            >
+              <div className="mic" style={{ background: examplesOn ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)' }}>
+                <Icon name="auto_awesome" style={{ color: examplesOn ? 'var(--color-accent-ink)' : 'var(--color-ink)' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="mt">
+                  例文生成
+                  <span className="ds-tag accent">+2コイン</span>
+                </div>
+                <div className="md">単語ごとに例文と訳を生成（古典語は古文の例文）</div>
+              </div>
+              <span className="mradio">
+                {examplesOn && <Icon name="check" style={{ fontSize: 15 }} />}
               </span>
             </button>
 

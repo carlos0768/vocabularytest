@@ -461,52 +461,55 @@ export function WordDetailView({
           )}
         </section>
 
-        <SectionDivider />
+        {/* 例文が無ければセクションごと出さない（区切り線も含めて）。例文生成は
+            オプトインなので、持たない単語のほうが多い。ただし編集中は例文を手で
+            足す唯一の入口なので、空でも入力欄を出す。 */}
+        {(isEditing || word.exampleSentence) && (
+          <>
+            <SectionDivider />
 
-        <section className="py-4">
-          <div className="mb-3 flex items-center justify-between">
-            <SectionHeading title="EXAMPLE" />
-            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">例文</span>
-          </div>
-          {isEditing ? (
-            <div className="space-y-2.5">
-              <textarea
-                value={editExampleSentence}
-                onChange={(e) => setEditExampleSentence(e.target.value)}
-                placeholder="例文（英語）を入力..."
-                rows={2}
-                className="w-full resize-none rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-[14px] leading-relaxed text-[var(--solid-ink)] outline-none"
-              />
-              <textarea
-                value={editExampleSentenceJa}
-                onChange={(e) => setEditExampleSentenceJa(e.target.value)}
-                placeholder="例文の日本語訳を入力..."
-                rows={2}
-                className="w-full resize-none rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[13px] leading-relaxed text-[var(--color-muted)] outline-none"
-              />
-            </div>
-          ) : word.exampleSentence ? (
-            <div>
-              <div className="flex items-start gap-3">
-                <p className="min-w-0 flex-1 text-[15px] font-medium leading-[1.6] text-[var(--solid-ink)]">
-                  {highlightWord(word.exampleSentence, word.english)}
-                </p>
-                <button onClick={() => {
-                  speakEnglish(word.exampleSentence, { rate: 0.85 });
-                }} className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink-muted)]" aria-label="例文を再生">
-                  <Icon name="volume_up" size={16} />
-                </button>
+            <section className="py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <SectionHeading title="EXAMPLE" />
+                <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">例文</span>
               </div>
-              {word.exampleSentenceJa && (
-                <p className="mt-3 text-[13px] leading-[1.55] text-[var(--color-ink-muted)]">{word.exampleSentenceJa}</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-[13px] font-medium text-[var(--color-muted)]">
-              例文はまだ生成されていません
-            </p>
-          )}
-        </section>
+              {isEditing ? (
+                <div className="space-y-2.5">
+                  <textarea
+                    value={editExampleSentence}
+                    onChange={(e) => setEditExampleSentence(e.target.value)}
+                    placeholder="例文（英語）を入力..."
+                    rows={2}
+                    className="w-full resize-none rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-[14px] leading-relaxed text-[var(--solid-ink)] outline-none"
+                  />
+                  <textarea
+                    value={editExampleSentenceJa}
+                    onChange={(e) => setEditExampleSentenceJa(e.target.value)}
+                    placeholder="例文の日本語訳を入力..."
+                    rows={2}
+                    className="w-full resize-none rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[13px] leading-relaxed text-[var(--color-muted)] outline-none"
+                  />
+                </div>
+              ) : word.exampleSentence ? (
+                <div>
+                  <div className="flex items-start gap-3">
+                    <p className="min-w-0 flex-1 text-[15px] font-medium leading-[1.6] text-[var(--solid-ink)]">
+                      {highlightWord(word.exampleSentence, word.english)}
+                    </p>
+                    <button onClick={() => {
+                      speakEnglish(word.exampleSentence, { rate: 0.85 });
+                    }} className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink-muted)]" aria-label="例文を再生">
+                      <Icon name="volume_up" size={16} />
+                    </button>
+                  </div>
+                  {word.exampleSentenceJa && (
+                    <p className="mt-3 text-[13px] leading-[1.55] text-[var(--color-ink-muted)]">{word.exampleSentenceJa}</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          </>
+        )}
 
         {hasDisplayableMorphology(morphology) && (
           <>

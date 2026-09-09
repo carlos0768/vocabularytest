@@ -66,6 +66,7 @@ export async function consumeScanGate(
     imageCount: number;
     scanJobId?: string | null;
     includeMorphology?: boolean;
+    includeExamples?: boolean;
   },
 ): Promise<ScanGateOutcome> {
   const imageCount = Math.max(1, Math.floor(options.imageCount || 1));
@@ -78,9 +79,10 @@ export async function consumeScanGate(
     p_modes: options.modes,
     p_image_count: imageCount,
     p_scan_job_id: options.scanJobId ?? null,
-    // 語源解析・派生語オフ時は従来と同一のRPC呼び出しを維持する
-    // （p_include_morphology 未対応のDBでも壊れないように）。
+    // オプションがオフのときは従来と同一のRPC呼び出しを維持する
+    // （p_include_morphology / p_include_examples 未対応のDBでも壊れないように）。
     ...(options.includeMorphology ? { p_include_morphology: true } : {}),
+    ...(options.includeExamples ? { p_include_examples: true } : {}),
   });
 
   if (error || !data) {

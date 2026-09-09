@@ -45,6 +45,8 @@ interface ScanJobRow {
   eiken_level: string | null;
   project_title: string;
   project_icon_image: string | null;
+  /** 例文生成（+2コイン）。列が無い/未指定なら既定オフ。 */
+  include_examples?: boolean;
 }
 
 interface ProjectRow {
@@ -68,7 +70,7 @@ interface InsertedWordRow {
 type QueryError = { message: string; code?: string; details?: string; hint?: string };
 type QueryResult<T = unknown> = { data: T | null; error: QueryError | null };
 
-function pendingClientLocalJob(): ScanJobRow {
+function pendingClientLocalJob(overrides: Partial<ScanJobRow> = {}): ScanJobRow {
   return {
     id: JOB_ID,
     status: 'pending',
@@ -81,6 +83,7 @@ function pendingClientLocalJob(): ScanJobRow {
     eiken_level: null,
     project_title: 'Scan Result',
     project_icon_image: null,
+    ...overrides,
   };
 }
 
@@ -562,7 +565,8 @@ test('processJobById returns 404 when a valid job id has no row', async () => {
 
 test('client_local completion keeps result payload successful when example generation fails', async () => {
   const client = new FakeScanProcessClient({
-    claimedJob: pendingClientLocalJob(),
+    // 例文生成そのものの失敗ハンドリングを見るテストなのでオンにする
+    claimedJob: pendingClientLocalJob({ include_examples: true }),
     userPreference: { ai_enabled: false },
   });
   const pushNotifications: unknown[] = [];
@@ -635,6 +639,37 @@ test('client_local completion keeps result payload successful when example gener
     },
   ]);
   assert.deepEqual(apnsNotifications, pushNotifications);
+});
+
+test('client_local generates no examples when include_examples is off (default)', async () => {
+  // ai_enabled:false = クイズprefillが走らない条件。この経路でも例文生成が
+  // 呼ばれないことを確認する（既定OFFの本体）。
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingClientLocalJob(),
+    userPreference: { ai_enabled: false },
+  });
+  let generateExamplesCalled = false;
+
+  const response = await processJobById(
+    JOB_ID,
+    createContractDeps(client, {
+      generateExamples: async () => {
+        generateExamplesCalled = true;
+        throw new Error('should not be called');
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(generateExamplesCalled, false);
+
+  const completedUpdate = findScanJobUpdate(client, 'completed');
+  assert.ok(isRecord(completedUpdate.payload));
+  const resultPayload = JSON.parse(String(completedUpdate.payload.result));
+  // 生成を試みてすらいないので、サマリも警告も出ない
+  assert.equal(resultPayload.exampleGeneration, undefined);
+  assert.deepEqual(resultPayload.warnings ?? [], []);
+  assert.equal(resultPayload.extractedWords[0].exampleSentence, undefined);
 });
 
 test('processJobById uses scanModesOverride when scan_modes is not available on the job row', async () => {

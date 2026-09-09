@@ -21,6 +21,10 @@ export const EXTRA_IMAGE_COIN_COST = 1;
 // SQL側は 20260712101000_morphology_coin_cost.sql の scan_coin_cost()。
 export const MORPHOLOGY_COIN_COST = 2;
 
+// 例文生成オプションのサーチャージ。語源解析と同額。
+// SQL側は 20260912120000_example_generation_coin_cost.sql の scan_coin_cost()。
+export const EXAMPLE_COIN_COST = 2;
+
 // 手動追加時の語源解析コスト（1語あたり）。スキャンと違いモードがないため
 // 定額。SQL側は 20260713120000_manual_morphology_coin_cost.sql の
 // consume_manual_morphology_coins()。両者のリテラル一致は rates.test.ts で担保。
@@ -30,10 +34,12 @@ export const MONTHLY_COIN_ALLOWANCE = 300;
 
 export interface ScanCoinCostOptions {
   includeMorphology?: boolean;
+  includeExamples?: boolean;
 }
 
 // 複数モードは重複排除して合算、2枚目以降の画像は+1/枚。
 // 語源解析オプションが有効なら +MORPHOLOGY_COIN_COST。
+// 例文生成オプションが有効なら +EXAMPLE_COIN_COST。
 export function computeScanCoinCost(
   modes: ExtractMode[],
   imageCount: number,
@@ -54,9 +60,11 @@ export function computeScanCoinCost(
     return sum + rate;
   }, 0);
   const morphologyCost = options.includeMorphology ? MORPHOLOGY_COIN_COST : 0;
+  const exampleCost = options.includeExamples ? EXAMPLE_COIN_COST : 0;
   return (
     modeCost
     + (Math.floor(imageCount) - 1) * EXTRA_IMAGE_COIN_COST
     + morphologyCost
+    + exampleCost
   );
 }
