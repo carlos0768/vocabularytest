@@ -227,8 +227,8 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
               )}
             </div>
 
-            {/* Example sentence */}
-            {currentWord.exampleSentence ? (
+            {/* Example sentence — 無ければ枠ごと出さない（例文生成はオプトイン） */}
+            {currentWord.exampleSentence && (
               <div className="rounded-xl bg-white/10 p-3.5">
                 <p className="text-[10px] font-bold uppercase tracking-[1.5px] text-white/50 mb-2">
                   例文
@@ -242,10 +242,6 @@ export function InlineFlashcard({ words }: InlineFlashcardProps) {
                     {currentWord.exampleSentenceJa}
                   </p>
                 )}
-              </div>
-            ) : (
-              <div className="rounded-xl bg-white/10 p-3.5 text-center">
-                <p className="text-xs text-white/60">例文はまだありません</p>
               </div>
             )}
 
