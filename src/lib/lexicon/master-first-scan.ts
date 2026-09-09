@@ -1,3 +1,4 @@
+import { isClassicalWord } from '@/lib/classical/is-classical';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import type { AIWordExtraction, LexiconEntry } from '@/types';
@@ -380,7 +381,11 @@ export async function resolveImmediateWordsWithMasterFirst<T extends ImmediateWo
       japaneseSource: japanese ? normalizeJapaneseSource(word.japaneseSource) : undefined,
       partOfSpeechTags,
       pos,
-      key: english ? buildLexiconKey(english, pos) : null,
+      // 古典語は key を立てない。key が null の語はこの関数のすべての段
+      // （マスター参照・見出し語フォールバック・AI訳生成）から外れる。
+      // これを外すと、古典語の見出し語が英日翻訳AIに投げ込まれ、さらに
+      // 日本語をキーにした lexicon_entries 行が量産される。
+      key: english && !isClassicalWord(word) ? buildLexiconKey(english, pos) : null,
     };
   });
 

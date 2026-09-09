@@ -30,7 +30,7 @@ import {
   RESOLVED_WORD_DISPLAY_SELECT_COLUMNS,
   RESOLVED_WORD_EXAMPLE_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS,
-  withDerivedWordsColumnFallback,
+  withMissingWordColumnFallback,
   RESOLVED_WORD_SELECT_COLUMNS_BASIC,
   RESOLVED_WORD_MINIMAL_SELECT_COLUMNS,
   RESOLVED_WORD_SELECT_COLUMNS_WITHOUT_SENSES,
@@ -118,6 +118,7 @@ type WordsCreateRequestWord = {
   customSections?: Word['customSections'];
   morphology?: Word['morphology'];
   derivedWords?: Word['derivedWords'];
+  classicalEntryId?: string;
   status: Word['status'];
   createdAt: string;
   lastReviewedAt?: string;
@@ -388,6 +389,7 @@ export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord 
     customSections: normalizeWordsCreateCustomSections(word.customSections),
     morphology: normalizeWordsCreateMorphology(word.morphology),
     derivedWords: normalizeWordsCreateDerivedWords(word.derivedWords),
+    ...(word.classicalEntryId ? { classicalEntryId: word.classicalEntryId } : {}),
     status: word.status,
     createdAt: word.createdAt,
     lastReviewedAt: word.lastReviewedAt,
@@ -438,7 +440,7 @@ export class RemoteWordRepository implements WordRepository {
     // それを「リレーション不足」と誤認して一気に minimal まで劣化させると
     // 語源解析やカスタムセクションまで巻き添えで消える。段ごとに
     // 「derived_words だけ外して再試行」を挟んで劣化を1列分に留める。
-    const buildQuery = (cols: string) => withDerivedWordsColumnFallback(rawBuildQuery, cols);
+    const buildQuery = (cols: string) => withMissingWordColumnFallback(rawBuildQuery, cols);
 
     const primary = await buildQuery(columns.primary);
     if (!shouldRetryWordSelectWithoutRelations(primary.error)) {

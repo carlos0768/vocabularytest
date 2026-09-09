@@ -189,6 +189,7 @@ export interface WordRow {
   word_order_quiz?: unknown | null;
   morphology?: unknown | null;
   derived_words?: unknown | null;
+  classical_entry_id?: string | null;
   status?: string | null;
   created_at: string;
   last_reviewed_at?: string | null;
@@ -672,6 +673,9 @@ export function mapWordFromRow(row: WordRow): Word {
     wordOrderQuiz: normalizeWordOrderQuizCache(row.word_order_quiz),
     morphology: normalizeWordMorphologyValue(row.morphology),
     derivedWords: normalizeWordDerivedWordsValue(row.derived_words),
+    classicalEntryId: row.classical_entry_id ?? undefined,
+    // words に is_classical 列は無い。辞書へのリンクの有無がそのまま印になる
+    ...(row.classical_entry_id ? { isClassical: true } : {}),
     status: (row.status as Word['status']) ?? 'new',
     createdAt: row.created_at,
     lastReviewedAt: row.last_reviewed_at ?? undefined,
@@ -711,6 +715,7 @@ export function mapWordToInsert(word: WordInput): {
   word_order_quiz?: WordOrderQuizCache;
   morphology?: WordMorphology;
   derived_words?: WordDerivedWords;
+  classical_entry_id?: string;
   status: string;
   ease_factor: number;
   interval_days: number;
@@ -739,6 +744,7 @@ export function mapWordToInsert(word: WordInput): {
     word_order_quiz: word.wordOrderQuiz,
     morphology: word.morphology,
     derived_words: word.derivedWords,
+    ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
     status: 'new',
     ease_factor: defaultSR.easeFactor,
     interval_days: defaultSR.intervalDays,
@@ -769,6 +775,7 @@ export function mapWordToInsertWithId(word: Word): {
   word_order_quiz?: WordOrderQuizCache;
   morphology?: WordMorphology;
   derived_words?: WordDerivedWords;
+  classical_entry_id?: string;
   status: string;
   created_at: string;
   last_reviewed_at?: string;
@@ -800,6 +807,7 @@ export function mapWordToInsertWithId(word: Word): {
     word_order_quiz: word.wordOrderQuiz,
     morphology: word.morphology,
     derived_words: word.derivedWords,
+    ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
     status: word.status,
     created_at: word.createdAt,
     last_reviewed_at: word.lastReviewedAt,
@@ -834,6 +842,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.wordOrderQuiz !== undefined) updateData.word_order_quiz = updates.wordOrderQuiz;
   if (updates.morphology !== undefined) updateData.morphology = updates.morphology;
   if (updates.derivedWords !== undefined) updateData.derived_words = updates.derivedWords;
+  if (updates.classicalEntryId !== undefined) updateData.classical_entry_id = updates.classicalEntryId;
 
   // Spaced repetition fields
   if (updates.lastReviewedAt !== undefined) updateData.last_reviewed_at = updates.lastReviewedAt;

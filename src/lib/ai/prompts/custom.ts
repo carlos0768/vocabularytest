@@ -1,6 +1,7 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET, SOURCE_LABEL_RULES } from './source-labels';
 import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES, POLYSEMOUS_HEADWORD_MERGE_RULES } from './japanese-format';
 import { LEMMA_NORMALIZATION_RULES } from './lemma';
+import { CLASSICAL_JAPANESE_EXTRACTION_RULES } from './classical';
 
 // ============ Custom (user-authored) Extraction Prompts ============
 //
@@ -52,6 +53,7 @@ ${JAPANESE_PARENTHESIS_RULES}
 ${JAPANESE_TRANSLATION_STRUCTURE_RULES}
 ${POLYSEMOUS_HEADWORD_MERGE_RULES}
 ${LEMMA_NORMALIZATION_RULES}
+${CLASSICAL_JAPANESE_EXTRACTION_RULES}
 ${SOURCE_LABEL_RULES}
 
 3. イディオム・句動詞は複数語でも1つのエントリとして抽出し、個々の単語に分解しないでください（例: "look forward to" は1件）。

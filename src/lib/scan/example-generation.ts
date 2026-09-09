@@ -1,8 +1,12 @@
+import { isClassicalWord } from '@/lib/classical/is-classical';
 import type { ExampleSeedWord, GeneratedExample } from '@/lib/ai/generate-example-sentences';
 
 export interface ClientLocalExampleWord {
   english: string;
   japanese: string;
+  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  classicalEntryId?: string | null;
+  isClassical?: boolean | null;
   partOfSpeechTags?: string[];
   exampleSentence?: string;
   exampleSentenceJa?: string;
@@ -13,6 +17,8 @@ export interface ServerCloudExampleCandidateWord {
   english: string;
   japanese: string;
   example_sentence?: string | null;
+  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  classical_entry_id?: string | null;
 }
 
 export interface ServerCloudExampleUpdatePayload {
@@ -27,7 +33,8 @@ export function buildClientLocalExampleSeedWords(
   const seedWords: ExampleSeedWord[] = [];
 
   for (const word of words) {
-    if (word.exampleSentence) {
+    // 古典語は英語例文の生成対象外
+    if (word.exampleSentence || isClassicalWord(word)) {
       continue;
     }
 
@@ -78,6 +85,7 @@ export function buildServerCloudExampleSeedWords(
   words: readonly ServerCloudExampleCandidateWord[],
 ): ExampleSeedWord[] {
   return words
+    .filter((word) => !isClassicalWord(word))
     .filter((word) => !word.example_sentence || word.example_sentence.trim().length === 0)
     .map((word) => ({
       id: word.id,

@@ -99,6 +99,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       custom_sections: [],
       morphology: null,
       derived_words: null,
+      classical_entry_id: null,
       vocabulary_type: 'passive',
     },
     {
@@ -117,6 +118,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       custom_sections: [],
       morphology: null,
       derived_words: null,
+      classical_entry_id: null,
       vocabulary_type: 'passive',
     },
   ]);
@@ -241,6 +243,7 @@ test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_mode
       custom_sections: [],
       morphology: null,
       derived_words: null,
+      classical_entry_id: null,
       vocabulary_type: 'passive',
     },
   ]);

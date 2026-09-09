@@ -15,6 +15,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isClassicalWord } from '@/lib/classical/is-classical';
 import { normalizeHeadword } from '../../../shared/lexicon';
 import type { WordDerivedWords } from '../../../shared/types';
 import { buildNoneDerivedWords } from '@/lib/schemas/derived-words';
@@ -50,6 +51,10 @@ export async function resolveDerivedWordsForWords(
 
   const headwordToEnglish = new Map<string, string>();
   for (const word of words) {
+    // 古典語を通すと resolveDerivedWordsEligibility が必ず ineligible を返し、
+    // saveDerivedWordsToLexicon が1語ずつ直列に0行UPDATEを打つ。
+    // データは汚れないが、40語の古文ページでスキャン内に40往復が積み上がる。
+    if (isClassicalWord(word)) continue;
     const headword = normalizeHeadword(word.english);
     if (headword && !headwordToEnglish.has(headword)) {
       headwordToEnglish.set(headword, word.english);
