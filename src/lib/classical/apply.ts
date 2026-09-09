@@ -16,6 +16,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { normalizeWordTranslationPayload } from '../../../shared/word-translations';
 import { isClassicalWord } from './is-classical';
+import {
+  preferEnglishOverClassical,
+  stripEnglishExamplesFromClassicalWords,
+} from './purity';
 import { resolveClassicalEntries, type ClassicalWordInput } from './resolve';
 
 export interface ClassicalApplicableWord {
@@ -26,6 +30,9 @@ export interface ClassicalApplicableWord {
   classicalPos?: string;
   classicalEntryId?: string;
   translations?: unknown;
+  /** 英語例文の混入を落とすために読む。古典語以外では触らない。 */
+  exampleSentence?: string | null;
+  exampleSentenceJa?: string | null;
 }
 
 export interface ApplyClassicalDictionaryResult<T> {
@@ -34,19 +41,32 @@ export interface ApplyClassicalDictionaryResult<T> {
   resolvedCount: number;
   /** 画像に古典語が1語も無ければ 0。この場合DBには一切触れていない。 */
   classicalCount: number;
+  /** 英語優先で捨てた古典語の数。ログ用。 */
+  droppedClassicalCount: number;
+  /** 英語例文の混入を落とした古典語の数。ログ用。 */
+  strippedExampleCount: number;
 }
 
 /**
- * 古典語を共通辞書へ解決し、語義を流用した単語配列を返す。
+ * 古典語の純度ルールを当てたうえで共通辞書へ解決し、語義を流用した単語配列を返す。
+ *
+ * 3つをまとめて行う。呼び出し側が1つだけ忘れる事故を防ぐため、意図的に1関数にしてある:
+ *   1. 英語と古典語が両方採れていたら英語を優先し、古典語を捨てる
+ *   2. 残った古典語を共通辞書に解決し、保存済みのヒント（訳）を流用する
+ *   3. 古典語に混入した英語例文を落とす
  *
  * 古典語が1語も無ければDBに触らずそのまま返すので、英単語だけのスキャンには
  * 一切コストが乗らない。辞書側の失敗はすべて握りつぶし、画像由来の語義のまま
  * 進める（スキャンを止めない）。
  */
 export async function applyClassicalDictionary<T extends ClassicalApplicableWord>(
-  words: readonly T[],
+  input: readonly T[],
   deps?: { supabaseAdmin?: SupabaseClient },
 ): Promise<ApplyClassicalDictionaryResult<T>> {
+  // 1. 英語優先。捨てる語を先に落としてから辞書を引くので、
+  //    捨てる予定の古典語で共通辞書を書き足してしまうことがない。
+  const { words, droppedClassicalCount } = preferEnglishOverClassical(input);
+
   const classicalIndexes: number[] = [];
   const inputs: ClassicalWordInput[] = [];
 
@@ -63,7 +83,13 @@ export async function applyClassicalDictionary<T extends ClassicalApplicableWord
 
   if (inputs.length === 0) {
     // 古典語が1語も無ければ admin クライアントすら作らない
-    return { words: [...words], resolvedCount: 0, classicalCount: 0 };
+    return {
+      words: [...words],
+      resolvedCount: 0,
+      classicalCount: 0,
+      droppedClassicalCount,
+      strippedExampleCount: 0,
+    };
   }
 
   let resolutions: Map<number, { entryId: string; translations: string[] }>;
@@ -74,7 +100,14 @@ export async function applyClassicalDictionary<T extends ClassicalApplicableWord
       '[classical] Dictionary resolution failed, keeping image translations:',
       error instanceof Error ? error.message : error,
     );
-    return { words: [...words], resolvedCount: 0, classicalCount: inputs.length };
+    const fallback = stripEnglishExamplesFromClassicalWords(words);
+    return {
+      words: fallback.words,
+      resolvedCount: 0,
+      classicalCount: inputs.length,
+      droppedClassicalCount,
+      strippedExampleCount: fallback.strippedCount,
+    };
   }
 
   const next = [...words];
@@ -103,7 +136,17 @@ export async function applyClassicalDictionary<T extends ClassicalApplicableWord
     };
   });
 
-  return { words: next, resolvedCount, classicalCount: inputs.length };
+  // 3. 古典語に混入した英語例文を落とす。マスター(lexicon_entries)由来の例文が
+  //    prefill されて英文が付く経路が残っているので、保存前にここで断つ。
+  const sanitized = stripEnglishExamplesFromClassicalWords(next);
+
+  return {
+    words: sanitized.words,
+    resolvedCount,
+    classicalCount: inputs.length,
+    droppedClassicalCount,
+    strippedExampleCount: sanitized.strippedCount,
+  };
 }
 
 /** 正規化済み translations（オブジェクト配列）と生の文字列配列の両方を受ける。 */

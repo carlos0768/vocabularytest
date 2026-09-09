@@ -891,6 +891,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
     title: 'Scan Result',
     source_labels: ['鉄壁'],
     icon_image: null,
+    kind: 'english',
   });
 
   const wordsInsert = findOperation(
@@ -1359,6 +1360,8 @@ test('server_cloud existing project words insert failure does not delete the pro
   ), false);
   assert.deepEqual(trace.filter((event) => [
     'db:projects.select',
+    // 保存先の単語帳の種別を読むための追加select
+    'db:projects.select',
     'db:projects.update',
     'db:words.insert',
     'db:scan_jobs.failed',
@@ -1366,6 +1369,8 @@ test('server_cloud existing project words insert failure does not delete the pro
     'apns:failed',
     'timing:failed',
   ].includes(event)), [
+    'db:projects.select',
+    // 保存先の単語帳の種別を読むための追加select
     'db:projects.select',
     'db:projects.update',
     'db:words.insert',

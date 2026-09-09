@@ -19,7 +19,9 @@ import {
   isWordOrderEligible,
   normalizeWordOrderQuizCache,
 } from '@/lib/quiz/word-order';
-import type { AIWordExtraction, LexiconEntry, Word, WordOrderQuizCache } from '@/types';
+import type { AIWordExtraction, LexiconEntry, ProjectKind, Word, WordOrderQuizCache } from '@/types';
+import { normalizeProjectKind } from '@/types';
+import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/classical/purity';
 import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphology/format';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 
@@ -287,6 +289,8 @@ export default function ConfirmPage() {
       const repository = getRepository(subscriptionStatus);
       const userId = user ? user.id : getGuestUserId();
       let targetProjectId: string;
+      // 保存先の単語帳の種別。既存単語帳なら実物から読み、新規なら抽出結果から決める。
+      let targetKind: ProjectKind;
 
       if (isAddingToExisting && existingProjectId) {
         const existingProject = await repository.getProject(existingProjectId);
@@ -294,13 +298,26 @@ export default function ConfirmPage() {
         const mergedSourceLabels = mergeSourceLabels(existingProject.sourceLabels, initialData.sourceLabels);
         if (mergedSourceLabels.length !== existingProject.sourceLabels.length) await repository.updateProject(existingProjectId, { sourceLabels: mergedSourceLabels });
         targetProjectId = existingProjectId;
+        targetKind = normalizeProjectKind(existingProject.kind);
       } else {
-        const project = await repository.createProject({ userId, title: projectTitle.trim(), sourceLabels: initialData.sourceLabels, iconImage: initialData.projectIcon ?? undefined });
+        // 新規作成時は抽出結果に合わせる。古典語だけが採れたなら古典単語帳になる。
+        targetKind = inferProjectKindFromWords(selectedWords);
+        const project = await repository.createProject({ userId, title: projectTitle.trim(), sourceLabels: initialData.sourceLabels, iconImage: initialData.projectIcon ?? undefined, kind: targetKind });
         targetProjectId = project.id;
       }
 
+      // 種別に合わない語は落とす。エラーにはせず、落ちた件数だけ後で知らせる。
+      const kindFiltered = filterWordsForProjectKind(selectedWords, targetKind);
+      if (kindFiltered.words.length === 0) {
+        throw new Error(
+          targetKind === 'classical'
+            ? 'この単語帳は古典専用です。保存できる古典語がありませんでした。'
+            : 'この単語帳は英語専用です。保存できる英単語がありませんでした。',
+        );
+      }
+
       await persistLexiconEntries(initialData.lexiconEntries);
-      const createdWords = await repository.createWords(selectedWords.map((w) => ({
+      const createdWords = await repository.createWords(kindFiltered.words.map((w) => ({
         projectId: targetProjectId, english: w.english, japanese: w.japanese, rawJapanese: w.rawJapanese, japaneseSource: w.japaneseSource,
         translations: w.translations, customSections: w.customSections,
         lexiconEntryId: w.lexiconEntryId, lexiconSenseId: w.lexiconSenseId, cefrLevel: w.cefrLevel, distractors: w.distractors,
@@ -313,6 +330,16 @@ export default function ConfirmPage() {
 
       ['scanvocab_extracted_words','scanvocab_source_labels','scanvocab_lexicon_entries','scanvocab_project_name','scanvocab_project_icon','scanvocab_existing_project_id','scanvocab_ai_enabled'].forEach(k => sessionStorage.removeItem(k));
 
+      if (kindFiltered.droppedCount > 0) {
+        showToast({
+          message: targetKind === 'classical'
+            ? `古典専用の単語帳のため、英単語 ${kindFiltered.droppedCount} 件は保存しませんでした`
+            : `英語専用の単語帳のため、古典語 ${kindFiltered.droppedCount} 件は保存しませんでした`,
+          type: 'info',
+          duration: 4000,
+        });
+      }
+
       // Onboarding: signed_up → first_scan_done on first successful save.
       if (onboardingStep === 'signed_up') {
         await setOnboardingStep('first_scan_done');
@@ -324,7 +351,7 @@ export default function ConfirmPage() {
       if (!isPro && currentWordCount < 80 && newTotal >= 80) {
         showToast({ message: `80語達成! あと${FREE_WORD_LIMIT - newTotal}語で上限です`, type: 'success', action: { label: 'Pro詳細', onClick: () => router.push('/subscription') }, duration: 4000 });
       }
-      if (isAddingToExisting) showToast({ message: `${selectedWords.length}語を追加しました`, type: 'success' });
+      if (isAddingToExisting) showToast({ message: `${kindFiltered.words.length}語を追加しました`, type: 'success' });
 
       invalidateHomeCache();
       if (isAddingToExisting && existingProjectId) router.push(`/project/${existingProjectId}`);

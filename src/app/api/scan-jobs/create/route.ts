@@ -1,6 +1,7 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { PROJECT_KINDS } from '@/types';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
@@ -60,6 +61,8 @@ const requestSchema = z.object({
   imagePath: z.string().trim().min(1).max(500).optional(),
   imagePaths: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
   aiEnabled: z.boolean().nullable().optional(),
+  // 新規単語帳の種別。既存単語帳への追記時は使わない（保存先の種別を読む）。
+  projectKind: z.enum(PROJECT_KINDS).optional().default('english'),
   includeMorphology: z.boolean().optional().default(false),
   // カスタム抽出モード: 保存済みモードのID（優先）か、その場限りの指示文
   customModeId: z.string().uuid().nullable().optional(),
@@ -114,6 +117,7 @@ export async function POST(request: NextRequest) {
       imagePath,
       imagePaths: multiplePaths,
       includeMorphology,
+      projectKind,
       customModeId,
       customPrompt,
       targetProjectId,
@@ -226,6 +230,7 @@ export async function POST(request: NextRequest) {
         scan_modes: scanModes,
         eiken_level: eikenLevel,
         include_morphology: includeMorphology,
+        project_kind: projectKind,
         custom_prompt: resolvedCustomPrompt.prompt,
         custom_scan_mode_id: scanModes.includes('custom') ? customModeId ?? null : null,
         image_path: imagePaths[0], // Primary image (backward compat)

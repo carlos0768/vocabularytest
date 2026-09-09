@@ -1,6 +1,7 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
-import type { CustomSection, VocabularyType, WordMorphology } from '@/types';
+import type { CustomSection, ProjectKind, VocabularyType, WordMorphology } from '@/types';
+import { normalizeProjectKind } from '../../../shared/types';
 import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
 
 export interface ServerCloudProjectInsertParams {
@@ -8,6 +9,8 @@ export interface ServerCloudProjectInsertParams {
   projectTitle: string;
   sourceLabels: string[];
   projectIconImage?: string | null;
+  /** 単語帳の種別。未指定は 'english'。 */
+  kind?: ProjectKind;
 }
 
 export interface ServerCloudProjectInsertPayload {
@@ -16,6 +19,7 @@ export interface ServerCloudProjectInsertPayload {
   title: string;
   source_labels: string[];
   icon_image: string | null;
+  kind: ProjectKind;
 }
 
 export interface ServerCloudWordForInsert {
@@ -101,6 +105,7 @@ export function buildServerCloudProjectInsertPayload(
     title: params.projectTitle,
     source_labels: params.sourceLabels,
     icon_image: params.projectIconImage ?? null,
+    kind: normalizeProjectKind(params.kind),
   };
 }
 

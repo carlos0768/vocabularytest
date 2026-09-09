@@ -2,6 +2,7 @@
 // Converts between Supabase snake_case and TypeScript camelCase
 
 import type {
+  ProjectKind,
   Project,
   Word,
   CustomSection,
@@ -17,6 +18,7 @@ import type {
   WordMorphology,
   WordMorphologyPart,
 } from '../types';
+import { normalizeProjectKind } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
 import { normalizeSharedTags } from '../shared-tags';
 import {
@@ -56,6 +58,7 @@ export interface ProjectRow {
   imported_from_official_slug?: string | null;
   is_favorite?: boolean | null;
   binder?: string | null;
+  kind?: string | null;
 }
 
 export function mapProjectFromRow(row: ProjectRow): Project {
@@ -78,6 +81,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
       : undefined,
     isFavorite: row.is_favorite ?? false,
     binder: row.binder?.trim() ? row.binder.trim() : null,
+    kind: normalizeProjectKind(row.kind),
   };
 }
 
@@ -90,6 +94,7 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
   description?: string;
   imported_from_share_id?: string;
   imported_from_official_slug?: string;
+  kind?: ProjectKind;
 } {
   return {
     user_id: project.userId,
@@ -104,6 +109,8 @@ export function mapProjectToInsert(project: Omit<Project, 'id' | 'createdAt' | '
     ...(project.importedFromOfficialSlug !== undefined && {
       imported_from_official_slug: project.importedFromOfficialSlug,
     }),
+    // 'english' はDB既定値なので送らない。未適用DBでも英語単語帳の作成は落ちない。
+    ...(normalizeProjectKind(project.kind) === 'classical' && { kind: 'classical' as const }),
   };
 }
 
@@ -121,6 +128,7 @@ export function mapProjectToInsertWithId(project: Project): {
   imported_from_share_id?: string;
   imported_from_official_slug?: string;
   is_favorite?: boolean;
+  kind?: ProjectKind;
 } {
   return {
     id: project.id,
@@ -141,6 +149,7 @@ export function mapProjectToInsertWithId(project: Project): {
     }),
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
     ...(project.binder !== undefined && { binder: project.binder?.trim() ? project.binder.trim() : null }),
+    ...(normalizeProjectKind(project.kind) === 'classical' && { kind: 'classical' as const }),
   };
 }
 
@@ -161,6 +170,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
   }
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
   if (updates.binder !== undefined) updateData.binder = updates.binder?.trim() ? updates.binder.trim() : null;
+  if (updates.kind !== undefined) updateData.kind = normalizeProjectKind(updates.kind);
   return updateData;
 }
 

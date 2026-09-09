@@ -21,7 +21,9 @@ import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { chargeManualMorphologyCoins } from '@/lib/coins/manual-morphology-gate';
 import type { CoinInfo } from '@/lib/coins/scan-gate';
 import { normalizeHeadword } from '../../../../../shared/lexicon';
-import type { WordMorphology } from '../../../../../shared/types';
+import type { WordMorphology, WordTranslation } from '../../../../../shared/types';
+import { looksLikeClassicalJapanese } from '@/lib/classical/normalize';
+import { applyClassicalDictionary, type ClassicalApplicableWord } from '@/lib/classical/apply';
 
 /**
  * POST /api/words/enrich-manual
@@ -42,6 +44,14 @@ import type { WordMorphology } from '../../../../../shared/types';
  * あり、生成する価値のない単語（pine のように屈折変化しか持たない語）は
  * AI を呼ばずその場で打ち切る＝コインも消費しない。
  */
+
+/** 共通辞書が返した訳を、クライアントが期待する文字列配列に均す。 */
+function extractClassicalTranslations(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (item as WordTranslation)?.translationJa)
+    .filter((text): text is string => typeof text === 'string' && text.trim().length > 0);
+}
 
 const requestSchema = z.object({
   english: z.string().trim().min(1).max(100),
@@ -85,7 +95,6 @@ exampleSentenceJa: exampleSentenceの日本語訳
 
 const ENRICH_TIMEOUT_MS = 8000;
 const MORPHOLOGY_TIMEOUT_MS = 8000;
-const DERIVED_WORDS_TIMEOUT_MS = 8000;
 
 /**
  * promise を ms でタイムアウトさせ、間に合わなければ fallback を返す。
@@ -166,6 +175,38 @@ export async function POST(request: NextRequest) {
     const needsPronunciation = filledPronunciation.length === 0;
     const needsPos = filledPosTags.length === 0;
     const needsExample = filledExample.length === 0 || filledExampleJa.length === 0;
+
+    // 古典語（古文単語）の手動追加は英語の補完経路に一切入れない。
+    // 英語向けの翻訳AI・発音記号・品詞分類・例文生成はどれも古典語には無意味で、
+    // 通すとゴミを生成したうえでコインまで消費する。共通辞書だけを引いて返す。
+    if (looksLikeClassicalJapanese(englishTrimmed)) {
+      const seed: ClassicalApplicableWord[] = [
+        {
+          english: englishTrimmed,
+          isClassical: true,
+          japanese: filledJapanese,
+          ...(filledJapanese ? { translations: [filledJapanese] } : {}),
+        },
+      ];
+      const resolved = await applyClassicalDictionary(seed);
+      const word = resolved.words[0];
+
+      return NextResponse.json({
+        success: true,
+        isClassical: true,
+        enriched: {
+          japanese: word?.japanese ?? filledJapanese,
+          translations: extractClassicalTranslations(word?.translations),
+          // 発音記号・品詞タグ・英語例文は古典語では扱わない
+          pronunciation: '',
+          partOfSpeechTags: [],
+          exampleSentence: '',
+          exampleSentenceJa: '',
+        },
+        ...(word?.classicalEntryId ? { classicalEntryId: word.classicalEntryId } : {}),
+        generatedFields: resolved.resolvedCount > 0 ? ['classicalTranslations'] : [],
+      });
+    }
 
     if (!needsJapanese && !needsPronunciation && !needsPos && !needsExample) {
       return NextResponse.json({
