@@ -80,6 +80,8 @@ function SignupForm() {
   const [eikenLevel, setEikenLevel] = useState<EikenLevelOption>(null);
   const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
   const [handleChecking, setHandleChecking] = useState(false);
+  const [handleSuggestions, setHandleSuggestions] = useState<string[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   // Auth state
   const [email, setEmail] = useState('');
@@ -92,6 +94,10 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
 
   const checkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Only the newest suggestion request may write state — the name is typed
+  // character by character, so slower earlier responses would otherwise land last.
+  const suggestRequestRef = useRef(0);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -101,7 +107,28 @@ function SignupForm() {
     return () => window.clearTimeout(timer);
   }, [resendCooldown]);
 
-  const checkHandleAvailability = useCallback((handle: string) => {
+  // Candidate IDs come from the server so they are already known to be free —
+  // inventing a `[a-z0-9_]{3,20}` handle from scratch is where signups stall.
+  const loadHandleSuggestions = useCallback(async (params: { name: string; handle?: string }) => {
+    const requestId = suggestRequestRef.current + 1;
+    suggestRequestRef.current = requestId;
+    setSuggestionsLoading(true);
+    try {
+      const query = new URLSearchParams({ name: params.name.trim() });
+      if (params.handle) query.set('handle', params.handle);
+      const res = await fetch(`/api/auth/suggest-handle?${query.toString()}`);
+      const data = await res.json() as { suggestions?: string[] };
+      if (suggestRequestRef.current !== requestId) return;
+      setHandleSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    } catch {
+      if (suggestRequestRef.current !== requestId) return;
+      setHandleSuggestions([]);
+    } finally {
+      if (suggestRequestRef.current === requestId) setSuggestionsLoading(false);
+    }
+  }, []);
+
+  const checkHandleAvailability = useCallback((handle: string, name: string) => {
     if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
     if (!/^[a-z0-9_]{3,20}$/.test(handle)) {
       setHandleAvailable(null);
@@ -112,21 +139,46 @@ function SignupForm() {
       try {
         const res = await fetch(`/api/auth/check-handle?handle=${encodeURIComponent(handle)}`);
         const data = await res.json() as { available?: boolean };
-        setHandleAvailable(data.available ?? false);
+        const available = data.available ?? false;
+        setHandleAvailable(available);
+        // A taken ID is exactly when alternatives are worth offering, so reseed
+        // the candidates from what the user actually wanted.
+        if (!available) void loadHandleSuggestions({ name, handle });
       } catch {
         setHandleAvailable(null);
       } finally {
         setHandleChecking(false);
       }
     }, 400);
-  }, []);
+  }, [loadHandleSuggestions]);
 
   const handleUserHandleChange = (value: string) => {
     const normalized = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
     setUserHandle(normalized);
     setHandleAvailable(null);
-    checkHandleAvailability(normalized);
+    checkHandleAvailability(normalized, displayName);
   };
+
+  const applyHandleSuggestion = (candidate: string) => {
+    setUserHandle(candidate);
+    setError(null);
+    // The suggestion was free when the server built it; re-check anyway so the
+    // badge reflects a real lookup rather than an assumption.
+    checkHandleAvailability(candidate, displayName);
+  };
+
+  // Refresh candidates as the name is typed (debounced), and once on mount so
+  // the profile step never shows an empty candidate row.
+  useEffect(() => {
+    if (step !== 'profile') return;
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    suggestTimerRef.current = setTimeout(() => {
+      void loadHandleSuggestions({ name: displayName });
+    }, displayName ? 600 : 0);
+    return () => {
+      if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    };
+  }, [step, displayName, loadHandleSuggestions]);
 
   const handleProfileSubmit = () => {
     setError(null);
@@ -731,6 +783,12 @@ function SignupForm() {
           <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 5 }}>
             半角英小文字・数字・アンダースコア（3〜20文字）
           </div>
+          <HandleSuggestionRow
+            suggestions={handleSuggestions}
+            loading={suggestionsLoading}
+            onPick={applyHandleSuggestion}
+            onRefresh={() => void loadHandleSuggestions({ name: displayName, handle: userHandle })}
+          />
         </div>
         <DesktopAuthPrimaryButton
           type="button"
@@ -796,6 +854,12 @@ function SignupForm() {
               <div className="mt-1 pl-0.5 text-[10px] text-[var(--color-muted)]">
                 半角英小文字・数字・_（3〜20文字）
               </div>
+              <HandleSuggestionRow
+                suggestions={handleSuggestions}
+                loading={suggestionsLoading}
+                onPick={applyHandleSuggestion}
+                onRefresh={() => void loadHandleSuggestions({ name: displayName, handle: userHandle })}
+              />
             </div>
           </div>
 
@@ -962,6 +1026,55 @@ function SignupShell({
 
         <div className="flex-1" />
       </div>
+    </div>
+  );
+}
+
+function HandleSuggestionRow({
+  suggestions,
+  loading,
+  onPick,
+  onRefresh,
+}: {
+  suggestions: string[];
+  loading: boolean;
+  onPick: (candidate: string) => void;
+  onRefresh: () => void;
+}) {
+  if (!loading && suggestions.length === 0) return null;
+
+  return (
+    <div className="mt-2.5">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-ink-mute)]">
+          IDの候補
+        </span>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-1 text-[10px] font-bold text-[var(--color-accent)] disabled:opacity-50"
+        >
+          <Icon name="refresh" size={12} />
+          別の候補
+        </button>
+      </div>
+      {suggestions.length === 0 ? (
+        <div className="text-[10px] text-[var(--color-muted)]">候補を作成中...</div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {suggestions.map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              onClick={() => onPick(candidate)}
+              className="rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px"
+            >
+              @{candidate}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
