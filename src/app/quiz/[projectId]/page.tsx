@@ -5,7 +5,14 @@ import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigat
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { TypeInQuizField, ReviewProjectFilterSheet, QuizModeTabs, QuizModeChooser, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
-import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
+import {
+  QUIZ_FORMAT_QUERY_KEY,
+  isQuizAnswerFormat,
+  readQuizMode,
+  writeQuizMode,
+  type QuizAnswerFormat,
+  type QuizMode,
+} from '@/lib/quiz/quiz-mode-preference';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
 import { getRepository } from '@/lib/db';
@@ -94,6 +101,8 @@ const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 const WORD_ORDER_API_CHUNK_SIZE = 30;
+/** 単語帳をまたぐ出題では音読チャレンジを選ばせない (向こうが1冊ぶんしか出せない)。 */
+const VOICE_MODE_HIDDEN = ['voice'] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -112,6 +121,8 @@ interface QuizPersistState {
   answerResults?: QuizAnswerResult[];
   questionCount: number;
   quizDirection: QuizDirection;
+  /** この回で選んだ解き方。中断から戻ったときに選び直させないため。 */
+  answerFormat?: QuizAnswerFormat;
   timestamp: number;
 }
 
@@ -121,16 +132,6 @@ function isWordOrderQuestion(question: QuizQuestion | undefined): question is Wo
 
 function isMultipleChoiceQuestion(question: QuizQuestion | undefined): question is MultipleChoiceQuizQuestion {
   return question !== undefined && question.type !== 'word-order';
-}
-
-// Mirrors the type-in mode decision made per question in the quiz screen:
-// non-word-order questions for active-vocabulary or active-status words are
-// answered by typing rather than choosing an option.
-function isTypeInQuizQuestion(question: QuizQuestion | undefined): boolean {
-  return (
-    isMultipleChoiceQuestion(question) &&
-    (question.word.vocabularyType === 'active' || question.word.status === 'active')
-  );
 }
 
 function chipKey(token: string): string {
@@ -503,11 +504,28 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(true);
   const [distractorError, setDistractorError] = useState<string | null>(null);
   /**
-   * この端末で選ばれているクイズ形式。null = 未選択なので、解き始める前に選ばせる。
+   * この端末で前回選ばれた解き方。選択画面の初期選択に使うだけで、これで
+   * 勝手に始めることはしない (null = まだ選んだことがない = 初期選択なし)。
    * localStorage はサーバーには無いので、マウント後に読む。
    */
   const [storedMode, setStoredMode] = useState<QuizMode | null>(null);
   const [modeLoaded, setModeLoaded] = useState(false);
+  /**
+   * この回の解き方。null = まだこの回で選んでいないので、選択画面を出す。
+   * 端末の記憶 (`storedMode`) は選択画面の初期選択に使うだけで、ここへは
+   * 勝手に流し込まない —— 解き方は毎回選べる、が要件。
+   * 音読チャレンジから戻ってきたときだけ URL で指定を持ち回り、選び直しを省く。
+   */
+  const [answerFormat, setAnswerFormat] = useState<QuizAnswerFormat | null>(() => {
+    const fromUrl = searchParams.get(QUIZ_FORMAT_QUERY_KEY);
+    return isQuizAnswerFormat(fromUrl) ? fromUrl : null;
+  });
+  /**
+   * URL で指定されて入ってきた形式 (初回レンダー時の値で固定)。
+   * 中断状態の復元より優先する —— 音読から「記述で」と選んで戻ってきたのに、
+   * 前回の四択の続きを復元して形式まで四択に戻してしまわないため。
+   */
+  const urlAnswerFormatRef = useRef<QuizAnswerFormat | null>(answerFormat);
   /** 右上から開くクイズ形式の切り替え。 */
   const [showModeSwitch, setShowModeSwitch] = useState(false);
   const [inputCount, setInputCount] = useState('');
@@ -515,10 +533,13 @@ export default function QuizPage() {
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
-  // Locks whether the current question is shown as a type-in quiz, captured at
-  // presentation time. Answering promotes the word's status (e.g. active →
-  // mastered), and we must not let that flip the UI to multiple-choice mid-question.
-  const typeInModeRef = useRef<{ key: string; value: boolean }>({ key: '', value: false });
+  // 出題中の問題を記述で見せているか。問題ごとに固定する: 答えたあとに
+  // 右上から解き方を変えられても、いま開示している問題の見た目は変えない
+  // (答え合わせの表示が四択と記述で入れ替わってしまうため)。
+  const answerFormatRef = useRef<{ key: string; value: QuizAnswerFormat }>({ key: '', value: 'normal' });
+  // chooseMode から「いまの問題は答え合わせ中か」を読むための写し。
+  // isRevealed を依存に入れると chooseMode が1問ごとに作り直される。
+  const isRevealedRef = useRef(false);
   // Desktop and mobile layouts each render a TypeInQuizField (one is always
   // display:none). Focusing the hidden one is a silent no-op, so we can safely
   // focus both to reach whichever layout is currently visible.
@@ -566,6 +587,10 @@ export default function QuizPage() {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
 
+  useEffect(() => {
+    isRevealedRef.current = isRevealed;
+  }, [isRevealed]);
+
   const saveQuizState = useCallback(() => {
     if (questions.length === 0 || !questionCount) return;
     const state: QuizPersistState = {
@@ -579,10 +604,11 @@ export default function QuizPage() {
       answerResults,
       questionCount,
       quizDirection,
+      answerFormat: answerFormat ?? 'normal',
       timestamp: Date.now(),
     };
     try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch { /* ignore */ }
-  }, [questions, currentIndex, selectedIndex, wordOrderSelectedTokens, wordOrderResult, isRevealed, results, answerResults, questionCount, quizDirection, storageKey]);
+  }, [questions, currentIndex, selectedIndex, wordOrderSelectedTokens, wordOrderResult, isRevealed, results, answerResults, questionCount, quizDirection, answerFormat, storageKey]);
 
   const clearQuizState = useCallback(() => {
     try { sessionStorage.removeItem(storageKey); } catch { /* ignore */ }
@@ -613,9 +639,9 @@ export default function QuizPage() {
 
   /**
    * 音読チャレンジへ切り替える。
-   * 選んだ形式は端末に覚えさせる (localStorage)。次回からは選択画面を出さずに
-   * その形式で始められるようにするため。入力済みの問題数は引き継ぐ
-   * (上限の丸めは遷移先で行う)。
+   * 選んだ形式は端末に覚えさせる (localStorage)。次に選択画面を出すときの
+   * 初期選択にするためで、選択画面そのものは毎回出る。入力済みの問題数は
+   * 引き継ぐ (上限の丸めは遷移先で行う)。
    */
   const goToVoiceQuiz = useCallback((options?: { replace?: boolean }) => {
     writeQuizMode('voice');
@@ -633,36 +659,35 @@ export default function QuizPage() {
     else router.push(href);
   }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
 
-  // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
+  // 端末の前回の選択を読む。選択画面の初期選択にするだけ。
   useEffect(() => {
     setStoredMode(readQuizMode());
     setModeLoaded(true);
   }, []);
 
   /**
-   * この端末が音読チャレンジを選んでいるなら、四択を開いても音読へ送る。
-   * 選んだ直後だけでなく「次に開いたとき」も選択を守るために要る。
-   * 遷移は一度きり ——依存が変わるたびに router を叩かないよう ref で止める。
-   *
-   * ただし音読チャレンジは単語帳1冊ぶんしか出題できない。「今日の学習」のような
-   * 横断出題 (/quiz/all?learn=1) を送っても向こうで単語帳が見つからず、
-   * 弾かれて戻ってくるだけなので、その場合は端末の選択より四択を優先する。
+   * 解き方を選んだ。四択・記述はこの画面のまま、音読なら音読チャレンジへ移る。
+   * 端末には「次に選択画面を出したときの初期選択」として覚えるだけで、
+   * 覚えた形式で勝手に始めることはしない (毎回選ばせる)。
    */
-  const redirectedToVoiceRef = useRef(false);
-  useEffect(() => {
-    if (!modeLoaded || storedMode !== 'voice' || voiceQuizUnavailable) return;
-    if (redirectedToVoiceRef.current) return;
-    redirectedToVoiceRef.current = true;
-    goToVoiceQuiz({ replace: true });
-  }, [modeLoaded, storedMode, goToVoiceQuiz, voiceQuizUnavailable]);
-
-  /** 形式を選んだ。四択ならこの画面のまま、音読なら音読チャレンジへ移る。 */
   const chooseMode = useCallback(
     (mode: QuizMode) => {
       writeQuizMode(mode);
       setStoredMode(mode);
       setShowModeSwitch(false);
-      if (mode === 'voice') goToVoiceQuiz();
+      if (mode === 'voice') {
+        goToVoiceQuiz();
+        return;
+      }
+      setAnswerFormat(mode);
+      // 解き方を変えると入力欄と選択肢が入れ替わる。まだ答えていない問題に
+      // 前の形式の打ちかけが残らないよう、入力を捨てる。開示済みの問題は
+      // `answerFormatRef` が見た目を固定して切り替えを次の問題送りにするので、
+      // 答え合わせの表示を消さないようそのままにする。
+      if (!isRevealedRef.current) {
+        setTypeInAnswer('');
+        setTypeInResult(null);
+      }
     },
     [goToVoiceQuiz],
   );
@@ -856,6 +881,12 @@ export default function QuizPage() {
         );
         setQuestionCount(restoredCount);
         setQuizDirection(state.quizDirection);
+        // 中断前の解き方をそのまま継ぐ。無ければ四択 (この項目より前に保存された状態)。
+        // ただし URL で明示されていれば、そちらが今回の選択なので勝たせる。
+        setAnswerFormat(
+          urlAnswerFormatRef.current
+            ?? (isQuizAnswerFormat(state.answerFormat) ? state.answerFormat : 'normal'),
+        );
         setAllWords(restoredQuestions.map(q => q.word));
         hasAnsweredRef.current = (state.results?.total ?? 0) > 0 || state.currentIndex > 0;
         restoredFromStorage.current = true;
@@ -1117,15 +1148,18 @@ export default function QuizPage() {
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
-  // Freeze type-in mode per question (keyed by index + word id, which are stable
-  // across the status mutation that answering applies). Recomputing it from the
-  // live status would flip active → mastered to multiple-choice mid-question.
-  const typeInModeKey = `${currentIndex}:${currentQuestion?.word.id ?? ''}`;
-  if (typeInModeRef.current.key !== typeInModeKey) {
-    const activeStatus = !currentIsWordOrder && !isActiveVocab && currentQuestion?.word.status === 'active';
-    typeInModeRef.current = { key: typeInModeKey, value: Boolean(isActiveVocab || activeStatus) };
+  // 記述で見せるかは、この回で選ばれた解き方だけで決まる (単語の状態では
+  // 決めない: 四択を選んだのに一部の語だけ入力欄になってしまうため)。
+  // 問題ごとに固定し、開示済みの問題の見た目が途中の切り替えで入れ替わらない
+  // ようにする。まだ答えていない問題なら、切り替えはその場で効かせる。
+  const answerFormatKey = `${currentIndex}:${currentQuestion?.word.id ?? ''}`;
+  const resolvedAnswerFormat: QuizAnswerFormat = answerFormat ?? 'normal';
+  if (answerFormatRef.current.key !== answerFormatKey) {
+    answerFormatRef.current = { key: answerFormatKey, value: resolvedAnswerFormat };
+  } else if (!isRevealed && answerFormatRef.current.value !== resolvedAnswerFormat) {
+    answerFormatRef.current = { key: answerFormatKey, value: resolvedAnswerFormat };
   }
-  const isTypeInMode = typeInModeRef.current.value;
+  const isTypeInMode = !currentIsWordOrder && answerFormatRef.current.value === 'typing';
   // Type-in quizzes always ask for the English word (日英). We never make the
   // user type Japanese, regardless of quiz direction or active source.
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
@@ -1226,7 +1260,10 @@ export default function QuizPage() {
   };
 
   const handleSkip = async () => {
-    if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion) || isTypeInMode) return;
+    if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion)) return;
+    // 記述では入力欄しか出ていないので、正解を出すために不正解の見た目にする。
+    // 記録上は不正解ではなく「スキップ」のままにする (marker が 'skip')。
+    if (isTypeInMode) setTypeInResult('wrong');
     setIsRevealed(true);
     await applyAnswerOutcome(currentQuestion.word, false, 'skip');
   };
@@ -1272,7 +1309,11 @@ export default function QuizPage() {
     const advanceState = getQuizAdvanceState(currentIndex, questions.length);
     // Reopen the software keyboard for the next question while we are still
     // inside this tap gesture (iOS only opens the keyboard from a user gesture).
-    if (!advanceState.isComplete && isTypeInQuizQuestion(questions[advanceState.nextIndex])) {
+    if (
+      !advanceState.isComplete &&
+      resolvedAnswerFormat === 'typing' &&
+      isMultipleChoiceQuestion(questions[advanceState.nextIndex])
+    ) {
       focusTypeInField();
     }
     setIsTransitioning(true);
@@ -1373,20 +1414,9 @@ export default function QuizPage() {
     );
   }
 
-  /* ---------- 音読チャレンジが選ばれている: 送るまで四択を描かない ---------- */
-  if (storedMode === 'voice' && !voiceQuizUnavailable) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[var(--solid-ink)] border-t-transparent" />
-          <p className="text-[var(--color-muted)]">音読チャレンジを開いています...</p>
-        </div>
-      </div>
-    );
-  }
-
-  /* ---------- この端末でまだ形式を選んでいない ---------- */
-  if (storedMode === null && !voiceQuizUnavailable) {
+  /* ---------- この回の解き方をまだ選んでいない ---------- */
+  // 端末の記憶があっても毎回ここを通す。前回の選択は初期選択として印を付けるだけ。
+  if (answerFormat === null) {
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
         <div className="p-4">
@@ -1400,7 +1430,12 @@ export default function QuizPage() {
           </button>
         </div>
         <div className="flex flex-1 items-center justify-center px-6 pb-16">
-          <QuizModeChooser onSelect={chooseMode} />
+          <QuizModeChooser
+            current={storedMode ?? undefined}
+            currentLabel="前回"
+            onSelect={chooseMode}
+            hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
+          />
         </div>
       </div>
     );
@@ -1633,21 +1668,24 @@ export default function QuizPage() {
 
   /* ---------- Main quiz screen (DS style) ---------- */
   const total = questions.length;
-  const desktopSubtitle = reviewMode
-    ? currentIsWordOrder ? '復習 · 語順クイズ' : '復習 · 4択クイズ'
+  // 語順クイズだけは選んだ解き方に関わらず語順のまま (問題の作りが別物)。
+  const quizKindLabel = currentIsWordOrder
+    ? '語順クイズ'
+    : isTypeInMode
+      ? '記述クイズ'
+      : '4択クイズ';
+  const quizScopeLabel = reviewMode
+    ? '復習'
     : learnMode
-      ? currentIsWordOrder ? '未習得の単語 · 語順クイズ' : '未習得の単語 · 4択クイズ'
+      ? '未習得の単語'
       : wrongMode
-        ? currentIsWordOrder ? '間違えた問題 · 語順クイズ' : '間違えた問題 · 4択クイズ'
+        ? '間違えた問題'
         : reminderMode
-          ? currentIsWordOrder ? '復習リマインダー · 語順クイズ' : '復習リマインダー · 4択クイズ'
-        : favoritesMode
-          ? currentIsWordOrder ? '保存済み単語 · 語順クイズ' : '保存済み単語 · 4択クイズ'
-      : currentIsWordOrder
-        ? '語順クイズ'
-        : isTypeInMode
-          ? 'タイプ入力'
-          : '4択クイズ';
+          ? '復習リマインダー'
+          : favoritesMode
+            ? '保存済み単語'
+            : null;
+  const desktopSubtitle = quizScopeLabel ? `${quizScopeLabel} · ${quizKindLabel}` : quizKindLabel;
   const displayJapanese = currentQuestion ? formatJapaneseForDisplay(currentQuestion.word) : undefined;
   const desktopPrompt = currentIsWordOrder
     ? displayJapanese
@@ -1707,11 +1745,12 @@ export default function QuizPage() {
       className="border-0 bg-transparent p-0 shadow-none"
     >
       <QuizModeChooser
-        current="normal"
+        current={resolvedAnswerFormat}
         onSelect={chooseMode}
         onCancel={() => setShowModeSwitch(false)}
+        hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
         title="クイズの解き方を変える"
-        description="この端末での既定として覚えます。"
+        description="いま解いている問題から切り替わります。次に始めるときの初期選択にもなります。"
       />
     </Modal>
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
@@ -1733,13 +1772,9 @@ export default function QuizPage() {
             </div>
             <span className="ds-qcount">{currentIndex + 1}<span className="muted">/{total}</span></span>
           </div>
-          {!voiceQuizUnavailable ? (
-            <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
-              <Icon name="mic" />
-            </button>
-          ) : (
-            <span style={{ width: 40, flexShrink: 0 }} aria-hidden="true" />
-          )}
+          <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
+            <Icon name="swap_horiz" />
+          </button>
         </div>
 
         <div className="ds-quiz-scroll">
@@ -1801,15 +1836,25 @@ export default function QuizPage() {
                   result={typeInResult}
                 />
                 {!isRevealed && (
-                  <button
-                    type="button"
-                    className="ds-btn accent"
-                    onClick={handleTypeInSubmit}
-                    disabled={!typeInAnswer.trim()}
-                    style={{ width: '100%', marginTop: 16 }}
-                  >
-                    回答する
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="ds-btn accent"
+                      onClick={handleTypeInSubmit}
+                      disabled={!typeInAnswer.trim()}
+                      style={{ width: '100%', marginTop: 16 }}
+                    >
+                      回答する
+                    </button>
+                    <button
+                      type="button"
+                      className="ds-btn"
+                      onClick={handleSkip}
+                      style={{ width: '100%', marginTop: 8 }}
+                    >
+                      わからない
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -1936,16 +1981,14 @@ export default function QuizPage() {
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
-        {!voiceQuizUnavailable && (
-          <button
-            type="button"
-            onClick={() => setShowModeSwitch(true)}
-            aria-label="クイズの解き方を変える"
-            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
-          >
-            <Icon name="mic" size={19} />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowModeSwitch(true)}
+          aria-label="クイズの解き方を変える"
+          className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+        >
+          <Icon name="swap_horiz" size={19} />
+        </button>
         {(reviewMode || learnMode) && (
           <button
             type="button"
@@ -1967,7 +2010,7 @@ export default function QuizPage() {
       {/* Main content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
         <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'タイプ入力' : '意味を選ぼう'}
+          {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'つづりを入力' : '意味を選ぼう'}
         </div>
 
         {/* Word display — big solid plate */}
@@ -2048,9 +2091,18 @@ export default function QuizPage() {
               variant="solid"
             />
             {!isRevealed && (
-              <SolidButton variant="accent" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
-                回答する
-              </SolidButton>
+              <>
+                <SolidButton variant="accent" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
+                  回答する
+                </SolidButton>
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
+                >
+                  わからない
+                </button>
+              </>
             )}
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
               <div

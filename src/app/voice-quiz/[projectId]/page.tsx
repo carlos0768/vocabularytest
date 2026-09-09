@@ -6,7 +6,12 @@ import { SolidButton } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
 import { QuizModeChooser } from '@/components/quiz';
-import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
+import {
+  QUIZ_FORMAT_QUERY_KEY,
+  writeQuizMode,
+  type QuizAnswerFormat,
+  type QuizMode,
+} from '@/lib/quiz/quiz-mode-preference';
 import { voiceQuizBatch } from '@/lib/quiz/voice-quiz-batch';
 import { getRepository } from '@/lib/db';
 import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
@@ -172,29 +177,29 @@ export default function VoiceQuizPage() {
     router.replace(returnPath || fallback);
   }, [router, returnPath, projectId, binderName]);
 
-  /** 通常クイズへ戻す。出題数とバインダーの指定はそのまま引き継ぐ。 */
-  const goToNormalQuiz = useCallback(() => {
-    writeQuizMode('normal');
+  /**
+   * 通常クイズ (四択 / 記述) へ戻す。出題数とバインダーの指定はそのまま引き継ぐ。
+   * 選んだ形式は URL にも載せる —— 向こうは開くたびに解き方を訊くので、
+   * ここで選んだばかりの形式をもう一度訊かせないため。
+   */
+  const goToNormalQuiz = useCallback((format: QuizAnswerFormat) => {
+    writeQuizMode(format);
     const params = new URLSearchParams({ count: String(requestedCount) });
     if (binderName) params.set('binder', binderName);
     if (returnPath) params.set('from', returnPath);
+    params.set(QUIZ_FORMAT_QUERY_KEY, format);
     router.replace(`/quiz/${projectId}?${params.toString()}`);
   }, [router, projectId, binderName, returnPath, requestedCount]);
 
-  // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
-  useEffect(() => {
-    setStoredMode(readQuizMode());
-    setModeLoaded(true);
-  }, []);
-
-
-  /** 形式を選んだ。音読ならこの画面のまま、四択なら通常クイズへ移る。 */
+  /** 解き方を選んだ。音読ならこの画面のまま、四択・記述なら通常クイズへ移る。 */
   const chooseMode = useCallback(
     (mode: QuizMode) => {
+      if (mode !== 'voice') {
+        goToNormalQuiz(mode);
+        return;
+      }
       writeQuizMode(mode);
-      setStoredMode(mode);
       setShowModeSwitch(false);
-      if (mode === 'normal') goToNormalQuiz();
     },
     [goToNormalQuiz],
   );
@@ -262,12 +267,6 @@ export default function VoiceQuizPage() {
   const [gaveUp, setGaveUp] = useState(false);
   /** 中断の確認を出しているか。出している間はクイズを止める。 */
   const [showStopConfirm, setShowStopConfirm] = useState(false);
-  /**
-   * この端末で選ばれているクイズ形式。null = 未選択なので、解き始める前に選ばせる。
-   * localStorage はサーバーには無いので、マウント後に読む。
-   */
-  const [storedMode, setStoredMode] = useState<QuizMode | null>(null);
-  const [modeLoaded, setModeLoaded] = useState(false);
   /** 右上から開くクイズ形式の切り替え。 */
   const [showModeSwitch, setShowModeSwitch] = useState(false);
 
@@ -305,20 +304,6 @@ export default function VoiceQuizPage() {
   const startListeningRef = useRef<(run: number) => void>(() => {});
 
   const currentWord = words[currentIndex] ?? null;
-
-  /**
-   * この端末が四択を選んでいるなら、音読を開いても四択へ送る。
-   * 通常クイズ側と対になる処理。goToNormalQuiz は replace なので堂々巡りにならない。
-   *
-   * この効果は state の宣言より後ろに置くこと —— 依存配列はレンダー中に評価されるので、
-   * 宣言前に書くと modeLoaded が TDZ に入って落ちる。
-   */
-  const redirectedToNormalRef = useRef(false);
-  useEffect(() => {
-    if (!modeLoaded || storedMode !== 'normal' || redirectedToNormalRef.current) return;
-    redirectedToNormalRef.current = true;
-    goToNormalQuiz();
-  }, [modeLoaded, storedMode, goToNormalQuiz]);
 
   // 固定文の音声を先に取ってきておく。設定を選んでいる間に済むので、
   // 1問目の読み上げがネットワーク待ちで遅れない。
@@ -380,7 +365,7 @@ export default function VoiceQuizPage() {
           // 音読チャレンジはバインダー以外の横断出題 (復習・今日の学習・すべての
           // 単語帳) を扱えない。行き止まりにせず四択へ渡す。ここで backToProject に
           // 落とすと、クイズが始まらないままホームへ戻されたように見える。
-          goToNormalQuiz();
+          goToNormalQuiz('normal');
           return;
         } else {
           const project = await repository.getProject(projectId);
@@ -911,7 +896,7 @@ export default function VoiceQuizPage() {
 
   // --- Render ---
 
-  if (loading || setupState === 'checking' || !modeLoaded) {
+  if (loading || setupState === 'checking') {
     return (
       <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
         <div className="text-center">
@@ -920,32 +905,6 @@ export default function VoiceQuizPage() {
             {setupState === 'checking' ? 'マイクを確認中...' : '準備中...'}
           </p>
         </div>
-      </div>
-    );
-  }
-
-  // 四択が選ばれている: 送るまで音読の画面は描かない (マイクも起こさない)。
-  if (storedMode === 'normal') {
-    return (
-      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">通常クイズを開いています...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // この端末でまだ形式を選んでいない。解き始める前に一度だけ選ばせる。
-  if (storedMode === null) {
-    return (
-      <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
-          <CloseButton onClick={backToProject} />
-        </header>
-        <main className="flex-1 flex items-center justify-center px-6">
-          <QuizModeChooser onSelect={chooseMode} />
-        </main>
       </div>
     );
   }
@@ -1570,10 +1529,10 @@ export default function VoiceQuizPage() {
           onSelect={chooseMode}
           onCancel={() => setShowModeSwitch(false)}
           title="クイズの解き方を変える"
-          description="この端末での既定として覚えます。"
+          description="いまの音読チャレンジをやめて、選んだ解き方に切り替えます。"
           warning={
             hasStarted && !isComplete
-              ? '四択に切り替えると、いまの音読チャレンジは記録されずに終わります。'
+              ? '四択・記述に切り替えると、いまの音読チャレンジは記録されずに終わります。'
               : undefined
           }
         />
