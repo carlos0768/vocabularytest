@@ -230,6 +230,16 @@ export interface Word {
   lexiconDistinctKey?: string;
   lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
+  // 古典語（古文単語）。english に見出し語、translations に語義が入る。
+  // 判定は必ず isClassicalWord()（src/lib/classical/is-classical.ts）を通すこと。
+  /** 抽出直後はAI由来のフラグ。保存後は classicalEntryId の有無から復元される。 */
+  isClassical?: boolean;
+  /** 読み（かな）。古典語のみ。 */
+  reading?: string;
+  /** 品詞・活用型（正規化済み）。古典語のみ。 */
+  classicalPos?: string;
+  /** 全ユーザー共通の古典語辞書 classical_entries への参照。 */
+  classicalEntryId?: string;
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
   exampleSentenceJa?: string; // Japanese translation of example sentence
@@ -324,6 +334,11 @@ export interface AIWordExtraction {
   lexiconDistinctKey?: string;
   lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
+  // 古典語（古文単語）。全スキャンモードで自動判定され、共通辞書に解決される。
+  isClassical?: boolean;
+  reading?: string;
+  classicalPos?: string;
+  classicalEntryId?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
   pronunciation?: string;

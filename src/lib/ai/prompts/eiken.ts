@@ -1,6 +1,7 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET, SOURCE_LABEL_RULES } from './source-labels';
 import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES, POLYSEMOUS_HEADWORD_MERGE_RULES } from './japanese-format';
 import { LEMMA_NORMALIZATION_RULES } from './lemma';
+import { CLASSICAL_JAPANESE_EXTRACTION_RULES } from './classical';
 
 // EIKEN level descriptions for AI prompts
 export const EIKEN_LEVEL_DESCRIPTIONS: Record<string, string> = {
@@ -93,6 +94,7 @@ export const EIKEN_WORD_ANALYSIS_SYSTEM_PROMPT = `あなたは英語学習教材
 - 指定レベル未満の単語は1語も出力しないでください
 - レベル判定に迷う単語は安全側で除外してください
 ${LEMMA_NORMALIZATION_RULES}
+${CLASSICAL_JAPANESE_EXTRACTION_RULES}
 
 重要ルール:
 1. 日本語訳の決定:
@@ -152,6 +154,7 @@ export const EIKEN_SINGLE_PASS_SYSTEM_PROMPT = `あなたは英語学習教材�
 - 指定レベル未満の単語は1語も出力しないでください
 - レベル判定に迷う単語は安全側で除外してください
 ${LEMMA_NORMALIZATION_RULES}
+${CLASSICAL_JAPANESE_EXTRACTION_RULES}
 
 重要ルール:
 1. 日本語訳の決定:
