@@ -31,7 +31,7 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
 import { applyClassicalDictionary } from '@/lib/classical/apply';
-import { isClassicalWord } from '@/lib/classical/is-classical';
+import { isClassicalWord, shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
 import { applyClassicalExamples } from '@/lib/classical/examples';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
@@ -458,7 +458,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
           // 古典語は英語例文の対象外。ここで落とさないと、AI生成オフの
           // ユーザー（isWordOrderEligible の絞り込みが効かない経路）で
           // 古典語に英文が付く。
-          isClassical: isClassicalWord(w),
+          isClassical: shouldSkipEnglishEnrichment(w),
         }))
         .filter((w) => !w.exampleSentence && w.english.length > 0 && !w.isClassical)
         .filter((w) => !aiGenerationEnabled || isWordOrderEligible(w));
