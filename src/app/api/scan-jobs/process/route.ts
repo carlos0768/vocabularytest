@@ -14,9 +14,9 @@ import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
 import { isClassicalWord } from '@/lib/classical/is-classical';
 import { applyClassicalExamples } from '@/lib/classical/examples';
-import { filterWordsForProjectKind } from '@/lib/classical/purity';
+import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/classical/purity';
 import { readProjectKind } from '@/lib/classical/project-kind';
-import { normalizeProjectKind, type ProjectKind } from '@/types';
+import type { ProjectKind } from '@/types';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
@@ -1384,10 +1384,17 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let projectTitleForNotification = job.project_title as string;
       let createdNewProject = false;
       let usedProjectSourceLabelsCompat = false;
-      // 保存先の単語帳の種別。既存単語帳なら実物から読み、新規ならジョブ行の指定を使う。
-      let targetProjectKind: ProjectKind = normalizeProjectKind(
-        (job as { project_kind?: unknown }).project_kind,
-      );
+      // 保存先の単語帳の種別。既存単語帳なら実物から読み、新規なら**これから保存する語**から決める。
+      //
+      // 新規単語帳でジョブ行の project_kind を信じてはいけない。スキャンUIには種別を
+      // 指定する手段が無く、古典専用のスキャンモードも無い（全モードのプロンプトが
+      // 自動判定する設計）ので、project_kind は常に既定の 'english' で入ってくる。
+      // これを信じると、古文単語帳をスキャンして新規単語帳を作ったときに
+      // filterWordsForProjectKind が全語を捨て、1語も保存されないまま「N語追加しました」と
+      // 通知する（実際に本番で全損した）。
+      //
+      // 空の単語帳に種別は無い。最初に保存される語が種別を決める、という規則にする。
+      let targetProjectKind: ProjectKind = inferProjectKindFromWords(resolvedWords);
 
       if (targetProjectId) {
         const { data: existingProject, error: existingProjectError, usedLegacyColumns: usedLegacySelectColumns } =
@@ -1471,8 +1478,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       }
 
       // 保存先の単語帳の種別に合わない語は落とす（英語単語帳に古典語、その逆も）。
-      // エラーにはしない。正しく採れた語まで巻き添えで捨てるほうが損なので、
-      // 件数だけ記録して残りを保存する。
+      // 一部だけなら残りを保存する。正しく採れた語まで巻き添えで捨てるほうが損なので。
       const kindFiltered = filterWordsForProjectKind(resolvedWords, targetProjectKind);
       if (kindFiltered.droppedCount > 0) {
         console.warn('[scan-jobs/process] Dropped words that do not match the wordbook kind', {
@@ -1483,7 +1489,28 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         });
       }
 
-      const wordsToInsert = buildServerCloudWordsInsertPayload(kindFiltered.words, projectId);
+      // 全部落ちたら「成功」にしてはいけない。
+      //
+      // 空配列の INSERT は PostgREST が data:[] / error:null で受けるので、ここで
+      // 止めないと 0 語のまま wordsDelivered=true まで進み、「N語追加しました」と
+      // 通知してコインも返還されない（実際に本番でそうなった）。
+      //
+      // 新規単語帳は保存する語から種別を決めるのでここには来ない。来るのは既存の
+      // 単語帳に種別違いを保存しようとした場合だけなので、理由を明示して失敗させる。
+      // 失敗させれば外側の catch がジョブを failed にし、wordsDelivered が false の
+      // ままなのでコインも返還される。
+      if (kindFiltered.words.length === 0) {
+        throw new Error(
+          targetProjectKind === 'classical'
+            ? 'この単語帳は古典専用です。保存できる古典語がありませんでした。英語の単語は別の単語帳に保存してください。'
+            : 'この単語帳は英語専用です。保存できる英単語がありませんでした。古典語は別の単語帳に保存してください。',
+        );
+      }
+
+      // これ以降は「実際に保存する語」だけを見る。resolvedWords（除外前）を使うと、
+      // 件数の報告がずれるだけでなく、訳の紐づけが別の単語にズレる。
+      const wordsToPersist = kindFiltered.words;
+      const wordsToInsert = buildServerCloudWordsInsertPayload(wordsToPersist, projectId);
 
       const dbInsertStart = Date.now();
       let insertedWords: InsertedServerCloudWord[] | null = null;
@@ -1578,8 +1605,11 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       wordsDelivered = true;
 
       const insertedWordsArray = insertedWords ?? [];
+      // insertedWordsArray は wordsToPersist と1対1（同じ順・同じ長さ）。
+      // ここに resolvedWords（除外前）を渡すと、一部だけ除外されたときに
+      // 訳が別の単語へ位置ズレして紐づく。
       const translationRows = buildWordTranslationInsertRows(
-        resolvedWords,
+        wordsToPersist,
         insertedWordsArray.map((word: { id: string }) => word.id),
       );
       if (translationRows.length > 0) {
@@ -1604,7 +1634,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           }
         }
       }
-      const aiTranslatedWordIds = resolvedWords
+      const aiTranslatedWordIds = wordsToPersist
         .map((word, index) => (word.japaneseSource === 'ai' ? insertedWordsArray[index]?.id : null))
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
@@ -1718,7 +1748,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       }
 
       const resultPayload = buildServerCloudScanJobResultPayload({
-        wordCount: resolvedWords.length,
+        // 抽出数ではなく保存数。ここを抽出数にすると、種別違いで一部が落ちたときに
+        // 実際より多い件数を通知してしまう。
+        wordCount: insertedWordsArray.length,
         targetProjectId: projectId,
         sourceLabels: dedupedSourceLabels,
         warnings: warningSet,
@@ -1881,7 +1913,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         jobId,
         projectId,
         projectTitle: projectTitleForNotification,
-        wordCount: resolvedWords.length,
+        wordCount: insertedWordsArray.length,
       });
       await sendScanJobNotifications({
         supabaseAdmin,
@@ -2006,7 +2038,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         success: true,
         saveMode,
         projectId,
-        wordCount: resolvedWords.length,
+        wordCount: insertedWordsArray.length,
       });
 
       } catch (processingError) {

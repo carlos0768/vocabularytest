@@ -1,4 +1,4 @@
-import { isClassicalWord } from '@/lib/classical/is-classical';
+import { shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
 import {
   generateWordOrderQuizForWords,
   type GeneratedWordOrderQuizResult,
@@ -18,7 +18,7 @@ export interface WordOrderQuizPrefillCandidateWord {
   japanese: string;
   word_order_quiz?: unknown | null;
   wordOrderQuiz?: unknown | null;
-  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  /** 古典語の印。英語専用の後処理から外すために shouldSkipEnglishEnrichment() が読む。 */
   classicalEntryId?: string | null;
   isClassical?: boolean | null;
 }
@@ -57,7 +57,7 @@ export function buildWordOrderQuizPrefillSeedWords(
   return words
     .filter((word) =>
       // 古典語は英作文・語順クイズの対象外（英語の語順を並べ替える問題なので）
-      !isClassicalWord(word) &&
+      !shouldSkipEnglishEnrichment(word) &&
       isWordOrderEligible(word) &&
       word.japanese.trim().length > 0 &&
       !getExistingWordOrderQuizCache(word)

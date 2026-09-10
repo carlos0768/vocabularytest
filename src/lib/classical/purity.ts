@@ -11,7 +11,7 @@
 // DBに英語例文が溜まり続ける。
 
 import type { ProjectKind } from '../../../shared/types';
-import { isClassicalWord, type ClassicalWordMarker } from './is-classical';
+import { isClassicalWord, shouldSkipEnglishEnrichment, type ClassicalWordMarker } from './is-classical';
 
 // 種別そのものは shared/types にある（shared/db/mappers.ts からも使うため）。
 export { PROJECT_KINDS, normalizeProjectKind, type ProjectKind } from '../../../shared/types';
@@ -72,7 +72,7 @@ export function inferProjectKindFromWords(words: readonly ClassicalWordMarker[])
 export function stripEnglishExampleFromClassicalWord<T extends ClassicalWordMarker & ExampleBearingWord>(
   word: T,
 ): T {
-  if (!isClassicalWord(word)) return word;
+  if (!shouldSkipEnglishEnrichment(word)) return word;
 
   const example = word.exampleSentence ?? '';
   if (!example.trim() || !/[A-Za-z]/.test(example)) return word;

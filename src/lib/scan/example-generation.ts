@@ -1,4 +1,4 @@
-import { isClassicalWord } from '@/lib/classical/is-classical';
+import { isClassicalWord, shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
 import type { ExampleSeedWord, GeneratedExample } from '@/lib/ai/generate-example-sentences';
 import type {
   ClassicalExampleSeedWord,
@@ -8,7 +8,7 @@ import type {
 export interface ClientLocalExampleWord {
   english: string;
   japanese: string;
-  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  /** 古典語の印。英語処理から外す判定と古文例文の対象判定の両方が読む。 */
   classicalEntryId?: string | null;
   isClassical?: boolean | null;
   reading?: string | null;
@@ -26,7 +26,7 @@ export interface ClientLocalExampleWord {
  * 例文が付く。
  */
 function needsEnglishExample(word: ClientLocalExampleWord): boolean {
-  return !word.exampleSentence && !isClassicalWord(word);
+  return !word.exampleSentence && !shouldSkipEnglishEnrichment(word);
 }
 
 export interface ServerCloudExampleCandidateWord {
@@ -34,7 +34,7 @@ export interface ServerCloudExampleCandidateWord {
   english: string;
   japanese: string;
   example_sentence?: string | null;
-  /** 古典語の印。英語専用の後処理から外すために isClassicalWord() が読む。 */
+  /** 古典語の印。英語処理から外す判定と古文例文の対象判定の両方が読む。 */
   classical_entry_id?: string | null;
 }
 
@@ -103,7 +103,7 @@ export function buildServerCloudExampleSeedWords(
   words: readonly ServerCloudExampleCandidateWord[],
 ): ExampleSeedWord[] {
   return words
-    .filter((word) => !isClassicalWord(word))
+    .filter((word) => !shouldSkipEnglishEnrichment(word))
     .filter((word) => !word.example_sentence || word.example_sentence.trim().length === 0)
     .map((word) => ({
       id: word.id,
