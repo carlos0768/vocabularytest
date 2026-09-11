@@ -34,7 +34,6 @@ export function HelpGuide() {
       <p className="m-0 text-[12px] leading-[1.9] text-[var(--color-muted)] lg:text-[13px]">
         MERKENは、単語帳をつくって覚えるためのアプリです。
         写真から単語帳をつくり、クイズで繰り返し、覚えた分を記録していきます。
-        気になるところだけ開いて読んでください。
       </p>
 
       <StepList />
