@@ -2515,7 +2515,7 @@ function BulkActionBar({
       className="pointer-events-none fixed bottom-0 left-0 right-0 z-40 bg-[linear-gradient(to_top,var(--color-background)_70%,transparent)] px-3 pt-3 lg:bg-none"
       style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
     >
-      <div className="pointer-events-auto mx-auto w-full max-w-lg lg:max-w-2xl">
+      <div className="pointer-events-auto mx-auto w-full max-w-lg lg:max-w-4xl">
         <div className="relative">
           <div
             className="pointer-events-none absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]"
@@ -2534,12 +2534,12 @@ function BulkActionBar({
               type="button"
               onClick={onToggleSelectAll}
               disabled={totalCount === 0}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[7px] text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[7px] text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
             >
               <SelectCheckbox checked={allSelected && totalCount > 0} />
               {allSelected && totalCount > 0 ? '解除' : '全選択'}
             </button>
-            <div className="min-w-0 flex-1 px-1 text-center">
+            <div className="min-w-[76px] flex-1 whitespace-nowrap px-1 text-center">
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                 SELECTED
               </div>
@@ -2661,7 +2661,7 @@ function BulkActionBar({
               onClick={onBulkDelete}
               disabled={!hasSelection}
               aria-label="削除"
-              className="inline-flex h-[36px] shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] px-3 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+              className="inline-flex h-[36px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border-2 border-[var(--solid-ink)] px-3 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
               style={{ background: 'var(--color-error, #cc4d59)' }}
             >
               <Icon name="delete" size={15} />
@@ -2694,7 +2694,7 @@ function BulkInlineActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex h-[36px] shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+      className="inline-flex h-[36px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
     >
       {loading ? (
         <Icon name="progress_activity" size={15} className="animate-spin" />
