@@ -194,6 +194,7 @@ export default function SettingsPage() {
 
       {/* サポート */}
       <SettingsGroup label="サポート">
+        <SettingsRow icon="help" label="使い方ガイド" description="MERKENの機能と使い方、よくある質問" href="/settings/help" />
         <SettingsRow icon="description" label="利用規約" href="/terms" />
         <SettingsRow icon="shield" label="プライバシーポリシー" href="/privacy" />
         <SettingsRow icon="storefront" label="特定商取引法に基づく表記" href="/tokusho" />
