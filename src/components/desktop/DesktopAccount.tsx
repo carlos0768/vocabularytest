@@ -181,6 +181,7 @@ export function DesktopSettingsView({
 
           <div className="ds-set-group">
             <div className="gh">サポート</div>
+            <SettingsLink icon="help" label="使い方ガイド" description="MERKENの機能と使い方、よくある質問" href="/settings/help" />
             <SettingsLink icon="mail" label="お問い合わせ" description="不具合の報告・ご要望はこちら" href="/contact" />
             <SettingsLink icon="description" label="利用規約" href="/terms" />
             <SettingsLink icon="shield" label="プライバシーポリシー" href="/privacy" />
