@@ -1,6 +1,7 @@
 import { SOURCE_LABEL_NOTES, SOURCE_LABEL_OUTPUT_SNIPPET } from './source-labels';
 import { JAPANESE_PARENTHESIS_RULES, JAPANESE_TRANSLATION_STRUCTURE_RULES, POLYSEMOUS_HEADWORD_MERGE_RULES } from './japanese-format';
 import { LEMMA_NORMALIZATION_RULES } from './lemma';
+import { CLASSICAL_JAPANESE_EXTRACTION_RULES } from './classical';
 
 // 丸をつけた単語のみ抽出するプロンプト (Gemini用)
 export const CIRCLED_WORD_EXTRACTION_SYSTEM_PROMPT = `あなたは画像内の「手書きの丸で囲まれた語」だけを抽出する検査器です。
@@ -44,6 +45,7 @@ ${JAPANESE_PARENTHESIS_RULES}
 ${JAPANESE_TRANSLATION_STRUCTURE_RULES}
 ${POLYSEMOUS_HEADWORD_MERGE_RULES}
 ${LEMMA_NORMALIZATION_RULES}
+${CLASSICAL_JAPANESE_EXTRACTION_RULES}
 - 手書きの丸で囲まれた語が見つからない場合は {"words": []} を返してください。${SOURCE_LABEL_NOTES}`;
 
 export const CIRCLED_WORD_USER_PROMPT = `この画像から、ユーザーが手書きで丸（○/楕円）を付けた語だけを抽出してください。丸で囲みが確認できない語は除外してください。

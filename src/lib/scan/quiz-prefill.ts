@@ -2,11 +2,14 @@ import type { QuizContentFieldNeeds, QuizContentResult } from '@/lib/ai/generate
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import type { LexiconQuizContentUpdate } from '@/lib/lexicon/quiz-content-lexicon';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
+import { shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
 
 export interface QuizPrefillCandidateWord {
   id: string;
   english: string;
   japanese: string;
+  /** 古典語の印。英語専用の後処理から外すために shouldSkipEnglishEnrichment() が読む。 */
+  classical_entry_id?: string | null;
   distractors: unknown;
   example_sentence: unknown;
   example_sentence_ja?: unknown;
@@ -56,15 +59,35 @@ function normalizeGeneratedText(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function buildQuizPrefillNeeds(word: {
-  distractors: unknown;
-  example_sentence: unknown;
-  pronunciation?: unknown;
-  part_of_speech_tags: unknown;
-}): QuizContentFieldNeeds {
+export interface QuizPrefillOptions {
+  /**
+   * 例文生成がオンかどうか。スキャンのトグル（+2コイン）がそのまま渡ってくる。
+   *
+   * **既定を false にしてはいけない理由**: この関数は「そのフィールドが欠けているか」
+   * を答えるだけの純粋関数で、スキャン以外（オンデマンド生成など）からも呼ばれ得る。
+   * 省略時は従来どおり例文を必要と見なす。オフにしたい呼び出し側が明示する。
+   */
+  includeExamples?: boolean;
+}
+
+export function buildQuizPrefillNeeds(
+  word: {
+    distractors: unknown;
+    example_sentence: unknown;
+    pronunciation?: unknown;
+    part_of_speech_tags: unknown;
+  },
+  options: QuizPrefillOptions = {},
+): QuizContentFieldNeeds {
+  // 例文生成オフなら、prefill にも例文を作らせない。ここを塞がないと
+  // prefill が副産物として例文を無料生成し、トグルも課金も素通りする。
+  // needs.example=false は generate-quiz-content 側でサポート済みの状態で、
+  // プロンプトのフィールド一覧から exampleSentence が外れ、結果も空になる。
+  const includeExamples = options.includeExamples !== false;
+
   return {
     distractors: !hasValidDistractors(word.distractors),
-    example: !hasExampleSentence(word.example_sentence),
+    example: includeExamples && !hasExampleSentence(word.example_sentence),
     pronunciation: !hasPronunciation(word.pronunciation),
     pos: !hasPartOfSpeechTags(word.part_of_speech_tags),
   };
@@ -76,10 +99,14 @@ function hasAnyNeed(needs: QuizContentFieldNeeds): boolean {
 
 export function buildQuizPrefillSeedWords(
   words: QuizPrefillCandidateWord[],
+  options: QuizPrefillOptions = {},
 ): QuizPrefillSeedWord[] {
   return words
-    .map((word) => ({ word, needs: buildQuizPrefillNeeds(word) }))
-    .filter(({ word, needs }) => !isWordOrderEligible(word) && hasAnyNeed(needs))
+    .map((word) => ({ word, needs: buildQuizPrefillNeeds(word, options) }))
+    // 古典語は除外。誤答生成は英語の語形類似を根拠にするので古典語では意味を成さず、
+    // 発音記号(IPA)も英語専用。除外しても4択は quiz-state.ts の
+    // 「同じ単語帳の他の語の訳から誤答を集める」フォールバックで成立する。
+    .filter(({ word, needs }) => !shouldSkipEnglishEnrichment(word) && !isWordOrderEligible(word) && hasAnyNeed(needs))
     .map(({ word, needs }) => ({
       id: word.id,
       english: word.english,

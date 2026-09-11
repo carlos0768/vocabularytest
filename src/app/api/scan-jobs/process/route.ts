@@ -11,6 +11,12 @@ import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { readSingleLineEnv } from '@/lib/env';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
+import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
+import { isClassicalWord } from '@/lib/classical/is-classical';
+import { applyClassicalExamples } from '@/lib/classical/examples';
+import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/classical/purity';
+import { readProjectKind } from '@/lib/classical/project-kind';
+import type { ProjectKind } from '@/types';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
 import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
 import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
@@ -97,11 +103,9 @@ import {
   isWordTranslationsSchemaError,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
-import type { CustomSection, WordDerivedWords, WordMorphology, WordTranslation } from '@/types';
+import type { CustomSection, WordMorphology, WordTranslation } from '@/types';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
-import { resolveDerivedWordsForWords } from '@/lib/derived-words/resolve';
-import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
 import { normalizeHeadword } from '../../../../../shared/lexicon';
 import {
   insertProjectWithSourceLabelsCompat,
@@ -156,7 +160,6 @@ export interface ProcessJobDeps {
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
   resolveMorphology?: typeof resolveMorphologyForWords;
-  resolveDerivedWords?: typeof resolveDerivedWordsForWords;
   prefillWordOrderQuizzes?: typeof prefillWordOrderQuizzesForWords;
   sendPushNotifications?: typeof sendScanJobPushNotifications;
   sendApnsNotifications?: typeof sendScanJobApnsNotifications;
@@ -204,7 +207,6 @@ interface ProcessedExtractedWord {
   exampleSentenceJa?: string;
   customSections?: CustomSection[];
   morphology?: WordMorphology;
-  derivedWords?: WordDerivedWords;
 }
 
 type InsertedServerCloudWord =
@@ -881,7 +883,6 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
     const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
     const resolveMorphology = processDeps?.resolveMorphology ?? resolveMorphologyForWords;
-    const resolveDerivedWords = processDeps?.resolveDerivedWords ?? resolveDerivedWordsForWords;
     const prefillWordOrderQuizzes = processDeps?.prefillWordOrderQuizzes ?? prefillWordOrderQuizzesForWords;
     const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
     const sendApnsNotifications = processDeps?.sendApnsNotifications ?? sendScanJobApnsNotifications;
@@ -1135,21 +1136,32 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
       const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
       const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
+      // 例文生成はオプトイン（+2コイン）。列が無い（未適用の）DBでは undefined
+      // なので既定オフに倒れる。
+      const includeExamples = (job as { include_examples?: unknown }).include_examples === true;
       const lexiconResolutionStart = Date.now();
       // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
+      // 例文生成オフのときはマスター由来の転記も止める（無料の転記だけ残すと
+      // 既定オフが実質機能しない）。
       const resolvedResult = masterFirstEnabled
         ? await resolveImmediateWords(dedupedWords, undefined, {
-            skipMasterExamples: exampleGenres.length > 0,
+            skipMasterExamples: exampleGenres.length > 0 || !includeExamples,
           })
         : null;
       const rollbackResult = masterFirstEnabled
         ? null
         : await backfillWords(dedupedWords);
       timing.lexiconResolutionMs = Date.now() - lexiconResolutionStart;
-      const resolvedWords = applySourceModesFromScanModes(
+      const sourceModedWords = applySourceModesFromScanModes(
         resolvedResult?.words ?? rollbackResult?.words ?? dedupedWords,
         modes,
       ).map((word) => normalizeWordForTranslationPersistence(word));
+      // 古典語を共通辞書へ解決し、保存済みのヒント（訳）を流用する。
+      // 語源解析・派生語・例文生成より前に置くこと（それらは isClassicalWord() で
+      // 古典語を弾くので、印がこの時点で付いている必要がある）。
+      // 古典語が無ければDBには一切触らない。
+      const classicalResult = await applyClassical(sourceModedWords, { supabaseAdmin });
+      const resolvedWords = classicalResult.words;
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
       // --- Morphology (語源解析): opt-in, best-effort ---
@@ -1194,44 +1206,54 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
       }
 
-      // --- Derived words (派生語): opt-in, best-effort ---
-      // resolver 側で足切りするので、価値のない単語にはAIを呼ばない。
-      const includeDerivedWords =
-        (job as { include_derived_words?: unknown }).include_derived_words === true;
-      if (includeDerivedWords && resolvedWords.length > 0) {
-        const derivedWordsStart = Date.now();
-        try {
-          const derivedMap = await withCloudRunTimingPhase('derivedWordsGeneration', () =>
-            resolveDerivedWords(
-              resolvedWords
-                .map((word) => ({ english: String((word as Record<string, unknown>).english ?? '') }))
-                .filter((word) => word.english.length > 0),
-              apiKeys,
-              { supabaseAdmin },
-            ),
-          );
-          let attachedCount = 0;
-          for (const word of resolvedWords) {
-            const w = word as Record<string, unknown>;
-            const english = String(w.english ?? '');
-            if (!english) continue;
-            const derivedWords = derivedMap.get(normalizeHeadword(english));
-            if (hasDisplayableDerivedWords(derivedWords)) {
-              w.derivedWords = derivedWords;
-              attachedCount++;
-            }
+      // --- Classical (古文) example generation: opt-in, best-effort ---
+      // 語源解析と同じく、client_local / server_cloud の分岐より前に一度だけ
+      // resolvedWords へ付与する。英語の例文生成とは別プロンプト・別生成器で、
+      // 共通辞書に貯まっている例文があれば AI を呼ばずに流用する。
+      if (includeExamples) {
+        const classicalTargets = resolvedWords
+          .map((word, index) => ({ word, index }))
+          .filter(({ word }) => isClassicalWord(word) && !word.exampleSentence);
+
+        if (classicalTargets.length > 0) {
+          const classicalExampleStart = Date.now();
+          try {
+            const applied = await withCloudRunTimingPhase('exampleGeneration', () =>
+              applyClassicalExamples(
+                classicalTargets.map(({ word }) => ({
+                  headword: String((word as Record<string, unknown>).english ?? ''),
+                  meaning: String((word as Record<string, unknown>).japanese ?? ''),
+                  reading: (word as { reading?: string | null }).reading ?? null,
+                  classicalEntryId:
+                    (word as { classicalEntryId?: string | null }).classicalEntryId ?? null,
+                })),
+                apiKeys,
+                { supabaseAdmin },
+              ),
+            );
+
+            let attachedCount = 0;
+            classicalTargets.forEach(({ index }, seedIndex) => {
+              const generated = applied[seedIndex];
+              if (!generated) return;
+              const w = resolvedWords[index] as Record<string, unknown>;
+              w.exampleSentence = generated.exampleSentence;
+              w.exampleSentenceJa = generated.exampleSentenceJa;
+              attachedCount += 1;
+            });
+
+            console.log('[scan-jobs/process] Classical example generation completed', {
+              jobId,
+              requested: classicalTargets.length,
+              attached: attachedCount,
+              elapsedMs: Date.now() - classicalExampleStart,
+            });
+          } catch (classicalExampleError) {
+            console.error(
+              '[scan-jobs/process] Classical example generation failed (non-critical):',
+              classicalExampleError,
+            );
           }
-          console.log('[scan-jobs/process] Derived words generation completed', {
-            jobId,
-            requested: resolvedWords.length,
-            attached: attachedCount,
-            elapsedMs: Date.now() - derivedWordsStart,
-          });
-        } catch (derivedWordsError) {
-          console.error(
-            '[scan-jobs/process] Derived words generation failed (non-critical):',
-            derivedWordsError,
-          );
         }
       }
 
@@ -1244,6 +1266,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         rawWordCount: allExtractedWords.length,
         dedupedWordCount: dedupedWords.length,
         wordCount: resolvedWords.length,
+        classicalCount: classicalResult.classicalCount,
+        classicalResolvedCount: classicalResult.resolvedCount,
+        classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
+        classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
         masterHitCount: resolvedResult?.metrics.masterHitCount ?? 0,
         masterTranslationHitCount: resolvedResult?.metrics.masterTranslationHitCount ?? 0,
         aiJapaneseCount,
@@ -1258,7 +1284,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         let exampleGenerationSummary: ExampleGenerationSummary | undefined;
         let exampleGenerationErrors: string[] = [];
         let clientLocalResolvedWords = resolvedWords;
-        const wordsNeedingExamples = buildClientLocalExampleSeedWords(resolvedWords);
+        const wordsNeedingExamples = includeExamples
+          ? buildClientLocalExampleSeedWords(resolvedWords)
+          : [];
 
         if (wordsNeedingExamples.length > 0) {
           const exampleGenerationStart = Date.now();
@@ -1356,6 +1384,17 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let projectTitleForNotification = job.project_title as string;
       let createdNewProject = false;
       let usedProjectSourceLabelsCompat = false;
+      // 保存先の単語帳の種別。既存単語帳なら実物から読み、新規なら**これから保存する語**から決める。
+      //
+      // 新規単語帳でジョブ行の project_kind を信じてはいけない。スキャンUIには種別を
+      // 指定する手段が無く、古典専用のスキャンモードも無い（全モードのプロンプトが
+      // 自動判定する設計）ので、project_kind は常に既定の 'english' で入ってくる。
+      // これを信じると、古文単語帳をスキャンして新規単語帳を作ったときに
+      // filterWordsForProjectKind が全語を捨て、1語も保存されないまま「N語追加しました」と
+      // 通知する（実際に本番で全損した）。
+      //
+      // 空の単語帳に種別は無い。最初に保存される語が種別を決める、という規則にする。
+      let targetProjectKind: ProjectKind = inferProjectKindFromWords(resolvedWords);
 
       if (targetProjectId) {
         const { data: existingProject, error: existingProjectError, usedLegacyColumns: usedLegacySelectColumns } =
@@ -1376,6 +1415,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
 
         projectId = existingProject.id;
         projectTitleForNotification = existingProject.title ?? projectTitleForNotification;
+        targetProjectKind = await readProjectKind(supabaseAdmin, existingProject.id);
 
         if (job.project_icon_image) {
           const { error: iconUpdateError } = await supabaseAdmin
@@ -1418,6 +1458,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
               projectTitle: job.project_title,
               sourceLabels: dedupedSourceLabels,
               projectIconImage: job.project_icon_image,
+              kind: targetProjectKind,
             }),
           );
         usedProjectSourceLabelsCompat = usedProjectSourceLabelsCompat || usedLegacyInsertColumns;
@@ -1436,7 +1477,40 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         console.warn('[scan-jobs/process] projects.source_labels compatibility fallback used');
       }
 
-      const wordsToInsert = buildServerCloudWordsInsertPayload(resolvedWords, projectId);
+      // 保存先の単語帳の種別に合わない語は落とす（英語単語帳に古典語、その逆も）。
+      // 一部だけなら残りを保存する。正しく採れた語まで巻き添えで捨てるほうが損なので。
+      const kindFiltered = filterWordsForProjectKind(resolvedWords, targetProjectKind);
+      if (kindFiltered.droppedCount > 0) {
+        console.warn('[scan-jobs/process] Dropped words that do not match the wordbook kind', {
+          jobId,
+          projectId,
+          kind: targetProjectKind,
+          droppedCount: kindFiltered.droppedCount,
+        });
+      }
+
+      // 全部落ちたら「成功」にしてはいけない。
+      //
+      // 空配列の INSERT は PostgREST が data:[] / error:null で受けるので、ここで
+      // 止めないと 0 語のまま wordsDelivered=true まで進み、「N語追加しました」と
+      // 通知してコインも返還されない（実際に本番でそうなった）。
+      //
+      // 新規単語帳は保存する語から種別を決めるのでここには来ない。来るのは既存の
+      // 単語帳に種別違いを保存しようとした場合だけなので、理由を明示して失敗させる。
+      // 失敗させれば外側の catch がジョブを failed にし、wordsDelivered が false の
+      // ままなのでコインも返還される。
+      if (kindFiltered.words.length === 0) {
+        throw new Error(
+          targetProjectKind === 'classical'
+            ? 'この単語帳は古典専用です。保存できる古典語がありませんでした。英語の単語は別の単語帳に保存してください。'
+            : 'この単語帳は英語専用です。保存できる英単語がありませんでした。古典語は別の単語帳に保存してください。',
+        );
+      }
+
+      // これ以降は「実際に保存する語」だけを見る。resolvedWords（除外前）を使うと、
+      // 件数の報告がずれるだけでなく、訳の紐づけが別の単語にズレる。
+      const wordsToPersist = kindFiltered.words;
+      const wordsToInsert = buildServerCloudWordsInsertPayload(wordsToPersist, projectId);
 
       const dbInsertStart = Date.now();
       let insertedWords: InsertedServerCloudWord[] | null = null;
@@ -1445,25 +1519,25 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       let omitSourceModes = false;
       let omitLexiconSenseId = false;
       let omitMorphology = false;
-      let omitDerivedWords = false;
+      let omitClassicalEntryId = false;
 
       for (let attempt = 0; attempt < 5; attempt += 1) {
         const insertPayload =
           omitJapaneseSource || omitSourceModes || omitLexiconSenseId || omitMorphology
-          || omitDerivedWords
+          || omitClassicalEntryId
             ? stripServerCloudWordsInsertPayloadForCompat(wordsToInsert, {
                 omitJapaneseSource,
                 omitSourceModes,
                 omitLexiconSenseId,
                 omitMorphology,
-                omitDerivedWords,
+                omitClassicalEntryId,
               })
             : wordsToInsert;
         const selectColumns = getServerCloudWordsInsertSelectColumns({
           omitJapaneseSource,
           omitLexiconSenseId,
           omitMorphology,
-          omitDerivedWords,
+          omitClassicalEntryId,
         });
         const result = await supabaseAdmin
           .from('words')
@@ -1499,9 +1573,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           });
           continue;
         }
-        if (missingColumn === 'derived_words' && !omitDerivedWords) {
-          omitDerivedWords = true;
-          console.warn('[scan-jobs/process] words.derived_words compatibility fallback used', {
+        if (missingColumn === 'classical_entry_id' && !omitClassicalEntryId) {
+          omitClassicalEntryId = true;
+          console.warn('[scan-jobs/process] words.classical_entry_id compatibility fallback used', {
             jobId,
             message: result.error?.message,
           });
@@ -1531,8 +1605,11 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       wordsDelivered = true;
 
       const insertedWordsArray = insertedWords ?? [];
+      // insertedWordsArray は wordsToPersist と1対1（同じ順・同じ長さ）。
+      // ここに resolvedWords（除外前）を渡すと、一部だけ除外されたときに
+      // 訳が別の単語へ位置ズレして紐づく。
       const translationRows = buildWordTranslationInsertRows(
-        resolvedWords,
+        wordsToPersist,
         insertedWordsArray.map((word: { id: string }) => word.id),
       );
       if (translationRows.length > 0) {
@@ -1557,18 +1634,20 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
           }
         }
       }
-      const aiTranslatedWordIds = resolvedWords
+      const aiTranslatedWordIds = wordsToPersist
         .map((word, index) => (word.japaneseSource === 'ai' ? insertedWordsArray[index]?.id : null))
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
 
       // --- Synchronous example sentence generation (server_cloud) ---
       // 多肢選択語の例文はクイズprefill（30語/バッチ）が生成するため、
       // 1語1コールの例文生成は語順クイズ対象語（prefill対象外）のみに限定する。
-      const wordsForExampleGen = aiEnabled
-        ? buildServerCloudExampleSeedWords(
-            insertedWordsArray.filter((word: { english: string }) => isWordOrderEligible(word)),
-          )
-        : buildServerCloudExampleSeedWords(insertedWordsArray);
+      const wordsForExampleGen = !includeExamples
+        ? []
+        : aiEnabled
+          ? buildServerCloudExampleSeedWords(
+              insertedWordsArray.filter((word: { english: string }) => isWordOrderEligible(word)),
+            )
+          : buildServerCloudExampleSeedWords(insertedWordsArray);
 
       let exampleGenerationSummary: ExampleGenerationSummary | undefined;
       let exampleGenerationErrors: string[] = [];
@@ -1669,7 +1748,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       }
 
       const resultPayload = buildServerCloudScanJobResultPayload({
-        wordCount: resolvedWords.length,
+        // 抽出数ではなく保存数。ここを抽出数にすると、種別違いで一部が落ちたときに
+        // 実際より多い件数を通知してしまう。
+        wordCount: insertedWordsArray.length,
         targetProjectId: projectId,
         sourceLabels: dedupedSourceLabels,
         warnings: warningSet,
@@ -1679,7 +1760,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       if (aiEnabled) {
         const quizPrefillStart = Date.now();
         try {
-          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray);
+          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray, { includeExamples });
 
           let quizPrefillSucceeded = 0;
           const quizPrefillFailedWordIds = new Set<string>();
@@ -1832,7 +1913,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         jobId,
         projectId,
         projectTitle: projectTitleForNotification,
-        wordCount: resolvedWords.length,
+        wordCount: insertedWordsArray.length,
       });
       await sendScanJobNotifications({
         supabaseAdmin,
@@ -1887,7 +1968,9 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         if (insertedWordsArray.length === 0) return;
 
         if (ENABLE_POST_SCAN_QUIZ_PREFILL && aiEnabled) {
-          const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray);
+          const quizSeedWords = buildPostScanQuizPrefillSeedWords(insertedWordsArray, {
+            includeExamples,
+          });
 
           if (quizSeedWords.length > 0) {
             let quizPrefillSucceeded = 0;
@@ -1955,7 +2038,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         success: true,
         saveMode,
         projectId,
-        wordCount: resolvedWords.length,
+        wordCount: insertedWordsArray.length,
       });
 
       } catch (processingError) {

@@ -31,7 +31,6 @@ const FEATURE_KEYS: FeatureKey[] = [
   'example',
   'pronunciation',
   'morphology',
-  'derived',
   'multiMeaning',
   'custom',
   'wrong',

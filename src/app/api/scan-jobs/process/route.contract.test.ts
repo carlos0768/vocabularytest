@@ -45,6 +45,8 @@ interface ScanJobRow {
   eiken_level: string | null;
   project_title: string;
   project_icon_image: string | null;
+  /** 例文生成（+2コイン）。列が無い/未指定なら既定オフ。 */
+  include_examples?: boolean;
 }
 
 interface ProjectRow {
@@ -68,7 +70,7 @@ interface InsertedWordRow {
 type QueryError = { message: string; code?: string; details?: string; hint?: string };
 type QueryResult<T = unknown> = { data: T | null; error: QueryError | null };
 
-function pendingClientLocalJob(): ScanJobRow {
+function pendingClientLocalJob(overrides: Partial<ScanJobRow> = {}): ScanJobRow {
   return {
     id: JOB_ID,
     status: 'pending',
@@ -81,6 +83,7 @@ function pendingClientLocalJob(): ScanJobRow {
     eiken_level: null,
     project_title: 'Scan Result',
     project_icon_image: null,
+    ...overrides,
   };
 }
 
@@ -562,7 +565,8 @@ test('processJobById returns 404 when a valid job id has no row', async () => {
 
 test('client_local completion keeps result payload successful when example generation fails', async () => {
   const client = new FakeScanProcessClient({
-    claimedJob: pendingClientLocalJob(),
+    // 例文生成そのものの失敗ハンドリングを見るテストなのでオンにする
+    claimedJob: pendingClientLocalJob({ include_examples: true }),
     userPreference: { ai_enabled: false },
   });
   const pushNotifications: unknown[] = [];
@@ -635,6 +639,183 @@ test('client_local completion keeps result payload successful when example gener
     },
   ]);
   assert.deepEqual(apnsNotifications, pushNotifications);
+});
+
+test('client_local generates no examples when include_examples is off (default)', async () => {
+  // ai_enabled:false = クイズprefillが走らない条件。この経路でも例文生成が
+  // 呼ばれないことを確認する（既定OFFの本体）。
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingClientLocalJob(),
+    userPreference: { ai_enabled: false },
+  });
+  let generateExamplesCalled = false;
+
+  const response = await processJobById(
+    JOB_ID,
+    createContractDeps(client, {
+      generateExamples: async () => {
+        generateExamplesCalled = true;
+        throw new Error('should not be called');
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(generateExamplesCalled, false);
+
+  const completedUpdate = findScanJobUpdate(client, 'completed');
+  assert.ok(isRecord(completedUpdate.payload));
+  const resultPayload = JSON.parse(String(completedUpdate.payload.result));
+  // 生成を試みてすらいないので、サマリも警告も出ない
+  assert.equal(resultPayload.exampleGeneration, undefined);
+  assert.deepEqual(resultPayload.warnings ?? [], []);
+  assert.equal(resultPayload.extractedWords[0].exampleSentence, undefined);
+});
+
+// ============================================
+// 本番障害の回帰テスト
+// ============================================
+//
+// 古文単語帳をスキャンして新規単語帳を作ると、1語も保存されないまま
+// 「N語追加しました」と通知していた。scan_jobs.project_kind はスキャンUIから
+// 指定する手段が無く常に 'english' で入るため、種別フィルタが全語を捨て、
+// 空配列の INSERT を PostgREST が成功として受けていた。
+
+/** 抽出結果を古典語に差し替える（resolveImmediateWords は applyClassical より前に走る）。 */
+function classicalResolveImmediateWords(headwords: readonly string[]) {
+  return (async (words: unknown[]) => ({
+    words: headwords.map((headword, index) => ({
+      ...(words[index] ?? words[0] ?? {}),
+      english: headword,
+      japanese: `${headword}の意味`,
+      japaneseSource: 'scan',
+      isClassical: true,
+      distractors: [],
+      partOfSpeechTags: [],
+    })),
+    lexiconEntries: [],
+    metrics: {
+      lookupKeyCount: 0, masterHitCount: 0, masterTranslationHitCount: 0,
+      masterPronunciationHitCount: 0, masterDistractorHitCount: 0,
+      masterHeadwordFallbackHitCount: 0, aiMissCount: 0,
+      lookupElapsedMs: 0, translationElapsedMs: 0, totalElapsedMs: 0,
+    },
+  })) as never;
+}
+
+test('a classical scan into a NEW wordbook saves every word and marks the wordbook classical', async () => {
+  const headwords = ['あさまし', 'やむごとなし', 'つれづれなり'];
+  const client = new FakeScanProcessClient({
+    // project_kind は既定の 'english'。スキャンUIから指定する手段が無いので本番でも常にこれ。
+    claimedJob: pendingServerCloudJob(),
+    userPreference: { ai_enabled: false },
+  });
+
+  const response = await processJobById(
+    JOB_ID,
+    createServerCloudContractDeps(client, {
+      resolveImmediateWords: classicalResolveImmediateWords(headwords),
+      extractImage: async () => ({
+        result: {
+          success: true,
+          data: {
+            words: headwords.map((headword) => ({
+              english: headword,
+              japanese: `${headword}の意味`,
+              japaneseSource: 'scan',
+              sourceModes: ['all'],
+              distractors: [],
+              partOfSpeechTags: [],
+              isClassical: true,
+            })),
+            sourceLabels: ['古文単語'],
+          },
+        },
+      }),
+    }),
+  );
+
+  assert.equal(response.status, 200);
+
+  // 単語帳は中身から古典と判定される（ジョブ行の 'english' を信じない）
+  const projectInsert = findOperation(
+    client,
+    (operation) => operation.table === 'projects' && operation.action === 'insert',
+    'missing project insert',
+  );
+  assert.ok(isRecord(projectInsert.payload));
+  assert.equal(projectInsert.payload.kind, 'classical');
+
+  // 全語が保存される（ここが障害の本体）
+  const wordsInsert = findOperation(
+    client,
+    (operation) => operation.table === 'words' && operation.action === 'insert',
+    'missing words insert',
+  );
+  assert.ok(Array.isArray(wordsInsert.payload));
+  assert.equal(wordsInsert.payload.length, headwords.length);
+  assert.deepEqual(
+    wordsInsert.payload.map((row: Record<string, unknown>) => row.english),
+    headwords,
+  );
+
+  // 通知・結果の件数は「実際に保存した数」
+  assert.deepEqual(await response.json(), {
+    success: true,
+    saveMode: 'server_cloud',
+    projectId: NEW_PROJECT_ID,
+    wordCount: headwords.length,
+  });
+});
+
+test('a classical scan into an EXISTING english wordbook fails loudly and refunds instead of saving nothing', async () => {
+  const headwords = ['あさまし', 'やむごとなし'];
+  const client = new FakeScanProcessClient({
+    claimedJob: pendingServerCloudJob({ target_project_id: EXISTING_PROJECT_ID }),
+    existingProject: { id: EXISTING_PROJECT_ID, title: '英単語帳', source_labels: [] },
+    userPreference: { ai_enabled: false },
+  });
+
+  const response = await processJobById(
+    JOB_ID,
+    createServerCloudContractDeps(client, {
+      resolveImmediateWords: classicalResolveImmediateWords(headwords),
+      extractImage: async () => ({
+        result: {
+          success: true,
+          data: {
+            words: headwords.map((headword) => ({
+              english: headword,
+              japanese: `${headword}の意味`,
+              japaneseSource: 'scan',
+              sourceModes: ['all'],
+              distractors: [],
+              partOfSpeechTags: [],
+              isClassical: true,
+            })),
+            sourceLabels: ['古文単語'],
+          },
+        },
+      }),
+    }),
+  );
+
+  // 黙って成功しない
+  assert.notEqual(response.status, 200);
+
+  // 空配列を INSERT して「成功」にしない
+  const wordsInserts = client.operations.filter(
+    (operation) => operation.table === 'words' && operation.action === 'insert',
+  );
+  for (const insert of wordsInserts) {
+    assert.ok(Array.isArray(insert.payload) && insert.payload.length > 0,
+      'must never insert an empty words payload');
+  }
+
+  // ジョブは failed になり、理由がユーザーに伝わる日本語で残る
+  const failedUpdate = findScanJobUpdate(client, 'failed');
+  assert.ok(isRecord(failedUpdate.payload));
+  assert.match(String(failedUpdate.payload.error_message), /古典語|英語専用/);
 });
 
 test('processJobById uses scanModesOverride when scan_modes is not available on the job row', async () => {
@@ -891,6 +1072,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
     title: 'Scan Result',
     source_labels: ['鉄壁'],
     icon_image: null,
+    kind: 'english',
   });
 
   const wordsInsert = findOperation(
@@ -900,7 +1082,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
   );
   assert.equal(
     wordsInsert.columns,
-    'id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, morphology, derived_words',
+    'id, english, japanese, japanese_source, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, word_order_quiz, morphology, classical_entry_id',
   );
   assert.deepEqual(wordsInsert.payload, [
     {
@@ -918,7 +1100,7 @@ test('server_cloud new project completion keeps project insert, words insert, an
       source_modes: ['all'],
       custom_sections: [],
       morphology: null,
-      derived_words: null,
+      classical_entry_id: null,
       vocabulary_type: 'passive',
     },
   ]);
@@ -1359,6 +1541,8 @@ test('server_cloud existing project words insert failure does not delete the pro
   ), false);
   assert.deepEqual(trace.filter((event) => [
     'db:projects.select',
+    // 保存先の単語帳の種別を読むための追加select
+    'db:projects.select',
     'db:projects.update',
     'db:words.insert',
     'db:scan_jobs.failed',
@@ -1366,6 +1550,8 @@ test('server_cloud existing project words insert failure does not delete the pro
     'apns:failed',
     'timing:failed',
   ].includes(event)), [
+    'db:projects.select',
+    // 保存先の単語帳の種別を読むための追加select
     'db:projects.select',
     'db:projects.update',
     'db:words.insert',

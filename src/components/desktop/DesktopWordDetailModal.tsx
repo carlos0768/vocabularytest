@@ -6,10 +6,7 @@ import { desktopPosLabel } from '@/components/desktop/desktop-data';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
-import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
-import { DerivedWordsList } from '@/components/word/DerivedWordsList';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
-import { useDerivedWordsBackfill } from '@/hooks/use-derived-words-backfill';
 import { speakEnglish } from '@/lib/speech';
 import type { Word } from '@/types';
 
@@ -30,8 +27,6 @@ export function DesktopWordDetailModal({
 }) {
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完する
   const morphology = useMorphologyBackfill(word);
-  const derivedWords = useDerivedWordsBackfill(word);
-  const [derivedWordsExpanded, setDerivedWordsExpanded] = useState(false);
 
   return (
     <div className="ds-overlay" onClick={onClose}>
@@ -95,48 +90,36 @@ export function DesktopWordDetailModal({
             </div>
           </div>
 
-          <div style={{ paddingTop: 2 }}>
+          {/* 例文が無ければ見出しごと出さない。以前はここで「例文を生成中...」の
+              スピナーを回していたが、生成状態を見ていないので、例文の無い単語では
+              永久に回り続けていた。例文生成はオプトインになったので、持たない
+              単語のほうが多い。 */}
+          {word.exampleSentence && (
+            <div style={{ paddingTop: 2 }}>
               <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <Icon name="auto_awesome" style={{ fontSize: 14 }} />AI 例文
               </div>
-              {word.exampleSentence ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                    <div style={{ flex: 1, fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
-                      {renderExample(word.exampleSentence, word.english)}
-                    </div>
-                    <button
-                      type="button"
-                      className="ds-btn ghost sm"
-                      onClick={() => speakEnglish(word.exampleSentence, { rate: 0.85 })}
-                      aria-label="例文を再生"
-                      style={{ flexShrink: 0 }}
-                    >
-                      <Icon name="volume_up" style={{ color: 'var(--color-muted)' }} />
-                    </button>
-                  </div>
-                  {word.exampleSentenceJa && (
-                    <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>
-                      {word.exampleSentenceJa}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Icon name="progress_activity" className="animate-spin" style={{ fontSize: 16, color: 'var(--color-accent)' }} />
-                    <span style={{ fontSize: 13, color: 'var(--color-muted)', fontWeight: 500 }}>
-                      例文を生成中...
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div className="ds-shimmer" style={{ height: 14, borderRadius: 6, width: '90%' }} />
-                    <div className="ds-shimmer" style={{ height: 14, borderRadius: 6, width: '70%' }} />
-                    <div className="ds-shimmer" style={{ height: 12, borderRadius: 6, width: '55%', marginTop: 4 }} />
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ flex: 1, fontSize: 16, fontWeight: 600, lineHeight: 1.75 }}>
+                  {renderExample(word.exampleSentence, word.english)}
+                </div>
+                <button
+                  type="button"
+                  className="ds-btn ghost sm"
+                  onClick={() => speakEnglish(word.exampleSentence, { rate: 0.85 })}
+                  aria-label="例文を再生"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Icon name="volume_up" style={{ color: 'var(--color-muted)' }} />
+                </button>
+              </div>
+              {word.exampleSentenceJa && (
+                <div style={{ fontSize: 13.5, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 4 }}>
+                  {word.exampleSentenceJa}
                 </div>
               )}
             </div>
+          )}
 
           {hasDisplayableMorphology(morphology) && (
             <div>
@@ -147,24 +130,6 @@ export function DesktopWordDetailModal({
               <div style={{ fontSize: 13, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 12, whiteSpace: 'pre-line' }}>
                 {morphology.explanation}
               </div>
-            </div>
-          )}
-
-          {hasDisplayableDerivedWords(derivedWords) && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setDerivedWordsExpanded((prev) => !prev)}
-                aria-expanded={derivedWordsExpanded}
-                aria-label={derivedWordsExpanded ? '派生語を閉じる' : '派生語を開く'}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: derivedWordsExpanded ? 10 : 0 }}
-              >
-                <span className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon name="family_history" style={{ fontSize: 14 }} />派生語
-                </span>
-                <Icon name={derivedWordsExpanded ? 'expand_less' : 'expand_more'} style={{ fontSize: 18, color: 'var(--color-muted)' }} />
-              </button>
-              {derivedWordsExpanded && <DerivedWordsList derivedWords={derivedWords} />}
             </div>
           )}
 

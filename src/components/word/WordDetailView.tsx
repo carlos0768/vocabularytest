@@ -13,9 +13,6 @@ import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { speakEnglish } from '@/lib/speech';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
-import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
-import { useDerivedWordsBackfill } from '@/hooks/use-derived-words-backfill';
-import { DerivedWordsList } from '@/components/word/DerivedWordsList';
 
 function formatCustomSectionValue(value: string, type: CustomColumn['type']): string {
   if (!value) return '';
@@ -126,7 +123,6 @@ export function WordDetailView({
   const [editJapanese, setEditJapanese] = useState('');
   const [editExampleSentence, setEditExampleSentence] = useState('');
   const [editExampleSentenceJa, setEditExampleSentenceJa] = useState('');
-  const [derivedWordsExpanded, setDerivedWordsExpanded] = useState(false);
 
   // Swapy — order tracking via ref (NOT state) to avoid re-render conflicts
   const swapyContainerRef = useRef<HTMLDivElement>(null);
@@ -157,14 +153,6 @@ export function WordDetailView({
     onWordUpdated?.(updated);
   }, [syncHomeCacheForWord, onWordUpdated]);
   const morphology = useMorphologyBackfill(word, { onBackfilled: handleMorphologyBackfilled });
-
-  // 派生語も同じくlexicon共有キャッシュから表示時に補う（生成は走らない）
-  const handleDerivedWordsBackfilled = useCallback((updated: Word) => {
-    setWord((prev) => (prev && prev.id === updated.id ? { ...prev, derivedWords: updated.derivedWords } : prev));
-    syncHomeCacheForWord(updated);
-    onWordUpdated?.(updated);
-  }, [syncHomeCacheForWord, onWordUpdated]);
-  const derivedWords = useDerivedWordsBackfill(word, { onBackfilled: handleDerivedWordsBackfilled });
 
   useEffect(() => {
     if (authLoading) return;
@@ -473,52 +461,55 @@ export function WordDetailView({
           )}
         </section>
 
-        <SectionDivider />
+        {/* 例文が無ければセクションごと出さない（区切り線も含めて）。例文生成は
+            オプトインなので、持たない単語のほうが多い。ただし編集中は例文を手で
+            足す唯一の入口なので、空でも入力欄を出す。 */}
+        {(isEditing || word.exampleSentence) && (
+          <>
+            <SectionDivider />
 
-        <section className="py-4">
-          <div className="mb-3 flex items-center justify-between">
-            <SectionHeading title="EXAMPLE" />
-            <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">例文</span>
-          </div>
-          {isEditing ? (
-            <div className="space-y-2.5">
-              <textarea
-                value={editExampleSentence}
-                onChange={(e) => setEditExampleSentence(e.target.value)}
-                placeholder="例文（英語）を入力..."
-                rows={2}
-                className="w-full resize-none rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-[14px] leading-relaxed text-[var(--solid-ink)] outline-none"
-              />
-              <textarea
-                value={editExampleSentenceJa}
-                onChange={(e) => setEditExampleSentenceJa(e.target.value)}
-                placeholder="例文の日本語訳を入力..."
-                rows={2}
-                className="w-full resize-none rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[13px] leading-relaxed text-[var(--color-muted)] outline-none"
-              />
-            </div>
-          ) : word.exampleSentence ? (
-            <div>
-              <div className="flex items-start gap-3">
-                <p className="min-w-0 flex-1 text-[15px] font-medium leading-[1.6] text-[var(--solid-ink)]">
-                  {highlightWord(word.exampleSentence, word.english)}
-                </p>
-                <button onClick={() => {
-                  speakEnglish(word.exampleSentence, { rate: 0.85 });
-                }} className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink-muted)]" aria-label="例文を再生">
-                  <Icon name="volume_up" size={16} />
-                </button>
+            <section className="py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <SectionHeading title="EXAMPLE" />
+                <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">例文</span>
               </div>
-              {word.exampleSentenceJa && (
-                <p className="mt-3 text-[13px] leading-[1.55] text-[var(--color-ink-muted)]">{word.exampleSentenceJa}</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-[13px] font-medium text-[var(--color-muted)]">
-              例文はまだ生成されていません
-            </p>
-          )}
-        </section>
+              {isEditing ? (
+                <div className="space-y-2.5">
+                  <textarea
+                    value={editExampleSentence}
+                    onChange={(e) => setEditExampleSentence(e.target.value)}
+                    placeholder="例文（英語）を入力..."
+                    rows={2}
+                    className="w-full resize-none rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-[14px] leading-relaxed text-[var(--solid-ink)] outline-none"
+                  />
+                  <textarea
+                    value={editExampleSentenceJa}
+                    onChange={(e) => setEditExampleSentenceJa(e.target.value)}
+                    placeholder="例文の日本語訳を入力..."
+                    rows={2}
+                    className="w-full resize-none rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-4 py-3 text-[13px] leading-relaxed text-[var(--color-muted)] outline-none"
+                  />
+                </div>
+              ) : word.exampleSentence ? (
+                <div>
+                  <div className="flex items-start gap-3">
+                    <p className="min-w-0 flex-1 text-[15px] font-medium leading-[1.6] text-[var(--solid-ink)]">
+                      {highlightWord(word.exampleSentence, word.english)}
+                    </p>
+                    <button onClick={() => {
+                      speakEnglish(word.exampleSentence, { rate: 0.85 });
+                    }} className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink-muted)]" aria-label="例文を再生">
+                      <Icon name="volume_up" size={16} />
+                    </button>
+                  </div>
+                  {word.exampleSentenceJa && (
+                    <p className="mt-3 text-[13px] leading-[1.55] text-[var(--color-ink-muted)]">{word.exampleSentenceJa}</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          </>
+        )}
 
         {hasDisplayableMorphology(morphology) && (
           <>
@@ -533,32 +524,6 @@ export function WordDetailView({
               <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.6] text-[var(--color-ink-muted)]">
                 {morphology.explanation}
               </p>
-            </section>
-          </>
-        )}
-
-        {hasDisplayableDerivedWords(derivedWords) && (
-          <>
-            <SectionDivider />
-            <section className="py-4">
-              <button
-                type="button"
-                onClick={() => setDerivedWordsExpanded((prev) => !prev)}
-                aria-expanded={derivedWordsExpanded}
-                aria-label={derivedWordsExpanded ? '派生語を閉じる' : '派生語を開く'}
-                className="flex w-full items-center justify-between"
-              >
-                <SectionHeading title="DERIVATIVES" />
-                <span className="flex items-center gap-1">
-                  <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">派生語</span>
-                  <Icon name={derivedWordsExpanded ? 'expand_less' : 'expand_more'} size={18} />
-                </span>
-              </button>
-              {derivedWordsExpanded && (
-                <div className="mt-3">
-                  <DerivedWordsList derivedWords={derivedWords} />
-                </div>
-              )}
             </section>
           </>
         )}

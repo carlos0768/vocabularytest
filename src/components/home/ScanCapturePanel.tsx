@@ -101,7 +101,9 @@ export function ScanCapturePanel({
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
-  const [derivedWordsOn, setDerivedWordsOn] = useState(false);
+  // 例文生成。語源解析と同じく既定オフ（後付けの有料オプションなので、
+  // 既存ユーザーが気づかず課金されないように）。
+  const [examplesOn, setExamplesOn] = useState(false);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',
@@ -171,7 +173,7 @@ export function ScanCapturePanel({
       scanModes: selectedScanModes,
       eikenLevel: selectedEikenLevel,
       includeMorphology: morphologyOn,
-      includeDerivedWords: derivedWordsOn,
+      includeExamples: examplesOn,
       customModeId: customPayload.customModeId,
       customPrompt: customPayload.customPrompt,
       targetProjectId,
@@ -200,7 +202,7 @@ export function ScanCapturePanel({
             scanModes: selectedScanModes,
             eikenLevel: selectedEikenLevel,
             includeMorphology: morphologyOn,
-            includeDerivedWords: derivedWordsOn,
+            includeExamples: examplesOn,
             ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
             ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
           }),
@@ -384,7 +386,7 @@ export function ScanCapturePanel({
     imageCount: heldShots.length,
     totalRemaining: coinBalance.totalRemaining,
     includeMorphology: morphologyOn,
-    includeDerivedWords: derivedWordsOn,
+    includeExamples: examplesOn,
   });
   const estimatedCoinCost = coinState.cost;
   const insufficientBalance = coinState.insufficient;
@@ -575,44 +577,43 @@ export function ScanCapturePanel({
               </span>
             </span>
           </button>
-        </div>
 
-        {/* Derived words (派生語) toggle */}
-        <div className="mt-2">
+          {/* Example sentence (例文生成) toggle */}
           <button
             type="button"
             onClick={() => {
               triggerHaptic();
-              setDerivedWordsOn((prev) => !prev);
+              setExamplesOn((prev) => !prev);
             }}
-            className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
+            className="mt-2 flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
             style={{
-              borderColor: derivedWordsOn ? 'var(--solid-ink)' : 'var(--color-border)',
-              boxShadow: derivedWordsOn ? '2px 2px 0 var(--solid-ink)' : 'none',
+              borderColor: examplesOn ? 'var(--solid-ink)' : 'var(--color-border)',
+              boxShadow: examplesOn ? '2px 2px 0 var(--solid-ink)' : 'none',
             }}
           >
             <span
               className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
               style={{
-                border: `1.25px solid ${derivedWordsOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                background: derivedWordsOn ? 'var(--color-accent)' : 'var(--color-surface)',
+                border: `1.25px solid ${examplesOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                background: examplesOn ? 'var(--color-accent)' : 'var(--color-surface)',
               }}
             >
-              {derivedWordsOn && <Icon name="check" size={11} className="text-white" />}
+              {examplesOn && <Icon name="check" size={11} className="text-white" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
-                <span className="truncate">派生語</span>
+                <span className="truncate">例文生成</span>
                 <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
                   +2コイン
                 </span>
               </span>
               <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
-                試験で狙われる派生語を最大3つ（対象語のみ）
+                単語ごとに例文と訳を生成（古典語は古文の例文）
               </span>
             </span>
           </button>
         </div>
+
       </div>
 
       {/* Coin cost / balance (コイン制オン時のみ) */}

@@ -373,3 +373,78 @@ test('parseAIResponse merges translation notes from duplicate headword entries',
     },
   ]);
 });
+
+test('parseAIResponse keeps every meaning printed for a classical word', () => {
+  // ヒント制の入口。古文単語帳の①②③は互いに近い意味でも全部が暗記対象なので、
+  // 英語向けの「同義語はまとめる」縮約を通してはいけない。
+  const result = parseAIResponse({
+    words: [
+      {
+        english: 'あさまし',
+        isClassical: true,
+        reading: 'あさまし',
+        classicalPos: 'シク活用形容詞',
+        japanese: '驚きあきれるほどだ',
+        japaneseSource: 'scan',
+        translations: ['驚きあきれるほどだ', '情けない', 'みっともない'],
+      },
+    ],
+  });
+
+  assert.equal(result.success, true);
+  const word = result.data!.words[0];
+  assert.equal(word.isClassical, true);
+  assert.equal(word.reading, 'あさまし');
+  assert.equal(word.classicalPos, 'シク活用形容詞');
+  assert.deepEqual(
+    word.translations?.map((translation) => translation.translationJa),
+    ['驚きあきれるほどだ', '情けない', 'みっともない'],
+  );
+});
+
+test('parseAIResponse downgrades a classical flag on an English headword', () => {
+  // AIの誤判定で英単語が古典語になると、例文・語源解析・誤答生成がまるごと止まる
+  const result = parseAIResponse({
+    words: [{ english: 'admire', isClassical: true, reading: 'x', classicalPos: '動詞', japanese: '敬服する' }],
+  });
+
+  assert.equal(result.success, true);
+  const word = result.data!.words[0];
+  assert.equal(word.isClassical, undefined);
+  assert.equal(word.reading, undefined);
+  assert.equal(word.classicalPos, undefined);
+});
+
+test('parseAIResponse never merges a classical headword with an English one', () => {
+  const result = parseAIResponse({
+    words: [
+      { english: 'あし', japanese: '足', translations: ['足'] },
+      { english: 'あし', isClassical: true, japanese: '悪い', classicalPos: 'ク活用形容詞', translations: ['悪い'] },
+    ],
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.data!.words.length, 2);
+  assert.equal(result.data!.words[0].isClassical, undefined);
+  assert.equal(result.data!.words[1].isClassical, true);
+});
+
+test('parseAIResponse merges duplicate classical headwords, unioning their meanings', () => {
+  // 画像内で同じ見出し語が別項目に分かれていても1エントリにまとめ、訳は掲載順で残す
+  const result = parseAIResponse({
+    words: [
+      { english: 'あはれ', isClassical: true, japanese: 'しみじみとした情趣', classicalPos: '名詞', translations: ['しみじみとした情趣'] },
+      { english: 'あはれ', isClassical: true, japanese: 'かわいそうだ', translations: ['かわいそうだ'] },
+    ],
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.data!.words.length, 1);
+  const word = result.data!.words[0];
+  assert.equal(word.isClassical, true);
+  assert.equal(word.classicalPos, '名詞');
+  assert.deepEqual(
+    word.translations?.map((translation) => translation.translationJa),
+    ['しみじみとした情趣', 'かわいそうだ'],
+  );
+});

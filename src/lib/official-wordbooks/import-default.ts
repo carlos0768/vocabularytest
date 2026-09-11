@@ -291,7 +291,6 @@ function toHomogeneousWordInsertRow(
     insights_version: row.insights_version ?? null,
     word_order_quiz: row.word_order_quiz ?? null,
     morphology: row.morphology ?? null,
-    derived_words: row.derived_words ?? null,
     last_reviewed_at: row.last_reviewed_at ?? null,
     next_review_at: row.next_review_at ?? null,
     custom_sections: row.custom_sections ?? [],

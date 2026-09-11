@@ -30,6 +30,9 @@ import { refundScanCoinsForJob } from '@/lib/coins/refund';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { ensureSourceLabels } from '../../../../shared/source-labels';
+import { applyClassicalDictionary } from '@/lib/classical/apply';
+import { isClassicalWord, shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
+import { applyClassicalExamples } from '@/lib/classical/examples';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
@@ -40,8 +43,6 @@ import { fetchAiGenerationEnabled } from '@/lib/preferences/ai-generation';
 import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
-import { resolveDerivedWordsForWords } from '@/lib/derived-words/resolve';
-import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
 import { normalizeHeadword } from '../../../../shared/lexicon';
 import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
 
@@ -56,7 +57,8 @@ const requestSchema = z.object({
   scanModes: z.array(z.enum(EXTRACT_MODES)).min(1).max(EXTRACT_MODES.length).optional(),
   eikenLevel: z.enum(['5', '4', '3', 'pre2', '2', 'pre1', '1']).nullable().optional().default(null),
   includeMorphology: z.boolean().optional().default(false),
-  includeDerivedWords: z.boolean().optional().default(false),
+  // 例文生成（+2コイン）。既定オフ — 未指定の旧クライアントは例文なしになる。
+  includeExamples: z.boolean().optional().default(false),
   // カスタム抽出モード: 保存済みモードのID（優先）か、その場限りの指示文
   customModeId: z.string().uuid().nullable().optional().default(null),
   customPrompt: z.string().max(MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH).nullable().optional().default(null),
@@ -84,11 +86,12 @@ export type ExtractRouteDeps = {
   extractCompositeWords?: typeof extractCompositeWordsFromImage;
   extractCustomWords?: typeof extractCustomWordsFromImage;
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
+  applyClassicalDictionary?: typeof applyClassicalDictionary;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
+  applyClassicalExamples?: typeof applyClassicalExamples;
   saveExamples?: typeof saveExamplesToLexicon;
   resolveMorphology?: typeof resolveMorphologyForWords;
-  resolveDerivedWords?: typeof resolveDerivedWordsForWords;
   fetchAiGeneration?: typeof fetchAiGenerationEnabled;
 };
 
@@ -107,11 +110,12 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     extractCompositeWords: deps?.extractCompositeWords ?? extractCompositeWordsFromImage,
     extractCustomWords: deps?.extractCustomWords ?? extractCustomWordsFromImage,
     resolveImmediateWords: deps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst,
+    applyClassicalDictionary: deps?.applyClassicalDictionary ?? applyClassicalDictionary,
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
+    applyClassicalExamples: deps?.applyClassicalExamples ?? applyClassicalExamples,
     saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
     resolveMorphology: deps?.resolveMorphology ?? resolveMorphologyForWords,
-    resolveDerivedWords: deps?.resolveDerivedWords ?? resolveDerivedWordsForWords,
     fetchAiGeneration: deps?.fetchAiGeneration ?? fetchAiGenerationEnabled,
   };
 }
@@ -142,11 +146,12 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     extractCompositeWords,
     extractCustomWords,
     resolveImmediateWords,
+    applyClassicalDictionary: applyClassical,
     backfillWords,
     generateExamples,
+    applyClassicalExamples: applyClassicalExamplesDep,
     saveExamples,
     resolveMorphology,
-    resolveDerivedWords,
     fetchAiGeneration,
   } = getDeps(deps);
   const startedAt = Date.now();
@@ -186,7 +191,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       scanModes: requestedScanModes,
       eikenLevel,
       includeMorphology,
-      includeDerivedWords,
+      includeExamples,
       customModeId,
       customPrompt,
     } = parsed.data as {
@@ -195,7 +200,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       scanModes?: ExtractMode[];
       eikenLevel: EikenLevel;
       includeMorphology: boolean;
-      includeDerivedWords: boolean;
+      includeExamples: boolean;
       customModeId: string | null;
       customPrompt: string | null;
     };
@@ -304,7 +309,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       imageCount: 1,
       scanJobId: coinScanRef,
       includeMorphology,
-      includeDerivedWords,
+      includeExamples,
     });
 
     if (!gate.ok) {
@@ -389,16 +394,23 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
     const resolved = masterFirstEnabled
       ? await resolveImmediateWords(result.data.words, undefined, {
-          skipMasterExamples: exampleGenres.length > 0,
+          // 例文生成がオフなら、マスター由来の例文の転記も止める。無料の転記だけ
+          // 残すと「既定オフ」が実質機能せず、+2 を払う理由も無くなる。
+          skipMasterExamples: exampleGenres.length > 0 || !includeExamples,
         })
       : null;
     const rollbackResult = masterFirstEnabled
       ? null
       : await backfillWords(result.data.words);
-    const extractedWords = applySourceModesFromScanModes(
+    const sourceModedWords = applySourceModesFromScanModes(
       resolved?.words ?? rollbackResult?.words ?? result.data.words,
       modes,
     ).map((word) => normalizeWordForTranslationPersistence(word));
+    // 古典語を共通辞書へ解決し、保存済みのヒント（訳）を流用する。
+    // 古典語が無ければDBには一切触らないので、英単語だけのスキャンには影響しない。
+    // ここより後の語源解析・派生語・例文生成はすべて isClassicalWord() で古典語を弾く。
+    const classicalResult = await applyClassical(sourceModedWords);
+    const extractedWords = classicalResult.words;
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
     console.log('[extract] Extraction done', {
@@ -406,6 +418,10 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       primaryMode,
       masterFirstEnabled,
       wordCount: extractedWords.length,
+      classicalCount: classicalResult.classicalCount,
+      classicalResolvedCount: classicalResult.resolvedCount,
+      classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
+      classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
       masterHitCount: resolved?.metrics.masterHitCount ?? 0,
       masterTranslationHitCount: resolved?.metrics.masterTranslationHitCount ?? 0,
       masterHeadwordFallbackHitCount: resolved?.metrics.masterHeadwordFallbackHitCount ?? 0,
@@ -430,15 +446,22 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 語順クイズ対象語（prefill対象外）のみに限定して二重生成を防ぐ。
     // AI生成が無効なユーザーはprefillが走らないので従来どおり全語生成する。
     const aiGenerationEnabled = await fetchAiGeneration(supabase, user.id);
-    const wordsNeedingExamples = extractedWords
-      .map((w: { english?: string; japanese?: string; exampleSentence?: string }, i: number) => ({
-        id: String(i),
-        english: String((w as Record<string, unknown>).english ?? ''),
-        japanese: String((w as Record<string, unknown>).japanese ?? ''),
-        exampleSentence: (w as Record<string, unknown>).exampleSentence as string | undefined,
-      }))
-      .filter((w) => !w.exampleSentence && w.english.length > 0)
-      .filter((w) => !aiGenerationEnabled || isWordOrderEligible(w));
+    // 例文生成はオプトイン（+2コイン）。オフなら1語も生成しない。
+    const wordsNeedingExamples = !includeExamples
+      ? []
+      : extractedWords
+        .map((w, i: number) => ({
+          id: String(i),
+          english: String((w as Record<string, unknown>).english ?? ''),
+          japanese: String((w as Record<string, unknown>).japanese ?? ''),
+          exampleSentence: (w as Record<string, unknown>).exampleSentence as string | undefined,
+          // 古典語は英語例文の対象外。ここで落とさないと、AI生成オフの
+          // ユーザー（isWordOrderEligible の絞り込みが効かない経路）で
+          // 古典語に英文が付く。
+          isClassical: shouldSkipEnglishEnrichment(w),
+        }))
+        .filter((w) => !w.exampleSentence && w.english.length > 0 && !w.isClassical)
+        .filter((w) => !aiGenerationEnabled || isWordOrderEligible(w));
 
     if (wordsNeedingExamples.length > 0) {
       exampleGenDiag.attempted = true;
@@ -510,6 +533,48 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       }
     }
 
+    // --- Classical (古文) example generation: opt-in, best-effort ---
+    //
+    // 英語とは別プロンプト・別生成器。共通辞書に貯まっている例文があれば
+    // AIを呼ばずにそれを流用する（訳のヒント流用と同じ思想）。
+    if (includeExamples) {
+      try {
+        const classicalWordsNeedingExamples = extractedWords
+          .map((word, index) => ({ word, index }))
+          .filter(({ word }) => isClassicalWord(word) && !word.exampleSentence);
+
+        if (classicalWordsNeedingExamples.length > 0) {
+          const applied = await applyClassicalExamplesDep(
+            classicalWordsNeedingExamples.map(({ word }) => ({
+              headword: String((word as Record<string, unknown>).english ?? ''),
+              meaning: String((word as Record<string, unknown>).japanese ?? ''),
+              reading: (word as { reading?: string | null }).reading ?? null,
+              classicalEntryId: (word as { classicalEntryId?: string | null }).classicalEntryId ?? null,
+            })),
+            apiKeys,
+          );
+
+          classicalWordsNeedingExamples.forEach(({ index }, seedIndex) => {
+            const generated = applied[seedIndex];
+            if (!generated) return;
+            const w = extractedWords[index] as Record<string, unknown>;
+            w.exampleSentence = generated.exampleSentence;
+            w.exampleSentenceJa = generated.exampleSentenceJa;
+          });
+
+          console.log('[extract] Classical example generation completed', {
+            requested: classicalWordsNeedingExamples.length,
+            generated: applied.filter(Boolean).length,
+          });
+        }
+      } catch (classicalExampleError) {
+        console.error(
+          '[extract] Classical example generation failed (non-critical):',
+          classicalExampleError,
+        );
+      }
+    }
+
     // --- Morphology (語源解析) generation: opt-in, best-effort ---
     if (includeMorphology && extractedWords.length > 0) {
       const morphStart = Date.now();
@@ -538,38 +603,6 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
         });
       } catch (morphologyError) {
         console.error('[extract] Morphology generation failed (non-critical):', morphologyError);
-      }
-    }
-
-    // --- Derived words (派生語) generation: opt-in, best-effort ---
-    // resolver 側で足切りするので、価値のない単語にはAIを呼ばない。
-    if (includeDerivedWords && extractedWords.length > 0) {
-      const derivedStart = Date.now();
-      try {
-        const derivedMap = await resolveDerivedWords(
-          extractedWords
-            .map((w) => ({ english: String((w as Record<string, unknown>).english ?? '') }))
-            .filter((w) => w.english.length > 0),
-          apiKeys,
-        );
-        let attachedCount = 0;
-        for (const word of extractedWords) {
-          const w = word as Record<string, unknown>;
-          const english = String(w.english ?? '');
-          if (!english) continue;
-          const derivedWords = derivedMap.get(normalizeHeadword(english));
-          if (hasDisplayableDerivedWords(derivedWords)) {
-            w.derivedWords = derivedWords;
-            attachedCount++;
-          }
-        }
-        console.log('[extract] Derived words generation completed', {
-          requested: extractedWords.length,
-          attached: attachedCount,
-          elapsedMs: Date.now() - derivedStart,
-        });
-      } catch (derivedWordsError) {
-        console.error('[extract] Derived words generation failed (non-critical):', derivedWordsError);
       }
     }
 

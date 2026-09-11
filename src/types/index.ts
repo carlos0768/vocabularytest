@@ -20,9 +20,6 @@ export type {
   UsagePattern,
   WordMorphology,
   WordMorphologyPart,
-  WordDerivedWords,
-  DerivedWordItem,
-  DerivedWordExamTag,
   WordTranslation,
   WordTranslationSource,
   AIJapaneseTranslation,
@@ -30,6 +27,7 @@ export type {
   Word,
   Project,
   ProjectShareScope,
+  ProjectKind,
   AIWordExtraction,
   AIResponse,
   MultipleChoiceQuizQuestion,
@@ -53,6 +51,9 @@ export type {
 // ============ Web-Specific Types ============
 
 // Stripe Payment types (Web only - payment handled on web)
+// 値の再輸出（上のブロックは type-only なので別立てにする）。
+export { PROJECT_KINDS, normalizeProjectKind } from '../../shared/types';
+
 export interface StripeSubscriptionPlan {
   id: string;
   name: string;

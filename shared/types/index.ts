@@ -7,6 +7,18 @@ export type WordStatus = 'new' | 'review' | 'active' | 'mastered';
 export type VocabularyType = 'active' | 'passive';
 export type ProjectShareScope = 'private' | 'public';
 
+/**
+ * 単語帳の種別。英語の単語帳と古典（古文単語）の単語帳を混ぜないために使う。
+ * 保存時、種別に合わない語は落とす（src/lib/classical/purity.ts）。
+ */
+export const PROJECT_KINDS = ['english', 'classical'] as const;
+export type ProjectKind = (typeof PROJECT_KINDS)[number];
+
+/** 未知の値・未設定はすべて 'english'。既存単語帳の圧倒的多数が英語のため。 */
+export function normalizeProjectKind(value: unknown): ProjectKind {
+  return value === 'classical' ? 'classical' : 'english';
+}
+
 export interface RelatedWord {
   term: string;
   relation: string;
@@ -187,36 +199,6 @@ export interface WordMorphology {
   analysis?: number;
 }
 
-// ============ Derived words (派生語) Types ============
-
-/** Exams a derived word is worth knowing for. */
-export type DerivedWordExamTag = 'kyotsu' | 'kokkouritsu' | 'shiritsu' | 'toefl' | 'ielts' | 'eiken';
-
-/** One derived word (同一語根の品詞変化形), e.g. receive → reception. */
-export interface DerivedWordItem {
-  /** The derived word itself, e.g. "reception". */
-  english: string;
-  /** Short Japanese gloss, e.g. "受付・歓迎会". */
-  japanese: string;
-  /** Part of speech of the derived word. */
-  partOfSpeech: 'noun' | 'verb' | 'adjective' | 'adverb';
-  /** Exams where this form is worth knowing. Empty = general. */
-  examTags?: DerivedWordExamTag[];
-}
-
-/**
- * AI-generated derived-word set, cached in lexicon_entries.derived_words and
- * snapshotted onto words.derived_words. At most 3 items — the filter in
- * `src/lib/derived-words/eligibility.ts` decides whether it is worth generating
- * at all. `none: true` marks "not worth generating / nothing found" so the word
- * is never re-sent to the AI.
- */
-export interface WordDerivedWords {
-  items: DerivedWordItem[];
-  version: 1;
-  none?: boolean;
-}
-
 export interface Word {
   id: string;
   projectId: string;
@@ -230,6 +212,16 @@ export interface Word {
   lexiconDistinctKey?: string;
   lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
+  // 古典語（古文単語）。english に見出し語、translations に語義が入る。
+  // 判定は必ず isClassicalWord()（src/lib/classical/is-classical.ts）を通すこと。
+  /** 抽出直後はAI由来のフラグ。保存後は classicalEntryId の有無から復元される。 */
+  isClassical?: boolean;
+  /** 読み（かな）。古典語のみ。 */
+  reading?: string;
+  /** 品詞・活用型（正規化済み）。古典語のみ。 */
+  classicalPos?: string;
+  /** 全ユーザー共通の古典語辞書 classical_entries への参照。 */
+  classicalEntryId?: string;
   distractors: string[]; // 3 wrong answers for quiz
   exampleSentence?: string; // Example sentence using the word (Pro feature)
   exampleSentenceJa?: string; // Japanese translation of example sentence
@@ -255,8 +247,6 @@ export interface Word {
   customSections?: CustomSection[];
   /** Word-formation breakdown (語源解析). Generated at scan time when the option is on. */
   morphology?: WordMorphology;
-  /** Derived words (派生語). Generated when the option is on and the word passes the filter. */
-  derivedWords?: WordDerivedWords;
   quizTarget?: {
     kind: 'word' | 'translation';
     key: string;
@@ -279,6 +269,8 @@ export interface Project {
   isSynced?: boolean; // Local-only flag for cloud sync status
   shareId?: string; // Unique share ID for URL sharing (null = private)
   shareScope?: ProjectShareScope; // Whether the shared project is listed publicly
+  /** 単語帳の種別。未設定は 'english' 扱い。 */
+  kind?: ProjectKind;
   /** Set when this project was created by importing a copy from /share/[shareId] */
   importedFromShareId?: string;
   /** Set when this project was created by importing an official wordbook (reel import) */
@@ -324,6 +316,11 @@ export interface AIWordExtraction {
   lexiconDistinctKey?: string;
   lexiconSenseIsPrimary?: boolean;
   cefrLevel?: string;
+  // 古典語（古文単語）。全スキャンモードで自動判定され、共通辞書に解決される。
+  isClassical?: boolean;
+  reading?: string;
+  classicalPos?: string;
+  classicalEntryId?: string;
   distractors: string[];
   partOfSpeechTags?: string[];
   pronunciation?: string;
@@ -331,7 +328,6 @@ export interface AIWordExtraction {
   exampleSentenceJa?: string;
   customSections?: CustomSection[];
   morphology?: WordMorphology;
-  derivedWords?: WordDerivedWords;
 }
 
 export interface AIResponse {

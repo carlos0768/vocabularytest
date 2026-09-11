@@ -27,6 +27,7 @@ test('buildServerCloudProjectInsertPayload fixes the projects insert shape for n
     title: 'Scan Result',
     source_labels: ['鉄壁', 'ノート'],
     icon_image: 'data:image/png;base64,icon',
+    kind: 'english',
   });
 });
 
@@ -43,6 +44,7 @@ test('buildServerCloudProjectInsertPayload stores null icon_image when the scan 
     title: 'Scan Result',
     source_labels: ['ノート'],
     icon_image: null,
+    kind: 'english',
   });
 });
 
@@ -98,7 +100,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       source_modes: ['all', 'circled'],
       custom_sections: [],
       morphology: null,
-      derived_words: null,
+      classical_entry_id: null,
       vocabulary_type: 'passive',
     },
     {
@@ -116,7 +118,7 @@ test('buildServerCloudWordsInsertPayload fixes the words insert shape', () => {
       source_modes: undefined,
       custom_sections: [],
       morphology: null,
-      derived_words: null,
+      classical_entry_id: null,
       vocabulary_type: 'passive',
     },
   ]);
@@ -240,7 +242,7 @@ test('stripSourceModesFromServerCloudWordsInsertPayload removes only source_mode
       part_of_speech_tags: undefined,
       custom_sections: [],
       morphology: null,
-      derived_words: null,
+      classical_entry_id: null,
       vocabulary_type: 'passive',
     },
   ]);

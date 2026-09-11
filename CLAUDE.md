@@ -244,6 +244,20 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - Tables: `grammar_books` / `grammar_questions` ほか (`supabase/migrations/2026072*_*grammar*.sql`)。RLSは本人限定のままで、他人の公開分は service-role のAPIルート経由でのみ読む
 - 共有: `share_id` によるリンク共有に加えて、`is_public` を立てると共有ページ (`/shared` の「語法」) の一覧に載る。公開・取り込みはPro限定、閲覧はログインのみ
 
+### 6. Classical Japanese support (古典対応) -- Done
+- 古文単語帳をスキャンすると古典語（古文単語）を自動抽出する。**専用のスキャンモードは無い**。既存の全モード（`all` / `circled` / `eiken` / `idiom` / `custom`）のプロンプトに共通フラグメント（`src/lib/ai/prompts/classical.ts`）を差し込んで自動判定させる。抽出条件は「明らかに古典語と思われる語彙が単語帳形式で載っていること」だけで、丸囲み・英検級などモード固有の条件は古典語には適用しない
+- そのため `ExtractMode` / `EXTRACT_MODES` / コインレート / `scan_modes` の CHECK 制約 / UIのモード一覧は**一切変更していない**
+- **ヒント制**: ここでの「ヒント」＝画像に載っている訳。多義語の②③も落とさず全部 `translations` に入れる。英語向けの「同義語はまとめる」縮約（`JAPANESE_TRANSLATION_STRUCTURE_RULES`）は古典語には適用しない。古文単語帳の①②③はすべて暗記対象だから
+- **共通辞書**: `classical_entries` / `classical_senses`（`20260909120000_create_classical_lexicon.sql`）。英語側の `lexicon_entries` / `lexicon_senses` と同じ全ユーザー共通マスタ。いちど貯まった見出し語のヒントは誰のスキャンでも流用される（`src/lib/classical/apply.ts`）。画像に語義が一部しか写っていなくても完全な語義セットが得られる
+- 語義のマージは**保存済み優先の和集合**。既存語義は上書きせず、画像にしか無かった語義だけを末尾に足す。滲んだ写真で共有辞書が劣化しないため
+- **学習データは既存の `words` / `word_translations` のまま**。見出し語は `words.english`、訳は `word_translations`、`words.classical_entry_id` で共通辞書を指す。クイズ・SM-2・同期・お気に入り・共有はそのまま動く。`is_classical` 列は作らず、`classical_entry_id` の有無が印
+- 英語専用の後処理（語源解析・例文・発音・英作文・誤答生成・英語lexicon解決）はすべて `isClassicalWord()` で除外する（INV-19）
+- 4択クイズの誤答は `quiz-state.ts` の既存フォールバック（同じ単語帳の他の語の訳を集める）で成立するのでクイズ側の変更は不要
+- **単語帳には種別がある**（`projects.kind` = `english` / `classical`）。作成時に選び、あとから変更できない。保存時に種別に合わない語は**黙って除外**し、件数だけトーストで知らせる（`filterWordsForProjectKind`）。サーバー側でも `/api/words/create` と `scan-jobs/process` で同じ判定を行う
+- **1枚の画像に英語と古典語が両方あれば英語を優先**し、古典語は捨てる（`preferEnglishOverClassical`）。プロンプトでも同じ優先順位を指示しているが、AI出力は信用せずサーバー側でも当てる
+- **古典語に混入した英語例文は保存前に落とす**（`stripEnglishExampleFromClassicalWord`）。マスター(`lexicon_entries`)由来の例文が prefill される経路が残っているため、表示で隠すのではなく書き込み前に断つ
+- 手動追加で古典語（ラテン文字を含まない見出し語）を入れると、英語の補完経路（翻訳AI・発音記号・品詞分類・例文生成）には一切入らず、共通辞書だけを引く
+
 ### 5. Realtime word battle (リアルタイム単語対戦) -- Done
 - 早押し4択のリアルタイム1対1対戦。**Pro限定・コイン消費なし**。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
 - Routes: `/battle`（ロビー）, `/battle/[roomId]`（対戦画面）, `/groups/[groupId]/battle`（グループ内マッチ）, `/api/battle/**`（rooms, join, match, start）
