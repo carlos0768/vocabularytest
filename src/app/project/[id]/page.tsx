@@ -38,7 +38,7 @@ import {
 } from '@/lib/preferences/manual-morphology-pref';
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
-import { getNextVocabularyType } from '@/lib/vocabulary-type';
+import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
 import {
   buildProjectWordOrderSnapshot,
@@ -76,8 +76,8 @@ const PROJECT_INTRO_TOUR_STEPS: TourStep[] = [
       <>
         この丸ボタンで単語を分類できます。
         <br />
-        <strong>A（Active）</strong>＝自分でも使いこなしたい発信語彙、
-        <strong>P（Passive）</strong>＝意味が分かればよい受信語彙。
+        <strong>A＝Active</strong>（自分でも使いこなしたい語）、
+        <strong>P＝Passive</strong>（意味が分かればよい語）。
         <br />
         タップするたび 未設定 → A → P → 未設定 と切り替わり、あとでフィルタで絞り込めます。
       </>
@@ -620,7 +620,7 @@ export default function ProjectPage() {
       }
       invalidateHomeCache();
       showToast({
-        message: `${targets.length}語を${vocabularyType === 'active' ? 'Active' : 'Passive'}に変更しました`,
+        message: `${targets.length}語を ${getVocabularyTypeLabel(vocabularyType)} に変更しました`,
         type: 'success',
       });
     } catch (vocabularyTypeError) {
@@ -2562,14 +2562,14 @@ function BulkActionBar({
               />
               <BulkInlineActionButton
                 icon="keyboard_alt"
-                label="Active"
+                label="Active (A)"
                 loading={vocabularyTypeLoading === 'active'}
                 disabled={!hasSelection || actionLoading}
                 onClick={() => onBulkVocabularyType('active')}
               />
               <BulkInlineActionButton
                 icon="visibility"
-                label="Passive"
+                label="Passive (P)"
                 loading={vocabularyTypeLoading === 'passive'}
                 disabled={!hasSelection || actionLoading}
                 onClick={() => onBulkVocabularyType('passive')}
@@ -2609,7 +2609,7 @@ function BulkActionBar({
                     />
                     <BulkActionMenuButton
                       icon="keyboard_alt"
-                      label="Active"
+                      label="Active (A)"
                       loading={vocabularyTypeLoading === 'active'}
                       disabled={!hasSelection || actionLoading}
                       onClick={() => {
@@ -2619,7 +2619,7 @@ function BulkActionBar({
                     />
                     <BulkActionMenuButton
                       icon="visibility"
-                      label="Passive"
+                      label="Passive (P)"
                       loading={vocabularyTypeLoading === 'passive'}
                       disabled={!hasSelection || actionLoading}
                       onClick={() => {
