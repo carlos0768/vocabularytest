@@ -461,9 +461,9 @@ export default function SharedProjectPage() {
             {wordShowFilterSheet && (
               <div className="mb-3 p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] space-y-4">
                 <div>
-                  <p className="text-xs font-bold text-[var(--color-muted)] mb-2">語彙モード (発信 / 受信)</p>
+                  <p className="text-xs font-bold text-[var(--color-muted)] mb-2">語彙モード (Active / Passive)</p>
                   <div className="flex gap-2">
-                    {([['all', 'すべて'], ['active', '発信 (A)'], ['passive', '受信 (P)']] as const).map(([val, label]) => (
+                    {([['all', 'すべて'], ['active', 'Active (A)'], ['passive', 'Passive (P)']] as const).map(([val, label]) => (
                       <button
                         key={val}
                         type="button"

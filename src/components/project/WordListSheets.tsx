@@ -164,12 +164,12 @@ export function WordFilterSheet({
 
         {/* Active / Passive */}
         <div>
-          <p className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">語彙モード (発信 / 受信)</p>
+          <p className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">語彙モード (Active / Passive)</p>
           <div className="flex flex-wrap gap-[5px]">
             {([
               ['all', 'すべて'],
-              ['active', '発信 (A)'],
-              ['passive', '受信 (P)'],
+              ['active', 'Active (A)'],
+              ['passive', 'Passive (P)'],
             ] as const).map(([val, label]) => (
               <button
                 key={val}

@@ -65,8 +65,8 @@ const REPETITION_OPTIONS: Array<{ value: RepetitionFilter; label: string }> = [
 ];
 
 const VOCABULARY_TYPE_OPTIONS: Array<{ value: VocabularyTypeFilter; label: string }> = [
-  { value: 'active', label: '発信 (A)' },
-  { value: 'passive', label: '受信 (P)' },
+  { value: 'active', label: 'Active (A)' },
+  { value: 'passive', label: 'Passive (P)' },
   { value: 'unset', label: '未設定' },
 ];
 
@@ -274,7 +274,7 @@ export function WordFilterPanel({
         </ChipRow>
       </Section>
 
-      <Section title="VOCAB TYPE" hint="発信 (A) / 受信 (P)">
+      <Section title="VOCAB TYPE" hint="Active (A) / Passive (P)">
         <ChipRow>
           {VOCABULARY_TYPE_OPTIONS.map((option) => (
             <Chip

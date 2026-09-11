@@ -422,8 +422,8 @@ const REPETITION_LABELS: Record<Exclude<RepetitionFilter, 'any'>, string> = {
 };
 
 const VOCABULARY_TYPE_LABELS: Record<VocabularyTypeFilter, string> = {
-  active: '発信 (A)',
-  passive: '受信 (P)',
+  active: 'Active (A)',
+  passive: 'Passive (P)',
   unset: '語彙タイプ未設定',
 };
 

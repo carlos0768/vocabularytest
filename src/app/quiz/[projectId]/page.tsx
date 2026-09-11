@@ -745,7 +745,7 @@ export default function QuizPage() {
     }
   }, [needsWordOrderQuiz, repository]);
 
-  // 出題するのは解き方に合う語だけ (記述=発信A / 四択=受信P)。絞り込みはここに
+  // 出題するのは解き方に合う語だけ (記述=Active / 四択=Passive)。絞り込みはここに
   // 一箇所だけ置く —— 呼び出し側でやると、増えた経路が素通ししてしまう。
   const generateQuestions = useCallback((
     words: Word[],
@@ -836,7 +836,7 @@ export default function QuizPage() {
 
   /**
    * その解き方の出題を組み直して最初から始める。
-   * 四択と記述では出題する語がそもそも違う (受信P / 発信A) ので、途中で切り替える
+   * 四択と記述では出題する語がそもそも違う (Passive / Active) ので、途中で切り替える
    * ときは続きから続けようがない。進捗を捨てて組み直すのが唯一まともな挙動。
    */
   const startQuizForFormat = useCallback(async (format: QuizAnswerFormat) => {
@@ -1494,16 +1494,16 @@ export default function QuizPage() {
   /* ---------- 選んだ解き方に合う単語が1語も無い ---------- */
   if (questions.length === 0) {
     const otherFormat: QuizAnswerFormat = resolvedAnswerFormat === 'typing' ? 'normal' : 'typing';
-    const emptyLabel = resolvedAnswerFormat === 'typing' ? '発信 (A)' : '受信 (P)';
-    const otherLabel = otherFormat === 'typing' ? '発信 (A)' : '受信 (P)';
+    const emptyLabel = resolvedAnswerFormat === 'typing' ? 'Active (A)' : 'Passive (P)';
+    const otherLabel = otherFormat === 'typing' ? 'Active (A)' : 'Passive (P)';
     const otherCount = answerFormatWordCounts[otherFormat];
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6">
         <p className="mb-2 text-center font-display text-lg font-black text-[var(--solid-ink)]">
-          出題できる{emptyLabel}の単語がありません
+          出題できる {emptyLabel} の単語がありません
         </p>
         <p className="mb-6 max-w-xs text-center text-sm leading-6 text-[var(--color-muted)]">
-          {resolvedAnswerFormat === 'typing' ? '記述' : '四択'}では{emptyLabel}の単語だけを出題します。
+          {resolvedAnswerFormat === 'typing' ? '記述' : '四択'}では {emptyLabel} の単語だけを出題します。
           単語一覧の A / P ボタンで語彙モードを変えるか、別の解き方を選んでください。
         </p>
         <div className="w-full max-w-xs space-y-3">

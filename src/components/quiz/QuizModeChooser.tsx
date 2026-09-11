@@ -23,14 +23,14 @@ const MODES: ReadonlyArray<{
     icon: 'list',
     title: '四択で解く',
     description: '選択肢から答えを選びます。',
-    scope: '受信 (P) の単語だけ出題されます',
+    scope: 'Passive (P) の単語だけ出題されます',
   },
   {
     key: 'typing',
     icon: 'keyboard',
     title: '記述で解く',
     description: '日本語の意味を見て、英単語のつづりを入力します。',
-    scope: '発信 (A) の単語だけ出題されます',
+    scope: 'Active (A) の単語だけ出題されます',
   },
   {
     key: 'voice',

@@ -12,14 +12,14 @@ const passive = { vocabularyType: 'passive' as const };
 const unset = { vocabularyType: null };
 const missing = {};
 
-test('記述は発信 (A) だけ、四択は受信 (P) だけを出す', () => {
+test('記述は Active (A) だけ、四択は Passive (P) だけを出す', () => {
   assert.equal(matchesAnswerFormat(active, 'typing'), true);
   assert.equal(matchesAnswerFormat(active, 'normal'), false);
   assert.equal(matchesAnswerFormat(passive, 'normal'), true);
   assert.equal(matchesAnswerFormat(passive, 'typing'), false);
 });
 
-test('語彙モード未設定は受信あつかい', () => {
+test('語彙モード未設定は Passive あつかい', () => {
   // 未設定をどちらにも入れないと、公式単語帳の取り込みのように未設定で入る語が
   // どちらの解き方でも一切出題されなくなる。
   assert.equal(matchesAnswerFormat(unset, 'normal'), true);
