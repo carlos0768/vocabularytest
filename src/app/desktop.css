@@ -910,6 +910,9 @@
 .ds-fc-scene { perspective: 2000px; width: 100%; max-width: 720px; flex: 1; display: flex; align-items: center; }
 .ds-fc-card { width: 100%; height: 380px; position: relative; transform-style: preserve-3d; transition: transform 600ms var(--ease-in-out); cursor: pointer; }
 .ds-fc-card.flipped { transform: rotateY(180deg); }
+/* 次のカードへ移る瞬間の「表へ戻す」は回さない。回すと、裏面にはもう
+   次のカードの訳が載っているため、回り切るまで次の訳が見えてしまう。 */
+.ds-fc-card.instant { transition: none; }
 .ds-fc-face {
   position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
   background: var(--color-surface); border: 1.5px solid var(--solid-ink); border-radius: var(--solid-radius);
