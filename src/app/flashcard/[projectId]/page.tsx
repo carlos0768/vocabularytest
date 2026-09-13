@@ -121,7 +121,7 @@ function GradeBar({
   onGrade,
   showKeys = false,
 }: {
-  /** 裏面を見ているときだけ押せる。表面のときは同じ高さの案内文に差し替える。 */
+  /** 裏面を見ているときだけ押せる。表面のときは同じ高さの余白に差し替える。 */
   visible: boolean;
   disabled?: boolean;
   onGrade: (grade: FlashcardGrade) => void;
@@ -129,15 +129,9 @@ function GradeBar({
   showKeys?: boolean;
 }) {
   if (!visible) {
-    return (
-      <div
-        className="flex h-[64px] w-full items-center justify-center gap-1.5 font-mono text-[11px] font-bold text-[var(--color-muted)]"
-        aria-live="polite"
-      >
-        <Icon name="touch_app" size={14} />
-        カードを裏返して意味を確かめたら、4段階で評価
-      </div>
-    );
+    // 表面のあいだは案内を出さず、評価ボタンぶんの高さだけ空けておく
+    // (裏返したときに下のボタン列が跳ねないようにするため)。
+    return <div className="h-[64px] w-full" aria-hidden />;
   }
   return (
     <div className="grid h-[64px] w-full grid-cols-4 gap-2" role="group" aria-label="思い出せた度合い">
@@ -222,7 +216,29 @@ export default function FlashcardPage() {
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  /**
+   * 表へ戻す回転を「今回だけ」アニメーションさせないための印。
+   *
+   * カードを送るとき、中身の入れ替えと裏返しの解除は同じ瞬間に起きる。
+   * ここで回転をアニメーションさせると、裏面にはもう次のカードの訳が
+   * 載っているため、回り切るまでのあいだ次の訳が見えてしまう。
+   * 中身が変わるときの戻しだけは回さず、最初から表を向けておく。
+   */
+  const [skipFlipAnimation, setSkipFlipAnimation] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  /** 中身の入れ替えを伴う「表に戻す」。回転を挟まず一瞬で表へ戻す。 */
+  const resetFaceInstantly = useCallback(() => {
+    setSkipFlipAnimation(true);
+    setIsFlipped(false);
+  }, []);
+
+  // 表を向いた状態がひとフレーム描かれてから回転を戻す。先に戻すと、
+  // 解除そのものがアニメーションとして走ってしまう。
+  useEffect(() => {
+    if (!skipFlipAnimation) return;
+    return afterPaint(() => setSkipFlipAnimation(false));
+  }, [skipFlipAnimation]);
 
   /* 自動再生 (英語→日本語を読み上げ続けながらカードを自動送りする) */
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -365,16 +381,16 @@ export default function FlashcardPage() {
       setTimeout(() => {
         // 演出の途中で早送りが始まっていたら、現在地を上書きせず演出だけ畳む。
         if (isScrubbingRef.current) { setSlidePhase(null); setSlideDirection(null); setIsAnimating(false); return; }
-        setCurrentIndex(nextIndex); setIsFlipped(false); setSlidePhase('enter');
+        setCurrentIndex(nextIndex); resetFaceInstantly(); setSlidePhase('enter');
         afterPaint(() => {
           setSlidePhase(null);
           setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
         });
       }, 200);
     } else {
-      setCurrentIndex(nextIndex); setIsFlipped(false);
+      setCurrentIndex(nextIndex); resetFaceInstantly();
     }
-  }, [isAnimating, currentIndex, words.length, tutorialActive]);
+  }, [isAnimating, currentIndex, words.length, tutorialActive, resetFaceInstantly]);
 
   const handlePrev = useCallback((withAnimation = false) => {
     if (isAnimating) return;
@@ -383,16 +399,16 @@ export default function FlashcardPage() {
       setIsAnimating(true); setSlideDirection('right'); setSlidePhase('exit');
       setTimeout(() => {
         if (isScrubbingRef.current) { setSlidePhase(null); setSlideDirection(null); setIsAnimating(false); return; }
-        setCurrentIndex(prevIndex); setIsFlipped(false); setSlidePhase('enter');
+        setCurrentIndex(prevIndex); resetFaceInstantly(); setSlidePhase('enter');
         afterPaint(() => {
           setSlidePhase(null);
           setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
         });
       }, 200);
     } else {
-      setCurrentIndex(prevIndex); setIsFlipped(false);
+      setCurrentIndex(prevIndex); resetFaceInstantly();
     }
-  }, [isAnimating, currentIndex, words.length]);
+  }, [isAnimating, currentIndex, words.length, resetFaceInstantly]);
 
   /**
    * SM-2 4段階評価の確定。
@@ -432,12 +448,12 @@ export default function FlashcardPage() {
       if (isLast) {
         setSlideDirection(null);
         setIsAnimating(false);
-        setIsFlipped(false);
+        resetFaceInstantly();
         setFinished(true);
         return;
       }
       setCurrentIndex((index) => index + 1);
-      setIsFlipped(false);
+      resetFaceInstantly();
       setSlidePhase('enter');
       if (tutorialActive) setTutorialAdvances((count) => count + 1);
       afterPaint(() => {
@@ -445,7 +461,7 @@ export default function FlashcardPage() {
         setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
       });
     }, GRADE_FLY_MS);
-  }, [isAnimating, words, currentIndex, repository, tutorialActive]);
+  }, [isAnimating, words, currentIndex, repository, tutorialActive, resetFaceInstantly]);
 
   /** 山札を引き直して最初から。ids=null で読み込んだ全部に戻す。 */
   const restartDeck = useCallback((ids: string[] | null) => {
@@ -454,8 +470,8 @@ export default function FlashcardPage() {
     setGradeSession(EMPTY_GRADE_SESSION);
     setFinished(false);
     setCurrentIndex(0);
-    setIsFlipped(false);
-  }, []);
+    resetFaceInstantly();
+  }, [resetFaceInstantly]);
 
   const handleFlip = useCallback(() => {
     if (!isAnimating && !isSwiping.current) setIsFlipped((prev) => !prev);
@@ -465,13 +481,13 @@ export default function FlashcardPage() {
   const lastSeekIndexRef = useRef(0);
   const handleSeek = useCallback((index: number) => {
     setCurrentIndex((prev) => (prev === index ? prev : index));
-    setIsFlipped(false);
+    resetFaceInstantly();
     // 早送りで通り過ぎたカードも「見た枚数」に数える（1フレームに何度呼ばれても、
     // 実際に別のカードへ移ったときだけ加算する）。
     if (lastSeekIndexRef.current === index) return;
     lastSeekIndexRef.current = index;
     if (tutorialActive) setTutorialAdvances((count) => count + 1);
-  }, [tutorialActive]);
+  }, [tutorialActive, resetFaceInstantly]);
 
   /**
    * 早送りの開始・終了。
@@ -483,11 +499,11 @@ export default function FlashcardPage() {
     isScrubbingRef.current = scrubbing;
     setIsScrubbing(scrubbing);
     if (!scrubbing) return;
-    setIsFlipped(false);
+    resetFaceInstantly();
     setSwipeX(0);
     setIsAutoPlaying(false);
     stopSpeaking();
-  }, []);
+  }, [resetFaceInstantly]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -706,10 +722,10 @@ export default function FlashcardPage() {
     setGradeSession(EMPTY_GRADE_SESSION);
     setFinished(false);
     setCurrentIndex(0);
-    setIsFlipped(false);
+    resetFaceInstantly();
     setIsAutoPlaying(false);
     stopSpeaking();
-  }, []);
+  }, [resetFaceInstantly]);
 
   function speakWord() {
     speakEnglish(currentWord?.english);
@@ -867,12 +883,11 @@ export default function FlashcardPage() {
             <Icon name={isAutoPlaying ? 'pause' : 'play_arrow'} />
           </button>
         </div>
-        <div className="mono muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 4 }}>
-          {favoritesOnly ? '保存済み' : collectionId ? 'コレクション' : binderName ? 'バインダー' : '単語帳'} · フラッシュカード
-        </div>
-
         <div className="ds-fc-scene">
-          <div className={'ds-fc-card' + (isFlipped ? ' flipped' : '')} onClick={handleFlip}>
+          <div
+            className={'ds-fc-card' + (isFlipped ? ' flipped' : '') + (isAnimating || skipFlipAnimation ? ' instant' : '')}
+            onClick={handleFlip}
+          >
             <div className="ds-fc-face front">
               <div className="en" style={{ fontSize: currentWord?.english && currentWord.english.length > 14 ? 46 : undefined }}>
                 {currentWord?.english}
@@ -981,11 +996,6 @@ export default function FlashcardPage() {
             次へ<Icon name="chevron_right" />
           </button>
         </div>
-        <div className="mono muted" style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 12, fontSize: 11 }}>
-          <span><b>←</b> / <b>→</b> 前後のカード</span>
-          <span><b>Space</b> 回転</span>
-          <span><b>1〜4</b> 評価</span>
-        </div>
       </div>
     </div>
 
@@ -1088,7 +1098,7 @@ export default function FlashcardPage() {
             style={{
               transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
               transformStyle: 'preserve-3d',
-              transition: isAnimating ? 'none' : 'transform 460ms cubic-bezier(0.22, 1, 0.36, 1)',
+              transition: isAnimating || skipFlipAnimation ? 'none' : 'transform 460ms cubic-bezier(0.22, 1, 0.36, 1)',
               willChange: 'transform',
             }}
           >
