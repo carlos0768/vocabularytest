@@ -11,6 +11,7 @@ import {
   isRoomStartable,
   resolveSeat,
 } from '@/lib/battle/room-state';
+import { BATTLE_BOT_USER_ID } from '@/lib/battle/types';
 import type { BattleParticipant, BattleQuestion, BattleRoom } from '@/lib/battle/types';
 
 function participant(userId: string, score = 0): BattleParticipant {
@@ -21,6 +22,19 @@ function participant(userId: string, score = 0): BattleParticipant {
     projectId: `${userId}-project`,
     projectTitle: 'テスト単語帳',
     score,
+    isBot: false,
+  };
+}
+
+function botParticipant(score = 0): BattleParticipant {
+  return {
+    userId: BATTLE_BOT_USER_ID,
+    displayName: 'チャレンジャーBOT',
+    avatarUrl: null,
+    projectId: null,
+    projectTitle: null,
+    score,
+    isBot: true,
   };
 }
 
@@ -32,6 +46,8 @@ function makeRoom(overrides: Partial<BattleRoom> = {}): BattleRoom {
     inviteCode: 'ABCDEF',
     groupId: null,
     rematchOfRoomId: null,
+    guestIsBot: false,
+    botLevel: null,
     questionCount: 10,
     roundDurationMs: 15_000,
     currentRound: 0,
@@ -54,6 +70,7 @@ function makeQuestion(overrides: Partial<BattleQuestion> = {}): BattleQuestion {
     startedAt: '2026-08-14T00:00:00.000Z',
     resolvedAt: null,
     answeredBy: null,
+    answeredByBot: false,
     correctIndex: null,
     answer: null,
     ...overrides,
@@ -107,6 +124,45 @@ test('getBattleResultForViewer treats a missing winner as a draw', () => {
 
   assert.equal(getBattleResultForViewer(room, 'host'), 'draw');
   assert.equal(getBattleResultForViewer(room, 'guest'), 'draw');
+});
+
+// ボットは auth.users に居ないので勝っても winnerUserId は null のまま。
+// 勝者IDだけで見ると引き分けに化けるため、席（outcome）で判定する。
+test('getBattleResultForViewer reports a bot win as a loss, not a draw', () => {
+  const room = makeRoom({
+    status: 'finished',
+    guestIsBot: true,
+    botLevel: 'normal',
+    guest: botParticipant(3),
+    host: participant('host', 1),
+    outcome: 'guest',
+    winnerUserId: null,
+  });
+
+  assert.equal(getBattleResultForViewer(room, 'host'), 'lose');
+});
+
+test('getBattleResultForViewer reports beating the bot as a win', () => {
+  const room = makeRoom({
+    status: 'finished',
+    guestIsBot: true,
+    botLevel: 'normal',
+    guest: botParticipant(1),
+    host: participant('host', 4),
+    outcome: 'host',
+    winnerUserId: 'host',
+  });
+
+  assert.equal(getBattleResultForViewer(room, 'host'), 'win');
+});
+
+test('a bot room seats the viewer as host with the bot as the opponent', () => {
+  const room = makeRoom({ guestIsBot: true, botLevel: 'hard', guest: botParticipant() });
+  const viewer = getViewerParticipants(room, 'host');
+
+  assert.equal(resolveSeat(room, 'host'), 'host');
+  assert.equal(viewer?.opponent?.isBot, true);
+  assert.equal(isRoomStartable({ ...room, status: 'ready' }), true);
 });
 
 test('an abandoned battle still resolves to win and loss', () => {

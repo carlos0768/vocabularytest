@@ -4,8 +4,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
-import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
-import { profileAvatarColor } from '@/components/profile/ProfileView';
+import { BattleAvatar } from '@/components/battle/BattleAvatar';
 import type { BattleParticipant } from '@/lib/battle/types';
 import type { BattleResultForViewer } from '@/lib/battle/room-state';
 
@@ -67,13 +66,7 @@ function FinalScore({
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-      <ProfileAvatar
-        avatarUrl={participant?.avatarUrl}
-        initial={(participant?.displayName?.trim().charAt(0) || '?').toUpperCase()}
-        color={profileAvatarColor(participant?.userId ?? label)}
-        size={44}
-        radius={22}
-      />
+      <BattleAvatar participant={participant} fallbackKey={label} size={44} />
       <div className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
         {label}
       </div>
@@ -176,7 +169,7 @@ export function BattleResultPanel({
       <p className="mt-2 text-center text-[11.5px] leading-[1.6] text-[var(--color-muted)]">
         同じ相手・同じ設定でそのまま続けます。
         <br />
-        相手が押すと自動で始まります。
+        {opponent?.isBot ? 'ボット戦は待たずにすぐ始まります。' : '相手が押すと自動で始まります。'}
       </p>
       <Link
         href={backHref}

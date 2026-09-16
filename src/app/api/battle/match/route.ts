@@ -11,6 +11,7 @@ import {
   BATTLE_MIN_ROUND_DURATION_MS,
 } from '@/lib/battle/config';
 import {
+  cancelOpenBotRooms,
   cancelRandomMatch,
   findActiveRoomForUser,
   requestGroupMatch,
@@ -53,6 +54,10 @@ export async function POST(request: NextRequest) {
 
     const parsed = await parseJsonWithSchema(request, matchSchema);
     if (!parsed.ok) return parsed.response;
+
+    // 「マッチングを開始」は人間との対戦の要求なので、放置されたボット部屋は
+    // ここで畳む。残っていると下の再開チェックがそれを拾ってしまう。
+    await cancelOpenBotRooms(auth.user.id);
 
     // Already paired (e.g. the client retried after a dropped response).
     const existing = await findActiveRoomForUser(auth.user.id);

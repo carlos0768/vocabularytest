@@ -26,6 +26,22 @@ export const BATTLE_QUEUE_STALE_MS = 120_000;
 /** How often a waiting client re-checks matchmaking, as a realtime backstop. */
 export const BATTLE_MATCH_POLL_INTERVAL_MS = 3_000;
 
+/**
+ * 人が集まらないときのボット対戦のタイミング。
+ * `OFFER` を過ぎたらロビーに「ボットと対戦する」を出し、`AUTO` まで誰も
+ * 見つからなければ自動でボット戦に入る（待ちっぱなしで終わらせない）。
+ */
+export const BATTLE_BOT_OFFER_AFTER_MS = 15_000;
+export const BATTLE_BOT_AUTO_AFTER_MS = 40_000;
+
+/**
+ * ボット戦で「ボットの番」を清算しに行く間隔。Route Handler は常駐できず
+ * サーバー側タイマーを持てないので、人間のクライアントが叩いてサーバーが
+ * 時刻を検証する（ラウンド進行・時間切れと同じ方式）。押す時刻はサーバーが
+ * 決めるので、この間隔を変えてもボットの速さは変わらない。
+ */
+export const BATTLE_BOT_TICK_INTERVAL_MS = 500;
+
 /** Choices per question. The DB constrains stored indexes to this range too. */
 export const BATTLE_CHOICE_COUNT = 4;
 

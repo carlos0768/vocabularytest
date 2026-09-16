@@ -174,9 +174,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
               ? room.rematchOfRoomId
                 ? '相手が「もう一度対戦する」を押すと、自動で始まります。'
                 : '相手が招待コードで参加すると、自動で対戦が始まります。'
-              : room.groupId
-                ? 'グループの単語帳から問題を作っています。数秒で始まります。'
-                : '出題者の単語帳から問題を作っています。数秒で始まります。'
+              : room.guestIsBot
+                ? `${room.guest?.displayName ?? 'ボット'}が相手です。問題を作っています。`
+                : room.groupId
+                  ? 'グループの単語帳から問題を作っています。数秒で始まります。'
+                  : '出題者の単語帳から問題を作っています。数秒で始まります。'
           }
           onCancel={handleLeave}
           cancelLabel="退出する"
@@ -199,10 +201,17 @@ export default function BattleRoomPage({ params }: { params: Promise<{ roomId: s
   const missedRound =
     hasAnswered && !resolved && Boolean(lastResult?.accepted && !lastResult.correct);
 
+  // ボットが取ったラウンドは answeredBy が null（ボットは auth.users に居ない）
+  // なので、印を見ないと「時間切れ」に化ける。
+  const answeredByOpponent = Boolean(
+    (currentQuestion?.answeredBy && currentQuestion.answeredBy !== userId)
+    || currentQuestion?.answeredByBot,
+  );
+
   const outcome: BattleRoundOutcome = resolved
     ? answeredByMe
       ? 'won'
-      : currentQuestion?.answeredBy
+      : answeredByOpponent
         ? 'lost'
         : 'timeout'
     : missedRound
