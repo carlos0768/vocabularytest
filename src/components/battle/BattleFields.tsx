@@ -18,6 +18,10 @@ import {
   BATTLE_BOT_PROFILES,
   type BattleBotLevel,
 } from '@/lib/battle/bot';
+import {
+  FREE_DAILY_BATTLE_LIMIT,
+  type BattleAllowance,
+} from '@/lib/battle/free-allowance';
 import type { Project } from '@/types';
 
 export type BattleLobbyMode = 'random' | 'friend';
@@ -462,6 +466,61 @@ export function BattleBotOffer({
           ? '人が見つかったら、そのまま人との対戦が始まります。'
           : `あと${secondsUntilAuto}秒で自動的に始まります。`}
       </p>
+    </div>
+  );
+}
+
+/**
+ * 無料ユーザーの本日の残り回数。Pro は無制限なので何も出さない。
+ *
+ * 1回 = 実際に始まった対戦。相手が見つからずロビーを抜けたぶんは減らないので、
+ * 「マッチング待ちで消えた」と誤解されないよう補足も添える。
+ *
+ * 使い切った状態も描ける。ロビーは0回になった時点で全画面の案内へ切り替えるので
+ * 普段は通らないが、呼び出し側の分岐に依存せず単体で正しく出るようにしてある。
+ */
+export function BattleAllowanceStrip({ allowance }: { allowance: BattleAllowance | null }) {
+  if (!allowance || allowance.isPro) return null;
+
+  const limit = allowance.limit ?? FREE_DAILY_BATTLE_LIMIT;
+  const remaining = Math.max(0, allowance.remaining ?? 0);
+  const exhausted = remaining === 0;
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2.5 rounded-[14px] border-2 px-3 py-2.5',
+        exhausted
+          ? 'border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface)]',
+      )}
+    >
+      <Icon
+        name={exhausted ? 'hourglass_empty' : 'swords'}
+        size={18}
+        className="shrink-0 text-[var(--color-accent)]"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">
+          {exhausted ? '本日の無料対戦は終了しました' : `本日あと${remaining}回 対戦できます`}
+        </div>
+        <div className="mt-0.5 font-mono text-[9.5px] font-bold tracking-[0.04em] text-[var(--color-muted)]">
+          {exhausted
+            ? `明日0時に${limit}回ぶん回復します`
+            : `無料プランは1日${limit}回まで / 実際に始まった対戦だけ数えます`}
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-1" aria-hidden>
+        {Array.from({ length: limit }, (_, index) => (
+          <span
+            key={index}
+            className={cn(
+              'h-2.5 w-2.5 rounded-full border-2 border-[var(--solid-ink)]',
+              index < remaining ? 'bg-[var(--color-accent)]' : 'bg-transparent',
+            )}
+          />
+        ))}
+      </div>
     </div>
   );
 }

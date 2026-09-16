@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
+  BattleAllowanceStrip,
   BattleBotOffer,
   BattleGroupSetupCard,
   BattleNotice,
@@ -25,6 +26,7 @@ import {
 } from '@/components/battle';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { useBattleEntitlement } from '@/hooks/use-battle-entitlement';
 import {
   BATTLE_BOT_AUTO_AFTER_MS,
   BATTLE_BOT_OFFER_AFTER_MS,
@@ -37,6 +39,7 @@ import {
   getBattleBotName,
   type BattleBotLevel,
 } from '@/lib/battle/bot';
+import { canStartBattle, FREE_DAILY_BATTLE_LIMIT } from '@/lib/battle/free-allowance';
 import { loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
 import type { SharedProjectCard, StudyGroupSummary } from '@/lib/shared-projects/types';
 
@@ -55,7 +58,13 @@ export default function GroupBattlePage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
   const router = useRouter();
-  const { isAuthenticated, isPro, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  // Proは無制限、Freeは1日2回まで。残数はサーバーが持つ。
+  const {
+    allowance,
+    loading: allowanceLoading,
+    error: allowanceError,
+  } = useBattleEntitlement(isAuthenticated);
 
   const [group, setGroup] = useState<StudyGroupSummary | null>(null);
   const [books, setBooks] = useState<SharedProjectCard[]>([]);
@@ -241,13 +250,39 @@ export default function GroupBattlePage() {
     );
   }
 
-  if (!isPro) {
+  if (allowanceLoading) {
+    return (
+      <BattleScreen header={header} center>
+        <div className="flex items-center justify-center gap-2 py-10 text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={20} className="animate-spin" />
+          <span className="text-sm font-bold">読み込み中...</span>
+        </div>
+      </BattleScreen>
+    );
+  }
+
+  // 残数が読めなかっただけのときに「使い切りました」と出すと嘘になる。
+  if (!allowance) {
     return (
       <BattleScreen header={header} center>
         <BattleNotice
-          icon="workspace_premium"
-          title="Proプラン限定の機能です"
-          description="リアルタイム対戦はProプラン限定です。対戦でコインは消費しません。"
+          icon="wifi_off"
+          title="対戦の利用状況を取得できませんでした"
+          description={allowanceError ?? '通信状況を確かめて、もう一度お試しください。'}
+          action={{ label: '再読み込み', onClick: () => window.location.reload() }}
+          secondaryAction={{ label: 'グループに戻る', href: groupPath }}
+        />
+      </BattleScreen>
+    );
+  }
+
+  if (!canStartBattle(allowance)) {
+    return (
+      <BattleScreen header={header} center>
+        <BattleNotice
+          icon="hourglass_empty"
+          title="本日の無料対戦は終了しました"
+          description={`無料プランの対戦は1日${allowance.limit ?? FREE_DAILY_BATTLE_LIMIT}回までです。明日0時に回復します。Proプランなら回数制限なしで対戦できます。`}
           action={{ label: 'Proプランを見る', href: '/subscription' }}
           secondaryAction={{ label: 'グループに戻る', href: groupPath }}
         />
@@ -304,6 +339,12 @@ export default function GroupBattlePage() {
           <p className="min-w-0 flex-1 text-[12.5px] font-bold leading-[1.6] text-[var(--color-error)]">
             {error}
           </p>
+        </div>
+      )}
+
+      {allowance && !allowance.isPro && (
+        <div className="mb-3">
+          <BattleAllowanceStrip allowance={allowance} />
         </div>
       )}
 

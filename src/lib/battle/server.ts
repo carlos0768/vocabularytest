@@ -6,6 +6,8 @@ import {
   clampQuestionCount,
   clampRoundDurationMs,
 } from '@/lib/battle/config';
+import { BattleError } from '@/lib/battle/errors';
+import { consumeBattleEntry, releaseBattleEntries } from '@/lib/battle/entitlement';
 import { buildBattleQuestions } from '@/lib/battle/questions';
 import {
   BATTLE_DEFAULT_BOT_LEVEL,
@@ -39,16 +41,8 @@ const BATTLE_SOURCE_WORD_LIMIT = 400;
  */
 const BATTLE_GROUP_SOURCE_WORD_LIMIT = 1_000;
 
-export class BattleError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-    readonly userMessage: string,
-  ) {
-    super(code);
-    this.name = 'BattleError';
-  }
-}
+// 型の実体は errors.ts。ここからも読めるよう再 export している。
+export { BattleError };
 
 type BattleRoomRow = {
   id: string;
@@ -899,6 +893,26 @@ async function insertBotPlans(
 }
 
 /**
+ * 対戦1回ぶんを参加者それぞれに記録する。ボット戦はゲスト席に人間が居ないので
+ * ホストひとりぶん。同じ部屋で何度呼ばれても (user_id, room_id) 主キーのぶん
+ * 二重には減らない（両クライアントが start を叩いても大丈夫）。
+ */
+async function consumeBattleEntriesForRoom(
+  row: BattleRoomRow,
+  admin: SupabaseAdminClient,
+): Promise<void> {
+  const participantIds = [row.host_user_id, row.guest_user_id].filter(
+    (value): value is string => Boolean(value),
+  );
+
+  // 直列に回す。同じユーザーが両席に座ることは無いので取り合いはしないが、
+  // 枠切れは最初に見つけた時点で投げて、部屋ごと畳ませたい。
+  for (const userId of participantIds) {
+    await consumeBattleEntry(userId, row.id, admin);
+  }
+}
+
+/**
  * Generates the shared question set and opens round 0. The status flip from
  * 'ready' to 'preparing' is the atomic claim, so if both clients press start
  * only one of them generates questions.
@@ -943,6 +957,11 @@ export async function startBattle(options: {
   }
 
   try {
+    // ここで初めて対戦1回ぶんを数える。ロビーで待っただけ・マッチングを
+    // 取り消しただけでは減らさないため、消費は「部屋を掴めた側」の後ろに置く。
+    // Pro は RPC 側で素通りするので、実質 Free の1日枠だけが減る。
+    await consumeBattleEntriesForRoom(claimed, admin);
+
     // 出題元はモードで変わる:
     //   グループ内対戦 -> グループに追加された単語帳すべて（誰の本かは問わない）
     //   それ以外       -> 出題者（ホスト）の単語帳だけ。ゲストの単語帳は参加時に
@@ -997,15 +1016,30 @@ export async function startBattle(options: {
 
     return hydrateRoom(started, admin);
   } catch (error) {
+    // 始まらなかった対戦で枠を失わせない。同じ部屋で再試行すれば同じ行が
+    // 入り直すだけなので、二重に減ることもない。
+    await releaseBattleEntries(options.roomId, admin);
+    await admin.from('battle_questions').delete().eq('room_id', options.roomId);
+    await admin.from('battle_question_keys').delete().eq('room_id', options.roomId);
+    await admin.from('battle_bot_plans').delete().eq('room_id', options.roomId);
+
+    if (error instanceof BattleError && error.code === 'battle_daily_limit_reached') {
+      // 枠切れの部屋は何度やり直しても始まらない。'ready' に戻すとホストの
+      // クライアントが start を叩き続けるので、部屋ごと畳んで終わりにする。
+      await admin
+        .from('battle_rooms')
+        .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+        .eq('id', options.roomId)
+        .eq('status', 'preparing');
+      throw error;
+    }
+
     // Never strand a room in 'preparing' -- put it back so they can retry.
     await admin
       .from('battle_rooms')
       .update({ status: 'ready' })
       .eq('id', options.roomId)
       .eq('status', 'preparing');
-    await admin.from('battle_questions').delete().eq('room_id', options.roomId);
-    await admin.from('battle_question_keys').delete().eq('room_id', options.roomId);
-    await admin.from('battle_bot_plans').delete().eq('room_id', options.roomId);
     throw error;
   }
 }
