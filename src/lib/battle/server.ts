@@ -62,10 +62,13 @@ type BattleRoomRow = {
   host_project_id: string | null;
   guest_user_id: string | null;
   guest_project_id: string | null;
-  /** ゲスト席にボットが座っている部屋。guest_user_id は必ず NULL。 */
-  guest_is_bot: boolean;
-  bot_level: string | null;
-  bot_name: string | null;
+  /**
+   * ゲスト席にボットが座っている部屋。guest_user_id は必ず NULL。
+   * ボット対戦の migration が当たる前は列ごと存在しないので optional。
+   */
+  guest_is_bot?: boolean | null;
+  bot_level?: string | null;
+  bot_name?: string | null;
   question_count: number;
   round_duration_ms: number;
   current_round: number;
@@ -91,11 +94,92 @@ type ProjectRow = {
   user_id: string;
 };
 
-const ROOM_COLUMNS =
+export const ROOM_COLUMNS_BASE =
   'id,mode,status,invite_code,group_id,rematch_of_room_id,host_user_id,host_project_id,guest_user_id,guest_project_id,'
-  + 'guest_is_bot,bot_level,bot_name,'
   + 'question_count,round_duration_ms,current_round,host_score,guest_score,winner_user_id,'
   + 'outcome,started_at,finished_at,created_at';
+
+/** ボット対戦（`20260916120000_battle_bot_opponent.sql`）で増えた列。 */
+export const ROOM_COLUMNS_BOT = 'guest_is_bot,bot_level,bot_name';
+
+export const QUESTION_COLUMNS_BASE =
+  'round_index,prompt,choices,started_at,resolved_at,answered_by,revealed_correct_index,revealed_answer';
+
+export const QUESTION_COLUMNS_BOT = 'answered_by_bot';
+
+/**
+ * ボット対戦の列が remote に当たっているか。
+ *
+ * migration より先にコードだけがデプロイされると、bot 列を含む SELECT が
+ * `42703` で落ち、**ボット戦だけでなく人間同士の対戦まで**「対戦ルームの取得に
+ * 失敗しました」になる（2026-06-24 の schema cache 障害と同じ形。
+ * `docs/ops/word-schema-cache-incident-2026-06-24.md`）。
+ *
+ * 列が無い間は bot 列を外して読み、止めるのはボット対戦の入口だけにする。
+ * migration 適用後は次の再確認で自動的に復帰するので、手当ては要らない。
+ */
+const BATTLE_BOT_COLUMN_RECHECK_MS = 60_000;
+let botColumnsAvailable: boolean | null = null;
+let botColumnsCheckedAt = 0;
+
+type SupabaseQueryError = {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
+/** 「その列がまだ無い」とだけ読める失敗か。通信エラー等と混ぜない。 */
+export function isMissingColumnError(error: SupabaseQueryError | null): boolean {
+  if (!error) return false;
+  const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`;
+  return (
+    error.code === '42703'
+    || error.code === 'PGRST204'
+    || /column .* does not exist/i.test(text)
+    || /could not find .* column/i.test(text)
+    || /schema cache/i.test(text)
+  );
+}
+
+async function hasBotColumns(admin: SupabaseAdminClient): Promise<boolean> {
+  if (botColumnsAvailable === true) return true;
+  if (
+    botColumnsAvailable === false
+    && Date.now() - botColumnsCheckedAt < BATTLE_BOT_COLUMN_RECHECK_MS
+  ) {
+    return false;
+  }
+
+  const { error } = await admin.from('battle_rooms').select('guest_is_bot').limit(1);
+
+  // 列が無いと確信できたときだけ落とす。それ以外の失敗は本来のエラーとして
+  // 呼び出し側で表に出したいので、利用可能あつかいのままにする。
+  botColumnsAvailable = !isMissingColumnError(error);
+  botColumnsCheckedAt = Date.now();
+
+  if (!botColumnsAvailable) {
+    console.warn(
+      '[battle] ボット対戦の列がありません。'
+      + 'supabase/migrations/20260916120000_battle_bot_opponent.sql を適用してください。',
+      { message: error?.message },
+    );
+  }
+
+  return botColumnsAvailable;
+}
+
+async function roomColumns(admin: SupabaseAdminClient): Promise<string> {
+  return (await hasBotColumns(admin))
+    ? `${ROOM_COLUMNS_BASE},${ROOM_COLUMNS_BOT}`
+    : ROOM_COLUMNS_BASE;
+}
+
+async function questionColumns(admin: SupabaseAdminClient): Promise<string> {
+  return (await hasBotColumns(admin))
+    ? `${QUESTION_COLUMNS_BASE},${QUESTION_COLUMNS_BOT}`
+    : QUESTION_COLUMNS_BASE;
+}
 
 function buildParticipant(
   userId: string,
@@ -123,7 +207,7 @@ function buildParticipant(
 function buildBotParticipant(row: BattleRoomRow): BattleParticipant {
   return {
     userId: BATTLE_BOT_USER_ID,
-    displayName: row.bot_name?.trim() || getBattleBotName(resolveBotLevel(row.bot_level)),
+    displayName: row.bot_name?.trim() || getBattleBotName(resolveBotLevel(row.bot_level ?? null)),
     avatarUrl: null,
     projectId: null,
     projectTitle: null,
@@ -132,7 +216,7 @@ function buildBotParticipant(row: BattleRoomRow): BattleParticipant {
   };
 }
 
-function resolveBotLevel(value: string | null): BattleBotLevel {
+function resolveBotLevel(value: string | null | undefined): BattleBotLevel {
   return isBattleBotLevel(value) ? value : BATTLE_DEFAULT_BOT_LEVEL;
 }
 
@@ -164,15 +248,15 @@ async function hydrateRoom(
     inviteCode: row.invite_code,
     groupId: row.group_id,
     rematchOfRoomId: row.rematch_of_room_id,
-    guestIsBot: row.guest_is_bot,
-    botLevel: row.guest_is_bot ? resolveBotLevel(row.bot_level) : null,
+    guestIsBot: row.guest_is_bot === true,
+    botLevel: row.guest_is_bot === true ? resolveBotLevel(row.bot_level ?? null) : null,
     questionCount: row.question_count,
     roundDurationMs: row.round_duration_ms,
     currentRound: row.current_round,
     host: buildParticipant(row.host_user_id, row.host_project_id, row.host_score, profiles, projects),
     guest: row.guest_user_id
       ? buildParticipant(row.guest_user_id, row.guest_project_id, row.guest_score, profiles, projects)
-      : row.guest_is_bot
+      : row.guest_is_bot === true
         ? buildBotParticipant(row)
         : null,
     winnerUserId: row.winner_user_id,
@@ -189,7 +273,7 @@ async function fetchRoomRow(
 ): Promise<BattleRoomRow> {
   const { data, error } = await admin
     .from('battle_rooms')
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .eq('id', roomId)
     .maybeSingle<BattleRoomRow>();
 
@@ -277,7 +361,7 @@ export async function loadBattleQuestions(
 ): Promise<BattleQuestion[]> {
   const { data, error } = await admin
     .from('battle_questions')
-    .select('round_index,prompt,choices,started_at,resolved_at,answered_by,answered_by_bot,revealed_correct_index,revealed_answer')
+    .select(await questionColumns(admin))
     .eq('room_id', roomId)
     .not('started_at', 'is', null)
     .order('round_index', { ascending: true });
@@ -287,7 +371,8 @@ export async function loadBattleQuestions(
   }
 
   return (data ?? []).map((row) => {
-    const record = row as Record<string, unknown>;
+    // 列リストを実行時に組み立てているぶん、行の型はここで落ちる。
+    const record = row as unknown as Record<string, unknown>;
     return {
       roundIndex: Number(record.round_index),
       prompt: String(record.prompt ?? ''),
@@ -432,7 +517,7 @@ export async function createFriendRoom(options: {
       question_count: clampQuestionCount(options.questionCount),
       round_duration_ms: clampRoundDurationMs(options.roundDurationMs),
     })
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .single<BattleRoomRow>();
 
   if (error || !data) {
@@ -465,6 +550,15 @@ export async function createBotRoom(options: {
 
   if (!options.groupId && !options.projectId) {
     throw new BattleError('battle_project_required', 400, '単語帳を選択してください。');
+  }
+  // migration 待ちの環境では、中途半端な部屋を作らずここで止める。人間同士の
+  // 対戦は bot 列なしで動き続ける。
+  if (!(await hasBotColumns(admin))) {
+    throw new BattleError(
+      'battle_bot_unavailable',
+      503,
+      'ボット対戦はまだ利用できません。人との対戦をお試しください。',
+    );
   }
   if (options.groupId) {
     await assertGroupMembership(options.groupId, options.userId, admin);
@@ -500,7 +594,7 @@ export async function createBotRoom(options: {
       question_count: clampQuestionCount(options.questionCount),
       round_duration_ms: clampRoundDurationMs(options.roundDurationMs),
     })
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .single<BattleRoomRow>();
 
   if (error || !data) {
@@ -519,6 +613,10 @@ export async function cancelOpenBotRooms(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<void> {
+  // 列が無い＝ボット部屋も存在しえない。ここで問い合わせると 42703 で落ちて
+  // マッチング開始そのものを巻き添えにするので、何もしないで返る。
+  if (!(await hasBotColumns(admin))) return;
+
   await admin
     .from('battle_rooms')
     .update({ status: 'cancelled', finished_at: new Date().toISOString() })
@@ -538,7 +636,7 @@ export async function joinRoomByInviteCode(options: {
 
   const { data: roomRow, error: lookupError } = await admin
     .from('battle_rooms')
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .eq('invite_code', options.inviteCode)
     .in('status', ['waiting', 'ready', 'preparing', 'in_progress'])
     .maybeSingle<BattleRoomRow>();
@@ -569,7 +667,7 @@ export async function joinRoomByInviteCode(options: {
     .eq('id', roomRow.id)
     .eq('status', 'waiting')
     .is('guest_user_id', null)
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .maybeSingle<BattleRoomRow>();
 
   if (error) {
@@ -608,7 +706,7 @@ export async function createOrJoinRematch(options: {
   }
 
   // ボット戦の再戦は相手を待つ必要が無いので、同じ設定の部屋をその場で作る。
-  if (source.guest_is_bot) {
+  if (source.guest_is_bot === true) {
     return createBotRoom({
       userId: options.userId,
       projectId: source.host_project_id,
@@ -640,7 +738,7 @@ export async function createOrJoinRematch(options: {
       question_count: source.question_count,
       round_duration_ms: source.round_duration_ms,
     })
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .maybeSingle<BattleRoomRow>();
 
   if (error) {
@@ -664,7 +762,7 @@ async function findRematchRoom(
 ): Promise<BattleRoomRow | null> {
   const { data, error } = await admin
     .from('battle_rooms')
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .eq('rematch_of_room_id', sourceRoomId)
     .maybeSingle<BattleRoomRow>();
 
@@ -707,7 +805,7 @@ async function joinRematchRoom(
     .eq('id', room.id)
     .eq('status', 'waiting')
     .is('guest_user_id', null)
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .maybeSingle<BattleRoomRow>();
 
   if (error) {
@@ -820,7 +918,7 @@ export async function findActiveRoomForUser(
 ): Promise<BattleRoom | null> {
   const { data, error } = await admin
     .from('battle_rooms')
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .or(`host_user_id.eq.${userId},guest_user_id.eq.${userId}`)
     .in('status', ['ready', 'preparing', 'in_progress'])
     .order('created_at', { ascending: false })
@@ -919,9 +1017,9 @@ export async function startBattle(options: {
   // 揃っていなくてよい。
   const requiresPersonalProjects = !row.group_id;
   // ボット戦はゲスト席に人間が居らず、ゲストの単語帳も無い。
-  const hasOpponent = Boolean(row.guest_user_id) || row.guest_is_bot;
+  const hasOpponent = Boolean(row.guest_user_id) || row.guest_is_bot === true;
   const hasRequiredProjects = !requiresPersonalProjects
-    || (Boolean(row.host_project_id) && (row.guest_is_bot || Boolean(row.guest_project_id)));
+    || (Boolean(row.host_project_id) && (row.guest_is_bot === true || Boolean(row.guest_project_id)));
   if (row.status !== 'ready' || !hasOpponent || !hasRequiredProjects) {
     throw new BattleError('battle_not_ready', 409, '対戦の準備が整っていません。');
   }
@@ -931,7 +1029,7 @@ export async function startBattle(options: {
     .update({ status: 'preparing' })
     .eq('id', options.roomId)
     .eq('status', 'ready')
-    .select(ROOM_COLUMNS)
+    .select(await roomColumns(admin))
     .maybeSingle<BattleRoomRow>();
 
   if (claimError) {
@@ -967,7 +1065,7 @@ export async function startBattle(options: {
 
     await insertQuestions(claimed.id, questions, admin);
 
-    if (claimed.guest_is_bot) {
+    if (claimed.guest_is_bot === true) {
       await insertBotPlans(
         claimed.id,
         questions,
@@ -988,7 +1086,7 @@ export async function startBattle(options: {
       })
       .eq('id', claimed.id)
       .eq('status', 'preparing')
-      .select(ROOM_COLUMNS)
+      .select(await roomColumns(admin))
       .single<BattleRoomRow>();
 
     if (startError || !started) {
