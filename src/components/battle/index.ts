@@ -6,7 +6,9 @@ export {
   BattleNotice,
   BattleWaitingPanel,
 } from './BattleScreen';
+export { BattleAvatar } from './BattleAvatar';
 export {
+  BattleBotOffer,
   BattleGroupSetupCard,
   BattleInviteCode,
   BattleModeTabs,

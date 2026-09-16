@@ -13,6 +13,11 @@
 import { useId } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/utils';
+import {
+  BATTLE_BOT_LEVELS,
+  BATTLE_BOT_PROFILES,
+  type BattleBotLevel,
+} from '@/lib/battle/bot';
 import type { Project } from '@/types';
 
 export type BattleLobbyMode = 'random' | 'friend';
@@ -90,7 +95,7 @@ function SettingRow({
 }
 
 /** 行の右側に置く小さめのセグメント（1本のトラックに収める）。 */
-function InlineSegment<T extends number>({
+function InlineSegment<T extends string | number>({
   ariaLabel,
   options,
   value,
@@ -134,6 +139,37 @@ function InlineSegment<T extends number>({
   );
 }
 
+const BOT_LEVEL_OPTIONS = BATTLE_BOT_LEVELS.map((level) => ({
+  label: BATTLE_BOT_PROFILES[level].label,
+  value: level,
+}));
+
+/**
+ * ボットの強さ。相手が見つからなかったときにだけ使われる設定なので、
+ * 行の下に小さく but 何のための設定かを書いておく。
+ */
+function BotLevelRow({
+  botLevel,
+  onBotLevelChange,
+  disabled,
+}: {
+  botLevel: BattleBotLevel;
+  onBotLevelChange: (level: BattleBotLevel) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <SettingRow icon="smart_toy" label="ボットの強さ" last>
+      <InlineSegment
+        ariaLabel="ボットの強さ"
+        options={BOT_LEVEL_OPTIONS}
+        value={botLevel}
+        onChange={onBotLevelChange}
+        disabled={disabled}
+      />
+    </SettingRow>
+  );
+}
+
 /**
  * 対戦設定（単語帳・問題数・制限時間）を1枚にまとめたカード。
  * 単語帳の行はネイティブ <select> を重ねて、モバイルの選択UIをそのまま使う。
@@ -149,6 +185,8 @@ export function BattleSetupCard({
   roundDurationMs,
   roundDurationOptions,
   onRoundDurationChange,
+  botLevel,
+  onBotLevelChange,
   disabled,
 }: {
   projects: Project[];
@@ -161,6 +199,8 @@ export function BattleSetupCard({
   roundDurationMs: number;
   roundDurationOptions: { label: string; value: number }[];
   onRoundDurationChange: (value: number) => void;
+  botLevel: BattleBotLevel;
+  onBotLevelChange: (level: BattleBotLevel) => void;
   disabled?: boolean;
 }) {
   const selectId = useId();
@@ -221,7 +261,7 @@ export function BattleSetupCard({
         />
       </SettingRow>
 
-      <SettingRow icon="timer" label="1問の制限時間" last>
+      <SettingRow icon="timer" label="1問の制限時間">
         <InlineSegment
           ariaLabel="1問の制限時間"
           options={roundDurationOptions}
@@ -230,6 +270,12 @@ export function BattleSetupCard({
           disabled={disabled}
         />
       </SettingRow>
+
+      <BotLevelRow
+        botLevel={botLevel}
+        onBotLevelChange={onBotLevelChange}
+        disabled={disabled}
+      />
     </section>
   );
 }
@@ -248,6 +294,8 @@ export function BattleGroupSetupCard({
   roundDurationMs,
   roundDurationOptions,
   onRoundDurationChange,
+  botLevel,
+  onBotLevelChange,
   disabled,
 }: {
   books: { id: string; title: string }[];
@@ -259,6 +307,8 @@ export function BattleGroupSetupCard({
   roundDurationMs: number;
   roundDurationOptions: { label: string; value: number }[];
   onRoundDurationChange: (value: number) => void;
+  botLevel: BattleBotLevel;
+  onBotLevelChange: (level: BattleBotLevel) => void;
   disabled?: boolean;
 }) {
   const titles = books.map((book) => book.title).join('・');
@@ -296,7 +346,7 @@ export function BattleGroupSetupCard({
         />
       </SettingRow>
 
-      <SettingRow icon="timer" label="1問の制限時間" last>
+      <SettingRow icon="timer" label="1問の制限時間">
         <InlineSegment
           ariaLabel="1問の制限時間"
           options={roundDurationOptions}
@@ -305,6 +355,12 @@ export function BattleGroupSetupCard({
           disabled={disabled}
         />
       </SettingRow>
+
+      <BotLevelRow
+        botLevel={botLevel}
+        onBotLevelChange={onBotLevelChange}
+        disabled={disabled}
+      />
     </section>
   );
 }
@@ -352,6 +408,60 @@ export function BattleInviteCode({ code }: { code: string }) {
           {char}
         </span>
       ))}
+    </div>
+  );
+}
+
+/**
+ * 相手が見つからないときに待機画面へ出す、ボット対戦への誘導。
+ *
+ * 待つのをやめる判断をユーザーに丸投げせず、`secondsUntilAuto` を過ぎたら
+ * 呼び出し側が自動で始める。ここはその残り時間を見せるだけで、押せば即座に
+ * 始められる。
+ */
+export function BattleBotOffer({
+  botName,
+  secondsUntilAuto,
+  onStart,
+  disabled,
+}: {
+  botName: string;
+  /** 自動開始までの残り秒。null なら自動開始しない。 */
+  secondsUntilAuto: number | null;
+  onStart: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mt-3 rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3.5 text-left shadow-[2px_3px_0_var(--solid-shadow)]">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]">
+          <Icon name="smart_toy" size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+            NO OPPONENT YET
+          </div>
+          <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+            {botName}が代わりに相手をします
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onStart}
+        disabled={disabled}
+        className="mt-3 flex h-[46px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[14px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+      >
+        <Icon name="smart_toy" size={17} />
+        今すぐボットと対戦する
+      </button>
+
+      <p className="mt-2 text-center text-[11px] leading-[1.6] text-[var(--color-muted)]">
+        {secondsUntilAuto === null
+          ? '人が見つかったら、そのまま人との対戦が始まります。'
+          : `あと${secondsUntilAuto}秒で自動的に始まります。`}
+      </p>
     </div>
   );
 }

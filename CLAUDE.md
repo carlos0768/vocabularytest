@@ -271,3 +271,9 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - **この2つの RPC の発火は `src/lib/battle/round-action-scheduler.ts` が持ち、`useEffect` の中に `setTimeout` を置いてはいけない**。ルーム状態は Realtime と4秒ポーリングで頻繁に再取得され、そのたびに新しいオブジェクトが生成されるので、effect の cleanup が正解表示の待ち時間（`BATTLE_ROUND_REVEAL_MS`）を消してしまい、1問目を解いた時点で対戦が固まる。ラウンドが解決した後は誰も操作できず再送する主体がいないため、送信失敗時のリトライもスケジューラ側で持つ
 - 同期は Supabase Realtime の `postgres_changes`（`battle_rooms` / `battle_questions`）。イベント欠落に備えて4秒間隔の再取得もかけている。回答送信だけは Vercel を経由せず**ブラウザから直接 RPC** を叩いてラウンドトリップを1回減らしている（早押しのため）
 - Next.js の Route Handler は常駐できないので、サーバー側タイマーは持たず「締切時刻を持ってクライアントが叩く・サーバーが検証する」方式を取っている
+- **人が集まらないときはボットが相手をする**（`src/lib/battle/bot.ts` + `20260916120000_battle_bot_opponent.sql`）。ランダムマッチ／グループ内マッチで15秒待つとロビーに誘導が出て（`BATTLE_BOT_OFFER_AFTER_MS`）、40秒で自動的にボット戦へ移る（`BATTLE_BOT_AUTO_AFTER_MS`）。待たずに始めるボタンもある。強さは かんたん / ふつう / つよい の3段階で、変わるのは**正答率と押す速さだけ**（どんなに強くても `BATTLE_BOT_MIN_BUZZ_MS` より速くは押さない）
+- ボット戦の部屋は `battle_rooms.guest_is_bot`。**`mode` は 'random' / 'group' のまま**で 'bot' モードは作っていない（出題元がどちらかは今までどおり `group_id` で決まる）。ゲスト席は `guest_user_id = NULL` のままで、画面に出す参加者は `bot_name` / `bot_level` からサーバーが組み立てる（`BATTLE_BOT_USER_ID`）
+- **ボットの手は出題と同時に全ラウンドぶん決めて `battle_bot_plans` に隠す**。`battle_question_keys` と同じくRLS有効・ポリシー無しなので `authenticated` からは読めない。ここにSELECTポリシーを足すと「何秒後に正解するか」が事前に分かってしまうので**絶対に追加しない**
+- 対戦中にボットを動かすのは `apply_battle_bot_turn` だけ。人間の回答（`submit_battle_answer`）・時間切れ（`resolve_battle_round_timeout`）・クライアントの定期tick（`settle_battle_bot_turn`、`BATTLE_BOT_TICK_INTERVAL_MS`）のどの経路から入っても、押す時刻は「出題開始 + `buzz_at_ms`」をサーバーが再計算して判定する。tick を止めてもボットの回答は飛ばせない（人間が押した瞬間に、判定より先にボットの番が清算される）
+- **ボットが勝っても `winner_user_id` は NULL**（auth.users に居ないので勝者IDを持てない）。勝敗は `outcome` の席で判定する（`getBattleResultForViewer`）。ラウンドを取ったのがボットかどうかも `battle_questions.answered_by_bot` を見る —— `answered_by` だけ見ると時間切れに化ける
+- 放置されたボット部屋は「マッチングを開始」時と新しいボット戦を作るときに畳む（`cancelOpenBotRooms`）。残すと `findActiveRoomForUser` が拾って、人と対戦したい人が古いボット戦へ引き戻される

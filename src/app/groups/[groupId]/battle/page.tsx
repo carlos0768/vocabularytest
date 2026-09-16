@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
+  BattleBotOffer,
   BattleGroupSetupCard,
   BattleNotice,
   BattleScreen,
@@ -25,10 +26,17 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import {
+  BATTLE_BOT_AUTO_AFTER_MS,
+  BATTLE_BOT_OFFER_AFTER_MS,
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
   BATTLE_MATCH_POLL_INTERVAL_MS,
 } from '@/lib/battle/config';
+import {
+  BATTLE_DEFAULT_BOT_LEVEL,
+  getBattleBotName,
+  type BattleBotLevel,
+} from '@/lib/battle/bot';
 import { loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
 import type { SharedProjectCard, StudyGroupSummary } from '@/lib/shared-projects/types';
 
@@ -54,12 +62,17 @@ export default function GroupBattlePage() {
   const [booksLoading, setBooksLoading] = useState(true);
   const [questionCount, setQuestionCount] = useState(BATTLE_DEFAULT_QUESTION_COUNT);
   const [roundDurationMs, setRoundDurationMs] = useState(BATTLE_DEFAULT_ROUND_DURATION_MS);
+  const [botLevel, setBotLevel] = useState<BattleBotLevel>(BATTLE_DEFAULT_BOT_LEVEL);
   const [matching, setMatching] = useState(false);
+  const [matchStartedAt, setMatchStartedAt] = useState<number | null>(null);
+  const [matchElapsedMs, setMatchElapsedMs] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const matchingRef = useRef(false);
   matchingRef.current = matching;
+  /** ボット戦の二重開始よけ（自動開始とボタンが同時に走らないように）。 */
+  const botStartRef = useRef(false);
 
   useEffect(() => {
     if (!groupId) return;
@@ -109,6 +122,9 @@ export default function GroupBattlePage() {
         router.push(`/battle/${payload.roomId}`);
         return;
       }
+      botStartRef.current = false;
+      setMatchStartedAt(Date.now());
+      setMatchElapsedMs(0);
       setMatching(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'マッチングに失敗しました。');
@@ -119,8 +135,59 @@ export default function GroupBattlePage() {
 
   const cancelMatching = useCallback(async () => {
     setMatching(false);
+    setMatchStartedAt(null);
     await fetch('/api/battle/match', { method: 'DELETE' }).catch(() => {});
   }, []);
+
+  /**
+   * グループのメンバーが集まらないときのボット対戦。出題元は通常のグループ内
+   * 対戦と同じくグループの本棚なので、単語帳は送らない。
+   */
+  const startBotBattle = useCallback(async () => {
+    if (!groupId) return;
+    botStartRef.current = true;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch('/api/battle/bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, level: botLevel, questionCount, roundDurationMs }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success || !payload.roomId) {
+        throw new Error(payload?.error ?? 'ボット対戦の準備に失敗しました。');
+      }
+      router.push(`/battle/${payload.roomId}`);
+    } catch (err) {
+      botStartRef.current = false;
+      setError(err instanceof Error ? err.message : 'ボット対戦の準備に失敗しました。');
+      setMatching(false);
+      setMatchStartedAt(null);
+    } finally {
+      setBusy(false);
+    }
+  }, [groupId, botLevel, questionCount, roundDurationMs, router]);
+
+  // 待機時間の計測。ボットを出すか、自動で始めるかの判断だけに使う。
+  useEffect(() => {
+    if (!matching || matchStartedAt === null) return;
+
+    const interval = setInterval(() => {
+      setMatchElapsedMs(Date.now() - matchStartedAt);
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [matching, matchStartedAt]);
+
+  // グループは母数が小さく、そもそも誰も来ないことがある。待ちっぱなしに
+  // させず、一定時間でボット戦へ移す。
+  useEffect(() => {
+    if (!matching || botStartRef.current) return;
+    if (matchElapsedMs < BATTLE_BOT_AUTO_AFTER_MS) return;
+
+    void startBotBattle();
+  }, [matching, matchElapsedMs, startBotBattle]);
 
   // 待機中は、サーバーがペアにしてくれた部屋をポーリングで拾う。
   useEffect(() => {
@@ -189,11 +256,21 @@ export default function GroupBattlePage() {
   }
 
   if (matching) {
+    const showBotOffer = matchElapsedMs >= BATTLE_BOT_OFFER_AFTER_MS;
+    const secondsUntilAuto = Math.max(
+      0,
+      Math.ceil((BATTLE_BOT_AUTO_AFTER_MS - matchElapsedMs) / 1000),
+    );
+
     return (
       <BattleScreen header={header} center>
         <BattleWaitingPanel
           title="グループの相手を探しています..."
-          description="同じグループのメンバーが対戦を始めると、自動でマッチします。"
+          description={
+            showBotOffer
+              ? 'メンバーが集まらないときは、ボットが相手をします。'
+              : '同じグループのメンバーが対戦を始めると、自動でマッチします。'
+          }
           onCancel={cancelMatching}
         >
           <div className="rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left">
@@ -205,6 +282,15 @@ export default function GroupBattlePage() {
               {hasBooks && ` · グループの単語帳${books.length}冊`}
             </div>
           </div>
+
+          {showBotOffer && (
+            <BattleBotOffer
+              botName={getBattleBotName(botLevel)}
+              secondsUntilAuto={secondsUntilAuto}
+              onStart={() => void startBotBattle()}
+              disabled={busy}
+            />
+          )}
         </BattleWaitingPanel>
       </BattleScreen>
     );
@@ -231,6 +317,8 @@ export default function GroupBattlePage() {
         roundDurationMs={roundDurationMs}
         roundDurationOptions={ROUND_DURATION_OPTIONS}
         onRoundDurationChange={setRoundDurationMs}
+        botLevel={botLevel}
+        onBotLevelChange={setBotLevel}
         disabled={busy}
       />
 
@@ -247,7 +335,19 @@ export default function GroupBattlePage() {
         同じグループのメンバーとだけマッチします。
         <br />
         出題はグループに追加された単語帳からです。
+        <br />
+        {Math.round(BATTLE_BOT_AUTO_AFTER_MS / 1000)}秒待ってもメンバーが集まらないときは、ボットが相手をします。
       </p>
+
+      <button
+        type="button"
+        onClick={() => void startBotBattle()}
+        disabled={busy || booksLoading || !hasBooks}
+        className="mt-3 flex h-[46px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[13.5px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+      >
+        <Icon name="smart_toy" size={17} />
+        待たずにボットと対戦する
+      </button>
       {!booksLoading && !hasBooks && (
         <Link
           href={`${groupPath}/bookshelf`}

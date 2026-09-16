@@ -7,6 +7,14 @@ import {
   clampRoundDurationMs,
 } from '@/lib/battle/config';
 import { buildBattleQuestions } from '@/lib/battle/questions';
+import {
+  BATTLE_DEFAULT_BOT_LEVEL,
+  buildBattleBotPlans,
+  getBattleBotName,
+  isBattleBotLevel,
+  type BattleBotLevel,
+} from '@/lib/battle/bot';
+import { BATTLE_BOT_USER_ID } from '@/lib/battle/types';
 import type {
   BattleGeneratedQuestion,
   BattleMatchResult,
@@ -54,6 +62,10 @@ type BattleRoomRow = {
   host_project_id: string | null;
   guest_user_id: string | null;
   guest_project_id: string | null;
+  /** ゲスト席にボットが座っている部屋。guest_user_id は必ず NULL。 */
+  guest_is_bot: boolean;
+  bot_level: string | null;
+  bot_name: string | null;
   question_count: number;
   round_duration_ms: number;
   current_round: number;
@@ -81,6 +93,7 @@ type ProjectRow = {
 
 const ROOM_COLUMNS =
   'id,mode,status,invite_code,group_id,rematch_of_room_id,host_user_id,host_project_id,guest_user_id,guest_project_id,'
+  + 'guest_is_bot,bot_level,bot_name,'
   + 'question_count,round_duration_ms,current_round,host_score,guest_score,winner_user_id,'
   + 'outcome,started_at,finished_at,created_at';
 
@@ -99,7 +112,28 @@ function buildParticipant(
     projectId,
     projectTitle: projectId ? projects.get(projectId)?.title ?? null : null,
     score,
+    isBot: false,
   };
+}
+
+/**
+ * ボットのゲスト席。auth.users にも profiles にも行が無いので、部屋に保存した
+ * 名前と強さだけで組み立てる。
+ */
+function buildBotParticipant(row: BattleRoomRow): BattleParticipant {
+  return {
+    userId: BATTLE_BOT_USER_ID,
+    displayName: row.bot_name?.trim() || getBattleBotName(resolveBotLevel(row.bot_level)),
+    avatarUrl: null,
+    projectId: null,
+    projectTitle: null,
+    score: row.guest_score,
+    isBot: true,
+  };
+}
+
+function resolveBotLevel(value: string | null): BattleBotLevel {
+  return isBattleBotLevel(value) ? value : BATTLE_DEFAULT_BOT_LEVEL;
 }
 
 async function hydrateRoom(
@@ -130,13 +164,17 @@ async function hydrateRoom(
     inviteCode: row.invite_code,
     groupId: row.group_id,
     rematchOfRoomId: row.rematch_of_room_id,
+    guestIsBot: row.guest_is_bot,
+    botLevel: row.guest_is_bot ? resolveBotLevel(row.bot_level) : null,
     questionCount: row.question_count,
     roundDurationMs: row.round_duration_ms,
     currentRound: row.current_round,
     host: buildParticipant(row.host_user_id, row.host_project_id, row.host_score, profiles, projects),
     guest: row.guest_user_id
       ? buildParticipant(row.guest_user_id, row.guest_project_id, row.guest_score, profiles, projects)
-      : null,
+      : row.guest_is_bot
+        ? buildBotParticipant(row)
+        : null,
     winnerUserId: row.winner_user_id,
     outcome: row.outcome,
     startedAt: row.started_at,
@@ -193,6 +231,32 @@ export async function assertProjectOwnership(
   return data;
 }
 
+/**
+ * グループの出題を引く前のメンバー確認。通常のグループ内マッチは
+ * `pair_group_battle_match` がDB側で確認してくれるが、ボット戦は相手を待たずに
+ * 部屋を作るので、ここで同じ確認をしないと非メンバーが他人のグループの単語帳を
+ * 出題させられてしまう。
+ */
+export async function assertGroupMembership(
+  groupId: string,
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<void> {
+  const { data, error } = await admin
+    .from('study_group_members')
+    .select('user_id')
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new BattleError('battle_group_lookup_failed', 500, 'グループの確認に失敗しました。');
+  }
+  if (!data) {
+    throw new BattleError('battle_not_a_group_member', 403, 'このグループのメンバーではありません。');
+  }
+}
+
 export async function loadBattleRoom(
   roomId: string,
   userId: string,
@@ -213,7 +277,7 @@ export async function loadBattleQuestions(
 ): Promise<BattleQuestion[]> {
   const { data, error } = await admin
     .from('battle_questions')
-    .select('round_index,prompt,choices,started_at,resolved_at,answered_by,revealed_correct_index,revealed_answer')
+    .select('round_index,prompt,choices,started_at,resolved_at,answered_by,answered_by_bot,revealed_correct_index,revealed_answer')
     .eq('room_id', roomId)
     .not('started_at', 'is', null)
     .order('round_index', { ascending: true });
@@ -231,6 +295,7 @@ export async function loadBattleQuestions(
       startedAt: (record.started_at as string | null) ?? null,
       resolvedAt: (record.resolved_at as string | null) ?? null,
       answeredBy: (record.answered_by as string | null) ?? null,
+      answeredByBot: record.answered_by_bot === true,
       correctIndex:
         record.revealed_correct_index === null || record.revealed_correct_index === undefined
           ? null
@@ -377,6 +442,91 @@ export async function createFriendRoom(options: {
   return hydrateRoom(data, admin);
 }
 
+/**
+ * 人が集まらないときのボット対戦部屋。マッチングで相手が見つからなかった
+ * ロビー（ランダム／グループ内）から呼ばれる。
+ *
+ * ゲスト席は人間ではなくボットなので `status` はいきなり 'ready' で、通常の
+ * 対戦と同じく対戦画面に入ったホストが `/start` を叩いて問題を作る。
+ *
+ * 待機列に残ったまま部屋を作ると、直後に人間とマッチして二重に対戦が始まって
+ * しまう。先に列から抜け、それでも部屋ができていたらそちらを優先する。
+ */
+export async function createBotRoom(options: {
+  userId: string;
+  projectId?: string | null;
+  groupId?: string | null;
+  botLevel: BattleBotLevel;
+  questionCount: number;
+  roundDurationMs: number;
+  admin?: SupabaseAdminClient;
+}): Promise<BattleRoom> {
+  const admin = options.admin ?? getSupabaseAdmin();
+
+  if (!options.groupId && !options.projectId) {
+    throw new BattleError('battle_project_required', 400, '単語帳を選択してください。');
+  }
+  if (options.groupId) {
+    await assertGroupMembership(options.groupId, options.userId, admin);
+  }
+  if (options.projectId) {
+    await assertProjectOwnership(options.projectId, options.userId, admin);
+  }
+
+  // 1. 開きっぱなしの古いボット部屋を先に畳む。残したまま次の確認をすると、
+  //    今の設定ではなく古い部屋へ案内してしまう。
+  await cancelOpenBotRooms(options.userId, admin);
+
+  // 2. 列から抜ける。ここで人間とのマッチが成立していたら（＝行が既に消えて
+  //    いたら）、次の確認でその部屋が見つかる。
+  await cancelRandomMatch(options.userId, admin);
+
+  // 3. すでに人間と組まれていたなら、ボット戦は作らずそちらへ案内する。
+  const existing = await findActiveRoomForUser(options.userId, admin);
+  if (existing) return existing;
+
+  const { data, error } = await admin
+    .from('battle_rooms')
+    .insert({
+      mode: options.groupId ? 'group' : 'random',
+      status: 'ready',
+      group_id: options.groupId ?? null,
+      host_user_id: options.userId,
+      host_project_id: options.projectId ?? null,
+      guest_user_id: null,
+      guest_is_bot: true,
+      bot_level: options.botLevel,
+      bot_name: getBattleBotName(options.botLevel),
+      question_count: clampQuestionCount(options.questionCount),
+      round_duration_ms: clampRoundDurationMs(options.roundDurationMs),
+    })
+    .select(ROOM_COLUMNS)
+    .single<BattleRoomRow>();
+
+  if (error || !data) {
+    throw new BattleError('battle_bot_room_create_failed', 500, 'ボット対戦の準備に失敗しました。');
+  }
+
+  return hydrateRoom(data, admin);
+}
+
+/**
+ * 開きっぱなしのボット部屋を畳む。ボット戦は相手の都合が無いので、放置された
+ * 部屋を残しておく意味がない。逆に残すと `findActiveRoomForUser` が拾ってしまい、
+ * 次に「マッチングを開始」を押した人が古いボット戦へ引き戻される。
+ */
+export async function cancelOpenBotRooms(
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<void> {
+  await admin
+    .from('battle_rooms')
+    .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+    .eq('host_user_id', userId)
+    .eq('guest_is_bot', true)
+    .in('status', ['waiting', 'ready', 'preparing', 'in_progress']);
+}
+
 export async function joinRoomByInviteCode(options: {
   userId: string;
   projectId: string;
@@ -455,6 +605,19 @@ export async function createOrJoinRematch(options: {
 
   if (source.status !== 'finished' && source.status !== 'cancelled') {
     throw new BattleError('battle_not_finished', 409, 'この対戦はまだ終わっていません。');
+  }
+
+  // ボット戦の再戦は相手を待つ必要が無いので、同じ設定の部屋をその場で作る。
+  if (source.guest_is_bot) {
+    return createBotRoom({
+      userId: options.userId,
+      projectId: source.host_project_id,
+      groupId: source.group_id,
+      botLevel: resolveBotLevel(source.bot_level),
+      questionCount: source.question_count,
+      roundDurationMs: source.round_duration_ms,
+      admin,
+    });
   }
 
   const existing = await findRematchRoom(options.roomId, admin);
@@ -707,6 +870,35 @@ async function insertQuestions(
 }
 
 /**
+ * ボットの行動計画を全ラウンドぶん先に書き込む。正解キーと同じく
+ * クライアントからは読めないテーブル（`battle_bot_plans`）に入れる。
+ */
+async function insertBotPlans(
+  roomId: string,
+  questions: BattleGeneratedQuestion[],
+  botLevel: BattleBotLevel,
+  roundDurationMs: number,
+  admin: SupabaseAdminClient,
+): Promise<void> {
+  const plans = buildBattleBotPlans(questions, botLevel, roundDurationMs);
+  if (plans.length === 0) return;
+
+  const { error } = await admin.from('battle_bot_plans').insert(
+    plans.map((plan) => ({
+      room_id: roomId,
+      round_index: plan.roundIndex,
+      buzz_at_ms: plan.buzzAtMs,
+      choice_index: plan.choiceIndex,
+      will_answer: plan.willAnswer,
+    })),
+  );
+
+  if (error) {
+    throw new BattleError('battle_bot_plan_insert_failed', 500, 'ボット対戦の準備に失敗しました。');
+  }
+}
+
+/**
  * Generates the shared question set and opens round 0. The status flip from
  * 'ready' to 'preparing' is the atomic claim, so if both clients press start
  * only one of them generates questions.
@@ -726,11 +918,11 @@ export async function startBattle(options: {
   // グループ内対戦はグループの単語帳から出題するので、参加者個人の単語帳は
   // 揃っていなくてよい。
   const requiresPersonalProjects = !row.group_id;
-  if (
-    row.status !== 'ready'
-    || !row.guest_user_id
-    || (requiresPersonalProjects && (!row.host_project_id || !row.guest_project_id))
-  ) {
+  // ボット戦はゲスト席に人間が居らず、ゲストの単語帳も無い。
+  const hasOpponent = Boolean(row.guest_user_id) || row.guest_is_bot;
+  const hasRequiredProjects = !requiresPersonalProjects
+    || (Boolean(row.host_project_id) && (row.guest_is_bot || Boolean(row.guest_project_id)));
+  if (row.status !== 'ready' || !hasOpponent || !hasRequiredProjects) {
     throw new BattleError('battle_not_ready', 409, '対戦の準備が整っていません。');
   }
 
@@ -775,6 +967,16 @@ export async function startBattle(options: {
 
     await insertQuestions(claimed.id, questions, admin);
 
+    if (claimed.guest_is_bot) {
+      await insertBotPlans(
+        claimed.id,
+        questions,
+        resolveBotLevel(claimed.bot_level),
+        claimed.round_duration_ms,
+        admin,
+      );
+    }
+
     const { data: started, error: startError } = await admin
       .from('battle_rooms')
       .update({
@@ -803,6 +1005,7 @@ export async function startBattle(options: {
       .eq('status', 'preparing');
     await admin.from('battle_questions').delete().eq('room_id', options.roomId);
     await admin.from('battle_question_keys').delete().eq('room_id', options.roomId);
+    await admin.from('battle_bot_plans').delete().eq('room_id', options.roomId);
     throw error;
   }
 }

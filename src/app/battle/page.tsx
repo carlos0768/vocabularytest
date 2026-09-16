@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useProjects } from '@/hooks/use-projects';
 import { Icon } from '@/components/ui/Icon';
 import {
+  BattleBotOffer,
   BattleInviteCode,
   BattleModeTabs,
   BattleNotice,
@@ -17,11 +18,18 @@ import {
   type BattleLobbyMode,
 } from '@/components/battle';
 import {
+  BATTLE_BOT_AUTO_AFTER_MS,
+  BATTLE_BOT_OFFER_AFTER_MS,
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
   BATTLE_MATCH_POLL_INTERVAL_MS,
   normalizeInviteCode,
 } from '@/lib/battle/config';
+import {
+  BATTLE_DEFAULT_BOT_LEVEL,
+  getBattleBotName,
+  type BattleBotLevel,
+} from '@/lib/battle/bot';
 import type { BattleRoom } from '@/lib/battle/types';
 
 /** ロビーの滞在状態。設定画面か、マッチング待ちか、フレンドの参加待ちか。 */
@@ -46,6 +54,7 @@ export default function BattleLobbyPage() {
   const [projectId, setProjectId] = useState<string>('');
   const [questionCount, setQuestionCount] = useState(BATTLE_DEFAULT_QUESTION_COUNT);
   const [roundDurationMs, setRoundDurationMs] = useState(BATTLE_DEFAULT_ROUND_DURATION_MS);
+  const [botLevel, setBotLevel] = useState<BattleBotLevel>(BATTLE_DEFAULT_BOT_LEVEL);
   const [mode, setMode] = useState<BattleLobbyMode>('random');
   const [stage, setStage] = useState<LobbyStage>('setup');
   const [hostedRoom, setHostedRoom] = useState<BattleRoom | null>(null);
@@ -53,9 +62,14 @@ export default function BattleLobbyPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  /** マッチングを始めた時刻。ボットを出すまでの経過時間を測るのに使う。 */
+  const [matchStartedAt, setMatchStartedAt] = useState<number | null>(null);
+  const [matchElapsedMs, setMatchElapsedMs] = useState(0);
 
   const stageRef = useRef<LobbyStage>('setup');
   stageRef.current = stage;
+  /** ボット戦の二重開始よけ（自動開始とボタンが同時に走らないように）。 */
+  const botStartRef = useRef(false);
 
   useEffect(() => {
     if (!projectId && projects.length > 0) {
@@ -96,6 +110,9 @@ export default function BattleLobbyPage() {
         router.push(`/battle/${payload.roomId}`);
         return;
       }
+      botStartRef.current = false;
+      setMatchStartedAt(Date.now());
+      setMatchElapsedMs(0);
       setStage('matching');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'マッチングに失敗しました。');
@@ -106,8 +123,56 @@ export default function BattleLobbyPage() {
 
   const cancelRandomMatch = useCallback(async () => {
     setStage('setup');
+    setMatchStartedAt(null);
     await fetch('/api/battle/match', { method: 'DELETE' }).catch(() => {});
   }, []);
+
+  /**
+   * 人が集まらないときのボット対戦。待機列から抜ける処理はサーバー側
+   * （`/api/battle/bot`）がやるので、ここでは部屋へ移るだけでよい。直前に人と
+   * マッチしていた場合はその部屋が返ってくる。
+   */
+  const startBotBattle = useCallback(async () => {
+    if (!projectId) return;
+    botStartRef.current = true;
+    setError(null);
+    setBusy(true);
+    try {
+      const payload = await postJson('/api/battle/bot', {
+        projectId,
+        level: botLevel,
+        questionCount,
+        roundDurationMs,
+      });
+      router.push(`/battle/${payload.roomId}`);
+    } catch (err) {
+      botStartRef.current = false;
+      setError(err instanceof Error ? err.message : 'ボット対戦の準備に失敗しました。');
+      setStage('setup');
+      setMatchStartedAt(null);
+    } finally {
+      setBusy(false);
+    }
+  }, [projectId, botLevel, questionCount, roundDurationMs, postJson, router]);
+
+  // 待機時間の計測。ボットを出すか、自動で始めるかの判断だけに使う。
+  useEffect(() => {
+    if (stage !== 'matching' || matchStartedAt === null) return;
+
+    const interval = setInterval(() => {
+      setMatchElapsedMs(Date.now() - matchStartedAt);
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [stage, matchStartedAt]);
+
+  // 待ちっぱなしにはしない。一定時間で自動的にボット戦へ移る。
+  useEffect(() => {
+    if (stage !== 'matching' || botStartRef.current) return;
+    if (matchElapsedMs < BATTLE_BOT_AUTO_AFTER_MS) return;
+
+    void startBotBattle();
+  }, [stage, matchElapsedMs, startBotBattle]);
 
   // While queued, poll for the room the server paired us into.
   useEffect(() => {
@@ -243,11 +308,21 @@ export default function BattleLobbyPage() {
   }
 
   if (stage === 'matching') {
+    const showBotOffer = matchElapsedMs >= BATTLE_BOT_OFFER_AFTER_MS;
+    const secondsUntilAuto = Math.max(
+      0,
+      Math.ceil((BATTLE_BOT_AUTO_AFTER_MS - matchElapsedMs) / 1000),
+    );
+
     return (
       <BattleScreen header={header} center>
         <BattleWaitingPanel
           title="対戦相手を探しています..."
-          description="見つかり次第、自動で対戦が始まります。この画面のままお待ちください。"
+          description={
+            showBotOffer
+              ? '人が見つからないときは、ボットが相手をします。'
+              : '見つかり次第、自動で対戦が始まります。この画面のままお待ちください。'
+          }
           onCancel={cancelRandomMatch}
         >
           <div className="rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left">
@@ -259,6 +334,15 @@ export default function BattleLobbyPage() {
               {selectedProject && ` · ${selectedProject.title}`}
             </div>
           </div>
+
+          {showBotOffer && (
+            <BattleBotOffer
+              botName={getBattleBotName(botLevel)}
+              secondsUntilAuto={secondsUntilAuto}
+              onStart={() => void startBotBattle()}
+              disabled={busy}
+            />
+          )}
         </BattleWaitingPanel>
       </BattleScreen>
     );
@@ -331,6 +415,8 @@ export default function BattleLobbyPage() {
           roundDurationMs={roundDurationMs}
           roundDurationOptions={ROUND_DURATION_OPTIONS}
           onRoundDurationChange={setRoundDurationMs}
+          botLevel={botLevel}
+          onBotLevelChange={setBotLevel}
           disabled={busy}
         />
         {!selectedProject && !projectsLoading && (
@@ -355,7 +441,19 @@ export default function BattleLobbyPage() {
             </button>
             <p className="mt-2 text-center text-[11.5px] leading-[1.6] text-[var(--color-muted)]">
               待機中の相手と自動でマッチします。出題は先に待っていた側の単語帳からです。
+              <br />
+              {Math.round(BATTLE_BOT_AUTO_AFTER_MS / 1000)}秒待っても人が集まらないときは、ボットが相手をします。
             </p>
+
+            <button
+              type="button"
+              onClick={() => void startBotBattle()}
+              disabled={!canStart}
+              className="mt-3 flex h-[46px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[13.5px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+            >
+              <Icon name="smart_toy" size={17} />
+              待たずにボットと対戦する
+            </button>
           </>
         ) : (
           <div className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
