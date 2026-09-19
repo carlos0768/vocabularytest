@@ -9,17 +9,19 @@ export type HomeShortcutTile<P, G, B> =
   | { kind: 'group'; group: G }
   | { kind: 'recommendation'; book: B };
 
-/** グリッド全体の枠数（TODAY'S GOAL タイル1枠を含む） */
+/** グリッド全体の枠数 */
 export const HOME_SHORTCUT_GRID_SIZE = 8;
 
 /**
  * コンテンツ（単語帳/グループ/おすすめ）に使える枠数。
- * goal タイル1枠と、保存済み単語タイル（表示時）を除いた残り。
+ * 固定タイル（デスクトップの TODAY'S GOAL タイル、保存済み単語タイル）を
+ * 除いた残り。モバイルのホームには固定タイルが無い（今日の復習・保存済みは
+ * 目標ページ /goal と /favorites に移した）ので `fixedTiles = 0` で呼ぶ。
  * ホーム側は「グリッドに載った単語帳数 = min(単語帳数, この枠数)」として
  * 溢れた単語帳だけを下のマイ単語帳リストに出す。
  */
-export function homeShortcutContentSlots(hasSavedTile: boolean): number {
-  return HOME_SHORTCUT_GRID_SIZE - 1 - (hasSavedTile ? 1 : 0);
+export function homeShortcutContentSlots(fixedTiles: number): number {
+  return Math.max(0, HOME_SHORTCUT_GRID_SIZE - fixedTiles);
 }
 
 export function buildHomeShortcutTiles<P, G, B>(options: {

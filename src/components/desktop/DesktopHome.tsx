@@ -297,7 +297,8 @@ function DesktopShortcutGrid({
     projects,
     groups,
     recommendations,
-    slots: homeShortcutContentSlots(showSavedTile),
+    // goal タイル1枠 + 保存済みタイル（表示時）
+    slots: homeShortcutContentSlots(1 + (showSavedTile ? 1 : 0)),
   });
 
   return (

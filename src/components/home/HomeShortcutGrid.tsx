@@ -2,13 +2,13 @@
 
 /**
  * ホーム上部の Spotify 風ショートカットグリッド（2カラムのコンパクトタイル）。
- * 先頭は TODAY'S GOAL（今日の復習/学習）タイル。残りの枠は
- * 自分の単語帳 → 参加中のグループ → 英検級ベースのおすすめ共有単語帳 の
+ * 枠は 自分の単語帳 → 参加中のグループ → 英検級ベースのおすすめ共有単語帳 の
  * 優先順で埋める（buildHomeShortcutTiles）。
+ * 以前ここにあった TODAY'S GOAL（今日の復習）と保存済み単語のタイルは
+ * 目標ページ (/goal) と /favorites に移した。
  */
 
 import Link from 'next/link';
-import { Icon } from '@/components/ui/Icon';
 import { triggerHaptic } from '@/lib/haptics';
 import {
   prefetchGroupOverview,
@@ -26,11 +26,6 @@ function thumbColor(id: string) {
   return THUMBS[Math.abs(h) % THUMBS.length];
 }
 
-export type HomeShortcutGoal = {
-  state: 'review' | 'learn' | 'empty' | 'start' | 'done';
-  count: number;
-};
-
 export type HomeShortcutProject = {
   id: string;
   title: string;
@@ -39,40 +34,24 @@ export type HomeShortcutProject = {
 };
 
 export function HomeShortcutGrid({
-  goal,
-  savedWordsCount,
   projects,
   groups,
   recommendations,
-  onStartScan,
 }: {
-  goal: HomeShortcutGoal;
-  /** 保存済み単語（お気に入り）の数。0 のときはタイルを出さない */
-  savedWordsCount: number;
   projects: HomeShortcutProject[];
   groups: StudyGroupSummary[];
   recommendations: HomeRecommendedBook[];
-  onStartScan: () => void;
 }) {
-  const showSavedTile = savedWordsCount > 0;
   const tiles = buildHomeShortcutTiles({
     projects,
     groups,
     recommendations,
-    slots: homeShortcutContentSlots(showSavedTile),
+    slots: homeShortcutContentSlots(0),
   });
+  if (tiles.length === 0) return null;
 
   return (
     <div className="grid grid-cols-2 gap-2 px-[18px] pb-3.5">
-      <GoalTile goal={goal} onStartScan={onStartScan} />
-      {showSavedTile && (
-        <TileShell
-          href="/favorites"
-          iconArea={<GoalIconSquare icon="bookmark" />}
-          title="保存済み単語"
-          sub={<TileSub>{savedWordsCount}語</TileSub>}
-        />
-      )}
       {tiles.map((tile) => {
         if (tile.kind === 'project') {
           const project = tile.project;
@@ -140,58 +119,6 @@ export function HomeShortcutGrid({
           />
         );
       })}
-    </div>
-  );
-}
-
-function GoalTile({ goal, onStartScan }: { goal: HomeShortcutGoal; onStartScan: () => void }) {
-  if (goal.state === 'empty') {
-    return (
-      <TileShell
-        onClick={onStartScan}
-        iconArea={<GoalIconSquare icon="photo_camera" />}
-        title="最初のスキャン"
-        sub={<TileSub accent>タップして開始</TileSub>}
-      />
-    );
-  }
-  if (goal.state === 'done') {
-    return (
-      <TileShell
-        iconArea={<GoalIconSquare icon="check_circle" background="var(--color-success)" />}
-        title="復習完了"
-        sub={<TileSub>今日はおつかれさま</TileSub>}
-      />
-    );
-  }
-  if (goal.state === 'review') {
-    return (
-      <TileShell
-        href="/quiz/all?review=1&from=/"
-        iconArea={<GoalIconSquare icon="replay" />}
-        title="今日の復習"
-        sub={<TileSub accent>{goal.count}語 →</TileSub>}
-      />
-    );
-  }
-  // 'learn' | 'start'
-  return (
-    <TileShell
-      href="/quiz/all?learn=1&from=/"
-      iconArea={<GoalIconSquare icon="school" />}
-      title={goal.state === 'start' ? '学習を始める' : '今日の学習'}
-      sub={<TileSub accent>{goal.count}語 →</TileSub>}
-    />
-  );
-}
-
-function GoalIconSquare({ icon, background = 'var(--color-accent)' }: { icon: string; background?: string }) {
-  return (
-    <div
-      className="flex h-full w-full items-center justify-center text-white"
-      style={{ background }}
-    >
-      <Icon name={icon} size={20} filled />
     </div>
   );
 }
