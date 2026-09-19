@@ -29,6 +29,11 @@ interface GoalSetupSheetProps {
   onClose: () => void;
   projects: GoalSheetProject[];
   current: StudyGoal | null;
+  /**
+   * 目標日の初期値 (カレンダーの日付をタップして開いたとき)。
+   * 指定があれば現在の目標日より優先する。
+   */
+  initialTargetDate?: string | null;
   onSave: (goal: StudyGoal) => void;
   onClear: () => void;
 }
@@ -46,11 +51,14 @@ function GoalSetupForm({
   onClose,
   projects,
   current,
+  initialTargetDate,
   onSave,
   onClear,
 }: GoalSetupSheetProps) {
   const [projectId, setProjectId] = useState<string>(current?.projectId ?? projects[0]?.id ?? '');
-  const [targetDate, setTargetDate] = useState<string>(current?.targetDate ?? defaultTargetDate());
+  const [targetDate, setTargetDate] = useState<string>(
+    initialTargetDate ?? current?.targetDate ?? defaultTargetDate(),
+  );
 
   const today = useMemo(() => toLocalDateKey(new Date()), []);
   const dateValid = parseLocalDateKey(targetDate) !== null;

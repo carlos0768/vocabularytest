@@ -65,6 +65,13 @@ export default function GoalPage() {
   const [goal, setGoal] = useState<StudyGoal | null>(null);
   const [goalLoaded, setGoalLoaded] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // カレンダーの日付をタップして開いたときの目標日の初期値。ヘッダーの
+  // ボタンやバナーから開いたときは null (今の目標日 or 既定値)
+  const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
+  const openSheet = (initialDate: string | null = null) => {
+    setSheetInitialDate(initialDate);
+    setSheetOpen(true);
+  };
   useEffect(() => {
     setGoal(getStudyGoal());
     setGoalLoaded(true);
@@ -175,7 +182,7 @@ export default function GoalPage() {
           </div>
           <button
             type="button"
-            onClick={() => setSheetOpen(true)}
+            onClick={() => openSheet()}
             disabled={loading && projects.length === 0}
             aria-label="目標を設定"
             className="flex h-[34px] items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
@@ -200,7 +207,7 @@ export default function GoalPage() {
           ) : goalProject && remainingDays !== null ? (
             <button
               type="button"
-              onClick={() => setSheetOpen(true)}
+              onClick={() => openSheet()}
               className="w-full rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-4 py-3.5 text-center transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <div className="font-display text-[19px] font-black leading-tight text-[var(--color-on-accent)]">
@@ -213,7 +220,7 @@ export default function GoalPage() {
           ) : (
             <button
               type="button"
-              onClick={() => setSheetOpen(true)}
+              onClick={() => openSheet()}
               className="flex w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4 text-[14px] font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="flag" size={18} className="text-[var(--color-accent)]" />
@@ -228,6 +235,7 @@ export default function GoalPage() {
             today={today}
             goalDate={goalProject ? goal?.targetDate ?? null : null}
             studiedDays={studiedDays}
+            onSelectDate={(dateKey) => openSheet(dateKey)}
           />
         </div>
 
@@ -275,6 +283,7 @@ export default function GoalPage() {
         onClose={() => setSheetOpen(false)}
         projects={sheetProjects}
         current={goal}
+        initialTargetDate={sheetInitialDate}
         onSave={handleSaveGoal}
         onClear={handleClearGoal}
       />
@@ -286,10 +295,13 @@ function GoalCalendar({
   today,
   goalDate,
   studiedDays,
+  onSelectDate,
 }: {
   today: Date | null;
   goalDate: string | null;
   studiedDays: Set<string>;
+  /** 今日以降の日付をタップしたとき (過去の日は目標日にできないので反応しない) */
+  onSelectDate: (dateKey: string) => void;
 }) {
   // null = まだ月送りしていない → 今月 (今日が確定するまでは仮の月を出す)
   const [cursor, setCursor] = useState<{ year: number; month: number } | null>(null);
@@ -336,12 +348,23 @@ function GoalCalendar({
           const isToday = !!cell.key && cell.key === todayKey;
           const isGoal = !!cell.key && cell.key === goalDate;
           const studied = !!cell.key && studiedDays.has(cell.key);
+          // 今日が確定するまではどの日も選べない (SSR/初回描画中)。過去の日も選べない
+          const selectable = !!cell.key && !!todayKey && cell.key >= todayKey;
+          const cellStyle = { borderRightWidth: index % 7 === 6 ? 0 : undefined, borderBottomWidth: index >= 35 ? 0 : undefined };
+          const cellClass = 'relative flex h-[46px] w-full flex-col items-center border-b border-r border-[var(--color-border)] pt-1.5 text-[13px] font-bold';
+          if (cell.day === null) {
+            return <div key={`blank-${index}`} className={cellClass} style={cellStyle} aria-hidden />;
+          }
+          const label = `${cell.key}${isToday ? ' 今日' : ''}${isGoal ? ' 目標日' : ''}${studied ? ' 学習済み' : ''}`;
           return (
-            <div
-              key={cell.key ?? `blank-${index}`}
-              className="relative flex h-[46px] flex-col items-center border-b border-r border-[var(--color-border)] pt-1.5 text-[13px] font-bold"
-              style={{ borderRightWidth: index % 7 === 6 ? 0 : undefined, borderBottomWidth: index >= 35 ? 0 : undefined }}
-              aria-label={cell.key ? `${cell.key}${isToday ? ' 今日' : ''}${isGoal ? ' 目標日' : ''}${studied ? ' 学習済み' : ''}` : undefined}
+            <button
+              key={cell.key}
+              type="button"
+              disabled={!selectable}
+              onClick={() => cell.key && onSelectDate(cell.key)}
+              aria-label={selectable ? `${label} を目標日にする` : label}
+              className={`${cellClass} ${selectable ? 'active:bg-[var(--color-surface-secondary)]' : 'cursor-default'}`}
+              style={cellStyle}
             >
               {cell.day !== null && (
                 <>
@@ -349,7 +372,9 @@ function GoalCalendar({
                     className={`flex h-6 w-6 items-center justify-center rounded-full leading-none ${
                       isToday
                         ? 'bg-[var(--color-error)] text-white'
-                        : 'text-[var(--solid-ink)]'
+                        : selectable
+                          ? 'text-[var(--solid-ink)]'
+                          : 'text-[var(--color-muted)]'
                     }`}
                   >
                     {cell.day}
@@ -367,13 +392,16 @@ function GoalCalendar({
                   )}
                 </>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
-      <div className="flex items-center justify-end gap-3 px-3 py-1.5 text-[10px] font-bold text-[var(--color-muted)]">
+      <div className="flex items-center justify-between gap-3 px-3 py-1.5 text-[10px] font-bold text-[var(--color-muted)]">
+        <span>日付をタップして目標日を設定</span>
+        <span className="inline-flex items-center gap-3">
         <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />学習した日</span>
         <span className="inline-flex items-center gap-1"><Icon name="flag" size={12} filled className="text-[var(--color-error)]" />目標日</span>
+        </span>
       </div>
     </section>
   );
