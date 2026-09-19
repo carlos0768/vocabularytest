@@ -396,12 +396,9 @@ function GoalCalendar({
           );
         })}
       </div>
-      <div className="flex items-center justify-between gap-3 px-3 py-1.5 text-[10px] font-bold text-[var(--color-muted)]">
-        <span>日付をタップして目標日を設定</span>
-        <span className="inline-flex items-center gap-3">
+      <div className="flex items-center justify-end gap-3 px-3 py-1.5 text-[10px] font-bold text-[var(--color-muted)]">
         <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />学習した日</span>
         <span className="inline-flex items-center gap-1"><Icon name="flag" size={12} filled className="text-[var(--color-error)]" />目標日</span>
-        </span>
       </div>
     </section>
   );
