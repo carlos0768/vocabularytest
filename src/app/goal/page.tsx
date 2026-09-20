@@ -171,25 +171,13 @@ export default function GoalPage() {
   const dailyQuizCount = Math.min(GOAL_DAILY_QUESTION_COUNT, goalWords.length);
 
   return (
-    <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)]">
+    <div className="relative h-dvh overflow-hidden bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)]">
       <div className="mx-auto w-full max-w-[520px]">
-        <div className="flex items-center justify-between px-[18px] pb-3 pt-2">
-          <div>
-            <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
-              GOAL
-            </div>
-            <h1 className="font-display text-[22px] font-black leading-none text-[var(--solid-ink)]">目標</h1>
+        <div className="px-[18px] pb-3 pt-2">
+          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
+            GOAL
           </div>
-          <button
-            type="button"
-            onClick={() => openSheet()}
-            disabled={loading && projects.length === 0}
-            aria-label="目標を設定"
-            className="flex h-[34px] items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
-          >
-            <Icon name="edit" size={14} />
-            {goal ? '変更' : '設定'}
-          </button>
+          <h1 className="font-display text-[22px] font-black leading-none text-[var(--solid-ink)]">目標</h1>
         </div>
 
         {error && (
