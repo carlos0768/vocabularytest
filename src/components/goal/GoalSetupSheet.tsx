@@ -55,14 +55,22 @@ function GoalSetupForm({
   onSave,
   onClear,
 }: GoalSetupSheetProps) {
-  const [projectId, setProjectId] = useState<string>(current?.projectId ?? projects[0]?.id ?? '');
+  const [projectIds, setProjectIds] = useState<string[]>(
+    current?.projectIds ?? (projects[0] ? [projects[0].id] : []),
+  );
   const [targetDate, setTargetDate] = useState<string>(
     initialTargetDate ?? current?.targetDate ?? defaultTargetDate(),
   );
 
   const today = useMemo(() => toLocalDateKey(new Date()), []);
   const dateValid = parseLocalDateKey(targetDate) !== null;
-  const canSave = projectId.length > 0 && dateValid;
+  const canSave = projectIds.length > 0 && dateValid;
+
+  const toggleProject = (id: string) => {
+    setProjectIds((prev) =>
+      prev.includes(id) ? prev.filter((existing) => existing !== id) : [...prev, id],
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -106,23 +114,23 @@ function GoalSetupForm({
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <p className="mb-1.5 text-[11px] font-black tracking-[0.06em] text-[var(--color-muted)]">
-              目標にする単語帳
+              目標にする単語帳 (複数選択可)
             </p>
             {projects.length === 0 ? (
               <p className="rounded-[12px] border-2 border-dashed border-[var(--color-border)] p-3 text-xs font-bold text-[var(--color-muted)]">
                 単語帳がまだありません。先に単語帳を作成してください。
               </p>
             ) : (
-              <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="目標にする単語帳">
+              <div className="flex flex-col gap-1.5">
                 {projects.map((project) => {
-                  const selected = project.id === projectId;
+                  const selected = projectIds.includes(project.id);
                   return (
                     <button
                       key={project.id}
                       type="button"
-                      role="radio"
+                      role="checkbox"
                       aria-checked={selected}
-                      onClick={() => setProjectId(project.id)}
+                      onClick={() => toggleProject(project.id)}
                       className={`flex items-center gap-2.5 rounded-[12px] border-2 px-3 py-2.5 text-left transition-colors ${
                         selected
                           ? 'border-[var(--color-accent)] bg-[var(--color-accent-subtle)]'
@@ -130,7 +138,7 @@ function GoalSetupForm({
                       }`}
                     >
                       <Icon
-                        name={selected ? 'radio_button_checked' : 'radio_button_unchecked'}
+                        name={selected ? 'check_box' : 'check_box_outline_blank'}
                         size={18}
                         className={selected ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}
                       />
@@ -169,7 +177,7 @@ function GoalSetupForm({
               type="button"
               variant="accent"
               disabled={!canSave}
-              onClick={() => canSave && onSave({ projectId, targetDate })}
+              onClick={() => canSave && onSave({ projectIds, targetDate })}
               className="flex-1"
               iconLeft="flag"
             >

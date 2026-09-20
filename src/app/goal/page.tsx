@@ -3,11 +3,11 @@
 /**
  * 目標ページ (/goal)。下部バーの「目標」から開く。
  *
- * 目標は「どの単語帳を・いつまでに」で、単語帳の選択で指定する (端末に保存)。
+ * 目標は「どの単語帳を(複数可)・いつまでに」で、単語帳の選択で指定する (端末に保存)。
  * ここに載せるのは
  *   1. 目標日までの残り日数
  *   2. 月間カレンダー (今日・目標日・学習した日)
- *   3. 今日の10問 — 目標の単語帳から優先度順に10問
+ *   3. 今日の10問 — 目標の単語帳(複数)から優先度順に10問
  *   4. 今日復習しておきたい単語 — SM-2 で復習期限が来た語 (単語帳をまたぐ)
  * の4つ。3 と 4 は別物: 3 は目標の単語帳だけ、4 は全単語帳の復習期限。
  */
@@ -21,19 +21,21 @@ import { getRepository } from '@/lib/db';
 import {
   CALENDAR_WEEKDAY_LABELS,
   GOAL_DAILY_QUESTION_COUNT,
+  GOAL_DAILY_QUIZ_HREF,
   GOAL_REVIEW_QUIZ_HREF,
   buildCalendarMonth,
   clearStudyGoal,
   daysUntil,
   describeGoalCountdown,
+  describeGoalProjectTitles,
   getStudyGoal,
-  goalDailyQuizHref,
   setStudyGoal,
   toLocalDateKey,
   type StudyGoal,
 } from '@/lib/goal/study-goal';
 import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
+import { writeReviewProjectFilter } from '@/lib/quiz/review-project-filter';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { getActivityHistory, getDailyStats, getGuestUserId } from '@/lib/utils';
 import { summarizeWordMemory } from '@/lib/words/memory';
@@ -137,14 +139,16 @@ export default function GoalPage() {
     [projects, wordsByProject],
   );
 
-  // 目標の単語帳が消されていたら目標も無いものとして扱う (表示だけ、保存は触らない)
-  const goalProject = useMemo(
-    () => (goal ? projects.find((project) => project.id === goal.projectId) ?? null : null),
-    [goal, projects],
-  );
+  // 目標の単語帳のうち、消されていないものだけ (表示だけ、保存は触らない)
+  const goalProjects = useMemo(() => {
+    if (!goal) return [];
+    const idSet = new Set(goal.projectIds);
+    return projects.filter((project) => idSet.has(project.id));
+  }, [goal, projects]);
+  const goalProjectIds = useMemo(() => goalProjects.map((project) => project.id), [goalProjects]);
   const goalWords = useMemo(
-    () => (goalProject ? wordsByProject[goalProject.id] ?? [] : []),
-    [goalProject, wordsByProject],
+    () => goalProjectIds.flatMap((id) => wordsByProject[id] ?? []),
+    [goalProjectIds, wordsByProject],
   );
   const goalMemory = useMemo(() => summarizeWordMemory(goalWords), [goalWords]);
   const remainingDays = goal && today ? daysUntil(goal.targetDate, today) : null;
@@ -167,8 +171,10 @@ export default function GoalPage() {
     setSheetOpen(false);
   };
 
-  const dailyQuizReady = !!goalProject && goalWords.length > 0;
+  const hasGoal = goalProjects.length > 0;
+  const dailyQuizReady = hasGoal && goalWords.length > 0;
   const dailyQuizCount = Math.min(GOAL_DAILY_QUESTION_COUNT, goalWords.length);
+  const goalTitle = describeGoalProjectTitles(goalProjects.map((project) => project.title));
 
   return (
     <div className="relative h-dvh overflow-hidden bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)]">
@@ -190,16 +196,16 @@ export default function GoalPage() {
 
         {/* 目標バナー: 「〇〇まであと N日」 */}
         <div className="px-[18px] pb-4">
-          {!goalLoaded || (loading && !goalProject) ? (
+          {!goalLoaded || (loading && !hasGoal) ? (
             <div className="h-[56px] animate-pulse rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]" />
-          ) : goalProject && remainingDays !== null ? (
+          ) : hasGoal && remainingDays !== null ? (
             <button
               type="button"
               onClick={() => openSheet()}
               className="w-full rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-4 py-3.5 text-center transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <div className="font-display text-[19px] font-black leading-tight text-[var(--color-on-accent)]">
-                {describeGoalCountdown(goalProject.title, remainingDays)}
+                {describeGoalCountdown(goalTitle, remainingDays)}
               </div>
               <div className="mt-1 text-[11px] font-bold text-[var(--color-on-accent)]/85">
                 目標日 {goal?.targetDate.replaceAll('-', '/')} · 習得 {goalMemory.mastered}/{goalMemory.total}語
@@ -212,7 +218,7 @@ export default function GoalPage() {
               className="flex w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4 text-[14px] font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="flag" size={18} className="text-[var(--color-accent)]" />
-              {goal && !goalProject && !loading ? '目標の単語帳が見つかりません。設定し直す' : '単語帳を選んで目標を設定する'}
+              {goal && !hasGoal && !loading ? '目標の単語帳が見つかりません。設定し直す' : '単語帳を選んで目標を設定する'}
             </button>
           )}
         </div>
@@ -221,7 +227,7 @@ export default function GoalPage() {
         <div className="px-[18px] pb-5">
           <GoalCalendar
             today={today}
-            goalDate={goalProject ? goal?.targetDate ?? null : null}
+            goalDate={hasGoal ? goal?.targetDate ?? null : null}
             studiedDays={studiedDays}
             onSelectDate={(dateKey) => openSheet(dateKey)}
           />
@@ -230,18 +236,19 @@ export default function GoalPage() {
         {/* 今日の10問 (目標の単語帳から) */}
         <div className="px-[18px] pb-3">
           <BigPillLink
-            href={dailyQuizReady && goalProject ? goalDailyQuizHref(goalProject.id) : null}
+            href={dailyQuizReady ? GOAL_DAILY_QUIZ_HREF : null}
+            onNavigate={() => writeReviewProjectFilter(goalProjectIds)}
             icon="quiz"
             badge={String(dailyQuizCount || GOAL_DAILY_QUESTION_COUNT)}
             title={`今日の${dailyQuizCount || GOAL_DAILY_QUESTION_COUNT}問`}
             sub={
-              !goalProject
+              !hasGoal
                 ? '目標を設定すると解けます'
                 : goalWords.length === 0
                   ? '目標の単語帳に単語がありません'
                   : todayAnswered > 0
                     ? `今日 ${todayAnswered}問 解答済み`
-                    : goalProject.title
+                    : goalTitle
             }
             tone="accent"
           />
@@ -251,6 +258,7 @@ export default function GoalPage() {
         <div className="px-[18px] pb-3">
           <BigPillLink
             href={dueCount > 0 ? GOAL_REVIEW_QUIZ_HREF : null}
+            onNavigate={() => writeReviewProjectFilter(null)}
             icon="replay"
             badge={dueCount > 0 ? String(dueCount) : '0'}
             title="今日復習しておきたい単語"
@@ -394,6 +402,7 @@ function GoalCalendar({
 
 function BigPillLink({
   href,
+  onNavigate,
   icon,
   badge,
   title,
@@ -401,6 +410,8 @@ function BigPillLink({
   tone,
 }: {
   href: string | null;
+  /** リンク遷移の直前に実行する副作用 (例: 出題対象の単語帳を sessionStorage に渡す) */
+  onNavigate?: () => void;
   icon: string;
   badge: string;
   title: string;
@@ -439,7 +450,7 @@ function BigPillLink({
     return <div className={className} aria-disabled>{inner}</div>;
   }
   return (
-    <Link href={href} className={className}>
+    <Link href={href} className={className} onClick={onNavigate}>
       {inner}
     </Link>
   );
