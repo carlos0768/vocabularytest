@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  GOAL_DAILY_QUIZ_HREF,
   buildCalendarMonth,
   daysUntil,
   describeGoalCountdown,
-  goalDailyQuizHref,
+  describeGoalProjectTitles,
   parseLocalDateKey,
   toLocalDateKey,
 } from './study-goal';
@@ -54,6 +55,12 @@ test('buildCalendarMonth は月曜はじまりの月に空白を入れない', (
   assert.equal(cells[29].day, 30);
 });
 
-test('goalDailyQuizHref は目標の単語帳へ 10 問で飛ばし、戻り先に /goal を持たせる', () => {
-  assert.equal(goalDailyQuizHref('abc'), '/quiz/abc?count=10&from=%2Fgoal');
+test('GOAL_DAILY_QUIZ_HREF は単語帳をまたいで学習モードで 10 問飛ばし、戻り先に /goal を持たせる', () => {
+  assert.equal(GOAL_DAILY_QUIZ_HREF, '/quiz/all?learn=1&count=10&from=%2Fgoal');
+});
+
+test('describeGoalProjectTitles は1冊ならそのまま、複数なら先頭+件数にする', () => {
+  assert.equal(describeGoalProjectTitles(['英検準1級']), '英検準1級');
+  assert.equal(describeGoalProjectTitles(['英検準1級', 'TOEIC']), '英検準1級ほか1冊');
+  assert.equal(describeGoalProjectTitles(['英検準1級', 'TOEIC', 'IELTS']), '英検準1級ほか2冊');
 });

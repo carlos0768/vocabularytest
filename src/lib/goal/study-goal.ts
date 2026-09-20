@@ -12,20 +12,38 @@ const STORAGE_KEY = 'merken-study-goal';
 export const GOAL_DAILY_QUESTION_COUNT = 10;
 
 export interface StudyGoal {
-  /** 目標にした単語帳 */
-  projectId: string;
+  /** 目標にした単語帳 (複数選択可) */
+  projectIds: string[];
   /** 目標日 (YYYY-MM-DD、端末のローカル日付) */
   targetDate: string;
 }
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 旧形式 (単語帳1冊だけ、`projectId` 単数) から新形式への移行 */
+interface LegacyStudyGoal {
+  projectId: string;
+  targetDate: string;
+}
+
+function isLegacyStudyGoal(value: unknown): value is LegacyStudyGoal {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<LegacyStudyGoal>;
+  return (
+    typeof candidate.projectId === 'string'
+    && candidate.projectId.length > 0
+    && typeof candidate.targetDate === 'string'
+    && DATE_KEY_PATTERN.test(candidate.targetDate)
+  );
+}
+
 function isStudyGoal(value: unknown): value is StudyGoal {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<StudyGoal>;
   return (
-    typeof candidate.projectId === 'string'
-    && candidate.projectId.length > 0
+    Array.isArray(candidate.projectIds)
+    && candidate.projectIds.length > 0
+    && candidate.projectIds.every((id) => typeof id === 'string' && id.length > 0)
     && typeof candidate.targetDate === 'string'
     && DATE_KEY_PATTERN.test(candidate.targetDate)
   );
@@ -37,7 +55,11 @@ export function getStudyGoal(): StudyGoal | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isStudyGoal(parsed) ? parsed : null;
+    if (isStudyGoal(parsed)) return parsed;
+    if (isLegacyStudyGoal(parsed)) {
+      return { projectIds: [parsed.projectId], targetDate: parsed.targetDate };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -93,6 +115,13 @@ export function daysUntil(targetDate: string, today: Date = new Date()): number 
   return Math.round((target.getTime() - todayStart.getTime()) / 86_400_000);
 }
 
+/** 目標バナーに出す単語帳名 (1冊ならそのまま、複数なら「〇〇ほかN冊」) */
+export function describeGoalProjectTitles(projectTitles: string[]): string {
+  if (projectTitles.length === 0) return '';
+  if (projectTitles.length === 1) return projectTitles[0];
+  return `${projectTitles[0]}ほか${projectTitles.length - 1}冊`;
+}
+
 /** 目標バナーの文言 (「〇〇まであと7日」) */
 export function describeGoalCountdown(projectTitle: string, remainingDays: number): string {
   if (remainingDays > 0) return `${projectTitle}まであと${remainingDays}日`;
@@ -127,10 +156,11 @@ export function buildCalendarMonth(year: number, monthIndex: number): CalendarCe
 
 export const CALENDAR_WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日'] as const;
 
-/** 「今日の10問」へのリンク */
-export function goalDailyQuizHref(projectId: string): string {
-  return `/quiz/${encodeURIComponent(projectId)}?count=${GOAL_DAILY_QUESTION_COUNT}&from=${encodeURIComponent('/goal')}`;
-}
+/**
+ * 「今日の10問」へのリンク。目標の単語帳が複数あり得るので `/quiz/[projectId]` ではなく
+ * `/quiz/all` を使い、絞り込みは `writeReviewProjectFilter` で別途渡す。
+ */
+export const GOAL_DAILY_QUIZ_HREF = `/quiz/all?learn=1&count=${GOAL_DAILY_QUESTION_COUNT}&from=${encodeURIComponent('/goal')}`;
 
-/** 「今日復習しておきたい単語」(SM-2 の復習期限が来た語) へのリンク */
+/** 「今日復習しておきたい単語」(SM-2 の復習期限が来た語、全単語帳横断) へのリンク */
 export const GOAL_REVIEW_QUIZ_HREF = `/quiz/all?review=1&from=${encodeURIComponent('/goal')}`;
