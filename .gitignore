@@ -88,3 +88,6 @@ skills-lock.json
 # Python (scripts/derived-words のパイプライン実行で生成される)
 __pycache__/
 *.py[cod]
+
+# LP→PPTX 生成時の中間画像 (scripts/generate-lp-pptx.mjs)
+output/pptx/shots/
