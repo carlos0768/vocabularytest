@@ -6,7 +6,7 @@
  * 上部: ショートカットグリッド（今日の目標 + 保存済み + 単語帳/グループ/おすすめ）
  * 中段: マイ単語帳（176px の正方形タイルを横スクロールで並べる本棚）
  *       バインダーと語法問題集を2カラムで並べる
- * 下段: 参加中のグループ（3カラム）+ リアルタイム対戦の導線（Pro）
+ * 下段: 参加中のグループ（3カラム）+ リアルタイム対戦の導線
  * 右レール: 今日の目標 / 習得サマリー / 連続学習（DesktopStudySidebar）
  */
 
@@ -23,6 +23,7 @@ import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { GrammarBook } from '@/components/desktop/DesktopGrammar';
 import { desktopThumbColor } from '@/components/desktop/desktop-data';
 import type { BinderIconMap } from '@/lib/binders/icons';
+import { FREE_DAILY_BATTLE_LIMIT } from '@/lib/battle/free-allowance';
 import { buildHomeShortcutTiles, homeShortcutContentSlots } from '@/lib/home/shortcut-tiles';
 import {
   prefetchGroupOverview,
@@ -114,7 +115,9 @@ export function DesktopHomeView({
 
   const showShelfLoading = loading && projects.length === 0 && pendingScans.length === 0;
   const showBinderRow = homeBinders.length > 0 || grammarBooks.length > 0;
-  const showGroupsSection = joinedGroups.length > 0 || isPro;
+  // 対戦の導線がこの塊の中にあり、対戦はFreeでも遊べるので常に出す
+  // （グループ0冊のProで見出しだけ出ていたのと同じ見え方になる）。
+  const showGroupsSection = true;
 
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
@@ -222,17 +225,20 @@ export function DesktopHomeView({
                 {joinedGroups.map((group) => (
                   <DesktopGroupCard key={group.id} group={group} />
                 ))}
-                {isPro && (
-                  <Link href="/battle" className="ds-battle-cta">
-                    <span className="spine" />
-                    <Icon name="bolt" style={{ fontSize: 28, marginLeft: 4 }} />
-                    <span style={{ minWidth: 0, flex: 1 }}>
-                      <span className="t">リアルタイム対戦</span>
-                      <span className="s">早押し4択 / フレンド・ランダム</span>
+                {/* 対戦はFreeでも1日 FREE_DAILY_BATTLE_LIMIT 回まで遊べる。 */}
+                <Link href="/battle" className="ds-battle-cta">
+                  <span className="spine" />
+                  <Icon name="bolt" style={{ fontSize: 28, marginLeft: 4 }} />
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span className="t">リアルタイム対戦</span>
+                    <span className="s">
+                      {isPro
+                        ? '早押し4択 / フレンド・ランダム'
+                        : `早押し4択 / 無料プランは1日${FREE_DAILY_BATTLE_LIMIT}回まで`}
                     </span>
-                    <Icon name="chevron_right" style={{ fontSize: 18 }} />
-                  </Link>
-                )}
+                  </span>
+                  <Icon name="chevron_right" style={{ fontSize: 18 }} />
+                </Link>
               </div>
             </div>
           )}

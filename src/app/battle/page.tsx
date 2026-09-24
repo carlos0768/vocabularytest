@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useProjects } from '@/hooks/use-projects';
+import { useBattleEntitlement } from '@/hooks/use-battle-entitlement';
 import { Icon } from '@/components/ui/Icon';
 import {
+  BattleAllowanceStrip,
   BattleBotOffer,
   BattleInviteCode,
   BattleModeTabs,
@@ -30,6 +32,7 @@ import {
   getBattleBotName,
   type BattleBotLevel,
 } from '@/lib/battle/bot';
+import { canStartBattle, FREE_DAILY_BATTLE_LIMIT } from '@/lib/battle/free-allowance';
 import type { BattleRoom } from '@/lib/battle/types';
 
 /** ロビーの滞在状態。設定画面か、マッチング待ちか、フレンドの参加待ちか。 */
@@ -48,8 +51,15 @@ const ROUND_DURATION_OPTIONS = [
 
 export default function BattleLobbyPage() {
   const router = useRouter();
-  const { isAuthenticated, isPro, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { projects, loading: projectsLoading } = useProjects();
+  // 対戦はProなら無制限、Freeでも1日3回まで。残数はサーバーが持つので
+  // `isPro` ではなくこちらを見る。
+  const {
+    allowance,
+    loading: allowanceLoading,
+    error: allowanceError,
+  } = useBattleEntitlement(isAuthenticated);
 
   const [projectId, setProjectId] = useState<string>('');
   const [questionCount, setQuestionCount] = useState(BATTLE_DEFAULT_QUESTION_COUNT);
@@ -294,14 +304,43 @@ export default function BattleLobbyPage() {
     );
   }
 
-  if (!isPro) {
+  if (allowanceLoading) {
+    return (
+      <BattleScreen header={header} center>
+        <div className="flex items-center justify-center gap-2 py-10 text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={20} className="animate-spin" />
+          <span className="text-sm font-bold">読み込み中...</span>
+        </div>
+      </BattleScreen>
+    );
+  }
+
+  // 残数が読めなかっただけのときに「使い切りました」と出すと嘘になる。
+  if (!allowance) {
     return (
       <BattleScreen header={header} center>
         <BattleNotice
-          icon="workspace_premium"
-          title="Proプラン限定の機能です"
-          description="リアルタイム対戦はProプラン限定です。対戦でコインは消費しません。"
+          icon="wifi_off"
+          title="対戦の利用状況を取得できませんでした"
+          description={allowanceError ?? '通信状況を確かめて、もう一度お試しください。'}
+          action={{ label: '再読み込み', onClick: () => window.location.reload() }}
+          secondaryAction={{ label: 'ホームに戻る', href: '/' }}
+        />
+      </BattleScreen>
+    );
+  }
+
+  // 無料プランの本日ぶんを使い切ったとき。Proへの導線は出すが、機能そのものが
+  // 閉じているわけではないので「明日また遊べる」ことを先に伝える。
+  if (!canStartBattle(allowance)) {
+    return (
+      <BattleScreen header={header} center>
+        <BattleNotice
+          icon="hourglass_empty"
+          title="本日の無料対戦は終了しました"
+          description={`無料プランの対戦は1日${allowance.limit ?? FREE_DAILY_BATTLE_LIMIT}回までです。明日0時に回復します。Proプランなら回数制限なしで対戦できます。`}
           action={{ label: 'Proプランを見る', href: '/subscription' }}
+          secondaryAction={{ label: 'ホームに戻る', href: '/' }}
         />
       </BattleScreen>
     );
@@ -396,6 +435,13 @@ export default function BattleLobbyPage() {
           >
             <Icon name="close" size={14} />
           </button>
+        </div>
+      )}
+
+      {/* 0. 無料プランの本日の残り回数（Proでは何も出ない） */}
+      {allowance && !allowance.isPro && (
+        <div className="mb-3">
+          <BattleAllowanceStrip allowance={allowance} />
         </div>
       )}
 
