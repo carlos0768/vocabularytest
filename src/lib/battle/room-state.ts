@@ -22,7 +22,17 @@ export function getViewerParticipants(
 
 export function getBattleResultForViewer(room: BattleRoom, userId: string): BattleResultForViewer {
   if (room.status !== 'finished') return 'pending';
-  if (room.outcome === 'draw' || room.winnerUserId === null) return 'draw';
+  if (room.outcome === 'draw') return 'draw';
+
+  // ボットが勝った対戦は winnerUserId が null になる（ボットは auth.users に
+  // 居ないので勝者IDを持てない）。勝者IDだけで見ると引き分けに化けるため、
+  // まずどちらの席が勝ったか（outcome）で判定する。
+  if (room.outcome === 'host' || room.outcome === 'guest') {
+    const seat = resolveSeat(room, userId);
+    if (seat) return seat === room.outcome ? 'win' : 'lose';
+  }
+
+  if (room.winnerUserId === null) return 'draw';
   return room.winnerUserId === userId ? 'win' : 'lose';
 }
 

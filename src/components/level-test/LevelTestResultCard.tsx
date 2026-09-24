@@ -53,7 +53,7 @@ export function LevelTestResultCard({
     : null;
 
   return (
-    <div className="w-full rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 shadow-[4px_4px_0_var(--solid-ink)]">
+    <div className="w-full rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 shadow-[4px_4px_0_var(--solid-shadow)]">
       <div className="text-center">
         <div className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {variant === 'own' ? 'YOUR VOCABULARY LEVEL' : 'VOCABULARY LEVEL'}
@@ -67,7 +67,7 @@ export function LevelTestResultCard({
             </div>
           )}
           <div
-            className="inline-block rounded-[16px] border-2 border-[var(--solid-ink)] px-6 py-3 font-display text-[34px] font-extrabold leading-tight text-white shadow-[3px_3px_0_var(--solid-ink)]"
+            className="inline-block rounded-[16px] border-2 border-[var(--solid-ink)] px-6 py-3 font-display text-[34px] font-extrabold leading-tight text-white shadow-[3px_3px_0_var(--solid-shadow)]"
             style={{ background: accent }}
           >
             {grade}

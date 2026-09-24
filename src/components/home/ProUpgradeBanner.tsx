@@ -55,7 +55,7 @@ export function ProUpgradeBanner({ onDismiss }: { onDismiss?: () => void }) {
         href="/subscription"
         className="flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-gradient-to-br from-[oklch(0.94_0.06_130)] to-white p-[12px_14px]"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
           <Icon name="auto_awesome" size={17} filled />
         </span>
         <div className="min-w-0 flex-1">
@@ -67,14 +67,14 @@ export function ProUpgradeBanner({ onDismiss }: { onDismiss?: () => void }) {
           <div className="mt-[3px] font-display text-sm font-bold text-[var(--solid-ink)]">Pro でぜんぶ使う</div>
           <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">写真スキャンで単語帳を自動作成・単語帳 無制限</div>
         </div>
-        <div className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-white shadow-[2px_2px_0_var(--color-accent)]">見る</div>
+        <div className="rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-[14px] py-2 font-display text-xs font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)]">見る</div>
       </Link>
       {onDismiss && (
         <button
           type="button"
           aria-label="アップグレード案内を閉じる"
           onClick={onDismiss}
-          className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+          className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
         >
           <Icon name="close" size={13} />
         </button>

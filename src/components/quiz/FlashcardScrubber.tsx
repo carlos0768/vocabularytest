@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   SCRUB_HOLD_MS,
   SCRUB_MOVE_THRESHOLD_PX,
@@ -29,38 +29,6 @@ import { triggerHaptic } from '@/lib/haptics';
  * 描画が追いつかず、逆に「重い早送り」になる。
  */
 
-const HINT_STORAGE_KEY = 'flashcard-scrubber-hint-seen';
-
-/**
- * 「長押しで早送り」の案内を出すかどうか。一度でも使った人には二度と出さない。
- *
- * localStorage は React の外の状態なので、useSyncExternalStore で読む。
- * サーバー側スナップショットは「見たことがある」= 出さない を返す。案内は
- * ハイドレート後に出れば十分で、先に出しておくと初回描画がちらつく。
- */
-let hintSeenCache: boolean | null = null;
-const hintListeners = new Set<() => void>();
-
-function subscribeHintSeen(listener: () => void): () => void {
-  hintListeners.add(listener);
-  return () => { hintListeners.delete(listener); };
-}
-
-function getHintSeen(): boolean {
-  if (hintSeenCache === null) {
-    try {
-      hintSeenCache = window.localStorage.getItem(HINT_STORAGE_KEY) === '1';
-    } catch {
-      hintSeenCache = true;
-    }
-  }
-  return hintSeenCache;
-}
-
-function getHintSeenOnServer(): boolean {
-  return true;
-}
-
 /**
  * 点の直径 (px)。
  * 'edge'（＝その先が省略されている側の端）は小さく描いて続きがあることを示す。
@@ -70,17 +38,6 @@ function getDotSize(kind: ScrubDotKind, scrubbing: boolean): number {
   if (kind === 'active') return scrubbing ? 9 : 7;
   if (kind === 'edge') return scrubbing ? 4 : 3;
   return scrubbing ? 6 : 5;
-}
-
-function markHintSeen(): void {
-  if (hintSeenCache === true) return;
-  hintSeenCache = true;
-  try {
-    window.localStorage.setItem(HINT_STORAGE_KEY, '1');
-  } catch {
-    /* プライベートモード等で保存できなくても操作は成立する */
-  }
-  for (const listener of hintListeners) listener();
 }
 
 export function FlashcardScrubber({
@@ -103,7 +60,6 @@ export function FlashcardScrubber({
 }) {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const hintSeen = useSyncExternalStore(subscribeHintSeen, getHintSeen, getHintSeenOnServer);
 
   const dots = useMemo(() => getScrubDots(total, currentIndex), [total, currentIndex]);
 
@@ -164,7 +120,6 @@ export function FlashcardScrubber({
     clearHoldTimer();
     scrubbingRef.current = true;
     setIsScrubbing(true);
-    markHintSeen();
     triggerHaptic(14);
     onScrubbingChangeRef.current?.(true);
     applyPosition(clientX);
@@ -229,7 +184,7 @@ export function FlashcardScrubber({
   if (dots.length <= 1) return null;
 
   const dark = tone === 'dark';
-  const idleDot = dark ? 'rgba(255,255,255,0.28)' : 'rgba(26,26,26,0.18)';
+  const idleDot = dark ? 'rgba(255,255,255,0.28)' : 'color-mix(in srgb, var(--solid-ink) 18%, transparent)';
   const activeColor = dark ? '#fff' : 'var(--solid-ink)';
 
   return (
@@ -259,7 +214,7 @@ export function FlashcardScrubber({
           ref={trackRef}
           className="flex h-full w-full max-w-[280px] items-center justify-center rounded-full transition-colors duration-150"
           style={{
-            background: isScrubbing ? (dark ? 'rgba(255,255,255,0.12)' : 'rgba(26,26,26,0.06)') : 'transparent',
+            background: isScrubbing ? (dark ? 'rgba(255,255,255,0.12)' : 'color-mix(in srgb, var(--solid-ink) 6%, transparent)') : 'transparent',
           }}
         >
           {/* key はカード番号ではなくスロット位置。窓がずれても同じ要素が
@@ -281,12 +236,6 @@ export function FlashcardScrubber({
           })}
         </div>
       </div>
-
-      {!hintSeen && !isScrubbing && (
-        <div className="pointer-events-none mt-0.5 font-mono text-[9px] font-bold tracking-[0.02em] text-[var(--color-muted)] opacity-70">
-          長押ししてスワイプで早送り
-        </div>
-      )}
     </div>
   );
 }

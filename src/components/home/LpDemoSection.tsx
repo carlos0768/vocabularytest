@@ -88,11 +88,11 @@ function FlashcardDemo() {
     <div className="flex flex-col gap-5">
       {/* Label */}
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1a1a1a] text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
           <Icon name="style" size={15} filled />
         </div>
-        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#1a1a1a]">Flashcard</span>
-        <span className="font-mono text-[11px] text-[#8a857a]">フラッシュカード</span>
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--solid-ink)]">Flashcard</span>
+        <span className="font-mono text-[11px] text-[var(--color-ink-mute)]">フラッシュカード</span>
       </div>
 
       {/* Progress dots */}
@@ -102,7 +102,7 @@ function FlashcardDemo() {
             key={i}
             type="button"
             onClick={() => { setFlipped(false); setTimeout(() => setIndex(i), 150); }}
-            className={`h-1.5 rounded-full transition-all duration-200 ${i === index ? 'w-5 bg-[#1a1a1a]' : 'w-1.5 bg-[#1a1a1a]/20'}`}
+            className={`h-1.5 rounded-full transition-all duration-200 ${i === index ? 'w-5 bg-[var(--solid-ink)]' : 'w-1.5 bg-[var(--solid-ink)]/20'}`}
             aria-label={`カード ${i + 1}`}
           />
         ))}
@@ -127,16 +127,16 @@ function FlashcardDemo() {
         >
           {/* 表面 */}
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center rounded-[18px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-7 shadow-[4px_6px_0_#1a1a1a]"
+            className="absolute inset-0 flex flex-col items-center justify-center rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-paper)] p-7 shadow-[4px_6px_0_var(--solid-shadow)]"
             style={{ backfaceVisibility: 'hidden' }}
           >
-            <span className="mb-3 rounded-full border border-[#1a1a1a]/30 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[#8a857a]">
+            <span className="mb-3 rounded-full border border-[var(--solid-ink)]/30 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">
               {word.pos}
             </span>
-            <p className="font-display text-[clamp(28px,4vw,44px)] font-black leading-tight text-[#1a1a1a]">
+            <p className="font-display text-[clamp(28px,4vw,44px)] font-black leading-tight text-[var(--solid-ink)]">
               {word.en}
             </p>
-            <p className="mt-4 flex items-center gap-1.5 font-mono text-[11px] text-[#8a857a]">
+            <p className="mt-4 flex items-center gap-1.5 font-mono text-[11px] text-[var(--color-ink-mute)]">
               <Icon name="touch_app" size={13} />
               タップして意味を確認
             </p>
@@ -144,18 +144,18 @@ function FlashcardDemo() {
 
           {/* 裏面 */}
           <div
-            className="absolute inset-0 flex flex-col justify-center rounded-[18px] border-[1.5px] border-[#1a1a1a] bg-white p-7 shadow-[4px_6px_0_#1a1a1a]"
+            className="absolute inset-0 flex flex-col justify-center rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] p-7 shadow-[4px_6px_0_var(--solid-shadow)]"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
-            <span className="mb-2 rounded-full border border-[#1a1a1a]/30 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[#8a857a] self-start">
+            <span className="mb-2 rounded-full border border-[var(--solid-ink)]/30 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-ink-mute)] self-start">
               {word.pos}
             </span>
-            <p className="font-display text-[20px] font-black leading-snug text-[#1a1a1a]">
+            <p className="font-display text-[20px] font-black leading-snug text-[var(--solid-ink)]">
               {word.ja}
             </p>
-            <div className="mt-4 rounded-[10px] border border-[#1a1a1a]/10 bg-[#faf7f1] px-4 py-3">
-              <p className="mb-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">Example</p>
-              <p className="text-[12px] leading-6 text-[#555]">{word.example}</p>
+            <div className="mt-4 rounded-[10px] border border-[var(--solid-ink)]/10 bg-[var(--color-paper)] px-4 py-3">
+              <p className="mb-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">Example</p>
+              <p className="text-[12px] leading-6 text-[var(--color-ink-soft)]">{word.example}</p>
             </div>
           </div>
         </div>
@@ -166,18 +166,18 @@ function FlashcardDemo() {
         <button
           type="button"
           onClick={goPrev}
-          className="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-[#1a1a1a] bg-white shadow-[2px_2px_0_#1a1a1a] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+          className="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
           aria-label="前のカード"
         >
           <Icon name="arrow_back" size={16} />
         </button>
-        <span className="min-w-[48px] text-center font-mono text-[11px] font-bold text-[#8a857a]">
+        <span className="min-w-[48px] text-center font-mono text-[11px] font-bold text-[var(--color-ink-mute)]">
           {index + 1} / {total}
         </span>
         <button
           type="button"
           onClick={goNext}
-          className="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-[#1a1a1a] bg-white shadow-[2px_2px_0_#1a1a1a] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+          className="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
           aria-label="次のカード"
         >
           <Icon name="arrow_forward" size={16} />
@@ -225,19 +225,19 @@ function QuizDemo() {
     return (
       <div className="flex flex-col gap-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1a1a1a] text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
             <Icon name="quiz" size={15} filled />
           </div>
-          <span className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#1a1a1a]">Quiz</span>
-          <span className="font-mono text-[11px] text-[#8a857a]">4択クイズ</span>
+          <span className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--solid-ink)]">Quiz</span>
+          <span className="font-mono text-[11px] text-[var(--color-ink-mute)]">4択クイズ</span>
         </div>
-        <div className="rounded-[18px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-7 text-center shadow-[4px_6px_0_#1a1a1a]">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">Result</p>
-          <p className="mt-2 font-display text-[56px] font-black leading-none text-[#1a1a1a]">
+        <div className="rounded-[18px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-paper)] p-7 text-center shadow-[4px_6px_0_var(--solid-shadow)]">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">Result</p>
+          <p className="mt-2 font-display text-[56px] font-black leading-none text-[var(--solid-ink)]">
             {score}<span className="text-2xl">/{DEMO_WORDS.length}</span>
           </p>
           <p className="mt-1 font-mono text-sm font-bold text-[var(--color-accent)]">{pct}% 正解</p>
-          <p className="mt-4 text-sm leading-7 text-[#555]">
+          <p className="mt-4 text-sm leading-7 text-[var(--color-ink-soft)]">
             {pct === 100
               ? '全問正解！単語の習得度も上がりました。'
               : pct >= 60
@@ -247,7 +247,7 @@ function QuizDemo() {
           <button
             type="button"
             onClick={handleRestart}
-            className="mt-5 inline-flex items-center gap-2 rounded-[12px] border-[1.5px] border-[#1a1a1a] bg-white px-5 py-2.5 text-sm font-bold shadow-[2px_3px_0_#1a1a1a] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+            className="mt-5 inline-flex items-center gap-2 rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-2.5 text-sm font-bold shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
           >
             <Icon name="replay" size={15} />
             もう一度
@@ -261,31 +261,31 @@ function QuizDemo() {
     <div className="flex flex-col gap-4">
       {/* Label */}
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1a1a1a] text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
           <Icon name="quiz" size={15} filled />
         </div>
-        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#1a1a1a]">Quiz</span>
-        <span className="font-mono text-[11px] text-[#8a857a]">4択クイズ</span>
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--solid-ink)]">Quiz</span>
+        <span className="font-mono text-[11px] text-[var(--color-ink-mute)]">4択クイズ</span>
       </div>
 
       {/* Progress bar */}
       <div className="flex items-center gap-3">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#1a1a1a]/10">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--solid-ink)]/10">
           <div
-            className="h-full rounded-full bg-[#1a1a1a] transition-all duration-300"
+            className="h-full rounded-full bg-[var(--solid-ink)] transition-all duration-300"
             style={{ width: `${(index / DEMO_WORDS.length) * 100}%` }}
           />
         </div>
-        <span className="shrink-0 font-mono text-[11px] font-bold text-[#8a857a]">{index + 1}/{DEMO_WORDS.length}</span>
+        <span className="shrink-0 font-mono text-[11px] font-bold text-[var(--color-ink-mute)]">{index + 1}/{DEMO_WORDS.length}</span>
       </div>
 
       {/* Question */}
-      <div className="rounded-[16px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] px-5 py-4 shadow-[3px_4px_0_#1a1a1a]">
-        <p className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a857a]">
+      <div className="rounded-[16px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-paper)] px-5 py-4 shadow-[3px_4px_0_var(--solid-shadow)]">
+        <p className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">
           次の英単語の意味は？
         </p>
-        <p className="font-display text-[clamp(26px,3vw,36px)] font-black text-[#1a1a1a]">{word.en}</p>
-        <span className="mt-1 inline-block rounded-full border border-[#1a1a1a]/20 px-2 py-0.5 font-mono text-[10px] text-[#8a857a]">
+        <p className="font-display text-[clamp(26px,3vw,36px)] font-black text-[var(--solid-ink)]">{word.en}</p>
+        <span className="mt-1 inline-block rounded-full border border-[var(--solid-ink)]/20 px-2 py-0.5 font-mono text-[10px] text-[var(--color-ink-mute)]">
           {word.pos}
         </span>
       </div>
@@ -307,23 +307,23 @@ function QuizDemo() {
               disabled={isAnswered}
               className={`flex items-center gap-3 rounded-[12px] border-[1.5px] px-4 py-3 text-left text-sm font-bold transition-all duration-150 ${
                 state === 'correct'
-                  ? 'border-[#15803d] bg-[#dcfce7] text-[#15803d] shadow-[2px_3px_0_#15803d]'
+                  ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] text-[var(--color-accent)] shadow-[2px_3px_0_#15803d]'
                   : state === 'wrong'
-                  ? 'border-[#dc2626] bg-[#fee2e2] text-[#dc2626] shadow-[2px_3px_0_#dc2626]'
+                  ? 'border-[var(--color-danger)] bg-[var(--color-error-light)] text-[var(--color-danger)] shadow-[2px_3px_0_#dc2626]'
                   : state === 'dim'
-                  ? 'border-[#1a1a1a]/15 bg-white/50 text-[#1a1a1a]/25'
-                  : 'border-[#1a1a1a] bg-white shadow-[2px_3px_0_#1a1a1a] hover:bg-[#faf7f1] active:translate-x-px active:translate-y-px active:shadow-none'
+                  ? 'border-[var(--solid-ink)]/15 bg-[var(--color-surface)]/50 text-[var(--solid-ink)]/25'
+                  : 'border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)] hover:bg-[var(--color-paper)] active:translate-x-px active:translate-y-px active:shadow-none'
               }`}
             >
               <span
                 className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-black ${
                   state === 'correct'
-                    ? 'border-[#15803d] bg-[#15803d] text-white'
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-accent)]'
                     : state === 'wrong'
-                    ? 'border-[#dc2626] bg-[#dc2626] text-white'
+                    ? 'border-[var(--color-danger)] bg-[var(--color-danger)] text-[var(--color-on-accent)]'
                     : state === 'dim'
-                    ? 'border-[#1a1a1a]/15 text-[#1a1a1a]/25'
-                    : 'border-[#1a1a1a]/30 text-[#8a857a]'
+                    ? 'border-[var(--solid-ink)]/15 text-[var(--solid-ink)]/25'
+                    : 'border-[var(--solid-ink)]/30 text-[var(--color-ink-mute)]'
                 }`}
               >
                 {String.fromCharCode(65 + i)}
@@ -341,8 +341,8 @@ function QuizDemo() {
         <div className="flex items-center gap-2">
           <div className={`flex flex-1 items-center gap-2 rounded-[10px] border px-3 py-2.5 text-xs font-bold ${
             isCorrect
-              ? 'border-[#15803d]/30 bg-[#dcfce7] text-[#15803d]'
-              : 'border-[#dc2626]/30 bg-[#fee2e2] text-[#dc2626]'
+              ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-light)] text-[var(--color-accent)]'
+              : 'border-[var(--color-danger)]/30 bg-[var(--color-error-light)] text-[var(--color-danger)]'
           }`}>
             <Icon name={isCorrect ? 'check_circle' : 'cancel'} size={14} filled />
             {isCorrect ? '正解！' : `正解は「${word.options[word.correctIndex]}」`}
@@ -350,7 +350,7 @@ function QuizDemo() {
           <button
             type="button"
             onClick={handleNext}
-            className="flex shrink-0 items-center gap-1 rounded-[10px] border-[1.5px] border-[#1a1a1a] bg-[#1a1a1a] px-3 py-2.5 text-xs font-bold text-white shadow-[2px_2px_0_rgba(26,26,26,0.3)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+            className="flex shrink-0 items-center gap-1 rounded-[10px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 text-xs font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_color-mix(in_srgb,_var(--solid-ink)_30%,_transparent)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
           >
             {index + 1 >= DEMO_WORDS.length ? '結果へ' : '次へ'}
             <Icon name="arrow_forward" size={12} />
@@ -369,20 +369,20 @@ export function LpDemoSection() {
   return (
     <section
       id="demo"
-      className="mx-auto max-w-[1200px] border-b-[1.5px] border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24"
+      className="mx-auto max-w-[1200px] border-b-[1.5px] border-[var(--solid-ink)] px-5 py-16 md:px-10 lg:py-24"
     >
       {/* Section heading */}
       <div className="mb-10 grid gap-5 lg:mb-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
         <div>
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)]">
-            <span className="mr-3 text-[#8a857a]">03 /</span>
+            <span className="mr-3 text-[var(--color-ink-mute)]">03 /</span>
             Try it yourself
           </p>
-          <h2 className="mt-3 font-display text-[clamp(30px,4vw,48px)] font-black leading-[1.06] tracking-normal text-[#1a1a1a]">
+          <h2 className="mt-3 font-display text-[clamp(30px,4vw,48px)] font-black leading-[1.06] tracking-normal text-[var(--solid-ink)]">
             登録なしで、<br />実際に体験。
           </h2>
         </div>
-        <p className="max-w-[560px] text-[15px] leading-8 text-[#555] lg:pt-8">
+        <p className="max-w-[560px] text-[15px] leading-8 text-[var(--color-ink-soft)] lg:pt-8">
           フラッシュカードをめくったり、4択クイズに挑戦したり。MERKENの学習体験を、登録前に試してみてください。
         </p>
       </div>
@@ -392,7 +392,7 @@ export function LpDemoSection() {
         {/* Flashcard — slides in from left */}
         <div
           ref={refLeft}
-          className={`rounded-[20px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-6 shadow-[4px_6px_0_#1a1a1a] transition-all duration-700 ease-out md:p-8 ${
+          className={`rounded-[20px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-paper)] p-6 shadow-[4px_6px_0_var(--solid-shadow)] transition-all duration-700 ease-out md:p-8 ${
             visibleLeft
               ? 'translate-x-0 opacity-100'
               : '-translate-x-10 opacity-0'
@@ -404,7 +404,7 @@ export function LpDemoSection() {
         {/* Quiz — slides in from right, slightly delayed */}
         <div
           ref={refRight}
-          className={`rounded-[20px] border-[1.5px] border-[#1a1a1a] bg-[#faf7f1] p-6 shadow-[4px_6px_0_#1a1a1a] transition-all duration-700 ease-out md:p-8 ${
+          className={`rounded-[20px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-paper)] p-6 shadow-[4px_6px_0_var(--solid-shadow)] transition-all duration-700 ease-out md:p-8 ${
             visibleRight
               ? 'translate-x-0 opacity-100 delay-150'
               : 'translate-x-10 opacity-0'
@@ -415,16 +415,16 @@ export function LpDemoSection() {
       </div>
 
       {/* CTA */}
-      <div className="mt-10 flex flex-col items-center gap-3 rounded-[16px] border-[1.5px] border-dashed border-[#1a1a1a]/30 bg-[#faf7f1] px-6 py-8 text-center">
-        <p className="text-sm font-bold text-[#1a1a1a]">
+      <div className="mt-10 flex flex-col items-center gap-3 rounded-[16px] border-[1.5px] border-dashed border-[var(--solid-ink)]/30 bg-[var(--color-paper)] px-6 py-8 text-center">
+        <p className="text-sm font-bold text-[var(--solid-ink)]">
           自分の単語帳でクイズとカードを使いたい？
         </p>
-        <p className="text-[13px] leading-6 text-[#555]">
+        <p className="text-[13px] leading-6 text-[var(--color-ink-soft)]">
           ノートや教材を撮影するだけで、あなただけの単語帳が完成します。
         </p>
         <Link
           href="/signup?redirect=/"
-          className="mt-1 inline-flex items-center gap-2 rounded-[12px] border-[1.5px] border-[#1a1a1a] bg-[#1a1a1a] px-5 py-2.5 text-sm font-bold text-white shadow-[2px_3px_0_rgba(26,26,26,0.3)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+          className="mt-1 inline-flex items-center gap-2 rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2.5 text-sm font-bold text-[var(--color-on-ink)] shadow-[2px_3px_0_color-mix(in_srgb,_var(--solid-ink)_30%,_transparent)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
         >
           無料で始める
           <Icon name="arrow_forward" size={14} />

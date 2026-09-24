@@ -91,11 +91,11 @@ export function ProjectCard(props: ProjectCardProps) {
             {total} <span className="text-sm font-bold">語</span>
           </p>
           {total > 0 && (
-            <div className="mt-2 flex h-[4px] overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+            <div className="mt-2 flex h-[4px] overflow-hidden rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]">
               {mastered > 0 && <div style={{ flex: mastered, background: 'var(--color-success)' }} />}
               {active > 0 && <div style={{ flex: active, background: '#2563eb' }} />}
               {learning > 0 && <div style={{ flex: learning, background: 'var(--color-warning)' }} />}
-              {unlearned > 0 && <div style={{ flex: unlearned, background: 'rgba(26,26,26,0.12)' }} />}
+              {unlearned > 0 && <div style={{ flex: unlearned, background: 'color-mix(in srgb, var(--solid-ink) 12%, transparent)' }} />}
             </div>
           )}
         </div>

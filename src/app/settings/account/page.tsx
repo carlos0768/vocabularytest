@@ -80,7 +80,7 @@ function SettingsGroup({ label, children }: { label: string; children: React.Rea
   return (
     <div className="px-[18px] pb-3">
       <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</div>
-      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-white">
+      <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
         {children}
       </div>
     </div>
@@ -105,7 +105,7 @@ function SettingsRow({
   return (
     <Link href={href} className="block w-full">
       <div className="flex cursor-pointer items-center gap-2.5 px-3 py-[11px]">
-        <span className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[rgba(26,26,26,0.05)] ${iconClass}`}>
+        <span className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)] ${iconClass}`}>
           <Icon name={icon} size={16} />
         </span>
         <span className={`flex-1 text-[13px] font-bold ${labelClass}`}>{label}</span>

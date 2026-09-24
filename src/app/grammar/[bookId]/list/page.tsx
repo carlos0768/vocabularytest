@@ -188,7 +188,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />
@@ -201,13 +201,13 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
           type="button"
           onClick={() => setFormOpen(true)}
           aria-label="問題を手動で追加"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="add" size={16} />
         </button>
         <Link
           href={`/grammar/${bookId}`}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 text-[12px] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="play_arrow" size={15} />
           演習する
@@ -217,19 +217,19 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
       {state.kind === 'loading' && (
         <div className="flex flex-col gap-2.5">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-[76px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-white" />
+            <div key={i} className="h-[76px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)]" />
           ))}
         </div>
       )}
 
       {state.kind === 'pro-required' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             語法問題集はPro限定機能です。
           </p>
           <Link
             href="/subscription"
-            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white"
+            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)]"
           >
             Proプランを見る
           </Link>
@@ -237,13 +237,13 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
       )}
 
       {state.kind === 'error' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
           <p className="m-0 text-[13px] text-[var(--solid-ink)]">{state.message}</p>
         </div>
       )}
 
       {state.kind === 'ready' && questions.length === 0 && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             この問題集にはまだ問題がありません。ChatGPTで問題を追加してください。
           </p>
@@ -268,7 +268,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
                   {renderSentence(question.sentence)}
                 </span>
                 {question.grammarPoint && (
-                  <span className="mt-1.5 inline-block rounded-[4px] border border-[var(--solid-ink)] bg-[#faf7f1] px-2 py-[3px] font-mono text-[9px] font-bold text-[var(--solid-ink)]">
+                  <span className="mt-1.5 inline-block rounded-[4px] border border-[var(--solid-ink)] bg-[var(--color-paper)] px-2 py-[3px] font-mono text-[9px] font-bold text-[var(--solid-ink)]">
                     {question.grammarPoint}
                   </span>
                 )}
@@ -286,7 +286,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
             type="button"
             onClick={() => void handleDeleteBook()}
             disabled={deleting}
-            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[#CC4D59] bg-white text-[13px] font-bold text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
+            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--color-rose)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--color-rose)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
           >
             <Icon
               name={deleting ? 'progress_activity' : 'delete'}
@@ -316,12 +316,12 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
-                background: '#fff',
+                background: 'var(--color-surface)',
                 border: '2px solid var(--solid-ink)',
                 borderRadius: 20,
               }}
             >
-              <div className="sticky top-0 z-[2] flex items-center justify-between border-b border-[var(--color-border)] bg-white px-4 py-3">
+              <div className="sticky top-0 z-[2] flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
                 <span className="font-mono text-[10.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
                   問題 {selectedIndex + 1} / {questions.length}
                 </span>
@@ -332,7 +332,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
                         type="button"
                         onClick={() => handleNavDetail(-1)}
                         aria-label="前の問題"
-                        className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-white text-[var(--color-secondary-text)]"
+                        className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-secondary-text)]"
                       >
                         <Icon name="chevron_left" size={16} />
                       </button>
@@ -340,7 +340,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
                         type="button"
                         onClick={() => handleNavDetail(1)}
                         aria-label="次の問題"
-                        className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-white text-[var(--color-secondary-text)]"
+                        className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-secondary-text)]"
                       >
                         <Icon name="chevron_right" size={16} />
                       </button>
@@ -350,7 +350,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
                     type="button"
                     onClick={() => setSelectedIndex(null)}
                     aria-label="閉じる"
-                    className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-white text-[var(--color-secondary-text)]"
+                    className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-secondary-text)]"
                   >
                     <Icon name="close" size={16} />
                   </button>
@@ -362,7 +362,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
                   type="button"
                   onClick={() => void handleDeleteQuestion(selectedQuestion)}
                   disabled={deletingQuestionId !== null}
-                  className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[#CC4D59] bg-white text-[13px] font-bold text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
+                  className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--color-rose)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--color-rose)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
                 >
                   <Icon
                     name={deletingQuestionId === selectedQuestion.id ? 'progress_activity' : 'delete'}

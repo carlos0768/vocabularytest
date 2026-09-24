@@ -91,7 +91,7 @@ export default function SubscriptionPage() {
             style={{ background: 'linear-gradient(135deg, oklch(0.96 0.04 130), oklch(0.92 0.06 96))' }}
           >
             <div className="absolute -right-5 -top-5 h-[110px] w-[110px] rounded-full bg-[var(--color-accent)] opacity-10" />
-            <div className="inline-flex items-center gap-[5px] rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.06em] text-white">
+            <div className="inline-flex items-center gap-[5px] rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-on-ink)]">
               <Icon name="star" size={11} filled />
               MERKEN PRO
             </div>
@@ -132,12 +132,12 @@ export default function SubscriptionPage() {
           COMPARE
         </div>
         <div
-          className="overflow-hidden rounded-xl bg-white"
+          className="overflow-hidden rounded-xl bg-[var(--color-surface)]"
           style={{ border: '2px solid var(--solid-ink)', boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}
         >
           <div
             className="grid items-center px-3 py-2.5"
-            style={{ gridTemplateColumns: '1.5fr 1fr 1fr', background: 'rgba(26,26,26,0.04)', borderBottom: '1.25px solid var(--solid-ink)' }}
+            style={{ gridTemplateColumns: '1.5fr 1fr 1fr', background: 'color-mix(in srgb, var(--solid-ink) 4%, transparent)', borderBottom: '1.25px solid var(--solid-ink)' }}
           >
             <span className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">機能</span>
             <span className="text-center font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">FREE</span>
@@ -159,7 +159,7 @@ export default function SubscriptionPage() {
 
       <div className="px-[18px] pb-4">
         {error && (
-          <div className="mb-3 rounded-[10px] border border-[var(--color-error)] bg-white px-3 py-2 text-xs font-bold text-[var(--color-error)]">
+          <div className="mb-3 rounded-[10px] border border-[var(--color-error)] bg-[var(--color-surface)] px-3 py-2 text-xs font-bold text-[var(--color-error)]">
             {error}
           </div>
         )}
@@ -170,7 +170,7 @@ export default function SubscriptionPage() {
           className="relative w-full disabled:opacity-65"
         >
           <span className="absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]" style={{ transform: 'translate(3px, 3px)' }} />
-          <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-center font-[var(--font-body)] text-sm font-bold text-white">
+          <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-4 text-center font-[var(--font-body)] text-sm font-bold text-[var(--color-on-ink)]">
             {processing && <Icon name="progress_activity" size={16} className="animate-spin" />}
             {isPro ? '現在Proプランです' : user ? 'Proプランに登録' : 'ログインして登録'}
           </span>
@@ -212,7 +212,7 @@ function PlanCard({
         style={{ transform: active ? 'translate(2.5px, 2.5px)' : 'translate(2px, 2px)', background: active ? 'var(--color-accent)' : 'var(--solid-ink)' }}
       />
       <div
-        className="relative flex items-center gap-3 rounded-xl bg-white p-3.5"
+        className="relative flex items-center gap-3 rounded-xl bg-[var(--color-surface)] p-3.5"
         style={{ border: `${active ? 2 : 1.25}px solid ${active ? 'var(--color-accent)' : 'var(--solid-ink)'}` }}
       >
         <div className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full" style={{ border: `2px solid ${active ? 'var(--color-accent)' : 'var(--solid-ink)'}` }}>

@@ -1,21 +1,38 @@
 /**
- * クイズ形式 (通常クイズ / 音読チャレンジ) の端末ごとの記憶。
+ * クイズの解き方 (四択 / 記述 / 音読チャレンジ) の端末ごとの記憶。
  *
  * 端末によって使い方が変わる ——「電車では四択、家では声で」のように——ので、
  * アカウントではなく端末に紐づける。したがって localStorage に置き、
  * サーバーにもDBにも同期しない。
  *
- * 未選択 (null) は「まだこの端末で選んでいない」を意味し、
- * 呼び出し側はクイズを始める前に選択画面を出す。既定値へ勝手に倒さないこと。
+ * ただし記憶するのは「次に開いたときの初期選択」だけで、既定として
+ * 押し付けはしない。解き方はクイズを始めるたびに選び直せる (選択画面は
+ * 毎回出す) ので、null は「まだこの端末で選んだことがない = 初期選択なし」
+ * を意味するにとどまる。
  */
 
-export type QuizMode = 'normal' | 'voice';
+export type QuizMode = 'normal' | 'typing' | 'voice';
+
+/** 音読チャレンジ (別ページ) ではなく、四択クイズ画面の中で解ける形式。 */
+export type QuizAnswerFormat = Exclude<QuizMode, 'voice'>;
 
 /** 端末ごとの選択を入れる localStorage のキー。 */
 export const QUIZ_MODE_STORAGE_KEY = 'merken_quiz_mode';
 
+/**
+ * 選んだ形式を画面間で受け渡すクエリキー。
+ * 音読チャレンジから四択・記述へ戻るときに使い、戻った先で選択画面を
+ * もう一度出さないようにする。
+ */
+export const QUIZ_FORMAT_QUERY_KEY = 'format';
+
 export function isQuizMode(value: unknown): value is QuizMode {
-  return value === 'normal' || value === 'voice';
+  return value === 'normal' || value === 'typing' || value === 'voice';
+}
+
+/** 四択クイズ画面の中で解ける形式か (音読は別ページなので含まない)。 */
+export function isQuizAnswerFormat(value: unknown): value is QuizAnswerFormat {
+  return value === 'normal' || value === 'typing';
 }
 
 /** localStorage のうち、この機能が使う部分だけ。テストから差し替えられるようにする。 */
@@ -36,8 +53,8 @@ export function defaultQuizModeStorage(): QuizModeStorage | null {
 }
 
 /**
- * この端末で選ばれているクイズ形式。まだ選んでいなければ null。
- * 壊れた値が入っていても null 扱いにして、選択画面からやり直させる。
+ * この端末で前回選ばれた解き方。まだ選んだことがなければ null。
+ * 壊れた値が入っていても null 扱いにして、選択画面の初期選択を空にする。
  */
 export function readQuizMode(
   storage: QuizModeStorage | null = defaultQuizModeStorage(),
@@ -51,7 +68,7 @@ export function readQuizMode(
   }
 }
 
-/** この端末のクイズ形式を覚える。保存できない環境では黙って諦める。 */
+/** この端末の解き方を覚える。保存できない環境では黙って諦める。 */
 export function writeQuizMode(
   mode: QuizMode,
   storage: QuizModeStorage | null = defaultQuizModeStorage(),

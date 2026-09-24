@@ -359,7 +359,7 @@ function StartScreen({
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 text-center shadow-[4px_4px_0_var(--solid-ink)]"
+          className="w-full rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 text-center shadow-[4px_4px_0_var(--solid-shadow)]"
         >
           <div className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
             VOCABULARY LEVEL TEST
@@ -440,7 +440,7 @@ function AnsweredWordsPanel({
   const wrongCount = answeredWords.filter((answered) => !answered.correct).length;
 
   return (
-    <div className="mt-4 rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 shadow-[3px_3px_0_var(--solid-ink)]">
+    <div className="mt-4 rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 shadow-[3px_3px_0_var(--solid-shadow)]">
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <div className="font-display text-[16px] font-extrabold text-[var(--solid-ink)]">
           出題された単語をふり返ろう
@@ -528,7 +528,7 @@ function QuestionTimer({ locked, onTimeUp }: { locked: boolean; onTimeUp: () => 
       </div>
       <div
         className={`w-7 shrink-0 text-right font-mono text-[12px] font-bold ${
-          timeCritical ? 'text-[#dc2626]' : 'text-[var(--color-muted)]'
+          timeCritical ? 'text-[var(--color-danger)]' : 'text-[var(--color-muted)]'
         }`}
       >
         {remainingSeconds}s
@@ -610,9 +610,9 @@ function QuizScreen({
                 type="button"
                 disabled={isLocked}
                 onClick={() => onSelect(optionIndex)}
-                className={`flex w-full items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] px-4 py-3.5 text-left shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-ink)] disabled:active:translate-x-0 disabled:active:translate-y-0 ${
+                className={`flex w-full items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] px-4 py-3.5 text-left shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-shadow)] disabled:active:translate-x-0 disabled:active:translate-y-0 ${
                   isSelected
-                    ? 'bg-[var(--solid-ink)] text-white'
+                    ? 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
                     : 'bg-[var(--color-surface)] text-[var(--solid-ink)]'
                 }`}
               >
@@ -631,7 +631,7 @@ function QuizScreen({
             onClick={() => onSelect('unknown')}
             className={`flex w-full items-center justify-center gap-1.5 rounded-[14px] border-2 border-dashed px-4 py-3 text-[14px] font-bold transition-all duration-100 active:translate-y-[1px] disabled:active:translate-y-0 ${
               selectedIndex === 'unknown'
-                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
+                ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
                 : 'border-[var(--color-muted)] bg-transparent text-[var(--color-muted)]'
             }`}
           >

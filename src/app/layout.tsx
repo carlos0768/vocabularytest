@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Lexend, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeScript, THEME_COLORS } from '@/components/theme-script';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
@@ -81,6 +82,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  // Rendered by Next so React owns the tag — a <meta> injected by ThemeScript
+  // gets stripped during hydration. ThemeScript rewrites `content` before the
+  // first paint, and ThemeProvider keeps it in sync afterwards.
+  themeColor: THEME_COLORS.light,
 };
 
 export default function RootLayout({
@@ -91,6 +96,9 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning className={`${lexend.variable} ${notoSansJP.variable}`}>
       <head>
+        {/* Must stay first in <head>: it sets the theme class before the first
+            paint so dark-mode users never get a white flash. */}
+        <ThemeScript />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

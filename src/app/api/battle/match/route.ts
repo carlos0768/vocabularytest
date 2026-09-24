@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { battleErrorResponse, requireProBattleUser } from '@/app/api/battle/shared';
+import {
+  battleErrorResponse,
+  requireBattleEntryUser,
+  requireBattleUser,
+} from '@/app/api/battle/shared';
 import {
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
@@ -11,6 +15,7 @@ import {
   BATTLE_MIN_ROUND_DURATION_MS,
 } from '@/lib/battle/config';
 import {
+  cancelOpenBotRooms,
   cancelRandomMatch,
   findActiveRoomForUser,
   requestGroupMatch,
@@ -48,11 +53,15 @@ const matchSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleEntryUser(request);
     if (!auth.ok) return auth.response;
 
     const parsed = await parseJsonWithSchema(request, matchSchema);
     if (!parsed.ok) return parsed.response;
+
+    // 「マッチングを開始」は人間との対戦の要求なので、放置されたボット部屋は
+    // ここで畳む。残っていると下の再開チェックがそれを拾ってしまう。
+    await cancelOpenBotRooms(auth.user.id);
 
     // Already paired (e.g. the client retried after a dropped response).
     const existing = await findActiveRoomForUser(auth.user.id);
@@ -85,7 +94,7 @@ export async function POST(request: NextRequest) {
 /** Polling backstop for a waiting client in case the realtime event is missed. */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleUser(request);
     if (!auth.ok) return auth.response;
 
     const room = await findActiveRoomForUser(auth.user.id);
@@ -103,7 +112,7 @@ export async function GET(request: NextRequest) {
 /** Leaves the matchmaking queue. */
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleUser(request);
     if (!auth.ok) return auth.response;
 
     await cancelRandomMatch(auth.user.id);

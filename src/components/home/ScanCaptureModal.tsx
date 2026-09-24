@@ -64,10 +64,10 @@ export function ScanCaptureModal({
 
       {/* モバイル: ボトムシート / デスクトップ(lg): ホームの新規作成と同じ中央モーダル */}
       <div className="absolute bottom-0 left-0 right-0 flex justify-center lg:inset-0 lg:items-center lg:p-6">
-        <div className="w-full max-w-[480px] animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:max-h-full lg:animate-fade-in lg:overflow-y-auto lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-ink)]">
+        <div className="w-full max-w-[480px] animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] lg:max-h-full lg:animate-fade-in lg:overflow-y-auto lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-shadow)]">
           {/* Drag handle（ボトムシートのみ） */}
           <div className="mb-2.5 flex justify-center lg:hidden">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+            <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
 
           {/* Title row */}
@@ -83,7 +83,7 @@ export function ScanCaptureModal({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
             >
               <Icon name="close" size={14} />
             </button>
@@ -98,7 +98,7 @@ export function ScanCaptureModal({
                   key={m.k}
                   type="button"
                   onClick={() => setActiveMode(m.k)}
-                  className="flex items-center gap-[11px] rounded-[10px] border-2 bg-white px-3 py-[11px] text-left text-[var(--solid-ink)] transition-all"
+                  className="flex items-center gap-[11px] rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-[11px] text-left text-[var(--solid-ink)] transition-all"
                   style={{
                     borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
                     boxShadow: active ? '2px 3px 0 var(--solid-ink)' : 'none',
@@ -118,7 +118,7 @@ export function ScanCaptureModal({
                     <div className="flex items-center gap-1.5">
                       <span className="text-[14px] font-bold">{m.label}</span>
                       {m.pro && !isPro && (
-                        <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-white">
+                        <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-on-accent)]">
                           PRO
                         </span>
                       )}
@@ -129,7 +129,7 @@ export function ScanCaptureModal({
                     className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full"
                     style={{
                       border: `1.5px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                      background: active ? 'var(--color-accent)' : '#fff',
+                      background: active ? 'var(--color-accent)' : 'var(--color-surface)',
                     }}
                   >
                     {active && <Icon name="check" size={12} className="text-white" />}

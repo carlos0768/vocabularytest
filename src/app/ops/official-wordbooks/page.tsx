@@ -17,7 +17,9 @@ import {
   type OfficialWordbookSummary,
   type OfficialWordbookWordInput,
 } from '@/lib/official-wordbooks/editor';
+import { appendScannedWords } from '@/lib/official-wordbooks/scan';
 import { useAdminSecret } from '../use-admin-secret';
+import { OfficialWordbookScanPanel } from './scan-panel';
 
 // 公式単語帳エディター。単語は表形式で1語ずつ編集でき、スプレッドシートや
 // AIの出力はタブ区切りテキストとして一括で流し込める。
@@ -377,6 +379,33 @@ export default function OpsOfficialWordbooksPage() {
     setBulkOpen(false);
   };
 
+  // カメラスキャンの結果を表に流し込む。「末尾に追加」は既に表にある英単語を
+  // 落として重複を作らない(保存時にユニーク制約で丸ごと失敗するのを防ぐ)。
+  const applyScan = (scanned: OfficialWordbookWordInput[], mode: 'replace' | 'append') => {
+    if (mode === 'replace') {
+      setRows(scanned.length > 0 ? scanned.map(toRow) : [emptyRow()]);
+      setNotice(`スキャンした${scanned.length}語を読み込みました`);
+      return;
+    }
+
+    const merged = appendScannedWords(wordsState.words, scanned);
+    setRows((current) => {
+      const kept = current.filter((row) => !isBlankRow(row));
+      const addedWords = merged.words.slice(wordsState.words.length);
+      return [...kept, ...addedWords.map(toRow)];
+    });
+
+    const skipped = [
+      merged.duplicates > 0 ? `重複${merged.duplicates}語` : '',
+      merged.overflow > 0 ? `上限超過${merged.overflow}語` : '',
+    ].filter(Boolean).join('・');
+    setNotice(
+      skipped
+        ? `スキャンした${merged.added}語を追加しました(${skipped}は除外)`
+        : `スキャンした${merged.added}語を追加しました`,
+    );
+  };
+
   const copyText = async (text: string, message: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -418,7 +447,7 @@ export default function OpsOfficialWordbooksPage() {
               type="button"
               onClick={() => void loadList()}
               disabled={loading || !adminSecret}
-              className="self-end rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="self-end rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2 text-sm font-bold text-[var(--color-on-ink)] disabled:opacity-50"
             >
               {loading ? '読み込み中...' : '一覧を読み込む'}
             </button>
@@ -557,6 +586,13 @@ export default function OpsOfficialWordbooksPage() {
           )}
         </section>
 
+        {/* カメラスキャン */}
+        <OfficialWordbookScanPanel
+          adminSecret={adminSecret}
+          defaultEikenLevel={eikenLevel}
+          onApply={applyScan}
+        />
+
         {/* 単語エディター */}
         <section className="rounded-2xl border-2 border-b-4 border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -635,7 +671,7 @@ export default function OpsOfficialWordbooksPage() {
                   type="button"
                   onClick={() => applyBulk('replace')}
                   disabled={!bulkPreview || bulkPreview.words.length === 0}
-                  className="rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                  className="rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-1.5 text-xs font-bold text-[var(--color-on-ink)] disabled:opacity-50"
                 >
                   置き換えて読み込む
                 </button>
@@ -803,7 +839,7 @@ export default function OpsOfficialWordbooksPage() {
               type="button"
               onClick={() => void save(true)}
               disabled={!canSave}
-              className="rounded-xl border-2 border-[var(--color-accent-ink,var(--color-accent))] bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-xl border-2 border-[var(--color-accent-ink,var(--color-accent))] bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-[var(--color-on-accent)] disabled:opacity-50"
             >
               {saving ? '保存中...' : '保存して公開'}
             </button>
@@ -833,14 +869,14 @@ export default function OpsOfficialWordbooksPage() {
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                         wordbook.isActive
-                          ? 'bg-[var(--color-accent)] text-white'
+                          ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]'
                           : 'bg-[var(--color-border)] text-[var(--color-muted)]'
                       }`}
                     >
                       {wordbook.isActive ? '公開中' : '非公開'}
                     </span>
                     {wordbook.isDefault && (
-                      <span className="rounded-full bg-[var(--solid-ink)] px-2.5 py-0.5 text-[11px] font-bold text-white">
+                      <span className="rounded-full bg-[var(--solid-ink)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-on-ink)]">
                         既定
                       </span>
                     )}

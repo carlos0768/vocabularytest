@@ -201,7 +201,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />
@@ -222,17 +222,17 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       <div className="min-h-0 flex-1 overflow-y-auto px-[18px] py-3.5">
 
       {state.kind === 'loading' && (
-        <div className="mt-2 h-[300px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-white" />
+        <div className="mt-2 h-[300px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)]" />
       )}
 
       {state.kind === 'pro-required' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             語法問題集はPro限定機能です。
           </p>
           <Link
             href="/subscription"
-            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white"
+            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)]"
           >
             Proプランを見る
           </Link>
@@ -240,13 +240,13 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       )}
 
       {state.kind === 'error' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
           <p className="m-0 text-[13px] text-[var(--solid-ink)]">{state.message}</p>
         </div>
       )}
 
       {state.kind === 'ready' && questions.length === 0 && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <p className="m-0 text-[13px] leading-[1.8] text-[var(--solid-ink)]">
             {isReview
               ? '復習する問題はありません。間違えた問題がここに溜まります。'
@@ -257,7 +257,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
 
       {/* 結果画面 */}
       {state.kind === 'ready' && finished && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-6">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6">
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">RESULT</div>
           <div className="mt-2 font-display text-3xl font-extrabold text-[var(--solid-ink)]">
             {correctCount} / {questions.length} 問正解
@@ -267,7 +267,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               <div className="text-[12px] font-bold text-[var(--solid-ink)]">復習したい文法項目</div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {wrongGrammarPoints.map((point) => (
-                  <span key={point} className="rounded-[4px] border border-[var(--solid-ink)] bg-[#faf7f1] px-2 py-[3px] font-mono text-[10px] font-bold text-[var(--solid-ink)]">
+                  <span key={point} className="rounded-[4px] border border-[var(--solid-ink)] bg-[var(--color-paper)] px-2 py-[3px] font-mono text-[10px] font-bold text-[var(--solid-ink)]">
                     {point}
                   </span>
                 ))}
@@ -281,13 +281,13 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
             <button
               type="button"
               onClick={handleRetry}
-              className="h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               もう一度解く
             </button>
             <Link
               href="/grammar"
-              className="flex h-12 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex h-12 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               問題集一覧へ
             </Link>
@@ -298,7 +298,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       {/* 出題画面 */}
       {state.kind === 'ready' && question && !finished && (
         <>
-          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+          <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
             <p className="m-0 text-[15px] leading-[2] text-[var(--solid-ink)]">{renderSentence(question.sentence)}</p>
             {question.sentenceJa && (answered || question.showTranslation) && (
               <p className="m-0 mt-2 text-[11.5px] leading-[1.7] text-[var(--color-muted)]">{question.sentenceJa}</p>
@@ -323,7 +323,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
 
           {/* 解説 (Vintage風: 答え合わせのたびに必ず表示) */}
           {answered && (
-            <div className="mt-3.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[#faf7f1] p-4">
+            <div className="mt-3.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-4">
               <div className="flex items-center gap-1.5">
                 <Icon name={correct ? 'check_circle' : 'school'} size={16} className={correct ? 'text-[var(--color-accent)]' : 'text-[var(--solid-ink)]'} />
                 <span className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">
@@ -334,7 +334,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               <button
                 type="button"
                 onClick={handleAskChatGpt}
-                className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+                className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
               >
                 <Icon name={chatGptCopied ? 'check' : 'smart_toy'} size={16} />
                 {chatGptCopied ? 'コピーしました！ChatGPTに貼り付けて質問できます' : 'ChatGPTに質問する'}
@@ -356,7 +356,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               type="button"
               onClick={handleSkip}
               disabled={answered}
-              className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-white font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 disabled:active:translate-x-0 disabled:active:translate-y-0"
+              className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 disabled:active:translate-x-0 disabled:active:translate-y-0"
             >
               <Icon name="skip_next" size={18} />
               スキップ
@@ -365,7 +365,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
               type="button"
               onClick={handleNext}
               disabled={!answered}
-              className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 disabled:active:translate-x-0 disabled:active:translate-y-0"
+              className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 disabled:active:translate-x-0 disabled:active:translate-y-0"
             >
               {index + 1 >= questions.length ? '結果を見る' : '次の問題へ'}
               <Icon name="arrow_forward" size={18} />

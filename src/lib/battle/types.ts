@@ -1,5 +1,7 @@
 /** Domain types for リアルタイム単語対戦. */
 
+import type { BattleBotLevel } from '@/lib/battle/bot';
+
 export type BattleMode = 'friend' | 'random' | 'group';
 
 export type BattleStatus =
@@ -14,6 +16,12 @@ export type BattleOutcome = 'host' | 'guest' | 'draw' | 'abandoned';
 
 export type BattleSeat = 'host' | 'guest';
 
+/**
+ * ボットが座るゲスト席の userId。ボットは auth.users に居ないので、画面側が
+ * 席を見分けるための固定値を割り当てる。人間の userId は UUID なので衝突しない。
+ */
+export const BATTLE_BOT_USER_ID = 'bot';
+
 export type BattleParticipant = {
   userId: string;
   displayName: string;
@@ -21,6 +29,8 @@ export type BattleParticipant = {
   projectId: string | null;
   projectTitle: string | null;
   score: number;
+  /** 人が集まらないときに座るボット。 */
+  isBot: boolean;
 };
 
 export type BattleRoom = {
@@ -32,6 +42,9 @@ export type BattleRoom = {
   groupId: string | null;
   /** 「もう一度対戦する」で作られた部屋なら、元の部屋のID。 */
   rematchOfRoomId: string | null;
+  /** ゲスト席がボットか。true のとき `guest` はボットの見た目だけの参加者。 */
+  guestIsBot: boolean;
+  botLevel: BattleBotLevel | null;
   questionCount: number;
   roundDurationMs: number;
   currentRound: number;
@@ -56,6 +69,8 @@ export type BattleQuestion = {
   startedAt: string | null;
   resolvedAt: string | null;
   answeredBy: string | null;
+  /** ボットが先に正解したラウンド。`answeredBy` は NULL のままになる。 */
+  answeredByBot: boolean;
   correctIndex: number | null;
   answer: string | null;
 };

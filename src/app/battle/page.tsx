@@ -4,8 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useProjects } from '@/hooks/use-projects';
+import { useBattleEntitlement } from '@/hooks/use-battle-entitlement';
 import { Icon } from '@/components/ui/Icon';
 import {
+  BattleAllowanceStrip,
+  BattleBotOffer,
   BattleInviteCode,
   BattleModeTabs,
   BattleNotice,
@@ -17,11 +20,19 @@ import {
   type BattleLobbyMode,
 } from '@/components/battle';
 import {
+  BATTLE_BOT_AUTO_AFTER_MS,
+  BATTLE_BOT_OFFER_AFTER_MS,
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
   BATTLE_MATCH_POLL_INTERVAL_MS,
   normalizeInviteCode,
 } from '@/lib/battle/config';
+import {
+  BATTLE_DEFAULT_BOT_LEVEL,
+  getBattleBotName,
+  type BattleBotLevel,
+} from '@/lib/battle/bot';
+import { canStartBattle, FREE_DAILY_BATTLE_LIMIT } from '@/lib/battle/free-allowance';
 import type { BattleRoom } from '@/lib/battle/types';
 
 /** ロビーの滞在状態。設定画面か、マッチング待ちか、フレンドの参加待ちか。 */
@@ -40,12 +51,20 @@ const ROUND_DURATION_OPTIONS = [
 
 export default function BattleLobbyPage() {
   const router = useRouter();
-  const { isAuthenticated, isPro, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { projects, loading: projectsLoading } = useProjects();
+  // 対戦はProなら無制限、Freeでも1日3回まで。残数はサーバーが持つので
+  // `isPro` ではなくこちらを見る。
+  const {
+    allowance,
+    loading: allowanceLoading,
+    error: allowanceError,
+  } = useBattleEntitlement(isAuthenticated);
 
   const [projectId, setProjectId] = useState<string>('');
   const [questionCount, setQuestionCount] = useState(BATTLE_DEFAULT_QUESTION_COUNT);
   const [roundDurationMs, setRoundDurationMs] = useState(BATTLE_DEFAULT_ROUND_DURATION_MS);
+  const [botLevel, setBotLevel] = useState<BattleBotLevel>(BATTLE_DEFAULT_BOT_LEVEL);
   const [mode, setMode] = useState<BattleLobbyMode>('random');
   const [stage, setStage] = useState<LobbyStage>('setup');
   const [hostedRoom, setHostedRoom] = useState<BattleRoom | null>(null);
@@ -53,9 +72,14 @@ export default function BattleLobbyPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  /** マッチングを始めた時刻。ボットを出すまでの経過時間を測るのに使う。 */
+  const [matchStartedAt, setMatchStartedAt] = useState<number | null>(null);
+  const [matchElapsedMs, setMatchElapsedMs] = useState(0);
 
   const stageRef = useRef<LobbyStage>('setup');
   stageRef.current = stage;
+  /** ボット戦の二重開始よけ（自動開始とボタンが同時に走らないように）。 */
+  const botStartRef = useRef(false);
 
   useEffect(() => {
     if (!projectId && projects.length > 0) {
@@ -96,6 +120,9 @@ export default function BattleLobbyPage() {
         router.push(`/battle/${payload.roomId}`);
         return;
       }
+      botStartRef.current = false;
+      setMatchStartedAt(Date.now());
+      setMatchElapsedMs(0);
       setStage('matching');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'マッチングに失敗しました。');
@@ -106,8 +133,56 @@ export default function BattleLobbyPage() {
 
   const cancelRandomMatch = useCallback(async () => {
     setStage('setup');
+    setMatchStartedAt(null);
     await fetch('/api/battle/match', { method: 'DELETE' }).catch(() => {});
   }, []);
+
+  /**
+   * 人が集まらないときのボット対戦。待機列から抜ける処理はサーバー側
+   * （`/api/battle/bot`）がやるので、ここでは部屋へ移るだけでよい。直前に人と
+   * マッチしていた場合はその部屋が返ってくる。
+   */
+  const startBotBattle = useCallback(async () => {
+    if (!projectId) return;
+    botStartRef.current = true;
+    setError(null);
+    setBusy(true);
+    try {
+      const payload = await postJson('/api/battle/bot', {
+        projectId,
+        level: botLevel,
+        questionCount,
+        roundDurationMs,
+      });
+      router.push(`/battle/${payload.roomId}`);
+    } catch (err) {
+      botStartRef.current = false;
+      setError(err instanceof Error ? err.message : 'ボット対戦の準備に失敗しました。');
+      setStage('setup');
+      setMatchStartedAt(null);
+    } finally {
+      setBusy(false);
+    }
+  }, [projectId, botLevel, questionCount, roundDurationMs, postJson, router]);
+
+  // 待機時間の計測。ボットを出すか、自動で始めるかの判断だけに使う。
+  useEffect(() => {
+    if (stage !== 'matching' || matchStartedAt === null) return;
+
+    const interval = setInterval(() => {
+      setMatchElapsedMs(Date.now() - matchStartedAt);
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [stage, matchStartedAt]);
+
+  // 待ちっぱなしにはしない。一定時間で自動的にボット戦へ移る。
+  useEffect(() => {
+    if (stage !== 'matching' || botStartRef.current) return;
+    if (matchElapsedMs < BATTLE_BOT_AUTO_AFTER_MS) return;
+
+    void startBotBattle();
+  }, [stage, matchElapsedMs, startBotBattle]);
 
   // While queued, poll for the room the server paired us into.
   useEffect(() => {
@@ -229,25 +304,64 @@ export default function BattleLobbyPage() {
     );
   }
 
-  if (!isPro) {
+  if (allowanceLoading) {
+    return (
+      <BattleScreen header={header} center>
+        <div className="flex items-center justify-center gap-2 py-10 text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={20} className="animate-spin" />
+          <span className="text-sm font-bold">読み込み中...</span>
+        </div>
+      </BattleScreen>
+    );
+  }
+
+  // 残数が読めなかっただけのときに「使い切りました」と出すと嘘になる。
+  if (!allowance) {
     return (
       <BattleScreen header={header} center>
         <BattleNotice
-          icon="workspace_premium"
-          title="Proプラン限定の機能です"
-          description="リアルタイム対戦はProプラン限定です。対戦でコインは消費しません。"
+          icon="wifi_off"
+          title="対戦の利用状況を取得できませんでした"
+          description={allowanceError ?? '通信状況を確かめて、もう一度お試しください。'}
+          action={{ label: '再読み込み', onClick: () => window.location.reload() }}
+          secondaryAction={{ label: 'ホームに戻る', href: '/' }}
+        />
+      </BattleScreen>
+    );
+  }
+
+  // 無料プランの本日ぶんを使い切ったとき。Proへの導線は出すが、機能そのものが
+  // 閉じているわけではないので「明日また遊べる」ことを先に伝える。
+  if (!canStartBattle(allowance)) {
+    return (
+      <BattleScreen header={header} center>
+        <BattleNotice
+          icon="hourglass_empty"
+          title="本日の無料対戦は終了しました"
+          description={`無料プランの対戦は1日${allowance.limit ?? FREE_DAILY_BATTLE_LIMIT}回までです。明日0時に回復します。Proプランなら回数制限なしで対戦できます。`}
           action={{ label: 'Proプランを見る', href: '/subscription' }}
+          secondaryAction={{ label: 'ホームに戻る', href: '/' }}
         />
       </BattleScreen>
     );
   }
 
   if (stage === 'matching') {
+    const showBotOffer = matchElapsedMs >= BATTLE_BOT_OFFER_AFTER_MS;
+    const secondsUntilAuto = Math.max(
+      0,
+      Math.ceil((BATTLE_BOT_AUTO_AFTER_MS - matchElapsedMs) / 1000),
+    );
+
     return (
       <BattleScreen header={header} center>
         <BattleWaitingPanel
           title="対戦相手を探しています..."
-          description="見つかり次第、自動で対戦が始まります。この画面のままお待ちください。"
+          description={
+            showBotOffer
+              ? '人が見つからないときは、ボットが相手をします。'
+              : '見つかり次第、自動で対戦が始まります。この画面のままお待ちください。'
+          }
           onCancel={cancelRandomMatch}
         >
           <div className="rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left">
@@ -259,6 +373,15 @@ export default function BattleLobbyPage() {
               {selectedProject && ` · ${selectedProject.title}`}
             </div>
           </div>
+
+          {showBotOffer && (
+            <BattleBotOffer
+              botName={getBattleBotName(botLevel)}
+              secondsUntilAuto={secondsUntilAuto}
+              onStart={() => void startBotBattle()}
+              disabled={busy}
+            />
+          )}
         </BattleWaitingPanel>
       </BattleScreen>
     );
@@ -315,6 +438,13 @@ export default function BattleLobbyPage() {
         </div>
       )}
 
+      {/* 0. 無料プランの本日の残り回数（Proでは何も出ない） */}
+      {allowance && !allowance.isPro && (
+        <div className="mb-3">
+          <BattleAllowanceStrip allowance={allowance} />
+        </div>
+      )}
+
       {/* 1. どちらのモードか */}
       <BattleModeTabs value={mode} onChange={setMode} />
 
@@ -331,6 +461,8 @@ export default function BattleLobbyPage() {
           roundDurationMs={roundDurationMs}
           roundDurationOptions={ROUND_DURATION_OPTIONS}
           onRoundDurationChange={setRoundDurationMs}
+          botLevel={botLevel}
+          onBotLevelChange={setBotLevel}
           disabled={busy}
         />
         {!selectedProject && !projectsLoading && (
@@ -348,14 +480,26 @@ export default function BattleLobbyPage() {
               type="button"
               onClick={startRandomMatch}
               disabled={!canStart}
-              className="flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-white shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-ink)] disabled:opacity-50 disabled:shadow-none"
+              className="flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-[var(--color-on-accent)] shadow-[3px_4px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-shadow)] disabled:opacity-50 disabled:shadow-none"
             >
               <Icon name="bolt" size={22} />
               マッチングを開始
             </button>
             <p className="mt-2 text-center text-[11.5px] leading-[1.6] text-[var(--color-muted)]">
               待機中の相手と自動でマッチします。出題は先に待っていた側の単語帳からです。
+              <br />
+              {Math.round(BATTLE_BOT_AUTO_AFTER_MS / 1000)}秒待っても人が集まらないときは、ボットが相手をします。
             </p>
+
+            <button
+              type="button"
+              onClick={() => void startBotBattle()}
+              disabled={!canStart}
+              className="mt-3 flex h-[46px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[13.5px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+            >
+              <Icon name="smart_toy" size={17} />
+              待たずにボットと対戦する
+            </button>
           </>
         ) : (
           <div className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
@@ -364,7 +508,7 @@ export default function BattleLobbyPage() {
                 type="button"
                 onClick={createFriendRoom}
                 disabled={!canStart}
-                className="flex h-[50px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                className="flex h-[50px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
               >
                 <Icon name="add_link" size={18} />
                 招待コードを作る

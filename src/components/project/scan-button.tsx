@@ -34,7 +34,7 @@ export function ScanButton({ onImageSelect, disabled }: ScanButtonProps) {
       <button
         onClick={() => inputRef.current?.click()}
         disabled={disabled}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-[var(--color-primary)] text-white rounded-full shadow-glow
+        className="fixed bottom-24 right-6 w-14 h-14 bg-[var(--color-primary)] text-[var(--color-on-ink)] rounded-full shadow-glow
           flex items-center justify-center
           hover:bg-[var(--color-primary-dark)] hover:scale-105
           active:scale-95

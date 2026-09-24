@@ -239,7 +239,7 @@ export function DesktopGrammarBooksView({
                                 height: 34,
                                 borderRadius: 9,
                                 border: '2px solid var(--solid-ink)',
-                                background: '#faf7f1',
+                                background: 'var(--color-paper)',
                               }}
                             >
                               <Icon name="menu_book" style={{ fontSize: 18 }} />
@@ -490,7 +490,7 @@ export function DesktopGrammarPracticeView({
                         padding: '14px 18px',
                         borderRadius: 14,
                         border: `2px solid ${showCorrect ? 'var(--color-accent)' : showWrong ? 'var(--color-error, #d33)' : 'var(--solid-ink)'}`,
-                        background: showCorrect ? 'var(--color-accent-light, #e8f5ec)' : showWrong ? '#fdeceb' : '#fff',
+                        background: showCorrect ? 'var(--color-accent-light)' : showWrong ? 'var(--color-error-light)' : 'var(--color-surface)',
                         cursor: answered ? 'default' : 'pointer',
                         textAlign: 'left',
                       }}
@@ -522,7 +522,7 @@ export function DesktopGrammarPracticeView({
               </div>
 
               {answered && (
-                <div className="ds-card" style={{ padding: '18px 22px', marginTop: 16, background: '#faf7f1' }}>
+                <div className="ds-card" style={{ padding: '18px 22px', marginTop: 16, background: 'var(--color-paper)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Icon
                       name={correct ? 'check_circle' : 'school'}
@@ -786,7 +786,7 @@ export function GrammarQuestionDetailBody({ question }: { question: GrammarPract
         <Icon name="check_circle" style={{ marginLeft: 'auto', color: 'var(--color-accent)' }} />
       </div>
 
-      <div style={{ borderRadius: 12, border: '2px solid var(--solid-ink)', background: '#faf7f1', padding: '14px 16px' }}>
+      <div style={{ borderRadius: 12, border: '2px solid var(--solid-ink)', background: 'var(--color-paper)', padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="school" style={{ fontSize: 16 }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 13 }}>解説</span>

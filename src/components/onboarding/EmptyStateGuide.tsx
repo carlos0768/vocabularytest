@@ -61,7 +61,7 @@ export function EmptyStateGuide({ onStartScan }: EmptyStateGuideProps) {
         />
 
         <div className="relative">
-          <div className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--solid-ink)]">
+          <div className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--solid-ink)]">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
             START HERE
           </div>
@@ -85,7 +85,7 @@ export function EmptyStateGuide({ onStartScan }: EmptyStateGuideProps) {
                 className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]"
                 style={{ transform: 'translate(2px, 2.5px)' }}
               />
-              <div className="relative flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5">
+              <div className="relative flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
                 <div
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)]"
                   style={{ background: s.accentSub, color: s.accent }}
@@ -94,7 +94,7 @@ export function EmptyStateGuide({ onStartScan }: EmptyStateGuideProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-mono text-[9px] font-bold leading-none text-white">
+                    <span className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-mono text-[9px] font-bold leading-none text-[var(--color-on-ink)]">
                       {i + 1}
                     </span>
                     <span className="font-display text-[13.5px] font-extrabold text-[var(--solid-ink)]">
@@ -134,7 +134,7 @@ function CtaInner() {
         className="absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]"
         style={{ transform: 'translate(3px, 3.5px)' }}
       />
-      <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3.5 text-[14px] font-bold text-white">
+      <span className="relative flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3.5 text-[14px] font-bold text-[var(--color-on-ink)]">
         <Icon name="photo_camera" size={17} />
         最初の1枚を撮影
         <Icon name="arrow_forward" size={15} />

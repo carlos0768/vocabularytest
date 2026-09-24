@@ -299,8 +299,8 @@ export function ManualWordInputModal({
   setExampleSentence,
   morphologyEnabled,
   setMorphologyEnabled,
-  derivedWordsEnabled,
-  setDerivedWordsEnabled,
+  exampleEnabled,
+  setExampleEnabled,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -318,9 +318,9 @@ export function ManualWordInputModal({
   /** 語源解析トグル（未指定なら非表示 = 従来挙動） */
   morphologyEnabled?: boolean;
   setMorphologyEnabled?: (enabled: boolean) => void;
-  /** 派生語トグル（未指定なら非表示） */
-  derivedWordsEnabled?: boolean;
-  setDerivedWordsEnabled?: (enabled: boolean) => void;
+  /** 例文生成トグル（未指定なら非表示 = 従来挙動）。手動追加は無料。 */
+  exampleEnabled?: boolean;
+  setExampleEnabled?: (enabled: boolean) => void;
 }) {
   const englishInputRef = useRef<HTMLInputElement>(null);
   const [showOptional, setShowOptional] = useState(false);
@@ -438,36 +438,36 @@ export function ManualWordInputModal({
                 </button>
               )}
 
-              {derivedWordsEnabled !== undefined && setDerivedWordsEnabled && (
+              {exampleEnabled !== undefined && setExampleEnabled && (
                 <button
                   type="button"
-                  onClick={() => setDerivedWordsEnabled(!derivedWordsEnabled)}
+                  onClick={() => setExampleEnabled(!exampleEnabled)}
                   disabled={isLoading}
                   className="w-full flex items-start gap-2.5 px-4 py-3 border rounded-[var(--radius-lg)] bg-[var(--color-surface)] text-left transition-colors disabled:opacity-60"
                   style={{
-                    borderColor: derivedWordsEnabled ? 'var(--color-primary)' : 'var(--color-border)',
+                    borderColor: exampleEnabled ? 'var(--color-primary)' : 'var(--color-border)',
                   }}
                 >
                   <span
                     className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
                     style={{
-                      border: `1.25px solid ${derivedWordsEnabled ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                      background: derivedWordsEnabled ? 'var(--color-primary)' : 'transparent',
+                      border: `1.25px solid ${exampleEnabled ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      background: exampleEnabled ? 'var(--color-primary)' : 'transparent',
                     }}
                   >
-                    {derivedWordsEnabled && <Icon name="check" size={11} className="text-white" />}
+                    {exampleEnabled && <Icon name="check" size={11} className="text-white" />}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-foreground)]">
-                      派生語
-                      <span className="shrink-0 text-[10px] font-bold text-[var(--color-primary)]">+1コイン/語</span>
+                    <span className="block text-sm font-medium text-[var(--color-foreground)]">
+                      例文生成
                     </span>
                     <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
-                      試験で狙われる派生語を最大3つ（対象語のみ・非対象なら消費なし）
+                      この単語を使った例文と訳を自動生成（コイン消費なし）
                     </span>
                   </span>
                 </button>
               )}
+
 
               <button
                 type="button"

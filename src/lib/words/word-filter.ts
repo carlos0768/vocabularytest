@@ -25,7 +25,6 @@ export type FeatureKey =
   | 'example'
   | 'pronunciation'
   | 'morphology'
-  | 'derived'
   | 'multiMeaning'
   | 'custom'
   | 'wrong';
@@ -97,7 +96,6 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   example: '例文',
   pronunciation: '発音記号',
   morphology: '語源',
-  derived: '派生語',
   multiMeaning: '複数の意味',
   custom: 'メモ',
   wrong: '間違えた',
@@ -154,10 +152,6 @@ export function hasFeature(entry: WordListEntry, key: FeatureKey): boolean {
     case 'morphology':
       return Boolean(
         word.morphology && !word.morphology.none && (word.morphology.formula?.length ?? 0) > 0,
-      );
-    case 'derived':
-      return Boolean(
-        word.derivedWords && !word.derivedWords.none && (word.derivedWords.items?.length ?? 0) > 0,
       );
     case 'multiMeaning': {
       const meanings = (word.translations ?? []).filter((t) => t.translationJa.trim().length > 0);
@@ -422,8 +416,8 @@ const REPETITION_LABELS: Record<Exclude<RepetitionFilter, 'any'>, string> = {
 };
 
 const VOCABULARY_TYPE_LABELS: Record<VocabularyTypeFilter, string> = {
-  active: '発信語彙',
-  passive: '受信語彙',
+  active: 'Active (A)',
+  passive: 'Passive (P)',
   unset: '語彙タイプ未設定',
 };
 

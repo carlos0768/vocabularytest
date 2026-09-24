@@ -110,8 +110,8 @@ export function FollowButton({
       aria-pressed={active}
       className={`inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] font-display text-[14px] font-bold transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-60 ${
         active
-          ? 'bg-white text-[var(--solid-ink)]'
-          : 'bg-[var(--solid-ink)] text-white'
+          ? 'bg-[var(--color-surface)] text-[var(--solid-ink)]'
+          : 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
       }`}
     >
       <Icon name={icon} size={18} className={loading ? 'animate-spin' : ''} />

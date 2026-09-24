@@ -82,7 +82,7 @@ export function WeeklyCalendarWidget() {
                 <span
                   className={`mt-1 flex h-6 w-6 items-center justify-center rounded-full text-[0.65rem] font-semibold ${
                     active
-                      ? 'bg-[var(--color-success)] text-white'
+                      ? 'bg-[var(--color-success)] text-[var(--color-on-accent)]'
                       : 'bg-[var(--color-surface-secondary)] text-[var(--color-muted)]'
                   }`}
                 >

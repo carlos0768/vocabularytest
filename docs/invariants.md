@@ -161,6 +161,36 @@ Sentry is also a no-op when no DSN is configured: `Sentry.init()` must stay behi
 
 **Consequence of violation**: Service role keys, Stripe webhook signatures, session cookies, or user email addresses get shipped to a third-party SaaS and retained in its issue history.
 
+### INV-18: 古典語の共有辞書は service role 経由でのみ書き込む
+
+`classical_entries` / `classical_senses` は全ユーザーで共有する古典語マスタ。RLS は `"Anyone can view ..."`（`FOR SELECT USING (true)`）と `"Service role can manage ..."`（`FOR ALL TO service_role`）の2本だけで、`authenticated` に INSERT/UPDATE ポリシーを張ってはいけない。書き込みはサーバー側の `src/lib/classical/resolve.ts` が `getSupabaseAdmin()` 経由で行う。
+
+`classical_entries` のキーは `(normalized_headword, pos)`。`pos` には粗い品詞だけを入れ、活用型は `conjugation_type` に分ける。活用型をキーに含めると、同じ語を教材Aが「シク活用形容詞」・教材Bが「形容詞」と書いただけでエントリが分裂し、ヒント流用がエラーも出さずに効かなくなる。
+
+**Consequence of violation**: 任意のユーザーが全ユーザー共通の辞書を書き換えられる（誤訳の伝播）。またはヒント流用が黙って機能しなくなる。
+
+Source: `supabase/migrations/20260909120000_create_classical_lexicon.sql`, `src/lib/classical/resolve.ts`, pinned by `src/lib/classical/resolve.test.ts`.
+
+### INV-19: 英語専用の後処理は古典語に走らせない
+
+語源解析・例文生成・発音記号・英作文/語順クイズ・誤答生成・英語 lexicon 解決は、すべて `isClassicalWord()`（`src/lib/classical/is-classical.ts`）で古典語を除外する。判定を各所にベタ書きせず、必ずこの関数を通す。
+
+とくに `resolveImmediateWordsWithMasterFirst` は古典語に `key` を立てないこと。これを外すと古典語の見出し語が英日翻訳AIに投げ込まれ、日本語をキーにした `lexicon_entries` 行が量産される。`needsWordLexiconResolution` も古典語には `false` を返すこと。返さないと解決ジョブが永久に再投入される。
+
+**Consequence of violation**: 古典語に対して結果がゴミになるAI呼び出しが走り、コインとAPIコストだけ消費される。共有マスタが日本語見出しの行で汚染される。
+
+Source: `src/lib/classical/is-classical.ts`, pinned by `src/lib/classical/enrichment-guards.test.ts`.
+
+### INV-20: 単語帳の種別に合わない語は保存しない
+
+`projects.kind`（`english` / `classical`）に合わない語は、クライアント（`scan/confirm`）でもサーバー（`/api/words/create`、`scan-jobs/process`）でも保存前に落とす。エラーにはせず、落ちた件数だけ知らせる。
+
+判定は `isClassicalWord()` と `filterWordsForProjectKind()`（`src/lib/classical/purity.ts`）を通すこと。`readProjectKind()` は列が無いDBでも例外でも `'english'` を返す — 種別が読めないだけでスキャンを止めると、列を足すまで全ユーザーがスキャンできなくなる。
+
+**Consequence of violation**: 英語の単語帳に古典語（またはその逆）が混ざり、クイズの誤答生成や語源解析が成立しなくなる。
+
+Source: `src/lib/classical/purity.ts`, `src/lib/classical/project-kind.ts`, pinned by `purity.test.ts` / `project-kind.test.ts`.
+
 ---
 
 ## Candidate Invariants

@@ -6,8 +6,8 @@ import type { QuizMode } from '@/lib/quiz/quiz-mode-preference';
 
 const SOLID_SURFACE =
   'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
-const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-ink)]';
-const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-ink)]';
+const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-shadow)]';
+const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-shadow)]';
 const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em]';
 
 const MODES: ReadonlyArray<{
@@ -15,51 +15,84 @@ const MODES: ReadonlyArray<{
   icon: string;
   title: string;
   description: string;
+  /** その解き方がどの語を出題するか。語彙モードで出題が分かれるので必ず出す。 */
+  scope?: string;
 }> = [
   {
     key: 'normal',
     icon: 'list',
     title: '四択で解く',
-    description: '選択肢から意味を選びます。声を出せない場所でも解けます。',
+    description: '',
+    scope: 'Passive (P) の単語だけ出題されます',
+  },
+  {
+    key: 'typing',
+    icon: 'keyboard',
+    title: '記述で解く',
+    description: '',
+    scope: 'Active (A) の単語だけ出題されます',
   },
   {
     key: 'voice',
     icon: 'mic',
     title: '声で答える',
-    description: '読み上げられた英単語の意味を、声で答えます。マイクを使います。',
+    description: '読み上げられた問題に、声で答えます。マイクを使います。',
   },
 ];
 
 /**
- * クイズ形式の選択。
+ * クイズの解き方の選択。
  *
- * 端末ごとに一度だけ出す初回の選択画面と、あとから右上のボタンで開く
- * 切り替えの両方に使う。`current` を渡すと、いま選ばれている側に印が付く。
+ * クイズを始めるたびに出す選択画面と、あとから右上のボタンで開く切り替えの
+ * 両方に使う。`current` を渡すと、その形式に印が付く (始める前は前回この端末で
+ * 選んだ形式、解いている最中はいま解いている形式)。
  */
 export function QuizModeChooser({
   current,
   onSelect,
   onCancel,
   title = 'クイズの解き方を選んでください',
-  description = 'この端末での既定になります。あとからクイズの右上でいつでも変えられます。',
+  description,
   warning,
+  hiddenModes,
+  currentLabel = 'いま',
+  wordCounts,
 }: {
   current?: QuizMode;
   onSelect: (mode: QuizMode) => void;
-  /** 初回選択では省略する (戻り先が無いため)。 */
+  /** 戻り先が無いときは省略する。 */
   onCancel?: () => void;
   title?: string;
   description?: string;
   /** 進行中のクイズが失われるときの注意書き。 */
   warning?: string;
+  /**
+   * この出題では選べない形式。
+   * 復習や「今日の学習」のような単語帳をまたぐ出題は音読チャレンジに送れないので、
+   * 選べない札を並べて空振りさせるより、はじめから出さない。
+   */
+  hiddenModes?: readonly QuizMode[];
+  /** `current` に付ける印の文言。始める前は前回の選択なので「いま」ではない。 */
+  currentLabel?: string;
+  /**
+   * 解き方ごとに出題できる語数。渡すと札に出す。
+   * 選んでから「1問も無い」と気づく空振りを、選ぶ前に潰すため。
+   */
+  wordCounts?: Partial<Record<QuizMode, number>>;
 }) {
+  const modes = hiddenModes?.length
+    ? MODES.filter((mode) => !hiddenModes.includes(mode.key))
+    : MODES;
+
   return (
     <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-6 animate-fade-in-up')}>
       <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Quiz Mode</p>
       <h2 className="mt-1 font-display text-xl font-black leading-snug text-[var(--solid-ink)]">
         {title}
       </h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{description}</p>
+      {description && (
+        <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{description}</p>
+      )}
 
       {warning && (
         <p className="mt-3 rounded-[var(--solid-radius-sm)] border-2 border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs font-bold leading-5 text-[var(--color-warning)]">
@@ -68,8 +101,9 @@ export function QuizModeChooser({
       )}
 
       <div className="mt-5 space-y-3">
-        {MODES.map((mode) => {
+        {modes.map((mode) => {
           const isCurrent = current === mode.key;
+          const count = wordCounts?.[mode.key];
           return (
             <button
               key={mode.key}
@@ -87,7 +121,7 @@ export function QuizModeChooser({
               <span
                 className={cn(
                   'flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[var(--solid-ink)]',
-                  isCurrent ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
+                  isCurrent ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
                 )}
               >
                 <Icon name={mode.icon} size={22} />
@@ -98,12 +132,25 @@ export function QuizModeChooser({
                     {mode.title}
                   </span>
                   {isCurrent && (
-                    <span className={cn(EYEBROW, 'text-[var(--color-accent)]')}>いま</span>
+                    <span className={cn(EYEBROW, 'text-[var(--color-accent)]')}>{currentLabel}</span>
                   )}
                 </span>
-                <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)]">
-                  {mode.description}
-                </span>
+                {mode.description && (
+                  <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)]">
+                    {mode.description}
+                  </span>
+                )}
+                {mode.scope && (
+                  <span
+                    className={cn(
+                      'mt-1 block text-[11px] font-bold leading-4',
+                      count === 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-accent)]',
+                    )}
+                  >
+                    {mode.scope}
+                    {count !== undefined && (count === 0 ? '（0語）' : `（${count}語）`)}
+                  </span>
+                )}
               </span>
             </button>
           );

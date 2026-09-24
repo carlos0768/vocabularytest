@@ -4,8 +4,8 @@
   "description": "写真を撮るだけで単語帳を作成。AI搭載の英語学習アプリ。",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#137fec",
+  "background_color": "#f6f5f1",
+  "theme_color": "#f6f5f1",
   "orientation": "portrait",
   "icons": [
     {

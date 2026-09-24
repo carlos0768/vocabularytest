@@ -1,6 +1,7 @@
 import { mergeSourceLabels } from '../../../shared/source-labels';
 import type { ExtractMode } from '@/lib/scan/mode-provider';
-import type { CustomSection, VocabularyType, WordDerivedWords, WordMorphology } from '@/types';
+import type { CustomSection, ProjectKind, VocabularyType, WordMorphology } from '@/types';
+import { normalizeProjectKind } from '../../../shared/types';
 import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
 
 export interface ServerCloudProjectInsertParams {
@@ -8,6 +9,8 @@ export interface ServerCloudProjectInsertParams {
   projectTitle: string;
   sourceLabels: string[];
   projectIconImage?: string | null;
+  /** 単語帳の種別。未指定は 'english'。 */
+  kind?: ProjectKind;
 }
 
 export interface ServerCloudProjectInsertPayload {
@@ -16,6 +19,7 @@ export interface ServerCloudProjectInsertPayload {
   title: string;
   source_labels: string[];
   icon_image: string | null;
+  kind: ProjectKind;
 }
 
 export interface ServerCloudWordForInsert {
@@ -32,7 +36,7 @@ export interface ServerCloudWordForInsert {
   sourceModes?: ExtractMode[];
   customSections?: CustomSection[];
   morphology?: WordMorphology;
-  derivedWords?: WordDerivedWords;
+  classicalEntryId?: string;
 }
 
 export interface ServerCloudWordInsertPayload {
@@ -50,7 +54,7 @@ export interface ServerCloudWordInsertPayload {
   source_modes?: ExtractMode[];
   custom_sections: CustomSection[];
   morphology: WordMorphology | null;
-  derived_words: WordDerivedWords | null;
+  classical_entry_id: string | null;
   vocabulary_type: VocabularyType;
 }
 
@@ -66,14 +70,14 @@ export type MissingWordsCompatColumn =
   | 'source_modes'
   | 'lexicon_sense_id'
   | 'morphology'
-  | 'derived_words';
+  | 'classical_entry_id';
 
 export type ServerCloudWordsInsertCompatOptions = {
   omitJapaneseSource?: boolean;
   omitSourceModes?: boolean;
   omitLexiconSenseId?: boolean;
   omitMorphology?: boolean;
-  omitDerivedWords?: boolean;
+  omitClassicalEntryId?: boolean;
 };
 
 const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
@@ -90,7 +94,7 @@ const SERVER_CLOUD_WORD_INSERT_SELECT_BASE_COLUMNS = [
   'part_of_speech_tags',
   'word_order_quiz',
   'morphology',
-  'derived_words',
+  'classical_entry_id',
 ] as const;
 
 export function buildServerCloudProjectInsertPayload(
@@ -101,6 +105,7 @@ export function buildServerCloudProjectInsertPayload(
     title: params.projectTitle,
     source_labels: params.sourceLabels,
     icon_image: params.projectIconImage ?? null,
+    kind: normalizeProjectKind(params.kind),
   };
 }
 
@@ -130,7 +135,7 @@ export function buildServerCloudWordsInsertPayload(
     source_modes: word.sourceModes,
     custom_sections: word.customSections ?? [],
     morphology: word.morphology ?? null,
-    derived_words: word.derivedWords ?? null,
+    classical_entry_id: word.classicalEntryId ?? null,
     // スキャンで拾った語は「見て分かればいい語」から始める。ここを NULL のまま
     // 挿すと、ローカル保存 (local-repository) 経由の語だけ passive になって
     // 端末とバックグラウンドスキャンで既定値が食い違う。
@@ -174,11 +179,11 @@ export function getMissingWordsCompatColumn(error: unknown): MissingWordsCompatC
   }
 
   if (
-    message.includes('words.derived_words')
-    || message.includes("'derived_words' column of 'words'")
-    || message.includes('derived_words')
+    message.includes('words.classical_entry_id')
+    || message.includes("'classical_entry_id' column of 'words'")
+    || message.includes('classical_entry_id')
   ) {
-    return 'derived_words';
+    return 'classical_entry_id';
   }
 
   if (
@@ -207,7 +212,7 @@ export function getServerCloudWordsInsertSelectColumns(
     .filter((column) => !(options.omitJapaneseSource && column === 'japanese_source'))
     .filter((column) => !(options.omitLexiconSenseId && column === 'lexicon_sense_id'))
     .filter((column) => !(options.omitMorphology && column === 'morphology'))
-    .filter((column) => !(options.omitDerivedWords && column === 'derived_words'))
+    .filter((column) => !(options.omitClassicalEntryId && column === 'classical_entry_id'))
     .join(', ');
 }
 
@@ -242,8 +247,8 @@ export function stripServerCloudWordsInsertPayloadForCompat(
     if (!options.omitMorphology) {
       row.morphology = word.morphology;
     }
-    if (!options.omitDerivedWords) {
-      row.derived_words = word.derived_words;
+    if (!options.omitClassicalEntryId) {
+      row.classical_entry_id = word.classical_entry_id;
     }
 
     return row;

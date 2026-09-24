@@ -4,12 +4,14 @@ import assert from 'node:assert/strict';
 import type { WordStatus, VocabularyType, Word } from '@/types';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import {
+  buildProjectWordOrderSnapshot,
   countProjectWordStats,
   getProjectPartOfSpeechLabel,
   isProjectWordFilterActive,
   selectAvailableProjectPartsOfSpeech,
   selectFilteredProjectWords,
   type ProjectPageWord,
+  type ProjectWordOrderSnapshot,
   type ProjectWordSortOrder,
 } from './project-page-selectors';
 
@@ -75,6 +77,7 @@ function selectIds(
     activeness: 'all' | 'active' | 'passive';
     partOfSpeech: string | null;
     sortOrder: ProjectWordSortOrder;
+    orderSnapshot: ProjectWordOrderSnapshot | null;
   }> = {},
 ): string[] {
   return selectFilteredProjectWords(words, {
@@ -226,6 +229,50 @@ test('selectFilteredProjectWords "priority" order matches quiz/flashcard sortWor
   // status (new words in createdAt-asc order, then mastered); then the
   // future-scheduled review word last (bucket 2 is deprioritized below bucket 1).
   assert.deepEqual(expected, ['new-due', 'new-fresh-a', 'new-fresh-b', 'mastered-old', 'review-future']);
+});
+
+test('an order snapshot freezes "priority" order against later status changes', () => {
+  const words = [
+    word('a', { status: 'new', createdAt: '2026-05-01T00:00:00.000Z' }),
+    word('b', { status: 'new', createdAt: '2026-05-02T00:00:00.000Z' }),
+    word('c', { status: 'new', createdAt: '2026-05-03T00:00:00.000Z' }),
+  ];
+  const orderSnapshot = buildProjectWordOrderSnapshot(words);
+
+  // 一覧を開いたあとに 'a' の学習タグを押して習得済みにしても、並びは動かない。
+  const afterTap = words.map((item) => (item.id === 'a' ? { ...item, status: 'mastered' as const } : item));
+
+  assert.deepEqual(selectIds(afterTap, { sortOrder: 'priority', orderSnapshot }), ['a', 'b', 'c']);
+  // スナップショットを渡さなければ (= 開き直したとき) 新しい状態で並び替わる。
+  assert.deepEqual(selectIds(afterTap, { sortOrder: 'priority' }), ['b', 'c', 'a']);
+});
+
+test('an order snapshot freezes "statusAsc" order against later status changes', () => {
+  const words = [
+    word('a', { status: 'new' }),
+    word('b', { status: 'review' }),
+    word('c', { status: 'mastered' }),
+  ];
+  const orderSnapshot = buildProjectWordOrderSnapshot(words);
+
+  const afterTap = words.map((item) => (item.id === 'a' ? { ...item, status: 'mastered' as const } : item));
+
+  assert.deepEqual(selectIds(afterTap, { sortOrder: 'statusAsc', orderSnapshot }), ['a', 'b', 'c']);
+  assert.deepEqual(selectIds(afterTap, { sortOrder: 'statusAsc' }), ['b', 'a', 'c']);
+});
+
+test('words missing from the order snapshot sort by their current status', () => {
+  const words = [
+    word('a', { status: 'new', createdAt: '2026-05-01T00:00:00.000Z' }),
+    word('b', { status: 'new', createdAt: '2026-05-02T00:00:00.000Z' }),
+  ];
+  const orderSnapshot = buildProjectWordOrderSnapshot(words);
+
+  // 一覧を開いたあとに追加された単語はスナップショットに無いので、
+  // 現在の値でそのまま学習順に並ぶ。
+  const withAdded = [...words, word('added', { status: 'new', createdAt: '2026-04-30T00:00:00.000Z' })];
+
+  assert.deepEqual(selectIds(withAdded, { sortOrder: 'priority', orderSnapshot }), ['added', 'a', 'b']);
 });
 
 test('selectFilteredProjectWords sorts by createdAt ascending by default', () => {

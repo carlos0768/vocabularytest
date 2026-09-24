@@ -72,20 +72,20 @@ export function ReviewProjectFilterSheet({
           className="w-full animate-fade-in-up"
           style={{
             maxWidth: 480,
-            background: '#faf7f1',
+            background: 'var(--color-paper)',
             border: '2px solid var(--solid-ink)',
             borderBottomWidth: 0,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+            boxShadow: '0 -8px 24px color-mix(in srgb, var(--solid-ink) 18%, transparent)',
             maxHeight: 'min(80vh, 640px)',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
           <div className="mb-2.5 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+            <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
 
           <div className="mb-3 flex items-center justify-between">
@@ -100,7 +100,7 @@ export function ReviewProjectFilterSheet({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
             >
               <Icon name="close" size={14} />
             </button>
@@ -113,14 +113,14 @@ export function ReviewProjectFilterSheet({
             style={{
               borderColor: allSelected ? 'var(--solid-ink)' : 'var(--color-border)',
               boxShadow: allSelected ? '2px 2px 0 var(--solid-ink)' : 'none',
-              background: '#fff',
+              background: 'var(--color-surface)',
             }}
           >
             <span
               className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full"
               style={{
                 border: `1.5px solid ${allSelected ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                background: allSelected ? 'var(--color-accent)' : '#fff',
+                background: allSelected ? 'var(--color-accent)' : 'var(--color-surface)',
               }}
             >
               {allSelected && <Icon name="check" size={13} className="text-white" />}
@@ -140,14 +140,14 @@ export function ReviewProjectFilterSheet({
                     className="flex items-center gap-3 rounded-[12px] border-2 px-3.5 py-2.5 text-left"
                     style={{
                       borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
-                      background: '#fff',
+                      background: 'var(--color-surface)',
                     }}
                   >
                     <span
                       className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full"
                       style={{
                         border: `1.5px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                        background: active ? 'var(--color-accent)' : '#fff',
+                        background: active ? 'var(--color-accent)' : 'var(--color-surface)',
                       }}
                     >
                       {active && <Icon name="check" size={13} className="text-white" />}

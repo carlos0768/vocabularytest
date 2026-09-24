@@ -222,7 +222,7 @@ export default function GrammarBooksPage() {
               aria-label="問題集を作成"
               aria-haspopup="menu"
               aria-expanded={createMenuOpen}
-              className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white shadow-[2px_2px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+              className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             >
               <Icon name={createMenuOpen ? 'close' : 'add'} size={22} />
             </button>
@@ -236,7 +236,7 @@ export default function GrammarBooksPage() {
                 />
                 <div
                   role="menu"
-                  className="absolute right-0 top-[52px] z-50 w-[230px] overflow-hidden rounded-xl border-2 border-[var(--solid-ink)] bg-white shadow-[2px_3px_0_var(--solid-ink)]"
+                  className="absolute right-0 top-[52px] z-50 w-[230px] overflow-hidden rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]"
                 >
                   {GPT_URL ? (
                     <a
@@ -282,15 +282,15 @@ export default function GrammarBooksPage() {
       {state.kind === 'loading' && (
         <div className="flex flex-col gap-2.5">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[72px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-white" />
+            <div key={i} className="h-[72px] animate-pulse rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)]" />
           ))}
         </div>
       )}
 
       {state.kind === 'pro-required' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <div className="flex items-center gap-2">
-            <span className="rounded-[3px] border border-[var(--solid-ink)] bg-white px-[6px] py-[2px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+            <span className="rounded-[3px] border border-[var(--solid-ink)] bg-[var(--color-surface)] px-[6px] py-[2px] font-mono text-[9px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
               PRO
             </span>
             <span className="font-display text-[15px] font-bold text-[var(--solid-ink)]">Pro限定機能です</span>
@@ -300,7 +300,7 @@ export default function GrammarBooksPage() {
           </p>
           <Link
             href="/subscription"
-            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white"
+            className="mt-4 flex h-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)]"
           >
             Proプランを見る
           </Link>
@@ -308,12 +308,12 @@ export default function GrammarBooksPage() {
       )}
 
       {state.kind === 'error' && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5 text-center">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5 text-center">
           <p className="m-0 text-[13px] text-[var(--solid-ink)]">{state.message}</p>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="mt-3 h-10 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-5 text-[13px] font-bold text-[var(--solid-ink)]"
+            className="mt-3 h-10 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 text-[13px] font-bold text-[var(--solid-ink)]"
           >
             再読み込み
           </button>
@@ -321,7 +321,7 @@ export default function GrammarBooksPage() {
       )}
 
       {state.kind === 'ready' && state.books.length === 0 && (
-        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-5">
+        <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
           <div className="font-display text-[15px] font-bold text-[var(--solid-ink)]">まだ問題集がありません</div>
           <p className="m-0 mt-2 text-[12px] leading-[1.8] text-[var(--solid-ink)]">
             ChatGPTのMERKEN GPTに「仮定法の語法問題を10問作って」のように頼むと、ここに問題集が保存されます。
@@ -337,7 +337,7 @@ export default function GrammarBooksPage() {
               return (
                 <div
                   key={book.id}
-                  className="flex items-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-3.5"
+                  className="flex items-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3.5"
                 >
                   <button
                     type="button"
@@ -357,7 +357,7 @@ export default function GrammarBooksPage() {
                     href={`/grammar/${book.id}/list`}
                     className="flex min-w-0 flex-1 items-center gap-3 no-underline"
                   >
-                    <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[#faf7f1] text-[var(--solid-ink)]">
+                    <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)]">
                       <Icon name="menu_book" size={20} />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -378,7 +378,7 @@ export default function GrammarBooksPage() {
                     onClick={() => void handleShare(book.id)}
                     disabled={sharingBookId !== null}
                     aria-label="共有リンクをコピー"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
                   >
                     <Icon name={sharedBookId === book.id ? 'check' : 'ios_share'} size={15} />
                   </button>
@@ -387,7 +387,7 @@ export default function GrammarBooksPage() {
                     onClick={() => void handleDeleteBook(book.id)}
                     disabled={deletingBookId !== null}
                     aria-label={`「${book.title}」を削除`}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#CC4D59] bg-white text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--color-rose)] bg-[var(--color-surface)] text-[var(--color-rose)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
                   >
                     <Icon
                       name={deletingBookId === book.id ? 'progress_activity' : 'delete'}
@@ -398,7 +398,7 @@ export default function GrammarBooksPage() {
                   <Link
                     href={`/grammar/${book.id}`}
                     aria-label="演習を開く"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
                   >
                     <Icon name="play_arrow" size={16} />
                   </Link>

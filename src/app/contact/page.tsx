@@ -17,7 +17,7 @@ export default function ContactPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="chevron_left" size={16} />
           </button>
@@ -52,9 +52,9 @@ export default function ContactPage() {
         <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">連絡先</div>
         <a
           href="mailto:support@merken.jp?cc=ahoperson@merken.jp"
-          className="flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex items-center gap-3 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[12px_14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
-          <span className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] bg-[rgba(26,26,26,0.05)] text-[var(--solid-ink)]">
+          <span className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)] text-[var(--solid-ink)]">
             <Icon name="mail" size={16} />
           </span>
           <span className="flex-1 font-mono text-[13px] font-semibold text-[var(--solid-ink)]">support@merken.jp</span>
@@ -85,7 +85,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
       <div className="pb-1.5 pl-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
         {label}
       </div>
-      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-white p-[12px_14px]">
+      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-[12px_14px]">
         {children}
       </div>
     </div>
@@ -96,7 +96,7 @@ function FaqRow({ q, a, last }: { q: string; a: string; last?: boolean }) {
   return (
     <div className="py-2.5" style={{ borderBottom: last ? 'none' : '1px solid var(--color-border)' }}>
       <div className="mb-1 flex items-start gap-2">
-        <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--solid-ink)] font-mono text-[9px] font-bold text-white">
+        <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--solid-ink)] font-mono text-[9px] font-bold text-[var(--color-on-ink)]">
           Q
         </span>
         <span className="text-xs font-bold leading-[1.5] text-[var(--solid-ink)]">{q}</span>

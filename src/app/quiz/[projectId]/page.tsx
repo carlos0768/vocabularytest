@@ -5,7 +5,14 @@ import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigat
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { TypeInQuizField, ReviewProjectFilterSheet, QuizModeTabs, QuizModeChooser, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
-import { readQuizMode, writeQuizMode, type QuizMode } from '@/lib/quiz/quiz-mode-preference';
+import {
+  QUIZ_FORMAT_QUERY_KEY,
+  isQuizAnswerFormat,
+  readQuizMode,
+  writeQuizMode,
+  type QuizAnswerFormat,
+  type QuizMode,
+} from '@/lib/quiz/quiz-mode-preference';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
 import { getRepository } from '@/lib/db';
@@ -21,6 +28,7 @@ import {
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { selectDailyReviewWords } from '@/lib/quiz/daily-review-selection';
+import { readReviewProjectFilter, writeReviewProjectFilter } from '@/lib/quiz/review-project-filter';
 import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
 import { triggerHaptic } from '@/lib/haptics';
 import { speakEnglish } from '@/lib/speech';
@@ -40,6 +48,10 @@ import {
   stripActiveQuizAnswerSpaces,
 } from '@/lib/quiz/active-answer';
 import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
+import {
+  countWordsByAnswerFormat,
+  filterWordsForAnswerFormat,
+} from '@/lib/quiz/answer-format-words';
 import {
   WORD_ORDER_BLANK_TOKEN,
   buildWordOrderQuestion,
@@ -89,11 +101,12 @@ import type {
 
 const DEFAULT_QUESTION_COUNT = 10;
 const MAX_NORMAL_QUIZ_QUESTION_COUNT = 20;
-const REVIEW_PROJECT_FILTER_STORAGE_KEY = 'quiz-review-project-filter';
 const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 const WORD_ORDER_API_CHUNK_SIZE = 30;
+/** 単語帳をまたぐ出題では音読チャレンジを選ばせない (向こうが1冊ぶんしか出せない)。 */
+const VOICE_MODE_HIDDEN = ['voice'] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -112,6 +125,8 @@ interface QuizPersistState {
   answerResults?: QuizAnswerResult[];
   questionCount: number;
   quizDirection: QuizDirection;
+  /** この回で選んだ解き方。中断から戻ったときに選び直させないため。 */
+  answerFormat?: QuizAnswerFormat;
   timestamp: number;
 }
 
@@ -121,16 +136,6 @@ function isWordOrderQuestion(question: QuizQuestion | undefined): question is Wo
 
 function isMultipleChoiceQuestion(question: QuizQuestion | undefined): question is MultipleChoiceQuizQuestion {
   return question !== undefined && question.type !== 'word-order';
-}
-
-// Mirrors the type-in mode decision made per question in the quiz screen:
-// non-word-order questions for active-vocabulary or active-status words are
-// answered by typing rather than choosing an option.
-function isTypeInQuizQuestion(question: QuizQuestion | undefined): boolean {
-  return (
-    isMultipleChoiceQuestion(question) &&
-    (question.word.vocabularyType === 'active' || question.word.status === 'active')
-  );
 }
 
 function chipKey(token: string): string {
@@ -303,7 +308,7 @@ function DSDesktopWordOrderPanel({
       </div>
 
       {isRevealed && example && (
-        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left">
+        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px] text-left">
           <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
           <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
             {example.sentence}
@@ -350,14 +355,14 @@ function DSWordOrderPanel({
 
   return (
     <div className="mt-[18px] space-y-4">
-      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
         <div className="flex min-h-[76px] flex-wrap items-center gap-2">
           {sentenceItems.map(({ token, index, answerIndex }) => {
             if (token !== WORD_ORDER_BLANK_TOKEN) {
               return (
                 <span
                   key={`${token}-${index}`}
-                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
+                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
                 >
                   {token}
                 </span>
@@ -422,7 +427,7 @@ function DSWordOrderPanel({
       )}
 
       {isRevealed && example && (
-        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
           <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
           <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
             {example.sentence}
@@ -448,17 +453,9 @@ export default function QuizPage() {
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
-  const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = sessionStorage.getItem(REVIEW_PROJECT_FILTER_STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) && parsed.every((id) => typeof id === 'string') && parsed.length > 0
-        ? parsed
-        : null;
-    } catch { return null; }
-  });
+  const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() =>
+    readReviewProjectFilter(),
+  );
   const [availableReviewProjects, setAvailableReviewProjects] = useState<ReviewFilterProject[]>([]);
   const [reviewFilterSheetOpen, setReviewFilterSheetOpen] = useState(false);
 
@@ -503,11 +500,35 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(true);
   const [distractorError, setDistractorError] = useState<string | null>(null);
   /**
-   * この端末で選ばれているクイズ形式。null = 未選択なので、解き始める前に選ばせる。
+   * この端末で前回選ばれた解き方。選択画面の初期選択に使うだけで、これで
+   * 勝手に始めることはしない (null = まだ選んだことがない = 初期選択なし)。
    * localStorage はサーバーには無いので、マウント後に読む。
    */
   const [storedMode, setStoredMode] = useState<QuizMode | null>(null);
   const [modeLoaded, setModeLoaded] = useState(false);
+  /**
+   * この回の解き方。null = まだこの回で選んでいないので、選択画面を出す。
+   * 端末の記憶 (`storedMode`) は選択画面の初期選択に使うだけで、ここへは
+   * 勝手に流し込まない —— 解き方は毎回選べる、が要件。
+   * 音読チャレンジから戻ってきたときだけ URL で指定を持ち回り、選び直しを省く。
+   */
+  const [answerFormat, setAnswerFormat] = useState<QuizAnswerFormat | null>(() => {
+    const fromUrl = searchParams.get(QUIZ_FORMAT_QUERY_KEY);
+    return isQuizAnswerFormat(fromUrl) ? fromUrl : null;
+  });
+  /**
+   * URL で指定されて入ってきた形式 (初回レンダー時の値で固定)。
+   * 中断状態の復元より優先する —— 音読から「記述で」と選んで戻ってきたのに、
+   * 前回の四択の続きを復元して形式まで四択に戻してしまわないため。
+   */
+  const urlAnswerFormatRef = useRef<QuizAnswerFormat | null>(answerFormat);
+  /**
+   * `answerFormat` の写し。語の読み込み effect から読む。
+   * 依存配列に入れると、解き方を選ぶたびに単語を読み直して出題が作り直され、
+   * 解いている途中の切り替えが二重に走ってしまう。
+   */
+  const answerFormatValueRef = useRef<QuizAnswerFormat | null>(answerFormat);
+  answerFormatValueRef.current = answerFormat;
   /** 右上から開くクイズ形式の切り替え。 */
   const [showModeSwitch, setShowModeSwitch] = useState(false);
   const [inputCount, setInputCount] = useState('');
@@ -515,10 +536,6 @@ export default function QuizPage() {
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
   const [typeInAnswer, setTypeInAnswer] = useState('');
   const [typeInResult, setTypeInResult] = useState<'correct' | 'wrong' | null>(null);
-  // Locks whether the current question is shown as a type-in quiz, captured at
-  // presentation time. Answering promotes the word's status (e.g. active →
-  // mastered), and we must not let that flip the UI to multiple-choice mid-question.
-  const typeInModeRef = useRef<{ key: string; value: boolean }>({ key: '', value: false });
   // Desktop and mobile layouts each render a TypeInQuizField (one is always
   // display:none). Focusing the hidden one is a silent no-op, so we can safely
   // focus both to reach whichever layout is currently visible.
@@ -579,23 +596,18 @@ export default function QuizPage() {
       answerResults,
       questionCount,
       quizDirection,
+      answerFormat: answerFormat ?? 'normal',
       timestamp: Date.now(),
     };
     try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch { /* ignore */ }
-  }, [questions, currentIndex, selectedIndex, wordOrderSelectedTokens, wordOrderResult, isRevealed, results, answerResults, questionCount, quizDirection, storageKey]);
+  }, [questions, currentIndex, selectedIndex, wordOrderSelectedTokens, wordOrderResult, isRevealed, results, answerResults, questionCount, quizDirection, answerFormat, storageKey]);
 
   const clearQuizState = useCallback(() => {
     try { sessionStorage.removeItem(storageKey); } catch { /* ignore */ }
   }, [storageKey]);
 
   const handleApplyReviewProjectFilter = useCallback((ids: string[] | null) => {
-    try {
-      if (ids && ids.length > 0) {
-        sessionStorage.setItem(REVIEW_PROJECT_FILTER_STORAGE_KEY, JSON.stringify(ids));
-      } else {
-        sessionStorage.removeItem(REVIEW_PROJECT_FILTER_STORAGE_KEY);
-      }
-    } catch { /* ignore */ }
+    writeReviewProjectFilter(ids);
     clearQuizState();
     restoredFromStorage.current = false;
     setLoading(true);
@@ -613,9 +625,9 @@ export default function QuizPage() {
 
   /**
    * 音読チャレンジへ切り替える。
-   * 選んだ形式は端末に覚えさせる (localStorage)。次回からは選択画面を出さずに
-   * その形式で始められるようにするため。入力済みの問題数は引き継ぐ
-   * (上限の丸めは遷移先で行う)。
+   * 選んだ形式は端末に覚えさせる (localStorage)。次に選択画面を出すときの
+   * 初期選択にするためで、選択画面そのものは毎回出る。入力済みの問題数は
+   * 引き継ぐ (上限の丸めは遷移先で行う)。
    */
   const goToVoiceQuiz = useCallback((options?: { replace?: boolean }) => {
     writeQuizMode('voice');
@@ -633,39 +645,11 @@ export default function QuizPage() {
     else router.push(href);
   }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
 
-  // 端末の選択を読む。未選択ならクイズの前に選択画面を出す。
+  // 端末の前回の選択を読む。選択画面の初期選択にするだけ。
   useEffect(() => {
     setStoredMode(readQuizMode());
     setModeLoaded(true);
   }, []);
-
-  /**
-   * この端末が音読チャレンジを選んでいるなら、四択を開いても音読へ送る。
-   * 選んだ直後だけでなく「次に開いたとき」も選択を守るために要る。
-   * 遷移は一度きり ——依存が変わるたびに router を叩かないよう ref で止める。
-   *
-   * ただし音読チャレンジは単語帳1冊ぶんしか出題できない。「今日の学習」のような
-   * 横断出題 (/quiz/all?learn=1) を送っても向こうで単語帳が見つからず、
-   * 弾かれて戻ってくるだけなので、その場合は端末の選択より四択を優先する。
-   */
-  const redirectedToVoiceRef = useRef(false);
-  useEffect(() => {
-    if (!modeLoaded || storedMode !== 'voice' || voiceQuizUnavailable) return;
-    if (redirectedToVoiceRef.current) return;
-    redirectedToVoiceRef.current = true;
-    goToVoiceQuiz({ replace: true });
-  }, [modeLoaded, storedMode, goToVoiceQuiz, voiceQuizUnavailable]);
-
-  /** 形式を選んだ。四択ならこの画面のまま、音読なら音読チャレンジへ移る。 */
-  const chooseMode = useCallback(
-    (mode: QuizMode) => {
-      writeQuizMode(mode);
-      setStoredMode(mode);
-      setShowModeSwitch(false);
-      if (mode === 'voice') goToVoiceQuiz();
-    },
-    [goToVoiceQuiz],
-  );
 
   const goToNextReviewQuiz = useCallback(() => {
     clearQuizState();
@@ -747,25 +731,33 @@ export default function QuizPage() {
     }
   }, [needsWordOrderQuiz, repository]);
 
+  // 出題するのは解き方に合う語だけ (記述=Active / 四択=Passive)。絞り込みはここに
+  // 一箇所だけ置く —— 呼び出し側でやると、増えた経路が素通ししてしまう。
   const generateQuestions = useCallback((
     words: Word[],
     count: number,
-    direction: QuizDirection = 'en-to-ja',
+    direction: QuizDirection,
+    format: QuizAnswerFormat,
   ): QuizQuestion[] => {
-    return generateQuizQuestions(words, count, direction, undefined, {
+    return generateQuizQuestions(filterWordsForAnswerFormat(words, format), count, direction, undefined, {
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
     });
   }, [isPro, reminderMode]);
 
-  const startQuizWithDistractors = useCallback(async (words: Word[], count: number) => {
+  const startQuizWithDistractors = useCallback(async (
+    allCandidates: Word[],
+    count: number,
+    format: QuizAnswerFormat,
+  ) => {
+    const words = filterWordsForAnswerFormat(allCandidates, format);
     const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
     setDistractorError(null);
     const selectedNeedsWordOrderQuiz = selected.some(needsWordOrderQuiz);
     const wordOrderGenerationRun = wordOrderGenerationRunRef.current + 1;
     wordOrderGenerationRunRef.current = wordOrderGenerationRun;
 
-    const nextQuestions = generateQuestions(words, count, quizDirection);
+    const nextQuestions = generateQuestions(words, count, quizDirection, format);
     setQuestions(nextQuestions);
 
     if (selectedNeedsWordOrderQuiz) {
@@ -828,6 +820,56 @@ export default function QuizPage() {
     })();
   }, [applyGeneratedWordOrderQuizzes, generateQuestions, needsDistractors, needsWordOrderQuiz, quizDirection, repository, reminderMode]);
 
+  /**
+   * その解き方の出題を組み直して最初から始める。
+   * 四択と記述では出題する語がそもそも違う (Passive / Active) ので、途中で切り替える
+   * ときは続きから続けようがない。進捗を捨てて組み直すのが唯一まともな挙動。
+   */
+  const startQuizForFormat = useCallback(async (format: QuizAnswerFormat) => {
+    clearQuizState();
+    hasAnsweredRef.current = false;
+    setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null);
+    setIsRevealed(false); setTypeInAnswer(''); setTypeInResult(null);
+    setResults({ correct: 0, total: 0 }); setAnswerResults([]); setIsComplete(false); setIsTransitioning(false);
+
+    const pool = filterWordsForAnswerFormat(allWords, format);
+    if (pool.length === 0) {
+      // 1問も無いことは呼び出し側では分からない。空のまま置いて、画面に出させる。
+      setQuestions([]);
+      return;
+    }
+    const targetCount = getQuizTargetCount(pool, { primaryOnly: !isPro });
+    const count = Math.max(
+      1,
+      Math.min(questionCount ?? targetCount ?? DEFAULT_QUESTION_COUNT, targetCount || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT),
+    );
+    if (pool.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) {
+      await startQuizWithDistractors(allWords, count, format);
+    } else {
+      setQuestions(generateQuestions(allWords, count, quizDirection, format));
+    }
+  }, [allWords, clearQuizState, generateQuestions, isPro, needsDistractors, needsWordOrderQuiz, questionCount, quizDirection, startQuizWithDistractors]);
+
+  /**
+   * 解き方を選んだ。四択・記述はこの画面のまま、音読なら音読チャレンジへ移る。
+   * 端末には「次に選択画面を出したときの初期選択」として覚えるだけで、
+   * 覚えた形式で勝手に始めることはしない (毎回選ばせる)。
+   */
+  const chooseMode = useCallback(
+    (mode: QuizMode) => {
+      writeQuizMode(mode);
+      setStoredMode(mode);
+      setShowModeSwitch(false);
+      if (mode === 'voice') {
+        goToVoiceQuiz();
+        return;
+      }
+      setAnswerFormat(mode);
+      void startQuizForFormat(mode);
+    },
+    [goToVoiceQuiz, startQuizForFormat],
+  );
+
   useEffect(() => {
     if (authLoading || userPreferencesLoading) return;
     if (aiEnabled === false) { setLoading(false); return; }
@@ -856,6 +898,12 @@ export default function QuizPage() {
         );
         setQuestionCount(restoredCount);
         setQuizDirection(state.quizDirection);
+        // 中断前の解き方をそのまま継ぐ。無ければ四択 (この項目より前に保存された状態)。
+        // ただし URL で明示されていれば、そちらが今回の選択なので勝たせる。
+        setAnswerFormat(
+          urlAnswerFormatRef.current
+            ?? (isQuizAnswerFormat(state.answerFormat) ? state.answerFormat : 'normal'),
+        );
         setAllWords(restoredQuestions.map(q => q.word));
         hasAnsweredRef.current = (state.results?.total ?? 0) > 0 || state.currentIndex > 0;
         restoredFromStorage.current = true;
@@ -1055,11 +1103,15 @@ export default function QuizPage() {
         const resolvedCount = Math.max(1, Math.min(questionCount ?? targetCount, targetCount, MAX_NORMAL_QUIZ_QUESTION_COUNT));
         if (questionCount !== resolvedCount) setQuestionCount(resolvedCount);
 
-        if (resolvedCount) {
-          if (prioritized.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) {
-            await startQuizWithDistractors(prioritized, resolvedCount);
+        // 解き方がまだ決まっていない (これから選択画面を出す) なら出題は作らない。
+        // 出題する語が解き方で変わるので、決まってから `startQuizForFormat` が作る。
+        const format = answerFormatValueRef.current;
+        if (resolvedCount && format) {
+          const pool = filterWordsForAnswerFormat(prioritized, format);
+          if (pool.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) {
+            await startQuizWithDistractors(prioritized, resolvedCount, format);
           } else {
-            setQuestions(generateQuestions(prioritized, resolvedCount, quizDirection));
+            setQuestions(generateQuestions(prioritized, resolvedCount, quizDirection, format));
           }
         }
       } catch (error) {
@@ -1114,18 +1166,17 @@ export default function QuizPage() {
     return () => { cancelled = true; };
   }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, binderName]);
 
+  // 選択画面に出す「この単語帳で何語出せるか」。
+  const answerFormatWordCounts = useMemo(() => countWordsByAnswerFormat(allWords), [allWords]);
+
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
-  // Freeze type-in mode per question (keyed by index + word id, which are stable
-  // across the status mutation that answering applies). Recomputing it from the
-  // live status would flip active → mastered to multiple-choice mid-question.
-  const typeInModeKey = `${currentIndex}:${currentQuestion?.word.id ?? ''}`;
-  if (typeInModeRef.current.key !== typeInModeKey) {
-    const activeStatus = !currentIsWordOrder && !isActiveVocab && currentQuestion?.word.status === 'active';
-    typeInModeRef.current = { key: typeInModeKey, value: Boolean(isActiveVocab || activeStatus) };
-  }
-  const isTypeInMode = typeInModeRef.current.value;
+  // 記述で見せるかは、この回で選ばれた解き方だけで決まる (単語の状態では決めない:
+  // 四択を選んだのに一部の語だけ入力欄になってしまうため)。解き方を変えると出題が
+  // 組み直されて最初からになるので、問題の途中でここが入れ替わることはない。
+  const resolvedAnswerFormat: QuizAnswerFormat = answerFormat ?? 'normal';
+  const isTypeInMode = !currentIsWordOrder && resolvedAnswerFormat === 'typing';
   // Type-in quizzes always ask for the English word (日英). We never make the
   // user type Japanese, regardless of quiz direction or active source.
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
@@ -1226,7 +1277,10 @@ export default function QuizPage() {
   };
 
   const handleSkip = async () => {
-    if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion) || isTypeInMode) return;
+    if (isRevealed || selectedIndex !== null || !isMultipleChoiceQuestion(currentQuestion)) return;
+    // 記述では入力欄しか出ていないので、正解を出すために不正解の見た目にする。
+    // 記録上は不正解ではなく「スキップ」のままにする (marker が 'skip')。
+    if (isTypeInMode) setTypeInResult('wrong');
     setIsRevealed(true);
     await applyAnswerOutcome(currentQuestion.word, false, 'skip');
   };
@@ -1272,7 +1326,11 @@ export default function QuizPage() {
     const advanceState = getQuizAdvanceState(currentIndex, questions.length);
     // Reopen the software keyboard for the next question while we are still
     // inside this tap gesture (iOS only opens the keyboard from a user gesture).
-    if (!advanceState.isComplete && isTypeInQuizQuestion(questions[advanceState.nextIndex])) {
+    if (
+      !advanceState.isComplete &&
+      resolvedAnswerFormat === 'typing' &&
+      isMultipleChoiceQuestion(questions[advanceState.nextIndex])
+    ) {
       focusTypeInField();
     }
     setIsTransitioning(true);
@@ -1305,16 +1363,7 @@ export default function QuizPage() {
   };
 
   const handleRestart = async () => {
-    clearQuizState();
-    hasAnsweredRef.current = false;
-    const targetCount = getQuizTargetCount(allWords, { primaryOnly: !isPro });
-    const count = Math.max(1, Math.min(questionCount ?? targetCount ?? DEFAULT_QUESTION_COUNT, targetCount || DEFAULT_QUESTION_COUNT, MAX_NORMAL_QUIZ_QUESTION_COUNT));
-    if (allWords.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count);
-    else setQuestions(generateQuestions(allWords, count, quizDirection));
-    setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null); setIsRevealed(false);
-    setTypeInAnswer(''); setTypeInResult(null);
-    setIsTransitioning(false);
-    setResults({ correct: 0, total: 0 }); setAnswerResults([]); setIsComplete(false);
+    await startQuizForFormat(resolvedAnswerFormat);
   };
 
   const handleSelectCount = async (count: number) => {
@@ -1323,12 +1372,46 @@ export default function QuizPage() {
     if (allWords.length > 0) {
       setCurrentIndex(0); setSelectedIndex(null); setWordOrderSelectedTokens([]); setWordOrderResult(null); setIsRevealed(false);
       setTypeInAnswer(''); setTypeInResult(null);
-      if (allWords.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count);
-      else setQuestions(generateQuestions(allWords, count, quizDirection));
+      const pool = filterWordsForAnswerFormat(allWords, resolvedAnswerFormat);
+      if (pool.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) await startQuizWithDistractors(allWords, count, resolvedAnswerFormat);
+      else setQuestions(generateQuestions(allWords, count, quizDirection, resolvedAnswerFormat));
     }
   };
 
   /* ---------- Loading ---------- */
+  // デスクトップ: キーボードの 1〜4 で選択肢を選び、Enter で次の問題へ進む。
+  // ハンドラは毎レンダー差し替え、リスナーは1回だけ登録する。
+  const desktopKeyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
+  desktopKeyHandlerRef.current = (event) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    if (!currentQuestion) return;
+    if (event.key === 'Enter') {
+      if (isRevealed && !isTransitioning) {
+        event.preventDefault();
+        moveToNext();
+      }
+      return;
+    }
+    const n = Number(event.key);
+    if (
+      n >= 1 && n <= 4 && !isRevealed && !isTypeInMode &&
+      isMultipleChoiceQuestion(currentQuestion) && n <= currentQuestion.options.length
+    ) {
+      event.preventDefault();
+      void handleSelect(n - 1);
+    }
+  };
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (mediaQuery.matches) desktopKeyHandlerRef.current(event);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   if (loading || !modeLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
@@ -1340,20 +1423,9 @@ export default function QuizPage() {
     );
   }
 
-  /* ---------- 音読チャレンジが選ばれている: 送るまで四択を描かない ---------- */
-  if (storedMode === 'voice' && !voiceQuizUnavailable) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)]">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[var(--solid-ink)] border-t-transparent" />
-          <p className="text-[var(--color-muted)]">音読チャレンジを開いています...</p>
-        </div>
-      </div>
-    );
-  }
-
-  /* ---------- この端末でまだ形式を選んでいない ---------- */
-  if (storedMode === null && !voiceQuizUnavailable) {
+  /* ---------- この回の解き方をまだ選んでいない ---------- */
+  // 端末の記憶があっても毎回ここを通す。前回の選択は初期選択として印を付けるだけ。
+  if (answerFormat === null) {
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
         <div className="p-4">
@@ -1367,7 +1439,13 @@ export default function QuizPage() {
           </button>
         </div>
         <div className="flex flex-1 items-center justify-center px-6 pb-16">
-          <QuizModeChooser onSelect={chooseMode} />
+          <QuizModeChooser
+            current={storedMode ?? undefined}
+            currentLabel="前回"
+            onSelect={chooseMode}
+            hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
+            wordCounts={answerFormatWordCounts}
+          />
         </div>
       </div>
     );
@@ -1390,10 +1468,37 @@ export default function QuizPage() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6">
         <p className="mb-6 text-center text-[var(--color-error)]">{distractorError}</p>
         <div className="w-full max-w-xs space-y-3">
-          <SolidButton variant="inverse" onClick={() => { setDistractorError(null); if (questionCount) startQuizWithDistractors(allWords, questionCount); }} className="w-full">
+          <SolidButton variant="inverse" onClick={() => { setDistractorError(null); if (questionCount) startQuizWithDistractors(allWords, questionCount, resolvedAnswerFormat); }} className="w-full">
             <Icon name="refresh" size={18} />再試行
           </SolidButton>
           <SolidButton onClick={backToProject} className="w-full">単語一覧に戻る</SolidButton>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- 選んだ解き方に合う単語が1語も無い ---------- */
+  if (questions.length === 0) {
+    const otherFormat: QuizAnswerFormat = resolvedAnswerFormat === 'typing' ? 'normal' : 'typing';
+    const emptyLabel = resolvedAnswerFormat === 'typing' ? 'Active (A)' : 'Passive (P)';
+    const otherLabel = otherFormat === 'typing' ? 'Active (A)' : 'Passive (P)';
+    const otherCount = answerFormatWordCounts[otherFormat];
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6">
+        <p className="mb-2 text-center font-display text-lg font-black text-[var(--solid-ink)]">
+          出題できる {emptyLabel} の単語がありません
+        </p>
+        <p className="mb-6 max-w-xs text-center text-sm leading-6 text-[var(--color-muted)]">
+          {resolvedAnswerFormat === 'typing' ? '記述' : '四択'}では {emptyLabel} の単語だけを出題します。
+          単語一覧の A / P ボタンで語彙モードを変えるか、別の解き方を選んでください。
+        </p>
+        <div className="w-full max-w-xs space-y-3">
+          {otherCount > 0 && (
+            <SolidButton variant="inverse" onClick={() => chooseMode(otherFormat)} className="w-full justify-center">
+              {otherFormat === 'typing' ? '記述' : '四択'}に切り替える（{otherLabel} {otherCount}語）
+            </SolidButton>
+          )}
+          <SolidButton onClick={backToProject} className="w-full justify-center">単語帳に戻る</SolidButton>
         </div>
       </div>
     );
@@ -1434,7 +1539,7 @@ export default function QuizPage() {
                 <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
                   {(['en-to-ja', 'ja-to-en'] as const).map((dir) => (
                     <button key={dir} type="button" onClick={() => setQuizDirection(dir)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${quizDirection === dir ? 'bg-[var(--solid-ink)] text-white' : 'text-[var(--color-muted)]'}`}>
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${quizDirection === dir ? 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]' : 'text-[var(--color-muted)]'}`}>
                       {dir === 'en-to-ja' ? '英→日' : '日→英'}
                     </button>
                   ))}
@@ -1487,7 +1592,7 @@ export default function QuizPage() {
             </div>
             {/* Desktop word results */}
             <div className="ds-card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(26,26,26,0.1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ padding: '12px 18px', borderBottom: '1px solid color-mix(in srgb, var(--solid-ink) 10%, transparent)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon name="format_list_bulleted" style={{ fontSize: 18, color: 'var(--color-muted)' }} />
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14 }}>解答一覧</span>
               </div>
@@ -1513,7 +1618,7 @@ export default function QuizPage() {
           </div>
         </div>
         {/* Fixed footer buttons */}
-        <div style={{ borderTop: '1px solid rgba(26,26,26,0.1)', background: 'var(--color-background)', padding: '14px 0' }}>
+        <div style={{ borderTop: '1px solid color-mix(in srgb, var(--solid-ink) 10%, transparent)', background: 'var(--color-background)', padding: '14px 0' }}>
           <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', display: 'flex', gap: 8, justifyContent: 'center' }}>
             <button type="button" className="ds-btn accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart}>
               <Icon name="arrow_forward" />次へ
@@ -1535,7 +1640,7 @@ export default function QuizPage() {
                   {results.correct}<span className="text-[16px] text-[var(--color-muted)]">/{results.total}</span>
                 </div>
                 <div className="flex flex-1 flex-col gap-1">
-                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,0.08)]">
+                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]">
                     <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${percentage}%` }} />
                   </div>
                 </div>
@@ -1555,12 +1660,12 @@ export default function QuizPage() {
               </div>
             </div>
             {/* Word results list */}
-            <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-white">
-              <div className="flex items-center gap-2 border-b border-[rgba(26,26,26,0.1)] px-4 py-3">
+            <div className="mt-3 w-full overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
+              <div className="flex items-center gap-2 border-b border-[color-mix(in_srgb,_var(--solid-ink)_10%,_transparent)] px-4 py-3">
                 <Icon name="format_list_bulleted" size={16} className="text-[var(--color-muted)]" />
                 <h3 className="font-display text-[14px] font-extrabold text-[var(--solid-ink)]">解答一覧</h3>
               </div>
-              <div className="divide-y divide-[rgba(26,26,26,0.08)]">
+              <div className="divide-y divide-[color-mix(in_srgb,_var(--solid-ink)_8%,_transparent)]">
                 {wordResultRows.map((row, i) => (
                   <div key={i} className="flex items-center gap-3 px-4 py-2.5">
                     <span className="w-5 text-center text-[16px] font-black" style={{ color: row.markerColor }}>
@@ -1587,7 +1692,7 @@ export default function QuizPage() {
           </div>
         </div>
         {/* Fixed bottom buttons */}
-        <div className="shrink-0 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-background)]" style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))' }}>
+        <div className="shrink-0 border-t border-[color-mix(in_srgb,_var(--solid-ink)_10%,_transparent)] bg-[var(--color-background)]" style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))' }}>
           <div className="mx-auto w-full max-w-sm space-y-2 px-5 pt-3">
             <SolidButton variant="accent" onClick={reviewMode || learnMode ? goToNextReviewQuiz : handleRestart} iconRight="arrow_forward" className="w-full justify-center">次へ</SolidButton>
             <SolidButton onClick={backToProject} className="w-full justify-center">終了する</SolidButton>
@@ -1600,21 +1705,24 @@ export default function QuizPage() {
 
   /* ---------- Main quiz screen (DS style) ---------- */
   const total = questions.length;
-  const desktopSubtitle = reviewMode
-    ? currentIsWordOrder ? '復習 · 語順クイズ' : '復習 · 4択クイズ'
+  // 語順クイズだけは選んだ解き方に関わらず語順のまま (問題の作りが別物)。
+  const quizKindLabel = currentIsWordOrder
+    ? '語順クイズ'
+    : isTypeInMode
+      ? '記述クイズ'
+      : '4択クイズ';
+  const quizScopeLabel = reviewMode
+    ? '復習'
     : learnMode
-      ? currentIsWordOrder ? '未習得の単語 · 語順クイズ' : '未習得の単語 · 4択クイズ'
+      ? '未習得の単語'
       : wrongMode
-        ? currentIsWordOrder ? '間違えた問題 · 語順クイズ' : '間違えた問題 · 4択クイズ'
+        ? '間違えた問題'
         : reminderMode
-          ? currentIsWordOrder ? '復習リマインダー · 語順クイズ' : '復習リマインダー · 4択クイズ'
-        : favoritesMode
-          ? currentIsWordOrder ? '保存済み単語 · 語順クイズ' : '保存済み単語 · 4択クイズ'
-      : currentIsWordOrder
-        ? '語順クイズ'
-        : isTypeInMode
-          ? 'タイプ入力'
-          : '4択クイズ';
+          ? '復習リマインダー'
+          : favoritesMode
+            ? '保存済み単語'
+            : null;
+  const desktopSubtitle = quizScopeLabel ? `${quizScopeLabel} · ${quizKindLabel}` : quizKindLabel;
   const displayJapanese = currentQuestion ? formatJapaneseForDisplay(currentQuestion.word) : undefined;
   const desktopPrompt = currentIsWordOrder
     ? displayJapanese
@@ -1674,11 +1782,18 @@ export default function QuizPage() {
       className="border-0 bg-transparent p-0 shadow-none"
     >
       <QuizModeChooser
-        current="normal"
+        current={resolvedAnswerFormat}
         onSelect={chooseMode}
         onCancel={() => setShowModeSwitch(false)}
+        hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
+        wordCounts={answerFormatWordCounts}
         title="クイズの解き方を変える"
-        description="この端末での既定として覚えます。"
+        description="次に始めるときの初期選択にもなります。"
+        warning={
+          hasAnsweredRef.current
+            ? '解き方ごとに出題する単語が違うので、切り替えるといまのクイズは最初からになります。'
+            : undefined
+        }
       />
     </Modal>
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
@@ -1687,177 +1802,187 @@ export default function QuizPage() {
           <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
             <Icon name="close" />
           </button>
-          <div className="ds-qbar"><div className="fi" style={{ width: `${Math.round((currentIndex / Math.max(total, 1)) * 100)}%` }} /></div>
-          <span className="ds-qcount">{currentIndex + 1} <span className="muted" style={{ fontWeight: 500 }}>/ {total}</span></span>
-          {!voiceQuizUnavailable && (
-            <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
-              <Icon name="mic" />
-            </button>
-          )}
+          <div className="ds-quiz-prog">
+            {/* 問題ごとの結果を色分けしたセグメント (緑=正解 / 赤=不正解 / 黄=スキップ / 黒=現在) */}
+            <div className="ds-qsegs" aria-hidden="true">
+              {questions.map((_, i) => {
+                const result = answerResults[i];
+                const cls = i < currentIndex
+                  ? (result === true ? 'ok' : result === false ? 'ng' : 'skip')
+                  : i === currentIndex ? 'cur' : '';
+                return <div key={i} className={`ds-qseg ${cls}`} />;
+              })}
+            </div>
+            <span className="ds-qcount">{currentIndex + 1}<span className="muted">/{total}</span></span>
+          </div>
+          <button type="button" className="x" onClick={() => setShowModeSwitch(true)} aria-label="クイズの解き方を変える" title="クイズの解き方">
+            <Icon name="swap_horiz" />
+          </button>
         </div>
-        <div className="mono muted" style={{ fontSize: 12, marginTop: 6 }}>{desktopSubtitle}</div>
 
-        {!currentIsWordOrder && (
-          <div className="ds-qword">
-            <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 42 : undefined }}>{desktopPrompt}</div>
-            {isActiveVocab && desktopPartOfSpeechLabel ? (
-              <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
-                <span className="ds-tag accent">{desktopPartOfSpeechLabel}</span>
+        <div className="ds-quiz-scroll">
+          <div className="ds-quiz-body">
+            <div className="ds-qeyebrow">{desktopSubtitle}</div>
+
+            {!currentIsWordOrder && (
+              <div className="ds-qword">
+                <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 34 : undefined }}>{desktopPrompt}</div>
+                {isActiveVocab && desktopPartOfSpeechLabel ? (
+                  <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+                    <span className="ds-tag accent">{desktopPartOfSpeechLabel}</span>
+                  </div>
+                ) : (
+                  <div className="ph">{desktopPhonetic || '\u00a0'}</div>
+                )}
+              </div>
+            )}
+
+            {isWordOrderQuestion(currentQuestion) ? (
+              <DSDesktopWordOrderPanel
+                question={currentQuestion}
+                selectedTokens={wordOrderSelectedTokens}
+                result={wordOrderResult}
+                isRevealed={isRevealed}
+                onSelectToken={handleWordOrderTokenSelect}
+                onRemoveToken={handleWordOrderTokenRemove}
+              />
+            ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
+              <div className="ds-qopts">
+                {currentQuestion.options.map((option, i) => {
+                  let cls = 'ds-qopt';
+                  if (isRevealed) {
+                    if (i === currentQuestion.correctIndex) cls += ' correct';
+                    else if (i === selectedIndex) cls += ' wrong';
+                    else cls += ' dim';
+                  }
+                  return (
+                    <button key={i} type="button" className={cls} onClick={() => handleSelect(i)} disabled={isRevealed}>
+                      <span className="lbl">{String.fromCharCode(65 + i)}</span>
+                      <span style={{ flex: 1 }}>{option}</span>
+                      {isRevealed && i === currentQuestion.correctIndex && <Icon name="check" />}
+                      {isRevealed && i === selectedIndex && i !== currentQuestion.correctIndex && <Icon name="close" />}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
-              <div className="ph">{desktopPhonetic || '\u00a0'}</div>
-            )}
-          </div>
-        )}
-
-        {isWordOrderQuestion(currentQuestion) ? (
-          <DSDesktopWordOrderPanel
-            question={currentQuestion}
-            selectedTokens={wordOrderSelectedTokens}
-            result={wordOrderResult}
-            isRevealed={isRevealed}
-            onSelectToken={handleWordOrderTokenSelect}
-            onRemoveToken={handleWordOrderTokenRemove}
-          />
-        ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
-          <div className="ds-qopts">
-            {currentQuestion.options.map((option, i) => {
-              let cls = 'ds-qopt';
-              if (isRevealed) {
-                if (i === currentQuestion.correctIndex) cls += ' correct';
-                else if (i === selectedIndex) cls += ' wrong';
-                else cls += ' dim';
-              }
-              return (
-                <button key={i} type="button" className={cls} onClick={() => handleSelect(i)} disabled={isRevealed}>
-                  <span className="lbl">{String.fromCharCode(65 + i)}</span>
-                  <span style={{ flex: 1 }}>{option}</span>
-                  {isRevealed && i === currentQuestion.correctIndex && <Icon name="check" />}
-                  {isRevealed && i === selectedIndex && i !== currentQuestion.correctIndex && <Icon name="close" />}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ width: '100%', maxWidth: 520 }}>
-            <TypeInQuizField
-              ref={typeInFieldDesktopRef}
-              answer={typeInExpectedAnswer}
-              spaceAsGap={isActiveVocab}
-              value={typeInAnswer}
-              onChange={setTypeInAnswer}
-              normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
-              onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
-              disabled={isRevealed}
-              result={typeInResult}
-            />
-            {!isRevealed && (
-              <button
-                type="button"
-                className="ds-btn accent"
-                onClick={handleTypeInSubmit}
-                disabled={!typeInAnswer.trim()}
-                style={{ width: '100%', marginTop: 16 }}
-              >
-                回答する
-              </button>
-            )}
-          </div>
-        )}
-
-        {isRevealed && desktopExample && (
-          <div className="w-full max-w-[780px] rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px] text-left" style={{ marginTop: 16 }}>
-            <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-            <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
-              {desktopExample.sentence}
-            </div>
-            {desktopExample.translation && (
-              <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{desktopExample.translation}</div>
-            )}
-          </div>
-        )}
-
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', marginTop: 16, gap: 14 }}>
-          {currentIsWordOrder ? (
-            isRevealed ? (
-              <>
-                <span
-                  className="ds-status"
-                  style={{
-                    color: wordOrderResult === 'wrong' ? 'var(--color-error)' : 'var(--color-accent-ink)',
-                    fontSize: 15,
-                  }}
-                >
-                  <Icon name={wordOrderResult === 'wrong' ? 'cancel' : 'check_circle'} filled />
-                  {wordOrderResult === 'wrong' ? '不正解' : '正解'}
-                </span>
-                {wordOrderResult === 'wrong' && (
-                  <span className="muted" style={{ fontSize: 13.5 }}>
-                    正解：<b style={{ color: 'var(--color-ink)' }}>{desktopWordOrderAnswer}</b>
-                  </span>
+              <div style={{ width: '100%', maxWidth: 520, margin: '18px auto 0' }}>
+                <TypeInQuizField
+                  ref={typeInFieldDesktopRef}
+                  answer={typeInExpectedAnswer}
+                  spaceAsGap={isActiveVocab}
+                  value={typeInAnswer}
+                  onChange={setTypeInAnswer}
+                  normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
+                  onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
+                  disabled={isRevealed}
+                  result={typeInResult}
+                />
+                {!isRevealed && (
+                  <>
+                    <button
+                      type="button"
+                      className="ds-btn accent"
+                      onClick={handleTypeInSubmit}
+                      disabled={!typeInAnswer.trim()}
+                      style={{ width: '100%', marginTop: 16 }}
+                    >
+                      回答する
+                    </button>
+                    <button
+                      type="button"
+                      className="ds-btn"
+                      onClick={handleSkip}
+                      style={{ width: '100%', marginTop: 8 }}
+                    >
+                      わからない
+                    </button>
+                  </>
                 )}
-                <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
-                  次の問題<Icon name="arrow_forward" />
-                </button>
-              </>
-            ) : (
-              <>
-                {wordOrderSelectedTokens.length > 0 && (
+              </div>
+            )}
+
+
+            {isRevealed && desktopExample && (
+              <div style={{ marginTop: 16, borderRadius: 12, border: '1px dashed var(--color-border)', background: 'var(--color-surface)', padding: '13px 14px', textAlign: 'left' }}>
+                <div className="ds-eyebrow" style={{ marginBottom: 5, fontSize: 9 }}>EXAMPLE</div>
+                <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.55, color: 'var(--color-ink)' }}>
+                  {desktopExample.sentence}
+                </div>
+                {desktopExample.translation && (
+                  <div className="muted" style={{ marginTop: 4, fontSize: 12, lineHeight: 1.55 }}>{desktopExample.translation}</div>
+                )}
+              </div>
+            )}
+
+            {currentIsWordOrder ? (
+              isRevealed ? (
+                <>
+                  <div className="ds-qresult">
+                    <span
+                      className="ds-status"
+                      style={{ color: wordOrderResult === 'wrong' ? 'var(--color-error)' : 'var(--color-accent-ink)', fontSize: 15 }}
+                    >
+                      <Icon name={wordOrderResult === 'wrong' ? 'cancel' : 'check_circle'} filled />
+                      {wordOrderResult === 'wrong' ? '不正解' : '正解'}
+                    </span>
+                    {wordOrderResult === 'wrong' && (
+                      <span className="muted" style={{ fontSize: 13.5 }}>
+                        正解：<b style={{ color: 'var(--color-ink)' }}>{desktopWordOrderAnswer}</b>
+                      </span>
+                    )}
+                  </div>
+                  <button type="button" className="ds-qnext" onClick={moveToNext} disabled={isTransitioning}>
+                    次へ<Icon name="chevron_right" />
+                  </button>
+                </>
+              ) : (
+                <div className="ds-qresult" style={{ justifyContent: 'flex-end' }}>
+                  {wordOrderSelectedTokens.length > 0 && (
+                    <button type="button" className="ds-btn ghost" onClick={() => setWordOrderSelectedTokens([])}>
+                      <Icon name="restart_alt" />クリア
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="ds-btn ghost"
-                    onClick={() => setWordOrderSelectedTokens([])}
+                    className="ds-btn accent"
+                    disabled={!desktopWordOrderReady}
+                    onClick={handleWordOrderSubmit}
                   >
-                    <Icon name="restart_alt" />クリア
+                    <Icon name="check" />答え合わせ
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="ds-btn accent"
-                  disabled={!desktopWordOrderReady}
-                  style={!desktopWordOrderReady ? { opacity: 0.5 } : undefined}
-                  onClick={handleWordOrderSubmit}
-                >
-                  <Icon name="check" />答え合わせ
+                </div>
+              )
+            ) : isRevealed ? (
+              <>
+                <div className="ds-qresult">
+                  <span
+                    className="ds-status"
+                    style={{ color: desktopAnswerWrong ? 'var(--color-error)' : 'var(--color-accent-ink)', fontSize: 15 }}
+                  >
+                    <Icon name={desktopAnswerWrong ? 'cancel' : 'check_circle'} filled />
+                    {desktopAnswerWrong ? '不正解' : '正解'}
+                  </span>
+                  {desktopAnswerWrong && desktopCorrectAnswer && (
+                    <span className="muted" style={{ fontSize: 13.5 }}>
+                      正解：<b style={{ color: 'var(--color-ink)' }}>{desktopCorrectAnswer}</b>
+                    </span>
+                  )}
+                </div>
+                <button type="button" className="ds-qnext" onClick={moveToNext} disabled={isTransitioning}>
+                  次へ<Icon name="chevron_right" />
                 </button>
+                <div className="ds-qhint"><b>Enter</b> で次へ</div>
               </>
-            )
-          ) : isRevealed ? (
-            <>
-              <span
-                className="ds-status"
-                style={{
-                  color: desktopAnswerWrong ? 'var(--color-error)' : 'var(--color-accent-ink)',
-                  fontSize: 15,
-                }}
-              >
-                <Icon
-                  name={desktopAnswerWrong ? 'cancel' : 'check_circle'}
-                  filled
-                />
-                {desktopAnswerWrong ? '不正解' : '正解'}
-              </span>
-              {desktopAnswerWrong && desktopCorrectAnswer && (
-                <span className="muted" style={{ fontSize: 13.5 }}>
-                  正解：<b style={{ color: 'var(--color-ink)' }}>{desktopCorrectAnswer}</b>
-                </span>
-              )}
-              <button type="button" className="ds-btn accent" onClick={moveToNext} disabled={isTransitioning}>
-                次の問題<Icon name="arrow_forward" />
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="muted mono" style={{ fontSize: 12 }}>
-                {isTypeInMode ? '答えを入力してください' : '意味として正しいものを選んでください'}
-              </span>
-              {!isTypeInMode && !currentIsWordOrder && (
-                <button type="button" className="ds-btn ghost" onClick={handleSkip} style={{ marginLeft: 'auto' }}>
-                  わからない
-                </button>
-              )}
-            </>
-          )}
+            ) : isTypeInMode ? (
+              <div className="ds-qhint">答えを入力して <b>Enter</b> で回答</div>
+            ) : (
+              <>
+                <button type="button" className="ds-qskip" onClick={handleSkip}>わからない</button>
+                <div className="ds-qhint">キーボード <b>1〜4</b> で選択 · <b>Enter</b> で次へ</div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1886,10 +2011,10 @@ export default function QuizPage() {
                           ? 'var(--color-error)'
                           : answerResults[i] === 'skip'
                             ? 'var(--color-warning)'
-                            : 'rgba(26,26,26,0.1)'
+                            : 'color-mix(in srgb, var(--solid-ink) 10%, transparent)'
                       : i === currentIndex
                         ? 'var(--solid-ink)'
-                        : 'rgba(26,26,26,0.1)',
+                        : 'color-mix(in srgb, var(--solid-ink) 10%, transparent)',
                   border: i === currentIndex ? '0.5px solid var(--solid-ink)' : 'none',
                 }}
               />
@@ -1899,16 +2024,14 @@ export default function QuizPage() {
             {currentIndex + 1}<span className="text-[var(--color-muted)]">/{total}</span>
           </span>
         </div>
-        {!voiceQuizUnavailable && (
-          <button
-            type="button"
-            onClick={() => setShowModeSwitch(true)}
-            aria-label="クイズの解き方を変える"
-            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
-          >
-            <Icon name="mic" size={19} />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowModeSwitch(true)}
+          aria-label="クイズの解き方を変える"
+          className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
+        >
+          <Icon name="swap_horiz" size={19} />
+        </button>
         {(reviewMode || learnMode) && (
           <button
             type="button"
@@ -1930,7 +2053,7 @@ export default function QuizPage() {
       {/* Main content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
         <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'タイプ入力' : '意味を選ぼう'}
+          {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'つづりを入力' : '意味を選ぼう'}
         </div>
 
         {/* Word display — big solid plate */}
@@ -1952,7 +2075,7 @@ export default function QuizPage() {
                   onClick={() => {
                     speakEnglish(currentQuestion?.word.english);
                   }}
-                  className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[rgba(26,26,26,0.04)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
+                  className="inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
                 >
                   <Icon name="volume_up" size={12} /> 読み上げ
                 </button>
@@ -1990,7 +2113,7 @@ export default function QuizPage() {
               <button
                 type="button"
                 onClick={handleSkip}
-                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-white py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
+                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
               >
                 わからない
               </button>
@@ -2011,9 +2134,18 @@ export default function QuizPage() {
               variant="solid"
             />
             {!isRevealed && (
-              <SolidButton variant="accent" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
-                回答する
-              </SolidButton>
+              <>
+                <SolidButton variant="accent" onClick={handleTypeInSubmit} disabled={!typeInAnswer.trim()} className="w-full justify-center">
+                  回答する
+                </SolidButton>
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
+                >
+                  わからない
+                </button>
+              </>
             )}
             {isRevealed && typeInResult === 'wrong' && currentQuestion && (
               <div
@@ -2031,7 +2163,7 @@ export default function QuizPage() {
 
         {/* Example sentence revealed */}
         {isRevealed && !currentIsWordOrder && currentQuestion?.word.exampleSentence && (
-          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-white p-[13px_14px]">
+          <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
             <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
             <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
               {currentQuestion.word.exampleSentence}

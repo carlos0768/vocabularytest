@@ -314,6 +314,7 @@ test('resolveImmediateWordsWithMasterFirst AI-translates only unresolved misses 
     ],
     {
       lookupEntries: async () => [existingWithoutTranslation],
+      lookupEntriesByHeadwords: async () => [],
       translateWords: async (inputs) => {
         batchTranslationCalls += 1;
         const map = new Map<string, string | null>();
@@ -343,4 +344,219 @@ test('resolveImmediateWordsWithMasterFirst AI-translates only unresolved misses 
   assert.equal(result.metrics.masterHitCount, 1);
   assert.equal(result.metrics.masterTranslationHitCount, 0);
   assert.equal(result.metrics.aiMissCount, 2);
+});
+
+// --- 見出し語フォールバック（品詞が一致しない場合の使い回し） ---
+
+const MASTER_ENTRY_WITH_CONTENT = {
+  ...MASTER_ENTRY,
+  exampleSentence: 'We conducted an experiment in the lab.',
+  exampleSentenceJa: '私たちは研究室で実験を行った。',
+  pronunciation: '/ɪkˈsperɪmənt/',
+};
+
+test('resolveImmediateWordsWithMasterFirst reuses the master entry when the scan could not determine a part of speech', async () => {
+  let batchTranslationCalls = 0;
+  let headwordLookupCalls = 0;
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '',
+        distractors: [],
+        // AIが品詞を返さなかった語は pos='other' に落ちるので (見出し語, 品詞) では当たらない
+        partOfSpeechTags: [],
+      },
+    ],
+    {
+      lookupEntries: async () => [],
+      lookupEntriesByHeadwords: async (headwords) => {
+        headwordLookupCalls += 1;
+        assert.deepEqual(headwords, ['experiment']);
+        return [MASTER_ENTRY_WITH_CONTENT];
+      },
+      translateWords: async () => {
+        batchTranslationCalls += 1;
+        return new Map();
+      },
+      translateWord: async () => {
+        throw new Error('translateWord should not run');
+      },
+    },
+  );
+
+  assert.equal(headwordLookupCalls, 1);
+  assert.equal(batchTranslationCalls, 0);
+  assert.equal(result.words[0]?.japanese, '実験');
+  assert.equal(result.words[0]?.lexiconEntryId, MASTER_ENTRY.id);
+  assert.equal(result.words[0]?.exampleSentence, MASTER_ENTRY_WITH_CONTENT.exampleSentence);
+  assert.equal(result.words[0]?.exampleSentenceJa, MASTER_ENTRY_WITH_CONTENT.exampleSentenceJa);
+  assert.equal(result.words[0]?.pronunciation, MASTER_ENTRY_WITH_CONTENT.pronunciation);
+  // 品詞タグをマスターから埋めるので、保存後の品詞判定AI呼び出しも不要になる
+  assert.deepEqual(result.words[0]?.partOfSpeechTags, ['noun']);
+  assert.equal(result.metrics.masterHeadwordFallbackHitCount, 1);
+  assert.equal(result.metrics.masterHitCount, 1);
+  assert.equal(result.metrics.masterTranslationHitCount, 1);
+  assert.equal(result.metrics.aiMissCount, 0);
+  assert.deepEqual(result.lexiconEntries.map((entry) => entry.id), [MASTER_ENTRY.id]);
+});
+
+test('resolveImmediateWordsWithMasterFirst reuses a master entry whose own part of speech is unknown', async () => {
+  const unclassifiedEntry = {
+    ...MASTER_ENTRY_WITH_CONTENT,
+    pos: 'other',
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '',
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+      },
+    ],
+    {
+      lookupEntries: async () => [],
+      lookupEntriesByHeadwords: async () => [unclassifiedEntry],
+      translateWords: async () => {
+        throw new Error('translateWords should not run');
+      },
+      translateWord: async () => {
+        throw new Error('translateWord should not run');
+      },
+    },
+  );
+
+  assert.equal(result.words[0]?.japanese, '実験');
+  assert.equal(result.words[0]?.lexiconEntryId, unclassifiedEntry.id);
+  // マスター側が 'other'（不明）なので、スキャン側の品詞タグは書き換えない
+  assert.deepEqual(result.words[0]?.partOfSpeechTags, ['noun']);
+  assert.equal(result.metrics.masterHeadwordFallbackHitCount, 1);
+});
+
+test('resolveImmediateWordsWithMasterFirst does not reuse a master entry with a conflicting part of speech', async () => {
+  let batchTranslationCalls = 0;
+
+  const verbEntry = {
+    ...MASTER_ENTRY_WITH_CONTENT,
+    id: '33333333-3333-4333-8333-333333333333',
+    pos: 'verb',
+    translationJa: '実験する',
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '',
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+      },
+    ],
+    {
+      lookupEntries: async () => [],
+      lookupEntriesByHeadwords: async () => [verbEntry],
+      translateWords: async (inputs) => {
+        batchTranslationCalls += 1;
+        return new Map(inputs.map((input) => [`${input.english.toLowerCase()}::${input.pos}`, '実験'] as const));
+      },
+    },
+  );
+
+  // 名詞と明言されている語に動詞の語義を混ぜるより、AIを呼ぶほうが正しい
+  assert.equal(batchTranslationCalls, 1);
+  assert.equal(result.words[0]?.japanese, '実験');
+  assert.equal(result.words[0]?.japaneseSource, 'ai');
+  assert.equal(result.words[0]?.lexiconEntryId, undefined);
+  assert.equal(result.words[0]?.exampleSentence, undefined);
+  assert.equal(result.metrics.masterHeadwordFallbackHitCount, 0);
+  assert.equal(result.metrics.aiMissCount, 1);
+  assert.deepEqual(result.lexiconEntries, []);
+});
+
+test('resolveImmediateWordsWithMasterFirst picks the most reusable candidate for an unknown part of speech', async () => {
+  const emptyEntry = {
+    ...MASTER_ENTRY,
+    id: '44444444-4444-4444-8444-444444444444',
+    pos: 'verb',
+    translationJa: undefined,
+    translationSource: undefined,
+  };
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '',
+        distractors: [],
+        partOfSpeechTags: [],
+      },
+    ],
+    {
+      lookupEntries: async () => [],
+      lookupEntriesByHeadwords: async () => [emptyEntry, MASTER_ENTRY_WITH_CONTENT],
+      translateWords: async () => {
+        throw new Error('translateWords should not run');
+      },
+    },
+  );
+
+  assert.equal(result.words[0]?.lexiconEntryId, MASTER_ENTRY.id);
+  assert.equal(result.words[0]?.japanese, '実験');
+  // 採用しなかった候補は返さない（呼び出し側の例文書き戻し先を誤らせないため）
+  assert.deepEqual(result.lexiconEntries.map((entry) => entry.id), [MASTER_ENTRY.id]);
+});
+
+test('resolveImmediateWordsWithMasterFirst skips the headword lookup when every word hits an exact key', async () => {
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '',
+        distractors: [],
+        partOfSpeechTags: ['noun'],
+      },
+    ],
+    {
+      lookupEntries: async () => [MASTER_ENTRY],
+      lookupEntriesByHeadwords: async () => {
+        throw new Error('lookupEntriesByHeadwords should not run');
+      },
+      translateWords: async () => new Map(),
+    },
+  );
+
+  assert.equal(result.words[0]?.lexiconEntryId, MASTER_ENTRY.id);
+  assert.equal(result.metrics.masterHeadwordFallbackHitCount, 0);
+});
+
+test('resolveImmediateWordsWithMasterFirst falls back to AI when the headword lookup fails', async () => {
+  let batchTranslationCalls = 0;
+
+  const result = await resolveImmediateWordsWithMasterFirst(
+    [
+      {
+        english: 'experiment',
+        japanese: '',
+        distractors: [],
+        partOfSpeechTags: [],
+      },
+    ],
+    {
+      lookupEntries: async () => [],
+      lookupEntriesByHeadwords: async () => {
+        throw new Error('lexicon unavailable');
+      },
+      translateWords: async (inputs) => {
+        batchTranslationCalls += 1;
+        return new Map(inputs.map((input) => [`${input.english.toLowerCase()}::${input.pos}`, '実験'] as const));
+      },
+    },
+  );
+
+  assert.equal(batchTranslationCalls, 1);
+  assert.equal(result.words[0]?.japanese, '実験');
+  assert.equal(result.metrics.masterHeadwordFallbackHitCount, 0);
 });

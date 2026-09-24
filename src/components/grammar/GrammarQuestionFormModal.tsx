@@ -90,7 +90,7 @@ export function GrammarQuestionFormModal({
   };
 
   const inputClass =
-    'w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[13px] text-[var(--solid-ink)] outline-none';
+    'w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[13px] text-[var(--solid-ink)] outline-none';
   const labelClass = 'mb-1 block font-mono text-[10px] font-bold tracking-[0.06em] text-[var(--color-muted)]';
 
   return (
@@ -102,10 +102,10 @@ export function GrammarQuestionFormModal({
       />
       <div className="absolute inset-0 flex items-center justify-center px-4 py-8">
         <div
-          className="w-full overflow-y-auto overscroll-contain rounded-[20px] border-2 border-[var(--solid-ink)] bg-white"
+          className="w-full overflow-y-auto overscroll-contain rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]"
           style={{ maxWidth: 520, maxHeight: '86dvh' }}
         >
-          <div className="sticky top-0 z-[2] flex items-center justify-between border-b border-[var(--color-border)] bg-white px-4 py-3">
+          <div className="sticky top-0 z-[2] flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
             <span className="font-mono text-[10.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
               問題を手動で追加
             </span>
@@ -113,7 +113,7 @@ export function GrammarQuestionFormModal({
               type="button"
               onClick={() => { if (!saving) onClose(); }}
               aria-label="閉じる"
-              className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-white text-[var(--color-secondary-text)]"
+              className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-secondary-text)]"
             >
               <Icon name="close" size={16} />
             </button>
@@ -143,8 +143,8 @@ export function GrammarQuestionFormModal({
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[12px] font-bold transition-all"
                       style={{
                         borderColor: correctIndex === choiceIndex ? 'var(--color-accent)' : 'var(--color-border)',
-                        background: correctIndex === choiceIndex ? 'var(--color-accent)' : '#fff',
-                        color: correctIndex === choiceIndex ? '#fff' : 'var(--color-muted)',
+                        background: correctIndex === choiceIndex ? 'var(--color-accent)' : 'var(--color-surface)',
+                        color: correctIndex === choiceIndex ? 'var(--color-on-accent)' : 'var(--color-muted)',
                       }}
                     >
                       {GRAMMAR_CHOICE_LABELS[choiceIndex]}
@@ -207,7 +207,7 @@ export function GrammarQuestionFormModal({
               type="button"
               onClick={() => void handleSubmit()}
               disabled={saving}
-              className="flex h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-60"
+              className="flex h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-60"
             >
               {saving && <Icon name="progress_activity" size={15} className="animate-spin" />}
               問題を追加

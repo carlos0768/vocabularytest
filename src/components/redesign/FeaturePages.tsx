@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 type Tone = 'ink' | 'accent' | 'blue' | 'gold' | 'red';
 
 const toneClass: Record<Tone, string> = {
-  ink: 'bg-[var(--color-foreground)] text-white border-[var(--solid-ink)]',
+  ink: 'bg-[var(--color-foreground)] text-[var(--color-on-ink)] border-[var(--solid-ink)]',
   accent: 'bg-[var(--color-accent-subtle)] text-[var(--color-accent-ink)] border-[var(--color-accent)]',
   blue: 'bg-blue-50 text-blue-800 border-blue-700',
   gold: 'bg-amber-50 text-amber-800 border-amber-700',
@@ -72,11 +72,11 @@ export function CorrectionHistoryPage() {
           <SectionTitle label="履歴" value={`${correctionHistory.length}件`} />
           <div className="mt-4 space-y-3">
             {correctionHistory.map((item) => (
-              <Link key={item.title} href="/correction/result" className="block rounded-xl border-2 border-[var(--solid-ink)] bg-white p-4 transition hover:bg-[var(--color-surface-secondary)]">
+              <Link key={item.title} href="/correction/result" className="block rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 transition hover:bg-[var(--color-surface-secondary)]">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-[var(--color-foreground)] font-display text-white">
+                  <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-[var(--color-foreground)] font-display text-[var(--color-on-ink)]">
                     <span className="text-xl font-black leading-none">{item.score}</span>
-                    <span className="mt-0.5 font-mono text-[8px] tracking-[0.08em] text-white/70">SCORE</span>
+                    <span className="mt-0.5 font-mono text-[8px] tracking-[0.08em] text-[var(--color-on-ink)]/70">SCORE</span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -93,9 +93,9 @@ export function CorrectionHistoryPage() {
           </div>
         </SolidPanel>
         <SolidPanel inverse className="p-5">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/60">Pro workflow</p>
-          <h2 className="mt-3 font-display text-2xl font-black text-white">赤ペンから単語帳へ</h2>
-          <p className="mt-3 text-sm leading-7 text-white/75">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-on-ink)]/60">Pro workflow</p>
+          <h2 className="mt-3 font-display text-2xl font-black text-[var(--color-on-ink)]">赤ペンから単語帳へ</h2>
+          <p className="mt-3 text-sm leading-7 text-[var(--color-on-ink)]/75">
             修正理由をタグ化し、語法・文法ミスから復習すべき表現だけを単語帳へ送る画面です。
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
@@ -126,7 +126,7 @@ export function CorrectionInputPage() {
               key={item}
               className={cn(
                 'rounded-full border-2 px-3 py-1.5 text-sm font-bold',
-                index === 0 ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-white' : 'border-[var(--color-border)] bg-white text-[var(--color-foreground)]'
+                index === 0 ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-[var(--color-on-ink)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]'
               )}
             >
               {item}
@@ -134,7 +134,7 @@ export function CorrectionInputPage() {
           ))}
         </div>
         <textarea
-          className="mt-5 min-h-64 w-full resize-none rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="mt-5 min-h-64 w-full resize-none rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           defaultValue={'When I was a child, I have lived in a small town. Every morning I am walking to school with my friends, and we discussing about many things.'}
         />
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -167,9 +167,9 @@ export function CorrectionResultPage() {
       <div className="space-y-5">
         <SolidPanel className="p-5">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-xl bg-[var(--color-foreground)] font-display text-white">
+            <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-xl bg-[var(--color-foreground)] font-display text-[var(--color-on-ink)]">
               <span className="text-3xl font-black leading-none">72</span>
-              <span className="mt-1 font-mono text-[9px] tracking-[0.08em] text-white/70">SCORE</span>
+              <span className="mt-1 font-mono text-[9px] tracking-[0.08em] text-[var(--color-on-ink)]/70">SCORE</span>
             </div>
             <div>
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-muted)]">準2級レベル · 61語</p>
@@ -181,7 +181,7 @@ export function CorrectionResultPage() {
 
         <SolidPanel className="p-5">
           <SectionTitle label="添削後" value="削除 / 追加" />
-          <p className="mt-4 rounded-xl border border-[var(--color-border)] bg-white p-4 text-[15px] leading-8 text-[var(--color-foreground)]">
+          <p className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-[15px] leading-8 text-[var(--color-foreground)]">
             When I was a child, I <Del>have lived</Del> <Ins>lived</Ins> in a small town. The town <Ins>was</Ins> surrounded by mountains and there was a river <Del>run</Del> <Ins>running</Ins> through the middle. Every morning I <Del>am walking</Del> <Ins>walked</Ins> to school with my friends, and we <Del>discussing about</Del> <Ins>discussed</Ins> many things.
           </p>
         </SolidPanel>
@@ -190,7 +190,7 @@ export function CorrectionResultPage() {
           <SectionTitle label="指摘" value={`${correctionIssues.length}件`} />
           <div className="mt-4 space-y-3">
             {correctionIssues.map((issue) => (
-              <div key={issue.from} className="rounded-xl border border-[var(--color-border)] bg-white p-4">
+              <div key={issue.from} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <Badge tone={issue.tone}>{issue.tag}</Badge>
                   <span className="font-mono font-bold text-red-700 line-through">{issue.from}</span>
@@ -248,13 +248,13 @@ export function ParserInputPage() {
         <SectionTitle label="解析の深さ" value="Pro対応" />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {['SVOのみ', '節を分ける', 'ツリー詳細'].map((item, index) => (
-            <div key={item} className={cn('rounded-xl border-2 p-3 text-sm font-bold', index === 1 ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-white' : 'border-[var(--color-border)] bg-white')}>
+            <div key={item} className={cn('rounded-xl border-2 p-3 text-sm font-bold', index === 1 ? 'border-[var(--solid-ink)] bg-[var(--color-foreground)] text-[var(--color-on-ink)]' : 'border-[var(--color-border)] bg-[var(--color-surface)]')}>
               {item}
             </div>
           ))}
         </div>
         <textarea
-          className="mt-5 min-h-56 w-full resize-none rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4 font-mono text-[14px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="mt-5 min-h-56 w-full resize-none rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 font-mono text-[14px] leading-7 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           defaultValue={"Although she had never spoken in public before, she delivered the speech that changed the company's direction with confidence that surprised everyone in the room."}
         />
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -280,7 +280,7 @@ export function ParserResultPage() {
       <div className="space-y-5">
         <SolidPanel className="p-5">
           <SectionTitle label="原文 + 節分け" value="27語" />
-          <div className="mt-4 rounded-xl border-2 border-[var(--solid-ink)] bg-white p-4 font-mono text-[14px] leading-9">
+          <div className="mt-4 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 font-mono text-[14px] leading-9">
             <Clause tone="blue" tag="M">Although</Clause> <Clause tone="blue" tag="S">she</Clause> <Clause tone="blue" tag="V">had never spoken</Clause> <Clause tone="blue">in public before</Clause>, <Clause tone="accent" tag="S">she</Clause> <Clause tone="accent" tag="V">delivered</Clause> <Clause tone="accent" tag="O">the speech</Clause> <Clause tone="accent" tag="M">that changed the company&apos;s direction</Clause> <Clause tone="gold">with confidence that surprised everyone in the room</Clause>.
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -292,7 +292,7 @@ export function ParserResultPage() {
           <SectionTitle label="構造ツリー" value="ツリー" />
           <div className="mt-4 space-y-3">
             {parserClauses.map((clause, index) => (
-              <div key={clause.text} className={cn('rounded-xl border-l-4 p-4', index === 0 ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent)]' : 'bg-white border-[var(--solid-ink)]')}>
+              <div key={clause.text} className={cn('rounded-xl border-l-4 p-4', index === 0 ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent)]' : 'bg-[var(--color-surface)] border-[var(--solid-ink)]')}>
                 <p className="font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[var(--color-muted)]">{clause.label}</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--color-foreground)]">{clause.text}</p>
               </div>
@@ -418,13 +418,13 @@ function ScanMock({ title, mode, cta, resultHref }: { title: string; mode: strin
   return (
     <SolidPanel className="overflow-hidden">
       <div className="grid lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="relative min-h-[440px] bg-[var(--color-foreground)] p-5 text-white">
-          <div className="absolute left-8 right-8 top-16 bottom-16 rounded-[28px] border-2 border-white/80">
+        <div className="relative min-h-[440px] bg-[var(--color-foreground)] p-5 text-[var(--color-on-ink)]">
+          <div className="absolute left-8 right-8 top-16 bottom-16 rounded-[28px] border-2 border-[var(--color-on-ink)]/80">
             <span className="absolute -left-1 -top-1 h-10 w-10 border-l-4 border-t-4 border-[var(--color-accent)]" />
             <span className="absolute -right-1 -top-1 h-10 w-10 border-r-4 border-t-4 border-[var(--color-accent)]" />
             <span className="absolute -bottom-1 -left-1 h-10 w-10 border-b-4 border-l-4 border-[var(--color-accent)]" />
             <span className="absolute -bottom-1 -right-1 h-10 w-10 border-b-4 border-r-4 border-[var(--color-accent)]" />
-            <div className="absolute inset-x-10 top-20 rotate-[-3deg] rounded-xl bg-white p-5 text-[var(--color-foreground)] shadow-lg">
+            <div className="absolute inset-x-10 top-20 rotate-[-3deg] rounded-xl bg-[var(--color-surface)] p-5 text-[var(--color-foreground)] shadow-lg">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-muted)]">English answer</p>
               <div className="mt-4 space-y-3">
                 <div className="h-2 rounded bg-[var(--color-border)]" />
@@ -435,7 +435,7 @@ function ScanMock({ title, mode, cta, resultHref }: { title: string; mode: strin
             </div>
           </div>
           <div className="relative z-10 flex items-center justify-between">
-            <span className="rounded-full border border-white/25 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/75">{mode}</span>
+            <span className="rounded-full border border-[var(--color-on-ink)]/25 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-on-ink)]/75">{mode}</span>
             <Icon name="photo_camera" size={24} />
           </div>
         </div>
@@ -477,7 +477,7 @@ function Ins({ children }: { children: ReactNode }) {
 function Clause({ children, tone, tag }: { children: ReactNode; tone: Tone; tag?: string }) {
   return (
     <span className={cn('relative inline-block rounded px-1.5 pb-1 pt-4', tone === 'blue' && 'bg-blue-50', tone === 'accent' && 'bg-[var(--color-accent-subtle)]', tone === 'gold' && 'bg-amber-50')}>
-      {tag ? <span className="absolute left-1 top-0 rounded-sm bg-[var(--color-foreground)] px-1 font-mono text-[8px] font-black text-white">{tag}</span> : null}
+      {tag ? <span className="absolute left-1 top-0 rounded-sm bg-[var(--color-foreground)] px-1 font-mono text-[8px] font-black text-[var(--color-on-ink)]">{tag}</span> : null}
       {children}
     </span>
   );

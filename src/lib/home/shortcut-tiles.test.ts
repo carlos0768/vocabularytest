@@ -67,17 +67,20 @@ test('全て空なら空配列を返す', () => {
   assert.deepEqual(tiles, []);
 });
 
-test('コンテンツ枠数はgoalタイルと保存済みタイルを除いた残り', () => {
-  // 8枠 - goal 1枠 = 7、保存済みタイル表示時はさらに1枠減って6
-  assert.equal(homeShortcutContentSlots(false), 7);
-  assert.equal(homeShortcutContentSlots(true), 6);
+test('コンテンツ枠数は固定タイルを除いた残り', () => {
+  // モバイルのホームは固定タイル無し → 8枠すべてコンテンツ
+  assert.equal(homeShortcutContentSlots(0), 8);
+  // デスクトップは goal 1枠、保存済みタイル表示時はさらに1枠減る
+  assert.equal(homeShortcutContentSlots(1), 7);
+  assert.equal(homeShortcutContentSlots(2), 6);
+  assert.equal(homeShortcutContentSlots(99), 0);
 });
 
 test('溢れた単語帳の計算がグリッドの表示数と一致する', () => {
   // ホーム側は min(単語帳数, 枠数) をグリッド掲載数として溢れを求める。
   // グリッド本体（buildHomeShortcutTiles）の project タイル数と一致すること。
   const projects = Array.from({ length: 10 }, (_, i) => p(`p${i}`));
-  const slots = homeShortcutContentSlots(true);
+  const slots = homeShortcutContentSlots(0);
   const tiles = buildHomeShortcutTiles({ projects, groups: [], recommendations: [], slots });
   const gridProjectCount = Math.min(projects.length, slots);
   assert.equal(tiles.filter((tile) => tile.kind === 'project').length, gridProjectCount);

@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  applyClientLocalGeneratedClassicalExamples,
   applyClientLocalGeneratedExamples,
+  buildClientLocalClassicalExampleSeedWords,
   buildClientLocalExampleSeedWords,
+  buildServerCloudClassicalExampleSeedWords,
   buildServerCloudExampleSeedWords,
   buildServerCloudExampleUpdatePayload,
   type ClientLocalExampleWord,
@@ -226,4 +229,87 @@ test('buildServerCloudExampleUpdatePayload preserves generated example DB update
     example_sentence_ja: '生徒たちはその図表を注意深く分析します。',
     part_of_speech_tags: ['verb'],
   });
+});
+
+// ---------- 古典語との混在 ----------
+
+// シードは古典語を飛ばすのに apply が飛ばさないと、以降の英単語が1つずつ
+// ズレて「別の単語の例文」が付く。両者が同じ述語を使うことを固定する。
+test('applyClientLocalGeneratedExamples stays aligned when classical words are mixed in', () => {
+  const words: ClientLocalExampleWord[] = [
+    { english: 'あさまし', japanese: '驚きあきれる', classicalEntryId: 'entry-1' },
+    { english: 'adapt', japanese: '適応する' },
+    { english: 'concise', japanese: '簡潔な' },
+  ];
+
+  const seedWords = buildClientLocalExampleSeedWords(words);
+  assert.deepEqual(seedWords, [
+    { id: '0', english: 'adapt', japanese: '適応する' },
+    { id: '1', english: 'concise', japanese: '簡潔な' },
+  ]);
+
+  const applied = applyClientLocalGeneratedExamples(words, [
+    {
+      wordId: '0',
+      exampleSentence: 'We adapt quickly.',
+      exampleSentenceJa: '私たちはすばやく適応します。',
+      partOfSpeechTags: ['verb'],
+    },
+    {
+      wordId: '1',
+      exampleSentence: 'Keep it concise.',
+      exampleSentenceJa: '簡潔にしてください。',
+      partOfSpeechTags: ['adjective'],
+    },
+  ]);
+
+  // 古典語には英語例文を付けない
+  assert.equal(applied[0]?.exampleSentence, undefined);
+  assert.equal(applied[1]?.exampleSentence, 'We adapt quickly.');
+  assert.equal(applied[2]?.exampleSentence, 'Keep it concise.');
+});
+
+test('buildClientLocalClassicalExampleSeedWords picks only classical words without examples', () => {
+  const seedWords = buildClientLocalClassicalExampleSeedWords([
+    { english: 'adapt', japanese: '適応する' },
+    { english: 'あさまし', japanese: '驚きあきれる', classicalEntryId: 'entry-1', reading: 'あさまし' },
+    { english: 'をかし', japanese: '趣がある', classicalEntryId: 'entry-2', exampleSentence: 'いとをかし。' },
+    { english: 'ゆかし', japanese: '心ひかれる', isClassical: true },
+  ]);
+
+  assert.deepEqual(seedWords, [
+    { id: '0', headword: 'あさまし', meaning: '驚きあきれる', reading: 'あさまし' },
+    { id: '1', headword: 'ゆかし', meaning: '心ひかれる' },
+  ]);
+});
+
+test('applyClientLocalGeneratedClassicalExamples applies to classical words only', () => {
+  const words: ClientLocalExampleWord[] = [
+    { english: 'adapt', japanese: '適応する' },
+    { english: 'あさまし', japanese: '驚きあきれる', classicalEntryId: 'entry-1' },
+  ];
+
+  const applied = applyClientLocalGeneratedClassicalExamples(words, [
+    { wordId: '0', exampleSentence: 'あさましき事なり。', exampleSentenceJa: '驚きあきれることだ。' },
+  ]);
+
+  assert.equal(applied[0]?.exampleSentence, undefined);
+  assert.equal(applied[1]?.exampleSentence, 'あさましき事なり。');
+  assert.equal(applied[1]?.exampleSentenceJa, '驚きあきれることだ。');
+  // 品詞タグは触らない（英語の品詞体系は古典語に当たらない）
+  assert.equal(applied[1]?.partOfSpeechTags, undefined);
+});
+
+test('buildServerCloudClassicalExampleSeedWords excludes English and already-filled words', () => {
+  const seedWords = buildServerCloudClassicalExampleSeedWords([
+    { id: 'w1', english: 'adapt', japanese: '適応する', example_sentence: null },
+    { id: 'w2', english: 'あさまし', japanese: '驚きあきれる', classical_entry_id: 'entry-1', example_sentence: null },
+    { id: 'w3', english: 'をかし', japanese: '趣がある', classical_entry_id: 'entry-2', example_sentence: '  ' },
+    { id: 'w4', english: 'ゆかし', japanese: '心ひかれる', classical_entry_id: 'entry-3', example_sentence: 'ゆかしき人。' },
+  ]);
+
+  assert.deepEqual(seedWords, [
+    { id: 'w2', headword: 'あさまし', meaning: '驚きあきれる' },
+    { id: 'w3', headword: 'をかし', meaning: '趣がある' },
+  ]);
 });

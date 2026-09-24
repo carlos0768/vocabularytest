@@ -1,12 +1,10 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { DesktopSidebar } from '@/components/desktop/DesktopChrome';
-import { useAuth } from '@/hooks/use-auth';
+import { DesktopHeader } from '@/components/desktop/DesktopChrome';
+import { markClientNavigation, useAuth } from '@/hooks/use-auth';
 import { BottomNav } from './bottom-nav';
-
-const SIDEBAR_STORAGE_KEY = 'merken-sidebar-collapsed';
 
 const NO_SHELL_PATHS = [
   '/lp', '/login', '/signup', '/reset-password', '/auth',
@@ -15,8 +13,8 @@ const NO_SHELL_PATHS = [
   '/offline', '/share-target', '/admin',
   '/level-test', '/ops',
   '/tips',
-  // 共有(公開)ページは自前で ds-app シェル(サイドバー付き)を描画するため、
-  // 共通シェルを重ねるとサイドバーが二重表示になる。共通シェルを外す。
+  // 共有(公開)ページは自前で ds-app シェル(ヘッダー付き)を描画するため、
+  // 共通シェルを重ねるとヘッダーが二重表示になる。共通シェルを外す。
   '/shared/share-wordbook',
 ];
 
@@ -38,6 +36,16 @@ const HIDE_BOTTOM_NAV_PATHS = [
   '/binder/',
 ];
 
+// デスクトップのヘッダー(ロゴ + ピル型タブ)を出さないパス。
+// 単語帳詳細は画面上部に戻るボタン付きの自前ヘッダーを持つので、共通ヘッダーは重ねない。
+// クイズ / フラッシュカードなどの学習画面は全画面 (ds-fixed-main) なので、ヘッダーが
+// その上に被らないよう出さない。
+const HIDE_DESKTOP_HEADER_PATHS = ['/project/', '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/'];
+
+function shouldHideDesktopHeader(pathname: string): boolean {
+  return HIDE_DESKTOP_HEADER_PATHS.some((p) => pathname.startsWith(p));
+}
+
 function shouldHideShell(pathname: string): boolean {
   return NO_SHELL_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
 }
@@ -51,22 +59,13 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [scrollEnding, setScrollEnding] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next)); } catch {}
-      return next;
-    });
-  }, []);
-
+  // 最初に描画したパスから変わったら「クライアント遷移済み」を useAuth に伝える。
+  // このシェルは新しいページより先に描画されるので、遷移先のコンポーネントは
+  // 最初のレンダーからログイン状態を持てる（render 中に立てる冪等なフラグ）。
+  const [initialPathname] = useState(pathname);
+  if (pathname !== initialPathname) {
+    markClientNavigation();
+  }
   useEffect(() => {
     let touchStartX = 0;
     let touchStartY = 0;
@@ -120,10 +119,11 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
   }
 
   const hideNav = shouldHideBottomNav(pathname);
+  const hideDesktopHeader = shouldHideDesktopHeader(pathname);
 
   return (
-    <div className={`ds-live-shell relative${sidebarCollapsed ? ' ds-live-shell--collapsed' : ''}`}>
-      <DesktopSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+    <div className="ds-live-shell relative">
+      {!hideDesktopHeader && <DesktopHeader />}
       <div className="ds-live-main relative">
         {children}
       </div>

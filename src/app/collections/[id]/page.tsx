@@ -83,7 +83,7 @@ export default function CollectionDetailPage() {
                       <div className="mt-[3px] flex gap-2.5">
                         <DotLabel color="var(--color-success)" label={`習得 ${b.mastered}`} />
                         <DotLabel color="var(--color-warning)" label={`学習 ${b.learning}`} />
-                        <DotLabel color="rgba(26,26,26,0.2)" label={`未 ${b.newCount}`} />
+                        <DotLabel color="color-mix(in srgb, var(--solid-ink) 20%, transparent)" label={`未 ${b.newCount}`} />
                       </div>
                     </div>
                   </div>

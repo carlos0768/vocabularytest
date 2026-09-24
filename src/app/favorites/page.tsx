@@ -28,7 +28,7 @@ type SortKey = 'alpha' | 'status' | 'project';
 
 function StatusPill({ kind }: { kind: Word['status'] }) {
   const config = {
-    new: { t: '未学習', bg: '#fff', fg: 'var(--color-muted)', bd: 'var(--color-border)' },
+    new: { t: '未学習', bg: 'var(--color-surface)', fg: 'var(--color-muted)', bd: 'var(--color-border)' },
     review: { t: '学習中', bg: 'rgba(19,127,236,0.1)', fg: '#137fec', bd: '#137fec' },
     active: { t: '定着中', bg: 'rgba(37,99,235,0.1)', fg: '#2563eb', bd: '#2563eb' },
     mastered: { t: '習得', bg: 'rgba(61,122,78,0.12)', fg: 'var(--color-success)', bd: 'var(--color-success)' },
@@ -229,7 +229,7 @@ function FavoritesPageContent() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
               aria-label="戻る"
             >
               <Icon name="chevron_left" size={18} />
@@ -241,7 +241,7 @@ function FavoritesPageContent() {
 
           <div className="px-[18px] pb-3.5 pt-1 lg:pt-4">
             <div>
-              <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
+              <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
                 <div className="pointer-events-none absolute -right-3.5 -top-4 opacity-10 text-[var(--color-accent)]">
                   <Icon name="bookmark" size={120} filled />
                 </div>
@@ -262,13 +262,13 @@ function FavoritesPageContent() {
                   <div style={{ flex: counts.mastered, background: 'var(--color-success)' }} />
                   <div style={{ flex: counts.active, background: '#2563eb' }} />
                   <div style={{ flex: counts.review, background: '#137fec' }} />
-                  <div style={{ flex: counts.newCount, background: 'rgba(26,26,26,0.15)' }} />
+                  <div style={{ flex: counts.newCount, background: 'color-mix(in srgb, var(--solid-ink) 15%, transparent)' }} />
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-3 font-mono text-[10px]">
                   <span className="font-bold text-[var(--color-success)]">● 習得 {counts.mastered}</span>
-                  <span className="font-bold text-[#2563eb]">● 定着中 {counts.active}</span>
-                  <span className="font-bold text-[#137fec]">● 学習中 {counts.review}</span>
+                  <span className="font-bold text-[var(--color-info-strong)]">● 定着中 {counts.active}</span>
+                  <span className="font-bold text-[var(--color-info)]">● 学習中 {counts.review}</span>
                   <span className="font-bold text-[var(--color-muted)]">● 未学習 {counts.newCount}</span>
                 </div>
 
@@ -292,8 +292,8 @@ function FavoritesPageContent() {
                 onClick={() => setActiveSort(c.k)}
                 className="shrink-0 whitespace-nowrap rounded-full px-[11px] py-1.5 text-[11px] font-bold"
                 style={{
-                  background: c.k === activeSort ? 'var(--solid-ink)' : '#fff',
-                  color: c.k === activeSort ? '#fff' : 'var(--solid-ink)',
+                  background: c.k === activeSort ? 'var(--solid-ink)' : 'var(--color-surface)',
+                  color: c.k === activeSort ? 'var(--color-on-ink)' : 'var(--solid-ink)',
                   border: `1.25px solid ${c.k === activeSort ? 'var(--solid-ink)' : 'var(--color-border)'}`,
                 }}
               >
@@ -311,14 +311,14 @@ function FavoritesPageContent() {
                 <span className="ml-2 text-sm">読み込み中...</span>
               </div>
             ) : sortedFavorites.length === 0 ? (
-              <div className="rounded-[10px] border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
+              <div className="rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
                 保存済み単語はまだありません
               </div>
             ) : (
               sortedFavorites.map((word) => (
                 <div
                   key={word.id}
-                  className="flex items-center gap-2.5 rounded-[10px] border-2 bg-white px-3 py-[11px]"
+                  className="flex items-center gap-2.5 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-[11px]"
                   style={{ borderColor: 'var(--color-border)' }}
                 >
                   <button
@@ -363,7 +363,7 @@ function FavoritesPageContent() {
               style={{
                 maxWidth: 480,
                 maxHeight: '80dvh',
-                background: '#faf7f1',
+                background: 'var(--color-paper)',
                 border: '2px solid var(--solid-ink)',
                 borderRadius: 20,
                 boxShadow: '4px 5px 0 var(--solid-ink)',
@@ -404,7 +404,7 @@ function FavoritesPageContent() {
           />
           <div className="absolute inset-0 flex items-center justify-center px-5">
             <div
-              className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-5"
+              className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5"
               style={{ boxShadow: '3px 4px 0 var(--solid-ink)' }}
             >
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">DELETE</div>
@@ -419,7 +419,7 @@ function FavoritesPageContent() {
                     if (!deleteWordLoading) setDeleteWordTarget(null);
                   }}
                   disabled={deleteWordLoading}
-                  className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+                  className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
                 >
                   キャンセル
                 </button>
@@ -469,7 +469,7 @@ function MobileWrongAnswersView({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={18} />
@@ -481,7 +481,7 @@ function MobileWrongAnswersView({
 
       <div className="px-[18px] pb-3.5 pt-1">
         <div>
-          <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-white p-4">
+          <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
             <div className="flex items-center gap-1.5 text-[var(--color-error)]">
               <Icon name="flag" size={13} filled />
               <span className="font-mono text-[10px] font-bold tracking-[0.08em]">WRONG ANSWERS</span>
@@ -511,14 +511,14 @@ function MobileWrongAnswersView({
 
       <div className="flex flex-col gap-1.5 px-[14px] pb-[110px]">
         {rows.length === 0 ? (
-          <div className="rounded-[10px] border-2 border-[var(--color-border)] bg-white px-4 py-10 text-center text-sm text-[var(--color-muted)]">
+          <div className="rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
             間違えた問題はまだありません
           </div>
         ) : (
           rows.map((word) => (
             <div
               key={word.wordId}
-              className="flex items-center gap-2.5 rounded-[10px] border-2 bg-white px-3 py-[11px]"
+              className="flex items-center gap-2.5 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-[11px]"
               style={{ borderColor: 'var(--color-border)' }}
             >
               <div className="min-w-0 flex-1">
@@ -534,7 +534,7 @@ function MobileWrongAnswersView({
               </div>
               <Link
                 href={`/flashcard/${word.projectId || 'all'}?from=${returnPath}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
                 aria-label="復習"
               >
                 <Icon name="style" size={14} />
@@ -567,9 +567,9 @@ function ActionLink({
       <span
         className="relative flex items-center justify-center gap-1.5 rounded-[10px] border-2 py-[11px] text-[13px] font-bold"
         style={{
-          background: accent ? 'var(--color-accent)' : '#fff',
+          background: accent ? 'var(--color-accent)' : 'var(--color-surface)',
           borderColor: accent ? 'var(--color-accent)' : 'var(--solid-ink)',
-          color: accent ? '#fff' : 'var(--solid-ink)',
+          color: accent ? 'var(--color-on-accent)' : 'var(--solid-ink)',
         }}
       >
         <Icon name={icon} size={14} filled={icon === 'play_arrow'} />

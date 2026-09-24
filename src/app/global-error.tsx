@@ -43,12 +43,15 @@ export default function GlobalError({
             justify-content: center;
             padding: 1.5rem;
           }
+          /* global-error replaces the whole document, so the theme class from
+             ThemeScript is gone here — fall back to the OS preference. Values
+             mirror the warm dark palette in globals.css. */
           @media (prefers-color-scheme: dark) {
-            body { background: #0f1117; color: #e8e8ed; }
-            .card { background: #1a1b23; border-color: #2a2b35; }
-            .btn-secondary { border-color: #2a2b35; color: #a0a0b0; }
-            .btn-secondary:hover { background: #1a1b23; }
-            .icon-bg { background: #3b1111; }
+            body { background: #131211; color: #f2efe9; }
+            .card { background: #201e1b; border-color: #322e29; }
+            .btn-secondary { border-color: #322e29; color: #a9a49b; }
+            .btn-secondary:hover { background: #1a1917; }
+            .icon-bg { background: #33201f; }
           }
           .container { max-width: 22rem; width: 100%; text-align: center; }
           .icon-bg {

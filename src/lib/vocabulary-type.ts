@@ -26,10 +26,17 @@ export function getVocabularyTypeShortLabel(
   return '—';
 }
 
+/**
+ * 画面に出す語彙モードの呼び名。
+ *
+ * 呼び方は「Active / Passive」＋バッジの「A / P」で統一する。以前は画面ごとに
+ * 「Active / Passive」「アクティブ / パッシブ」「発信 / 受信」が混在していて、
+ * 同じものを指していると読み取れなかった。新しい画面もここを通すこと。
+ */
 export function getVocabularyTypeLabel(
   current: VocabularyType | null | undefined,
-): 'Active' | 'Passive' | '未設定' {
-  if (current === 'active') return 'Active';
-  if (current === 'passive') return 'Passive';
+): 'Active (A)' | 'Passive (P)' | '未設定' {
+  if (current === 'active') return 'Active (A)';
+  if (current === 'passive') return 'Passive (P)';
   return '未設定';
 }

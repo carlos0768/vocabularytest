@@ -5,13 +5,8 @@
  * 早押しなので「どちらがリードしているか」「残り何秒か」を最優先で見せる。
  */
 
-import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
-import { profileAvatarColor } from '@/components/profile/ProfileView';
+import { BattleAvatar } from '@/components/battle/BattleAvatar';
 import type { BattleParticipant } from '@/lib/battle/types';
-
-function participantInitial(participant: BattleParticipant | null): string {
-  return (participant?.displayName?.trim().charAt(0) || '?').toUpperCase();
-}
 
 function PlayerBlock({
   participant,
@@ -26,13 +21,7 @@ function PlayerBlock({
 }) {
   const avatar = (
     <div className="relative shrink-0">
-      <ProfileAvatar
-        avatarUrl={participant?.avatarUrl}
-        initial={participantInitial(participant)}
-        color={profileAvatarColor(participant?.userId ?? label)}
-        size={34}
-        radius={17}
-      />
+      <BattleAvatar participant={participant} fallbackKey={label} size={34} />
       {leading && (
         <span
           className="absolute -bottom-0.5 -right-0.5 flex h-[14px] w-[14px] items-center justify-center rounded-full border-[1.5px] border-[var(--color-background)] bg-[var(--color-accent)]"

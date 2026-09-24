@@ -31,7 +31,9 @@ import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/
 import type { EikenLevel } from '@/app/api/extract/route';
 import type { AIWordExtraction, LexiconEntry, Project } from '@/types';
 
-const STRIPE_BG = 'repeating-linear-gradient(135deg, #ecebe6, #ecebe6 10px, #e3e1da 10px, #e3e1da 20px)';
+// Two ink washes over the page ground, so the hatch stays a hatch in both themes.
+const STRIPE_BG =
+  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)), color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 20px)';
 
 type EditableScanWord = AIWordExtraction & {
   tempId: string;
@@ -106,7 +108,8 @@ export function DesktopScanView({
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
-  const [derivedWordsOn, setDerivedWordsOn] = useState(false);
+  // 例文生成。語源解析と同じく既定オフ。
+  const [examplesOn, setExamplesOn] = useState(false);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',
@@ -151,7 +154,7 @@ export function DesktopScanView({
     imageCount: 1,
     totalRemaining: coinBalance.totalRemaining,
     includeMorphology: morphologyOn,
-    includeDerivedWords: derivedWordsOn,
+    includeExamples: examplesOn,
   });
 
   const toggleOption = (key: ScanOptionKey) => {
@@ -207,7 +210,7 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
-          includeDerivedWords: derivedWordsOn,
+          includeExamples: examplesOn,
           ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
           ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
           targetProjectId: destinationProjectId || undefined,
@@ -261,7 +264,7 @@ export function DesktopScanView({
           scanModes,
           eikenLevel: selectedEikenLevel,
           includeMorphology: morphologyOn,
-          includeDerivedWords: derivedWordsOn,
+          includeExamples: examplesOn,
           ...(customPayload.customModeId ? { customModeId: customPayload.customModeId } : {}),
           ...(customPayload.customPrompt ? { customPrompt: customPayload.customPrompt } : {}),
         }),
@@ -330,7 +333,7 @@ export function DesktopScanView({
         imageCount: files.length,
         totalRemaining: coinBalance.totalRemaining,
         includeMorphology: morphologyOn,
-        includeDerivedWords: derivedWordsOn,
+        includeExamples: examplesOn,
       });
       if (actual.insufficient) {
         setInsufficientCoinInfo(
@@ -510,7 +513,7 @@ export function DesktopScanView({
             }}
             onClick={openFilePicker}
           >
-            <div style={{ width: 74, height: 74, borderRadius: 20, background: '#fff', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
+            <div style={{ width: 74, height: 74, borderRadius: 20, background: 'var(--color-surface)', border: '2px solid var(--solid-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '3px 4px 0 var(--solid-ink)' }}>
               <Icon name="cloud_upload" style={{ fontSize: 36, color: 'var(--color-accent)' }} />
             </div>
             <div>
@@ -647,8 +650,8 @@ export function DesktopScanView({
                           padding: '10px 6px',
                           borderRadius: 10,
                           border: `2px solid ${active ? 'var(--solid-ink)' : 'var(--color-border)'}`,
-                          background: active ? 'var(--color-accent)' : '#fff',
-                          color: active ? '#fff' : 'var(--solid-ink)',
+                          background: active ? 'var(--color-accent)' : 'var(--color-surface)',
+                          color: active ? 'var(--color-on-accent)' : 'var(--solid-ink)',
                           boxShadow: active ? '2px 2px 0 var(--solid-ink)' : 'none',
                           fontFamily: 'var(--font-display)',
                           fontWeight: 700,
@@ -700,28 +703,29 @@ export function DesktopScanView({
               </span>
             </button>
 
-            {/* 派生語トグル（+2コイン） */}
+            {/* 例文生成トグル（+2コイン） */}
             <button
               type="button"
-              className={'ds-method' + (derivedWordsOn ? ' sel' : '')}
-              onClick={() => setDerivedWordsOn((prev) => !prev)}
-              aria-pressed={derivedWordsOn}
+              className={'ds-method' + (examplesOn ? ' sel' : '')}
+              onClick={() => setExamplesOn((prev) => !prev)}
+              aria-pressed={examplesOn}
               style={{ marginTop: 10, width: '100%' }}
             >
-              <div className="mic" style={{ background: derivedWordsOn ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)' }}>
-                <Icon name="family_history" style={{ color: derivedWordsOn ? 'var(--color-accent-ink)' : 'var(--color-ink)' }} />
+              <div className="mic" style={{ background: examplesOn ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)' }}>
+                <Icon name="auto_awesome" style={{ color: examplesOn ? 'var(--color-accent-ink)' : 'var(--color-ink)' }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="mt">
-                  派生語
+                  例文生成
                   <span className="ds-tag accent">+2コイン</span>
                 </div>
-                <div className="md">試験で狙われる派生語を最大3つ（対象語のみ）</div>
+                <div className="md">単語ごとに例文と訳を生成（古典語は古文の例文）</div>
               </div>
               <span className="mradio">
-                {derivedWordsOn && <Icon name="check" style={{ fontSize: 15 }} />}
+                {examplesOn && <Icon name="check" style={{ fontSize: 15 }} />}
               </span>
             </button>
+
           </div>
         </div>
 
@@ -985,7 +989,7 @@ function DesktopScanConfirmRow({
     <tr onClick={() => onToggleWord(word.tempId)} style={!word.isSelected ? { opacity: 0.45 } : undefined}>
       <td>
         <span className={'ds-check' + (word.isSelected ? ' on' : '')}>
-          {word.isSelected && <Icon name="check" style={{ fontSize: 16, color: '#fff' }} />}
+          {word.isSelected && <Icon name="check" style={{ fontSize: 16, color: 'var(--color-on-accent)' }} />}
         </span>
       </td>
       <td className="en">{word.english || `単語 ${index + 1}`}</td>

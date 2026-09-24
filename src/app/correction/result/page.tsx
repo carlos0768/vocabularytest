@@ -38,7 +38,7 @@ function HeaderBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
     </button>
@@ -74,16 +74,16 @@ function buildTextSegments(inputText: string, issues: CorrectionIssue[]): TextSe
 function HighlightedText({ inputText, issues }: { inputText: string; issues: CorrectionIssue[] }) {
   const segments = buildTextSegments(inputText, issues);
   return (
-    <div className="whitespace-pre-wrap rounded-xl border-2 border-[var(--color-border)] bg-white px-3.5 py-3.5 text-[13px] leading-[1.85] text-[var(--solid-ink)]">
+    <div className="whitespace-pre-wrap rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-3.5 text-[13px] leading-[1.85] text-[var(--solid-ink)]">
       {segments.map((seg, i) =>
         seg.issueNumber !== undefined ? (
           <span
             key={i}
-            className="border-b-2 border-[#c43d3d]"
+            className="border-b-2 border-[var(--color-danger-soft)]"
             style={{ background: 'rgba(196,61,61,0.07)' }}
           >
             {seg.text}
-            <sup className="ml-[2px] font-mono text-[9px] font-black text-[#c43d3d]">
+            <sup className="ml-[2px] font-mono text-[9px] font-black text-[var(--color-danger-soft)]">
               {seg.issueNumber}
             </sup>
           </span>
@@ -130,7 +130,7 @@ function CorrectionResultContent() {
     return (
       <div className="min-h-full bg-[var(--color-background)] px-[18px] pt-5 text-center font-[var(--font-body)]">
         <div className="mb-3 text-sm font-bold text-[var(--solid-ink)]">{error || '添削結果が見つかりません'}</div>
-        <Link href="/correction/new" className="inline-flex rounded-lg border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-xs font-bold text-[var(--solid-ink)]">新しく添削する</Link>
+        <Link href="/correction/new" className="inline-flex rounded-lg border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-xs font-bold text-[var(--solid-ink)]">新しく添削する</Link>
       </div>
     );
   }
@@ -149,10 +149,10 @@ function CorrectionResultContent() {
       <div className="px-[18px] pb-3.5 pt-2">
         <div className="relative">
           <div className="absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-          <div className="relative flex items-center gap-3.5 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-4 py-3.5">
-            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-[var(--solid-ink)] text-white" style={{ fontFamily: 'var(--font-display)' }}>
+          <div className="relative flex items-center gap-3.5 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3.5">
+            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-[var(--solid-ink)] text-[var(--color-on-ink)]" style={{ fontFamily: 'var(--font-display)' }}>
               <span className="tabular-nums text-[26px] font-black leading-none">{result.score}</span>
-              <span className="mt-0.5 font-mono text-[8px] tracking-[0.06em] text-white/70">SCORE</span>
+              <span className="mt-0.5 font-mono text-[8px] tracking-[0.06em] text-[var(--color-on-ink)]/70">SCORE</span>
             </div>
             <div className="flex-1">
               <div className="mb-1 flex items-center gap-1.5">
@@ -162,7 +162,7 @@ function CorrectionResultContent() {
               </div>
               <div className="text-[15px] font-bold leading-[1.4] text-[var(--solid-ink)]" style={{ fontFamily: 'var(--font-display)' }}>{result.summary}</div>
               <div className="mt-[3px] text-[11px] text-[var(--color-muted)]">
-                文法 <span className="font-mono font-bold text-[#c43d3d]">{result.issueCounts.grammar}</span> · 語法 <span className="font-mono font-bold text-[var(--color-accent)]">{result.issueCounts.usage}</span> · 自然さ <span className="font-mono font-bold text-[#c8a02e]">{result.issueCounts.naturalness}</span>
+                文法 <span className="font-mono font-bold text-[var(--color-danger-soft)]">{result.issueCounts.grammar}</span> · 語法 <span className="font-mono font-bold text-[var(--color-accent)]">{result.issueCounts.usage}</span> · 自然さ <span className="font-mono font-bold text-[#c8a02e]">{result.issueCounts.naturalness}</span>
               </div>
             </div>
           </div>
@@ -183,12 +183,12 @@ function CorrectionResultContent() {
         <div className="mb-[7px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">指摘 ({result.issues.length})</div>
         <div className="flex flex-col gap-2">
           {result.issues.map((issue, idx) => (
-            <div key={issue.id} className="flex items-start gap-2.5 rounded-[10px] border-2 border-[var(--color-border)] bg-white px-3 py-[11px]">
+            <div key={issue.id} className="flex items-start gap-2.5 rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-[11px]">
               <span className="shrink-0 rounded px-1.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.06em] text-white" style={{ background: TAG_COLORS[issue.tag] ?? 'var(--solid-ink)' }}>{issue.tag}</span>
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs">
                   <span className="font-mono font-bold text-[var(--color-muted)]">{idx + 1}</span>
-                  <span className="font-mono font-semibold text-[#c43d3d] line-through">{issue.from}</span>
+                  <span className="font-mono font-semibold text-[var(--color-danger-soft)] line-through">{issue.from}</span>
                   <span className="text-[10px] text-[var(--color-muted)]">→</span>
                   <span className="border-b-2 border-[var(--color-accent)] font-mono font-bold text-[var(--solid-ink)]">{issue.to}</span>
                 </div>

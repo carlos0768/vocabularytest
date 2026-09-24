@@ -4,6 +4,10 @@ import { DesktopButton, DesktopDonut } from '@/components/desktop/DesktopChrome'
 import { Icon } from '@/components/ui/Icon';
 import type { DesktopStudySummaryStats } from '@/lib/desktop-study-summary';
 
+/**
+ * 右レールの学習サマリー (今日の目標 / 習得サマリー / 連続学習)。
+ * ホーム・単語帳一覧・統計で共用する。
+ */
 export function DesktopStudySidebar({
   stats,
   reviewHref,
@@ -31,11 +35,12 @@ export function DesktopStudySidebar({
     : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
-      <div className="ds-card" style={{ padding: '20px 22px' }}>
-        <div className="muted" style={{ fontSize: 12.5, fontWeight: 600 }}>今日の目標</div>
+    <div className="ds-rail">
+      <div className="ds-card" style={{ padding: '18px 20px' }}>
+        <div className="ds-eyebrow">TODAY</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: 'var(--color-ink)' }}>今日の目標</div>
         {isReviewDone ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
             <span className="inline-flex" style={{ color: 'var(--color-success)' }}>
               <Icon name="check_circle" size={28} filled />
             </span>
@@ -45,35 +50,37 @@ export function DesktopStudySidebar({
           </div>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 10 }}>
               <span className="tnum" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40, lineHeight: 1 }}>
                 {isFreshStart ? dailyLearnTarget : stats.dueCount}
               </span>
               <span style={{ fontSize: 16, fontWeight: 700 }}>語</span>
             </div>
-            <div className="ds-prog" style={{ marginTop: 14 }}>
+            <div className="ds-prog" style={{ marginTop: 12 }}>
               <div className="fi" style={{ width: `${isFreshStart ? learnProgress : goalProgress}%` }} />
             </div>
-            <div className="mono muted" style={{ fontSize: 11, marginTop: 6 }}>
+            <div className="muted tnum" style={{ fontSize: 11, marginTop: 6 }}>
               {isFreshStart ? 'まずはここから' : `${stats.completedToday} / ${totalGoal} 完了`}
             </div>
-            {isFreshStart ? (
-              <DesktopButton href={learnHref ?? reviewHref} variant="accent" icon="play_arrow" className="w-full">
-                学習を始める
-              </DesktopButton>
-            ) : (
-              <DesktopButton href={reviewHref} variant="accent" icon="play_arrow" className="w-full">
-                復習を始める
-              </DesktopButton>
-            )}
+            <DesktopButton
+              href={isFreshStart ? (learnHref ?? reviewHref) : reviewHref}
+              variant="accent"
+              icon="play_arrow"
+              className="w-full"
+            >
+              {isFreshStart ? '学習を始める' : '復習を始める'}
+            </DesktopButton>
           </>
         )}
       </div>
 
-      <div className="ds-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-        <div className="muted" style={{ fontSize: 12.5, fontWeight: 600, alignSelf: 'flex-start' }}>習得サマリー</div>
+      <div className="ds-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, boxShadow: 'none' }}>
+        <div style={{ alignSelf: 'flex-start' }}>
+          <div className="ds-eyebrow">MASTERY</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: 'var(--color-ink)' }}>習得サマリー</div>
+        </div>
         <DesktopDonut mastered={stats.mastered} review={stats.review} total={stats.totalWords} size={130} stroke={17} percent={masteryPercent} />
-        <div className="ds-legend" style={{ alignSelf: 'stretch' }}>
+        <div className="ds-legend" style={{ alignSelf: 'stretch', gap: 7 }}>
           <div className="row"><span className="ds-sdot c-mastered" /><span className="lb">習得</span><span className="ct tnum">{stats.mastered}</span></div>
           <div className="row"><span className="ds-sdot c-active" /><span className="lb">定着中</span><span className="ct tnum">{stats.activeW}</span></div>
           <div className="row"><span className="ds-sdot c-review" /><span className="lb">学習中</span><span className="ct tnum">{stats.review}</span></div>
@@ -81,13 +88,13 @@ export function DesktopStudySidebar({
         </div>
       </div>
 
-      <div className="ds-card ds-kpi" style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: '16px 20px' }}>
+      <div className="ds-card ds-kpi" style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: '14px 18px', boxShadow: 'none' }}>
         <div className="ic" style={{ background: 'rgba(249,115,22,0.12)' }}>
-          <Icon name="local_fire_department" style={{ color: '#f97316' }} />
+          <Icon name="local_fire_department" filled style={{ color: '#f97316' }} />
         </div>
         <div>
-          <div className="v" style={{ fontSize: 26 }}>{stats.streakDays}<span className="u">日</span></div>
-          <div className="l">連続学習</div>
+          <div className="v" style={{ fontSize: 24 }}>{stats.streakDays}<span className="u" style={{ fontSize: 14 }}>日</span></div>
+          <div className="l" style={{ fontSize: 12 }}>連続学習</div>
         </div>
       </div>
     </div>

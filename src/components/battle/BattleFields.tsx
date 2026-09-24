@@ -13,6 +13,15 @@
 import { useId } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/utils';
+import {
+  BATTLE_BOT_LEVELS,
+  BATTLE_BOT_PROFILES,
+  type BattleBotLevel,
+} from '@/lib/battle/bot';
+import {
+  FREE_DAILY_BATTLE_LIMIT,
+  type BattleAllowance,
+} from '@/lib/battle/free-allowance';
 import type { Project } from '@/types';
 
 export type BattleLobbyMode = 'random' | 'friend';
@@ -90,7 +99,7 @@ function SettingRow({
 }
 
 /** 行の右側に置く小さめのセグメント（1本のトラックに収める）。 */
-function InlineSegment<T extends number>({
+function InlineSegment<T extends string | number>({
   ariaLabel,
   options,
   value,
@@ -134,6 +143,37 @@ function InlineSegment<T extends number>({
   );
 }
 
+const BOT_LEVEL_OPTIONS = BATTLE_BOT_LEVELS.map((level) => ({
+  label: BATTLE_BOT_PROFILES[level].label,
+  value: level,
+}));
+
+/**
+ * ボットの強さ。相手が見つからなかったときにだけ使われる設定なので、
+ * 行の下に小さく but 何のための設定かを書いておく。
+ */
+function BotLevelRow({
+  botLevel,
+  onBotLevelChange,
+  disabled,
+}: {
+  botLevel: BattleBotLevel;
+  onBotLevelChange: (level: BattleBotLevel) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <SettingRow icon="smart_toy" label="ボットの強さ" last>
+      <InlineSegment
+        ariaLabel="ボットの強さ"
+        options={BOT_LEVEL_OPTIONS}
+        value={botLevel}
+        onChange={onBotLevelChange}
+        disabled={disabled}
+      />
+    </SettingRow>
+  );
+}
+
 /**
  * 対戦設定（単語帳・問題数・制限時間）を1枚にまとめたカード。
  * 単語帳の行はネイティブ <select> を重ねて、モバイルの選択UIをそのまま使う。
@@ -149,6 +189,8 @@ export function BattleSetupCard({
   roundDurationMs,
   roundDurationOptions,
   onRoundDurationChange,
+  botLevel,
+  onBotLevelChange,
   disabled,
 }: {
   projects: Project[];
@@ -161,13 +203,15 @@ export function BattleSetupCard({
   roundDurationMs: number;
   roundDurationOptions: { label: string; value: number }[];
   onRoundDurationChange: (value: number) => void;
+  botLevel: BattleBotLevel;
+  onBotLevelChange: (level: BattleBotLevel) => void;
   disabled?: boolean;
 }) {
   const selectId = useId();
   const selected = projects.find((project) => project.id === projectId) ?? null;
 
   return (
-    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]">
+    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]">
       {/* 単語帳 */}
       <div className="relative flex items-center gap-2.5 border-b-2 border-[var(--color-border)] p-3">
         {projects.length > 0 && (
@@ -221,7 +265,7 @@ export function BattleSetupCard({
         />
       </SettingRow>
 
-      <SettingRow icon="timer" label="1問の制限時間" last>
+      <SettingRow icon="timer" label="1問の制限時間">
         <InlineSegment
           ariaLabel="1問の制限時間"
           options={roundDurationOptions}
@@ -230,6 +274,12 @@ export function BattleSetupCard({
           disabled={disabled}
         />
       </SettingRow>
+
+      <BotLevelRow
+        botLevel={botLevel}
+        onBotLevelChange={onBotLevelChange}
+        disabled={disabled}
+      />
     </section>
   );
 }
@@ -248,6 +298,8 @@ export function BattleGroupSetupCard({
   roundDurationMs,
   roundDurationOptions,
   onRoundDurationChange,
+  botLevel,
+  onBotLevelChange,
   disabled,
 }: {
   books: { id: string; title: string }[];
@@ -259,12 +311,14 @@ export function BattleGroupSetupCard({
   roundDurationMs: number;
   roundDurationOptions: { label: string; value: number }[];
   onRoundDurationChange: (value: number) => void;
+  botLevel: BattleBotLevel;
+  onBotLevelChange: (level: BattleBotLevel) => void;
   disabled?: boolean;
 }) {
   const titles = books.map((book) => book.title).join('・');
 
   return (
-    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)]">
+    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]">
       <div className="flex items-center gap-2.5 border-b-2 border-[var(--color-border)] p-3">
         <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]">
           <Icon name="auto_stories" size={19} />
@@ -296,7 +350,7 @@ export function BattleGroupSetupCard({
         />
       </SettingRow>
 
-      <SettingRow icon="timer" label="1問の制限時間" last>
+      <SettingRow icon="timer" label="1問の制限時間">
         <InlineSegment
           ariaLabel="1問の制限時間"
           options={roundDurationOptions}
@@ -305,6 +359,12 @@ export function BattleGroupSetupCard({
           disabled={disabled}
         />
       </SettingRow>
+
+      <BotLevelRow
+        botLevel={botLevel}
+        onBotLevelChange={onBotLevelChange}
+        disabled={disabled}
+      />
     </section>
   );
 }
@@ -347,11 +407,120 @@ export function BattleInviteCode({ code }: { code: string }) {
       {code.split('').map((char, index) => (
         <span
           key={`${char}-${index}`}
-          className="flex h-[52px] w-[38px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[24px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)]"
+          className="flex h-[52px] w-[38px] items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[24px] font-black text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)]"
         >
           {char}
         </span>
       ))}
+    </div>
+  );
+}
+
+/**
+ * 相手が見つからないときに待機画面へ出す、ボット対戦への誘導。
+ *
+ * 待つのをやめる判断をユーザーに丸投げせず、`secondsUntilAuto` を過ぎたら
+ * 呼び出し側が自動で始める。ここはその残り時間を見せるだけで、押せば即座に
+ * 始められる。
+ */
+export function BattleBotOffer({
+  botName,
+  secondsUntilAuto,
+  onStart,
+  disabled,
+}: {
+  botName: string;
+  /** 自動開始までの残り秒。null なら自動開始しない。 */
+  secondsUntilAuto: number | null;
+  onStart: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mt-3 rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3.5 text-left shadow-[2px_3px_0_var(--solid-shadow)]">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]">
+          <Icon name="smart_toy" size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[9.5px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
+            NO OPPONENT YET
+          </div>
+          <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+            {botName}が代わりに相手をします
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onStart}
+        disabled={disabled}
+        className="mt-3 flex h-[46px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[14px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+      >
+        <Icon name="smart_toy" size={17} />
+        今すぐボットと対戦する
+      </button>
+
+      <p className="mt-2 text-center text-[11px] leading-[1.6] text-[var(--color-muted)]">
+        {secondsUntilAuto === null
+          ? '人が見つかったら、そのまま人との対戦が始まります。'
+          : `あと${secondsUntilAuto}秒で自動的に始まります。`}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * 無料ユーザーの本日の残り回数。Pro は無制限なので何も出さない。
+ *
+ * 1回 = 実際に始まった対戦。相手が見つからずロビーを抜けたぶんは減らないので、
+ * 「マッチング待ちで消えた」と誤解されないよう補足も添える。
+ *
+ * 使い切った状態も描ける。ロビーは0回になった時点で全画面の案内へ切り替えるので
+ * 普段は通らないが、呼び出し側の分岐に依存せず単体で正しく出るようにしてある。
+ */
+export function BattleAllowanceStrip({ allowance }: { allowance: BattleAllowance | null }) {
+  if (!allowance || allowance.isPro) return null;
+
+  const limit = allowance.limit ?? FREE_DAILY_BATTLE_LIMIT;
+  const remaining = Math.max(0, allowance.remaining ?? 0);
+  const exhausted = remaining === 0;
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2.5 rounded-[14px] border-2 px-3 py-2.5',
+        exhausted
+          ? 'border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface)]',
+      )}
+    >
+      <Icon
+        name={exhausted ? 'hourglass_empty' : 'swords'}
+        size={18}
+        className="shrink-0 text-[var(--color-accent)]"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="font-display text-[13px] font-extrabold text-[var(--solid-ink)]">
+          {exhausted ? '本日の無料対戦は終了しました' : `本日あと${remaining}回 対戦できます`}
+        </div>
+        <div className="mt-0.5 font-mono text-[9.5px] font-bold tracking-[0.04em] text-[var(--color-muted)]">
+          {exhausted
+            ? `明日0時に${limit}回ぶん回復します`
+            : `無料プランは1日${limit}回まで / 実際に始まった対戦だけ数えます`}
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-1" aria-hidden>
+        {Array.from({ length: limit }, (_, index) => (
+          <span
+            key={index}
+            className={cn(
+              'h-2.5 w-2.5 rounded-full border-2 border-[var(--solid-ink)]',
+              index < remaining ? 'bg-[var(--color-accent)]' : 'bg-transparent',
+            )}
+          />
+        ))}
+      </div>
     </div>
   );
 }

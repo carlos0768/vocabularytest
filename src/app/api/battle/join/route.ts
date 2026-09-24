@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { battleErrorResponse, requireProBattleUser } from '@/app/api/battle/shared';
+import { battleErrorResponse, requireBattleEntryUser } from '@/app/api/battle/shared';
 import { normalizeInviteCode } from '@/lib/battle/config';
 import { joinRoomByInviteCode } from '@/lib/battle/server';
 
@@ -13,7 +13,7 @@ const joinSchema = z.object({
 /** Joins a friend battle with an invite code. */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleEntryUser(request);
     if (!auth.ok) return auth.response;
 
     const parsed = await parseJsonWithSchema(request, joinSchema);

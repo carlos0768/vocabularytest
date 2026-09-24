@@ -673,13 +673,13 @@ export default function FlashcardPage() {
       <header className="sticky top-0 p-4 flex items-center justify-between max-w-lg mx-auto w-full" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <button
           onClick={backToProject}
-          className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+          className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
         >
           <Icon name="close" size={24} />
         </button>
 
         {/* Progress indicator */}
-        <div className="flex items-center gap-2 rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-2 shadow-[2px_3px_0_var(--solid-ink)]">
+        <div className="flex items-center gap-2 rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-2 shadow-[2px_3px_0_var(--solid-shadow)]">
           <span className="text-[var(--color-primary)] font-bold">{currentIndex + 1}</span>
           <span className="text-[var(--color-muted)]">/</span>
           <span className="text-[var(--color-muted)]">{words.length}</span>
@@ -718,7 +718,7 @@ export default function FlashcardPage() {
             <div className="flashcard-face flashcard-front shadow-card">
               {/* Mode badge */}
               <div className="absolute top-6 left-6">
-                <span className="rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-primary-light)] px-3 py-1 text-xs font-black uppercase text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)]">
+                <span className="rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-primary-light)] px-3 py-1 text-xs font-black uppercase text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)]">
                   {japaneseFirst ? '日→英' : '英→日'}
                 </span>
               </div>
@@ -880,7 +880,7 @@ export default function FlashcardPage() {
               setJapaneseFirst(!japaneseFirst);
               setIsFlipped(false);
             }}
-            className={`flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)] ${
+            className={`flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)] ${
               japaneseFirst
                 ? 'bg-[var(--color-primary)] text-white'
                 : 'bg-[var(--color-surface)] text-[var(--color-muted)]'
@@ -892,7 +892,7 @@ export default function FlashcardPage() {
 
           <button
             onClick={handleToggleFavorite}
-            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             aria-label={currentWord?.isFavorite ? '苦手を解除' : '苦手にマーク'}
           >
             <Icon
@@ -909,7 +909,7 @@ export default function FlashcardPage() {
 
           <button
             onClick={handleOpenDictionary}
-            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             aria-label="辞書で調べる"
           >
             <Icon name="search" size={20} />
@@ -917,7 +917,7 @@ export default function FlashcardPage() {
 
           <button
             onClick={handleOpenEditModal}
-            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             aria-label="単語を編集"
           >
             <Icon name="edit" size={20} />
@@ -925,7 +925,7 @@ export default function FlashcardPage() {
 
           <button
             onClick={handleDeleteWord}
-            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-[2px_3px_0_var(--solid-ink)] transition-all hover:bg-[var(--color-error-light)] hover:text-[var(--color-error)] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+            className="flex h-11 w-11 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all hover:bg-[var(--color-error-light)] hover:text-[var(--color-error)] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
             aria-label="この単語を削除"
           >
             <Icon name="delete" size={20} />

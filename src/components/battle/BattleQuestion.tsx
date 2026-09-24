@@ -28,7 +28,7 @@ const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
 
 export function BattleQuestionCard({ prompt, round }: { prompt: string; round: number }) {
   return (
-    <div className="w-full rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-6 text-center shadow-[3px_4px_0_var(--solid-ink)]">
+    <div className="w-full rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-6 text-center shadow-[3px_4px_0_var(--solid-shadow)]">
       <div className="font-mono text-[9.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
         Q{round} · この単語の意味は？
       </div>
@@ -76,17 +76,17 @@ export function BattleChoiceButton({
     faceBg = 'var(--color-accent)';
     borderColor = 'var(--color-accent-ink)';
     shadowColor = 'var(--color-accent-ink)';
-    textColor = '#fff';
+    textColor = 'var(--color-on-accent)';
     badgeBg = 'rgba(255,255,255,0.22)';
-    badgeColor = '#fff';
+    badgeColor = 'var(--color-on-accent)';
     icon = 'check';
   } else if (state === 'wrong') {
-    faceBg = 'var(--color-error)';
-    borderColor = '#b91c1c';
-    shadowColor = '#b91c1c';
-    textColor = '#fff';
+    faceBg = 'var(--color-error-fill)';
+    borderColor = 'var(--color-danger-strong)';
+    shadowColor = 'var(--color-danger-strong)';
+    textColor = 'var(--color-on-error)';
     badgeBg = 'rgba(255,255,255,0.22)';
-    badgeColor = '#fff';
+    badgeColor = 'var(--color-on-error)';
     icon = 'close';
   } else if (state === 'muted') {
     borderColor = 'var(--color-border)';
@@ -153,13 +153,13 @@ const OUTCOME_STYLE: Record<
     text: '正解！ +1',
     bg: 'var(--color-accent)',
     border: 'var(--color-accent-ink)',
-    color: '#fff',
+    color: 'var(--color-on-accent)',
   },
   lost: {
     icon: 'flash_off',
     text: '相手が先に正解',
-    bg: 'var(--color-error)',
-    border: '#b91c1c',
+    bg: 'var(--color-error-fill)',
+    border: 'var(--color-danger-strong)',
     color: '#fff',
   },
   timeout: {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
+import { looksLikeClassicalJapanese } from '@/lib/classical/normalize';
 import { EXTRACT_MODES, normalizeExtractModes } from '@/lib/scan/mode-provider';
 import { normalizeSourceLabels } from '../../../shared/source-labels';
 import {
@@ -34,6 +35,10 @@ export const AIWordSchema = z.object({
   ])).optional(),
   japaneseSource: z.string().optional(),
   lexiconSenseId: z.string().optional(),
+  // 古典語（古文単語）。専用モードは無く、全モードのプロンプトが自動判定して立てる。
+  isClassical: z.boolean().optional(),
+  reading: z.string().optional(),
+  classicalPos: z.string().optional(),
   sourceModes: z.array(z.enum(EXTRACT_MODES)).nullish(),
   distractors: z.array(z.string()).default([]),
   partOfSpeechTags: z.array(z.string()).nullish().transform((tags) => tags ?? []),
@@ -50,8 +55,17 @@ export const AIWordSchema = z.object({
     sourceModes: rawSourceModes,
     exampleSentence: rawExampleSentence,
     exampleSentenceJa: rawExampleSentenceJa,
+    isClassical: rawIsClassical,
+    reading: rawReading,
+    classicalPos: rawClassicalPos,
     ...rest
   } = word;
+  // AIが英単語を古典語と誤判定した場合の一方向の安全弁。ラテン文字を含む見出し語は
+  // 古典語として扱わない（誤判定すると例文・語源解析・誤答生成がまるごと止まる）。
+  // 逆にここで古典語へ「昇格」させることはしない。
+  const isClassical = rawIsClassical === true && looksLikeClassicalJapanese(word.english);
+  const reading = isClassical ? (rawReading ?? '').trim() : '';
+  const classicalPos = isClassical ? (rawClassicalPos ?? '').trim() : '';
   const translationPayload = normalizeWordTranslationPayload({
     translations: rawTranslations,
     japanese: word.japanese,
@@ -70,6 +84,9 @@ export const AIWordSchema = z.object({
     partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
     ...(translationPayload.translations.length > 0 ? { translations: translationPayload.translations } : {}),
     ...(sourceModes.length > 0 ? { sourceModes } : {}),
+    ...(isClassical ? { isClassical } : {}),
+    ...(reading ? { reading } : {}),
+    ...(classicalPos ? { classicalPos } : {}),
     ...(rawExampleSentence ? { exampleSentence: rawExampleSentence } : {}),
     ...(rawExampleSentenceJa ? { exampleSentenceJa: rawExampleSentenceJa } : {}),
     ...(translationPayload.customSections ? { customSections: translationPayload.customSections } : {}),
@@ -137,6 +154,13 @@ function mergeDuplicateHeadwordPair(first: TransformedAIWord, second: Transforme
     partOfSpeechTags: normalizePartOfSpeechTags([...first.partOfSpeechTags, ...second.partOfSpeechTags]),
     ...(translations.length > 0 ? { translations } : {}),
     ...(sourceModes.length > 0 ? { sourceModes } : {}),
+    ...(first.isClassical || second.isClassical ? { isClassical: true } : {}),
+    ...(first.reading ?? second.reading
+      ? { reading: first.reading ?? second.reading }
+      : {}),
+    ...(first.classicalPos ?? second.classicalPos
+      ? { classicalPos: first.classicalPos ?? second.classicalPos }
+      : {}),
     ...(exampleSentence ? { exampleSentence } : {}),
     ...(exampleSentenceJa ? { exampleSentenceJa } : {}),
     ...(customSections ? { customSections } : {}),
@@ -152,7 +176,12 @@ export function mergeDuplicateHeadwords(words: TransformedAIWord[]): Transformed
   const order: string[] = [];
 
   for (const word of words) {
-    const key = word.english.trim().toLowerCase();
+    // 古典語のキーだけ名前空間を分ける。英語側のキーは従来と1バイトも変えない。
+    // ローマ字の見出し語やOCRの化けで表記が衝突すると、古典語エントリが英単語の
+    // 品詞・発音・誤答を引き継いだうえ、古典語の印まで落ちて英語向けの後処理を
+    // すり抜けてしまう。
+    const base = word.english.trim().toLowerCase();
+    const key = base && word.isClassical ? `classical:${base}` : base;
     // english が読み取れなかったプレースホルダは統合対象にしない
     if (!key || key === '---') {
       const uniqueKey = `__unmergeable_${order.length}`;

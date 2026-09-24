@@ -214,18 +214,14 @@ describe('matchesWordFilter', () => {
 });
 
 describe('hasFeature', () => {
-  it('none フラグ付きの語源・派生語は「持っていない」扱い', () => {
+  it('none フラグ付きの語源は「持っていない」扱い', () => {
     const morphologyNone = makeEntry({
       word: makeWord({ morphology: { formula: [], explanation: '', version: 1, none: true } }),
     });
-    const derivedNone = makeEntry({
-      word: makeWord({ derivedWords: { items: [], version: 1, none: true } }),
-    });
     assert.equal(hasFeature(morphologyNone, 'morphology'), false);
-    assert.equal(hasFeature(derivedNone, 'derived'), false);
   });
 
-  it('語源・派生語が中身を持つときだけ true', () => {
+  it('語源が中身を持つときだけ true', () => {
     const morphology = makeEntry({
       word: makeWord({
         morphology: {
@@ -235,16 +231,7 @@ describe('hasFeature', () => {
         },
       }),
     });
-    const derived = makeEntry({
-      word: makeWord({
-        derivedWords: {
-          items: [{ english: 'reception', japanese: '受付', partOfSpeech: 'noun' }],
-          version: 1,
-        },
-      }),
-    });
     assert.equal(hasFeature(morphology, 'morphology'), true);
-    assert.equal(hasFeature(derived, 'derived'), true);
   });
 
   it('複数の意味は空文字の訳を数えない', () => {

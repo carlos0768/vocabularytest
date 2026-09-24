@@ -93,14 +93,19 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
     result === 'correct'
       ? 'border-[var(--color-accent-ink)] bg-[var(--color-accent)]'
       : result === 'wrong'
-        ? 'border-[#b91c1c] bg-[var(--color-error)]'
+        ? 'border-[var(--color-danger-strong)] bg-[var(--color-error-fill)]'
         : 'border-[var(--color-border)] bg-[var(--color-surface)] focus-within:border-[var(--color-foreground)]';
 
-  const typedColorClass = result
-    ? 'text-white'
-    : isSolid
-      ? 'text-[var(--solid-ink)]'
-      : 'text-[var(--color-foreground)]';
+  // The two result fills need different labels: --color-accent lightens in dark
+  // (so its text darkens), while --color-error-fill stays dark in both themes.
+  const typedColorClass =
+    result === 'correct'
+      ? 'text-[var(--color-on-accent)]'
+      : result === 'wrong'
+        ? 'text-white'
+        : isSolid
+          ? 'text-[var(--solid-ink)]'
+          : 'text-[var(--color-foreground)]';
 
   const underscoreClass = `${
     result ? 'text-white/60' : 'text-[var(--color-muted)]/50'
@@ -206,9 +211,9 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
     borderColor = 'var(--color-accent-ink)';
     shadowColor = 'var(--color-accent-ink)';
   } else if (result === 'wrong') {
-    faceBg = 'var(--color-error)';
-    borderColor = '#b91c1c';
-    shadowColor = '#b91c1c';
+    faceBg = 'var(--color-error-fill)';
+    borderColor = 'var(--color-danger-strong)';
+    shadowColor = 'var(--color-danger-strong)';
   }
 
   return (

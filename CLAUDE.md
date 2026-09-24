@@ -114,9 +114,11 @@ getRepository(subscriptionStatus, wasPro)
 | Words per wordbook | Unlimited | Unlimited |
 | Scan modes | — | all, circled, eiken, idiom, custom (ユーザ定義プロンプト・単独指定のみ) |
 | Shared wordbook view/import | Yes (login required) | Yes |
+| Official wordbook (公式単語帳) view/import | Yes (list is public; full word list + import require login) | Yes |
 | Shared wordbook publishing | No (Pro-only) | Yes |
 | Shared 語法問題集 view | Yes (login required) | Yes |
 | Shared 語法問題集 import / publishing | No (Pro-only) | Yes |
+| リアルタイム対戦 | 1日3回まで (`FREE_DAILY_BATTLE_LIMIT`, JST暦日) | 無制限 |
 | Data storage | Cloud (Supabase) + IndexedDB cache (login required) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | Yes (login required; capped at 50 wordbooks server-side) | Yes |
 
@@ -176,12 +178,18 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - Correct -> green highlight, Wrong -> red highlight with correct answer shown
    - SM-2 spaced repetition: tracks easeFactor, intervalDays, repetition, nextReviewAt
    - Daily stats recorded: todayCount, correctCount, streakDays
-4. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync.
-5. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
-6. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
-7. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit
-8. **Favorites Mode**: Shows all favorite words across all projects, not just current project
-9. **Voice Quiz (音読チャレンジ)**: `/voice-quiz/[projectId]`. Narrates a Japanese quiz prompt ("what's the English for X?"), then the user says the English answer aloud within a time limit — an oral recall test, not pronunciation practice, so the English word is never spoken before answering.
+   - **解き方 (`src/lib/quiz/quiz-mode-preference.ts`)**: 四択 (`normal`) / 記述 (`typing`) / 音読 (`voice`) の3つ。**クイズを始めるたびに選択画面 (`QuizModeChooser`) を出す**。localStorage の `merken_quiz_mode` は「次に選択画面を出したときの初期選択」を覚えるだけで、覚えた形式で勝手に始めてはいけない。四択と記述は同じ `/quiz/[projectId]` 画面で切り替わり (`answerFormat`)、音読だけが別ページ (`/voice-quiz/[projectId]`)。音読へ移る側は `?format=` で戻り先の形式を渡し、戻った直後にもう一度訊かれないようにする。中断復帰用の sessionStorage にも `answerFormat` を保存する
+   - 記述で出すかは**選ばれた解き方だけ**で決まる。単語の状態 (`vocabularyType === 'active'` / `status === 'active'`) から記述に切り替えてはいけない —— 四択を選んだのに一部の語だけ入力欄になる、が元の不具合
+   - **出題する語も解き方で分かれる** (`src/lib/quiz/answer-format-words.ts`)。記述は Active (A) の語だけ、四択は Passive (P) の語だけ。**語彙モード未設定 (null) は Passive あつかい** —— スキャンの既定が Passive で、公式・共有単語帳の取り込みは未設定で入るので、未設定を外すと大半の単語帳がどちらの解き方でも空になる。絞り込みは `generateQuestions` / `startQuizWithDistractors` の中の1箇所だけに置く。語順クイズ (`isWordOrderEligible`) は active を除外するので、結果として四択側にしか出ない
+   - 解き方を変えると出題する語ごと入れ替わるので、途中で切り替えたら**最初から組み直す** (`startQuizForFormat`)。続きから続けようがない。1語も無いときは空の出題画面ではなく専用の案内を出す
+3b. **目標ページ (`/goal`, `src/app/goal/page.tsx`)**: Pro の下部バー2番目のタブ（旧「単語」`/words` の位置。`/words` 自体は残っているがナビからは外した）。目標は**「どの単語帳を（複数選択可）・いつまでに」を単語帳の選択で指定**し、端末の localStorage に持つ（`src/lib/goal/study-goal.ts` の `StudyGoal.projectIds`、1日の復習上限と同じ扱いで端末間には同期しない。旧形式の単数 `projectId` は読み込み時に配列へ移行する）。載せるのは 残り日数バナー / 月間カレンダー（月曜はじめ・今日・目標日・学習した日）/ **今日の10問**（目標の単語帳だけから `/quiz/all?learn=1&count=10`、絞り込みは `src/lib/quiz/review-project-filter.ts` 経由で sessionStorage に渡す）/ **今日復習しておきたい単語**（SM-2 の復習期限、全単語帳横断 `/quiz/all?review=1`）。後者2つは別物で混ぜない — 復習リンクへ飛ぶ前に絞り込みを明示的に解除する。ホームのショートカットグリッドからは「今日の復習」「保存済み単語」タイルを外した（デスクトップ版 `DesktopHome` は据え置き）
+4. **語彙モード (Active / Passive)**: `Word.vocabularyType` は `'active' | 'passive' | null`。呼び方は**「Active (A)」「Passive (P)」で統一**する (`getVocabularyTypeLabel`)。以前は画面ごとに「Active/Passive」「アクティブ/パッシブ」「発信/受信」が混在していた。スキャンの既定は `passive` (`DEFAULT_SCANNED_VOCABULARY_TYPE`)。`WordStatus` の `'active'` (SM-2の定着中) とは**別物**なので混同しないこと
+5. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync. After signup, every active official wordbook is browsable from the shared page's 「公式」 tab (`/shared?tab=official` → `/official/[slug]`) and can be imported at any time — the copy carries `imported_from_official_slug`, the same column the signup seed dedupes on. See `docs/official-wordbook-editor.md`.
+6. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
+7. **Suspense Boundaries**: Pages using `useSearchParams()` wrapped in Suspense for Next.js 16
+8. **Image Processing**: HEIC conversion and compression (max 2MB) to stay under Vercel's 4.5MB limit
+9. **Favorites Mode**: Shows all favorite words across all projects, not just current project
+10. **Voice Quiz (音読チャレンジ)**: `/voice-quiz/[projectId]`. Narrates a Japanese quiz prompt ("what's the English for X?"), then the user says the English answer aloud within a time limit — an oral recall test, not pronunciation practice, so the English word is never spoken before answering.
    - **Prompt text**: the carrier sentence does **not** depend on the word, so `src/lib/quiz/voice-quiz-prompt.ts` holds a fixed rotating set of templates and slots in `word.japanese`. No AI call, no DB column, no wait before the first question; the English spelling cannot leak because the prompt is built from the Japanese meaning alone (pinned by a test asserting templates contain no Latin letters).
    - **Attempts (試行回数)**: chosen on the start screen, 1–3. With 1, a single miss ends the question. With 2+, a miss triggers a spoken 「もう一回!」 (`VOICE_QUIZ_RETRY_TEMPLATES`) and re-listens until attempts run out. Success on any attempt counts as correct. A recognition-API failure never consumes a retry — it settles the question immediately since it isn't the user's fault.
    - **Batches (次の10問)**: one session is `?count=` words (default 10) taken from the head of the wordbook, ordered by `sortWordsByPriority` **once** at load. The result screen advances to the *next* batch rather than replaying the same one (`src/lib/quiz/voice-quiz-batch.ts`), keeping the chosen attempts/duration/direction. Re-sorting per batch would re-serve words already answered, so the order is fixed for the whole walk; when the wordbook runs out the button falls back to 「もう一度」.
@@ -238,8 +246,26 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - Tables: `grammar_books` / `grammar_questions` ほか (`supabase/migrations/2026072*_*grammar*.sql`)。RLSは本人限定のままで、他人の公開分は service-role のAPIルート経由でのみ読む
 - 共有: `share_id` によるリンク共有に加えて、`is_public` を立てると共有ページ (`/shared` の「語法」) の一覧に載る。公開・取り込みはPro限定、閲覧はログインのみ
 
+### 6. Classical Japanese support (古典対応) -- Done
+- 古文単語帳をスキャンすると古典語（古文単語）を自動抽出する。**専用のスキャンモードは無い**。既存の全モード（`all` / `circled` / `eiken` / `idiom` / `custom`）のプロンプトに共通フラグメント（`src/lib/ai/prompts/classical.ts`）を差し込んで自動判定させる。抽出条件は「明らかに古典語と思われる語彙が単語帳形式で載っていること」だけで、丸囲み・英検級などモード固有の条件は古典語には適用しない
+- そのため `ExtractMode` / `EXTRACT_MODES` / コインレート / `scan_modes` の CHECK 制約 / UIのモード一覧は**一切変更していない**
+- **ヒント制**: ここでの「ヒント」＝画像に載っている訳。多義語の②③も落とさず全部 `translations` に入れる。英語向けの「同義語はまとめる」縮約（`JAPANESE_TRANSLATION_STRUCTURE_RULES`）は古典語には適用しない。古文単語帳の①②③はすべて暗記対象だから
+- **共通辞書**: `classical_entries` / `classical_senses`（`20260909120000_create_classical_lexicon.sql`）。英語側の `lexicon_entries` / `lexicon_senses` と同じ全ユーザー共通マスタ。いちど貯まった見出し語のヒントは誰のスキャンでも流用される（`src/lib/classical/apply.ts`）。画像に語義が一部しか写っていなくても完全な語義セットが得られる
+- 語義のマージは**保存済み優先の和集合**。既存語義は上書きせず、画像にしか無かった語義だけを末尾に足す。滲んだ写真で共有辞書が劣化しないため
+- **学習データは既存の `words` / `word_translations` のまま**。見出し語は `words.english`、訳は `word_translations`、`words.classical_entry_id` で共通辞書を指す。クイズ・SM-2・同期・お気に入り・共有はそのまま動く。`is_classical` 列は作らず、`classical_entry_id` の有無が印
+- 英語専用の後処理（語源解析・例文・発音・英作文・誤答生成・英語lexicon解決）はすべて `isClassicalWord()` で除外する（INV-19）
+- 4択クイズの誤答は `quiz-state.ts` の既存フォールバック（同じ単語帳の他の語の訳を集める）で成立するのでクイズ側の変更は不要
+- **単語帳には種別がある**（`projects.kind` = `english` / `classical`）。作成時に選び、あとから変更できない。保存時に種別に合わない語は**黙って除外**し、件数だけトーストで知らせる（`filterWordsForProjectKind`）。サーバー側でも `/api/words/create` と `scan-jobs/process` で同じ判定を行う
+- **1枚の画像に英語と古典語が両方あれば英語を優先**し、古典語は捨てる（`preferEnglishOverClassical`）。プロンプトでも同じ優先順位を指示しているが、AI出力は信用せずサーバー側でも当てる
+- **古典語に混入した英語例文は保存前に落とす**（`stripEnglishExampleFromClassicalWord`）。マスター(`lexicon_entries`)由来の例文が prefill される経路が残っているため、表示で隠すのではなく書き込み前に断つ
+- 手動追加で古典語（ラテン文字を含まない見出し語）を入れると、英語の補完経路（翻訳AI・発音記号・品詞分類・例文生成）には一切入らず、共通辞書だけを引く
+
 ### 5. Realtime word battle (リアルタイム単語対戦) -- Done
-- 早押し4択のリアルタイム1対1対戦。**Pro限定・コイン消費なし**。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
+- 早押し4択のリアルタイム1対1対戦。**コイン消費なし**。Proは無制限、**Freeは1日3回まで**（`FREE_DAILY_BATTLE_LIMIT`）。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
+- **無料枠の1回＝実際に始まった対戦1部屋**。ロビーで待っただけ・マッチングを取り消しただけでは減らない。入り口（部屋作成・招待コード参加・マッチング・ボット戦・再戦）では `requireBattleEntryUser` が残数を**見るだけ**で、実際に減らすのは `startBattle` が部屋を掴んだ後（`consumeBattleEntry`、参加者ぶん）。記録は `battle_free_entries` の (user_id, room_id) 主キーなので、両クライアントが `/start` を叩いても二重には減らない。出題生成に失敗して部屋を 'ready' に戻すときは `releaseBattleEntries` で取り消す。日の境界は**JSTの暦日**（`battle_day_key`）——コインの月境界と同じ理由
+- 枠切れのまま対戦が始まろうとした部屋（入り口チェックをすり抜けた競合）は 'ready' に戻さず**部屋ごと cancelled にする**。戻すとホストのクライアントが `/start` を叩き続けて止まらない
+- **進行中の対戦の読み書きは枠と無関係**。部屋の取得・回答・退出は `requireBattleUser`（ログインのみ）で通す。対戦の途中で枠が尽きて画面が読めなくなってはいけない
+- 上限値は `src/lib/battle/free-allowance.ts` と SQL の RPC に二重にあり、`free-allowance.test.ts` が「`v_limit` を持ついちばん新しいマイグレーション」と突き合わせている。変えるときは TS と、上限を差し替える**新しいマイグレーション**の両方（適用ずみのマイグレーションは書き換えない。現行は `20260924120000_free_daily_battle_limit_three.sql`）
 - Routes: `/battle`（ロビー）, `/battle/[roomId]`（対戦画面）, `/groups/[groupId]/battle`（グループ内マッチ）, `/api/battle/**`（rooms, join, match, start）
 - Tables: `battle_rooms` / `battle_questions` / `battle_question_keys` / `battle_answers` / `battle_queue` (`supabase/migrations/20260814100000_create_word_battles.sql`)
 - **出題は出題者（ホスト）の単語帳だけ**から生成（`src/lib/battle/questions.ts`）。ゲストの単語帳は参加時に記録するが問題には使わない。ホストはフレンド対戦なら部屋を作った側、ランダムマッチなら先にキューで待っていた側（`pair_battle_match`）で、問題数・制限時間もホストの設定が採用される。両者はまったく同じ問題を同じ順で解く。単語が足りなければ問題数を切り詰める（重複出題はしない）
@@ -251,3 +277,10 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - **この2つの RPC の発火は `src/lib/battle/round-action-scheduler.ts` が持ち、`useEffect` の中に `setTimeout` を置いてはいけない**。ルーム状態は Realtime と4秒ポーリングで頻繁に再取得され、そのたびに新しいオブジェクトが生成されるので、effect の cleanup が正解表示の待ち時間（`BATTLE_ROUND_REVEAL_MS`）を消してしまい、1問目を解いた時点で対戦が固まる。ラウンドが解決した後は誰も操作できず再送する主体がいないため、送信失敗時のリトライもスケジューラ側で持つ
 - 同期は Supabase Realtime の `postgres_changes`（`battle_rooms` / `battle_questions`）。イベント欠落に備えて4秒間隔の再取得もかけている。回答送信だけは Vercel を経由せず**ブラウザから直接 RPC** を叩いてラウンドトリップを1回減らしている（早押しのため）
 - Next.js の Route Handler は常駐できないので、サーバー側タイマーは持たず「締切時刻を持ってクライアントが叩く・サーバーが検証する」方式を取っている
+- **人が集まらないときはボットが相手をする**（`src/lib/battle/bot.ts` + `20260916120000_battle_bot_opponent.sql`）。ランダムマッチ／グループ内マッチで15秒待つとロビーに誘導が出て（`BATTLE_BOT_OFFER_AFTER_MS`）、40秒で自動的にボット戦へ移る（`BATTLE_BOT_AUTO_AFTER_MS`）。待たずに始めるボタンもある。強さは かんたん / ふつう / つよい の3段階で、変わるのは**正答率と押す速さだけ**（どんなに強くても `BATTLE_BOT_MIN_BUZZ_MS` より速くは押さない）
+- ボット戦の部屋は `battle_rooms.guest_is_bot`。**`mode` は 'random' / 'group' のまま**で 'bot' モードは作っていない（出題元がどちらかは今までどおり `group_id` で決まる）。ゲスト席は `guest_user_id = NULL` のままで、画面に出す参加者は `bot_name` / `bot_level` からサーバーが組み立てる（`BATTLE_BOT_USER_ID`）
+- **ボットの手は出題と同時に全ラウンドぶん決めて `battle_bot_plans` に隠す**。`battle_question_keys` と同じくRLS有効・ポリシー無しなので `authenticated` からは読めない。ここにSELECTポリシーを足すと「何秒後に正解するか」が事前に分かってしまうので**絶対に追加しない**
+- 対戦中にボットを動かすのは `apply_battle_bot_turn` だけ。人間の回答（`submit_battle_answer`）・時間切れ（`resolve_battle_round_timeout`）・クライアントの定期tick（`settle_battle_bot_turn`、`BATTLE_BOT_TICK_INTERVAL_MS`）のどの経路から入っても、押す時刻は「出題開始 + `buzz_at_ms`」をサーバーが再計算して判定する。tick を止めてもボットの回答は飛ばせない（人間が押した瞬間に、判定より先にボットの番が清算される）
+- **ボットが勝っても `winner_user_id` は NULL**（auth.users に居ないので勝者IDを持てない）。勝敗は `outcome` の席で判定する（`getBattleResultForViewer`）。ラウンドを取ったのがボットかどうかも `battle_questions.answered_by_bot` を見る —— `answered_by` だけ見ると時間切れに化ける
+- 放置されたボット部屋は「マッチングを開始」時と新しいボット戦を作るときに畳む（`cancelOpenBotRooms`）。残すと `findActiveRoomForUser` が拾って、人と対戦したい人が古いボット戦へ引き戻される
+- **ボット対戦の列が無いDBでも人間同士の対戦は動く**。migration より先にコードがデプロイされると、bot列入りの SELECT が `42703` で落ちて**対戦ルームの取得が全経路で失敗**する（2026-06-24 の schema cache 障害と同じ形）。`hasBotColumns()` が一度だけ列の有無を確かめ、無ければ `ROOM_COLUMNS_BASE` / `QUESTION_COLUMNS_BASE`（bot列抜き）で読み、止めるのはボット戦の入口だけにする。migration 適用後は自動で復帰する。**fallback 側の列リストに bot列を足してはいけない**（`server-schema-compat.test.ts` が固定している）

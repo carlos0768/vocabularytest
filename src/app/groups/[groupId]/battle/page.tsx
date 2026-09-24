@@ -16,6 +16,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
+  BattleAllowanceStrip,
+  BattleBotOffer,
   BattleGroupSetupCard,
   BattleNotice,
   BattleScreen,
@@ -24,11 +26,20 @@ import {
 } from '@/components/battle';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { useBattleEntitlement } from '@/hooks/use-battle-entitlement';
 import {
+  BATTLE_BOT_AUTO_AFTER_MS,
+  BATTLE_BOT_OFFER_AFTER_MS,
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
   BATTLE_MATCH_POLL_INTERVAL_MS,
 } from '@/lib/battle/config';
+import {
+  BATTLE_DEFAULT_BOT_LEVEL,
+  getBattleBotName,
+  type BattleBotLevel,
+} from '@/lib/battle/bot';
+import { canStartBattle, FREE_DAILY_BATTLE_LIMIT } from '@/lib/battle/free-allowance';
 import { loadGroupOverview } from '@/lib/shared-projects/group-overview-cache';
 import type { SharedProjectCard, StudyGroupSummary } from '@/lib/shared-projects/types';
 
@@ -47,19 +58,30 @@ export default function GroupBattlePage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? '';
   const router = useRouter();
-  const { isAuthenticated, isPro, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  // Proは無制限、Freeは1日3回まで。残数はサーバーが持つ。
+  const {
+    allowance,
+    loading: allowanceLoading,
+    error: allowanceError,
+  } = useBattleEntitlement(isAuthenticated);
 
   const [group, setGroup] = useState<StudyGroupSummary | null>(null);
   const [books, setBooks] = useState<SharedProjectCard[]>([]);
   const [booksLoading, setBooksLoading] = useState(true);
   const [questionCount, setQuestionCount] = useState(BATTLE_DEFAULT_QUESTION_COUNT);
   const [roundDurationMs, setRoundDurationMs] = useState(BATTLE_DEFAULT_ROUND_DURATION_MS);
+  const [botLevel, setBotLevel] = useState<BattleBotLevel>(BATTLE_DEFAULT_BOT_LEVEL);
   const [matching, setMatching] = useState(false);
+  const [matchStartedAt, setMatchStartedAt] = useState<number | null>(null);
+  const [matchElapsedMs, setMatchElapsedMs] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const matchingRef = useRef(false);
   matchingRef.current = matching;
+  /** ボット戦の二重開始よけ（自動開始とボタンが同時に走らないように）。 */
+  const botStartRef = useRef(false);
 
   useEffect(() => {
     if (!groupId) return;
@@ -109,6 +131,9 @@ export default function GroupBattlePage() {
         router.push(`/battle/${payload.roomId}`);
         return;
       }
+      botStartRef.current = false;
+      setMatchStartedAt(Date.now());
+      setMatchElapsedMs(0);
       setMatching(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'マッチングに失敗しました。');
@@ -119,8 +144,59 @@ export default function GroupBattlePage() {
 
   const cancelMatching = useCallback(async () => {
     setMatching(false);
+    setMatchStartedAt(null);
     await fetch('/api/battle/match', { method: 'DELETE' }).catch(() => {});
   }, []);
+
+  /**
+   * グループのメンバーが集まらないときのボット対戦。出題元は通常のグループ内
+   * 対戦と同じくグループの本棚なので、単語帳は送らない。
+   */
+  const startBotBattle = useCallback(async () => {
+    if (!groupId) return;
+    botStartRef.current = true;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch('/api/battle/bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, level: botLevel, questionCount, roundDurationMs }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success || !payload.roomId) {
+        throw new Error(payload?.error ?? 'ボット対戦の準備に失敗しました。');
+      }
+      router.push(`/battle/${payload.roomId}`);
+    } catch (err) {
+      botStartRef.current = false;
+      setError(err instanceof Error ? err.message : 'ボット対戦の準備に失敗しました。');
+      setMatching(false);
+      setMatchStartedAt(null);
+    } finally {
+      setBusy(false);
+    }
+  }, [groupId, botLevel, questionCount, roundDurationMs, router]);
+
+  // 待機時間の計測。ボットを出すか、自動で始めるかの判断だけに使う。
+  useEffect(() => {
+    if (!matching || matchStartedAt === null) return;
+
+    const interval = setInterval(() => {
+      setMatchElapsedMs(Date.now() - matchStartedAt);
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [matching, matchStartedAt]);
+
+  // グループは母数が小さく、そもそも誰も来ないことがある。待ちっぱなしに
+  // させず、一定時間でボット戦へ移す。
+  useEffect(() => {
+    if (!matching || botStartRef.current) return;
+    if (matchElapsedMs < BATTLE_BOT_AUTO_AFTER_MS) return;
+
+    void startBotBattle();
+  }, [matching, matchElapsedMs, startBotBattle]);
 
   // 待機中は、サーバーがペアにしてくれた部屋をポーリングで拾う。
   useEffect(() => {
@@ -174,13 +250,39 @@ export default function GroupBattlePage() {
     );
   }
 
-  if (!isPro) {
+  if (allowanceLoading) {
+    return (
+      <BattleScreen header={header} center>
+        <div className="flex items-center justify-center gap-2 py-10 text-[var(--color-muted)]">
+          <Icon name="progress_activity" size={20} className="animate-spin" />
+          <span className="text-sm font-bold">読み込み中...</span>
+        </div>
+      </BattleScreen>
+    );
+  }
+
+  // 残数が読めなかっただけのときに「使い切りました」と出すと嘘になる。
+  if (!allowance) {
     return (
       <BattleScreen header={header} center>
         <BattleNotice
-          icon="workspace_premium"
-          title="Proプラン限定の機能です"
-          description="リアルタイム対戦はProプラン限定です。対戦でコインは消費しません。"
+          icon="wifi_off"
+          title="対戦の利用状況を取得できませんでした"
+          description={allowanceError ?? '通信状況を確かめて、もう一度お試しください。'}
+          action={{ label: '再読み込み', onClick: () => window.location.reload() }}
+          secondaryAction={{ label: 'グループに戻る', href: groupPath }}
+        />
+      </BattleScreen>
+    );
+  }
+
+  if (!canStartBattle(allowance)) {
+    return (
+      <BattleScreen header={header} center>
+        <BattleNotice
+          icon="hourglass_empty"
+          title="本日の無料対戦は終了しました"
+          description={`無料プランの対戦は1日${allowance.limit ?? FREE_DAILY_BATTLE_LIMIT}回までです。明日0時に回復します。Proプランなら回数制限なしで対戦できます。`}
           action={{ label: 'Proプランを見る', href: '/subscription' }}
           secondaryAction={{ label: 'グループに戻る', href: groupPath }}
         />
@@ -189,11 +291,21 @@ export default function GroupBattlePage() {
   }
 
   if (matching) {
+    const showBotOffer = matchElapsedMs >= BATTLE_BOT_OFFER_AFTER_MS;
+    const secondsUntilAuto = Math.max(
+      0,
+      Math.ceil((BATTLE_BOT_AUTO_AFTER_MS - matchElapsedMs) / 1000),
+    );
+
     return (
       <BattleScreen header={header} center>
         <BattleWaitingPanel
           title="グループの相手を探しています..."
-          description="同じグループのメンバーが対戦を始めると、自動でマッチします。"
+          description={
+            showBotOffer
+              ? 'メンバーが集まらないときは、ボットが相手をします。'
+              : '同じグループのメンバーが対戦を始めると、自動でマッチします。'
+          }
           onCancel={cancelMatching}
         >
           <div className="rounded-[14px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left">
@@ -205,6 +317,15 @@ export default function GroupBattlePage() {
               {hasBooks && ` · グループの単語帳${books.length}冊`}
             </div>
           </div>
+
+          {showBotOffer && (
+            <BattleBotOffer
+              botName={getBattleBotName(botLevel)}
+              secondsUntilAuto={secondsUntilAuto}
+              onStart={() => void startBotBattle()}
+              disabled={busy}
+            />
+          )}
         </BattleWaitingPanel>
       </BattleScreen>
     );
@@ -221,6 +342,12 @@ export default function GroupBattlePage() {
         </div>
       )}
 
+      {allowance && !allowance.isPro && (
+        <div className="mb-3">
+          <BattleAllowanceStrip allowance={allowance} />
+        </div>
+      )}
+
       <BattleGroupSetupCard
         books={setupBooks}
         booksLoading={booksLoading}
@@ -231,6 +358,8 @@ export default function GroupBattlePage() {
         roundDurationMs={roundDurationMs}
         roundDurationOptions={ROUND_DURATION_OPTIONS}
         onRoundDurationChange={setRoundDurationMs}
+        botLevel={botLevel}
+        onBotLevelChange={setBotLevel}
         disabled={busy}
       />
 
@@ -238,7 +367,7 @@ export default function GroupBattlePage() {
         type="button"
         onClick={startMatching}
         disabled={busy || booksLoading || !hasBooks}
-        className="mt-4 flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-white shadow-[3px_4px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-ink)] disabled:opacity-50 disabled:shadow-none"
+        className="mt-4 flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[16px] font-black text-[var(--color-on-accent)] shadow-[3px_4px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[2px_3px_0_var(--solid-shadow)] disabled:opacity-50 disabled:shadow-none"
       >
         <Icon name="swords" size={20} />
         グループ内でマッチング
@@ -247,7 +376,19 @@ export default function GroupBattlePage() {
         同じグループのメンバーとだけマッチします。
         <br />
         出題はグループに追加された単語帳からです。
+        <br />
+        {Math.round(BATTLE_BOT_AUTO_AFTER_MS / 1000)}秒待ってもメンバーが集まらないときは、ボットが相手をします。
       </p>
+
+      <button
+        type="button"
+        onClick={() => void startBotBattle()}
+        disabled={busy || booksLoading || !hasBooks}
+        className="mt-3 flex h-[46px] w-full items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[13.5px] font-extrabold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-50"
+      >
+        <Icon name="smart_toy" size={17} />
+        待たずにボットと対戦する
+      </button>
       {!booksLoading && !hasBooks && (
         <Link
           href={`${groupPath}/bookshelf`}

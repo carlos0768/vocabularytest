@@ -31,7 +31,7 @@ export function FlashcardTutorialGuide({ seen, target, onReturn }: FlashcardTuto
             className="absolute inset-0 rounded-full bg-[var(--solid-ink)]"
             style={{ transform: 'translate(2px, 2.5px)' }}
           />
-          <div className="relative flex items-center gap-2 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3.5 py-2">
+          <div className="relative flex items-center gap-2 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3.5 py-2">
             <Icon name="style" size={15} className="text-[var(--color-accent)]" />
             <span className="text-[12px] font-bold text-[var(--solid-ink)]">
               カードを{target}枚見てみましょう
@@ -61,8 +61,8 @@ export function FlashcardTutorialGuide({ seen, target, onReturn }: FlashcardTuto
           className="absolute inset-0 rounded-[18px] bg-[var(--solid-ink)]"
           style={{ transform: 'translate(4px, 4.5px)' }}
         />
-        <div className="relative overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] bg-white px-5 pb-5 pt-6 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+        <div className="relative overflow-hidden rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 pb-5 pt-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)]">
             <Icon name="check" size={24} />
           </div>
           <h2 className="mt-3 font-display text-[19px] font-black leading-tight text-[var(--solid-ink)]">
@@ -82,7 +82,7 @@ export function FlashcardTutorialGuide({ seen, target, onReturn }: FlashcardTuto
               className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]"
               style={{ transform: 'translate(3px, 3.5px)' }}
             />
-            <span className="relative flex items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 text-[14px] font-bold text-white">
+            <span className="relative flex items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 text-[14px] font-bold text-[var(--color-on-ink)]">
               <Icon name="arrow_back" size={16} />
               単語帳に戻る
             </span>

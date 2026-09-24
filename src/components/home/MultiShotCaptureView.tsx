@@ -71,7 +71,7 @@ export function MultiShotCaptureView({
     <div
       className="absolute inset-0 z-[105] flex flex-col"
       style={{
-        background: '#faf7f1',
+        background: 'var(--color-paper)',
         fontFamily: 'var(--font-body)',
         paddingTop: 'max(14px, env(safe-area-inset-top))',
         paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
@@ -85,7 +85,7 @@ export function MultiShotCaptureView({
           type="button"
           onClick={onClose}
           aria-label="閉じる"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
         >
           <Icon name="close" size={16} />
         </button>
@@ -101,7 +101,7 @@ export function MultiShotCaptureView({
           type="button"
           onClick={onAddFromLibrary}
           disabled={atCapacity}
-          className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-white px-3 py-2 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[11px] font-bold text-[var(--solid-ink)] disabled:opacity-40"
         >
           <Icon name="photo_library" size={14} />
           ライブラリ
@@ -135,14 +135,14 @@ export function MultiShotCaptureView({
           <span key={i} className="pointer-events-none absolute h-[22px] w-[22px] opacity-60" style={style} />
         ))}
         {count > 0 && (
-          <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[var(--solid-ink)] px-2.5 py-1 text-[11px] font-bold text-white">
+          <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[var(--solid-ink)] px-2.5 py-1 text-[11px] font-bold text-[var(--color-on-ink)]">
             <Icon name="photo_library" size={13} filled />
             {count}枚
           </div>
         )}
         <div
           className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold text-white"
-          style={{ background: 'rgba(26,26,26,0.78)' }}
+          style={{ background: 'color-mix(in srgb, var(--solid-ink) 78%, transparent)' }}
         >
           <Icon name="crop_free" size={14} />
           {count === 0 ? '枠に合わせて撮影' : atCapacity ? `上限${maxCount}枚に達しました` : '続けて次のページも撮れます'}
@@ -157,7 +157,7 @@ export function MultiShotCaptureView({
               <div
                 key={i}
                 className="h-[58px] w-[44px] shrink-0 rounded-[8px] border-2 border-dashed"
-                style={{ borderColor: 'rgba(26,26,26,0.25)' }}
+                style={{ borderColor: 'color-mix(in srgb, var(--solid-ink) 25%, transparent)' }}
               />
             ))}
             <span className="ml-1 text-[11px] font-medium text-[var(--color-muted)]">
@@ -175,14 +175,14 @@ export function MultiShotCaptureView({
                   className="h-[58px] w-[44px] rounded-[8px] border-2 border-[var(--solid-ink)] object-cover"
                   style={{ boxShadow: '1.5px 1.5px 0 var(--solid-ink)' }}
                 />
-                <span className="absolute bottom-1 left-1 rounded-[4px] bg-[var(--solid-ink)] px-1 font-mono text-[9px] font-bold leading-[14px] text-white">
+                <span className="absolute bottom-1 left-1 rounded-[4px] bg-[var(--solid-ink)] px-1 font-mono text-[9px] font-bold leading-[14px] text-[var(--color-on-ink)]">
                   {i + 1}
                 </span>
                 <button
                   type="button"
                   onClick={() => onRemove(shot.id)}
                   aria-label={`写真 ${i + 1} を削除`}
-                  className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+                  className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
                 >
                   <Icon name="close" size={11} />
                 </button>
@@ -212,7 +212,7 @@ export function MultiShotCaptureView({
             className="flex items-center justify-between rounded-full border-2 px-3.5 py-1.5"
             style={{
               borderColor: coinInsufficient ? 'var(--color-error)' : 'var(--solid-ink)',
-              background: '#fff',
+              background: 'var(--color-surface)',
             }}
           >
             <span className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--solid-ink)]">
@@ -247,8 +247,8 @@ export function MultiShotCaptureView({
               <span className="absolute -inset-2 animate-ping rounded-full border-2 border-[var(--solid-ink)] opacity-30" />
             )}
             <span className="absolute inset-0 rounded-full bg-[var(--solid-ink)]" style={{ transform: 'translate(2.5px,2.5px)' }} />
-            <span className="absolute inset-0 flex items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white">
-              <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--solid-ink)] text-white">
+            <span className="absolute inset-0 flex items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
+              <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
                 <Icon name="photo_camera" size={26} />
               </span>
             </span>
@@ -272,13 +272,13 @@ export function MultiShotCaptureView({
               style={{
                 background: count > 0 ? 'var(--color-accent)' : 'var(--color-surface-secondary)',
                 borderColor: count > 0 ? 'var(--solid-ink)' : 'var(--color-border)',
-                color: count > 0 ? '#fff' : 'var(--color-muted)',
+                color: count > 0 ? 'var(--color-on-accent)' : 'var(--color-muted)',
               }}
             >
               <Icon name="check" size={26} />
             </span>
             {count > 0 && (
-              <span className="absolute -right-1 -top-1 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white px-1 font-mono text-[10px] font-bold text-[var(--solid-ink)]">
+              <span className="absolute -right-1 -top-1 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-1 font-mono text-[10px] font-bold text-[var(--solid-ink)]">
                 {count}
               </span>
             )}

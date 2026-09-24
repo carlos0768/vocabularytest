@@ -79,7 +79,7 @@ export function ArticlePage({
         </p>
         <Link
           href="/signup?redirect=/"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-[var(--color-on-ink)]"
         >
           無料で始める
           <Icon name="arrow_forward" size={16} />

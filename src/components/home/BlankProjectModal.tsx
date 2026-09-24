@@ -103,7 +103,7 @@ export function BlankProjectModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例: 英検準2級"
                 maxLength={50}
-                className="w-full bg-white px-3 py-3 text-[14px] font-medium text-[var(--solid-ink)] placeholder:text-[var(--color-muted)] focus:outline-none"
+                className="w-full bg-[var(--color-surface)] px-3 py-3 text-[14px] font-medium text-[var(--solid-ink)] placeholder:text-[var(--color-muted)] focus:outline-none"
               />
             </div>
           </div>
@@ -123,7 +123,7 @@ export function BlankProjectModal({
                 placeholder="この単語帳の目的やメモ"
                 rows={2}
                 maxLength={300}
-                className="w-full resize-none bg-white px-3 py-3 text-[13px] text-[var(--solid-ink)] placeholder:text-[var(--color-muted)] focus:outline-none"
+                className="w-full resize-none bg-[var(--color-surface)] px-3 py-3 text-[13px] text-[var(--solid-ink)] placeholder:text-[var(--color-muted)] focus:outline-none"
               />
             </div>
           </div>

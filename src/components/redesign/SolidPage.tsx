@@ -39,7 +39,7 @@ export function Solid({
         // ダークでは --solid-ink が明色に反転するので、前景は白固定ではなく
         // 背景色トークンを使う (ライトでは #fff のまま = 見た目は不変)。
         variant === 'inverse' && 'bg-[var(--solid-ink)] text-[var(--color-surface)]',
-        variant === 'accent' && 'bg-[var(--color-accent)] text-white border-[var(--color-accent-ink)]',
+        variant === 'accent' && 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent-ink)]',
         className,
       )}
     >
@@ -100,7 +100,7 @@ export const SolidButton = forwardRef<HTMLElement, SolidButtonProps>(function So
     variant === 'default' && 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
     // 同上。ダークで「白背景に白文字」になるのを防ぐ。
     variant === 'inverse' && 'bg-[var(--solid-ink)] text-[var(--color-surface)]',
-    variant === 'accent' && 'bg-[var(--color-accent)] text-white border-[var(--color-accent-ink)]',
+    variant === 'accent' && 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent-ink)]',
     className,
     faceClassName,
   );
@@ -348,7 +348,7 @@ export function SolidRow({
   const content = (
     <>
       {icon && (
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-[rgba(26,26,26,0.05)]">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)]">
           <Icon name={icon} size={16} className={danger ? 'text-[var(--color-error)]' : 'text-[var(--solid-ink)]'} />
         </span>
       )}

@@ -7,7 +7,7 @@ export default function SubscriptionCancelPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6 font-[var(--font-body)]">
       <div className="w-full max-w-sm text-center">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[rgba(26,26,26,0.05)]">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)]">
           <Icon name="cancel" size={28} className="text-[var(--color-muted)]" />
         </div>
 
@@ -24,7 +24,7 @@ export default function SubscriptionCancelPage() {
           <div>
             <Link
               href="/subscription"
-              className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-sm font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               プラン選択に戻る
             </Link>
@@ -33,7 +33,7 @@ export default function SubscriptionCancelPage() {
           <div>
             <Link
               href="/"
-              className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-white py-3.5 text-sm font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] py-3.5 text-sm font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               ダッシュボードへ
             </Link>

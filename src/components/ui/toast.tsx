@@ -61,20 +61,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               'pointer-events-auto bg-[#1A1A2E] text-white px-4 py-3 rounded-[var(--radius-lg)] shadow-card',
               'flex items-center gap-3 max-w-sm w-full',
               'animate-in slide-in-from-bottom-4 fade-in duration-200',
-              toast.type === 'warning' && 'bg-[#f59e0b] text-[#1A1A2E]',
-              toast.type === 'success' && 'bg-[#22c55e] text-white',
-              toast.type === 'error' && 'bg-[#ef4444]'
+              toast.type === 'warning' && 'bg-[var(--color-warning)] text-[#1A1A2E]',
+              toast.type === 'success' && 'bg-[var(--color-success)] text-[var(--color-on-accent)]',
+              toast.type === 'error' && 'bg-[var(--color-error-fill)]'
             )}
           >
             <span className="text-sm flex-1">{toast.message}</span>
 
+            {/* 文字色はトーストの地色に合わせる（warning は明るい地に黒文字なので、
+                白固定にするとアクションだけ読めなくなる）。 */}
             {toast.action && (
               <button
                 onClick={() => {
                   toast.action?.onClick();
                   hideToast(toast.id);
                 }}
-                className="flex items-center gap-1 text-sm font-medium text-white/90 hover:text-white shrink-0"
+                className="flex items-center gap-1 text-sm font-bold text-current opacity-90 hover:opacity-100 shrink-0"
               >
                 {toast.action.label}
                 <Icon name="chevron_right" size={16} />

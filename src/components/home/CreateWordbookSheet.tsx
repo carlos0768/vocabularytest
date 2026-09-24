@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { saveManualAddIntent } from '@/lib/home/home-session-storage';
 import { getGuestUserId, FREE_WORDBOOK_LIMIT } from '@/lib/utils';
-import type { SubscriptionStatus } from '@/types';
+import type { ProjectKind, SubscriptionStatus } from '@/types';
 
 type CreateMethod = 'scan' | 'chatgpt' | 'blank';
 
@@ -53,6 +53,8 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
   const [step, setStep] = useState<'method' | 'scan'>('method');
   const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'blank');
   const [name, setName] = useState('');
+  // 単語帳の種別。あとから混ぜられないので作成時に決める。
+  const [kind, setKind] = useState<ProjectKind>('english');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -117,7 +119,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
           return;
         }
       }
-      const project = await repository.createProject({ userId, title: trimmedName });
+      const project = await repository.createProject({ userId, title: trimmedName, kind });
       // 空の単語帳は単語ゼロで始まるので、遷移先で手動追加モーダルを自動で開く
       try {
         saveManualAddIntent(sessionStorage, project.id);
@@ -158,7 +160,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                   maxWidth: 480,
                   maxHeight: '100%',
                   overflowY: 'auto',
-                  background: '#faf7f1',
+                  background: 'var(--color-paper)',
                   border: '2px solid var(--solid-ink)',
                   borderRadius: 20,
                   padding: '18px 20px 22px',
@@ -166,20 +168,20 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                 }
               : {
                   maxWidth: 480,
-                  background: '#faf7f1',
+                  background: 'var(--color-paper)',
                   border: '2px solid var(--solid-ink)',
                   borderBottomWidth: 0,
                   borderTopLeftRadius: 20,
                   borderTopRightRadius: 20,
                   padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-                  boxShadow: '0 -8px 24px rgba(26,26,26,0.18)',
+                  boxShadow: '0 -8px 24px color-mix(in srgb, var(--solid-ink) 18%, transparent)',
                 }
           }
         >
           {/* Drag handle（ボトムシートのみ） */}
           {variant === 'sheet' && (
             <div className="mb-2.5 flex justify-center">
-              <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+              <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
             </div>
           )}
 
@@ -191,7 +193,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                   type="button"
                   onClick={() => setStep('method')}
                   aria-label="戻る"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
                 >
                   <Icon name="arrow_back" size={14} />
                 </button>
@@ -219,7 +221,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
             >
               <Icon name="close" size={14} />
             </button>
@@ -253,12 +255,43 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                     placeholder="例：鉄壁 Section 13"
                     maxLength={50}
                     disabled={submitting}
-                    className="w-full bg-white px-3 py-3 text-[14px] font-medium text-[var(--solid-ink)] placeholder:text-[var(--color-muted)] focus:outline-none"
+                    className="w-full bg-[var(--color-surface)] px-3 py-3 text-[14px] font-medium text-[var(--solid-ink)] placeholder:text-[var(--color-muted)] focus:outline-none"
                   />
                 </div>
                 {method === 'scan' && !trimmedName && (
                   <p className="mt-1 text-[10px] text-[var(--color-muted)]">未入力の場合はスキャン内容から自動で名前が付きます</p>
                 )}
+
+                <div className="mt-4">
+                  <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                    種別
+                  </div>
+                  <div className="flex gap-2">
+                    {([
+                      { value: 'english' as const, label: '英語', hint: '英単語と訳' },
+                      { value: 'classical' as const, label: '古典', hint: '古文単語と現代語訳' },
+                    ]).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setKind(option.value)}
+                        aria-pressed={kind === option.value}
+                        disabled={submitting}
+                        className="flex-1 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2 text-left transition-all"
+                        style={{
+                          borderColor: kind === option.value ? 'var(--solid-ink)' : 'var(--color-border)',
+                          boxShadow: kind === option.value ? '2px 2px 0 var(--solid-ink)' : 'none',
+                        }}
+                      >
+                        <span className="block text-[13px] font-bold text-[var(--solid-ink)]">{option.label}</span>
+                        <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">{option.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-[var(--color-muted)]">
+                    あとから変更できません。種別に合わない単語は保存時に除外されます。
+                  </p>
+                </div>
                 {method === 'chatgpt' && (
                   <p className="mt-1 text-[10px] text-[var(--color-muted)]">単語帳の作成・選択はChatGPTとの会話の中で行います</p>
                 )}
@@ -294,7 +327,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                         setMethod(m.k);
                         if (m.k === 'blank' && !trimmedName) nameInputRef.current?.focus();
                       }}
-                      className="flex items-center gap-3 rounded-[14px] border-2 bg-white px-4 py-3.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex items-center gap-3 rounded-[14px] border-2 bg-[var(--color-surface)] px-4 py-3.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60"
                       style={{
                         borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
                         boxShadow: active ? '2px 3px 0 var(--solid-ink)' : 'none',
@@ -313,12 +346,12 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                         <div className="flex items-center gap-1.5">
                           <span className="font-display text-[14.5px] font-bold text-[var(--solid-ink)]">{m.title}</span>
                           {showRecommended && (
-                            <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-white">
+                            <span className="rounded-[3px] bg-[var(--color-accent)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-on-accent)]">
                               おすすめ
                             </span>
                           )}
                           {showProBadge && (
-                            <span className="rounded-[3px] border border-[var(--solid-ink)] bg-white px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                            <span className="rounded-[3px] border border-[var(--solid-ink)] bg-[var(--color-surface)] px-[5px] py-[2px] font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
                               PRO
                             </span>
                           )}
@@ -330,7 +363,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                         className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full"
                         style={{
                           border: `1.5px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                          background: active ? 'var(--color-accent)' : '#fff',
+                          background: active ? 'var(--color-accent)' : 'var(--color-surface)',
                         }}
                       >
                         {active && <Icon name="check" size={14} className="text-white" />}

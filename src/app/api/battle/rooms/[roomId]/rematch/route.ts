@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { battleErrorResponse, requireProBattleUser } from '@/app/api/battle/shared';
+import { battleErrorResponse, requireBattleEntryUser } from '@/app/api/battle/shared';
 import { createOrJoinRematch } from '@/lib/battle/server';
 
 /**
@@ -12,7 +12,7 @@ export async function POST(
   context: { params: Promise<{ roomId: string }> },
 ) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleEntryUser(request);
     if (!auth.ok) return auth.response;
 
     const { roomId } = await context.params;

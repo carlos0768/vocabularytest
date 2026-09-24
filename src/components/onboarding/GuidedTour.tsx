@@ -108,7 +108,7 @@ function MerkenTourTooltip({
         className="absolute inset-0 rounded-[16px] bg-[var(--solid-ink)]"
         style={{ transform: 'translate(3px, 3.5px)' }}
       />
-      <div className="relative overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-white">
+      <div className="relative overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
         <div className="px-4 pb-3.5 pt-3.5">
           <div className="flex items-start justify-between gap-2">
             {step.title ? (
@@ -156,7 +156,7 @@ function MerkenTourTooltip({
                 <button
                   type="button"
                   {...backProps}
-                  className="inline-flex items-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-3 py-1.5 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+                  className="inline-flex items-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1.5 text-[12px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
                 >
                   戻る
                 </button>
@@ -165,7 +165,7 @@ function MerkenTourTooltip({
                 <button
                   type="button"
                   onClick={primaryAction.onClick}
-                  className="relative inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-1.5 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                  className="relative inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-1.5 text-[12px] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
                 >
                   {primaryAction.label}
                   <Icon name="arrow_forward" size={14} />
@@ -174,7 +174,7 @@ function MerkenTourTooltip({
                 <button
                   type="button"
                   {...primaryProps}
-                  className="relative inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-1.5 text-[12px] font-bold text-white transition-all duration-100 active:translate-x-px active:translate-y-px"
+                  className="relative inline-flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-1.5 text-[12px] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
                 >
                   {primaryLabel}
                   {!isLastStep ? <Icon name="arrow_forward" size={14} /> : null}

@@ -182,12 +182,12 @@ export function PwaInstallPromptModal({ open, onClose }: PwaInstallPromptModalPr
                 type="button"
                 onClick={onClose}
                 aria-label="閉じる"
-                className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+                className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
               >
                 <Icon name="close" size={14} />
               </button>
 
-              <div className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-white px-2.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--solid-ink)]">
+              <div className="inline-flex items-center gap-1.5 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--solid-ink)]">
                 <Icon name="celebration" size={11} filled />
                 クイズ完了！
               </div>
@@ -201,7 +201,7 @@ export function PwaInstallPromptModal({ open, onClose }: PwaInstallPromptModalPr
               </p>
 
               {variant === 'ios' ? (
-                <div className="mt-4 rounded-[12px] border-2 border-dashed border-[var(--solid-ink)] bg-white/70 p-3.5 text-[12px] leading-[1.6] text-[var(--solid-ink)]">
+                <div className="mt-4 rounded-[12px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)]/70 p-3.5 text-[12px] leading-[1.6] text-[var(--solid-ink)]">
                   <div className="flex items-start gap-2">
                     <Icon name="ios_share" size={16} className="mt-0.5 text-[var(--color-accent)]" />
                     <div>
@@ -216,7 +216,7 @@ export function PwaInstallPromptModal({ open, onClose }: PwaInstallPromptModalPr
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[12px] font-bold text-[var(--solid-ink)]"
+                  className="flex-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3 text-[12px] font-bold text-[var(--solid-ink)]"
                 >
                   あとで
                 </button>
@@ -227,7 +227,7 @@ export function PwaInstallPromptModal({ open, onClose }: PwaInstallPromptModalPr
                       className="absolute inset-0 rounded-[12px] bg-[var(--solid-ink)]"
                       style={{ transform: 'translate(2.5px, 3px)' }}
                     />
-                    <span className="relative flex items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-3 text-[13px] font-bold text-white">
+                    <span className="relative flex items-center justify-center gap-1.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-3 text-[13px] font-bold text-[var(--color-on-ink)]">
                       <Icon name="download" size={15} />
                       インストール
                     </span>

@@ -91,18 +91,18 @@ export function ShareToGroupSheet({
       {/* モバイル: ボトムシート / デスクトップ(lg): 中央モーダル */}
       <div className="absolute inset-x-0 bottom-0 flex justify-center lg:inset-0 lg:items-center lg:p-6">
         <div
-          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[#faf7f1] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_rgba(26,26,26,0.18)] lg:animate-fade-in lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-ink)]"
+          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] lg:animate-fade-in lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-shadow)]"
           style={{ maxHeight: 'min(82vh, 680px)' }}
         >
           <div className="mb-2.5 flex justify-center lg:hidden">
-            <div className="h-1 w-10 rounded-full bg-[rgba(26,26,26,0.2)]" />
+            <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">SHARE TO GROUP</div>
               <div className="mt-0.5 truncate font-display text-[18px] font-extrabold text-[var(--solid-ink)]">{groupName}に共有</div>
             </div>
-            <button type="button" onClick={onClose} aria-label="閉じる" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]">
+            <button type="button" onClick={onClose} aria-label="閉じる" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]">
               <Icon name="close" size={14} />
             </button>
           </div>
@@ -110,10 +110,10 @@ export function ShareToGroupSheet({
           {!userId ? (
             <SheetNote icon="login" message="ログインが必要です。" />
           ) : !isPro ? (
-            <div className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white p-4 text-center">
+            <div className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 text-center">
               <Icon name="auto_awesome" size={28} className="text-[var(--solid-ink)]" />
               <div className="mt-2 text-[13px] font-bold text-[var(--solid-ink)]">グループへの単語帳共有はPro限定です。</div>
-              <Link href="/subscription" className="mt-3 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-[12px] font-extrabold text-white">Proを見る</Link>
+              <Link href="/subscription" className="mt-3 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2 text-[12px] font-extrabold text-[var(--color-on-ink)]">Proを見る</Link>
             </div>
           ) : loading ? (
             <SheetNote icon="progress_activity" spin message="単語帳を読み込み中..." />
@@ -131,7 +131,7 @@ export function ShareToGroupSheet({
                     type="button"
                     disabled={alreadyShared || Boolean(savingId)}
                     onClick={() => void handleShare(project)}
-                    className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
+                    className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-55"
                   >
                     <span
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] font-display text-[16px] font-extrabold text-white"
@@ -158,7 +158,7 @@ export function ShareToGroupSheet({
 
 function SheetNote({ icon, message, spin = false }: { icon: string; message: string; spin?: boolean }) {
   return (
-    <div className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-white px-3 py-3 text-[12px] font-bold text-[var(--color-muted)]">
+    <div className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 text-[12px] font-bold text-[var(--color-muted)]">
       <Icon name={icon} size={15} className={spin ? 'animate-spin' : undefined} />
       {message}
     </div>

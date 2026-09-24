@@ -162,7 +162,7 @@ export default function CoinsPage() {
           type="button"
           onClick={() => router.back()}
           aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="chevron_left" size={20} />
         </button>
@@ -172,7 +172,7 @@ export default function CoinsPage() {
 
       <div className="space-y-4 px-[18px]">
         {/* 残高カード */}
-        <div className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-white p-4" style={{ boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}>
+        <div className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4" style={{ boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}>
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-sm font-bold text-[var(--solid-ink)]">
               <Icon name="toll" size={18} className="text-[var(--color-accent)]" />
@@ -192,7 +192,7 @@ export default function CoinsPage() {
         </div>
 
         {/* 消費レート表 */}
-        <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white p-4">
+        <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">消費コイン</div>
           <ul className="space-y-1.5">
             {Object.entries(rates.modes).map(([mode, cost]) => (
@@ -210,7 +210,7 @@ export default function CoinsPage() {
         </div>
 
         {/* パック購入 */}
-        <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white p-4">
+        <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">コインを購入</div>
           {!authLoading && !isPro && (
             <p className="mb-2 text-[11px] text-[var(--color-error)]">コインの購入はProプラン限定です。</p>
@@ -222,7 +222,7 @@ export default function CoinsPage() {
                 type="button"
                 disabled={!isPro || purchasingPackId !== null}
                 onClick={() => void handlePurchase(pack.id)}
-                className="flex w-full items-center justify-between rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-4 py-3 text-left transition-all active:translate-x-px active:translate-y-px disabled:opacity-40"
+                className="flex w-full items-center justify-between rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3 text-left transition-all active:translate-x-px active:translate-y-px disabled:opacity-40"
                 style={{ boxShadow: '2px 2px 0 var(--solid-ink)' }}
               >
                 <span className="flex items-center gap-2">

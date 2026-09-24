@@ -91,7 +91,7 @@ export default function CorrectionHistoryPage() {
       </div>
 
       <div className="px-[18px] pb-3 pt-2">
-        <div className="inline-flex items-center gap-[5px] rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-white">
+        <div className="inline-flex items-center gap-[5px] rounded bg-[var(--solid-ink)] px-2 py-[3px] font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-on-ink)]">
           <Icon name="edit_note" size={11} />
           CORRECTION
         </div>
@@ -101,7 +101,7 @@ export default function CorrectionHistoryPage() {
       </div>
 
       <div className="px-[18px] pb-3">
-        <div className="grid grid-cols-3 overflow-hidden rounded-xl border-2 border-[var(--solid-ink)] bg-white">
+        <div className="grid grid-cols-3 overflow-hidden rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
           {[
             { label: '添削回数', value: stats.total, sub: `今月 +${stats.monthDelta}` },
             { label: '平均スコア', value: stats.avgScore, sub: 'score' },
@@ -117,8 +117,8 @@ export default function CorrectionHistoryPage() {
       </div>
 
       <div className="px-[18px] pb-3.5">
-        <Link href={user ? (isPro ? '/correction/new' : '/subscription') : '/login?redirect=/correction'} className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-[11px]" style={{ border: '1.25px dashed var(--solid-ink)' }}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--solid-ink)] text-white">
+        <Link href={user ? (isPro ? '/correction/new' : '/subscription') : '/login?redirect=/correction'} className="flex items-center gap-2.5 rounded-xl bg-[var(--color-surface)] px-3 py-[11px]" style={{ border: '1.25px dashed var(--solid-ink)' }}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
             <Icon name={user && !isPro ? 'workspace_premium' : 'add'} size={16} />
           </div>
           <div className="min-w-0 flex-1">
@@ -143,28 +143,28 @@ export default function CorrectionHistoryPage() {
 
       <div className="flex flex-col gap-2 px-[18px]">
         {authLoading || (user && isPro && loading) ? (
-          <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>
+          <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">読み込み中...</div>
         ) : !user ? (
-          <Link href="/login?redirect=/correction" className="rounded-xl border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">ログインして履歴を見る</Link>
+          <Link href="/login?redirect=/correction" className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">ログインして履歴を見る</Link>
         ) : !isPro ? (
-          <Link href="/subscription" className="rounded-xl border-2 border-[var(--solid-ink)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">Proで添削APIを有効化</Link>
+          <Link href="/subscription" className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-5 text-center text-xs font-bold text-[var(--solid-ink)]">Proで添削APIを有効化</Link>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border-2 border-[var(--color-border)] bg-white px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">まだ添削履歴がありません</div>
+          <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-5 text-center text-xs font-bold text-[var(--color-muted)]">まだ添削履歴がありません</div>
         ) : (
           items.map((item) => (
-            <Link key={item.id} href={`/correction/result?id=${item.id}`} className="relative flex items-stretch gap-[11px] rounded-xl bg-white px-3 py-[11px]" style={{ border: '2px solid var(--color-border)' }}>
+            <Link key={item.id} href={`/correction/result?id=${item.id}`} className="relative flex items-stretch gap-[11px] rounded-xl bg-[var(--color-surface)] px-3 py-[11px]" style={{ border: '2px solid var(--color-border)' }}>
               <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]">
                 <div className="tabular-nums text-[19px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-display)', color: scoreColor(item.score) }}>{item.score}</div>
                 <div className="mt-0.5 font-mono text-[7.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">SCORE</div>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-[3px] flex items-center gap-1.5">
-                  <span className="rounded bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-white">{item.purpose}</span>
+                  <span className="rounded bg-[var(--solid-ink)] px-[5px] py-[1.5px] font-mono text-[8px] font-bold tracking-[0.06em] text-[var(--color-on-ink)]">{item.purpose}</span>
                   <span className="font-mono text-[9px] text-[var(--color-muted)]">{formatWhen(item.createdAt)}</span>
                 </div>
                 <div className="line-clamp-2 text-[11.5px] italic leading-[1.5] text-[var(--solid-ink)]">{item.preview}</div>
                 <div className="mt-1.5 flex items-center gap-2">
-                  <span className="inline-flex items-center gap-[3px] font-mono text-[9px] font-bold text-[var(--color-muted)]"><span className="inline-block h-[5px] w-[5px] rounded-full bg-[#c43d3d]" />{item.issueCount} 指摘</span>
+                  <span className="inline-flex items-center gap-[3px] font-mono text-[9px] font-bold text-[var(--color-muted)]"><span className="inline-block h-[5px] w-[5px] rounded-full bg-[var(--color-danger-soft)]" />{item.issueCount} 指摘</span>
                   <span className="inline-block h-[3px] w-[3px] rounded-full bg-[var(--color-muted)]" />
                   <span className="font-mono text-[9px] font-semibold text-[var(--color-muted)]">{item.wordCount} 語</span>
                 </div>

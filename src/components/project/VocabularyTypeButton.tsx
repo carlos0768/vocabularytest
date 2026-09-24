@@ -31,9 +31,9 @@ export function VocabularyTypeButton({
 
   const toneClass =
     vocabularyType === 'active'
-      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-accent)]'
       : vocabularyType === 'passive'
-        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-white'
+        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-[var(--color-on-accent)]'
         : 'border-[var(--color-border)] bg-transparent text-[var(--color-muted)]';
 
   return (

@@ -4,9 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
-  DERIVED_WORDS_COIN_COST,
+  EXAMPLE_COIN_COST,
   EXTRA_IMAGE_COIN_COST,
-  MANUAL_DERIVED_WORDS_COIN_COST,
   MANUAL_MORPHOLOGY_COIN_COST,
   MONTHLY_COIN_ALLOWANCE,
   MORPHOLOGY_COIN_COST,
@@ -42,25 +41,22 @@ test('computeScanCoinCost adds the morphology surcharge only when enabled', () =
   assert.equal(computeScanCoinCost(['all'], 1, {}), 3);
 });
 
-test('computeScanCoinCost adds the derived-words surcharge only when enabled', () => {
-  assert.equal(computeScanCoinCost(['circled'], 1, { includeDerivedWords: true }), 4);
-  assert.equal(computeScanCoinCost(['all'], 1, { includeDerivedWords: true }), 5);
-  assert.equal(computeScanCoinCost(['all'], 1, { includeDerivedWords: false }), 3);
+test('computeScanCoinCost adds the example surcharge only when enabled', () => {
+  assert.equal(computeScanCoinCost(['circled'], 1, { includeExamples: true }), 4);
+  assert.equal(computeScanCoinCost(['all'], 1, { includeExamples: true }), 5);
+  assert.equal(computeScanCoinCost(['all'], 1, { includeExamples: false }), 3);
+  // 既定（未指定）はオフ。既存ユーザーが気づかず課金されることがない
+  assert.equal(computeScanCoinCost(['all'], 1, {}), 3);
 });
 
-test('computeScanCoinCost stacks both option surcharges', () => {
-  // モード3 + 語源2 + 派生語2
+test('computeScanCoinCost stacks the morphology and example surcharges', () => {
   assert.equal(
-    computeScanCoinCost(['all'], 1, { includeMorphology: true, includeDerivedWords: true }),
+    computeScanCoinCost(['all'], 1, { includeMorphology: true, includeExamples: true }),
     7,
   );
-  // 複合モード(3+3) + 画像2枚(+1) + 語源2 + 派生語2
   assert.equal(
-    computeScanCoinCost(['all', 'idiom'], 2, {
-      includeMorphology: true,
-      includeDerivedWords: true,
-    }),
-    11,
+    computeScanCoinCost(['all', 'idiom'], 3, { includeMorphology: true, includeExamples: true }),
+    12,
   );
 });
 
@@ -164,29 +160,26 @@ test('custom scan mode rate in SQL migration matches the TS mirror', () => {
   assert.ok(!migrationSource.includes('DROP FUNCTION'));
 });
 
-// 派生語コスト（スキャンサーチャージ + 手動追加1語あたり）のTS/SQLリテラル一致。
+// 例文生成サーチャージのTS/SQLリテラル一致。
 // レート変更時は src/lib/coins/rates.ts と
-// supabase/migrations/20260812090100_derived_words_coin_cost.sql を同時に更新すること。
-test('derived-words costs in SQL migration match the TS mirror', () => {
+// supabase/migrations/20260912120000_example_generation_coin_cost.sql を同時に更新すること。
+test('example surcharge in SQL migration matches the TS mirror', () => {
   const migrationSource = readFileSync(
     fileURLToPath(
       new URL(
-        '../../../supabase/migrations/20260812090100_derived_words_coin_cost.sql',
+        '../../../supabase/migrations/20260912120000_example_generation_coin_cost.sql',
         import.meta.url,
       ),
     ),
     'utf8',
   );
 
-  assert.equal(DERIVED_WORDS_COIN_COST, 2);
+  assert.equal(EXAMPLE_COIN_COST, 2);
   assert.ok(
     migrationSource.includes(
-      `CASE WHEN COALESCE(p_include_derived_words, FALSE) THEN ${DERIVED_WORDS_COIN_COST} ELSE 0 END`,
+      `CASE WHEN COALESCE(p_include_examples, FALSE) THEN ${EXAMPLE_COIN_COST} ELSE 0 END`,
     ),
   );
-
-  assert.equal(MANUAL_DERIVED_WORDS_COIN_COST, 1);
-  assert.ok(migrationSource.includes(`v_cost := p_count * ${MANUAL_DERIVED_WORDS_COIN_COST};`));
 
   // 既存レート（モード・追加画像・語源解析）を維持したまま再定義していること
   assert.ok(migrationSource.includes(`WHEN 'circled' THEN ${SCAN_MODE_COIN_RATES.circled}`));
@@ -201,23 +194,24 @@ test('derived-words costs in SQL migration match the TS mirror', () => {
     ),
   );
 
-  // 専用の消費RPCと専用トランザクション種別を持つこと
-  assert.ok(migrationSource.includes('CREATE OR REPLACE FUNCTION public.consume_manual_derived_words_coins'));
-  assert.ok(migrationSource.includes("'manual_derived_words_consume'"));
-  assert.ok(migrationSource.includes('GRANT EXECUTE ON FUNCTION public.consume_manual_derived_words_coins(INTEGER) TO authenticated;'));
+  // 派生語は機能ごと削除済み。引数は後方互換のため残すが、加算してはいけない。
+  // ここが復活すると、選んでもいないオプションで +2 課金される。
+  assert.ok(migrationSource.includes('p_include_derived_words BOOLEAN DEFAULT FALSE'));
+  assert.ok(!migrationSource.includes('COALESCE(p_include_derived_words, FALSE) THEN 2'));
 
-  // PostgRESTのオーバーロード曖昧化防止: 引数を増やす前に旧シグネチャをDROPする
-  assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.consume_scan_coins(TEXT[], INTEGER, UUID, BOOLEAN);'));
-  assert.ok(migrationSource.includes('DROP FUNCTION IF EXISTS public.scan_coin_cost(TEXT[], INTEGER, BOOLEAN);'));
-  assert.ok(migrationSource.includes('GRANT EXECUTE ON FUNCTION public.consume_scan_coins(TEXT[], INTEGER, UUID, BOOLEAN, BOOLEAN) TO authenticated;'));
-
-  // 月次付与300枚は共通で維持
-  assert.ok(migrationSource.includes('v_balance.monthly_coins := 300;'));
+  // PostgRESTのオーバーロード曖昧化防止: 旧シグネチャのDROPが必須
+  assert.ok(
+    migrationSource.includes(
+      'DROP FUNCTION IF EXISTS public.consume_scan_coins(TEXT[], INTEGER, UUID, BOOLEAN, BOOLEAN);',
+    ),
+  );
+  assert.ok(
+    migrationSource.includes(
+      'DROP FUNCTION IF EXISTS public.scan_coin_cost(TEXT[], INTEGER, BOOLEAN, BOOLEAN);',
+    ),
+  );
 });
 
-// 手動追加の語源解析コスト（1語あたり）のTS/SQLリテラル一致。
-// レート変更時は src/lib/coins/rates.ts と
-// supabase/migrations/20260713120000_manual_morphology_coin_cost.sql を同時に更新すること。
 test('manual-add morphology cost in SQL migration matches the TS mirror', () => {
   const migrationSource = readFileSync(
     fileURLToPath(

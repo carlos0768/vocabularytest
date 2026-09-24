@@ -49,7 +49,7 @@ export default function QuizError({
         <div className="flex flex-col gap-3">
           <button
             onClick={reset}
-            className="w-full px-4 py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:opacity-90 transition-opacity"
+            className="w-full px-4 py-3 rounded-xl bg-[var(--color-primary)] text-[var(--color-on-ink)] font-semibold hover:opacity-90 transition-opacity"
           >
             再試行
           </button>

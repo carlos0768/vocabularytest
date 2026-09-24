@@ -2,6 +2,7 @@ import { needsWordLexiconResolution } from '@/lib/lexicon/word-resolution-jobs';
 import {
   buildQuizPrefillSeedWords,
   type QuizPrefillCandidateWord,
+  type QuizPrefillOptions,
   type QuizPrefillSeedWord,
 } from '@/lib/scan/quiz-prefill';
 
@@ -30,6 +31,7 @@ export function buildPostScanLexiconResolutionWordIds(
 
 export function buildPostScanQuizPrefillSeedWords(
   words: QuizPrefillCandidateWord[],
+  options: QuizPrefillOptions = {},
 ): QuizPrefillSeedWord[] {
-  return buildQuizPrefillSeedWords(words);
+  return buildQuizPrefillSeedWords(words, options);
 }

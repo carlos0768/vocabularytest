@@ -118,6 +118,15 @@ export default function GroupJoinPage() {
     return submitJoin({ groupId });
   }, [groupId, submitJoin]);
 
+  // 直前の画面（多くはグループ検索タブ）へ戻す。招待リンクから直接開かれて
+  // 履歴が無いときだけ共有ライブラリへ抜ける。/shared を決め打ちで push すると
+  // グループ検索から来た人が共有単語帳のトップに飛ばされる。
+  const goBack = useCallback(() => {
+    triggerHaptic();
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push('/shared');
+  }, [router]);
+
   const stateView = authLoading || checking ? (
     <div className="flex items-center justify-center py-24 text-[var(--color-muted)]">
       <Icon name="progress_activity" className="animate-spin" size={22} />
@@ -127,7 +136,7 @@ export default function GroupJoinPage() {
     <CenteredCard icon="lock" title="ログインが必要です">
       <Link
         href={`/login?redirect=/groups/${groupId}/join`}
-        className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white"
+        className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-[var(--color-on-ink)]"
       >
         ログイン
       </Link>
@@ -166,9 +175,9 @@ export default function GroupJoinPage() {
           </section>
 
           {preview?.visibility === 'public' ? (
-            <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+            <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
               <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)]">
                   <Icon name="public" size={18} />
                 </span>
                 <div>
@@ -181,16 +190,16 @@ export default function GroupJoinPage() {
                 type="button"
                 onClick={() => void handleJoinById()}
                 disabled={joining}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:shadow-none"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-[var(--color-on-ink)] shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:shadow-none"
               >
                 <Icon name={joining ? 'progress_activity' : 'login'} size={18} className={joining ? 'animate-spin' : undefined} />
                 {joining ? '参加中...' : 'グループに参加'}
               </button>
             </section>
           ) : (
-            <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+            <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
               <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)]">
                   <Icon name="key" size={18} />
                 </span>
                 <div>
@@ -203,7 +212,7 @@ export default function GroupJoinPage() {
                 onSubmit={(event) => { event.preventDefault(); void handleJoin(); }}
                 className="mt-4 flex flex-col gap-3"
               >
-                <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3">
+                <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3">
                   <Icon name="vpn_key" size={16} className="shrink-0 text-[var(--color-muted)]" />
                   <span className="sr-only">招待コード</span>
                   <input
@@ -218,7 +227,7 @@ export default function GroupJoinPage() {
                 <button
                   type="submit"
                   disabled={joining || !inviteCode.trim()}
-                  className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_var(--solid-ink)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:shadow-none"
+                  className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-3 font-display text-[14px] font-extrabold text-[var(--color-on-ink)] shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:shadow-none"
                 >
                   <Icon name={joining ? 'progress_activity' : 'login'} size={18} className={joining ? 'animate-spin' : undefined} />
                   {joining ? '参加中...' : 'グループに参加'}
@@ -240,7 +249,7 @@ export default function GroupJoinPage() {
               {preview?.name ? `${preview.name}に参加` : 'グループに参加'}
             </h1>
           </div>
-          <DesktopButton href="/shared" icon="arrow_back" variant="ghost">共有ライブラリ</DesktopButton>
+          <DesktopButton onClick={goBack} icon="arrow_back" variant="ghost">戻る</DesktopButton>
         </div>
         <div className="ds-scroll">
           <div style={{ maxWidth: 560, width: '100%', margin: '0 auto' }}>
@@ -258,13 +267,14 @@ export default function GroupJoinPage() {
         }}
       >
         <div className="flex items-center gap-2 px-[14px] pt-1">
-          <Link
-            href="/shared"
-            aria-label="共有に戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="戻る"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="arrow_back" size={16} />
-          </Link>
+          </button>
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
             JOIN GROUP
           </div>
@@ -283,7 +293,7 @@ export default function GroupJoinPage() {
 function CenteredCard({ icon, title, children }: { icon: string; title: string; children?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-center px-[18px] py-20">
-      <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-6 text-center">
+      <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 text-center">
         <Icon name={icon} size={30} className="mx-auto text-[var(--color-muted)]" />
         <div className="mt-3 font-display text-lg font-bold text-[var(--solid-ink)]">{title}</div>
         {children}

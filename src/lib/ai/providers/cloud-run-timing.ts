@@ -4,7 +4,6 @@ export type CloudRunTimingPhase =
   | 'aiExtraction'
   | 'exampleGeneration'
   | 'morphologyGeneration'
-  | 'derivedWordsGeneration'
   | 'other';
 
 export interface CloudRunTimingEntry {

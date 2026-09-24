@@ -14,6 +14,12 @@ import { Icon } from '@/components/ui/Icon';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getVocabularyTypeLabel, getVocabularyTypeShortLabel } from '@/lib/vocabulary-type';
+import { STATUS_LABELS } from '@/lib/words/word-filter';
+import {
+  getNextWordStatus,
+  getWordStatusForStep,
+  getWordStatusStep,
+} from '@/lib/words/status-cycle';
 import type { VocabularyType, Word, WordStatus } from '@/types';
 
 const POS_JP: Record<string, string> = {
@@ -38,9 +44,47 @@ export function posShort(tag: string): string {
   return `(${jp[0]})`;
 }
 
-const PP_FILLED: Record<WordStatus, number> = { new: 0, review: 1, active: 2, mastered: 3 };
-const PP_STATUS: WordStatus[] = ['new', 'review', 'active', 'mastered'];
 const PP_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済み' };
+
+/**
+ * 塗られたマスの色。段階ごとに色を変える (黄緑 = 習得 / 青 = 定着中 / オレンジ = 学習中)。
+ *
+ * 色は「そのマスが何段目か」ではなく現在の段階で決まるので、定着中なら2マスとも青、
+ * 習得なら3マスとも黄緑になる。段数と色の両方が同じことを指すので、色だけ・数だけ
+ * どちらを見ても習得度が分かる。未学習は塗らない (白のまま)。
+ *
+ * 青とオレンジはデスクトップの一覧の点 (`.c-active` / `.c-review`) と同じ色。
+ * 習得だけは黄緑を使い、緑系のアクセント色 (リンクや Pro 表示) と取り違えないようにする。
+ */
+const PP_FILL: Record<WordStatus, string> = {
+  new: 'transparent',
+  review: 'var(--color-warning)',
+  active: '#2563eb',
+  mastered: '#84cc16',
+};
+
+/**
+ * 習得度のラベル (習得 / 定着中 / 学習中 / 未学習)。
+ *
+ * 3マスだけだと「何段目まで塗られているか」は見えても、その段が4段階の
+ * どれなのかは覚えていないと読み取れない。デスクトップの一覧は行ごとに
+ * 文言を出しているので (DesktopProjectDetail)、モバイルの行にもマスの下に
+ * 同じ文言を添える。文言は `STATUS_LABELS` を共用して表記ゆれを防ぐ。
+ *
+ * 色はマスと同じ黒一色にしている (未学習だけ淡く落とす)。段階そのものは
+ * マスが示しているので、ここで色を増やすと行の情報量が上がるだけで、
+ * ダークモードでのコントラストも取りづらい。
+ */
+export function WordStatusLabel({ status }: { status: WordStatus }) {
+  return (
+    <span
+      className="font-display text-[8.5px] font-bold leading-none tracking-[-0.02em]"
+      style={{ color: status === 'new' ? 'var(--color-muted)' : 'var(--solid-ink)' }}
+    >
+      {STATUS_LABELS[status]}
+    </span>
+  );
+}
 
 export function StatusSquares({
   wordId,
@@ -53,56 +97,49 @@ export function StatusSquares({
   onStatusChange: (newStatus: WordStatus) => void;
   className?: string;
 }) {
-  const [filledCount, setFilledCount] = useState(() => PP_FILLED[status] ?? 0);
-  const [direction, setDirection] = useState<'up' | 'down'>(() =>
-    status === 'mastered' ? 'down' : 'up'
-  );
+  const [filledCount, setFilledCount] = useState(() => getWordStatusStep(status));
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setFilledCount(PP_FILLED[status] ?? 0);
-      setDirection(status === 'mastered' ? 'down' : 'up');
+      setFilledCount(getWordStatusStep(status));
     });
     return () => { cancelled = true; };
   }, [status, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (direction === 'up') {
-      if (filledCount < 3) {
-        const next = filledCount + 1;
-        setFilledCount(next);
-        if (next === 3) setDirection('down');
-        onStatusChange(PP_STATUS[next]);
-      }
-    } else {
-      if (filledCount > 0) {
-        const next = filledCount - 1;
-        setFilledCount(next);
-        if (next === 0) setDirection('up');
-        onStatusChange(PP_STATUS[next]);
-      }
-    }
-  }, [filledCount, direction, onStatusChange]);
+    // 未学習 → 学習中 → 定着中 → 習得済み → 未学習 と一方向に回す。
+    // 表示中のマス目を起点にするので、書き込みのデバウンス中に連打しても
+    // 進む順番が飛んだり止まったりしない。
+    const next = getNextWordStatus(getWordStatusForStep(filledCount));
+    setFilledCount(getWordStatusStep(next));
+    onStatusChange(next);
+  }, [filledCount, onStatusChange]);
+
+  // タップした瞬間はまだ `status` が書き戻ってきていない (書き込みはデバウンス
+  // される) ので、マスと同じく楽観更新した `filledCount` からラベルを引く。
+  // そうしないとマスだけ先に塗られて文言が1タップ遅れる。
+  const shownStatus = getWordStatusForStep(filledCount);
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      aria-label={`ステータス: ${PP_ARIA[status] ?? status}`}
-      className={`shrink-0 rounded transition-colors active:bg-[rgba(26,26,26,0.06)]${className ? ` ${className}` : ''}`}
+      aria-label={`ステータス: ${PP_ARIA[shownStatus] ?? shownStatus}`}
+      className={`flex shrink-0 flex-col items-center gap-[3px] rounded transition-colors active:bg-[color-mix(in_srgb,_var(--solid-ink)_6%,_transparent)]${className ? ` ${className}` : ''}`}
     >
       <div className="flex flex-col gap-[1.5px]">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
             className="h-[13px] w-[13px] rounded-[2.5px] border-2 border-[var(--solid-ink)]"
-            style={{ background: i < filledCount ? 'var(--solid-ink)' : 'transparent' }}
+            style={{ background: i < filledCount ? PP_FILL[shownStatus] : 'transparent' }}
           />
         ))}
       </div>
+      <WordStatusLabel status={shownStatus} />
     </button>
   );
 }
@@ -138,8 +175,9 @@ function MaskedTranslation({
     setRevealed(false);
   }
 
-  // 2行までなのは、行の高さを決めているステータスの3マス (42px) に収まる行数だから。
-  // 3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の `...` で示す。
+  // 2行までなのは、行の高さを決めているステータス列 (3マス + 習得度ラベル) に
+  // 収まる行数だから。3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の
+  // `...` で示す。
   const content = <TranslationDisplay word={word} compact stacked={stacked} maxLines={2} />;
 
   // 縦積みのときは語義ごとに `...` を出すので、ラッパ側では1行に潰さない。
@@ -223,11 +261,11 @@ function WordRowText({
   splitMeaning: boolean;
 }) {
   const english = (
-    <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
+    <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)] lg:text-[16px]">{word.english}</div>
   );
   const meaning = (
     <>
-      {pos && <span className="shrink-0 font-mono text-[9px]">{posShort(pos)}</span>}
+      {pos && <span className="shrink-0 font-mono text-[9px] lg:text-[11px]">{posShort(pos)}</span>}
       <MaskedTranslation word={word} hidden={hideMeaning} interactive={interactive} stacked={splitMeaning} />
       <WrongCountBadge count={wrongCount} />
     </>
@@ -237,7 +275,7 @@ function WordRowText({
     return (
       <>
         {english}
-        <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">{meaning}</div>
+        <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)] lg:text-[13px]">{meaning}</div>
       </>
     );
   }
@@ -250,7 +288,7 @@ function WordRowText({
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <div className="min-w-0 shrink-0 basis-[46%]">{english}</div>
       <span aria-hidden className="-my-2.5 w-px shrink-0 self-stretch bg-[var(--color-border)]" />
-      <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)]">{meaning}</div>
+      <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)] lg:text-[13.5px] lg:text-[var(--color-secondary-text)]">{meaning}</div>
     </div>
   );
 }
@@ -299,7 +337,12 @@ export function WordRow({
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <SelectCheckbox checked={selected} size={26} />
+          {/* 選択モードでもマスの代わりにラベルだけは残す (選ぶ前に習得度で
+              選別できるように)。ここではタップで段階を変えられないので文言のみ。 */}
+          <div className="flex shrink-0 flex-col items-center gap-[3px]">
+            <SelectCheckbox checked={selected} size={26} />
+            <WordStatusLabel status={word.status} />
+          </div>
           <div className={`min-w-0 flex-1${splitMeaning ? ' flex self-stretch overflow-visible' : ''}`}>
             <WordRowText
               word={word}
@@ -367,9 +410,9 @@ export function VocabularyTypeBadge({
 }) {
   const toneClass =
     vocabularyType === 'active'
-      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-accent)]'
       : vocabularyType === 'passive'
-        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-white'
+        ? 'border-[rgba(107,114,128,0.5)] bg-[rgba(107,114,128,0.5)] text-[var(--color-on-accent)]'
         : 'border-[var(--color-border)] bg-transparent text-[var(--color-muted)]';
 
   return (
@@ -402,8 +445,8 @@ export function SelectCheckbox({ checked, size = 20 }: { checked: boolean; size?
     <span
       className={`inline-flex shrink-0 items-center justify-center border-2 transition-colors ${
         checked
-          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-white'
-          : 'border-[var(--solid-ink)] bg-white text-transparent'
+          ? 'border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
+          : 'border-[var(--solid-ink)] bg-[var(--color-surface)] text-transparent'
       }`}
       style={{ width: size, height: size, borderRadius: size * 0.25 }}
       aria-hidden

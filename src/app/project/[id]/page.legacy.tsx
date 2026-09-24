@@ -1499,7 +1499,7 @@ export default function ProjectDetailPage() {
     <>
       <div className="min-h-screen bg-[var(--color-background)] pb-28 lg:pb-[calc(20vh+5rem)]" style={contentVisible ? undefined : { visibility: 'hidden' }}>
         <div
-          className="project-detail-header-safe-top z-[50] sticky top-0 border-b-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[0_3px_0_var(--solid-ink)] min-[1360px]:-mx-[200px] min-[1360px]:px-[200px] min-[1600px]:-mx-[208px] min-[1600px]:px-[208px]"
+          className="project-detail-header-safe-top z-[50] sticky top-0 border-b-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[0_3px_0_var(--solid-shadow)] min-[1360px]:-mx-[200px] min-[1360px]:px-[200px] min-[1600px]:-mx-[208px] min-[1600px]:px-[208px]"
         >
           <div
             className="max-w-lg lg:max-w-xl mx-auto px-5 py-2"
@@ -1508,7 +1508,7 @@ export default function ProjectDetailPage() {
               <button
                 type="button"
                 onClick={() => startTransition(() => router.push('/'))}
-                className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+                className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
                 aria-label="ホームへ戻る"
               >
                 <Icon name="chevron_left" size={24} />
@@ -1518,7 +1518,7 @@ export default function ProjectDetailPage() {
                   <button
                     type="button"
                     onClick={handleOpenShareSheet}
-                    className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+                    className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
                     aria-label="共有"
                   >
                     <Icon name="ios_share" size={20} />
@@ -1527,7 +1527,7 @@ export default function ProjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => setDeleteProjectModalOpen(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+                  className="flex h-10 w-10 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
                   aria-label="メニュー"
                 >
                   <Icon name="more_horiz" size={22} />
@@ -1542,7 +1542,7 @@ export default function ProjectDetailPage() {
           <SolidPanel className="mb-5 p-5">
             <div className="mb-2 flex items-center gap-2">
               <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] border-[1.5px] border-[var(--solid-ink)] text-lg font-black text-white shadow-[3px_4px_0_var(--solid-ink)]"
+                className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] border-[1.5px] border-[var(--solid-ink)] text-lg font-black text-white shadow-[3px_4px_0_var(--solid-shadow)]"
                 style={{ backgroundColor: projectAccent }}
               >
                 {safeProjectIcon ? (
@@ -1582,7 +1582,7 @@ export default function ProjectDetailPage() {
               <button
                 type="button"
                 onClick={beginTitleEdit}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-ink)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-ink)]"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
                 aria-label="単語帳名を編集"
               >
                 <Icon name="edit" size={18} />
@@ -1692,7 +1692,7 @@ export default function ProjectDetailPage() {
 
             {/* Search bar */}
             {wordShowSearch && (
-              <div className="mb-3 flex items-center gap-2 rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 shadow-[2px_3px_0_var(--solid-ink)]">
+              <div className="mb-3 flex items-center gap-2 rounded-[var(--solid-radius-sm)] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 shadow-[2px_3px_0_var(--solid-shadow)]">
                 <Icon name="search" size={16} className="text-[var(--color-muted)] shrink-0" />
                 <input
                   type="text"
@@ -2005,7 +2005,7 @@ export default function ProjectDetailPage() {
         {/* Bottom action bar — always shown (even for newly-created empty
             projects) so the user always has access to 単語追加 and can
             navigate to flashcard / quiz once words exist. */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-3 shadow-[0_-3px_0_var(--solid-ink)] lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', visibility: 'visible' }}>
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-3 shadow-[0_-3px_0_var(--solid-shadow)] lg:ml-[280px]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', visibility: 'visible' }}>
           <div className="max-w-lg mx-auto flex items-center gap-3">
             {selectMode ? (
               <>

@@ -21,7 +21,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             'border-2 border-[var(--solid-ink)] active:translate-x-px active:translate-y-px active:',
           'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none',
           variant === 'primary' && [
-            'bg-[var(--color-foreground)] text-white',
+            'bg-[var(--color-foreground)] text-[var(--color-on-ink)]',
             'rounded-xl',
             'hover:opacity-90',
             'active:opacity-80',
@@ -41,7 +41,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             'focus-visible:ring-[var(--color-muted)]',
           ],
           variant === 'danger' && [
-            'bg-[var(--color-error)] text-white',
+            'bg-[var(--color-error-fill)] text-white',
             'rounded-xl',
             'hover:opacity-90',
             'active:opacity-80',

@@ -104,19 +104,19 @@ export function LpReelSection() {
   return (
     <section
       id="reels"
-      className="mx-auto max-w-[1200px] border-b-2 border-[#1a1a1a] px-5 py-16 md:px-10 lg:py-24"
+      className="mx-auto max-w-[1200px] border-b-2 border-[var(--solid-ink)] px-5 py-16 md:px-10 lg:py-24"
     >
       <div className="mb-10 grid gap-5 lg:mb-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
         <div>
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-accent)]">
-            <span className="mr-3 text-[#8a857a]">04 /</span>
+            <span className="mr-3 text-[var(--color-ink-mute)]">04 /</span>
             Reels
           </p>
-          <h2 className="mt-3 font-display text-[clamp(30px,4vw,48px)] font-black leading-[1.06] tracking-normal text-[#1a1a1a]">
+          <h2 className="mt-3 font-display text-[clamp(30px,4vw,48px)] font-black leading-[1.06] tracking-normal text-[var(--solid-ink)]">
             スワイプするだけで、<br />単語に出会う。
           </h2>
         </div>
-        <p className="max-w-[560px] text-[15px] leading-8 text-[#555] lg:pt-8">
+        <p className="max-w-[560px] text-[15px] leading-8 text-[var(--color-ink-soft)] lg:pt-8">
           リールは、みんなが公開した単語帳と公式単語帳の単語が1枚ずつ流れてくる縦スクロールのフィードです。単語帳を自分で作る前でも、めくりながら語彙を増やせます。
         </p>
       </div>
@@ -126,23 +126,23 @@ export function LpReelSection() {
           {REEL_POINTS.map((point) => (
             <article
               key={point.title}
-              className="rounded-[16px] border-2 border-[#1a1a1a] bg-[#faf7f1] p-6 shadow-[4px_6px_0_#1a1a1a]"
+              className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-6 shadow-[4px_6px_0_var(--solid-shadow)]"
             >
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[#1a1a1a] text-white">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--solid-ink)] text-[var(--color-on-ink)]">
                 <Icon name={point.icon} size={22} />
               </div>
               <h3 className="font-display text-lg font-black">{point.title}</h3>
-              <p className="mt-2 text-[13px] leading-6 text-[#555]">{point.body}</p>
+              <p className="mt-2 text-[13px] leading-6 text-[var(--color-ink-soft)]">{point.body}</p>
             </article>
           ))}
 
-          <div className="sm:col-span-2 rounded-[16px] border-2 border-dashed border-[#1a1a1a]/30 bg-[#faf7f1] px-6 py-5">
-            <p className="text-[13px] leading-7 text-[#555]">
-              リールの閲覧は<strong className="font-bold text-[#1a1a1a]">無料プランでも1日50枚まで</strong>使えます（ログインが必要です）。Proプランなら枚数の上限なし・広告なしで見続けられます。
+          <div className="sm:col-span-2 rounded-[16px] border-2 border-dashed border-[var(--solid-ink)]/30 bg-[var(--color-paper)] px-6 py-5">
+            <p className="text-[13px] leading-7 text-[var(--color-ink-soft)]">
+              リールの閲覧は<strong className="font-bold text-[var(--solid-ink)]">無料プランでも1日50枚まで</strong>使えます（ログインが必要です）。Proプランなら枚数の上限なし・広告なしで見続けられます。
             </p>
             <Link
               href="/signup?redirect=/reels"
-              className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[#1a1a1a] bg-[#1a1a1a] px-6 text-sm font-bold text-white shadow-[2px_3px_0_rgba(26,26,26,0.3)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+              className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-6 text-sm font-bold text-[var(--color-on-ink)] shadow-[2px_3px_0_color-mix(in_srgb,_var(--solid-ink)_30%,_transparent)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
             >
               リールを見てみる
               <Icon name="arrow_forward" size={16} />
@@ -174,14 +174,14 @@ function ReelPhoneDemo({
   return (
     <div className="flex flex-col items-center">
       <div
-        className="relative mx-auto w-full max-w-[280px] rotate-[1.5deg] rounded-[36px] border-2 border-[#1a1a1a] bg-[#1a1a1a] p-2 shadow-[6px_8px_0_#1a1a1a]"
+        className="relative mx-auto w-full max-w-[280px] rotate-[1.5deg] rounded-[36px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] p-2 shadow-[6px_8px_0_var(--solid-shadow)]"
         onMouseEnter={() => onPauseChange(true)}
         onMouseLeave={() => onPauseChange(false)}
         onFocus={() => onPauseChange(true)}
         onBlur={() => onPauseChange(false)}
       >
-        <div className="relative h-[520px] overflow-hidden rounded-[28px] bg-[#fffdf7]">
-          <div className="absolute left-1/2 top-2 z-20 h-[20px] w-[80px] -translate-x-1/2 rounded-full bg-[#1a1a1a]" />
+        <div className="relative h-[520px] overflow-hidden rounded-[28px] bg-[var(--color-notebook-paper)]">
+          <div className="absolute left-1/2 top-2 z-20 h-[20px] w-[80px] -translate-x-1/2 rounded-full bg-[var(--solid-ink)]" />
 
           <div
             className="h-full transition-transform duration-500 ease-out"
@@ -198,7 +198,7 @@ function ReelPhoneDemo({
               <span
                 key={card.english}
                 className={`w-1.5 rounded-full transition-all duration-200 ${
-                  cardIndex === index ? 'h-5 bg-[#1a1a1a]' : 'h-1.5 bg-[#1a1a1a]/25'
+                  cardIndex === index ? 'h-5 bg-[var(--solid-ink)]' : 'h-1.5 bg-[var(--solid-ink)]/25'
                 }`}
               />
             ))}
@@ -211,18 +211,18 @@ function ReelPhoneDemo({
           type="button"
           aria-label="前のリールカード"
           onClick={() => onSelect((index - 1 + total) % total)}
-          className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#1a1a1a] bg-[#faf7f1] text-[#1a1a1a] shadow-[2px_3px_0_#1a1a1a] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+          className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
         >
           <Icon name="keyboard_arrow_up" size={20} />
         </button>
-        <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#8a857a]">
+        <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--color-ink-mute)]">
           Swipe to next word
         </p>
         <button
           type="button"
           aria-label="次のリールカード"
           onClick={() => onSelect((index + 1) % total)}
-          className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#1a1a1a] bg-[#faf7f1] text-[#1a1a1a] shadow-[2px_3px_0_#1a1a1a] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+          className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
         >
           <Icon name="keyboard_arrow_down" size={20} />
         </button>
@@ -235,27 +235,27 @@ function ReelDemoCardView({ card }: { card: ReelDemoCard }) {
   return (
     <div className="flex h-full flex-col px-5 pb-4 pt-10">
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <span className="rounded-full border border-[#1a1a1a]/25 bg-[#f3f0e9] px-2.5 py-0.5 text-[11px] font-bold text-[#555]">
+        <span className="rounded-full border border-[var(--solid-ink)]/25 bg-[var(--color-paper-alt)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--color-ink-soft)]">
           {card.pos}
         </span>
-        <p className="font-display text-[28px] font-black leading-tight text-[#1a1a1a]">
+        <p className="font-display text-[28px] font-black leading-tight text-[var(--solid-ink)]">
           {card.english}
         </p>
-        <p className="font-mono text-xs text-[#8a857a]">{card.pronunciation}</p>
-        <p className="text-lg font-bold text-[#1a1a1a]">{card.japanese}</p>
+        <p className="font-mono text-xs text-[var(--color-ink-mute)]">{card.pronunciation}</p>
+        <p className="text-lg font-bold text-[var(--solid-ink)]">{card.japanese}</p>
 
-        <div className="mt-1 flex w-full flex-col items-center gap-2 border-t border-[#1a1a1a]/15 pt-3">
-          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[#8a857a]">
+        <div className="mt-1 flex w-full flex-col items-center gap-2 border-t border-[var(--solid-ink)]/15 pt-3">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--color-ink-mute)]">
             語源
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-1.5">
             {card.morphology.map((part, partIndex) => (
               <span key={part.text} className="flex items-center gap-1">
-                {partIndex > 0 && <span className="text-xs font-bold text-[#8a857a]">＋</span>}
+                {partIndex > 0 && <span className="text-xs font-bold text-[var(--color-ink-mute)]">＋</span>}
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${
                     part.kind === 'root'
-                      ? 'border-[#1a1a1a]/25 bg-[#f3f0e9] text-[#1a1a1a]'
+                      ? 'border-[var(--solid-ink)]/25 bg-[var(--color-paper-alt)] text-[var(--solid-ink)]'
                       : 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-ink)]'
                   }`}
                 >
@@ -265,18 +265,18 @@ function ReelDemoCardView({ card }: { card: ReelDemoCard }) {
               </span>
             ))}
           </div>
-          <p className="text-[11px] leading-5 text-[#555]">{card.explanation}</p>
+          <p className="text-[11px] leading-5 text-[var(--color-ink-soft)]">{card.explanation}</p>
         </div>
       </div>
 
       {/* 出典の単語帳カード（実装の ReelBookCard に対応） */}
-      <div className="flex items-center gap-2.5 rounded-[12px] border-2 border-[#1a1a1a] bg-white p-2.5">
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[8px] border border-[#1a1a1a]/20 bg-[#f3f0e9] text-[#8a857a]">
+      <div className="flex items-center gap-2.5 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-2.5">
+        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[8px] border border-[var(--solid-ink)]/20 bg-[var(--color-paper-alt)] text-[var(--color-ink-mute)]">
           <Icon name="menu_book" size={18} />
         </span>
         <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-[12px] font-bold text-[#1a1a1a]">{card.book.title}</p>
-          <p className="truncate text-[10px] text-[#8a857a]">
+          <p className="truncate text-[12px] font-bold text-[var(--solid-ink)]">{card.book.title}</p>
+          <p className="truncate text-[10px] text-[var(--color-ink-mute)]">
             <span className={card.book.official ? 'font-bold text-[var(--color-accent)]' : ''}>
               {card.book.owner}
             </span>
@@ -284,7 +284,7 @@ function ReelDemoCardView({ card }: { card: ReelDemoCard }) {
             {card.book.wordCount}語
           </p>
         </div>
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-[#1a1a1a] bg-white text-[#1a1a1a]">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]">
           <Icon name="add" size={18} />
         </span>
       </div>

@@ -146,7 +146,7 @@ export default function CollectionDetailPage() {
         buttonText: 'カード学習を始める',
         iconBg: 'bg-indigo-100',
         iconColor: 'text-indigo-600',
-        bgClasses: 'bg-[#3B82F6] text-white shadow-glow hover:opacity-90',
+        bgClasses: 'bg-[var(--color-info)] text-white shadow-glow hover:opacity-90',
         btnClasses: 'bg-white/20 text-white hover:bg-white/30',
       };
     }
@@ -173,7 +173,7 @@ export default function CollectionDetailPage() {
         buttonText: 'カード学習を始める',
         iconBg: 'bg-indigo-100',
         iconColor: 'text-indigo-600',
-        bgClasses: 'bg-[#3B82F6] text-white shadow-glow hover:opacity-90',
+        bgClasses: 'bg-[var(--color-info)] text-white shadow-glow hover:opacity-90',
         btnClasses: 'bg-white/20 text-white hover:bg-white/30',
       };
     }
@@ -185,7 +185,7 @@ export default function CollectionDetailPage() {
       buttonText: 'カード学習を始める',
       iconBg: 'bg-indigo-100',
       iconColor: 'text-indigo-600',
-      bgClasses: 'bg-[#60A5FA] text-white shadow-glow hover:opacity-90',
+      bgClasses: 'bg-[var(--color-info-soft)] text-white shadow-glow hover:opacity-90',
       btnClasses: 'bg-white/20 text-white hover:bg-white/30',
     };
   }, [allWords.length, canUseAiFeatures, collectionId, stats.newWords, stats.review]);

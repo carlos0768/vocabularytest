@@ -74,17 +74,17 @@ const ReelIconFilled = () => (
   </svg>
 );
 
-const WordsIcon = () => (
+const GoalIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 6h16M4 12h16M4 18h10"/>
-    <circle cx="18.5" cy="18" r="2.5"/>
+    <path d="M5 21V4"/>
+    <path d="M5 4h13l-3 4.5 3 4.5H5"/>
   </svg>
 );
 
-const WordsIconFilled = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 6h16M4 12h16M4 18h10"/>
-    <circle cx="18.5" cy="18" r="2.5" fill="currentColor"/>
+const GoalIconFilled = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 21V4" fill="none"/>
+    <path d="M5 4h13l-3 4.5 3 4.5H5"/>
   </svg>
 );
 
@@ -136,17 +136,17 @@ const ACCOUNT_TAB: TabItem = {
   IconActive: AccountIconFilled,
 };
 
-// Pro: 単語一覧入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)を維持。
-// 語法問題集はホームのセクションから開く。
+// Pro: 目標ページ入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)を維持。
+// 単語一覧 (/words) は下部バーから外した。語法問題集はホームのセクションから開く。
 const PRO_TABS: TabItem[] = [
   HOME_TAB,
   {
-    k: 'words',
-    label: '単語',
-    href: '/words',
-    matchPaths: ['/words'],
-    IconDefault: WordsIcon,
-    IconActive: WordsIconFilled,
+    k: 'goal',
+    label: '目標',
+    href: '/goal',
+    matchPaths: ['/goal'],
+    IconDefault: GoalIcon,
+    IconActive: GoalIconFilled,
   },
   CREATE_TAB,
   SHARED_TAB,
@@ -194,14 +194,17 @@ export function BottomNav() {
           bottom: 0,
           zIndex: 40,
           paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-          background: 'linear-gradient(to top, #faf7f1 70%, rgba(250,247,241,0))',
+          // Fades the page out behind the floating nav, so it has to track the
+          // page ground — a literal cream here painted a bright band across the
+          // bottom of every screen in dark mode.
+          background: 'linear-gradient(to top, var(--color-background) 70%, transparent)',
           pointerEvents: 'none',
         }}
       >
         <div
           style={{
             margin: '0 14px',
-            background: '#fff',
+            background: 'var(--color-surface)',
             border: '2px solid var(--solid-ink)',
             borderRadius: 22,
             padding: '8px 10px',
@@ -237,7 +240,7 @@ export function BottomNav() {
                       height: 36,
                       borderRadius: 18,
                       background: 'var(--solid-ink)',
-                      color: '#fff',
+                      color: 'var(--color-on-ink)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

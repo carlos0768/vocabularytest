@@ -109,11 +109,11 @@ export function ShareTypeChooser({
         className="relative w-full animate-fade-in-up"
         style={{
           maxWidth: 380,
-          background: '#faf7f1',
+          background: 'var(--color-paper)',
           border: '2px solid var(--solid-ink)',
           borderRadius: 20,
           padding: '20px 20px max(22px, env(safe-area-inset-bottom))',
-          boxShadow: '0 12px 32px rgba(26,26,26,0.22)',
+          boxShadow: '0 12px 32px color-mix(in srgb, var(--solid-ink) 22%, transparent)',
         }}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -129,7 +129,7 @@ export function ShareTypeChooser({
             type="button"
             onClick={handleClose}
             aria-label="閉じる"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)]"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
           >
             <Icon name="close" size={14} />
           </button>
@@ -164,7 +164,7 @@ export function ShareTypeChooser({
               maxLength={40}
               placeholder="グループ名"
               autoFocus
-              className="w-full rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-3 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
+              className="w-full rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3 text-[14px] font-bold text-[var(--solid-ink)] outline-none"
             />
             <div className="flex overflow-hidden rounded-[12px] border-2 border-[var(--solid-ink)]">
               <button
@@ -172,8 +172,8 @@ export function ShareTypeChooser({
                 onClick={() => setVisibility('private')}
                 className="flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[13px] font-bold transition-colors"
                 style={{
-                  background: visibility === 'private' ? 'var(--solid-ink)' : '#fff',
-                  color: visibility === 'private' ? '#fff' : 'var(--solid-ink)',
+                  background: visibility === 'private' ? 'var(--solid-ink)' : 'var(--color-surface)',
+                  color: visibility === 'private' ? 'var(--color-on-ink)' : 'var(--solid-ink)',
                 }}
               >
                 <Icon name="lock" size={14} />
@@ -184,8 +184,8 @@ export function ShareTypeChooser({
                 onClick={() => setVisibility('public')}
                 className="flex flex-1 items-center justify-center gap-1.5 border-l-2 border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold transition-colors"
                 style={{
-                  background: visibility === 'public' ? 'var(--solid-ink)' : '#fff',
-                  color: visibility === 'public' ? '#fff' : 'var(--solid-ink)',
+                  background: visibility === 'public' ? 'var(--solid-ink)' : 'var(--color-surface)',
+                  color: visibility === 'public' ? 'var(--color-on-ink)' : 'var(--solid-ink)',
                 }}
               >
                 <Icon name="public" size={14} />
@@ -201,7 +201,7 @@ export function ShareTypeChooser({
               <button
                 type="button"
                 onClick={() => setMode('choose')}
-                className="inline-flex h-[46px] items-center justify-center gap-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-4 text-[13px] font-extrabold text-[var(--solid-ink)]"
+                className="inline-flex h-[46px] items-center justify-center gap-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 text-[13px] font-extrabold text-[var(--solid-ink)]"
               >
                 <Icon name="arrow_back" size={15} />
                 戻る
@@ -210,7 +210,7 @@ export function ShareTypeChooser({
                 type="button"
                 onClick={() => void handleCreateGroup()}
                 disabled={!groupName.trim() || creating}
-                className="inline-flex h-[46px] flex-1 items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 text-[14px] font-extrabold text-white disabled:opacity-45"
+                className="inline-flex h-[46px] flex-1 items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 text-[14px] font-extrabold text-[var(--color-on-ink)] disabled:opacity-45"
               >
                 <Icon name={creating ? 'progress_activity' : 'check'} size={16} className={creating ? 'animate-spin' : undefined} />
                 {creating ? '作成中...' : '作成する'}
@@ -238,7 +238,7 @@ function ChooserButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-white px-4 py-3.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex items-center gap-3 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-3.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]">
         <Icon name={icon} size={22} />

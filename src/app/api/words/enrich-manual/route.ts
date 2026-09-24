@@ -19,13 +19,11 @@ import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { chargeManualMorphologyCoins } from '@/lib/coins/manual-morphology-gate';
-import { resolveDerivedWordsForWords } from '@/lib/derived-words/resolve';
-import { resolveDerivedWordsEligibility } from '@/lib/derived-words/eligibility';
-import { hasDisplayableDerivedWords } from '@/lib/derived-words/format';
-import { chargeManualDerivedWordsCoins } from '@/lib/coins/derived-words-gate';
 import type { CoinInfo } from '@/lib/coins/scan-gate';
 import { normalizeHeadword } from '../../../../../shared/lexicon';
-import type { WordDerivedWords, WordMorphology } from '../../../../../shared/types';
+import type { WordMorphology, WordTranslation } from '../../../../../shared/types';
+import { looksLikeClassicalJapanese } from '@/lib/classical/normalize';
+import { applyClassicalDictionary, type ClassicalApplicableWord } from '@/lib/classical/apply';
 
 /**
  * POST /api/words/enrich-manual
@@ -43,10 +41,17 @@ import type { WordDerivedWords, WordMorphology } from '../../../../../shared/typ
  * `includeMorphology: false` を指定すると語源解析（とそのコイン消費）を丸ごと
  * スキップする（手動追加モーダルのトグルから制御）。
  *
- * 派生語（derivedWords）も同じ形で並列生成する。ただし派生語には事前の足切りが
  * あり、生成する価値のない単語（pine のように屈折変化しか持たない語）は
  * AI を呼ばずその場で打ち切る＝コインも消費しない。
  */
+
+/** 共通辞書が返した訳を、クライアントが期待する文字列配列に均す。 */
+function extractClassicalTranslations(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (item as WordTranslation)?.translationJa)
+    .filter((text): text is string => typeof text === 'string' && text.trim().length > 0);
+}
 
 const requestSchema = z.object({
   english: z.string().trim().min(1).max(100),
@@ -57,8 +62,9 @@ const requestSchema = z.object({
   partOfSpeechTags: z.array(z.string().trim().min(1).max(32)).max(10).optional(),
   // 語源解析のオン/オフ（省略時はオン=従来挙動）。オフ時は生成もコイン消費もしない。
   includeMorphology: z.boolean().optional().default(true),
-  // 派生語のオン/オフ（省略時はオフ＝追加コインを黙って使わない）。
-  includeDerivedWords: z.boolean().optional().default(false),
+  // 例文生成のオン/オフ（省略時はオン=従来挙動。クライアントは端末設定を送る）。
+  // 手動追加の例文はコインを取らないので、コイン消費の分岐は無い。
+  includeExample: z.boolean().optional().default(true),
 }).strict();
 
 const partOfSpeechTagsSchema = z.preprocess((value) => {
@@ -92,7 +98,6 @@ exampleSentenceJa: exampleSentenceの日本語訳
 
 const ENRICH_TIMEOUT_MS = 8000;
 const MORPHOLOGY_TIMEOUT_MS = 8000;
-const DERIVED_WORDS_TIMEOUT_MS = 8000;
 
 /**
  * promise を ms でタイムアウトさせ、間に合わなければ fallback を返す。
@@ -131,17 +136,6 @@ async function resolveManualMorphology(english: string): Promise<WordMorphology 
  * lexicon 保存）を使うので、既知語は即時ヒットし全ユーザーで結果を共有する。
  * 足切り不合格・派生語なし・失敗時は undefined を返す（例外は投げない）。
  */
-async function resolveManualDerivedWords(english: string): Promise<WordDerivedWords | undefined> {
-  try {
-    const derivedMap = await resolveDerivedWordsForWords([{ english }], getAPIKeys());
-    const derivedWords = derivedMap.get(normalizeHeadword(english));
-    return hasDisplayableDerivedWords(derivedWords) ? derivedWords : undefined;
-  } catch (error) {
-    console.error('[enrich-manual] Derived words generation failed (non-critical):', error);
-    return undefined;
-  }
-}
-
 function getEnrichProvider() {
   const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
   const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -183,7 +177,42 @@ export async function POST(request: NextRequest) {
     const needsJapanese = filledJapanese.length === 0;
     const needsPronunciation = filledPronunciation.length === 0;
     const needsPos = filledPosTags.length === 0;
-    const needsExample = filledExample.length === 0 || filledExampleJa.length === 0;
+    // 例文生成がオフなら、マスター由来の転記も含めて一切取りに行かない。
+    // スキャン側と同じ規約（OFF なら例文は付かない）。
+    const needsExample =
+      input.includeExample && (filledExample.length === 0 || filledExampleJa.length === 0);
+
+    // 古典語（古文単語）の手動追加は英語の補完経路に一切入れない。
+    // 英語向けの翻訳AI・発音記号・品詞分類・例文生成はどれも古典語には無意味で、
+    // 通すとゴミを生成したうえでコインまで消費する。共通辞書だけを引いて返す。
+    if (looksLikeClassicalJapanese(englishTrimmed)) {
+      const seed: ClassicalApplicableWord[] = [
+        {
+          english: englishTrimmed,
+          isClassical: true,
+          japanese: filledJapanese,
+          ...(filledJapanese ? { translations: [filledJapanese] } : {}),
+        },
+      ];
+      const resolved = await applyClassicalDictionary(seed);
+      const word = resolved.words[0];
+
+      return NextResponse.json({
+        success: true,
+        isClassical: true,
+        enriched: {
+          japanese: word?.japanese ?? filledJapanese,
+          translations: extractClassicalTranslations(word?.translations),
+          // 発音記号・品詞タグ・英語例文は古典語では扱わない
+          pronunciation: '',
+          partOfSpeechTags: [],
+          exampleSentence: '',
+          exampleSentenceJa: '',
+        },
+        ...(word?.classicalEntryId ? { classicalEntryId: word.classicalEntryId } : {}),
+        generatedFields: resolved.resolvedCount > 0 ? ['classicalTranslations'] : [],
+      });
+    }
 
     if (!needsJapanese && !needsPronunciation && !needsPos && !needsExample) {
       return NextResponse.json({
@@ -205,14 +234,6 @@ export async function POST(request: NextRequest) {
     // includeMorphology=false のときは解析自体を行わない（コイン消費もなし）。
     const morphologyPromise: Promise<WordMorphology | undefined> = input.includeMorphology
       ? withTimeout(resolveManualMorphology(englishTrimmed), MORPHOLOGY_TIMEOUT_MS, undefined)
-      : Promise.resolve(undefined);
-
-    // 派生語も同様。足切りに落ちる単語はここでAIを呼ばずに終わるので、
-    // オンにしていても対象外の語ではコインを消費しない。
-    const derivedWordsEligible = input.includeDerivedWords
-      && resolveDerivedWordsEligibility(englishTrimmed).eligible;
-    const derivedWordsPromise: Promise<WordDerivedWords | undefined> = derivedWordsEligible
-      ? withTimeout(resolveManualDerivedWords(englishTrimmed), DERIVED_WORDS_TIMEOUT_MS, undefined)
       : Promise.resolve(undefined);
 
     // 2b. lexiconマスターを優先参照（DBクエリ1回・ベストエフォート）。
@@ -407,10 +428,7 @@ export async function POST(request: NextRequest) {
     //    できたときのみ morphology を付与する。無料ユーザー・コイン不足時は
     //    語源解析を落として単語追加は成功させる（COIN_SYSTEM_ENABLED オフ時は
     //    従来どおり無料で付与）。
-    const [generatedMorphology, generatedDerivedWords] = await Promise.all([
-      morphologyPromise,
-      derivedWordsPromise,
-    ]);
+    const generatedMorphology = await morphologyPromise;
 
     let morphology = generatedMorphology;
     let coinInfo: CoinInfo | null = null;
@@ -423,19 +441,6 @@ export async function POST(request: NextRequest) {
     }
     if (morphology) generatedFields.push('morphology');
 
-    // 派生語も同じ成果課金。語源解析とは別のRPCなので個別に消費する
-    // （片方だけ残高が足りない場合に、足りている方は付与できる）。
-    let derivedWords = generatedDerivedWords;
-    if (generatedDerivedWords) {
-      const charge = await chargeManualDerivedWordsCoins(supabase, 1);
-      // 直近の残高を返したいので、消費できたときだけ上書きする
-      if (charge.coinInfo) coinInfo = charge.coinInfo;
-      if (!charge.charged) {
-        derivedWords = undefined;
-      }
-    }
-    if (derivedWords) generatedFields.push('derivedWords');
-
     const totalMs = Date.now() - totalStart;
     console.log('[enrich-manual] Completed', {
       english: englishTrimmed,
@@ -445,9 +450,6 @@ export async function POST(request: NextRequest) {
       translationCount: finalJapaneseList.length,
       includeMorphology: input.includeMorphology,
       morphology: Boolean(morphology),
-      includeDerivedWords: input.includeDerivedWords,
-      derivedWordsEligible,
-      derivedWords: Boolean(derivedWords),
     });
 
     return NextResponse.json({
@@ -462,7 +464,6 @@ export async function POST(request: NextRequest) {
       },
       generatedFields,
       ...(morphology ? { morphology } : {}),
-      ...(derivedWords ? { derivedWords } : {}),
       ...(coinInfo ? { coinInfo } : {}),
     });
   } catch (error) {

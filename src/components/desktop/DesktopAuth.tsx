@@ -36,7 +36,7 @@ export function DesktopAuthShell({
   children: ReactNode;
 }) {
   return (
-    <div className="hidden min-h-screen bg-white lg:block">
+    <div className="hidden min-h-screen bg-[var(--color-surface)] lg:block">
       <div className="ds-auth min-h-screen">
         <DesktopAuthBrand />
         <div className="ds-auth-form">

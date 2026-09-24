@@ -195,7 +195,7 @@ function ProjectCard({ project }: { project: SharedProjectCard }) {
       href={href}
       className="card card-interactive flex items-center gap-4 p-4"
     >
-      <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-[1.5px] border-[var(--solid-ink)] ${iconColors[colorIndex]} text-xl font-black text-white shadow-[2px_3px_0_var(--solid-ink)]`}>
+      <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border-[1.5px] border-[var(--solid-ink)] ${iconColors[colorIndex]} text-xl font-black text-white shadow-[2px_3px_0_var(--solid-shadow)]`}>
         {project.project.title.charAt(0) === 'ス' ? 'ス' : project.project.title.charAt(0).toUpperCase()}
       </div>
 

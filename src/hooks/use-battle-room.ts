@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import {
+  BATTLE_BOT_TICK_INTERVAL_MS,
   BATTLE_ROUND_ACTION_MAX_RETRIES,
   BATTLE_ROUND_ACTION_RETRY_MS,
   BATTLE_ROUND_REVEAL_MS,
@@ -174,6 +175,7 @@ export function useBattleRoom(roomId: string, userId: string | null): UseBattleR
   // several times a second even when nothing changed -- and an effect that holds
   // a `setTimeout` would have it cleared by the cleanup before it could ever fire.
   const roomStatus = state.room?.status ?? null;
+  const isBotRoom = state.room?.guestIsBot === true;
   const currentRoundIndex = currentQuestion?.roundIndex ?? null;
   const currentRoundResolved = currentQuestion?.resolvedAt != null;
   const currentRoundExpired = remainingMs <= 0;
@@ -277,6 +279,40 @@ export function useBattleRoom(roomId: string, userId: string | null): UseBattleR
 
     advanceSchedulerRef.current?.request(currentRoundIndex);
   }, [roomId, roomStatus, currentRoundIndex, currentRoundResolved]);
+
+  // ボットの番の清算。Route Handler は常駐できずサーバー側タイマーを持てない
+  // ので、人間のクライアントが短い間隔で頼み、押す時刻の判定はサーバーが
+  // (出題開始 + 計画値) で行う。早く叩いてもボットは早く押さない。
+  //
+  // 依存はラウンド境界でしか変わらない素の値だけにしている。`room` を混ぜると
+  // 4秒ごとの再取得のたびにインターバルが刻み直され、いつまでも発火しない。
+  useEffect(() => {
+    if (!isBotRoom || !isSupabaseConfigured()) return;
+    if (roomStatus !== 'in_progress' || currentRoundIndex === null) return;
+    if (currentRoundResolved) return;
+
+    let inFlight = false;
+    const settle = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const { data, error } = await createClient().rpc('settle_battle_bot_turn', {
+          p_room_id: roomId,
+          p_round_index: currentRoundIndex,
+        });
+        // 押したときだけ引き直す。押していないラウンドで毎回引くと、ただの
+        // ポーリングが2倍になる。
+        if (!error && (data as { acted?: boolean } | null)?.acted) void refresh();
+      } catch {
+        // 1回落ちても次の tick で取り返せる。時間切れ側の保険もある。
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const interval = setInterval(() => { void settle(); }, BATTLE_BOT_TICK_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isBotRoom, roomId, roomStatus, currentRoundIndex, currentRoundResolved, refresh]);
 
   const leaveBattle = useCallback(async () => {
     if (!state.room || !isSupabaseConfigured()) return;

@@ -262,13 +262,13 @@ export default function GroupSettingsPage() {
     <LoadingState />
   ) : !isAuthenticated ? (
     <CenteredCard icon="lock" title="ログインが必要です">
-      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-white">
+      <Link href="/login?redirect=/shared" className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-3 font-display text-sm font-bold text-[var(--color-on-ink)]">
         ログイン
       </Link>
     </CenteredCard>
   ) : error || !group ? (
     <CenteredCard icon="error" title={error ?? 'グループが見つかりません'}>
-      <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-white px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
+      <button type="button" onClick={() => void load()} className="mt-4 inline-flex rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-3 font-display text-sm font-bold text-[var(--solid-ink)]">
         再読み込み
       </button>
     </CenteredCard>
@@ -329,21 +329,21 @@ export default function GroupSettingsPage() {
                   value={name}
                   maxLength={40}
                   onChange={(event) => setName(event.target.value)}
-                  className="min-w-0 flex-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-white px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)] outline-none"
+                  className="min-w-0 flex-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)] outline-none"
                   placeholder="グループ名"
                 />
                 <button
                   type="button"
                   disabled={!nameChanged || savingName}
                   onClick={() => void handleRename()}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2.5 font-display text-[13px] font-extrabold text-white transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-4 py-2.5 font-display text-[13px] font-extrabold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
                 >
                   <Icon name={savingName ? 'progress_activity' : 'check'} size={15} className={savingName ? 'animate-spin' : ''} />
                   保存
                 </button>
               </div>
             ) : (
-              <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)]">
+              <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)]">
                 {group.name}
               </div>
             )}
@@ -360,8 +360,8 @@ export default function GroupSettingsPage() {
                     onClick={() => void handleChangeVisibility('private')}
                     className="flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[13px] font-bold transition-colors disabled:opacity-60"
                     style={{
-                      background: group.visibility === 'private' ? 'var(--solid-ink)' : '#fff',
-                      color: group.visibility === 'private' ? '#fff' : 'var(--solid-ink)',
+                      background: group.visibility === 'private' ? 'var(--solid-ink)' : 'var(--color-surface)',
+                      color: group.visibility === 'private' ? 'var(--color-on-ink)' : 'var(--solid-ink)',
                     }}
                   >
                     <Icon name="lock" size={14} />
@@ -373,8 +373,8 @@ export default function GroupSettingsPage() {
                     onClick={() => void handleChangeVisibility('public')}
                     className="flex flex-1 items-center justify-center gap-1.5 border-l-2 border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold transition-colors disabled:opacity-60"
                     style={{
-                      background: group.visibility === 'public' ? 'var(--solid-ink)' : '#fff',
-                      color: group.visibility === 'public' ? '#fff' : 'var(--solid-ink)',
+                      background: group.visibility === 'public' ? 'var(--solid-ink)' : 'var(--color-surface)',
+                      color: group.visibility === 'public' ? 'var(--color-on-ink)' : 'var(--solid-ink)',
                     }}
                   >
                     <Icon name="public" size={14} />
@@ -388,7 +388,7 @@ export default function GroupSettingsPage() {
                 </p>
               </div>
             ) : (
-              <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)]">
+              <div className="rounded-[12px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[14px] font-bold text-[var(--solid-ink)]">
                 {group.visibility === 'public' ? '公開グループ' : '非公開グループ'}
               </div>
             )}
@@ -408,7 +408,7 @@ export default function GroupSettingsPage() {
                       <ProfileTapTarget
                         href={href}
                         label={memberLabel(member)}
-                        className={`flex min-w-0 flex-1 items-center gap-3 rounded-[12px] border-2 px-3 py-2 transition-all duration-100 active:translate-x-px active:translate-y-px ${member.isViewer ? 'border-[var(--color-accent)] bg-[var(--color-accent-subtle)]' : 'border-[var(--color-border)] bg-white'}`}
+                        className={`flex min-w-0 flex-1 items-center gap-3 rounded-[12px] border-2 px-3 py-2 transition-all duration-100 active:translate-x-px active:translate-y-px ${member.isViewer ? 'border-[var(--color-accent)] bg-[var(--color-accent-subtle)]' : 'border-[var(--color-border)] bg-[var(--color-surface)]'}`}
                       >
                         <div
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] font-display text-[14px] font-extrabold text-white"
@@ -420,12 +420,12 @@ export default function GroupSettingsPage() {
                           <div className="flex items-center gap-1.5">
                             <span className="truncate text-[13px] font-extrabold text-[var(--solid-ink)]">{memberLabel(member)}</span>
                             {member.role === 'owner' && (
-                              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[#E29C57] bg-[#FFF6E8] px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-wide text-[#B26A1F]">
+                              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--color-warning-line)] bg-[var(--color-warning-light)] px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-wide text-[var(--color-warning-ink)]">
                                 <Icon name="workspace_premium" size={11} />オーナー
                               </span>
                             )}
                             {member.isViewer && (
-                              <span className="shrink-0 rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-wide text-white">あなた</span>
+                              <span className="shrink-0 rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-wide text-[var(--color-on-accent)]">あなた</span>
                             )}
                           </div>
                           {member.accountId && (
@@ -440,7 +440,7 @@ export default function GroupSettingsPage() {
                           disabled={Boolean(pendingMemberId)}
                           onClick={() => void handleRemoveMember(member)}
                           aria-label={`${memberLabel(member)}を削除`}
-                          className="inline-flex shrink-0 items-center justify-center rounded-[10px] border-2 border-[#CC4D59] bg-white p-2 text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+                          className="inline-flex shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--color-rose)] bg-[var(--color-surface)] p-2 text-[var(--color-rose)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
                         >
                           <Icon name={pendingMemberId === member.userId ? 'progress_activity' : 'person_remove'} size={16} className={pendingMemberId === member.userId ? 'animate-spin' : ''} />
                         </button>
@@ -459,7 +459,7 @@ export default function GroupSettingsPage() {
             ) : (
               <div className="flex flex-col gap-2">
                 {projects.map((card) => (
-                  <div key={card.project.id} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-white px-3 py-2">
+                  <div key={card.project.id} className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
                     <div
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[16px] font-extrabold text-white"
                       style={{
@@ -483,7 +483,7 @@ export default function GroupSettingsPage() {
                         disabled={Boolean(pendingProjectId)}
                         onClick={() => void handleRemoveProject(card)}
                         aria-label={`${card.project.title}を削除`}
-                        className="inline-flex shrink-0 items-center justify-center rounded-[10px] border-2 border-[#CC4D59] bg-white p-2 text-[#CC4D59] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
+                        className="inline-flex shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--color-rose)] bg-[var(--color-surface)] p-2 text-[var(--color-rose)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-45"
                       >
                         <Icon name={pendingProjectId === card.project.id ? 'progress_activity' : 'delete'} size={16} className={pendingProjectId === card.project.id ? 'animate-spin' : ''} />
                       </button>
@@ -503,7 +503,7 @@ export default function GroupSettingsPage() {
                 type="button"
                 disabled={deleting}
                 onClick={() => void handleDeleteGroup()}
-                className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[#CC4D59] bg-[#CC4D59] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_#7d2730] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-55"
+                className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--color-rose)] bg-[var(--color-rose)] px-4 py-3 font-display text-[14px] font-extrabold text-white shadow-[3px_3px_0_#7d2730] transition-all duration-100 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-55"
               >
                 <Icon name={deleting ? 'progress_activity' : 'delete_forever'} size={18} className={deleting ? 'animate-spin' : undefined} />
                 {deleting ? '削除中...' : 'グループを削除'}
@@ -554,7 +554,7 @@ export default function GroupSettingsPage() {
             type="button"
             onClick={handleBack}
             aria-label="グループに戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-white text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="arrow_back" size={16} />
           </button>
@@ -588,7 +588,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-white p-4">
+    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
       <div className="mb-3 flex items-center gap-2.5">
         <span
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"
@@ -626,7 +626,7 @@ function LoadingState() {
 function CenteredCard({ icon, title, children }: { icon: string; title: string; children?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-center px-[18px] py-20">
-      <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-white p-6 text-center">
+      <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-6 text-center">
         <Icon name={icon} size={30} className="mx-auto text-[var(--color-muted)]" />
         <div className="mt-3 font-display text-lg font-bold text-[var(--solid-ink)]">{title}</div>
         {children}

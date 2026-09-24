@@ -587,7 +587,7 @@ function ScanPageContent() {
             className="solid-panel relative cursor-pointer border-dashed p-8 text-center transition-all hover:bg-[var(--color-surface-secondary)]"
             onClick={() => uploadInputRef.current?.click()}
           >
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[3px_4px_0_var(--solid-ink)]">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[3px_4px_0_var(--solid-shadow)]">
               <Icon name="photo_camera" size={32} className="text-[var(--solid-ink)]" />
             </div>
             <h1 className="mb-1 text-lg font-black text-[var(--solid-ink)]">
@@ -641,7 +641,7 @@ function ScanPageContent() {
                     onClick={() => handleSelectMode(mode)}
                     className={`relative flex flex-col items-center gap-2 rounded-[var(--solid-radius)] border-[1.5px] p-4 text-center transition-all ${
                       isSelected
-                        ? 'border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] shadow-[3px_4px_0_var(--solid-ink)]'
+                        ? 'border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] shadow-[3px_4px_0_var(--solid-shadow)]'
                         : 'border-[var(--color-border)] bg-[var(--color-surface)]'
                     } ${isLocked ? 'opacity-50' : 'hover:-translate-y-0.5'}`}
                   >

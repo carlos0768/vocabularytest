@@ -6,8 +6,12 @@ import {
 import { readSingleLineEnv } from '@/lib/env';
 import type { SharedDiscoverPayload } from '@/lib/shared-projects/types';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// 初期表示に使う公開一覧はユーザー固有のデータを含まないので、リクエストごとに
+// Supabase を待たず 60 秒の ISR で配る。force-dynamic だった頃は共有タブを叩くたびに
+// サーバー関数 + 2 クエリの往復を待ってから描画が始まり、遷移が固まって見えていた。
+// 個別カテゴリ・検索・更新は SharedPageClient が /api/shared-projects/discover を
+// cache:'no-store' で取りに行くので鮮度はそちらで担保される。
+export const revalidate = 60;
 
 export default async function SharedPage() {
   let initialDiscover: SharedDiscoverPayload = {

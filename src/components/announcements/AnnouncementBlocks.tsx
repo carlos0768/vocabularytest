@@ -95,7 +95,7 @@ export function AnnouncementBlocks({ blocks }: { blocks: AnnouncementBlocksType 
           case 'feature':
             return (
               <div key={index} className="flex items-start gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] p-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-white">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)]">
                   <Icon name={block.icon} size={17} />
                 </span>
                 <div className="min-w-0">

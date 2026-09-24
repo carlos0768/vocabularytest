@@ -26,11 +26,11 @@ export function DSQuizOption({
   const isWrongAnswer = isRevealed && isSelected && !isCorrect;
   const isInactive = isRevealed && !isSelected && !isCorrect;
 
-  let faceBg = '#fff';
+  let faceBg = 'var(--color-surface)';
   let borderColor = 'var(--solid-ink)';
   let shadowColor = 'var(--solid-ink)';
   let textColor = 'var(--solid-ink)';
-  let badgeBg = '#fff';
+  let badgeBg = 'var(--color-surface)';
   let badgeColor = 'var(--solid-ink)';
   let icon: ReactNode = null;
 
@@ -38,18 +38,18 @@ export function DSQuizOption({
     faceBg = 'var(--color-accent)';
     borderColor = 'var(--color-accent-ink)';
     shadowColor = 'var(--color-accent-ink)';
-    textColor = '#fff';
+    textColor = 'var(--color-on-accent)';
     badgeBg = 'rgba(255,255,255,0.22)';
-    badgeColor = '#fff';
-    icon = <Icon name="check" size={18} className="text-white" />;
+    badgeColor = 'var(--color-on-accent)';
+    icon = <Icon name="check" size={18} style={{ color: 'var(--color-on-accent)' }} />;
   } else if (isWrongAnswer) {
-    faceBg = 'var(--color-error)';
-    borderColor = '#b91c1c';
-    shadowColor = '#b91c1c';
-    textColor = '#fff';
+    faceBg = 'var(--color-error-fill)';
+    borderColor = 'var(--color-danger-strong)';
+    shadowColor = 'var(--color-danger-strong)';
+    textColor = 'var(--color-on-error)';
     badgeBg = 'rgba(255,255,255,0.22)';
-    badgeColor = '#fff';
-    icon = <Icon name="close" size={18} className="text-white" />;
+    badgeColor = 'var(--color-on-error)';
+    icon = <Icon name="close" size={18} style={{ color: 'var(--color-on-error)' }} />;
   } else if (isInactive) {
     borderColor = 'var(--color-border)';
     shadowColor = 'var(--color-border)';
