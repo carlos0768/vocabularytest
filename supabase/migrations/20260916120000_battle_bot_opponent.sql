@@ -501,3 +501,8 @@ COMMENT ON TABLE public.battle_bot_plans IS
   'ボット対戦で「いつ・どの選択肢を押すか」を出題時に決めておく隠し計画表。'
   'RLS 有効・ポリシー無しで、SECURITY DEFINER の RPC からしか読めない。'
   'ここを読めるようにすると、ボットが何秒後に正解するかが事前に分かってしまう。';
+
+-- 新しい列を足したので PostgREST の schema cache を読み直させる。
+-- これが無いと、適用直後に「column ... does not exist」が出続ける
+-- （2026-06-24 の schema cache 障害と同じ形）。
+NOTIFY pgrst, 'reload schema';

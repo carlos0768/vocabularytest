@@ -521,7 +521,7 @@ export function HomeClient() {
     }
   }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
-  const { dueCount, completedToday, totalWords, mastered, review, newW, favoriteCount, hasReviewSchedule } = stats;
+  const { dueCount, completedToday, totalWords, mastered, review, newW, hasReviewSchedule } = stats;
   const unmasteredCount = newW + review;
   const dailyLearnTarget = Math.min(unmasteredCount, 10);
   // `start`: brand-new account with a default wordbook but no review schedule yet
@@ -554,7 +554,7 @@ export function HomeClient() {
   // （新規ユーザーのチュートリアルが最初の ProjectRow をアンカーにしているため）。
   const gridProjectCount = Math.min(
     unfiledProjects.length,
-    homeShortcutContentSlots(favoriteCount > 0),
+    homeShortcutContentSlots(0),
   );
   const overflowProjects = unfiledProjects.slice(gridProjectCount);
   const myBooksProjects = overflowProjects.length > 0 ? overflowProjects : unfiledProjects;
@@ -726,14 +726,12 @@ export function HomeClient() {
 
       <PwaInstallBanner />
 
-      {/* Spotify風ショートカットグリッド: TODAY'S GOAL + 保存済み + 単語帳/グループ/おすすめ */}
+      {/* Spotify風ショートカットグリッド: 単語帳/グループ/おすすめ
+          （今日の復習・保存済みタイルは目標ページ /goal と /favorites に移した） */}
       <HomeShortcutGrid
-        goal={{ state: goalState, count: goalCount }}
-        savedWordsCount={favoriteCount}
         projects={unfiledProjects}
         groups={myGroups}
         recommendations={visibleRecommendedBooks}
-        onStartScan={() => setVocabScanOpen(true)}
       />
 
       {showUpgradeBanner && (
