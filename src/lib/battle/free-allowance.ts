@@ -5,11 +5,13 @@
  * 消費するのは「実際に始まった対戦1部屋」で、ロビーで待っただけ・マッチング
  * を取り消しただけでは減らない（消費は `startBattle` が部屋を掴んだ後）。
  *
- * 数値は supabase/migrations/20260916130000_free_daily_battle_allowance.sql と
- * 二重に持っていて、`free-allowance.test.ts` が突き合わせている。変更は両方。
+ * 数値は SQL 側の RPC にも書かれていて、`free-allowance.test.ts` が
+ * 「v_limit を持ついちばん新しいマイグレーション」と突き合わせている。
+ * 変えるときは、上限を差し替える新しいマイグレーションを足すこと
+ * （適用ずみのマイグレーションは書き換えない）。
  */
 
-export const FREE_DAILY_BATTLE_LIMIT = 2;
+export const FREE_DAILY_BATTLE_LIMIT = 3;
 
 /** JST は UTC+9 固定（サマータイム無し）なので単純な加算で足りる。 */
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;

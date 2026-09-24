@@ -53,7 +53,7 @@ export default function BattleLobbyPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { projects, loading: projectsLoading } = useProjects();
-  // 対戦はProなら無制限、Freeでも1日2回まで。残数はサーバーが持つので
+  // 対戦はProなら無制限、Freeでも1日3回まで。残数はサーバーが持つので
   // `isPro` ではなくこちらを見る。
   const {
     allowance,

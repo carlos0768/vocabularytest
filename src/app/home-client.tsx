@@ -832,7 +832,7 @@ export function HomeClient() {
       {/* 語法問題集（Pro限定・グループ表示の上） */}
       <HomeGrammarBooksSection books={grammarBooks} />
 
-      {/* リアルタイム単語対戦（Freeは1日2回・グループ表示の上） */}
+      {/* リアルタイム単語対戦（Freeは1日3回・グループ表示の上） */}
       <BattleEntrySection isPro={isPro} />
 
       {/* 参加中のグループ（/shared から移設） */}

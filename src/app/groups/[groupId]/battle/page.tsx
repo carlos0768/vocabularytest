@@ -59,7 +59,7 @@ export default function GroupBattlePage() {
   const groupId = params?.groupId ?? '';
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
-  // Proは無制限、Freeは1日2回まで。残数はサーバーが持つ。
+  // Proは無制限、Freeは1日3回まで。残数はサーバーが持つ。
   const {
     allowance,
     loading: allowanceLoading,

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -32,8 +32,8 @@ const PRO_ALLOWANCE: BattleAllowance = {
   resetsAt: null,
 };
 
-test('free users get two battles per day', () => {
-  assert.equal(FREE_DAILY_BATTLE_LIMIT, 2);
+test('free users get three battles per day', () => {
+  assert.equal(FREE_DAILY_BATTLE_LIMIT, 3);
 });
 
 test('canStartBattle lets Pro through and stops a spent free day', () => {
@@ -80,7 +80,36 @@ test('getBattleAllowanceResetAt returns the next JST midnight', () => {
   );
 });
 
-test('the SQL migration carries the same daily limit as the TypeScript constant', () => {
+test('the newest limit migration carries the same daily limit as the TypeScript constant', () => {
+  const migrationsDir = fileURLToPath(new URL('../../../supabase/migrations', import.meta.url));
+
+  // 上限は SQL 側にも直書きされている（RPC のローカル変数）。適用ずみの
+  // マイグレーションは書き換えられないので、上限を変えるたびに RPC を
+  // CREATE OR REPLACE する新しいファイルが増える。実際に効くのは最後に
+  // 流れるものなので、ファイル名順でいちばん新しいものを見る。
+  const limitMigrations = readdirSync(migrationsDir)
+    .filter((name) => name.endsWith('.sql'))
+    .sort()
+    .map((name) => ({ name, sql: readFileSync(`${migrationsDir}/${name}`, 'utf8') }))
+    // `v_limit` という名前は別のRPC（スキャン上限など）も使っているので、
+    // 対戦の枠を定義しているファイルだけに絞る。
+    .filter(({ sql }) => sql.includes('FUNCTION public.consume_free_battle_entry'));
+
+  assert.ok(limitMigrations.length > 0, 'no migration declares the battle daily limit');
+
+  const newest = limitMigrations[limitMigrations.length - 1];
+  const limits = [...newest.sql.matchAll(/v_limit\s+INTEGER\s*:=\s*(\d+);/g)].map(
+    (match) => Number(match[1]),
+  );
+
+  // 片方だけ動かすと「UIは3回と言っているのにサーバーは2回で止める」になる。
+  assert.ok(limits.length >= 2, `${newest.name} should declare v_limit in both RPCs`);
+  for (const limit of limits) {
+    assert.equal(limit, FREE_DAILY_BATTLE_LIMIT, `${newest.name} disagrees with the TS constant`);
+  }
+});
+
+test('the day boundary is the JST calendar day on the SQL side too', () => {
   const migration = readFileSync(
     fileURLToPath(
       new URL(
@@ -91,17 +120,6 @@ test('the SQL migration carries the same daily limit as the TypeScript constant'
     'utf8',
   );
 
-  // 上限は SQL 側にも直書きされている（RPC のローカル変数）。片方だけ動かすと
-  // 「UIは3回と言っているのにサーバーは2回で止める」になるのでここで縛る。
-  const limits = [...migration.matchAll(/v_limit\s+INTEGER\s*:=\s*(\d+);/g)].map(
-    (match) => Number(match[1]),
-  );
-
-  assert.ok(limits.length >= 2, 'migration should declare v_limit in both RPCs');
-  for (const limit of limits) {
-    assert.equal(limit, FREE_DAILY_BATTLE_LIMIT);
-  }
-
-  // 日の境界は JST。UTCに直すと日本のユーザーには9時間ずれた時刻にリセットされる。
+  // UTCに直すと日本のユーザーには9時間ずれた時刻にリセットされる。
   assert.match(migration, /battle_day_key[\s\S]*Asia\/Tokyo/);
 });

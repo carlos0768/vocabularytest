@@ -118,7 +118,7 @@ getRepository(subscriptionStatus, wasPro)
 | Shared wordbook publishing | No (Pro-only) | Yes |
 | Shared 語法問題集 view | Yes (login required) | Yes |
 | Shared 語法問題集 import / publishing | No (Pro-only) | Yes |
-| リアルタイム対戦 | 1日2回まで (`FREE_DAILY_BATTLE_LIMIT`, JST暦日) | 無制限 |
+| リアルタイム対戦 | 1日3回まで (`FREE_DAILY_BATTLE_LIMIT`, JST暦日) | 無制限 |
 | Data storage | Cloud (Supabase) + IndexedDB cache (login required) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | Yes (login required; capped at 50 wordbooks server-side) | Yes |
 
@@ -260,11 +260,11 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - 手動追加で古典語（ラテン文字を含まない見出し語）を入れると、英語の補完経路（翻訳AI・発音記号・品詞分類・例文生成）には一切入らず、共通辞書だけを引く
 
 ### 5. Realtime word battle (リアルタイム単語対戦) -- Done
-- 早押し4択のリアルタイム1対1対戦。**コイン消費なし**。Proは無制限、**Freeは1日2回まで**（`FREE_DAILY_BATTLE_LIMIT`）。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
+- 早押し4択のリアルタイム1対1対戦。**コイン消費なし**。Proは無制限、**Freeは1日3回まで**（`FREE_DAILY_BATTLE_LIMIT`）。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
 - **無料枠の1回＝実際に始まった対戦1部屋**。ロビーで待っただけ・マッチングを取り消しただけでは減らない。入り口（部屋作成・招待コード参加・マッチング・ボット戦・再戦）では `requireBattleEntryUser` が残数を**見るだけ**で、実際に減らすのは `startBattle` が部屋を掴んだ後（`consumeBattleEntry`、参加者ぶん）。記録は `battle_free_entries` の (user_id, room_id) 主キーなので、両クライアントが `/start` を叩いても二重には減らない。出題生成に失敗して部屋を 'ready' に戻すときは `releaseBattleEntries` で取り消す。日の境界は**JSTの暦日**（`battle_day_key`）——コインの月境界と同じ理由
 - 枠切れのまま対戦が始まろうとした部屋（入り口チェックをすり抜けた競合）は 'ready' に戻さず**部屋ごと cancelled にする**。戻すとホストのクライアントが `/start` を叩き続けて止まらない
 - **進行中の対戦の読み書きは枠と無関係**。部屋の取得・回答・退出は `requireBattleUser`（ログインのみ）で通す。対戦の途中で枠が尽きて画面が読めなくなってはいけない
-- 上限値は `src/lib/battle/free-allowance.ts` と `20260916130000_free_daily_battle_allowance.sql` に二重にあり、`free-allowance.test.ts` が突き合わせている。変えるときは両方いっしょに
+- 上限値は `src/lib/battle/free-allowance.ts` と SQL の RPC に二重にあり、`free-allowance.test.ts` が「`v_limit` を持ついちばん新しいマイグレーション」と突き合わせている。変えるときは TS と、上限を差し替える**新しいマイグレーション**の両方（適用ずみのマイグレーションは書き換えない。現行は `20260924120000_free_daily_battle_limit_three.sql`）
 - Routes: `/battle`（ロビー）, `/battle/[roomId]`（対戦画面）, `/groups/[groupId]/battle`（グループ内マッチ）, `/api/battle/**`（rooms, join, match, start）
 - Tables: `battle_rooms` / `battle_questions` / `battle_question_keys` / `battle_answers` / `battle_queue` (`supabase/migrations/20260814100000_create_word_battles.sql`)
 - **出題は出題者（ホスト）の単語帳だけ**から生成（`src/lib/battle/questions.ts`）。ゲストの単語帳は参加時に記録するが問題には使わない。ホストはフレンド対戦なら部屋を作った側、ランダムマッチなら先にキューで待っていた側（`pair_battle_match`）で、問題数・制限時間もホストの設定が採用される。両者はまったく同じ問題を同じ順で解く。単語が足りなければ問題数を切り詰める（重複出題はしない）
