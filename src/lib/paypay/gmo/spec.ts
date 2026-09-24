@@ -37,14 +37,17 @@ export function resolveGmoNotificationType(
 }
 
 /**
- * 継続課金契約の照会に使う API 名。
+ * 取引照会API名。通知を受けたあと「本当に課金されたか」をGMOに問い合わせる。
+ * 署名の無い通知を信用しないための要なので、これが null の間は通知処理を止める。
  *
- * 【要仕様確認】通知を受けたあとに「本当に課金されたか」をGMOへ問い合わせる
- * 取引照会APIの名前。これが確定するまで再照会ができないため、
- * 通知ルートは有効化できない（意図的にそうしてある — 照会なしで
- * 署名なし通知を信じると、偽通知でPro有効化ができてしまう）。
+ * GMO回答により `SearchTrade.idPass` で確定。OrderID を鍵に引く API なので、
+ * 通知処理も subscriptions の引き当ても OrderID が軸になる。
+ *
+ * 【未確認】GMO には決済手段をまたぐ `SearchTradeMulti` もある。PayPay の取引が
+ * `SearchTrade` で引けない場合はこの定数を 'SearchTradeMulti' に変え、
+ * PayType パラメータを searchGmoTrade に足す（それ以外の変更は要らない）。
  */
-export const GMO_RECURRING_SEARCH_API: string | null = null;
+export const GMO_RECURRING_SEARCH_API: string | null = 'SearchTrade';
 
 /** 契約作成・解約に使う API 名。【要仕様確認】 */
 export const GMO_RECURRING_REGISTER_API: string | null = null;
@@ -63,11 +66,16 @@ export const GMO_NOTIFICATION_FIELDS = Object.freeze({
   recurringId: null as string | null,
 });
 
-/** 仕様が揃って通知処理を有効化できる状態かどうか。 */
+/**
+ * 仕様が揃って通知処理を有効化できる状態かどうか。
+ *
+ * recurringId の項目名は条件に含めない — 照会も引き当ても OrderID で回るため、
+ * 契約IDが分からなくても通知は正しく処理できる（解約APIを繋ぐときに必要になる）。
+ * 残る必須条件は「照会API」と「Status の対応表」の2つ。
+ */
 export function isGmoRecurringSpecConfigured(): boolean {
   return (
     GMO_RECURRING_SEARCH_API !== null &&
-    GMO_NOTIFICATION_FIELDS.recurringId !== null &&
     Object.keys(GMO_STATUS_TO_NOTIFICATION_TYPE).length > 0
   );
 }

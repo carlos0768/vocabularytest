@@ -11,8 +11,9 @@ PayPay を有効化するだけで動く。
 |-------|------|------|
 | 1 | `pro_source='paypay'` の土台（DB・status判定・解約/削除ガード） | 完了 |
 | 2a | GMO トランスポート・応答解析・通知の信頼モデル・通知ルート骨格 | 完了 |
-| 2b | 仕様書に依存する定数の確定と、契約作成／解約／再照会の実装 | **仕様書待ち** |
-| 2c | `/subscription` の決済手段選択UI、特商法表記の更新 | 未着手 |
+| 2b | 再照会 (SearchTrade) の実装・OrderID 引き当て・金額検証 | 完了 |
+| 2c | Status 対応表の確定（疎通テストで実値を拾う）、契約作成／解約 | **進行中** |
+| 2d | `/subscription` の決済手段選択UI、特商法表記の更新 | 未着手 |
 
 `PAYPAY_SUBSCRIPTION_ENABLED=false` の間、通知ルートは 404 を返し、
 UIにも導線は出ない。Phase 2b が終わるまでフラグは立てない。
@@ -99,3 +100,51 @@ IPだけに頼らないのは、IPが詐称されうることと、プロキシ�
 | `src/lib/subscription/paypay-activation.ts` | 状態遷移（ゲートウェイ非依存） |
 | `src/app/api/subscription/paypay/notifications/route.ts` | 結果通知の受け口 |
 | `supabase/migrations/20260826120000_add_paypay_subscription_foundation.sql` | DB土台 |
+
+
+## GMO からの回答（2026-09-24 時点）
+
+| 質問 | 回答 |
+|---|---|
+| PayPay の継続課金は使えるか | **Yes** |
+| 取引照会API | **`SearchTrade.idPass`**（OrderID で引く） |
+| テスト環境 | `https://pt01.mul-pay.jp`、ShopID は `tshop...` 形式 |
+| 通知の署名 | 未回答 — **あれば設計を差し替える**（IP照合＋再照会より確実なため） |
+| 解約の即時/期間末 | 未回答 |
+| 通知元IPレンジ | 未回答（**未設定の間は通知を全拒否**） |
+| 継続課金契約IDの項目名 | 未回答（OrderID で回るので通知処理はブロックしない） |
+
+### 照会APIが OrderID 基準であることの帰結
+
+`SearchTrade` は **OrderID** で引くため、通知処理の軸がすべて OrderID になった。
+
+- `subscriptions.paypay_order_id`（`20260924130000`）に、契約作成時にこちらが採番した
+  OrderID を保存する。これが無いと通知が来ても誰の契約か分からない
+- 通知 → `SearchTrade(OrderID)` → 応答の Status/Amount だけを信用 → `paypay_order_id` で
+  ユーザーを引き当てる
+- `paypay_subscription_id`（GMO側の契約ID）は解約APIを繋ぐときに必要になるが、
+  通知処理には不要なので `isGmoRecurringSpecConfigured()` の条件から外した
+
+### 金額検証
+
+照会応答の `Amount` が Pro 月額（¥300）と一致しない取引は拒否する。照会が本物でも
+「正しい商品の支払い」とは限らないため（¥1 の決済を通知させて Pro を有効化する経路を塞ぐ）。
+金額チェックは Status の対応表より**前**に置いてあるので、対応表が空の現在でも効く。
+
+### 権利期間
+
+照会で期待どおりの金額の支払いを確認できた課金（activated / renewed）だけ、
+支払日から1ヶ月ぶんの権利を与える。解約・返金・請求失敗では決して延ばさない。
+月末は丸める（1/31 + 1ヶ月 = 2/28。素の `setMonth` だと 3/3 になり2月ぶんを余計に与える）。
+
+### 残る1つの必須項目
+
+`GMO_STATUS_TO_NOTIFICATION_TYPE` が空の間、通知は「未知Statusとして無視＋警告ログ」で
+素通りする（fail-closed）。**テスト決済を1件通し、`[PayPay notification] no mapping for status`
+のログに出た実値を拾って埋める**のが最短。仕様書の一覧を待つ必要はない。
+
+### 未確認: SearchTrade か SearchTradeMulti か
+
+GMO には決済手段をまたぐ `SearchTradeMulti` もある。PayPay の取引が `SearchTrade` で
+引けない場合は `spec.ts` の `GMO_RECURRING_SEARCH_API` を `'SearchTradeMulti'` に変え、
+`searchGmoTrade` に `PayType` を足す。それ以外の変更は要らない。

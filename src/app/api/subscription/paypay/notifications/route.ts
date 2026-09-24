@@ -12,6 +12,7 @@ import {
   isGmoRecurringSpecConfigured,
   resolveGmoNotificationType,
 } from '@/lib/paypay/gmo/spec';
+import { normalizeGmoTradeState, searchGmoTrade } from '@/lib/paypay/gmo/search-trade';
 import {
   buildPayPaySubscriptionUpdate,
   resolvePayPaySubscriptionTransition,
@@ -46,12 +47,12 @@ export type PayPayNotificationDeps = {
   markWebhookEventFailedFn: typeof markWebhookEventFailed;
   hashPayloadFn: typeof hashPayload;
   /**
-   * 通知で示された契約をGMOに問い合わせ、確定した状態を返す。
-   * 【Phase 2b】GMO_RECURRING_SEARCH_API が確定したら実装を差し込む。
+   * 通知の OrderID をGMOに問い合わせ、確定した状態を返す。
+   * 通知本文の Status / Amount は捨て、この応答だけを信用する。
    */
   fetchAuthoritativeState: (
-    recurringId: string,
-    orderId: string
+    orderId: string,
+    eventId: string
   ) => Promise<NormalizedPayPayNotification>;
   now: () => Date;
 };
@@ -65,10 +66,12 @@ function getSupabaseAdmin(): SupabaseClient {
   return createSupabaseClient(url, key);
 }
 
-async function specNotConfigured(): Promise<NormalizedPayPayNotification> {
-  throw new Error(
-    'GMO recurring search API is not configured — refusing to trust an unsigned notification'
-  );
+async function fetchAuthoritativeStateViaSearchTrade(
+  orderId: string,
+  eventId: string
+): Promise<NormalizedPayPayNotification> {
+  const trade = await searchGmoTrade(orderId);
+  return normalizeGmoTradeState(trade, eventId);
 }
 
 const defaultDeps: PayPayNotificationDeps = {
@@ -77,7 +80,7 @@ const defaultDeps: PayPayNotificationDeps = {
   markWebhookEventProcessedFn: markWebhookEventProcessed,
   markWebhookEventFailedFn: markWebhookEventFailed,
   hashPayloadFn: hashPayload,
-  fetchAuthoritativeState: specNotConfigured,
+  fetchAuthoritativeState: fetchAuthoritativeStateViaSearchTrade,
   now: () => new Date(),
 };
 
@@ -175,32 +178,25 @@ export async function handlePayPayNotificationRequest(
   }
 
   try {
-    const recurringIdField = GMO_NOTIFICATION_FIELDS.recurringId;
-    const recurringId = recurringIdField ? body[recurringIdField]?.trim() : '';
-    if (!recurringId) {
-      throw new Error('Notification carries no recurring contract id');
-    }
+    const orderId = body[GMO_NOTIFICATION_FIELDS.orderId].trim();
 
     // 4. 再照会。ここから先で使うのは通知本文ではなく GMO の応答だけ。
-    const authoritative = await deps.fetchAuthoritativeState(
-      recurringId,
-      body[GMO_NOTIFICATION_FIELDS.orderId]
-    );
+    const authoritative = await deps.fetchAuthoritativeState(orderId, eventId);
 
+    // 引き当ても OrderID で行う。OrderID はこちらが契約作成時に採番して
+    // 行に書いた値なので、通知側の値と突き合わせれば一意にユーザーが決まる。
     const { data: subscription, error: lookupError } = await supabaseAdmin
       .from('subscriptions')
       .select('user_id, current_period_end')
       .eq('paypay_provider', 'gmo')
-      .eq('paypay_subscription_id', authoritative.subscriptionId)
+      .eq('paypay_order_id', orderId)
       .maybeSingle();
 
     if (lookupError) {
       throw lookupError;
     }
     if (!subscription) {
-      throw new Error(
-        `Subscription not found for recurring contract: ${authoritative.subscriptionId}`
-      );
+      throw new Error(`Subscription not found for PayPay order: ${orderId}`);
     }
 
     const now = deps.now();
