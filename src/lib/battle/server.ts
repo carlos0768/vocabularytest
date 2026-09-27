@@ -44,6 +44,12 @@ export class BattleError extends Error {
     readonly code: string,
     readonly status: number,
     readonly userMessage: string,
+    /**
+     * 元になった DB エラー。ログにだけ出し、利用者には見せない。
+     * これが無いと「対戦ルームの取得に失敗しました」だけが残り、どの列・
+     * どのテーブルで落ちたのか後から追えない。
+     */
+    readonly detail?: unknown,
   ) {
     super(code);
     this.name = 'BattleError';
@@ -129,15 +135,25 @@ type SupabaseQueryError = {
   hint?: string | null;
 };
 
-/** 「その列がまだ無い」とだけ読める失敗か。通信エラー等と混ぜない。 */
-export function isMissingColumnError(error: SupabaseQueryError | null): boolean {
+/**
+ * 「その列／テーブルがまだ無い」とだけ読める失敗か。通信エラーや権限エラーと
+ * 混ぜない（混ぜると、一度の通信断でボット対戦が使えなくなる）。
+ */
+export function isMissingSchemaError(error: SupabaseQueryError | null | undefined): boolean {
   if (!error) return false;
   const text = `${error.code ?? ''} ${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`;
   return (
+    // 列が無い
     error.code === '42703'
     || error.code === 'PGRST204'
     || /column .* does not exist/i.test(text)
     || /could not find .* column/i.test(text)
+    // テーブルが無い（battle_bot_plans が作られていない）
+    || error.code === '42P01'
+    || error.code === 'PGRST205'
+    || /relation .* does not exist/i.test(text)
+    || /could not find the table/i.test(text)
+    // PostgREST の schema cache が古い
     || /schema cache/i.test(text)
   );
 }
@@ -151,22 +167,41 @@ async function hasBotColumns(admin: SupabaseAdminClient): Promise<boolean> {
     return false;
   }
 
-  const { error } = await admin.from('battle_rooms').select('guest_is_bot').limit(1);
+  // **実際に使う列そのもの**を確かめる。1列だけ見て済ませると、migration が
+  // 途中までしか通っていないDB（guest_is_bot はあるが bot_level が無い等）を
+  // 「使える」と誤判定し、対戦ルームの取得ごと 42703 で落ちる。
+  const [rooms, questions, plans] = await Promise.all([
+    admin.from('battle_rooms').select(ROOM_COLUMNS_BOT).limit(1),
+    admin.from('battle_questions').select(QUESTION_COLUMNS_BOT).limit(1),
+    admin.from('battle_bot_plans').select('room_id').limit(1),
+  ]);
 
-  // 列が無いと確信できたときだけ落とす。それ以外の失敗は本来のエラーとして
+  const missing = [rooms.error, questions.error, plans.error].find(isMissingSchemaError);
+
+  // 欠けていると確信できたときだけ落とす。それ以外の失敗は本来のエラーとして
   // 呼び出し側で表に出したいので、利用可能あつかいのままにする。
-  botColumnsAvailable = !isMissingColumnError(error);
+  botColumnsAvailable = !missing;
   botColumnsCheckedAt = Date.now();
 
-  if (!botColumnsAvailable) {
+  if (missing) {
     console.warn(
-      '[battle] ボット対戦の列がありません。'
-      + 'supabase/migrations/20260916120000_battle_bot_opponent.sql を適用してください。',
-      { message: error?.message },
+      '[battle] ボット対戦のスキーマが揃っていません。'
+      + 'supabase/migrations/20260916120000_battle_bot_opponent.sql を適用してください。'
+      + ' ボット対戦だけを止め、人間同士の対戦は続行します。',
+      { code: missing.code, message: missing.message },
     );
   }
 
   return botColumnsAvailable;
+}
+
+/**
+ * テスト用。スキーマ判定のキャッシュを捨てる（`resetAppStoreConfigCacheForTests`
+ * と同じ用途）。
+ */
+export function resetBattleSchemaCacheForTests(): void {
+  botColumnsAvailable = null;
+  botColumnsCheckedAt = 0;
 }
 
 async function roomColumns(admin: SupabaseAdminClient): Promise<string> {
@@ -278,7 +313,7 @@ async function fetchRoomRow(
     .maybeSingle<BattleRoomRow>();
 
   if (error) {
-    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。');
+    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。', error);
   }
   if (!data) {
     throw new BattleError('battle_room_not_found', 404, '対戦ルームが見つかりません。');
@@ -367,7 +402,7 @@ export async function loadBattleQuestions(
     .order('round_index', { ascending: true });
 
   if (error) {
-    throw new BattleError('battle_questions_lookup_failed', 500, '問題の取得に失敗しました。');
+    throw new BattleError('battle_questions_lookup_failed', 500, '問題の取得に失敗しました。', error);
   }
 
   return (data ?? []).map((row) => {
@@ -642,7 +677,7 @@ export async function joinRoomByInviteCode(options: {
     .maybeSingle<BattleRoomRow>();
 
   if (lookupError) {
-    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。');
+    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。', lookupError);
   }
   if (!roomRow) {
     throw new BattleError('battle_invite_not_found', 404, '招待コードが見つかりません。');
@@ -767,7 +802,7 @@ async function findRematchRoom(
     .maybeSingle<BattleRoomRow>();
 
   if (error) {
-    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。');
+    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。', error);
   }
 
   return data ?? null;
@@ -926,7 +961,7 @@ export async function findActiveRoomForUser(
     .maybeSingle<BattleRoomRow>();
 
   if (error) {
-    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。');
+    throw new BattleError('battle_room_lookup_failed', 500, '対戦ルームの取得に失敗しました。', error);
   }
 
   return data ? hydrateRoom(data, admin) : null;
