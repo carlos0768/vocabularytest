@@ -290,10 +290,29 @@ async function hydrateRoom(
   };
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * URL から来た部屋IDの形を先に弾く。
+ *
+ * UUID でない文字列をそのまま `.eq('id', ...)` に渡すと Postgres が
+ * `22P02 invalid input syntax for type uuid` を返し、「対戦ルームの取得に
+ * 失敗しました」という 500 に化ける。実際はただの不正なURL（404相当）なので、
+ * ここで見分ける。他の入口（projectId / groupId）は zod が uuid を検証して
+ * いるが、パスパラメータだけは素通りしていた。
+ */
+export function assertBattleRoomId(roomId: string): void {
+  if (!UUID_PATTERN.test(roomId.trim())) {
+    throw new BattleError('battle_room_not_found', 404, '対戦ルームが見つかりません。');
+  }
+}
+
 async function fetchRoomRow(
   roomId: string,
   admin: SupabaseAdminClient,
 ): Promise<BattleRoomRow> {
+  assertBattleRoomId(roomId);
+
   const { data, error } = await admin
     .from('battle_rooms')
     .select(await roomColumns(admin))
@@ -382,6 +401,8 @@ export async function loadBattleQuestions(
   roomId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<BattleQuestion[]> {
+  assertBattleRoomId(roomId);
+
   const { data, error } = await admin
     .from('battle_questions')
     .select(await questionColumns(admin))

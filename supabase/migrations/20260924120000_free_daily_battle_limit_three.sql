@@ -179,3 +179,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.consume_free_battle_entry(UUID, UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.consume_free_battle_entry(UUID, UUID) TO service_role;
+
+-- 新しいテーブル・RPC を足した／差し替えたので PostgREST の schema cache を
+-- 読み直させる。これが無いと適用直後も RPC が「見つからない」ままになる。
+NOTIFY pgrst, 'reload schema';

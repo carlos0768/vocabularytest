@@ -16,6 +16,7 @@ import {
   QUESTION_COLUMNS_BOT,
   ROOM_COLUMNS_BASE,
   ROOM_COLUMNS_BOT,
+  assertBattleRoomId,
   isMissingSchemaError,
   loadBattleQuestions,
   loadBattleRoom,
@@ -95,8 +96,11 @@ test('an unrelated failure is never mistaken for a missing column', () => {
 
 // ---- 実際に読めるか（PostgREST の列検査を模したフェイク） ----
 
+/** 実在しうる形の部屋ID。UUID でないと入口の検証で 404 になる。 */
+const ROOM_ID = '0b3f7e2a-9c41-4a7d-8f2b-1e6d5c4a3b2f';
+
 const ROOM_ROW: Record<string, unknown> = {
-  id: 'room-1', mode: 'random', status: 'in_progress', invite_code: null,
+  id: ROOM_ID, mode: 'random', status: 'in_progress', invite_code: null,
   group_id: null, rematch_of_room_id: null,
   host_user_id: 'u-host', host_project_id: 'p1',
   guest_user_id: 'u-guest', guest_project_id: 'p2',
@@ -164,10 +168,10 @@ test('a battle still loads when the bot migration has not been applied at all', 
   resetBattleSchemaCacheForTests();
   const admin = fakeAdmin(WITHOUT_BOT);
 
-  const room = await loadBattleRoom('room-1', 'u-host', admin);
-  const questions = await loadBattleQuestions('room-1', admin);
+  const room = await loadBattleRoom(ROOM_ID, 'u-host', admin);
+  const questions = await loadBattleQuestions(ROOM_ID, admin);
 
-  assert.equal(room.id, 'room-1');
+  assert.equal(room.id, ROOM_ID);
   assert.equal(room.host.score, 1);
   assert.equal(room.guest?.score, 2);
   assert.equal(room.guestIsBot, false);
@@ -184,9 +188,9 @@ test('a battle still loads when the migration aborted after its first statement'
     battle_rooms: [...ROOM_COLUMNS_BASE.split(','), 'guest_is_bot'],
   });
 
-  const room = await loadBattleRoom('room-1', 'u-host', admin);
+  const room = await loadBattleRoom(ROOM_ID, 'u-host', admin);
 
-  assert.equal(room.id, 'room-1');
+  assert.equal(room.id, ROOM_ID);
   assert.equal(room.guestIsBot, false);
 });
 
@@ -202,9 +206,9 @@ test('a battle still loads when only bot_level / bot_name are missing', async ()
     battle_bot_plans: ['room_id'],
   });
 
-  const room = await loadBattleRoom('room-1', 'u-host', admin);
+  const room = await loadBattleRoom(ROOM_ID, 'u-host', admin);
 
-  assert.equal(room.id, 'room-1');
+  assert.equal(room.id, ROOM_ID);
   assert.equal(room.guestIsBot, false);
 });
 
@@ -216,10 +220,10 @@ test('a battle still loads when only battle_questions is missing its column', as
     battle_bot_plans: ['room_id'],
   });
 
-  const room = await loadBattleRoom('room-1', 'u-host', admin);
-  const questions = await loadBattleQuestions('room-1', admin);
+  const room = await loadBattleRoom(ROOM_ID, 'u-host', admin);
+  const questions = await loadBattleQuestions(ROOM_ID, admin);
 
-  assert.equal(room.id, 'room-1');
+  assert.equal(room.id, ROOM_ID);
   assert.equal(questions.length, 1);
 });
 
@@ -232,10 +236,10 @@ test('the bot columns are used once the whole migration is in place', async () =
     battle_bot_plans: ['room_id'],
   });
 
-  const room = await loadBattleRoom('room-1', 'u-host', admin);
-  const questions = await loadBattleQuestions('room-1', admin);
+  const room = await loadBattleRoom(ROOM_ID, 'u-host', admin);
+  const questions = await loadBattleQuestions(ROOM_ID, admin);
 
-  assert.equal(room.id, 'room-1');
+  assert.equal(room.id, ROOM_ID);
   assert.equal(questions.length, 1);
 });
 
@@ -245,7 +249,7 @@ test('the underlying db error is kept on the thrown error so logs can name it', 
   const admin = fakeAdmin({ profiles: [], projects: [] });
 
   await assert.rejects(
-    () => loadBattleRoom('room-1', 'u-host', admin),
+    () => loadBattleRoom(ROOM_ID, 'u-host', admin),
     (error: unknown) => {
       const battleError = error as { code?: string; detail?: { code?: string } };
       assert.equal(battleError.code, 'battle_room_lookup_failed');
@@ -253,4 +257,32 @@ test('the underlying db error is kept on the thrown error so logs can name it', 
       return true;
     },
   );
+});
+
+// ---- URL から来た部屋ID ----
+
+test('a malformed room id is a 404, not a lookup failure', async () => {
+  // UUID でない値を .eq('id', ...) に渡すと Postgres が 22P02 を返し、
+  // 「対戦ルームの取得に失敗しました」という 500 に化けていた。
+  resetBattleSchemaCacheForTests();
+  const admin = fakeAdmin(WITHOUT_BOT);
+
+  for (const roomId of ['undefined', 'null', '', 'room-1', '../../etc', '123']) {
+    await assert.rejects(
+      () => loadBattleRoom(roomId, 'u-host', admin),
+      (error: unknown) => {
+        const battleError = error as { code?: string; status?: number };
+        assert.equal(battleError.code, 'battle_room_not_found', `${roomId} の扱い`);
+        assert.equal(battleError.status, 404);
+        return true;
+      },
+    );
+
+    await assert.rejects(() => loadBattleQuestions(roomId, admin));
+  }
+});
+
+test('a well-formed uuid is let through, in either case', () => {
+  assert.doesNotThrow(() => assertBattleRoomId('0b3f7e2a-9c41-4a7d-8f2b-1e6d5c4a3b2f'));
+  assert.doesNotThrow(() => assertBattleRoomId('0B3F7E2A-9C41-4A7D-8F2B-1E6D5C4A3B2F'));
 });

@@ -8,6 +8,12 @@ export class BattleError extends Error {
     readonly code: string,
     readonly status: number,
     readonly userMessage: string,
+    /**
+     * 元になった DB エラー。ログにだけ出し、利用者には見せない。
+     * これが無いと「対戦ルームの取得に失敗しました」だけが残り、どの列・
+     * どのテーブルで落ちたのか後から追えない（`battleErrorResponse` が出す）。
+     */
+    readonly detail?: unknown,
   ) {
     super(code);
     this.name = 'BattleError';
