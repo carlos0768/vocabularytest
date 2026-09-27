@@ -59,6 +59,12 @@ export async function requireBattleEntryUser(
 
 export function battleErrorResponse(error: unknown, context: string): NextResponse {
   if (error instanceof BattleError) {
+    // 定型文だけを返すと、どの列・どのテーブルで落ちたのかログにも残らない。
+    // 想定内の 404 / 409 は detail を持たないので、ここは無言のままになる。
+    if (error.detail !== undefined) {
+      console.error(`${context}: ${error.code}`, error.detail);
+    }
+
     return NextResponse.json(
       { success: false, error: error.userMessage, code: error.code },
       { status: error.status },
