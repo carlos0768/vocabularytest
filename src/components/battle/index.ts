@@ -8,6 +8,7 @@ export {
 } from './BattleScreen';
 export { BattleAvatar } from './BattleAvatar';
 export {
+  BattleAllowanceStrip,
   BattleBotOffer,
   BattleGroupSetupCard,
   BattleInviteCode,

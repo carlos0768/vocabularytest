@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { battleErrorResponse, requireProBattleUser } from '@/app/api/battle/shared';
+import {
+  battleErrorResponse,
+  requireBattleEntryUser,
+  requireBattleUser,
+} from '@/app/api/battle/shared';
 import {
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
@@ -31,7 +35,7 @@ const createRoomSchema = z.object({
 /** Returns the battle the caller is currently in, if any. */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleUser(request);
     if (!auth.ok) return auth.response;
 
     const room = await findActiveRoomForUser(auth.user.id);
@@ -44,7 +48,7 @@ export async function GET(request: NextRequest) {
 /** Creates a friend battle room and returns its invite code. */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleEntryUser(request);
     if (!auth.ok) return auth.response;
 
     const parsed = await parseJsonWithSchema(request, createRoomSchema);

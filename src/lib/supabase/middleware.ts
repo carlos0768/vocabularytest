@@ -17,6 +17,7 @@ const protectedPaths = [
   '/coins',
   '/flashcard',
   '/favorites',
+  '/goal',
   '/grammar',
   '/stats',
   '/reels',

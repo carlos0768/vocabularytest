@@ -2,15 +2,17 @@
 
 /**
  * ホームのリアルタイム単語対戦への導線（参加中のグループの上に配置）。
- * 対戦はPro限定なので、Freeユーザーには何も表示しない。
+ *
+ * 対戦はFreeでも1日 `FREE_DAILY_BATTLE_LIMIT` 回まで遊べるので、Freeにも出す。
+ * ここでは残数をサーバーに問い合わせない —— ホームの初回表示にリクエストを
+ * 1本足したくないため。正確な残数はロビー（/battle）が出す。
  */
 
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { FREE_DAILY_BATTLE_LIMIT } from '@/lib/battle/free-allowance';
 
 export function BattleEntrySection({ isPro }: { isPro: boolean }) {
-  if (!isPro) return null;
-
   return (
     <div className="pb-1 pt-3">
       <div className="mb-2.5 flex items-center gap-2 px-[18px]">
@@ -30,7 +32,9 @@ export function BattleEntrySection({ isPro }: { isPro: boolean }) {
               リアルタイム対戦
             </p>
             <p className="mt-0.5 font-mono text-[9.5px] font-bold tracking-[0.04em] opacity-90">
-              早押し4択 / フレンド・ランダム
+              {isPro
+                ? '早押し4択 / フレンド・ランダム'
+                : `早押し4択 / 無料プランは1日${FREE_DAILY_BATTLE_LIMIT}回まで`}
             </p>
           </div>
           <Icon name="chevron_right" size={18} className="shrink-0" />

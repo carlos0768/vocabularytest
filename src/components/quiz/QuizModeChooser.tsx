@@ -22,14 +22,14 @@ const MODES: ReadonlyArray<{
     key: 'normal',
     icon: 'list',
     title: '四択で解く',
-    description: '選択肢から答えを選びます。',
+    description: '',
     scope: 'Passive (P) の単語だけ出題されます',
   },
   {
     key: 'typing',
     icon: 'keyboard',
     title: '記述で解く',
-    description: '日本語の意味を見て、英単語のつづりを入力します。',
+    description: '',
     scope: 'Active (A) の単語だけ出題されます',
   },
   {
@@ -52,7 +52,7 @@ export function QuizModeChooser({
   onSelect,
   onCancel,
   title = 'クイズの解き方を選んでください',
-  description = '毎回ここで選べます。前回選んだ形式を最初から選んだ状態にしています。',
+  description,
   warning,
   hiddenModes,
   currentLabel = 'いま',
@@ -90,7 +90,9 @@ export function QuizModeChooser({
       <h2 className="mt-1 font-display text-xl font-black leading-snug text-[var(--solid-ink)]">
         {title}
       </h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{description}</p>
+      {description && (
+        <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{description}</p>
+      )}
 
       {warning && (
         <p className="mt-3 rounded-[var(--solid-radius-sm)] border-2 border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs font-bold leading-5 text-[var(--color-warning)]">
@@ -133,9 +135,11 @@ export function QuizModeChooser({
                     <span className={cn(EYEBROW, 'text-[var(--color-accent)]')}>{currentLabel}</span>
                   )}
                 </span>
-                <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)]">
-                  {mode.description}
-                </span>
+                {mode.description && (
+                  <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)]">
+                    {mode.description}
+                  </span>
+                )}
                 {mode.scope && (
                   <span
                     className={cn(

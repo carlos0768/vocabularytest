@@ -148,6 +148,33 @@ export function BattleHeaderButton({
   );
 }
 
+/** 案内パネルのボタン。行き先があるものと、その場で動くもの。 */
+type BattleNoticeAction =
+  | { label: string; href: string; onClick?: never }
+  | { label: string; onClick: () => void; href?: never };
+
+function BattleNoticeButton({
+  action,
+  className,
+}: {
+  action: BattleNoticeAction;
+  className: string;
+}) {
+  if (action.href) {
+    return (
+      <Link href={action.href} className={className}>
+        {action.label}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={action.onClick} className={className}>
+      {action.label}
+    </button>
+  );
+}
+
 /** 画面中央に置く案内パネル（ログイン誘導・Pro誘導・エラー）。 */
 export function BattleNotice({
   icon,
@@ -159,8 +186,9 @@ export function BattleNotice({
   icon: string;
   title: string;
   description: string;
-  action?: { label: string; href: string };
-  secondaryAction?: { label: string; href: string };
+  /** 画面へ送る（href）か、その場で何かする（onClick。再読み込みなど）か。 */
+  action?: BattleNoticeAction;
+  secondaryAction?: BattleNoticeAction;
 }) {
   return (
     <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-7 text-center shadow-[3px_4px_0_var(--solid-shadow)]">
@@ -172,20 +200,16 @@ export function BattleNotice({
         {description}
       </p>
       {action && (
-        <Link
-          href={action.href}
-          className="mt-5 flex h-12 items-center justify-center rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          {action.label}
-        </Link>
+        <BattleNoticeButton
+          action={action}
+          className="mt-5 flex h-12 w-full items-center justify-center rounded-[12px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] font-display text-[15px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        />
       )}
       {secondaryAction && (
-        <Link
-          href={secondaryAction.href}
-          className="mt-2.5 flex h-11 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[14px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          {secondaryAction.label}
-        </Link>
+        <BattleNoticeButton
+          action={secondaryAction}
+          className="mt-2.5 flex h-11 w-full items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] font-display text-[14px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+        />
       )}
     </div>
   );

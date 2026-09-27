@@ -28,6 +28,7 @@ import {
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { selectDailyReviewWords } from '@/lib/quiz/daily-review-selection';
+import { readReviewProjectFilter, writeReviewProjectFilter } from '@/lib/quiz/review-project-filter';
 import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
 import { triggerHaptic } from '@/lib/haptics';
 import { speakEnglish } from '@/lib/speech';
@@ -100,7 +101,6 @@ import type {
 
 const DEFAULT_QUESTION_COUNT = 10;
 const MAX_NORMAL_QUIZ_QUESTION_COUNT = 20;
-const REVIEW_PROJECT_FILTER_STORAGE_KEY = 'quiz-review-project-filter';
 const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
@@ -453,17 +453,9 @@ export default function QuizPage() {
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
-  const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = sessionStorage.getItem(REVIEW_PROJECT_FILTER_STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) && parsed.every((id) => typeof id === 'string') && parsed.length > 0
-        ? parsed
-        : null;
-    } catch { return null; }
-  });
+  const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() =>
+    readReviewProjectFilter(),
+  );
   const [availableReviewProjects, setAvailableReviewProjects] = useState<ReviewFilterProject[]>([]);
   const [reviewFilterSheetOpen, setReviewFilterSheetOpen] = useState(false);
 
@@ -615,13 +607,7 @@ export default function QuizPage() {
   }, [storageKey]);
 
   const handleApplyReviewProjectFilter = useCallback((ids: string[] | null) => {
-    try {
-      if (ids && ids.length > 0) {
-        sessionStorage.setItem(REVIEW_PROJECT_FILTER_STORAGE_KEY, JSON.stringify(ids));
-      } else {
-        sessionStorage.removeItem(REVIEW_PROJECT_FILTER_STORAGE_KEY);
-      }
-    } catch { /* ignore */ }
+    writeReviewProjectFilter(ids);
     clearQuizState();
     restoredFromStorage.current = false;
     setLoading(true);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { battleErrorResponse, requireProBattleUser } from '@/app/api/battle/shared';
+import { battleErrorResponse, requireBattleEntryUser } from '@/app/api/battle/shared';
 import {
   BATTLE_DEFAULT_QUESTION_COUNT,
   BATTLE_DEFAULT_ROUND_DURATION_MS,
@@ -43,7 +43,7 @@ const botRoomSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleEntryUser(request);
     if (!auth.ok) return auth.response;
 
     const parsed = await parseJsonWithSchema(request, botRoomSchema);

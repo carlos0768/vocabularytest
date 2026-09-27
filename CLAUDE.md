@@ -118,6 +118,7 @@ getRepository(subscriptionStatus, wasPro)
 | Shared wordbook publishing | No (Pro-only) | Yes |
 | Shared 語法問題集 view | Yes (login required) | Yes |
 | Shared 語法問題集 import / publishing | No (Pro-only) | Yes |
+| リアルタイム対戦 | 1日3回まで (`FREE_DAILY_BATTLE_LIMIT`, JST暦日) | 無制限 |
 | Data storage | Cloud (Supabase) + IndexedDB cache (login required) | Cloud (Supabase) + IndexedDB cache |
 | Cross-device sync | Yes (login required; capped at 50 wordbooks server-side) | Yes |
 
@@ -181,6 +182,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - 記述で出すかは**選ばれた解き方だけ**で決まる。単語の状態 (`vocabularyType === 'active'` / `status === 'active'`) から記述に切り替えてはいけない —— 四択を選んだのに一部の語だけ入力欄になる、が元の不具合
    - **出題する語も解き方で分かれる** (`src/lib/quiz/answer-format-words.ts`)。記述は Active (A) の語だけ、四択は Passive (P) の語だけ。**語彙モード未設定 (null) は Passive あつかい** —— スキャンの既定が Passive で、公式・共有単語帳の取り込みは未設定で入るので、未設定を外すと大半の単語帳がどちらの解き方でも空になる。絞り込みは `generateQuestions` / `startQuizWithDistractors` の中の1箇所だけに置く。語順クイズ (`isWordOrderEligible`) は active を除外するので、結果として四択側にしか出ない
    - 解き方を変えると出題する語ごと入れ替わるので、途中で切り替えたら**最初から組み直す** (`startQuizForFormat`)。続きから続けようがない。1語も無いときは空の出題画面ではなく専用の案内を出す
+3b. **目標ページ (`/goal`, `src/app/goal/page.tsx`)**: Pro の下部バー2番目のタブ（旧「単語」`/words` の位置。`/words` 自体は残っているがナビからは外した）。目標は**「どの単語帳を（複数選択可）・いつまでに」を単語帳の選択で指定**し、端末の localStorage に持つ（`src/lib/goal/study-goal.ts` の `StudyGoal.projectIds`、1日の復習上限と同じ扱いで端末間には同期しない。旧形式の単数 `projectId` は読み込み時に配列へ移行する）。載せるのは 残り日数バナー / 月間カレンダー（月曜はじめ・今日・目標日・学習した日）/ **今日の10問**（目標の単語帳だけから `/quiz/all?learn=1&count=10`、絞り込みは `src/lib/quiz/review-project-filter.ts` 経由で sessionStorage に渡す）/ **今日復習しておきたい単語**（SM-2 の復習期限、全単語帳横断 `/quiz/all?review=1`）。後者2つは別物で混ぜない — 復習リンクへ飛ぶ前に絞り込みを明示的に解除する。ホームのショートカットグリッドからは「今日の復習」「保存済み単語」タイルを外した（デスクトップ版 `DesktopHome` は据え置き）
 4. **語彙モード (Active / Passive)**: `Word.vocabularyType` は `'active' | 'passive' | null`。呼び方は**「Active (A)」「Passive (P)」で統一**する (`getVocabularyTypeLabel`)。以前は画面ごとに「Active/Passive」「アクティブ/パッシブ」「発信/受信」が混在していた。スキャンの既定は `passive` (`DEFAULT_SCANNED_VOCABULARY_TYPE`)。`WordStatus` の `'active'` (SM-2の定着中) とは**別物**なので混同しないこと
 5. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync. After signup, every active official wordbook is browsable from the shared page's 「公式」 tab (`/shared?tab=official` → `/official/[slug]`) and can be imported at any time — the copy carries `imported_from_official_slug`, the same column the signup seed dedupes on. See `docs/official-wordbook-editor.md`.
 6. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
@@ -259,7 +261,11 @@ stripe listen --forward-to localhost:3000/api/subscription/webhook
 - 手動追加で古典語（ラテン文字を含まない見出し語）を入れると、英語の補完経路（翻訳AI・発音記号・品詞分類・例文生成）には一切入らず、共通辞書だけを引く
 
 ### 5. Realtime word battle (リアルタイム単語対戦) -- Done
-- 早押し4択のリアルタイム1対1対戦。**Pro限定・コイン消費なし**。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
+- 早押し4択のリアルタイム1対1対戦。**コイン消費なし**。Proは無制限、**Freeは1日3回まで**（`FREE_DAILY_BATTLE_LIMIT`）。フレンド対戦（6桁招待コード）・ランダムマッチ・グループ内マッチ（`mode='group'`）に対応
+- **無料枠の1回＝実際に始まった対戦1部屋**。ロビーで待っただけ・マッチングを取り消しただけでは減らない。入り口（部屋作成・招待コード参加・マッチング・ボット戦・再戦）では `requireBattleEntryUser` が残数を**見るだけ**で、実際に減らすのは `startBattle` が部屋を掴んだ後（`consumeBattleEntry`、参加者ぶん）。記録は `battle_free_entries` の (user_id, room_id) 主キーなので、両クライアントが `/start` を叩いても二重には減らない。出題生成に失敗して部屋を 'ready' に戻すときは `releaseBattleEntries` で取り消す。日の境界は**JSTの暦日**（`battle_day_key`）——コインの月境界と同じ理由
+- 枠切れのまま対戦が始まろうとした部屋（入り口チェックをすり抜けた競合）は 'ready' に戻さず**部屋ごと cancelled にする**。戻すとホストのクライアントが `/start` を叩き続けて止まらない
+- **進行中の対戦の読み書きは枠と無関係**。部屋の取得・回答・退出は `requireBattleUser`（ログインのみ）で通す。対戦の途中で枠が尽きて画面が読めなくなってはいけない
+- 上限値は `src/lib/battle/free-allowance.ts` と SQL の RPC に二重にあり、`free-allowance.test.ts` が「`v_limit` を持ついちばん新しいマイグレーション」と突き合わせている。変えるときは TS と、上限を差し替える**新しいマイグレーション**の両方（適用ずみのマイグレーションは書き換えない。現行は `20260924120000_free_daily_battle_limit_three.sql`）
 - Routes: `/battle`（ロビー）, `/battle/[roomId]`（対戦画面）, `/groups/[groupId]/battle`（グループ内マッチ）, `/api/battle/**`（rooms, join, match, start）
 - Tables: `battle_rooms` / `battle_questions` / `battle_question_keys` / `battle_answers` / `battle_queue` (`supabase/migrations/20260814100000_create_word_battles.sql`)
 - **出題は出題者（ホスト）の単語帳だけ**から生成（`src/lib/battle/questions.ts`）。ゲストの単語帳は参加時に記録するが問題には使わない。ホストはフレンド対戦なら部屋を作った側、ランダムマッチなら先にキューで待っていた側（`pair_battle_match`）で、問題数・制限時間もホストの設定が採用される。両者はまったく同じ問題を同じ順で解く。単語が足りなければ問題数を切り詰める（重複出題はしない）

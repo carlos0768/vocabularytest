@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { battleErrorResponse, requireProBattleUser } from '@/app/api/battle/shared';
+import { battleErrorResponse, requireBattleUser } from '@/app/api/battle/shared';
 import { loadBattleQuestions, startBattle } from '@/lib/battle/server';
 
 /**
@@ -11,7 +11,7 @@ export async function POST(
   context: { params: Promise<{ roomId: string }> },
 ) {
   try {
-    const auth = await requireProBattleUser(request);
+    const auth = await requireBattleUser(request);
     if (!auth.ok) return auth.response;
 
     const { roomId } = await context.params;
