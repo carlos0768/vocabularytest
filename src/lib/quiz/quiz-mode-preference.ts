@@ -1,5 +1,5 @@
 /**
- * クイズの解き方 (四択 / 記述 / 音読チャレンジ) の端末ごとの記憶。
+ * クイズの解き方 (四択 / 記述 / 音読チャレンジ / 空所補充) の端末ごとの記憶。
  *
  * 端末によって使い方が変わる ——「電車では四択、家では声で」のように——ので、
  * アカウントではなく端末に紐づける。したがって localStorage に置き、
@@ -11,10 +11,10 @@
  * を意味するにとどまる。
  */
 
-export type QuizMode = 'normal' | 'typing' | 'voice';
+export type QuizMode = 'normal' | 'typing' | 'voice' | 'cloze';
 
-/** 音読チャレンジ (別ページ) ではなく、四択クイズ画面の中で解ける形式。 */
-export type QuizAnswerFormat = Exclude<QuizMode, 'voice'>;
+/** 音読チャレンジ・空所補充 (どちらも別ページ) ではなく、四択クイズ画面の中で解ける形式。 */
+export type QuizAnswerFormat = Exclude<QuizMode, 'voice' | 'cloze'>;
 
 /** 端末ごとの選択を入れる localStorage のキー。 */
 export const QUIZ_MODE_STORAGE_KEY = 'merken_quiz_mode';
@@ -27,10 +27,10 @@ export const QUIZ_MODE_STORAGE_KEY = 'merken_quiz_mode';
 export const QUIZ_FORMAT_QUERY_KEY = 'format';
 
 export function isQuizMode(value: unknown): value is QuizMode {
-  return value === 'normal' || value === 'typing' || value === 'voice';
+  return value === 'normal' || value === 'typing' || value === 'voice' || value === 'cloze';
 }
 
-/** 四択クイズ画面の中で解ける形式か (音読は別ページなので含まない)。 */
+/** 四択クイズ画面の中で解ける形式か (音読・空所補充は別ページなので含まない)。 */
 export function isQuizAnswerFormat(value: unknown): value is QuizAnswerFormat {
   return value === 'normal' || value === 'typing';
 }

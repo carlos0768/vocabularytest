@@ -191,9 +191,22 @@ export default function VoiceQuizPage() {
     router.replace(`/quiz/${projectId}?${params.toString()}`);
   }, [router, projectId, binderName, returnPath, requestedCount]);
 
-  /** 解き方を選んだ。音読ならこの画面のまま、四択・記述なら通常クイズへ移る。 */
+  /** 空所補充 (別ページ) へ移る。出題数とバインダーの指定はそのまま引き継ぐ。 */
+  const goToClozeQuiz = useCallback(() => {
+    writeQuizMode('cloze');
+    const params = new URLSearchParams({ count: String(requestedCount) });
+    if (binderName) params.set('binder', binderName);
+    if (returnPath) params.set('from', returnPath);
+    router.replace(`/cloze-quiz/${projectId}?${params.toString()}`);
+  }, [router, projectId, binderName, returnPath, requestedCount]);
+
+  /** 解き方を選んだ。音読ならこの画面のまま、それ以外はそれぞれの画面へ移る。 */
   const chooseMode = useCallback(
     (mode: QuizMode) => {
+      if (mode === 'cloze') {
+        goToClozeQuiz();
+        return;
+      }
       if (mode !== 'voice') {
         goToNormalQuiz(mode);
         return;
@@ -201,7 +214,7 @@ export default function VoiceQuizPage() {
       writeQuizMode(mode);
       setShowModeSwitch(false);
     },
-    [goToNormalQuiz],
+    [goToNormalQuiz, goToClozeQuiz],
   );
 
   /**

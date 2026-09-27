@@ -105,8 +105,11 @@ const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 const WORD_ORDER_API_CHUNK_SIZE = 30;
-/** 単語帳をまたぐ出題では音読チャレンジを選ばせない (向こうが1冊ぶんしか出せない)。 */
-const VOICE_MODE_HIDDEN = ['voice'] as const;
+/**
+ * 単語帳をまたぐ出題では音読チャレンジ・空所補充を選ばせない
+ * (どちらも別ページで、単語帳1冊かバインダー1つぶんしか出せない)。
+ */
+const SEPARATE_PAGE_MODES_HIDDEN = ['voice', 'cloze'] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -645,6 +648,21 @@ export default function QuizPage() {
     else router.push(href);
   }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
 
+  /**
+   * 空所補充へ切り替える。音読チャレンジと同じく別ページで、出題数・バインダー・戻り先を引き継ぐ。
+   */
+  const goToClozeQuiz = useCallback(() => {
+    writeQuizMode('cloze');
+    const params = new URLSearchParams();
+    const parsedInput = Number.parseInt(inputCount, 10);
+    const count = Number.isFinite(parsedInput) && parsedInput > 0 ? parsedInput : questionCount;
+    if (count && count > 0) params.set('count', String(count));
+    if (binderName) params.set('binder', binderName);
+    if (returnPath) params.set('from', returnPath);
+    const query = params.toString();
+    router.push(`/cloze-quiz/${projectId}${query ? `?${query}` : ''}`);
+  }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
+
   // 端末の前回の選択を読む。選択画面の初期選択にするだけ。
   useEffect(() => {
     setStoredMode(readQuizMode());
@@ -864,10 +882,14 @@ export default function QuizPage() {
         goToVoiceQuiz();
         return;
       }
+      if (mode === 'cloze') {
+        goToClozeQuiz();
+        return;
+      }
       setAnswerFormat(mode);
       void startQuizForFormat(mode);
     },
-    [goToVoiceQuiz, startQuizForFormat],
+    [goToVoiceQuiz, goToClozeQuiz, startQuizForFormat],
   );
 
   useEffect(() => {
@@ -1167,7 +1189,11 @@ export default function QuizPage() {
   }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, binderName]);
 
   // 選択画面に出す「この単語帳で何語出せるか」。
-  const answerFormatWordCounts = useMemo(() => countWordsByAnswerFormat(allWords), [allWords]);
+  const answerFormatWordCounts = useMemo(() => {
+    const counts = countWordsByAnswerFormat(allWords);
+    // 空所補充も四択と同じく Passive (P) の語を出す
+    return { ...counts, cloze: counts.normal };
+  }, [allWords]);
 
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
@@ -1443,7 +1469,7 @@ export default function QuizPage() {
             current={storedMode ?? undefined}
             currentLabel="前回"
             onSelect={chooseMode}
-            hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
+            hiddenModes={voiceQuizUnavailable ? SEPARATE_PAGE_MODES_HIDDEN : undefined}
             wordCounts={answerFormatWordCounts}
           />
         </div>
@@ -1785,7 +1811,7 @@ export default function QuizPage() {
         current={resolvedAnswerFormat}
         onSelect={chooseMode}
         onCancel={() => setShowModeSwitch(false)}
-        hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
+        hiddenModes={voiceQuizUnavailable ? SEPARATE_PAGE_MODES_HIDDEN : undefined}
         wordCounts={answerFormatWordCounts}
         title="クイズの解き方を変える"
         description="次に始めるときの初期選択にもなります。"

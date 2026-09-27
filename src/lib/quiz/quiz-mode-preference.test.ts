@@ -64,10 +64,11 @@ test('writing to unavailable storage does not throw', () => {
   assert.doesNotThrow(() => writeQuizMode('voice', throwingStorage));
 });
 
-test('isQuizMode accepts only the three modes', () => {
+test('isQuizMode accepts only the four modes', () => {
   assert.equal(isQuizMode('normal'), true);
   assert.equal(isQuizMode('typing'), true);
   assert.equal(isQuizMode('voice'), true);
+  assert.equal(isQuizMode('cloze'), true);
   for (const value of ['', 'Normal', null, undefined, 0, {}]) {
     assert.equal(isQuizMode(value), false);
   }
@@ -79,6 +80,8 @@ test('isQuizAnswerFormat excludes voice, which lives on its own page', () => {
   // 音読チャレンジは /voice-quiz なので、四択クイズ画面の形式としては受け付けない
   // ——受け付けると ?format=voice で音読を四択画面に描かせてしまう。
   assert.equal(isQuizAnswerFormat('voice'), false);
+  // 空所補充も /cloze-quiz の別ページ
+  assert.equal(isQuizAnswerFormat('cloze'), false);
   for (const value of ['', 'Typing', null, undefined, 0, {}]) {
     assert.equal(isQuizAnswerFormat(value), false);
   }
