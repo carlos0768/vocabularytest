@@ -2,12 +2,13 @@
 
 import { forwardRef, useImperativeHandle, useRef, type ChangeEvent } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import type { IdiomSegment } from '@/lib/quiz/idiom-preposition';
 
 export type TypeInQuizFieldResult = 'correct' | 'wrong' | null;
 
 const SPACE_RE = /[\s　]/;
 
-type Slot = { kind: 'char'; index: number } | { kind: 'gap' };
+type Slot = { kind: 'char'; index: number } | { kind: 'gap' } | { kind: 'fixed'; text: string };
 
 export interface TypeInQuizFieldProps {
   /** Expected answer (length drives slots / underscores). */
@@ -17,6 +18,12 @@ export interface TypeInQuizFieldProps {
    * typeable slots (idiom/active quizzes where input is space-stripped).
    */
   spaceAsGap?: boolean;
+  /**
+   * イディオムの前置詞だけを入力させるとき。hidden でないセグメントはそのまま見せ、
+   * hidden (前置詞) の文字だけが入力枠になる。指定時は `answer` の代わりにこちらで枠を作る。
+   * 前置詞は頭文字で答えが割れるので、頭文字ヒントは出さない。
+   */
+  segments?: IdiomSegment[] | null;
   value: string;
   onChange: (value: string) => void;
   normalizeInput?: (value: string) => string;
@@ -42,6 +49,7 @@ export interface TypeInQuizFieldHandle {
 export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizFieldProps>(function TypeInQuizField({
   answer,
   spaceAsGap = false,
+  segments,
   value,
   onChange,
   normalizeInput,
@@ -65,16 +73,38 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
   }), []);
   const target: string[] = [];
   const slots: Slot[] = [];
-  for (const ch of answer) {
-    if (spaceAsGap && SPACE_RE.test(ch)) {
-      if (slots.length > 0 && slots[slots.length - 1].kind !== 'gap') {
-        slots.push({ kind: 'gap' });
+  const pushGap = () => {
+    if (slots.length > 0 && slots[slots.length - 1].kind !== 'gap') {
+      slots.push({ kind: 'gap' });
+    }
+  };
+  if (segments && segments.length > 0) {
+    for (const segment of segments) {
+      pushGap();
+      if (!segment.hidden) {
+        slots.push({ kind: 'fixed', text: segment.text });
+        continue;
       }
-    } else {
-      slots.push({ kind: 'char', index: target.length });
-      target.push(ch);
+      for (const ch of segment.text) {
+        if (SPACE_RE.test(ch)) {
+          pushGap();
+        } else {
+          slots.push({ kind: 'char', index: target.length });
+          target.push(ch);
+        }
+      }
+    }
+  } else {
+    for (const ch of answer) {
+      if (spaceAsGap && SPACE_RE.test(ch)) {
+        pushGap();
+      } else {
+        slots.push({ kind: 'char', index: target.length });
+        target.push(ch);
+      }
     }
   }
+  const showFirstLetterHint = !(segments && segments.length > 0);
   const typed = [...value];
   const n = target.length;
   const visibleTyped = typed.slice(0, n);
@@ -110,6 +140,11 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
   const underscoreClass = `${
     result ? 'text-white/60' : 'text-[var(--color-muted)]/50'
   } font-medium text-xl min-w-[0.55em] text-center`;
+  const fixedColorClass = result
+    ? typedColorClass
+    : isSolid
+      ? 'text-[var(--solid-ink)]'
+      : 'text-[var(--color-foreground)]';
   const hintClass = 'text-[var(--color-muted)]/70 font-medium text-xl';
   const caretClass = isSolid ? 'bg-[var(--color-accent)]' : 'bg-blue-600';
 
@@ -118,6 +153,13 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
       {slots.map((slot, slotIndex) => {
         if (slot.kind === 'gap') {
           return <span key={`gap-${slotIndex}`} className="inline-block w-[0.5em] shrink-0" aria-hidden />;
+        }
+        if (slot.kind === 'fixed') {
+          return (
+            <span key={`fixed-${slotIndex}`} className={`font-bold text-xl ${fixedColorClass}`}>
+              {slot.text}
+            </span>
+          );
         }
         const i = slot.index;
         if (i < t) {
@@ -128,7 +170,7 @@ export const TypeInQuizField = forwardRef<TypeInQuizFieldHandle, TypeInQuizField
           );
         }
         const showCaret = !disabled && i === t;
-        const showHint = !disabled && t === 0 && i === 0 && target[0] != null && target[0] !== '';
+        const showHint = showFirstLetterHint && !disabled && t === 0 && i === 0 && target[0] != null && target[0] !== '';
         return (
           <span key={`slot-${slotIndex}`} className="inline-flex items-center">
             {showCaret && (
