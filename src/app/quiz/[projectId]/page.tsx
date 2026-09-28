@@ -340,8 +340,7 @@ function DSWordOrderPanel({
   onRemoveToken: (index: number) => void;
   onSubmit: () => void;
 }) {
-  const selectedKeys = new Set(selectedTokens.map(chipKey));
-  const availableTokens = question.options.filter((token) => !selectedKeys.has(chipKey(token)));
+  const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
   const isReady = selectedTokens.length === question.answerTokens.length;
   const example = getWordOrderExample(question);
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
@@ -388,17 +387,23 @@ function DSWordOrderPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {availableTokens.map((token) => (
-          <button
-            key={token}
-            type="button"
-            onClick={() => onSelectToken(token)}
-            disabled={isRevealed || selectedTokens.length >= question.answerTokens.length}
-            className="relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)]"
-          >
-            {token}
-          </button>
-        ))}
+        {/* 選んだ選択肢は取り除かずに透明にして場所を残す。詰めると残りの位置がずれて押し間違える */}
+        {question.options.map((token, index) => {
+          const isUsed = usedOptionIndexes.has(index);
+          return (
+            <button
+              key={`${token}-${index}`}
+              type="button"
+              onClick={() => onSelectToken(token)}
+              disabled={isRevealed || isUsed || selectedTokens.length >= question.answerTokens.length}
+              aria-hidden={isUsed || undefined}
+              tabIndex={isUsed ? -1 : undefined}
+              className={`relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)]${isUsed ? ' invisible' : ''}`}
+            >
+              {token}
+            </button>
+          );
+        })}
       </div>
 
       {!isRevealed && (
