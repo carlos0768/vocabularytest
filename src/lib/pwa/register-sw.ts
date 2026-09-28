@@ -39,6 +39,28 @@ export async function registerServiceWorker() {
   }
 }
 
+/**
+ * Ask the service worker to refresh the offline app shell (public/sw-offline-shell.js):
+ * one document per app route plus the build assets they need, so the real UI opens
+ * offline. The worker throttles this itself (every few hours), so calling it on
+ * every app start is cheap. Only call it for a signed-in user — the shell documents
+ * are fetched with the current cookies, and a signed-out "/" is the landing page.
+ */
+export async function requestOfflineShellWarm() {
+  if (typeof window === 'undefined') return;
+  if (!('serviceWorker' in navigator) || !navigator.onLine) return;
+  // Respect the OS "data saver" setting: the first fill downloads a few MB.
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (connection?.saveData) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    registration.active?.postMessage({ type: 'warm-offline-shell' });
+  } catch {
+    // Best-effort: without a shell the app still falls back to /offline.html.
+  }
+}
+
 export async function clearServiceWorkerCaches() {
   if (typeof window === 'undefined') return;
   if (!('caches' in window)) return;

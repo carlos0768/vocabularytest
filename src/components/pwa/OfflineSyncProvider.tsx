@@ -5,8 +5,12 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { hybridRepository } from '@/lib/db';
 import { useAuth } from '@/hooks/use-auth';
 import { wasProUser } from '@/lib/subscription/status';
+import { requestOfflineShellWarm } from '@/lib/pwa/register-sw';
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+// Let the page finish its own loading before the worker starts filling the
+// offline shell in the background.
+const OFFLINE_SHELL_WARM_DELAY = 15 * 1000;
 
 export function OfflineSyncProvider({ children }: { children: React.ReactNode }) {
   const isOnline = useOnlineStatus();
@@ -85,6 +89,18 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
       });
     }
   }, [canSync, user, isOnline]);
+
+  // Keep the offline app shell current so the real UI (not the fallback viewer)
+  // opens offline. Independent of canSync: read-only former-Pro users still read
+  // their wordbooks offline. The worker throttles the actual refresh.
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (!userId || !isOnline) return;
+    const timer = setTimeout(() => {
+      void requestOfflineShellWarm();
+    }, OFFLINE_SHELL_WARM_DELAY);
+    return () => clearTimeout(timer);
+  }, [userId, isOnline]);
 
   return <>{children}</>;
 }
