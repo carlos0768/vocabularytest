@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  QUIZ_MODE_CHOSEN_ON_STORAGE_KEY,
   QUIZ_MODE_STORAGE_KEY,
+  quizModeDayKey,
+  readTodaysQuizMode,
   isQuizAnswerFormat,
   isQuizMode,
   readQuizMode,
@@ -62,6 +65,58 @@ test('unavailable storage is treated as unchosen, not as an error', () => {
 test('writing to unavailable storage does not throw', () => {
   assert.doesNotThrow(() => writeQuizMode('voice', null));
   assert.doesNotThrow(() => writeQuizMode('voice', throwingStorage));
+});
+
+// 2026-09-28 10:00 JST
+const MORNING = new Date('2026-09-28T01:00:00Z');
+// 2026-09-28 23:59 JST
+const LATE_NIGHT = new Date('2026-09-28T14:59:00Z');
+// 2026-09-29 00:00 JST
+const NEXT_DAY = new Date('2026-09-28T15:00:00Z');
+
+test('the day key follows the JST calendar day, not UTC', () => {
+  assert.equal(quizModeDayKey(MORNING), '2026-09-28');
+  assert.equal(quizModeDayKey(LATE_NIGHT), '2026-09-28');
+  assert.equal(quizModeDayKey(NEXT_DAY), '2026-09-29');
+});
+
+test('a mode chosen today is kept for the rest of the day', () => {
+  const storage = fakeStorage();
+  writeQuizMode('typing', storage, MORNING);
+  assert.equal(storage.data[QUIZ_MODE_CHOSEN_ON_STORAGE_KEY], '2026-09-28');
+  assert.equal(readTodaysQuizMode(storage, MORNING), 'typing');
+  assert.equal(readTodaysQuizMode(storage, LATE_NIGHT), 'typing');
+});
+
+test('the next day asks again, but still preselects the last choice', () => {
+  const storage = fakeStorage();
+  writeQuizMode('voice', storage, LATE_NIGHT);
+  assert.equal(readTodaysQuizMode(storage, NEXT_DAY), null);
+  assert.equal(readQuizMode(storage), 'voice');
+});
+
+test('switching mid-day replaces the kept mode', () => {
+  const storage = fakeStorage();
+  writeQuizMode('normal', storage, MORNING);
+  writeQuizMode('typing', storage, LATE_NIGHT);
+  assert.equal(readTodaysQuizMode(storage, LATE_NIGHT), 'typing');
+});
+
+test('a mode saved before the day was recorded asks again', () => {
+  // この機能より前に保存された値には日付が無い。今日選んだとは言えないので訊く。
+  const storage = fakeStorage({ [QUIZ_MODE_STORAGE_KEY]: 'normal' });
+  assert.equal(readTodaysQuizMode(storage, MORNING), null);
+});
+
+test('the separate-page cloze mode is kept for the day too', () => {
+  const storage = fakeStorage();
+  writeQuizMode('cloze', storage, MORNING);
+  assert.equal(readTodaysQuizMode(storage, LATE_NIGHT), 'cloze');
+});
+
+test('unavailable storage never skips the chooser', () => {
+  assert.equal(readTodaysQuizMode(null, MORNING), null);
+  assert.equal(readTodaysQuizMode(throwingStorage, MORNING), null);
 });
 
 test('isQuizMode accepts only the four modes', () => {

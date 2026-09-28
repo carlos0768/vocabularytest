@@ -9,6 +9,7 @@ import {
   QUIZ_FORMAT_QUERY_KEY,
   isQuizAnswerFormat,
   readQuizMode,
+  readTodaysQuizMode,
   writeQuizMode,
   type QuizAnswerFormat,
   type QuizMode,
@@ -343,8 +344,7 @@ function DSWordOrderPanel({
   onRemoveToken: (index: number) => void;
   onSubmit: () => void;
 }) {
-  const selectedKeys = new Set(selectedTokens.map(chipKey));
-  const availableTokens = question.options.filter((token) => !selectedKeys.has(chipKey(token)));
+  const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
   const isReady = selectedTokens.length === question.answerTokens.length;
   const example = getWordOrderExample(question);
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
@@ -391,17 +391,23 @@ function DSWordOrderPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {availableTokens.map((token) => (
-          <button
-            key={token}
-            type="button"
-            onClick={() => onSelectToken(token)}
-            disabled={isRevealed || selectedTokens.length >= question.answerTokens.length}
-            className="relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)]"
-          >
-            {token}
-          </button>
-        ))}
+        {/* 選んだ選択肢は取り除かずに透明にして場所を残す。詰めると残りの位置がずれて押し間違える */}
+        {question.options.map((token, index) => {
+          const isUsed = usedOptionIndexes.has(index);
+          return (
+            <button
+              key={`${token}-${index}`}
+              type="button"
+              onClick={() => onSelectToken(token)}
+              disabled={isRevealed || isUsed || selectedTokens.length >= question.answerTokens.length}
+              aria-hidden={isUsed || undefined}
+              tabIndex={isUsed ? -1 : undefined}
+              className={`relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)]${isUsed ? ' invisible' : ''}`}
+            >
+              {token}
+            </button>
+          );
+        })}
       </div>
 
       {!isRevealed && (
@@ -652,7 +658,7 @@ export default function QuizPage() {
   /**
    * 空所補充へ切り替える。音読チャレンジと同じく別ページで、出題数・バインダー・戻り先を引き継ぐ。
    */
-  const goToClozeQuiz = useCallback(() => {
+  const goToClozeQuiz = useCallback((options?: { replace?: boolean }) => {
     writeQuizMode('cloze');
     const params = new URLSearchParams();
     const parsedInput = Number.parseInt(inputCount, 10);
@@ -661,13 +667,40 @@ export default function QuizPage() {
     if (binderName) params.set('binder', binderName);
     if (returnPath) params.set('from', returnPath);
     const query = params.toString();
-    router.push(`/cloze-quiz/${projectId}${query ? `?${query}` : ''}`);
+    const href = `/cloze-quiz/${projectId}${query ? `?${query}` : ''}`;
+    // 自動送りは replace (音読チャレンジと同じ理由で、戻るで堂々巡りにしない)。
+    if (options?.replace) router.replace(href);
+    else router.push(href);
   }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
 
-  // 端末の前回の選択を読む。選択画面の初期選択にするだけ。
+  // 端末の前回の選択を読む。今日すでに選んでいれば選択画面は出さずにその解き方で
+  // 始め、今日まだなら選択画面の初期選択にするだけ。
+  // 語の読み込み effect より前に置くこと —— そちらは `answerFormatValueRef` を読んで
+  // 出題を作るので、ここで先に ref まで埋めておく。
   useEffect(() => {
     setStoredMode(readQuizMode());
+    const todaysMode = urlAnswerFormatRef.current ? null : readTodaysQuizMode();
+    if (todaysMode === 'voice' || todaysMode === 'cloze') {
+      // 音読チャレンジ・空所補充は別ページ。
+      // 中断したクイズが残っていれば、そちらの再開を優先して飛ばさない。
+      let hasSavedQuiz = false;
+      try {
+        const saved = sessionStorage.getItem(storageKey);
+        hasSavedQuiz = !!saved && !isQuizStateExpired((JSON.parse(saved) as QuizPersistState).timestamp);
+      } catch { /* 読めなければ無いものとして扱う */ }
+      if (!voiceQuizUnavailable && !hasSavedQuiz) {
+        // 読み込み中の表示のまま移る (選択画面を一瞬も出さない)。
+        if (todaysMode === 'voice') goToVoiceQuiz({ replace: true });
+        else goToClozeQuiz({ replace: true });
+        return;
+      }
+    } else if (todaysMode) {
+      answerFormatValueRef.current = todaysMode;
+      setAnswerFormat(todaysMode);
+    }
     setModeLoaded(true);
+    // マウント時に一度だけ判定する。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const goToNextReviewQuiz = useCallback(() => {
@@ -1462,8 +1495,8 @@ export default function QuizPage() {
     );
   }
 
-  /* ---------- この回の解き方をまだ選んでいない ---------- */
-  // 端末の記憶があっても毎回ここを通す。前回の選択は初期選択として印を付けるだけ。
+  /* ---------- 今日の解き方をまだ選んでいない ---------- */
+  // その日最初のクイズでだけここを通す。前回 (前日以前) の選択は初期選択として印を付けるだけ。
   if (answerFormat === null) {
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
@@ -1827,7 +1860,7 @@ export default function QuizPage() {
         hiddenModes={voiceQuizUnavailable ? SEPARATE_PAGE_MODES_HIDDEN : undefined}
         wordCounts={answerFormatWordCounts}
         title="クイズの解き方を変える"
-        description="次に始めるときの初期選択にもなります。"
+        description="今日はこのあともこの解き方で始めます。"
         warning={
           hasAnsweredRef.current
             ? '解き方ごとに出題する単語が違うので、切り替えるといまのクイズは最初からになります。'
