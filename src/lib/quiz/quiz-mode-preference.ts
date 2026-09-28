@@ -5,10 +5,11 @@
  * アカウントではなく端末に紐づける。したがって localStorage に置き、
  * サーバーにもDBにも同期しない。
  *
- * ただし記憶するのは「次に開いたときの初期選択」だけで、既定として
- * 押し付けはしない。解き方はクイズを始めるたびに選び直せる (選択画面は
- * 毎回出す) ので、null は「まだこの端末で選んだことがない = 初期選択なし」
- * を意味するにとどまる。
+ * 選択画面は**その日最初のクイズでだけ**出す。一度選んだら、同じ日
+ * (JSTの暦日) のうちはその解き方でそのまま始め、選択画面は出さない
+ * (`readTodaysQuizMode`)。日付が変わったら、前回の選択は選択画面の
+ * 初期選択に使うだけに戻る (`readQuizMode`)。途中で変えたければ、
+ * クイズ画面右上の切り替えからいつでも選び直せる。
  */
 
 export type QuizMode = 'normal' | 'typing' | 'voice';
@@ -18,6 +19,20 @@ export type QuizAnswerFormat = Exclude<QuizMode, 'voice'>;
 
 /** 端末ごとの選択を入れる localStorage のキー。 */
 export const QUIZ_MODE_STORAGE_KEY = 'merken_quiz_mode';
+
+/** 解き方を選んだ日 (JSTの `YYYY-MM-DD`) を入れる localStorage のキー。 */
+export const QUIZ_MODE_CHOSEN_ON_STORAGE_KEY = 'merken_quiz_mode_chosen_on';
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * 「その日」を決める日付キー。JSTの暦日 (`YYYY-MM-DD`)。
+ * 端末の時計のタイムゾーンに左右されないよう、対戦の無料枠やコインの月境界と
+ * 同じく JST で切る。
+ */
+export function quizModeDayKey(now: Date = new Date()): string {
+  return new Date(now.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
+}
 
 /**
  * 選んだ形式を画面間で受け渡すクエリキー。
@@ -68,14 +83,36 @@ export function readQuizMode(
   }
 }
 
-/** この端末の解き方を覚える。保存できない環境では黙って諦める。 */
+/**
+ * 今日すでに選ばれた解き方。今日まだ選んでいなければ null (= 選択画面を出す)。
+ * 選んだ日が記録されていない (この機能より前に保存された) 値も null にする。
+ */
+export function readTodaysQuizMode(
+  storage: QuizModeStorage | null = defaultQuizModeStorage(),
+  now: Date = new Date(),
+): QuizMode | null {
+  const mode = readQuizMode(storage);
+  if (!mode || !storage) return null;
+  try {
+    return storage.getItem(QUIZ_MODE_CHOSEN_ON_STORAGE_KEY) === quizModeDayKey(now) ? mode : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * この端末の解き方を、選んだ日といっしょに覚える。
+ * 保存できない環境では黙って諦める (毎回選択画面が出るだけ)。
+ */
 export function writeQuizMode(
   mode: QuizMode,
   storage: QuizModeStorage | null = defaultQuizModeStorage(),
+  now: Date = new Date(),
 ): void {
   if (!storage) return;
   try {
     storage.setItem(QUIZ_MODE_STORAGE_KEY, mode);
+    storage.setItem(QUIZ_MODE_CHOSEN_ON_STORAGE_KEY, quizModeDayKey(now));
   } catch {
     // 容量超過やプライベートモード。記憶できないだけで、クイズは続けられる。
   }
