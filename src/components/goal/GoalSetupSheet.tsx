@@ -84,7 +84,7 @@ function GoalSetupForm({
           className="w-full animate-fade-in-up"
           style={{
             maxWidth: 480,
-            maxHeight: '88vh',
+            maxHeight: '88dvh',
             display: 'flex',
             flexDirection: 'column',
             background: 'var(--color-paper)',

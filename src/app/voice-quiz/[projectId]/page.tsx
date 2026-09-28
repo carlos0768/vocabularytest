@@ -979,8 +979,8 @@ export default function VoiceQuizPage() {
           設定を一画面に収める。開始前に読むものはここで全部で、
           スクロールして探させるほどの中身ではない。
         */}
-        <main className="flex-1 flex flex-col items-center justify-center px-6 py-2 overflow-y-auto">
-          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-5 text-center animate-fade-in-up')}>
+        <main className="flex-1 flex flex-col items-center px-6 py-2 min-h-0 overflow-y-auto">
+          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'my-auto w-full max-w-sm p-5 text-center animate-fade-in-up')}>
             {/* 見出しは横並び。大きなアイコンを積むだけで100px使っていた。 */}
             <div className="flex items-center gap-3 text-left">
               <div
@@ -1146,8 +1146,13 @@ export default function VoiceQuizPage() {
           <CloseButton onClick={backToProject} />
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center px-6 overflow-y-auto">
-          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
+        {/*
+          justify-center ではなく子の my-auto で中央に寄せる。スクロールする箱を
+          justify-center で寄せると、中身が画面より高いとき (iPhone SE など) に
+          上端がはみ出してスクロールでも戻せなくなる。
+        */}
+        <main className="flex-1 flex flex-col items-center px-6 py-2 min-h-0 overflow-y-auto">
+          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'my-auto w-full max-w-sm p-7 text-center animate-fade-in-up')}>
             <div
               className={cn(
                 'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border-2 border-[var(--solid-ink)] bg-[var(--color-success-light)]',
@@ -1277,9 +1282,10 @@ export default function VoiceQuizPage() {
         </button>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 min-h-0 overflow-y-auto">
+      {/* 中央寄せは子の my-auto (完了画面と同じ理由。背の低い画面で上が切れない) */}
+      <main className="flex-1 flex flex-col items-center px-6 min-h-0 overflow-y-auto">
         {currentWord && (
-          <div className="w-full max-w-sm animate-fade-in-up">
+          <div className="my-auto w-full max-w-sm py-2 animate-fade-in-up">
             {/* 出題中の意味。英単語は伏せたまま、何を聞かれているかを目でも追えるようにする。 */}
             {phase !== 'answered' && (
               <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mb-7 px-5 py-4 text-center')}>
