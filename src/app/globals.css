@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * 背の低い縦画面 (iPhone SE / 8 など、高さ 667px 以下。Safari のツールバー込みだと
+ * さらに低い) 向けの詰め表示。`short:py-1` のように使う。
+ * 背が十分ある端末の見た目は変えず、入りきらない画面だけ余白や高さを削る。
+ */
+@custom-variant short (@media (max-height: 740px));
+
 /* ===== MERKEN Design System (iOS-aligned) ===== */
 
 :root {

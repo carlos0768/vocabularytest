@@ -168,6 +168,11 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                 }
               : {
                   maxWidth: 480,
+                  // 背の低い画面 (iPhone SE など) では選択肢が画面の上にはみ出して
+                  // 見出しが押せなくなるので、画面内に収めて中をスクロールさせる。
+                  maxHeight: '92dvh',
+                  overflowY: 'auto',
+                  overscrollBehavior: 'contain',
                   background: 'var(--color-paper)',
                   border: '2px solid var(--solid-ink)',
                   borderBottomWidth: 0,

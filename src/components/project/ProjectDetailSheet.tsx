@@ -279,7 +279,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
           boxShadow: '0 -8px 24px color-mix(in srgb, var(--solid-ink) 18%, transparent)',
-          maxHeight: '92vh',
+          maxHeight: '92dvh',
           display: 'flex',
           flexDirection: 'column',
         }}

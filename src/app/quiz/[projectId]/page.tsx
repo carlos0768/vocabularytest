@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
-import { TypeInQuizField, ReviewProjectFilterSheet, QuizModeTabs, QuizModeChooser, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
+import { TypeInQuizField, IdiomPromptText, ReviewProjectFilterSheet, QuizModeTabs, QuizModeChooser, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
 import {
   QUIZ_FORMAT_QUERY_KEY,
   isQuizAnswerFormat,
@@ -47,6 +47,7 @@ import {
   normalizeActiveQuizAnswer,
   stripActiveQuizAnswerSpaces,
 } from '@/lib/quiz/active-answer';
+import { getIdiomHiddenAnswer, splitIdiomPrepositions } from '@/lib/quiz/idiom-preposition';
 import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
 import {
   countWordsByAnswerFormat,
@@ -1206,6 +1207,16 @@ export default function QuizPage() {
   // Type-in quizzes always ask for the English word (日英). We never make the
   // user type Japanese, regardless of quiz direction or active source.
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
+  // イディオムは前置詞だけを隠す (表示だけの処理)。
+  // 記述 (Active) は前置詞以外を見せて前置詞だけ入力させ、
+  // 四択 (Passive) は英語の出題文の前置詞を答えるまで伏せる。
+  const idiomSegments = useMemo(
+    () => (currentIsWordOrder ? null : splitIdiomPrepositions(currentQuestion?.word.english)),
+    [currentIsWordOrder, currentQuestion?.word.english],
+  );
+  const typeInIdiomSegments = isTypeInMode ? idiomSegments : null;
+  const promptIdiomSegments = !isTypeInMode && quizDirection === 'en-to-ja' ? idiomSegments : null;
+  const typeInNormalizeInput = isActiveVocab || typeInIdiomSegments ? stripActiveQuizAnswerSpaces : undefined;
 
   // Auto-focus the input whenever a new, unanswered type-in question is shown so
   // the user does not have to tap the field every time. On Android a
@@ -1318,9 +1329,11 @@ export default function QuizPage() {
       isActiveVocabulary: isActiveVocab,
       quizDirection,
     });
-    const isCorrect = isActiveVocab
-      ? normalizeActiveQuizAnswer(typeInAnswer) === normalizeActiveQuizAnswer(correctAnswer)
-      : isTypeInAnswerCorrect(typeInAnswer, correctAnswer);
+    const isCorrect = typeInIdiomSegments
+      ? normalizeActiveQuizAnswer(typeInAnswer) === normalizeActiveQuizAnswer(getIdiomHiddenAnswer(typeInIdiomSegments))
+      : isActiveVocab
+        ? normalizeActiveQuizAnswer(typeInAnswer) === normalizeActiveQuizAnswer(correctAnswer)
+        : isTypeInAnswerCorrect(typeInAnswer, correctAnswer);
     setTypeInResult(isCorrect ? 'correct' : 'wrong');
     setIsRevealed(true);
     await applyAnswerOutcome(currentQuestion.word, isCorrect);
@@ -1852,7 +1865,9 @@ export default function QuizPage() {
 
             {!currentIsWordOrder && (
               <div className="ds-qword">
-                <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 34 : undefined }}>{desktopPrompt}</div>
+                <div className="en" style={{ fontSize: desktopPrompt && desktopPrompt.length > 20 ? 34 : undefined }}>
+                  {promptIdiomSegments ? <IdiomPromptText segments={promptIdiomSegments} revealed={isRevealed} /> : desktopPrompt}
+                </div>
                 {isActiveVocab && desktopPartOfSpeechLabel ? (
                   <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
                     <span className="ds-tag accent">{desktopPartOfSpeechLabel}</span>
@@ -1897,9 +1912,10 @@ export default function QuizPage() {
                   ref={typeInFieldDesktopRef}
                   answer={typeInExpectedAnswer}
                   spaceAsGap={isActiveVocab}
+                  segments={typeInIdiomSegments}
                   value={typeInAnswer}
                   onChange={setTypeInAnswer}
-                  normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
+                  normalizeInput={typeInNormalizeInput}
                   onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
                   disabled={isRevealed}
                   result={typeInResult}
@@ -2090,11 +2106,14 @@ export default function QuizPage() {
                 ? displayJapanese
                 : isTypeInMode
                   ? displayJapanese
-                  : quizDirection === 'en-to-ja'
-                    ? currentQuestion?.word.english
-                    : displayJapanese}
+                  : promptIdiomSegments
+                    ? <IdiomPromptText segments={promptIdiomSegments} revealed={isRevealed} />
+                    : quizDirection === 'en-to-ja'
+                      ? currentQuestion?.word.english
+                      : displayJapanese}
             </div>
-            {!isTypeInMode && !currentIsWordOrder && (
+            {/* 前置詞を伏せている間に読み上げると答えが聞こえてしまうので、答えるまで出さない */}
+            {!isTypeInMode && !currentIsWordOrder && (!promptIdiomSegments || isRevealed) && (
               <div className="mt-2.5 flex justify-center">
                 <button
                   type="button"
@@ -2151,9 +2170,10 @@ export default function QuizPage() {
               ref={typeInFieldMobileRef}
               answer={typeInExpectedAnswer}
               spaceAsGap={isActiveVocab}
+              segments={typeInIdiomSegments}
               value={typeInAnswer}
               onChange={setTypeInAnswer}
-              normalizeInput={isActiveVocab ? stripActiveQuizAnswerSpaces : undefined}
+              normalizeInput={typeInNormalizeInput}
               onSubmit={() => { if (!isRevealed) handleTypeInSubmit(); }}
               disabled={isRevealed}
               result={typeInResult}

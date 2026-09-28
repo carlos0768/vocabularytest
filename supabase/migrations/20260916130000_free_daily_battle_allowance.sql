@@ -252,3 +252,7 @@ GRANT EXECUTE ON FUNCTION public.consume_free_battle_entry(UUID, UUID) TO servic
 
 COMMENT ON TABLE public.battle_free_entries IS
   '無料ユーザーが実際に開始した対戦の記録。(user_id, room_id) 主キーで同じ部屋の二重計上を防ぎ、day_key（JST暦日）ごとの件数が1日の消費回数になる。';
+
+-- 新しいテーブル・RPC を足した／差し替えたので PostgREST の schema cache を
+-- 読み直させる。これが無いと適用直後も RPC が「見つからない」ままになる。
+NOTIFY pgrst, 'reload schema';
