@@ -9,6 +9,7 @@ import {
   QUIZ_FORMAT_QUERY_KEY,
   isQuizAnswerFormat,
   readQuizMode,
+  readTodaysQuizMode,
   writeQuizMode,
   type QuizAnswerFormat,
   type QuizMode,
@@ -651,10 +652,32 @@ export default function QuizPage() {
     else router.push(href);
   }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
 
-  // 端末の前回の選択を読む。選択画面の初期選択にするだけ。
+  // 端末の前回の選択を読む。今日すでに選んでいれば選択画面は出さずにその解き方で
+  // 始め、今日まだなら選択画面の初期選択にするだけ。
+  // 語の読み込み effect より前に置くこと —— そちらは `answerFormatValueRef` を読んで
+  // 出題を作るので、ここで先に ref まで埋めておく。
   useEffect(() => {
     setStoredMode(readQuizMode());
+    const todaysMode = urlAnswerFormatRef.current ? null : readTodaysQuizMode();
+    if (todaysMode === 'voice') {
+      // 中断したクイズが残っていれば、そちらの再開を優先して音読へは飛ばさない。
+      let hasSavedQuiz = false;
+      try {
+        const saved = sessionStorage.getItem(storageKey);
+        hasSavedQuiz = !!saved && !isQuizStateExpired((JSON.parse(saved) as QuizPersistState).timestamp);
+      } catch { /* 読めなければ無いものとして扱う */ }
+      if (!voiceQuizUnavailable && !hasSavedQuiz) {
+        // 読み込み中の表示のまま音読チャレンジへ移る (選択画面を一瞬も出さない)。
+        goToVoiceQuiz({ replace: true });
+        return;
+      }
+    } else if (todaysMode) {
+      answerFormatValueRef.current = todaysMode;
+      setAnswerFormat(todaysMode);
+    }
     setModeLoaded(true);
+    // マウント時に一度だけ判定する。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const goToNextReviewQuiz = useCallback(() => {
@@ -1441,8 +1464,8 @@ export default function QuizPage() {
     );
   }
 
-  /* ---------- この回の解き方をまだ選んでいない ---------- */
-  // 端末の記憶があっても毎回ここを通す。前回の選択は初期選択として印を付けるだけ。
+  /* ---------- 今日の解き方をまだ選んでいない ---------- */
+  // その日最初のクイズでだけここを通す。前回 (前日以前) の選択は初期選択として印を付けるだけ。
   if (answerFormat === null) {
     return (
       <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
@@ -1806,7 +1829,7 @@ export default function QuizPage() {
         hiddenModes={voiceQuizUnavailable ? VOICE_MODE_HIDDEN : undefined}
         wordCounts={answerFormatWordCounts}
         title="クイズの解き方を変える"
-        description="次に始めるときの初期選択にもなります。"
+        description="今日はこのあともこの解き方で始めます。"
         warning={
           hasAnsweredRef.current
             ? '解き方ごとに出題する単語が違うので、切り替えるといまのクイズは最初からになります。'
