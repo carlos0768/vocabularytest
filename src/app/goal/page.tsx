@@ -176,11 +176,16 @@ export default function GoalPage() {
   const dailyQuizCount = Math.min(GOAL_DAILY_QUESTION_COUNT, goalWords.length);
   const goalTitle = describeGoalProjectTitles(goalProjects.map((project) => project.title));
 
+  // 高さは固定しない。以前は h-dvh + overflow-hidden で1画面に閉じていたため、
+  // iPhone SE のような背の低い画面では下の2つのボタンが下部バーの裏に隠れて
+  // スクロールでも出せなかった。背の低い画面では short: で詰めたうえで、
+  // それでも入らなければ普通にスクロールさせる。下の余白は浮いている下部バー
+  // (セーフエリア込み) の高さぶん。
   return (
-    <div className="relative h-dvh overflow-hidden bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)]">
+    <div className="relative min-h-dvh bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1">
       <div className="mx-auto w-full max-w-[520px]">
-        <div className="px-[18px] pb-3 pt-2">
-          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
+        <div className="px-[18px] pb-3 pt-2 short:pb-2 short:pt-1">
+          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)] short:hidden">
             GOAL
           </div>
           <h1 className="font-display text-[22px] font-black leading-none text-[var(--solid-ink)]">目標</h1>
@@ -195,16 +200,16 @@ export default function GoalPage() {
         )}
 
         {/* 目標バナー: 「〇〇まであと N日」 */}
-        <div className="px-[18px] pb-4">
+        <div className="px-[18px] pb-4 short:pb-2.5">
           {!goalLoaded || (loading && !hasGoal) ? (
-            <div className="h-[56px] animate-pulse rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]" />
+            <div className="h-[56px] animate-pulse short:h-[48px] rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]" />
           ) : hasGoal && remainingDays !== null ? (
             <button
               type="button"
               onClick={() => openSheet()}
-              className="w-full rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-4 py-3.5 text-center transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="w-full rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-4 py-3.5 text-center short:py-2 transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
-              <div className="font-display text-[19px] font-black leading-tight text-[var(--color-on-accent)]">
+              <div className="font-display text-[19px] font-black leading-tight text-[var(--color-on-accent)] short:text-[17px]">
                 {describeGoalCountdown(goalTitle, remainingDays)}
               </div>
               <div className="mt-1 text-[11px] font-bold text-[var(--color-on-accent)]/85">
@@ -215,7 +220,7 @@ export default function GoalPage() {
             <button
               type="button"
               onClick={() => openSheet()}
-              className="flex w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4 text-[14px] font-black text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4 text-[14px] font-black short:py-3 text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="flag" size={18} className="text-[var(--color-accent)]" />
               {goal && !hasGoal && !loading ? '目標の単語帳が見つかりません。設定し直す' : '単語帳を選んで目標を設定する'}
@@ -224,7 +229,7 @@ export default function GoalPage() {
         </div>
 
         {/* 月間カレンダー */}
-        <div className="px-[18px] pb-5">
+        <div className="px-[18px] pb-5 short:pb-2.5">
           <GoalCalendar
             today={today}
             goalDate={hasGoal ? goal?.targetDate ?? null : null}
@@ -234,7 +239,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日の10問 (目標の単語帳から) */}
-        <div className="px-[18px] pb-3">
+        <div className="px-[18px] pb-3 short:pb-2">
           <BigPillLink
             href={dailyQuizReady ? GOAL_DAILY_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(goalProjectIds)}
@@ -255,7 +260,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日復習しておきたい単語 (SM-2 の復習期限) */}
-        <div className="px-[18px] pb-3">
+        <div className="px-[18px] pb-3 short:pb-2">
           <BigPillLink
             href={dueCount > 0 ? GOAL_REVIEW_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(null)}
@@ -313,12 +318,12 @@ function GoalCalendar({
 
   return (
     <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
-      <div className="flex items-center justify-between px-2 py-2">
+      <div className="flex items-center justify-between px-2 py-2 short:py-1">
         <button
           type="button"
           onClick={() => moveMonth(-1)}
           aria-label="前の月"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)] short:h-7 short:w-7"
         >
           <Icon name="chevron_left" size={20} />
         </button>
@@ -329,14 +334,14 @@ function GoalCalendar({
           type="button"
           onClick={() => moveMonth(1)}
           aria-label="次の月"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)] short:h-7 short:w-7"
         >
           <Icon name="chevron_right" size={20} />
         </button>
       </div>
       <div className="grid grid-cols-7 bg-[var(--solid-ink)] text-center text-[11px] font-black text-[var(--color-on-ink)]">
         {CALENDAR_WEEKDAY_LABELS.map((label) => (
-          <div key={label} className="py-1.5">{label}</div>
+          <div key={label} className="py-1.5 short:py-1">{label}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -347,7 +352,7 @@ function GoalCalendar({
           // 今日が確定するまではどの日も選べない (SSR/初回描画中)。過去の日も選べない
           const selectable = !!cell.key && !!todayKey && cell.key >= todayKey;
           const cellStyle = { borderRightWidth: index % 7 === 6 ? 0 : undefined, borderBottomWidth: index >= 35 ? 0 : undefined };
-          const cellClass = 'relative flex h-[46px] w-full flex-col items-center border-b border-r border-[var(--color-border)] pt-1.5 text-[13px] font-bold';
+          const cellClass = 'relative flex h-[46px] w-full flex-col items-center border-b border-r border-[var(--color-border)] pt-1.5 text-[13px] font-bold short:h-[36px] short:pt-1';
           if (cell.day === null) {
             return <div key={`blank-${index}`} className={cellClass} style={cellStyle} aria-hidden />;
           }
@@ -392,7 +397,7 @@ function GoalCalendar({
           );
         })}
       </div>
-      <div className="flex items-center justify-end gap-3 px-3 py-1.5 text-[10px] font-bold text-[var(--color-muted)]">
+      <div className="flex items-center justify-end gap-3 px-3 py-1.5 text-[10px] short:py-1 font-bold text-[var(--color-muted)]">
         <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />学習した日</span>
         <span className="inline-flex items-center gap-1"><Icon name="flag" size={12} filled className="text-[var(--color-error)]" />目標日</span>
       </div>
@@ -419,7 +424,7 @@ function BigPillLink({
   tone: 'accent' | 'ink';
 }) {
   const enabled = href !== null;
-  const className = `flex w-full items-center gap-3 rounded-full border-2 px-3 py-2.5 text-left transition-all duration-100 ${
+  const className = `flex w-full items-center gap-3 rounded-full border-2 px-3 py-2.5 text-left transition-all short:py-1.5 duration-100 ${
     !enabled
       ? 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--color-muted)]'
       : tone === 'accent'

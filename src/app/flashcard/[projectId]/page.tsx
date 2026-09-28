@@ -1103,7 +1103,7 @@ export default function FlashcardPage() {
             }}
           >
             <div
-              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[22px_18px_18px]"
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full short:min-h-[300px] flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] p-[22px_18px_18px]"
               style={{
                 backfaceVisibility: 'hidden',
                 boxShadow: '4px 4px 0 var(--solid-ink)',
@@ -1157,7 +1157,7 @@ export default function FlashcardPage() {
             </div>
 
             <div
-              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
+              className="relative col-start-1 row-start-1 flex min-h-[380px] w-full short:min-h-[300px] flex-col rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] p-[22px_18px_18px]"
               style={{
                 backfaceVisibility: 'hidden',
                 boxShadow: '4px 4px 0 rgba(0,0,0,0.3)',
