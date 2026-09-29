@@ -101,9 +101,13 @@ export default function RootLayout({
         <ThemeScript />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Axes pinned to what globals.css uses (.material-symbols-outlined:
+            wght 400 / GRAD 0 / opsz 24, FILL 0 or 1). The full variable font is
+            ~4 MB and display=block hides every icon until it arrives; this one
+            is ~0.45 MB. Widen the ranges here before using another value. */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block"
           fetchPriority="low"
         />
         <script

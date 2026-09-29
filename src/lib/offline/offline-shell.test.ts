@@ -1,4 +1,5 @@
 import { describe, it } from 'node:test';
+import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -25,6 +26,12 @@ const shell = require('../../../public/sw-offline-shell.js') as {
     referencedPaths: string[],
     previouslyUnreferenced?: string[],
   ): { remove: string[]; pending: string[] };
+  INSTANT_SHELL_MAX_AGE_MS: number;
+  INSTANT_SHELL_OFF_MS: number;
+  SHELL_BOOT_FAILED_MESSAGE: string;
+  SHELL_BOOT_GUARD_SCRIPT: string;
+  shouldServeShellInstantly(meta: unknown, instantOff: unknown, now: number): boolean;
+  injectShellBootGuard(html: unknown): string | null;
 };
 
 const S = shell.OFFLINE_SHELL_SENTINEL;
@@ -237,5 +244,208 @@ describe('service worker wiring', () => {
 
   it('keeps the shell cache out of activate cleanup', () => {
     assert.match(sw, /const CURRENT_CACHES = \[[^\]]*SHELL_CACHE[^\]]*\]/);
+  });
+});
+
+describe('instant launch', () => {
+  const NOW = 1_800_000_000_000;
+  const fresh = { buildId: 'o396l4GpI1D440thqwcpT', warmedAt: NOW - 60_000 };
+
+  it('serves a complete, recent shell ahead of the network', () => {
+    assert.equal(shell.shouldServeShellInstantly(fresh, null, NOW), true);
+  });
+
+  it('goes to the network without a finished shell', () => {
+    assert.equal(shell.shouldServeShellInstantly(null, null, NOW), false);
+    assert.equal(shell.shouldServeShellInstantly({ warmedAt: NOW }, null, NOW), false);
+    assert.equal(shell.shouldServeShellInstantly({ buildId: 'abcdef' }, null, NOW), false);
+    // Only a failed refresh so far (no build id recorded).
+    assert.equal(shell.shouldServeShellInstantly({ failedAt: NOW }, null, NOW), false);
+  });
+
+  it('goes to the network once a newer build is known to be live', () => {
+    assert.equal(
+      shell.shouldServeShellInstantly({ ...fresh, staleBuildId: 'newerBuildId1' }, null, NOW),
+      false,
+    );
+  });
+
+  it('does not serve a shell older than the max age', () => {
+    const old = { ...fresh, warmedAt: NOW - shell.INSTANT_SHELL_MAX_AGE_MS - 1 };
+    assert.equal(shell.shouldServeShellInstantly(old, null, NOW), false);
+    assert.equal(shell.shouldServeShellInstantly({ ...fresh, warmedAt: NOW + 60_000 }, null, NOW), false);
+  });
+
+  it('stays off for a while after a shell failed to boot', () => {
+    const justFailed = { disabledAt: NOW - 60_000 };
+    assert.equal(shell.shouldServeShellInstantly(fresh, justFailed, NOW), false);
+    const longAgo = { disabledAt: NOW - shell.INSTANT_SHELL_OFF_MS - 1 };
+    assert.equal(shell.shouldServeShellInstantly(fresh, longAgo, NOW), true);
+  });
+
+  it('refills the shell right away once it is known to be behind', () => {
+    const meta = { ...fresh, warmedAt: NOW - 1000, staleBuildId: 'newerBuildId1' };
+    assert.equal(shell.shouldWarmShell(meta, NOW), true);
+    // ...but still respects the retry back-off after a failed refill.
+    assert.equal(shell.shouldWarmShell({ ...meta, failedAt: NOW - 1000 }, NOW), false);
+  });
+
+  it('puts the boot guard ahead of every chunk', () => {
+    const html = shell.injectShellBootGuard(PROJECT_SHELL_HTML);
+    assert.ok(html);
+    const guardAt = html.indexOf(shell.SHELL_BOOT_GUARD_SCRIPT);
+    assert.ok(guardAt > html.indexOf('<head>'));
+    assert.ok(guardAt < html.indexOf('/_next/static/'));
+    // The rest of the document is untouched.
+    assert.equal(html.replace('<script>' + shell.SHELL_BOOT_GUARD_SCRIPT + '</script>', ''), PROJECT_SHELL_HTML);
+  });
+
+  it('refuses documents without a <head>', () => {
+    assert.equal(shell.injectShellBootGuard('<html><body></body></html>'), null);
+    assert.equal(shell.injectShellBootGuard('<html><header></header></html>'), null);
+    assert.equal(shell.injectShellBootGuard(undefined), null);
+  });
+
+  it('the boot guard is plain script that cannot close its own <script> tag', () => {
+    assert.doesNotThrow(() => new vm.Script(shell.SHELL_BOOT_GUARD_SCRIPT));
+    assert.equal(/<\/script/i.test(shell.SHELL_BOOT_GUARD_SCRIPT), false);
+  });
+});
+
+describe('shell boot guard', () => {
+  type Listener = (event: unknown) => void;
+
+  function runGuard(options: { controller?: boolean; recoveredAt?: number } = {}) {
+    const listeners: Record<string, Listener[]> = {};
+    const timers: Array<{ fn: () => void; ms: number }> = [];
+    const posted: unknown[] = [];
+    const storage = new Map<string, string>();
+    if (options.recoveredAt) storage.set('merken_shell_recovered_at', String(options.recoveredAt));
+    let reloads = 0;
+    const window: Record<string, unknown> = {
+      addEventListener: (type: string, fn: Listener) => {
+        (listeners[type] ??= []).push(fn);
+      },
+    };
+    const context = {
+      window,
+      location: { reload: () => { reloads += 1; } },
+      document: {
+        readyState: 'complete',
+        visibilityState: 'visible',
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+      navigator: {
+        serviceWorker: options.controller === false
+          ? { controller: null }
+          : {
+            controller: {
+              postMessage: (message: unknown, ports: Array<{ onmessage?: () => void }>) => {
+                posted.push(message);
+                ports[0]?.onmessage?.();
+              },
+            },
+          },
+      },
+      sessionStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => { storage.set(key, value); },
+      },
+      MessageChannel: class {
+        port1: { onmessage?: () => void } = {};
+        port2 = this.port1;
+      },
+      setTimeout: (fn: () => void, ms: number) => { timers.push({ fn, ms }); },
+      Date,
+      String,
+    };
+    vm.runInNewContext(shell.SHELL_BOOT_GUARD_SCRIPT, context);
+    return {
+      window,
+      emit: (type: string, event: unknown) => listeners[type]?.forEach((fn) => fn(event)),
+      runTimers: () => timers.splice(0).forEach((timer) => timer.fn()),
+      posted,
+      reloads: () => reloads,
+    };
+  }
+
+  it('drops the shell and reloads when a build asset fails to load', () => {
+    const guard = runGuard();
+    guard.emit('error', { target: { src: 'https://www.merken.jp/_next/static/chunks/abc.js' } });
+    assert.equal(guard.posted.length, 1);
+    assert.equal((guard.posted[0] as { type: string }).type, shell.SHELL_BOOT_FAILED_MESSAGE);
+    assert.equal(guard.reloads(), 1);
+    guard.runTimers();
+    assert.equal(guard.reloads(), 1, 'reloads once even when the fallback timer fires too');
+  });
+
+  it('recovers from a chunk load rejection', () => {
+    const guard = runGuard();
+    guard.emit('unhandledrejection', { reason: { name: 'ChunkLoadError', message: 'Loading chunk 12 failed.' } });
+    assert.equal(guard.posted.length, 1);
+  });
+
+  it('ignores unrelated errors', () => {
+    const guard = runGuard();
+    guard.emit('error', { target: { src: 'https://pagead2.googlesyndication.com/x.js' } });
+    guard.emit('unhandledrejection', { reason: new Error('network down') });
+    assert.equal(guard.posted.length, 0);
+  });
+
+  it('falls back when the app never hydrates, and not when it does', () => {
+    const stuck = runGuard();
+    stuck.runTimers();
+    assert.equal(stuck.posted.length, 1);
+
+    const booted = runGuard();
+    booted.window.__merkenBooted = true;
+    booted.runTimers();
+    assert.equal(booted.posted.length, 0);
+    assert.equal(booted.reloads(), 0);
+  });
+
+  it('never reloads twice in a row, so a broken page cannot loop', () => {
+    const guard = runGuard({ recoveredAt: Date.now() - 1000 });
+    guard.emit('error', { target: { src: '/_next/static/chunks/abc.js' } });
+    assert.equal(guard.reloads(), 0);
+  });
+
+  it('still reloads without a controlling worker', () => {
+    const guard = runGuard({ controller: false });
+    guard.emit('error', { target: { href: '/_next/static/chunks/app.css' } });
+    assert.equal(guard.reloads(), 1);
+  });
+});
+
+describe('instant launch wiring', () => {
+  const sw = readFileSync(path.join(REPO_ROOT, 'public/sw.js'), 'utf8');
+
+  it('tries the shell before the network on navigations', () => {
+    const handler = sw.slice(sw.indexOf('async function navigationHandler'));
+    const instantAt = handler.indexOf('instantShellResponse(request)');
+    const networkAt = handler.indexOf('fetch(request)');
+    assert.ok(instantAt > 0 && networkAt > instantAt);
+  });
+
+  it('only serves documents that carry the boot guard', () => {
+    const fn = sw.slice(sw.indexOf('async function instantShellResponse'));
+    const body = fn.slice(0, fn.indexOf('\n}\n'));
+    assert.match(body, /shouldServeShellInstantly\(/);
+    assert.match(body, /injectShellBootGuard\(/);
+  });
+
+  it('marks the page as booted once React has hydrated', () => {
+    const registration = readFileSync(
+      path.join(REPO_ROOT, 'src/components/pwa/ServiceWorkerRegistration.tsx'),
+      'utf8',
+    );
+    assert.match(registration, /__merkenBooted = true/);
+  });
+
+  it('drops the shell on sign-out', () => {
+    const auth = readFileSync(path.join(REPO_ROOT, 'src/hooks/use-auth.ts'), 'utf8');
+    const reset = auth.slice(auth.indexOf('function resetClientScopedData'));
+    assert.match(reset.slice(0, reset.indexOf('\n}\n')), /clearOfflineShellCache\(\)/);
   });
 });
