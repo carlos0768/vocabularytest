@@ -26,8 +26,8 @@
 //   - Media element loads (audio/video, byte-range) -> never touched. WebKit is
 //     unreliable about playing media served through a worker.
 //   - Other API / auth / cross-origin / non-GET -> never touched (always network).
-// Net effect: caching only ADDS an offline fallback on top of today's online
-// behavior; it never changes what an online launch loads.
+// Net effect for everything above: caching only ADDS an offline fallback on top of
+// the online behavior. The one exception is the instant launch below.
 //
 // OFFLINE APP SHELL (see public/sw-offline-shell.js for the full rationale).
 // Offline, Next.js turns every tap into a full navigation, and the worker used to
@@ -38,7 +38,21 @@
 // dynamic routes get the requested id spliced in — so the real UI opens for every
 // wordbook. The shell is fetched and completed as a unit, so a shell document is
 // only ever served when all of its hashed chunks are cached: the stranding above
-// cannot happen. Online navigations are untouched.
+// cannot happen.
+//
+// INSTANT LAUNCH. Waiting on the server render made every launch of the installed
+// PWA slow, even though the app pages render from IndexedDB and the shell already
+// holds a complete copy of them. So a navigation to a shell route is now answered
+// from SHELL_CACHE first (stale-while-revalidate), and the worker checks in the
+// background whether a newer build is live; if so the next launch goes to the
+// network until the shell has been refilled. Guard rails, since this is exactly
+// where the old cache-first shell stranded the PWA:
+//   - only shells whose every chunk is cached exist (see above), none older than
+//     a week, none known to be behind the live build;
+//   - every shell served this way carries a boot guard (sw-offline-shell.js) that,
+//     if a build asset fails to load or the app never hydrates, drops the shell and
+//     reloads from the network — and instant launch stays off for a day;
+//   - signing out deletes the shell (the server redirects signed-out visitors).
 //
 // Caching is DISABLED on localhost/dev (see CACHING_ENABLED): Next.js dev chunks
 // live at stable URLs whose bytes change every rebuild, so caching them would serve
@@ -70,6 +84,12 @@ const CURRENT_CACHES = [STATIC_CACHE, ASSET_CACHE, PAGE_CACHE, FONT_CACHE, SHARE
 // JSON response in SHELL_CACHE under a path no real route can have.
 const SHELL_META_URL = '/__merken-offline-shell-meta__';
 const WARM_SHELL_MESSAGE = 'warm-offline-shell';
+// Written to PAGE_CACHE when a shell failed to boot; turns instant launch off for a
+// while (see OfflineShell.shouldServeShellInstantly).
+const INSTANT_SHELL_OFF_URL = '/__merken-instant-shell-off__';
+// At most one "is a newer build live?" probe per this interval, however many
+// launches / tabs are served from the shell.
+const SHELL_PROBE_INTERVAL_MS = 5 * 60 * 1000;
 // Parallel downloads while filling the shell, so a refresh never saturates a
 // phone connection.
 const WARM_CONCURRENCY = 4;
@@ -159,6 +179,15 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === WARM_SHELL_MESSAGE) {
     if (!CACHING_ENABLED || !OfflineShell) return;
     event.waitUntil(warmOfflineShell({ force: event.data.force === true }));
+    return;
+  }
+  if (event.data && OfflineShell && event.data.type === OfflineShell.SHELL_BOOT_FAILED_MESSAGE) {
+    const port = event.ports && event.ports[0];
+    event.waitUntil(
+      disableInstantShell().finally(() => {
+        if (port) port.postMessage('ok');
+      })
+    );
   }
 });
 
@@ -224,9 +253,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Full-page navigations: network-first with an offline fallback.
+  // Full-page navigations: the app shell when one is ready (instant launch),
+  // otherwise network-first with an offline fallback.
   if (request.mode === 'navigate') {
-    event.respondWith(navigationHandler(request));
+    event.respondWith(navigationHandler(request, event));
     return;
   }
 
@@ -338,7 +368,13 @@ async function staleWhileRevalidate(request, cacheName) {
   return cached || (await network) || Response.error();
 }
 
-async function navigationHandler(request) {
+async function navigationHandler(request, event) {
+  const instant = await instantShellResponse(request);
+  if (instant) {
+    event.waitUntil(probeShellBuild());
+    return instant;
+  }
+
   const cache = await caches.open(PAGE_CACHE);
   try {
     const response = await fetch(request);
@@ -381,6 +417,93 @@ async function offlineShellResponse(request) {
   } catch {
     return null;
   }
+}
+
+// --- Instant launch ----------------------------------------------------------
+
+async function readInstantShellOff() {
+  try {
+    const cache = await caches.open(PAGE_CACHE);
+    const response = await cache.match(INSTANT_SHELL_OFF_URL);
+    return response ? await response.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+// The shell document for `request`, with the boot guard, or null when the
+// navigation must go to the network.
+async function instantShellResponse(request) {
+  if (!OfflineShell) return null;
+  try {
+    const match = OfflineShell.matchShellRoute(new URL(request.url).pathname);
+    if (!match) return null;
+    const [meta, instantOff] = await Promise.all([readShellMeta(), readInstantShellOff()]);
+    if (!OfflineShell.shouldServeShellInstantly(meta, instantOff, Date.now())) return null;
+    const cache = await caches.open(SHELL_CACHE);
+    const cached = await cache.match(match.templatePath);
+    if (!cached) return null;
+    const filled = OfflineShell.fillShellTemplate(await cached.text(), match.param);
+    const html = filled ? OfflineShell.injectShellBootGuard(filled) : null;
+    if (!html) return null;
+    return new Response(html, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+// A shell page failed to boot: forget the shell (it is refilled on the next warm)
+// and serve launches from the network for a while.
+async function disableInstantShell() {
+  try {
+    await caches.delete(SHELL_CACHE);
+    const cache = await caches.open(PAGE_CACHE);
+    await cache.put(
+      INSTANT_SHELL_OFF_URL,
+      new Response(JSON.stringify({ disabledAt: Date.now() }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+  } catch {
+    // best-effort; the page reloads either way
+  }
+}
+
+// Build id of the deployment that is live right now, or null when it cannot be
+// told (offline, error, not a document).
+async function fetchLiveBuildId() {
+  try {
+    const response = await fetch(SHELL_BUILD_PROBE_PATH, { credentials: 'same-origin', cache: 'no-store' });
+    if (!isHtmlDocument(response)) return null;
+    return OfflineShell.readBuildId(await response.text());
+  } catch {
+    return null;
+  }
+}
+
+let lastShellProbeAt = 0;
+
+// After a launch was served from the shell: is a newer build live? Then mark the
+// shell stale, so launches go to the network and the next warm (the page asks for
+// one shortly after start) refills it right away instead of in a few hours.
+async function probeShellBuild() {
+  const now = Date.now();
+  if (now - lastShellProbeAt < SHELL_PROBE_INTERVAL_MS) return;
+  lastShellProbeAt = now;
+  const meta = await readShellMeta();
+  if (!meta || !meta.buildId) return;
+  const liveBuildId = await fetchLiveBuildId();
+  if (!liveBuildId || liveBuildId === meta.buildId) return;
+  const latest = await readShellMeta();
+  // A warm finished in the meantime.
+  if (!latest || latest.buildId !== meta.buildId) return;
+  await writeShellMeta({ ...latest, staleBuildId: liveBuildId }).catch(() => undefined);
 }
 
 async function readShellMeta() {
@@ -545,13 +668,7 @@ async function isShellCurrent(buildId) {
   for (const route of OfflineShell.OFFLINE_SHELL_ROUTES) {
     if (!(await shellCache.match(OfflineShell.shellTemplatePath(route)))) return false;
   }
-  try {
-    const response = await fetch(SHELL_BUILD_PROBE_PATH, { credentials: 'same-origin', cache: 'no-store' });
-    if (!isHtmlDocument(response)) return false;
-    return OfflineShell.readBuildId(await response.text()) === buildId;
-  } catch {
-    return false;
-  }
+  return (await fetchLiveBuildId()) === buildId;
 }
 
 let warmInFlight = null;
@@ -575,7 +692,7 @@ async function doWarmOfflineShell(force) {
     // still current. Check with one static (CDN-served) route before re-rendering
     // the dynamic ones on the server.
     if (!force && meta && meta.buildId && (await isShellCurrent(meta.buildId))) {
-      await writeShellMeta({ ...meta, warmedAt: now, failedAt: undefined });
+      await writeShellMeta({ ...meta, warmedAt: now, failedAt: undefined, staleBuildId: undefined });
       return;
     }
 

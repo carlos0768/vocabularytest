@@ -61,6 +61,25 @@ export async function requestOfflineShellWarm() {
   }
 }
 
+/**
+ * Drop the app shell (public/sw-offline-shell.js). It was fetched signed in and the
+ * worker answers launches from it, so after sign-out the server has to decide again
+ * (it redirects signed-out visitors). Refilled on the next signed-in warm.
+ */
+export async function clearOfflineShellCache() {
+  if (typeof window === 'undefined' || !('caches' in window)) return;
+  try {
+    const cacheNames = await caches.keys();
+    await Promise.all(
+      cacheNames
+        .filter((name) => name.startsWith('merken-shell-'))
+        .map((name) => caches.delete(name))
+    );
+  } catch {
+    // best-effort
+  }
+}
+
 export async function clearServiceWorkerCaches() {
   if (typeof window === 'undefined') return;
   if (!('caches' in window)) return;

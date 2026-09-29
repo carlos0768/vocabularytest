@@ -10,8 +10,9 @@ import { clearHomeCache } from '@/lib/home-cache';
 import { clearAllUserStats } from '@/lib/utils';
 import { getEffectiveSubscriptionStatus, isActiveProSubscription, wasProUser } from '@/lib/subscription/status';
 import { prefetchRecentProjectsForOffline } from '@/lib/offline/recent-project-offline';
-import { getCachedSupabaseSessionSnapshot, isCachedSupabaseSessionValid } from '@/lib/supabase/session-cache';
+import { getCachedSupabaseSessionSnapshot } from '@/lib/supabase/session-cache';
 import { resolveOfflineFallbackAuth } from '@/lib/auth/offline-session';
+import { clearOfflineShellCache } from '@/lib/pwa/register-sw';
 import {
   buildOAuthCallbackUrl,
   buildExpiredOAuthOnboardingCookie,
@@ -102,6 +103,16 @@ function getCachedSubscription(userId: string, ignoreAge = false): Subscription 
   }
 }
 
+function hasCachedSubscriptionFor(userId: string): boolean {
+  try {
+    const raw = localStorage.getItem(SUB_CACHE_KEY);
+    if (!raw) return false;
+    return (JSON.parse(raw) as SubCache).userId === userId;
+  } catch {
+    return false;
+  }
+}
+
 function isOffline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false;
 }
@@ -155,6 +166,7 @@ function resetClientScopedData() {
   clearHomeCache();
   clearAllUserStats();
   clearSessionScopedState();
+  void clearOfflineShellCache();
 }
 
 // ---- Daily activity logging ----
@@ -227,22 +239,25 @@ function tryOptimisticLoad(): boolean {
   hasOptimisticLoad = true;
   
   const snapshot = getCachedSupabaseSessionSnapshot();
-  // Offline an expired snapshot is still the best identity we have (the token cannot
-  // be refreshed without a connection), so accept it instead of painting as a guest.
-  if (isCachedSupabaseSessionValid(snapshot) || (isOffline() && snapshot?.user)) {
-    const cachedUser = snapshot?.user ?? null;
-    const cachedSub = cachedUser ? getCachedSubscription(cachedUser.id, isOffline()) : null;
+  // Paint the stored identity right away, even when the access token has expired.
+  // Reopening the app after an hour or more is the common case, and refreshing the
+  // token is a network round trip that used to hold the whole UI on a spinner.
+  // The refresh still runs (loadUser → getSession) and data calls wait for it;
+  // if the session turns out to be gone, loadUser drops back to the guest state.
+  // Offline the expired snapshot is the best identity we have anyway.
+  if (snapshot?.user) {
+    const cachedUser = snapshot.user;
+    // Stale is fine for the first paint — loadUser re-reads the row in the background.
+    const cachedSub = getCachedSubscription(cachedUser.id, true);
 
-    if (cachedUser) {
-      globalAuthState = {
-        user: cachedUser,
-        subscription: cachedSub,
-        loading: false,
-        error: null,
-        sessionExpired: false,
-      };
-      return true;
-    }
+    globalAuthState = {
+      user: cachedUser,
+      subscription: cachedSub,
+      loading: false,
+      error: null,
+      sessionExpired: false,
+    };
+    return true;
   }
   
   // No valid session snapshot → treat as guest immediately so pages
@@ -382,55 +397,54 @@ export function useAuth() {
       return { user: null, subscription: null };
     }
 
-    // Strategy 3: Check localStorage cache first for instant UI
-    const cachedSub = getCachedSubscription(user.id);
-    if (cachedSub !== null || getCachedSubscription(user.id) === null) {
-      // We have a cached answer (could be null = free user).
-      // Emit cached state immediately, then verify in background.
-      const hasCacheEntry = localStorage.getItem(SUB_CACHE_KEY) !== null;
-      if (hasCacheEntry) {
-        // Emit fast path
-        const fastResult = { user, subscription: cachedSub };
+    // Strategy 3: Check localStorage cache first for instant UI. Any age will do —
+    // the row is always re-read in the background below — and an expired entry
+    // used to paint a Pro user as Free until that read came back.
+    const cachedSub = getCachedSubscription(user.id, true);
+    // We have a cached answer (could be null = free user).
+    // Emit cached state immediately, then verify in background.
+    if (hasCachedSubscriptionFor(user.id)) {
+      // Emit fast path
+      const fastResult = { user, subscription: cachedSub };
 
-        // Schedule background verification (non-blocking)
-        setTimeout(async () => {
-          try {
-            const { data: subData, error: subError } = await supabase
-              .from('subscriptions')
-              .select('*')
-              .eq('user_id', user.id)
-              .single();
+      // Schedule background verification (non-blocking)
+      setTimeout(async () => {
+        try {
+          const { data: subData, error: subError } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
 
-            if (subError && subError.code !== 'PGRST116') return;
+          if (subError && subError.code !== 'PGRST116') return;
 
-            const freshSub: Subscription | null = mapSubscriptionRow(
-              (subData as Record<string, unknown> | null) ?? null
-            );
+          const freshSub: Subscription | null = mapSubscriptionRow(
+            (subData as Record<string, unknown> | null) ?? null
+          );
 
-            setCachedSubscription(user.id, freshSub);
+          setCachedSubscription(user.id, freshSub);
 
-            // Only notify if subscription actually changed
-            const hasSubscriptionChanged =
-              cachedSub?.status !== freshSub?.status ||
-              cachedSub?.currentPeriodEnd !== freshSub?.currentPeriodEnd ||
-              cachedSub?.cancelAtPeriodEnd !== freshSub?.cancelAtPeriodEnd;
+          // Only notify if subscription actually changed
+          const hasSubscriptionChanged =
+            cachedSub?.status !== freshSub?.status ||
+            cachedSub?.currentPeriodEnd !== freshSub?.currentPeriodEnd ||
+            cachedSub?.cancelAtPeriodEnd !== freshSub?.cancelAtPeriodEnd;
 
-            if (hasSubscriptionChanged) {
-              notifyListeners({
-                user,
-                subscription: freshSub,
-                loading: false,
-                error: null,
-                sessionExpired: false,
-              });
-            }
-          } catch {
-            // Background verification failed - cached state is still valid
+          if (hasSubscriptionChanged) {
+            notifyListeners({
+              user,
+              subscription: freshSub,
+              loading: false,
+              error: null,
+              sessionExpired: false,
+            });
           }
-        }, 0);
+        } catch {
+          // Background verification failed - cached state is still valid
+        }
+      }, 0);
 
-        return fastResult;
-      }
+      return fastResult;
     }
 
     // No cache: fetch subscription synchronously
@@ -530,6 +544,13 @@ export function useAuth() {
 
       const isTimeout = error instanceof Error && error.message === 'AUTH_TIMEOUT';
       const isSessionMissing = error instanceof Error && error.name === 'AuthSessionMissingError';
+
+      // A slow network is not a signed-out user. The stored identity is already on
+      // screen (tryOptimisticLoad), so keep it; the pending refresh reports the real
+      // outcome through onAuthStateChange (TOKEN_REFRESHED / SIGNED_OUT).
+      if (isTimeout && globalAuthState.user && !globalAuthState.loading) {
+        return;
+      }
 
       if (!isSessionMissing && !isTimeout) {
         console.error('Auth error:', error);
