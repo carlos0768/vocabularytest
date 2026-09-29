@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
    左: ロゴ / 中央: ピル型タブ (モバイルのボトムナビと同じ並び) / 右: コイン + 検索
    ──────────────────────────────────────────────────────────── */
 
-type TabKey = 'home' | 'words' | 'create' | 'shared' | 'reels' | 'account';
+type TabKey = 'home' | 'goal' | 'create' | 'shared' | 'reels' | 'account';
 
 type TabItem = {
   k: TabKey;
@@ -36,7 +36,7 @@ type TabItem = {
 
 const ICON_PATHS = {
   home: 'M3 10l9-7 9 7V20a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V10z',
-  words: 'M4 6h16M4 12h16M4 18h10 M16 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0',
+  goal: 'M5 21V4 M5 4h13l-3 4.5 3 4.5H5',
   shared:
     'M3.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M15.5 6a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M15.5 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M8 11l8-4M8 13l8 4',
   account: 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M4 21a8 8 0 0116 0',
@@ -45,7 +45,7 @@ const ICON_PATHS = {
 };
 
 const HOME_TAB: TabItem = { k: 'home', label: 'ホーム', href: '/', matchPaths: ['/'], d: ICON_PATHS.home, fillWhenActive: true };
-const WORDS_TAB: TabItem = { k: 'words', label: '単語', href: '/words', matchPaths: ['/words'], d: ICON_PATHS.words };
+const GOAL_TAB: TabItem = { k: 'goal', label: '目標', href: '/goal', matchPaths: ['/goal'], d: ICON_PATHS.goal, fillWhenActive: true };
 const CREATE_TAB: TabItem = { k: 'create', label: '作成', primary: true, d: ICON_PATHS.create };
 const SHARED_TAB: TabItem = { k: 'shared', label: '共有', href: '/shared', matchPaths: ['/shared', '/groups', '/share'], d: ICON_PATHS.shared, fillWhenActive: true };
 const REELS_TAB: TabItem = { k: 'reels', label: 'リール', href: '/reels', matchPaths: ['/reels'], d: ICON_PATHS.reels };
@@ -59,8 +59,10 @@ const ACCOUNT_TAB: TabItem = {
   fillWhenActive: true,
 };
 
-// Pro: 単語一覧入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)。モバイルのボトムナビと同じ。
-const PRO_TABS: TabItem[] = [HOME_TAB, WORDS_TAB, CREATE_TAB, SHARED_TAB, ACCOUNT_TAB];
+// Pro: 目標ページ入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)。モバイルのボトムナビ
+// (bottom-nav.tsx) と同じ並びにそろえること。1024px 以上では下部バーが消えてこのヘッダーだけに
+// なるので、ここに無いタブは PC / 横向き iPad からは開けなくなる。
+const PRO_TABS: TabItem[] = [HOME_TAB, GOAL_TAB, CREATE_TAB, SHARED_TAB, ACCOUNT_TAB];
 const FREE_TABS: TabItem[] = [HOME_TAB, SHARED_TAB, CREATE_TAB, REELS_TAB, ACCOUNT_TAB];
 
 function isTabActive(tab: TabItem, pathname: string): boolean {
