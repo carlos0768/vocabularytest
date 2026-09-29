@@ -196,6 +196,8 @@
     if (typeof meta.failedAt === 'number' && now - meta.failedAt < WARM_RETRY_MS) {
       return false;
     }
+    // A newer build went live (seen by the instant-launch probe): refill now.
+    if (typeof meta.staleBuildId === 'string' && meta.staleBuildId !== '') return true;
     if (typeof meta.warmedAt !== 'number') return true;
     if (now < meta.warmedAt) return true; // clock went backwards
     return now - meta.warmedAt >= WARM_INTERVAL_MS;
@@ -226,6 +228,92 @@
     return { remove: remove, pending: pending };
   }
 
+  // --- Instant launch ------------------------------------------------------
+  //
+  // The shell above also makes ONLINE launches fast: a navigation to a shell route
+  // is answered straight from SHELL_CACHE instead of waiting on the server render,
+  // and the worker checks for a newer build in the background. This is safe for the
+  // same reason the offline shell is — a shell document is only ever published once
+  // every chunk it needs is cached — and the boot guard below turns any remaining
+  // failure into one reload over the network instead of a stranded PWA.
+
+  // A shell older than this is not served ahead of the network (a user who has not
+  // opened the app for a week gets the current build straight away).
+  var INSTANT_SHELL_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+  // After a shell failed to boot, launches go to the network for this long.
+  var INSTANT_SHELL_OFF_MS = 24 * 60 * 60 * 1000;
+  // How long a shell page may take to hydrate (after the load event) before the
+  // guard gives up on it.
+  var SHELL_BOOT_TIMEOUT_MS = 15 * 1000;
+  var SHELL_BOOT_FAILED_MESSAGE = 'shell-boot-failed';
+
+  /**
+   * Whether a navigation may be answered from the shell before the network.
+   * `meta` is the shell bookkeeping, `instantOff` the marker written when a shell
+   * failed to boot ({ disabledAt }).
+   */
+  function shouldServeShellInstantly(meta, instantOff, now) {
+    if (!meta || typeof meta !== 'object') return false;
+    if (typeof meta.buildId !== 'string' || meta.buildId === '') return false;
+    // A newer build is live: go to the network until the shell is refilled.
+    if (typeof meta.staleBuildId === 'string' && meta.staleBuildId !== '') return false;
+    if (typeof meta.warmedAt !== 'number') return false;
+    if (now < meta.warmedAt || now - meta.warmedAt > INSTANT_SHELL_MAX_AGE_MS) return false;
+    if (
+      instantOff &&
+      typeof instantOff.disabledAt === 'number' &&
+      now >= instantOff.disabledAt &&
+      now - instantOff.disabledAt < INSTANT_SHELL_OFF_MS
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  // Runs before any chunk in a shell-served document. If a build asset fails to
+  // load, or the app never hydrates (ServiceWorkerRegistration sets
+  // window.__merkenBooted), it tells the worker to drop the shell and reloads, so
+  // the next load comes from the network. At most once a minute per tab, so it can
+  // never loop. Plain ES5: it runs before any bundle.
+  var SHELL_BOOT_GUARD_SCRIPT =
+    '(function(){var w=window;if(w.__merkenShellGuard)return;w.__merkenShellGuard=1;' +
+    'var fired=false;' +
+    'function reload(){if(reload.d)return;reload.d=1;location.reload();}' +
+    'function recover(){if(fired)return;fired=true;' +
+    'try{var k="merken_shell_recovered_at",l=+sessionStorage.getItem(k)||0;' +
+    'if(Date.now()-l<60000)return;sessionStorage.setItem(k,String(Date.now()));}catch(e){}' +
+    'var sw=navigator.serviceWorker&&navigator.serviceWorker.controller;' +
+    'if(!sw){reload();return;}' +
+    'try{var ch=new MessageChannel();ch.port1.onmessage=reload;' +
+    'sw.postMessage({type:"' + SHELL_BOOT_FAILED_MESSAGE + '"},[ch.port2]);}catch(e){reload();return;}' +
+    'setTimeout(reload,1500);}' +
+    'function isBuildAsset(u){return typeof u==="string"&&u.indexOf("/_next/static/")!==-1;}' +
+    'w.addEventListener("error",function(e){var t=e&&e.target;' +
+    'if(t&&t!==w&&(isBuildAsset(t.src)||isBuildAsset(t.href)))recover();},true);' +
+    'w.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;' +
+    'var s=r?String(r.name||"")+" "+String(r.message||""):"";' +
+    'if(/ChunkLoadError|Loading (CSS )?chunk|Failed to load chunk/i.test(s))recover();});' +
+    'function watch(){setTimeout(function(){if(w.__merkenBooted)return;' +
+    'if(document.visibilityState==="hidden"){document.addEventListener("visibilitychange",function f(){' +
+    'if(document.visibilityState!=="hidden"){document.removeEventListener("visibilitychange",f);watch();}});return;}' +
+    'recover();},' + SHELL_BOOT_TIMEOUT_MS + ');}' +
+    'if(document.readyState==="complete")watch();else w.addEventListener("load",watch);})();';
+
+  var HEAD_OPEN_PATTERN = /<head(?:\s[^>]*)?>/i;
+
+  /**
+   * Insert the boot guard at the top of <head>, ahead of every chunk. Returns null
+   * when the document has no <head> (then it must not be served ahead of the
+   * network).
+   */
+  function injectShellBootGuard(html) {
+    if (typeof html !== 'string') return null;
+    var match = html.match(HEAD_OPEN_PATTERN);
+    if (!match) return null;
+    var at = match.index + match[0].length;
+    return html.slice(0, at) + '<script>' + SHELL_BOOT_GUARD_SCRIPT + '</script>' + html.slice(at);
+  }
+
   var api = {
     OFFLINE_SHELL_SENTINEL: OFFLINE_SHELL_SENTINEL,
     OFFLINE_SHELL_ROUTES: OFFLINE_SHELL_ROUTES,
@@ -242,6 +330,12 @@
     readBuildId: readBuildId,
     shouldWarmShell: shouldWarmShell,
     planStaticPrune: planStaticPrune,
+    INSTANT_SHELL_MAX_AGE_MS: INSTANT_SHELL_MAX_AGE_MS,
+    INSTANT_SHELL_OFF_MS: INSTANT_SHELL_OFF_MS,
+    SHELL_BOOT_FAILED_MESSAGE: SHELL_BOOT_FAILED_MESSAGE,
+    SHELL_BOOT_GUARD_SCRIPT: SHELL_BOOT_GUARD_SCRIPT,
+    shouldServeShellInstantly: shouldServeShellInstantly,
+    injectShellBootGuard: injectShellBootGuard,
   };
 
   if (typeof module !== 'undefined' && module.exports) {
