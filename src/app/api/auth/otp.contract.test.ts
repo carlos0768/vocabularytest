@@ -555,7 +555,7 @@ test('signup-verify valid OTP still returns 409 for an existing email after veri
   assert.deepEqual(adminClient.generateLinkCalls, []);
 });
 
-test('signup-verify valid OTP saves onboarding profile and returns default official wordbooks for local import', async () => {
+test('signup-verify valid OTP saves onboarding profile and persists default official wordbooks server-side', async () => {
   const adminClient = new FakeOtpAdminClient({
     users: [],
     otpRecord: otpRecord({ id: 'otp-signup-profile' }),
@@ -564,7 +564,19 @@ test('signup-verify valid OTP saves onboarding profile and returns default offic
   const serverClient = new FakeServerClient({
     sessionUser: { id: 'created-user-1', email: 'new@example.com' },
   });
+  const defaultWordbooks = [{
+    officialWordbookId: 'official-pre2',
+    officialSlug: 'merken-eiken-pre2-1',
+    title: '英検準2級 公式単語帳',
+    sourceLabels: ['official', 'eiken:pre2'],
+    words: [{
+      english: 'improve',
+      japanese: '改善する',
+      distractors: [],
+    }],
+  }];
   let defaultWordbookFetchCalled = false;
+  const persistCalls: Array<{ client: unknown; userId: string; wordbooks: unknown }> = [];
 
   const response = await handleSignupVerifyPost(
     jsonRequest('/api/auth/signup-verify', {
@@ -582,40 +594,29 @@ test('signup-verify valid OTP saves onboarding profile and returns default offic
         defaultWordbookFetchCalled = true;
         assert.equal(client, adminClient);
         assert.equal(eikenLevel, 'pre2');
-        return [{
-          officialWordbookId: 'official-pre2',
-          officialSlug: 'merken-eiken-pre2-1',
-          title: '英検準2級 公式単語帳',
-          sourceLabels: ['official', 'eiken:pre2'],
-          words: [{
-            english: 'improve',
-            japanese: '改善する',
-            distractors: [],
-          }],
-        }];
+        return defaultWordbooks;
+      },
+      persistDefaultOfficialWordbooksToDb: async (client, userId, wordbooks) => {
+        persistCalls.push({ client, userId, wordbooks });
       },
     },
   );
 
   assert.equal(response.status, 200);
   assert.equal(defaultWordbookFetchCalled, true);
+  // The wordbooks go straight into Supabase for the new user; the client picks
+  // them up on its next full sync, so they are not handed back in the response.
+  assert.deepEqual(persistCalls, [{
+    client: adminClient,
+    userId: 'created-user-1',
+    wordbooks: defaultWordbooks,
+  }]);
   assert.deepEqual(await jsonPayload(response), {
     success: true,
     user: {
       id: 'created-user-1',
       email: 'new@example.com',
     },
-    defaultOfficialWordbooks: [{
-      officialWordbookId: 'official-pre2',
-      officialSlug: 'merken-eiken-pre2-1',
-      title: '英検準2級 公式単語帳',
-      sourceLabels: ['official', 'eiken:pre2'],
-      words: [{
-        english: 'improve',
-        japanese: '改善する',
-        distractors: [],
-      }],
-    }],
   });
 
   const profileUpsert = findOperation(adminClient, (operation) =>

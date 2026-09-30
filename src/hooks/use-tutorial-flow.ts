@@ -1,38 +1,16 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
+import { TUTORIAL_STAGES, type TutorialStage } from '@/lib/onboarding/tutorial-stage';
+
+export type { TutorialStage };
 
 /**
  * Cross-page onboarding flow that teaches the "view cards → take quiz" loop.
  * The stage is persisted in localStorage so it survives navigation between the
- * home, project, flashcard and quiz pages.
- *
- *   (null)         not started — home shows the "open your wordbook" tour
- *   open-flashcard project — guide to the flashcard button
- *   view-cards     flashcard — advance N cards, then a forced "go back" modal
- *   open-quiz      project (returned) — guide to the quiz button
- *   awaiting-quiz  quiz opened, waiting for a full completion
- *   done           flow complete — home reveals the play-button tip
- *   finished       play-button tip seen / whole flow skipped (terminal)
+ * home, project, flashcard and quiz pages. Stages: `@/lib/onboarding/tutorial-stage`.
  */
-export type TutorialStage =
-  | 'open-flashcard'
-  | 'view-cards'
-  | 'open-quiz'
-  | 'awaiting-quiz'
-  | 'done'
-  | 'finished';
-
 const STORAGE_KEY = 'merken.tutorial.quiz-flow';
-
-const VALID_STAGES: readonly TutorialStage[] = [
-  'open-flashcard',
-  'view-cards',
-  'open-quiz',
-  'awaiting-quiz',
-  'done',
-  'finished',
-];
 
 const listeners = new Set<() => void>();
 
@@ -51,7 +29,7 @@ function readStage(): TutorialStage | null {
   if (typeof window === 'undefined') return null;
   try {
     const value = window.localStorage.getItem(STORAGE_KEY);
-    return VALID_STAGES.includes(value as TutorialStage) ? (value as TutorialStage) : null;
+    return TUTORIAL_STAGES.includes(value as TutorialStage) ? (value as TutorialStage) : null;
   } catch {
     return null;
   }
