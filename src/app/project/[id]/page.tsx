@@ -20,7 +20,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useTourSeen } from '@/hooks/use-tour-seen';
-import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
+import { useTutorialFlow, type TutorialStage } from '@/hooks/use-tutorial-flow';
 import { useWordCount } from '@/hooks/use-word-count';
 import { getRepository, hybridRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
@@ -39,6 +39,7 @@ import {
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
+import { isProjectPageFlowStage } from '@/lib/onboarding/tutorial-stage';
 import { getGuestUserId } from '@/lib/utils';
 import {
   buildProjectWordOrderSnapshot,
@@ -144,6 +145,13 @@ export default function ProjectPage() {
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
   const { shouldRender: projectTourReady, markSeen: markProjectTourSeen } = useTourSeen('project-intro');
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
+  // フローがカード / クイズへ送り出した直後。遷移が終わるまでの一瞬に、
+  // 次の段階では出してよくなった定着度 → A/P の解説がチラつかないよう止めておく。
+  const [leavingForTutorial, setLeavingForTutorial] = useState(false);
+  const advanceTutorialAndLeave = useCallback((next: TutorialStage) => {
+    setLeavingForTutorial(true);
+    setTutorialStage(next);
+  }, [setTutorialStage]);
   const isMobileViewport = useIsMobileViewport();
   // ページ上端ではヘッダの下線を出さない（スクロールで表示）
   const pageScrolled = usePageScrolled();
@@ -435,16 +443,18 @@ export default function ProjectPage() {
     [filteredWords, selectedWordIds],
   );
 
-  // The guided flashcard→quiz flow takes priority over the status/A-P coach mark.
-  const tutorialFlowActive = tutorialStage !== null && tutorialStage !== 'finished';
+  // The guided flow's own tours on this page (flashcard / quiz nudges) take
+  // priority over the status/A-P coach mark. Only those stages hold it back —
+  // an unfinished flow elsewhere (e.g. a quiz left half-way) must not hide it.
+  const tutorialFlowOnThisPage = isProjectPageFlowStage(tutorialStage) || leavingForTutorial;
 
   // Word-list coach mark: only while the plain list is visible and no competing
   // sheet/modal is open (the anchored rows are replaced in select mode), and not
-  // during the guided flow (shown afterward instead).
+  // while the guided flow is showing its own tour here (shown afterward instead).
   const runProjectTour =
     projectTourReady
     && isMobileViewport
-    && !tutorialFlowActive
+    && !tutorialFlowOnThisPage
     && wordsLoaded
     && !selectMode
     && filteredWords.length > 0
@@ -474,14 +484,14 @@ export default function ProjectPage() {
           primaryAction: {
             label: 'フラッシュカードを開く',
             onClick: () => {
-              setTutorialStage('view-cards');
+              advanceTutorialAndLeave('view-cards');
               router.push(`/flashcard/${projectId}`);
             },
           },
         },
       },
     ],
-    [projectId, router, setTutorialStage],
+    [projectId, router, advanceTutorialAndLeave],
   );
 
   const runOpenQuizTour = flowTourEligible && tutorialStage === 'open-quiz';
@@ -496,14 +506,14 @@ export default function ProjectPage() {
           primaryAction: {
             label: 'クイズを始める',
             onClick: () => {
-              setTutorialStage('awaiting-quiz');
+              advanceTutorialAndLeave('awaiting-quiz');
               router.push(`/quiz/${projectId}`);
             },
           },
         },
       },
     ],
-    [projectId, router, setTutorialStage],
+    [projectId, router, advanceTutorialAndLeave],
   );
 
   const handleExitSelectMode = useCallback(() => {
@@ -1470,7 +1480,7 @@ export default function ProjectPage() {
           <Link
             href={`/quiz/${projectId}`}
             data-tour="project-quiz"
-            onClick={() => { if (tutorialStage === 'open-quiz') setTutorialStage('awaiting-quiz'); }}
+            onClick={() => { if (tutorialStage === 'open-quiz') advanceTutorialAndLeave('awaiting-quiz'); }}
             className="relative flex h-[44px] w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[13px] font-bold text-[var(--color-on-accent)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="check" size={14} />
@@ -1483,7 +1493,7 @@ export default function ProjectPage() {
             href={`/flashcard/${projectId}`}
             aria-label="カード"
             data-tour="project-flashcard"
-            onClick={() => { if (tutorialStage === 'open-flashcard') setTutorialStage('view-cards'); }}
+            onClick={() => { if (tutorialStage === 'open-flashcard') advanceTutorialAndLeave('view-cards'); }}
             className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="style" size={18} />
