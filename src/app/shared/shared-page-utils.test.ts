@@ -144,7 +144,6 @@ test('normalizeSharedTags keeps storage markerless while display uses hash', () 
 
 test('parseSharedPageTab restores the tab the viewer left from', () => {
   assert.equal(parseSharedPageTab('?tab=groups'), 'groups');
-  assert.equal(parseSharedPageTab('tab=grammar'), 'grammar');
   assert.equal(parseSharedPageTab('?q=abc&tab=users'), 'users');
   assert.equal(parseSharedPageTab('?tab=official'), 'official');
 });
@@ -153,6 +152,8 @@ test('parseSharedPageTab falls back to the top tab for missing or unknown values
   assert.equal(parseSharedPageTab(''), 'all');
   assert.equal(parseSharedPageTab(null), 'all');
   assert.equal(parseSharedPageTab('?tab='), 'all');
+  // 語法タブは廃止。古いリンクはトップに倒す。
+  assert.equal(parseSharedPageTab('?tab=grammar'), 'all');
   assert.equal(parseSharedPageTab('?tab=bogus'), 'all');
   assert.equal(parseSharedPageTab('?q=groups'), 'all');
 });

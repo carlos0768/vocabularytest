@@ -176,15 +176,17 @@ export default function GoalPage() {
   const dailyQuizCount = Math.min(GOAL_DAILY_QUESTION_COUNT, goalWords.length);
   const goalTitle = describeGoalProjectTitles(goalProjects.map((project) => project.title));
 
-  // 高さは固定しない。以前は h-dvh + overflow-hidden で1画面に閉じていたため、
-  // iPhone SE のような背の低い画面では下の2つのボタンが下部バーの裏に隠れて
-  // スクロールでも出せなかった。背の低い画面では short: で詰めたうえで、
-  // それでも入らなければ普通にスクロールさせる。下の余白は浮いている下部バー
-  // (セーフエリア込み) の高さぶん。
+  // モバイルではスクロールさせず1画面に収める (useLockPageScroll)。高さは body が
+  // 確保しているノッチ分 (env(safe-area-inset-top)) を引いた残りで、下の余白は
+  // 浮いている下部バー (セーフエリア込み) の高さぶん。以前 h-dvh で閉じていた頃は
+  // iPhone SE で下の2つのボタンが下部バーの裏に隠れたので、入りきらないときは
+  // ボタンではなくカレンダーの行の高さを縮めて吸収する (GoalCalendar)。
+  // PC (lg) はデスクトップのシェルがスクロールを持つので従来どおり。
+  useLockPageScroll();
   return (
-    <div className="relative min-h-dvh bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1">
-      <div className="mx-auto w-full max-w-[520px]">
-        <div className="px-[18px] pb-3 pt-2 short:pb-2 short:pt-1">
+    <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 lg:block lg:h-auto lg:min-h-dvh lg:overflow-visible">
+      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col lg:block">
+        <div className="shrink-0 px-[18px] pb-3 pt-2 short:pb-2 short:pt-1">
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)] short:hidden">
             GOAL
           </div>
@@ -192,7 +194,7 @@ export default function GoalPage() {
         </div>
 
         {error && (
-          <div className="px-[18px] pb-3">
+          <div className="shrink-0 px-[18px] pb-3">
             <div className="rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] p-3 text-xs font-bold text-[var(--color-error)]">
               {error}
             </div>
@@ -200,7 +202,7 @@ export default function GoalPage() {
         )}
 
         {/* 目標バナー: 「〇〇まであと N日」 */}
-        <div className="px-[18px] pb-4 short:pb-2.5">
+        <div className="shrink-0 px-[18px] pb-4 short:pb-2.5">
           {!goalLoaded || (loading && !hasGoal) ? (
             <div className="h-[56px] animate-pulse short:h-[48px] rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]" />
           ) : hasGoal && remainingDays !== null ? (
@@ -229,7 +231,7 @@ export default function GoalPage() {
         </div>
 
         {/* 月間カレンダー */}
-        <div className="px-[18px] pb-5 short:pb-2.5">
+        <div className="flex min-h-0 shrink flex-col px-[18px] pb-5 short:pb-2.5">
           <GoalCalendar
             today={today}
             goalDate={hasGoal ? goal?.targetDate ?? null : null}
@@ -239,7 +241,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日の10問 (目標の単語帳から) */}
-        <div className="px-[18px] pb-3 short:pb-2">
+        <div className="shrink-0 px-[18px] pb-3 short:pb-2">
           <BigPillLink
             href={dailyQuizReady ? GOAL_DAILY_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(goalProjectIds)}
@@ -260,7 +262,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日復習しておきたい単語 (SM-2 の復習期限) */}
-        <div className="px-[18px] pb-3 short:pb-2">
+        <div className="shrink-0 px-[18px] pb-3 short:pb-2">
           <BigPillLink
             href={dueCount > 0 ? GOAL_REVIEW_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(null)}
@@ -292,6 +294,32 @@ export default function GoalPage() {
   );
 }
 
+/**
+ * 表示中はモバイル幅 (lg 未満) でページのスクロールを止める。body は
+ * min-height: 100dvh + padding-top: safe-area なので、止めないとノッチ分だけ
+ * 常にスクロールできてしまう。
+ */
+function useLockPageScroll() {
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023.98px)');
+    const root = document.documentElement;
+    const body = document.body;
+    const prev = { root: root.style.overflow, body: body.style.overflow };
+    const apply = () => {
+      const lock = media.matches;
+      root.style.overflow = lock ? 'hidden' : prev.root;
+      body.style.overflow = lock ? 'hidden' : prev.body;
+    };
+    apply();
+    media.addEventListener('change', apply);
+    return () => {
+      media.removeEventListener('change', apply);
+      root.style.overflow = prev.root;
+      body.style.overflow = prev.body;
+    };
+  }, []);
+}
+
 function GoalCalendar({
   today,
   goalDate,
@@ -317,7 +345,7 @@ function GoalCalendar({
   };
 
   return (
-    <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
       <div className="flex items-center justify-between px-2 py-2 short:py-1">
         <button
           type="button"
@@ -344,7 +372,9 @@ function GoalCalendar({
           <div key={label} className="py-1.5 short:py-1">{label}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      {/* 行の高さは上限つきで縮められる。画面に入りきらないときはここが縮み、
+          ページ自体はスクロールしない */}
+      <div className="grid min-h-0 shrink grid-cols-7 grid-rows-[repeat(6,minmax(0,46px))] short:grid-rows-[repeat(6,minmax(0,36px))]">
         {cells.map((cell, index) => {
           const isToday = !!cell.key && cell.key === todayKey;
           const isGoal = !!cell.key && cell.key === goalDate;
@@ -352,7 +382,7 @@ function GoalCalendar({
           // 今日が確定するまではどの日も選べない (SSR/初回描画中)。過去の日も選べない
           const selectable = !!cell.key && !!todayKey && cell.key >= todayKey;
           const cellStyle = { borderRightWidth: index % 7 === 6 ? 0 : undefined, borderBottomWidth: index >= 35 ? 0 : undefined };
-          const cellClass = 'relative flex h-[46px] w-full flex-col items-center border-b border-r border-[var(--color-border)] pt-1.5 text-[13px] font-bold short:h-[36px] short:pt-1';
+          const cellClass = 'relative flex h-full min-h-0 w-full flex-col items-center overflow-hidden border-b border-r border-[var(--color-border)] pt-1.5 text-[13px] font-bold short:pt-1';
           if (cell.day === null) {
             return <div key={`blank-${index}`} className={cellClass} style={cellStyle} aria-hidden />;
           }
