@@ -8,19 +8,22 @@ import {
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
 import { recognizeSpeech, type RecognizeSpeechFailureReason } from '@/lib/speech/cloud-speech-to-text';
-import { splitDictatedTranscript } from '@/lib/speech/dictated-words';
+import { resolveSpokenEntry } from '@/lib/speech/dictated-words';
 
 /**
- * 音声で単語を追加する (読み上げた英単語の並び → 見出し語の一覧)。
+ * 音声で単語を追加する (1回の録音 → 見出し語1つ)。
  *
  * 録音は音読チャレンジと同じく MediaRecorder で取り、GCP Cloud Speech-to-Text で
  * 書き起こす。ブラウザの SpeechRecognition は iOS のPWAで動かないため。
- * ここでは一覧を返すだけで保存はしない —— 認識違いを直してから、
+ * ここでは見出し語を返すだけで保存はしない —— 一覧で直してから、
  * 手入力と同じ経路 (enrich-manual → createWords) で追加する。
+ *
+ * 日本人の発音の英語は en-US だけだと別の語に化けやすいので、ja-JP でも
+ * 同時に認識する (カタカナで拾える)。両方の候補から1語に決めるのは
+ * `resolveSpokenEntry`。
  */
 
-// 1回の録音で約1分。認識とAIの区切りを合わせても既定の上限で収まるが、余裕を持たせる。
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 const RECOGNIZE_FAILURE_STATUS: Record<RecognizeSpeechFailureReason, number> = {
   not_configured: 500,
@@ -35,13 +38,19 @@ const RECOGNIZE_FAILURE_MESSAGE: Record<RecognizeSpeechFailureReason, string> = 
 };
 
 /**
- * 同期認識 (speech:recognize) は1分までの音声しか受け付けない。
- * 生PCM (16kHz) で約45秒ぶんが base64 で240万文字ほど。opus ならずっと小さい。
+ * 1語ぶんの録音 (最長10秒) を想定した上限。生PCM (16kHz) の10秒が
+ * base64 で約43万文字。opus ならずっと小さい。
  */
-const MAX_AUDIO_BASE64_LENGTH = 3_000_000;
+const MAX_AUDIO_BASE64_LENGTH = 1_000_000;
 
-/** 無料プランの1日あたりの回数。1回で何十語も入るので、手入力より絞っても困らない。 */
-const VOICE_INPUT_FREE_DAILY_LIMIT = 10;
+/** 候補数。日本語なまりで化けたときに、正しい語が下位に残っていることがある。 */
+const RECOGNIZE_MAX_ALTERNATIVES = 5;
+
+/**
+ * 無料プランの1日あたりの回数。1回の録音で1語なので、音読チャレンジ
+ * (1回答 = 1回) と同じ数にそろえる。
+ */
+const VOICE_INPUT_FREE_DAILY_LIMIT = 30;
 
 /** Proは無制限。0以下は `check_and_increment_feature_usage` が「上限なし」と扱う。 */
 const VOICE_INPUT_PRO_DAILY_UNLIMITED = 0;
@@ -56,14 +65,14 @@ const requestSchema = z.object({
 interface VoiceInputDeps {
   createClient?: typeof createRouteHandlerClient;
   recognize?: typeof recognizeSpeech;
-  splitTranscript?: typeof splitDictatedTranscript;
+  resolveEntry?: typeof resolveSpokenEntry;
 }
 
 export async function handleWordVoiceInputPost(request: NextRequest, deps?: VoiceInputDeps) {
   try {
     const createClient = deps?.createClient ?? createRouteHandlerClient;
     const recognize = deps?.recognize ?? recognizeSpeech;
-    const splitTranscript = deps?.splitTranscript ?? splitDictatedTranscript;
+    const resolveEntry = deps?.resolveEntry ?? resolveSpokenEntry;
 
     const supabase = await createClient(request);
     const authHeader = request.headers.get('authorization');
@@ -116,31 +125,51 @@ export async function handleWordVoiceInputPost(request: NextRequest, deps?: Voic
       }
     }
 
-    const result = await recognize({
+    const audio = {
       audioBase64: parsed.data.audioBase64,
       encoding: parsed.data.encoding,
       sampleRateHertz: parsed.data.sampleRateHertz,
-      languageCode: 'en-US',
-    });
+      maxAlternatives: RECOGNIZE_MAX_ALTERNATIVES,
+    };
+    // 英語と日本語の認識は互いに待たないので並べて投げる (待ち時間は長いほう1回ぶん)。
+    const [englishResult, japaneseResult] = await Promise.all([
+      recognize({ ...audio, languageCode: 'en-US' }),
+      recognize({ ...audio, languageCode: 'ja-JP' }),
+    ]);
 
-    if (!result.success) {
+    // 日本語側は補助。英語側が通っていれば、日本語側の失敗は無視して続ける。
+    // 両方落ちたときだけ失敗を返す (英語側の理由を優先)。
+    if (!englishResult.success && !japaneseResult.success) {
       console.error(
-        `Word voice input recognize failed (${result.reason}, encoding=${parsed.data.encoding}, bytes=${parsed.data.audioBase64.length}): ${result.error}`,
+        `Word voice input recognize failed (${englishResult.reason}, encoding=${parsed.data.encoding}, bytes=${parsed.data.audioBase64.length}): ${englishResult.error}`,
       );
       return NextResponse.json(
-        { success: false, error: RECOGNIZE_FAILURE_MESSAGE[result.reason] },
-        { status: RECOGNIZE_FAILURE_STATUS[result.reason] },
+        { success: false, error: RECOGNIZE_FAILURE_MESSAGE[englishResult.reason] },
+        { status: RECOGNIZE_FAILURE_STATUS[englishResult.reason] },
       );
     }
 
-    // 長い発話は複数の結果に分かれて返る。最初の1件だけだと後半の語を落とす。
-    const transcript = (result.segments && result.segments.length > 0
-      ? result.segments.join(' ')
-      : result.transcript
-    ).trim();
-    const words = transcript ? await splitTranscript(transcript) : [];
+    // 最有力は alternatives の先頭にも入っているので、重ねないようにまとめる。
+    const english = englishResult.success
+      ? [...new Set([englishResult.transcript, ...englishResult.alternatives].filter(Boolean))]
+      : [];
+    const japanese = japaneseResult.success
+      ? [...new Set([japaneseResult.transcript, ...japaneseResult.alternatives].filter(Boolean))]
+      : [];
 
-    return NextResponse.json({ success: true, transcript, words });
+    const word = english.length > 0 || japanese.length > 0
+      ? await resolveEntry({
+        english,
+        englishConfidence: englishResult.success ? englishResult.confidence : 0,
+        japanese,
+      })
+      : null;
+
+    return NextResponse.json({
+      success: true,
+      word,
+      transcript: englishResult.success ? englishResult.transcript : '',
+    });
   } catch (error) {
     console.error('Word voice input error:', error);
     return NextResponse.json(
