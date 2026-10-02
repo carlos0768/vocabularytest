@@ -7,8 +7,11 @@ import { Icon } from '@/components/ui/Icon';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
+import { useToast } from '@/components/ui/toast';
 import type { CachedStats } from '@/lib/stats-cache';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
+import { triggerHaptic } from '@/lib/haptics';
+import { buildProfileShareText, buildProfileShareUrl } from '@/lib/profile/share';
 
 const HEAT_COLORS = [
   'color-mix(in srgb, var(--solid-ink) 7%, transparent)',
@@ -17,16 +20,8 @@ const HEAT_COLORS = [
   'var(--color-success)',
 ];
 
-// Site-wide avatar/thumbnail palette (matches home, collections, shared, feed, stats).
-export const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-export function profileAvatarColor(identifier: string): string {
-  let hash = 0;
-  for (let i = 0; i < identifier.length; i++) {
-    hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
-  }
-  return THUMBS[Math.abs(hash) % THUMBS.length];
-}
+// サーバー側(シェア画像)でも同じ色を出すため lib に置いている
+export { THUMBS, profileAvatarColor } from '@/lib/profile/avatar-color';
 
 function heatLevel(count: number): number {
   if (count <= 0) return 0;
@@ -36,6 +31,39 @@ function heatLevel(count: number): number {
 }
 
 export type ProfileCounts = { following: number; followers: number; friends: number };
+
+/**
+ * 公開プロフィール (`/profile/[accountId]`) のURLをシェアする。
+ * 共有シートが使えればそれを開き、無ければ(PCブラウザなど)URLをコピーする。
+ * アカウントIDが無いと公開URLが作れないので、そのときは null を返してボタンを出さない。
+ */
+function useProfileShare(name: string, accountId: string | null): (() => Promise<void>) | null {
+  const { showToast } = useToast();
+  if (!accountId) return null;
+
+  return async () => {
+    triggerHaptic();
+    const url = buildProfileShareUrl(window.location.origin, accountId);
+    const text = buildProfileShareText(name, accountId);
+
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: text, text, url });
+        return;
+      } catch (error) {
+        const errorName = error && typeof error === 'object' && 'name' in error ? String((error as { name?: unknown }).name) : '';
+        if (errorName === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast({ message: 'プロフィールのリンクをコピーしました', type: 'success' });
+    } catch {
+      showToast({ message: 'コピーに失敗しました', type: 'error' });
+    }
+  };
+}
 
 export function ProfileView({
   title,
@@ -84,6 +112,7 @@ export function ProfileView({
 }) {
   const router = useRouter();
   const pageScrolled = usePageScrolled();
+  const shareProfile = useProfileShare(name, accountId);
 
   // Prefer returning to the actual previous page (e.g. the group the user came
   // from) when we arrived here via in-app navigation. Fall back to backHref on
@@ -118,6 +147,7 @@ export function ProfileView({
       backHref={backHref}
       editHref={editHref}
       settingsHref={settingsHref}
+      onShare={shareProfile}
       name={name}
       accountId={accountId}
       initial={initial}
@@ -162,6 +192,16 @@ export function ProfileView({
           <div className="min-w-0 flex-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
             {title}
           </div>
+          {shareProfile && (
+            <button
+              type="button"
+              onClick={() => void shareProfile()}
+              aria-label="プロフィールをシェア"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+            >
+              <Icon name="ios_share" size={22} />
+            </button>
+          )}
           {editHref && (
             <Link
               href={editHref}
@@ -377,6 +417,7 @@ function DesktopProfileView({
   backHref,
   editHref,
   settingsHref,
+  onShare,
   name,
   accountId,
   initial,
@@ -397,6 +438,7 @@ function DesktopProfileView({
   backHref?: string;
   editHref?: string;
   settingsHref?: string;
+  onShare: (() => Promise<void>) | null;
   name: string;
   accountId: string | null;
   initial: string;
@@ -424,6 +466,11 @@ function DesktopProfileView({
   return (
     <div className="hidden h-full min-h-0 flex-col lg:flex">
       <DesktopTopbar title={title} crumb="ACCOUNT" back={Boolean(backHref)} backFallbackHref={backHref ?? '/'}>
+        {onShare && (
+          <DesktopButton onClick={() => void onShare()} icon="ios_share" className="pill">
+            シェア
+          </DesktopButton>
+        )}
         {editHref && (
           <DesktopButton href={editHref} icon="edit" className="pill">
             編集
