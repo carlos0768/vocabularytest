@@ -14,6 +14,7 @@ import {
   type FollowingTodayActivity,
   type TodayActivitySessionRow,
 } from './today-activity';
+import { FOLLOW_SUGGESTION_LIMIT, rankFollowSuggestions, type FollowSuggestion } from './suggestions';
 import type {
   FollowStatus,
   FollowRelationship,
@@ -811,6 +812,60 @@ export async function listFollowingTodayActivity(
 
   const profilesByUserId = await getProfilesByUserIds(activeUserIds, admin);
   return aggregateFollowingTodayActivity(sessions, followingIds, profilesByUserId, dayStartIso, fallbackProfile);
+}
+
+/**
+ * ホームのカード列に出すフォローのおすすめ。順位づけは `rankFollowSuggestions`。
+ * 2次のつながり（フォロー中の人のフォロー先）は取りすぎないよう上限をかける。
+ */
+export async function listFollowSuggestions(
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+  limit = FOLLOW_SUGGESTION_LIMIT,
+): Promise<FollowSuggestion[]> {
+  const { data: myFollowRows, error: myFollowError } = await admin
+    .from('user_follows')
+    .select('following_id,status')
+    .eq('follower_id', userId);
+
+  if (myFollowError) {
+    if (getFriendSchemaIssue(myFollowError) === 'user_follows') return [];
+    throw new Error(myFollowError.message || 'follow_suggestions_lookup_failed');
+  }
+
+  const myFollows = (myFollowRows ?? []) as { following_id: string; status: FollowStatus }[];
+  const excludedUserIds = myFollows.map((row) => row.following_id);
+  const activeFollowingIds = myFollows.filter((row) => row.status === 'active').map((row) => row.following_id);
+
+  const [secondDegreeFollowingIds, friendIds, groupMemberIds] = await Promise.all([
+    activeFollowingIds.length === 0
+      ? Promise.resolve<string[]>([])
+      : admin
+        .from('user_follows')
+        .select('following_id')
+        .in('follower_id', activeFollowingIds)
+        .eq('status', 'active')
+        .limit(2000)
+        .then(({ data, error }) => (error ? [] : ((data ?? []) as { following_id: string }[]).map((row) => row.following_id))),
+    getAcceptedFriendUserIds(userId, admin),
+    getGroupMemberUserIds(userId, admin),
+  ]);
+
+  const ranked = rankFollowSuggestions({
+    viewerId: userId,
+    excludedUserIds,
+    secondDegreeFollowingIds,
+    friendIds,
+    groupMemberIds,
+    limit,
+  });
+  if (ranked.length === 0) return [];
+
+  const profilesByUserId = await getProfilesByUserIds(ranked.map((item) => item.userId), admin);
+  // プロフィールが引けない相手はアカウントIDが無くフォローできないので出さない。
+  return ranked
+    .filter((item) => profilesByUserId.has(item.userId))
+    .map((item) => ({ ...item, profile: profilesByUserId.get(item.userId)! }));
 }
 
 async function getSessionWordsBySessionId(
