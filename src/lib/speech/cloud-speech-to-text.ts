@@ -34,6 +34,18 @@ export interface RecognizeSpeechInput {
    * 受け取る候補数。1にすると最有力の変換だけになり、同音異義語を取りこぼす。
    */
   maxAlternatives?: number;
+  /**
+   * 単語ごとの発話時刻を受け取る。音声で単語を並べて言ったとき、
+   * 語と語の「間」で区切るのに使う (熟語を1語ずつにばらさないため)。
+   */
+  enableWordTimeOffsets?: boolean;
+}
+
+/** 認識された1語と、その発話時刻 (ミリ秒)。 */
+export interface RecognizedWordTiming {
+  word: string;
+  startMs: number;
+  endMs: number;
 }
 
 export interface RecognizeSpeechResult {
@@ -42,6 +54,13 @@ export interface RecognizeSpeechResult {
   confidence: number;
   /** 認識できた候補すべて (先頭が最有力)。同音異義語の判定に使う。 */
   alternatives: string[];
+  /**
+   * 結果ごとの最有力の書き起こし (発話順)。長い発話は複数の結果に分かれて
+   * 返るので、`transcript` (最初の1件) だけでは後半を取りこぼす。
+   */
+  segments?: string[];
+  /** `enableWordTimeOffsets` を指定したときだけ入る、最有力候補の単語ごとの時刻。 */
+  words?: RecognizedWordTiming[];
 }
 
 /**
@@ -58,9 +77,17 @@ export interface RecognizeSpeechFailure {
   error: string;
 }
 
+interface CloudSpeechApiWordInfo {
+  word?: string;
+  /** "1.300s" の形の Duration 文字列。 */
+  startTime?: string;
+  endTime?: string;
+}
+
 interface CloudSpeechApiAlternative {
   transcript?: string;
   confidence?: number;
+  words?: CloudSpeechApiWordInfo[];
 }
 
 interface CloudSpeechApiResult {
@@ -90,6 +117,38 @@ function collectAlternatives(response: CloudSpeechApiResponse): string[] {
     }
   }
   return [...transcripts];
+}
+
+/** 各結果の最有力候補の書き起こしを、発話順に並べる。 */
+function collectSegments(response: CloudSpeechApiResponse): string[] {
+  const segments: string[] = [];
+  for (const result of response.results ?? []) {
+    const transcript = result.alternatives?.[0]?.transcript?.trim();
+    if (transcript) segments.push(transcript);
+  }
+  return segments;
+}
+
+/** "1.300s" → 1300。読めない値は null。 */
+function durationToMs(value: string | undefined): number | null {
+  if (typeof value !== 'string') return null;
+  const seconds = Number.parseFloat(value.replace(/s$/, ''));
+  return Number.isFinite(seconds) ? Math.round(seconds * 1000) : null;
+}
+
+/** 各結果の最有力候補に付いた単語ごとの時刻を、発話順に平坦化する。 */
+function collectWordTimings(response: CloudSpeechApiResponse): RecognizedWordTiming[] {
+  const timings: RecognizedWordTiming[] = [];
+  for (const result of response.results ?? []) {
+    for (const info of result.alternatives?.[0]?.words ?? []) {
+      const word = info.word?.trim();
+      const startMs = durationToMs(info.startTime);
+      const endMs = durationToMs(info.endTime);
+      if (!word || startMs === null || endMs === null) continue;
+      timings.push({ word, startMs, endMs });
+    }
+  }
+  return timings;
 }
 
 /** GCPが受け付ける上限。 */
@@ -140,6 +199,9 @@ export async function recognizeSpeech(
     // 単語1語の短い発話が対象のため、通話・動画向けenhancedモデルは不要。
     model: 'default',
   };
+  if (input.enableWordTimeOffsets) {
+    config.enableWordTimeOffsets = true;
+  }
   if (input.encoding === 'LINEAR16' && input.sampleRateHertz) {
     config.sampleRateHertz = input.sampleRateHertz;
   }
@@ -178,6 +240,8 @@ export async function recognizeSpeech(
       transcript: best?.transcript?.trim() ?? '',
       confidence: typeof best?.confidence === 'number' ? best.confidence : 0,
       alternatives: data ? collectAlternatives(data) : [],
+      segments: data ? collectSegments(data) : [],
+      words: data ? collectWordTimings(data) : [],
     };
   } catch (error) {
     return {
