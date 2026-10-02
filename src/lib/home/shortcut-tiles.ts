@@ -31,33 +31,40 @@ export const HOME_SHORTCUT_RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 type ShortcutProjectCandidate = {
   id: string;
   binder?: string | null;
-  /** その単語帳の単語を最後に学習（クイズ・復習）した時刻。未学習なら null */
-  lastUsedAt?: string | null;
 };
 
-function recentUsedAtMs(project: ShortcutProjectCandidate, nowMs: number): number | null {
-  if (!project.lastUsedAt) return null;
-  const usedAt = Date.parse(project.lastUsedAt);
+/**
+ * 単語帳ID → その単語帳を直接使った時刻 (ISO)。`src/lib/projects/recent-use.ts` の記録。
+ * 単語の lastReviewedAt は 復習 などの横断出題でも更新されるので使わない。
+ */
+export type ShortcutRecentUse = Readonly<Record<string, string>>;
+
+function recentUsedAtMs(projectId: string, recentUse: ShortcutRecentUse, nowMs: number): number | null {
+  const raw = recentUse[projectId];
+  if (!raw) return null;
+  const usedAt = Date.parse(raw);
   if (Number.isNaN(usedAt) || nowMs - usedAt > HOME_SHORTCUT_RECENT_WINDOW_MS) return null;
   return usedAt;
 }
 
 /**
  * ショートカットグリッドに載せる単語帳の候補と並び順を決める。
- * - 直近 (HOME_SHORTCUT_RECENT_WINDOW_MS 以内) に使った単語帳を、新しい順に先頭へ。
+ * - 直近 (HOME_SHORTCUT_RECENT_WINDOW_MS 以内) に直接使った単語帳を、新しい順に先頭へ。
  *   バインダーに入っている単語帳もここでは出す（ふだんはバインダーのタイルの
  *   中にしか出ないが、続きをすぐ開けるようにする）。
+ *   復習・今日の学習など単語帳横断の出題で学習しただけの単語帳は「使った」に入らない。
  * - 残りはバインダーに入っていない単語帳だけを、渡された順（従来の並び）で続ける。
  */
 export function selectHomeShortcutProjects<P extends ShortcutProjectCandidate>(
   projects: readonly P[],
+  recentUse: ShortcutRecentUse,
   now: Date = new Date(),
 ): P[] {
   const nowMs = now.getTime();
   const recent: { project: P; usedAt: number }[] = [];
   const rest: P[] = [];
   for (const project of projects) {
-    const usedAt = recentUsedAtMs(project, nowMs);
+    const usedAt = recentUsedAtMs(project.id, recentUse, nowMs);
     if (usedAt !== null) {
       recent.push({ project, usedAt });
     } else if (!project.binder?.trim()) {

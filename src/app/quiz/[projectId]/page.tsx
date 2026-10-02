@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
+import { markProjectUsed } from '@/lib/projects/recent-use';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { TypeInQuizField, IdiomPromptText, ReviewProjectFilterSheet, QuizModeTabs, QuizModeChooser, type ReviewFilterProject, type TypeInQuizFieldHandle } from '@/components/quiz';
@@ -488,6 +489,13 @@ export default function QuizPage() {
    * クイズ形式の選択を適用しない。
    */
   const voiceQuizUnavailable = (projectId === 'all' && !binderName) || reviewMode || learnMode;
+  // ホームのショートカットグリッドの「直近使った単語帳」用。復習・今日の学習・
+  // 保存済み・リマインドは単語帳を選んで始めた学習ではないので記録しない
+  // （ホームに出すのは、その単語帳を開いて使ったものだけ）。
+  const crossWordbookQuiz = reviewMode || learnMode || favoritesMode || reminderMode || Boolean(binderName);
+  useEffect(() => {
+    if (!crossWordbookQuiz) markProjectUsed(projectId);
+  }, [projectId, crossWordbookQuiz]);
   const [questionCount, setQuestionCount] = useState<number | null>(() => {
     if (!countFromUrl) return DEFAULT_QUESTION_COUNT;
     const parsed = Number.parseInt(countFromUrl, 10);
