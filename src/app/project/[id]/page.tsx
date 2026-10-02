@@ -475,8 +475,10 @@ export default function ProjectPage() {
     : filteredWords;
 
   // 赤シート: 一覧の訳を赤いベタで隠す。紙の単語帳の赤シートと同じ使い方をする。
+  // 下部バーの左のシートは英語 (見出し語) 側、右のシートは訳側を隠す。両方同時に掛けてもよい。
   // 開くたびにオフから始めたいので端末には覚えさせない。
   const [redSheet, setRedSheet] = useState(false);
+  const [englishRedSheet, setEnglishRedSheet] = useState(false);
   // 下部固定バー (ページ送り + 赤シート)。1語でもあれば出す。ただし選択モード中は
   // 同じ位置に BulkActionBar が来るので譲る。
   const showWordToolbar = wordsLoaded && filteredWords.length > 0 && !selectMode;
@@ -1685,6 +1687,7 @@ export default function ProjectPage() {
                 selectMode={selectMode}
                 selected={selected}
                 hideMeaning={redSheet}
+                hideEnglish={englishRedSheet}
                 splitMeaning
                 tourAnchor={index === 0 && wordPage === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
@@ -1709,7 +1712,7 @@ export default function ProjectPage() {
         )}
       </div>
 
-      {/* モバイル: 語数 / 赤シート / ページ送りの下部固定バー。
+      {/* モバイル: 語数 / 赤シート (左=英語・右=訳) / ページ送りの下部固定バー。
           20語を超える単語帳は10語ずつのページ送りになり、左右の矢印で移動する
           (20語以下でも赤シートは使えるようにバー自体は出し、矢印だけ無効にする) */}
       {showWordToolbar && (
@@ -1718,9 +1721,9 @@ export default function ProjectPage() {
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
           {/* 語数はバーの中央に固定する。左右を flex-1 で等分し、その間に置くので、
-              右側に赤シートが増えても表示位置は動かない */}
+              左右に赤シートが並んでも表示位置は動かない */}
           <div className="mx-auto flex w-full max-w-[560px] items-center gap-2.5 px-[18px] pt-3">
-            <div className="flex flex-1 justify-start">
+            <div className="flex flex-1 items-center justify-start gap-2.5">
               <button
                 type="button"
                 onClick={() => setWordPage((p) => Math.max(0, p - 1))}
@@ -1730,6 +1733,12 @@ export default function ProjectPage() {
               >
                 <Icon name="chevron_left" size={20} />
               </button>
+              {/* 英語側の赤シート。一覧の左カラム (英語) を隠すので、バーでも左に置く */}
+              <RedSheetToggle
+                on={englishRedSheet}
+                onToggle={() => setEnglishRedSheet((on) => !on)}
+                label={englishRedSheet ? '英語の赤シートを外す' : '赤シートで英語を隠す'}
+              />
             </div>
             <span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-bold tabular-nums text-[var(--solid-ink)]">
               {paginateWords
@@ -1737,24 +1746,12 @@ export default function ProjectPage() {
                 : `${filteredWords.length}語`}
             </span>
             <div className="flex flex-1 items-center justify-end gap-2.5">
-              {/* 赤シート。オンの間は一覧の訳が赤いベタで隠れる。
-                  ボタンの枠は出さず、赤いカードそのものを置く (タップ範囲だけ44px確保する) */}
-              <button
-                type="button"
-                onClick={() => setRedSheet((on) => !on)}
-                aria-pressed={redSheet}
-                aria-label={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
-                title={redSheet ? '赤シートを外す' : '赤シートで訳を隠す'}
-                className="flex h-11 w-11 items-center justify-center transition-all duration-100 active:translate-x-px active:translate-y-px"
-              >
-                <span
-                  className={`block h-[32px] w-[24px] rounded-[5px] border-2 transition-colors duration-100 ${
-                    redSheet
-                      ? 'border-[var(--solid-ink)] bg-[#e0483f]'
-                      : 'border-[rgba(224,72,63,0.55)] bg-[rgba(224,72,63,0.35)]'
-                  }`}
-                />
-              </button>
+              {/* 訳側の赤シート。オンの間は一覧の訳が赤いベタで隠れる */}
+              <RedSheetToggle
+                on={redSheet}
+                onToggle={() => setRedSheet((on) => !on)}
+                label={redSheet ? '訳の赤シートを外す' : '赤シートで訳を隠す'}
+              />
               <button
                 type="button"
                 onClick={() => setWordPage((p) => Math.min(wordPageCount - 1, p + 1))}
@@ -2518,6 +2515,39 @@ function HeaderBtn({
       className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       {children}
+    </button>
+  );
+}
+
+/**
+ * 下部バーの赤シートの切り替え。ボタンの枠は出さず、赤いカードそのものを置く
+ * (タップ範囲だけ44px確保する)。英語側・訳側で同じ見た目にする。
+ */
+function RedSheetToggle({
+  on,
+  onToggle,
+  label,
+}: {
+  on: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      className="flex h-11 w-11 items-center justify-center transition-all duration-100 active:translate-x-px active:translate-y-px"
+    >
+      <span
+        className={`block h-[32px] w-[24px] rounded-[5px] border-2 transition-colors duration-100 ${
+          on
+            ? 'border-[var(--solid-ink)] bg-[#e0483f]'
+            : 'border-[rgba(224,72,63,0.55)] bg-[rgba(224,72,63,0.35)]'
+        }`}
+      />
     </button>
   );
 }
