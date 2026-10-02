@@ -282,8 +282,10 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                 {notifications.map((item) => {
                   const accountLabel = item.profile.accountId ? `@${item.profile.accountId}` : item.profile.username ?? 'ユーザー';
                   const avatarLabel = (item.profile.accountId ?? item.profile.username ?? 'U').charAt(0).toUpperCase();
-                  const isPending = item.status === 'pending';
-                  const isResponding = respondingId === item.followId;
+                  // 未対応のリクエストには必ず元のフォローがある。フォローが外れた通知は履歴としてだけ出す
+                  const pendingFollowId = item.status === 'pending' ? item.followId : null;
+                  const isPending = pendingFollowId !== null;
+                  const isResponding = pendingFollowId !== null && respondingId === pendingFollowId;
                   // 開いた時点で未読だったもの。パネルを開いている間は目印を残し、次に開いたときには消える
                   const isUnread = item.readAt === null;
                   const profileHref = item.profile.accountId
@@ -330,7 +332,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                           <button
                             type="button"
                             disabled={Boolean(respondingId)}
-                            onClick={() => void respond(item.followId, 'decline')}
+                            onClick={() => pendingFollowId && void respond(pendingFollowId, 'decline')}
                             className="inline-flex h-8 items-center rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[11px] font-bold text-[var(--color-muted)] disabled:opacity-50"
                           >
                             削除
@@ -338,7 +340,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                           <button
                             type="button"
                             disabled={Boolean(respondingId)}
-                            onClick={() => void respond(item.followId, 'accept')}
+                            onClick={() => pendingFollowId && void respond(pendingFollowId, 'accept')}
                             className="inline-flex h-8 items-center gap-1 rounded-[8px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 text-[11px] font-bold text-[var(--color-on-ink)] disabled:opacity-50"
                           >
                             {isResponding && <Icon name="progress_activity" className="animate-spin" size={13} />}

@@ -45,6 +45,15 @@ type FollowRow = {
   following_read_at: string | null;
 };
 
+type FollowNotificationRow = {
+  id: string;
+  actor_id: string;
+  follow_id: string | null;
+  kind: 'follow' | 'follow_request';
+  created_at: string;
+  read_at: string | null;
+};
+
 type QuizSessionRow = {
   id: string;
   user_id: string;
@@ -67,6 +76,7 @@ type QuizSessionWordRow = {
 };
 
 const FOLLOW_SELECT = 'id,follower_id,following_id,status,created_at,responded_at,following_read_at';
+const FOLLOW_NOTIFICATION_SELECT = 'id,actor_id,follow_id,kind,created_at,read_at';
 const PROFILE_SELECT = 'user_id,username,display_name,user_handle,account_id,is_public,avatar_url';
 const PROFILE_ACCOUNT_SELECT = 'user_id,username,account_id';
 const PROFILE_BASIC_SELECT = 'user_id,username';
@@ -261,9 +271,86 @@ export async function listFollowsHome(
   };
 }
 
+/**
+ * `follow_notifications` が無い DB（migration 適用前にコードがデプロイされた場合）か。
+ * そのときは従来どおり user_follows から通知を組み立てて、通知が見えなくならないようにする
+ */
+function isFollowNotificationsTableMissing(error: { code?: string | null; message?: string | null } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42P01' || error.code === 'PGRST205') return true;
+  const message = (error.message ?? '').toLowerCase();
+  return message.includes('follow_notifications')
+    && (message.includes('does not exist') || message.includes('schema cache') || message.includes('could not find'));
+}
+
+/**
+ * DB に保存した通知を新しい順に返す。件数は DB 側のトリガーが10件（+未対応リクエスト）に保っている。
+ * 状態（未対応のリクエストかどうか）は今の user_follows から決める。承認済み・取り消し済みなら履歴として出す
+ */
 export async function listFollowNotifications(
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
+): Promise<FollowNotification[]> {
+  const { data, error } = await admin
+    .from('follow_notifications')
+    .select(FOLLOW_NOTIFICATION_SELECT)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    if (isFollowNotificationsTableMissing(error)) return listFollowNotificationsFromFollows(userId, admin);
+    throw new Error(error.message || 'follow_notifications_failed');
+  }
+
+  const rows = (data ?? []) as FollowNotificationRow[];
+  const requestFollowIds = rows
+    .filter((row) => row.kind === 'follow_request' && row.follow_id)
+    .map((row) => row.follow_id as string);
+
+  const pendingFollowIds = new Set<string>();
+  if (requestFollowIds.length > 0) {
+    const { data: followRows, error: followError } = await admin
+      .from('user_follows')
+      .select('id,status')
+      .in('id', requestFollowIds);
+    if (followError) throw new Error(followError.message || 'follow_notifications_failed');
+    for (const row of (followRows ?? []) as Array<{ id: string; status: FollowStatus }>) {
+      if (row.status === 'pending') pendingFollowIds.add(row.id);
+    }
+  }
+
+  const profilesByUserId = await getProfilesByUserIds(rows.map((row) => row.actor_id), admin);
+
+  const summaries: FollowSummary[] = rows.map((row) => {
+    const isOpenRequest = row.follow_id !== null && pendingFollowIds.has(row.follow_id);
+    return {
+      id: row.id,
+      followerId: row.actor_id,
+      followingId: userId,
+      status: isOpenRequest ? 'pending' : 'active',
+      createdAt: row.created_at,
+      respondedAt: null,
+      readAt: row.read_at,
+      profile: profilesByUserId.get(row.actor_id) ?? fallbackProfile(row.actor_id),
+    };
+  });
+  const followIdByNotificationId = new Map(rows.map((row) => [row.id, row.follow_id]));
+
+  // DB のトリガーと同じ規則で、念のため表示側でも10件に揃える
+  return selectFollowNotifications(summaries, userId).map((item) => ({
+    id: item.id,
+    followId: followIdByNotificationId.get(item.id) ?? null,
+    status: item.status,
+    createdAt: item.createdAt,
+    readAt: item.readAt,
+    profile: item.profile,
+  }));
+}
+
+async function listFollowNotificationsFromFollows(
+  userId: string,
+  admin: SupabaseAdminClient,
 ): Promise<FollowNotification[]> {
   const home = await listFollowsHome(userId, admin);
 
@@ -283,6 +370,17 @@ export async function markFollowNotificationsRead(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<void> {
   const now = new Date().toISOString();
+  const { error: notificationError } = await admin
+    .from('follow_notifications')
+    .update({ read_at: now })
+    .eq('user_id', userId)
+    .is('read_at', null);
+
+  if (notificationError && !isFollowNotificationsTableMissing(notificationError)) {
+    throw new Error(notificationError.message || 'follow_notifications_read_failed');
+  }
+
+  // migration 適用前の読み出し（listFollowNotificationsFromFollows）用の既読も揃えておく
   const { error } = await admin
     .from('user_follows')
     .update({ following_read_at: now })

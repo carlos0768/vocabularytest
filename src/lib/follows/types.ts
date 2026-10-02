@@ -17,7 +17,8 @@ export type FollowSummary = {
 
 export type FollowNotification = {
   id: string;
-  followId: string;
+  /** 元のフォロー。フォローが外れた後も通知は残るので、そのときは null */
+  followId: string | null;
   status: FollowStatus;
   createdAt: string;
   readAt: string | null;

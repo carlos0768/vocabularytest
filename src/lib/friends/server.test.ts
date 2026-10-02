@@ -44,6 +44,16 @@ type FollowRow = {
   following_read_at: string | null;
 };
 
+type FollowNotificationRow = {
+  id: string;
+  user_id: string;
+  actor_id: string;
+  follow_id: string | null;
+  kind: 'follow' | 'follow_request';
+  created_at: string;
+  read_at: string | null;
+};
+
 type QueryError = {
   code?: string;
   message: string;
@@ -55,6 +65,7 @@ type FakeUserAdminOptions = {
   profiles?: ProfileRow[];
   friendships?: FriendshipRow[];
   follows?: FollowRow[];
+  followNotifications?: FollowNotificationRow[];
   missingColumns?: string[];
   missingTables?: string[];
 };
@@ -63,6 +74,7 @@ class FakeUserAdmin {
   readonly profiles: ProfileRow[];
   readonly friendships: FriendshipRow[];
   readonly follows: FollowRow[];
+  readonly followNotifications: FollowNotificationRow[];
   readonly missingColumns: Set<string>;
   readonly missingTables: Set<string>;
 
@@ -70,6 +82,7 @@ class FakeUserAdmin {
     this.profiles = [...(options.profiles ?? [])];
     this.friendships = [...(options.friendships ?? [])];
     this.follows = [...(options.follows ?? [])];
+    this.followNotifications = [...(options.followNotifications ?? [])];
     this.missingColumns = new Set(options.missingColumns ?? []);
     this.missingTables = new Set(options.missingTables ?? []);
   }
@@ -221,6 +234,17 @@ class FakeUserQuery implements PromiseLike<{ data: unknown; error: QueryError | 
       return { data: (single ? rows[0] ?? null : rows) as T | T[] | null, error: null };
     }
 
+    if (this.table === 'follow_notifications') {
+      const rows = applyFilters(this.admin.followNotifications, this.filters);
+      if (this.updateRow) {
+        for (const row of rows) Object.assign(row, this.updateRow);
+        return { data: rows as T[], error: null };
+      }
+      const sorted = [...rows].sort((first, second) => Date.parse(second.created_at) - Date.parse(first.created_at));
+      const limited = this.limitValue === null ? sorted : sorted.slice(0, this.limitValue);
+      return { data: limited as T[], error: null };
+    }
+
     return { data: null, error: { message: `unknown table ${this.table}` } };
   }
 }
@@ -305,9 +329,10 @@ test('listFollowsHome returns an empty home payload when follows are unavailable
   assert.deepEqual(payload.pendingOutgoing, []);
 });
 
-test('listFollowNotifications keeps read notifications alongside unread ones', async () => {
+test('listFollowNotifications falls back to follows (keeping read ones) before the migration is applied', async () => {
   const thirdId = '33333333-3333-3333-3333-333333333333';
   const admin = new FakeUserAdmin({
+    missingTables: ['follow_notifications'],
     profiles: [
       { user_id: viewerId, username: 'Viewer', account_id: 'mkviewer' },
       { user_id: targetId, username: 'Target', user_handle: 'abc', account_id: null },
@@ -365,6 +390,128 @@ test('listFollowNotifications keeps read notifications alongside unread ones', a
   assert.deepEqual(notifications.map((item) => item.readAt), ['2026-06-26T03:30:00.000Z', null, null]);
 });
 
+test('listFollowNotifications reads stored notifications, including ones whose follow is gone', async () => {
+  const thirdId = '33333333-3333-3333-3333-333333333333';
+  const admin = new FakeUserAdmin({
+    profiles: [
+      { user_id: viewerId, username: 'Viewer', account_id: 'mkviewer' },
+      { user_id: targetId, username: 'Target', account_id: 'target' },
+      { user_id: thirdId, username: 'Third', account_id: 'third' },
+    ],
+    follows: [
+      {
+        id: 'follow-pending',
+        follower_id: targetId,
+        following_id: viewerId,
+        status: 'pending',
+        created_at: '2026-06-26T00:00:00.000Z',
+        responded_at: null,
+        following_read_at: null,
+      },
+    ],
+    followNotifications: [
+      {
+        id: 'notification-request',
+        user_id: viewerId,
+        actor_id: targetId,
+        follow_id: 'follow-pending',
+        kind: 'follow_request',
+        created_at: '2026-06-26T00:00:00.000Z',
+        read_at: null,
+      },
+      {
+        // フォローは外れたが通知は残っている
+        id: 'notification-unfollowed',
+        user_id: viewerId,
+        actor_id: thirdId,
+        follow_id: null,
+        kind: 'follow',
+        created_at: '2026-06-26T01:00:00.000Z',
+        read_at: '2026-06-26T02:00:00.000Z',
+      },
+      {
+        id: 'notification-other-user',
+        user_id: thirdId,
+        actor_id: viewerId,
+        follow_id: null,
+        kind: 'follow',
+        created_at: '2026-06-26T03:00:00.000Z',
+        read_at: null,
+      },
+    ],
+  });
+
+  const notifications = await listFollowNotifications(viewerId, admin as never);
+
+  assert.deepEqual(notifications.map((item) => item.id), ['notification-unfollowed', 'notification-request']);
+  assert.deepEqual(notifications.map((item) => item.status), ['active', 'pending']);
+  assert.deepEqual(notifications.map((item) => item.followId), [null, 'follow-pending']);
+  assert.equal(notifications[0]?.profile.accountId, 'third');
+  assert.equal(notifications[1]?.profile.accountId, 'target');
+});
+
+test('listFollowNotifications shows an accepted request as history', async () => {
+  const admin = new FakeUserAdmin({
+    profiles: [{ user_id: targetId, username: 'Target', account_id: 'target' }],
+    follows: [
+      {
+        id: 'follow-accepted',
+        follower_id: targetId,
+        following_id: viewerId,
+        status: 'active',
+        created_at: '2026-06-26T00:00:00.000Z',
+        responded_at: '2026-06-26T00:10:00.000Z',
+        following_read_at: null,
+      },
+    ],
+    followNotifications: [
+      {
+        id: 'notification-request',
+        user_id: viewerId,
+        actor_id: targetId,
+        follow_id: 'follow-accepted',
+        kind: 'follow_request',
+        created_at: '2026-06-26T00:00:00.000Z',
+        read_at: null,
+      },
+    ],
+  });
+
+  const notifications = await listFollowNotifications(viewerId, admin as never);
+
+  assert.deepEqual(notifications.map((item) => item.status), ['active']);
+});
+
+test('markFollowNotificationsRead marks the viewer\'s stored notifications read', async () => {
+  const admin = new FakeUserAdmin({
+    followNotifications: [
+      {
+        id: 'mine',
+        user_id: viewerId,
+        actor_id: targetId,
+        follow_id: null,
+        kind: 'follow',
+        created_at: '2026-06-26T00:00:00.000Z',
+        read_at: null,
+      },
+      {
+        id: 'theirs',
+        user_id: targetId,
+        actor_id: viewerId,
+        follow_id: null,
+        kind: 'follow',
+        created_at: '2026-06-26T00:00:00.000Z',
+        read_at: null,
+      },
+    ],
+  });
+
+  await markFollowNotificationsRead(viewerId, admin as never);
+
+  assert.ok(admin.followNotifications.find((row) => row.id === 'mine')?.read_at);
+  assert.equal(admin.followNotifications.find((row) => row.id === 'theirs')?.read_at, null);
+});
+
 function buildIncomingSummary(index: number, status: 'active' | 'pending'): FollowSummary {
   const createdAt = new Date(Date.UTC(2026, 5, 1, 0, index)).toISOString();
   return {
@@ -416,6 +563,7 @@ test('selectFollowNotifications ignores follows the viewer sent', () => {
 test('markFollowNotificationsRead marks unread incoming follow notifications only', async () => {
   const thirdId = '33333333-3333-3333-3333-333333333333';
   const admin = new FakeUserAdmin({
+    missingTables: ['follow_notifications'],
     follows: [
       {
         id: 'follow-1',
