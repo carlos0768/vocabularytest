@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ProfileView, profileAvatarColor, type ProfileCounts } from '@/components/profile/ProfileView';
+import { useProfileWordbooks } from '@/components/profile/ProfileWordbooks';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
 import { getStats, type CachedStats } from '@/lib/stats-cache';
@@ -28,6 +29,7 @@ export default function ProfilePage() {
   const statsLoading = authLoading || (authStatsKey !== null && statsState?.authKey !== authStatsKey);
 
   const [counts, setCounts] = useState<ProfileCounts | null>(null);
+  const { wordbooks, loading: wordbooksLoading } = useProfileWordbooks(accountId, !authLoading && isAuthenticated);
 
   useEffect(() => {
     if (authLoading || !authStatsKey) return;
@@ -101,6 +103,10 @@ export default function ProfilePage() {
       friendsHref="/follows?tab=following"
       stats={stats}
       statsLoading={statsLoading}
+      wordbooks={wordbooks}
+      wordbooksLoading={wordbooksLoading}
+      wordbookHref={(id) => `/project/${id}`}
+      isSelf
       withBottomNav
     />
   );

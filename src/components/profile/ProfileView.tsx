@@ -7,11 +7,13 @@ import { Icon } from '@/components/ui/Icon';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { ProfileBio } from '@/components/profile/ProfileBio';
 import { ProfileCertifications } from '@/components/profile/ProfileCertifications';
+import { ProfileWordbooks } from '@/components/profile/ProfileWordbooks';
 import type { ProfileCertification } from '@/lib/profile/certifications';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useToast } from '@/components/ui/toast';
 import type { CachedStats } from '@/lib/stats-cache';
+import type { ProfileWordbookList } from '@/lib/profile/wordbooks';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { triggerHaptic } from '@/lib/haptics';
 import { buildProfileShareText, buildProfileShareUrl } from '@/lib/profile/share';
@@ -89,6 +91,10 @@ export function ProfileView({
   actions,
   stats,
   statsLoading,
+  wordbooks,
+  wordbooksLoading,
+  wordbookHref,
+  isSelf = false,
   withBottomNav = false,
 }: {
   title: string;
@@ -116,6 +122,12 @@ export function ProfileView({
   actions?: ReactNode;
   stats: CachedStats | null;
   statsLoading: boolean;
+  /** その人が持っている単語帳(一覧のみ。中身は含まない) */
+  wordbooks: ProfileWordbookList | null;
+  wordbooksLoading: boolean;
+  /** 自分のプロフィールのときだけ渡す。他人の単語帳は開けない */
+  wordbookHref?: (id: string) => string;
+  isSelf?: boolean;
   /** ボトムナビが表示される画面ではナビに隠れないよう下部余白を広げる */
   withBottomNav?: boolean;
 }) {
@@ -173,6 +185,10 @@ export function ProfileView({
       actions={actions}
       stats={stats}
       statsLoading={statsLoading}
+      wordbooks={wordbooks}
+      wordbooksLoading={wordbooksLoading}
+      wordbookHref={wordbookHref}
+      isSelf={isSelf}
       derived={{ recentWeek, weekTotal, maxWeekValue, heat, totalDays, avgPerDay, totalWords, mastered, review, newWords, masteryPercent }}
     />
     <div
@@ -285,6 +301,16 @@ export function ProfileView({
           </div>
 
           {actions && <div className="mt-3 flex items-center gap-2">{actions}</div>}
+        </div>
+
+        {/* Wordbooks */}
+        <div className="px-[18px] pb-4 pt-2">
+          <ProfileWordbooks
+            wordbooks={wordbooks}
+            loading={wordbooksLoading}
+            wordbookHref={wordbookHref}
+            isSelf={isSelf}
+          />
         </div>
 
         {/* Overview / stats */}
@@ -451,6 +477,10 @@ function DesktopProfileView({
   actions,
   stats,
   statsLoading,
+  wordbooks,
+  wordbooksLoading,
+  wordbookHref,
+  isSelf,
   derived,
 }: {
   title: string;
@@ -474,6 +504,10 @@ function DesktopProfileView({
   actions?: ReactNode;
   stats: CachedStats | null;
   statsLoading: boolean;
+  wordbooks: ProfileWordbookList | null;
+  wordbooksLoading: boolean;
+  wordbookHref?: (id: string) => string;
+  isSelf: boolean;
   derived: ProfileDerivedStats;
 }) {
   const { recentWeek, weekTotal, maxWeekValue, heat, totalDays, avgPerDay, mastered, review, newWords, masteryPercent } = derived;
@@ -550,6 +584,15 @@ function DesktopProfileView({
           {actions && (
             <div style={{ display: 'flex', gap: 10, marginTop: 18, maxWidth: 420 }}>{actions}</div>
           )}
+
+          <div style={{ padding: '24px 2px 0' }}>
+            <ProfileWordbooks
+              wordbooks={wordbooks}
+              loading={wordbooksLoading}
+              wordbookHref={wordbookHref}
+              isSelf={isSelf}
+            />
+          </div>
 
           <div style={{ padding: '24px 2px 10px' }}>
             <div className="ds-eyebrow" style={{ letterSpacing: '0.08em' }}>OVERVIEW</div>
