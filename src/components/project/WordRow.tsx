@@ -145,25 +145,28 @@ export function StatusSquares({
 }
 
 /**
- * 赤シート。訳の上に赤いベタを敷いて読めなくする。
+ * 赤シート。中身の上に赤いベタを敷いて読めなくする (訳側・英語側の両方で使う)。
  *
  * 文字を消さずに色だけ透明にするのは、隠しても行の高さと幅が動かないようにするため
- * (訳を消すと行が詰まって、赤シートを外すたびに一覧が跳ねる)。
- * 訳は `word.japanese` 直書きではなく複数語義を畳む TranslationDisplay 経由なので、
- * ここでもラッパごと覆って語義が漏れないようにする。
+ * (中身を消すと行が詰まって、赤シートを外すたびに一覧が跳ねる)。
  */
-function MaskedTranslation({
-  word,
+function RedSheetMask({
   hidden,
   interactive,
-  stacked = false,
+  className,
+  hiddenLabel,
+  revealLabel,
+  children,
 }: {
-  word: Word;
   hidden: boolean;
   /** 赤い部分をタップして1行だけ表に戻せるか。選択モードでは行全体がボタンなので無効。 */
   interactive: boolean;
-  /** 複数語義を1語義1行で縦に積む (収まらない語義はその行だけ `...` で省略)。 */
-  stacked?: boolean;
+  className: string;
+  /** 隠れている間の読み上げ文言 (タップできないとき)。 */
+  hiddenLabel: string;
+  /** タップで表に戻すボタンの読み上げ文言。 */
+  revealLabel: string;
+  children: React.ReactNode;
 }) {
   const [revealed, setRevealed] = useState(false);
 
@@ -175,26 +178,16 @@ function MaskedTranslation({
     setRevealed(false);
   }
 
-  // 2行までなのは、行の高さを決めているステータス列 (3マス + 習得度ラベル) に
-  // 収まる行数だから。3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の
-  // `...` で示す。
-  const content = <TranslationDisplay word={word} compact stacked={stacked} maxLines={2} />;
-
-  // 縦積みのときは語義ごとに `...` を出すので、ラッパ側では1行に潰さない。
-  // flex-1 で伸ばさず内容幅のままにしているのは、赤シートのベタが訳のない余白まで
-  // 広がらないようにするため (狭いときは flex の縮小で効いて各行が `...` になる)。
-  const boxClass = stacked ? 'block min-w-0' : 'truncate';
-
   if (!hidden || revealed) {
-    return <span className={boxClass}>{content}</span>;
+    return <span className={className}>{children}</span>;
   }
 
-  const maskClass = `${boxClass} select-none rounded-[4px] bg-[#e0483f] text-transparent`;
+  const maskClass = `${className} select-none rounded-[4px] bg-[#e0483f] text-transparent`;
 
   if (!interactive) {
     return (
-      <span className={maskClass} aria-label="訳は赤シートで隠れています">
-        {content}
+      <span className={maskClass} aria-label={hiddenLabel}>
+        {children}
       </span>
     );
   }
@@ -205,7 +198,7 @@ function MaskedTranslation({
     <span
       role="button"
       tabIndex={0}
-      aria-label="訳を表示"
+      aria-label={revealLabel}
       className={`${maskClass} cursor-pointer`}
       onClick={(event) => {
         // 行タップ (単語詳細を開く) には伝えない
@@ -220,8 +213,44 @@ function MaskedTranslation({
         reveal();
       }}
     >
-      {content}
+      {children}
     </span>
+  );
+}
+
+/**
+ * 訳側の赤シート。訳は `word.japanese` 直書きではなく複数語義を畳む
+ * TranslationDisplay 経由なので、ラッパごと覆って語義が漏れないようにする。
+ */
+function MaskedTranslation({
+  word,
+  hidden,
+  interactive,
+  stacked = false,
+}: {
+  word: Word;
+  hidden: boolean;
+  interactive: boolean;
+  /** 複数語義を1語義1行で縦に積む (収まらない語義はその行だけ `...` で省略)。 */
+  stacked?: boolean;
+}) {
+  // 縦積みのときは語義ごとに `...` を出すので、ラッパ側では1行に潰さない。
+  // flex-1 で伸ばさず内容幅のままにしているのは、赤シートのベタが訳のない余白まで
+  // 広がらないようにするため (狭いときは flex の縮小で効いて各行が `...` になる)。
+  //
+  // 2行までなのは、行の高さを決めているステータス列 (3マス + 習得度ラベル) に
+  // 収まる行数だから。3行にすると一覧の行が伸びてしまう。あふれた語義は末尾の
+  // `...` で示す。
+  return (
+    <RedSheetMask
+      hidden={hidden}
+      interactive={interactive}
+      className={stacked ? 'block min-w-0' : 'truncate'}
+      hiddenLabel="訳は赤シートで隠れています"
+      revealLabel="訳を表示"
+    >
+      <TranslationDisplay word={word} compact stacked={stacked} maxLines={2} />
+    </RedSheetMask>
   );
 }
 
@@ -250,6 +279,7 @@ function WordRowText({
   pos,
   wrongCount,
   hideMeaning,
+  hideEnglish,
   interactive,
   splitMeaning,
 }: {
@@ -257,11 +287,24 @@ function WordRowText({
   pos: string | null;
   wrongCount: number;
   hideMeaning: boolean;
+  hideEnglish: boolean;
   interactive: boolean;
   splitMeaning: boolean;
 }) {
+  // 英語側の赤シートも訳側と同じく、ベタは見出し語の幅だけに敷く (flex の子にして
+  // 内容幅に縮め、長い語は truncate で `...` にする)。
   const english = (
-    <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)] lg:text-[16px]">{word.english}</div>
+    <div className="flex min-w-0 font-display text-[15px] font-bold text-[var(--solid-ink)] lg:text-[16px]">
+      <RedSheetMask
+        hidden={hideEnglish}
+        interactive={interactive}
+        className="truncate"
+        hiddenLabel="英語は赤シートで隠れています"
+        revealLabel="英語を表示"
+      >
+        {word.english}
+      </RedSheetMask>
+    </div>
   );
   const meaning = (
     <>
@@ -300,6 +343,7 @@ export function WordRow({
   tourAnchor = false,
   wrongCount = 0,
   hideMeaning = false,
+  hideEnglish = false,
   splitMeaning = false,
   onToggleSelect,
   onCycleStatus,
@@ -315,6 +359,8 @@ export function WordRow({
   wrongCount?: number;
   /** 赤シート。true の間は訳を赤いベタで覆う (行タップで1行だけ表に戻せる)。 */
   hideMeaning?: boolean;
+  /** 英語側の赤シート。true の間は見出し語を赤いベタで覆う (行タップで1行だけ表に戻せる)。 */
+  hideEnglish?: boolean;
   /** 訳を英語の下ではなく右のカラムに出し、間に仕切りを引く。 */
   splitMeaning?: boolean;
   onToggleSelect: () => void;
@@ -349,6 +395,7 @@ export function WordRow({
               pos={pos}
               wrongCount={wrongCount}
               hideMeaning={hideMeaning}
+              hideEnglish={hideEnglish}
               interactive={false}
               splitMeaning={splitMeaning}
             />
@@ -380,6 +427,7 @@ export function WordRow({
             pos={pos}
             wrongCount={wrongCount}
             hideMeaning={hideMeaning}
+            hideEnglish={hideEnglish}
             interactive
             splitMeaning={splitMeaning}
           />
