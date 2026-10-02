@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { ProfileView, profileAvatarColor, type ProfileCounts } from '@/components/profile/ProfileView';
 import { FollowButton } from '@/components/profile/FollowButton';
+import { useProfileWordbooks } from '@/components/profile/ProfileWordbooks';
 import { useAuth } from '@/hooks/use-auth';
 import type { CachedStats } from '@/lib/stats-cache';
 import type { FriendProfile } from '@/lib/friends/types';
@@ -39,6 +40,10 @@ export default function FriendProfilePage() {
   const [counts, setCounts] = useState<ProfileCounts | null>(null);
   const [error, setError] = useState(false);
   const [fetched, setFetched] = useState(false);
+  const { wordbooks, loading: wordbooksLoading } = useProfileWordbooks(
+    accountId || null,
+    !authLoading && isAuthenticated,
+  );
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || !accountId) return;
@@ -133,6 +138,11 @@ export default function FriendProfilePage() {
       }
       stats={data.stats ?? null}
       statsLoading={false}
+      wordbooks={wordbooks}
+      wordbooksLoading={wordbooksLoading}
+      // 他人の単語帳は一覧だけ。自分のページを /profile/[自分のID] で開いたときは開ける
+      wordbookHref={data.isSelf ? (id) => `/project/${id}` : undefined}
+      isSelf={Boolean(data.isSelf)}
     />
   );
 }
