@@ -3,7 +3,8 @@
 /**
  * ホーム上部の Spotify 風ショートカットグリッド（2カラムのコンパクトタイル）。
  * 枠は 自分の単語帳 → 参加中のグループ → 英検級ベースのおすすめ共有単語帳 の
- * 優先順で埋める（buildHomeShortcutTiles）。
+ * 優先順で埋める（buildHomeShortcutTiles）。単語帳は呼び出し側が
+ * selectHomeShortcutProjects で選んだもの（直近使ったバインダー内の単語帳を含む）。
  * 以前ここにあった TODAY'S GOAL（今日の復習）と保存済み単語のタイルは
  * 目標ページ (/goal) と /favorites に移した。
  */
@@ -31,6 +32,8 @@ export type HomeShortcutProject = {
   title: string;
   iconImage?: string;
   totalWords: number;
+  /** バインダー名。バインダー内の単語帳（直近使ったもの）だけが持つ */
+  binder?: string | null;
 };
 
 export function HomeShortcutGrid({
@@ -67,7 +70,12 @@ export function HomeShortcutGrid({
                 </IconSquare>
               }
               title={project.title}
-              sub={<TileSub>{project.totalWords}語</TileSub>}
+              sub={
+                <TileSub>
+                  {project.binder?.trim() ? `${project.binder.trim()} · ` : ''}
+                  {project.totalWords}語
+                </TileSub>
+              }
             />
           );
         }
@@ -137,7 +145,7 @@ function IconSquare({ background, children }: { background: string; children?: R
 function TileSub({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
   return (
     <div
-      className={`mt-px text-[9px] font-extrabold leading-none ${accent ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}`}
+      className={`mt-px truncate text-[9px] font-extrabold leading-none ${accent ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}`}
     >
       {children}
     </div>

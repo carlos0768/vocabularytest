@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { markProjectUsed } from '@/lib/projects/recent-use';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
@@ -49,6 +50,10 @@ export default function Quiz2Page() {
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
+  // ホームのショートカットグリッドの「直近使った単語帳」用（recent-use.ts）
+  useEffect(() => {
+    markProjectUsed(projectId);
+  }, [projectId]);
   const collectionId = searchParams.get('collectionId');
   const returnPath = searchParams.get('from');
   const isCollectionMode = projectId === 'collection';

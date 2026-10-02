@@ -40,6 +40,7 @@ import {
   type WordReadRepository,
 } from '@/lib/projects/load-helpers';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
+import { getProjectRecentUse, type ProjectRecentUseMap } from '@/lib/projects/recent-use';
 import { getCachedBinderIcons, loadBinderIcons, type BinderIconMap } from '@/lib/binders/icons';
 import {
   getHomeViewSnapshot,
@@ -50,7 +51,7 @@ import {
 import { imageToneTextStyle, useImageTone } from '@/lib/ui/image-tone';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { countHomeWordStatuses } from '@/lib/home/home-page-selectors';
-import { homeShortcutContentSlots } from '@/lib/home/shortcut-tiles';
+import { homeShortcutContentSlots, selectHomeShortcutProjects } from '@/lib/home/shortcut-tiles';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import {
   clearHomeGeneratingWordbook,
@@ -559,14 +560,25 @@ export function HomeClient() {
     () => listProjects.filter((project) => !project.binder?.trim()),
     [listProjects],
   );
+  // ショートカットグリッドの単語帳。直近使った単語帳はバインダー内のものも先頭に出し、
+  // 残りはバインダー外の単語帳を従来の並びで続ける（selectHomeShortcutProjects）。
+  // 「直近使った」は単語帳を直接開いた記録で判定する（復習などの横断出題は含めない）。
+  // localStorage なので SSR とのずれを避けてマウント後に読む。
+  const [projectRecentUse, setProjectRecentUse] = useState<ProjectRecentUseMap>({});
+  useEffect(() => {
+    setProjectRecentUse(getProjectRecentUse());
+  }, []);
+  const gridProjects = useMemo(
+    () => selectHomeShortcutProjects(listProjects, projectRecentUse).slice(0, homeShortcutContentSlots(0)),
+    [listProjects, projectRecentUse],
+  );
   // ショートカットグリッドに載り切らなかった単語帳だけを下のマイ単語帳リストに
   // 出す（重複表示を避ける）。全部グリッドに収まる場合は従来どおり全件を出す
   // （新規ユーザーのチュートリアルが最初の ProjectRow をアンカーにしているため）。
-  const gridProjectCount = Math.min(
-    unfiledProjects.length,
-    homeShortcutContentSlots(0),
-  );
-  const overflowProjects = unfiledProjects.slice(gridProjectCount);
+  const overflowProjects = useMemo(() => {
+    const gridIds = new Set(gridProjects.map((project) => project.id));
+    return unfiledProjects.filter((project) => !gridIds.has(project.id));
+  }, [gridProjects, unfiledProjects]);
   const myBooksProjects = overflowProjects.length > 0 ? overflowProjects : unfiledProjects;
   const visibleProjects = myBooksProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
@@ -750,7 +762,7 @@ export function HomeClient() {
       {/* Spotify風ショートカットグリッド: 単語帳/グループ/おすすめ
           （今日の復習・保存済みタイルは目標ページ /goal と /favorites に移した） */}
       <HomeShortcutGrid
-        projects={unfiledProjects}
+        projects={gridProjects}
         groups={myGroups}
         recommendations={visibleRecommendedBooks}
       />
