@@ -403,10 +403,14 @@ export function HomeClient() {
       if (readRepo === remoteRepository && rawProjects.length > 0) {
         try {
           const db = getDb();
-          await db.projects.bulkPut(rawProjects);
-          if (result.allWords.length > 0) {
-            await db.words.bulkPut(result.allWords);
-          }
+          // 単語帳と単語は1トランザクションで書く。別々に書くと、単語帳だけ
+          // 入って単語がまだの瞬間に開いた単語帳が「0語」に見える。
+          await db.transaction('rw', [db.projects, db.words], async () => {
+            await db.projects.bulkPut(rawProjects);
+            if (result.allWords.length > 0) {
+              await db.words.bulkPut(result.allWords);
+            }
+          });
         } catch {
           // Non-critical — local cache write failure doesn't affect the UI
         }

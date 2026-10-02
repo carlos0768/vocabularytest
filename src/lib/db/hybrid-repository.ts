@@ -195,38 +195,47 @@ export class HybridWordRepository implements WordRepository {
         return;
       }
 
-      // 6. Replace local with merged remote data
-      await db.projects.where('userId').equals(userId).delete();
-      if (mergedProjects.length > 0) {
-        await db.projects.bulkPut(mergedProjects);
+      // 6. Fetch every remote word (and its lexicon entries) BEFORE touching
+      //    the local cache. Deleting first and downloading afterwards left a
+      //    window — as long as the download — where IndexedDB held the
+      //    wordbooks but none of their words, so a wordbook opened from the
+      //    freshly loaded home screen showed zero words until reopened.
+      const mergedProjectIds = mergedProjects.map((project) => project.id);
+      let remoteWords: Word[] = [];
+      let lexiconEntries: LexiconEntry[] = [];
+      if (mergedProjectIds.length > 0) {
+        const remoteWordsByProject = await this.dependencies.remoteRepository.getAllWordsByProjectIds(mergedProjectIds);
+        remoteWords = mergedProjectIds.flatMap((projectId) => remoteWordsByProject[projectId] ?? []);
+
+        const lexiconEntryIds = [...new Set(remoteWords.map((word) => word.lexiconEntryId).filter(Boolean))] as string[];
+        if (lexiconEntryIds.length > 0) {
+          lexiconEntries = await this.dependencies.remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
+        }
       }
 
-      // 7. Sync words in bulk to avoid project-by-project N+1 fetches
-      const mergedProjectIds = mergedProjects.map((project) => project.id);
+      // 7. Replace local with merged remote data in one transaction, so readers
+      //    see either the old cache or the new one — never a half-replaced one.
       const localProjectIds = localProjects.map((project) => project.id);
       const wordsProjectIdsToReplace = [...new Set([...localProjectIds, ...mergedProjectIds])];
 
-      if (wordsProjectIdsToReplace.length > 0) {
-        await db.words.where('projectId').anyOf(wordsProjectIdsToReplace).delete();
-      }
+      await db.transaction('rw', [db.projects, db.words, db.lexiconEntries], async () => {
+        await db.projects.where('userId').equals(userId).delete();
+        if (mergedProjects.length > 0) {
+          await db.projects.bulkPut(mergedProjects);
+        }
 
-      await db.lexiconEntries.clear();
-
-      if (mergedProjectIds.length > 0) {
-        const remoteWordsByProject = await this.dependencies.remoteRepository.getAllWordsByProjectIds(mergedProjectIds);
-        const remoteWords = mergedProjectIds.flatMap((projectId) => remoteWordsByProject[projectId] ?? []);
+        if (wordsProjectIdsToReplace.length > 0) {
+          await db.words.where('projectId').anyOf(wordsProjectIdsToReplace).delete();
+        }
         if (remoteWords.length > 0) {
           await db.words.bulkPut(remoteWords);
         }
 
-        const lexiconEntryIds = [...new Set(remoteWords.map((word) => word.lexiconEntryId).filter(Boolean))] as string[];
-        if (lexiconEntryIds.length > 0) {
-          const lexiconEntries = await this.dependencies.remoteRepository.getLexiconEntriesByIds(lexiconEntryIds);
-          if (lexiconEntries.length > 0) {
-            await db.lexiconEntries.bulkPut(lexiconEntries);
-          }
+        await db.lexiconEntries.clear();
+        if (lexiconEntries.length > 0) {
+          await db.lexiconEntries.bulkPut(lexiconEntries);
         }
-      }
+      });
 
       // 8. Clear sync queue (we're now in sync)
       await this.dependencies.syncQueue.clear();

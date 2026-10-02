@@ -182,6 +182,7 @@ function makeDb(projects: Project[], words: Word[]): {
       projects: projectsTable,
       words: wordsTable,
       lexiconEntries: lexiconEntriesTable,
+      transaction: async (_mode: string, _tables: unknown[], scope: () => Promise<unknown>) => scope(),
     } as unknown as ReturnType<HybridRepositoryDependencies['getDb']>,
     projectsTable,
     wordsTable,
@@ -193,6 +194,7 @@ function makeRemoteRepository(options: {
   getProjectsResponses: Project[][];
   remoteWords?: Word[];
   calls?: string[];
+  onGetAllWordsByProjectIds?: () => void;
 }): HybridRepositoryDependencies['remoteRepository'] {
   let getProjectsIndex = 0;
   const calls = options.calls ?? [];
@@ -221,6 +223,7 @@ function makeRemoteRepository(options: {
     },
     getAllWordsByProjectIds: async (projectIds) => {
       calls.push(`getAllWordsByProjectIds:${projectIds.join(',')}`);
+      options.onGetAllWordsByProjectIds?.();
       return Object.fromEntries(
         projectIds.map((projectId) => [
           projectId,
@@ -456,4 +459,36 @@ test('fullSync chooses the full sync path when the synced user changes', async (
   assert.equal(calls.some((call) => call.startsWith('getProjectIds:')), false);
   assert.equal(storage.getItem('scanvocab_sync_user'), USER_ID);
   assert.equal(storage.getItem('scanvocab_last_sync'), String(FIXED_NOW));
+});
+
+test('fullSync keeps local words readable while remote words are downloading', async (t) => {
+  const { restore } = installLocalStorage();
+  t.after(restore);
+
+  // 以前は単語を消してから取りに行っていたため、ダウンロード中に開いた
+  // 単語帳が「0語」になっていた。取得が終わるまで旧キャッシュが残ること。
+  const project = makeProject('project_1');
+  const localWord = makeWord('word_1', project.id);
+  const remoteWord = { ...makeWord('word_1', project.id), japanese: 'updated' };
+  const { db, wordsTable, projectsTable } = makeDb([project], [localWord]);
+  const observed: { words: number; projects: number }[] = [];
+  const repository = makeRepository({
+    getDb: () => db,
+    remoteRepository: makeRemoteRepository({
+      getProjectsResponses: [[project]],
+      remoteWords: [remoteWord],
+      onGetAllWordsByProjectIds: () => {
+        observed.push({
+          words: wordsTable.getRows().length,
+          projects: projectsTable.getRows().length,
+        });
+      },
+    }),
+    syncQueue: makeSyncQueue([]),
+  });
+
+  await repository.fullSync(USER_ID);
+
+  assert.deepEqual(observed, [{ words: 1, projects: 1 }]);
+  assert.deepEqual(wordsTable.getRows(), [remoteWord]);
 });
