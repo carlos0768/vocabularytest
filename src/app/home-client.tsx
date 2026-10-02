@@ -60,6 +60,8 @@ import {
 import { getDailyStats, getStreakDays } from '@/lib/utils';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { useHideOnScroll } from '@/hooks/use-hide-on-scroll';
+import { useFollowingTodayActivity } from '@/hooks/use-following-today-activity';
+import { FollowingTodayStrip } from '@/components/home/FollowingTodayStrip';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
@@ -647,6 +649,8 @@ export function HomeClient() {
   const showUpgradeBanner = isBillingEnabled() && !isPro && !upgradeBannerDismissed;
   // 参加中のグループ（マイ単語帳の下に表示。/shared から移設）
   const { groups: myGroups } = useMyGroups();
+  // 今日クイズを解いたフォロー中の人（マイ単語帳の上にカード列で出す）
+  const followingToday = useFollowingTodayActivity();
   // ホームのおすすめ（英検級ベースの共有単語帳）
   const { books: recommendedBooks } = useHomeRecommendations();
   // 語法問題集（Pro限定）。グループ表示の上に出す
@@ -752,6 +756,8 @@ export function HomeClient() {
           <ProUpgradeBanner onDismiss={dismissUpgradeBanner} />
         </div>
       )}
+
+      <FollowingTodayStrip activity={followingToday} />
 
       <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
         <div>
