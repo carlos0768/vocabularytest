@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildHomeShortcutTiles, homeShortcutContentSlots } from './shortcut-tiles';
+import {
+  HOME_SHORTCUT_RECENT_WINDOW_MS,
+  buildHomeShortcutTiles,
+  homeShortcutContentSlots,
+  selectHomeShortcutProjects,
+} from './shortcut-tiles';
 
 const p = (id: string) => ({ id });
 const g = (id: string) => ({ id });
@@ -84,4 +89,67 @@ test('溢れた単語帳の計算がグリッドの表示数と一致する', ()
   const tiles = buildHomeShortcutTiles({ projects, groups: [], recommendations: [], slots });
   const gridProjectCount = Math.min(projects.length, slots);
   assert.equal(tiles.filter((tile) => tile.kind === 'project').length, gridProjectCount);
+});
+
+const NOW = new Date('2026-10-02T12:00:00Z');
+const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
+const HOUR = 60 * 60 * 1000;
+const proj = (id: string, binder: string | null = null, lastUsedAt: string | null = null) => ({
+  id,
+  binder,
+  lastUsedAt,
+});
+
+test('バインダー内の単語帳は、直近使っていればグリッド候補に入る', () => {
+  const selected = selectHomeShortcutProjects(
+    [proj('a'), proj('inBinder', '英検', ago(HOUR)), proj('b')],
+    NOW,
+  );
+  assert.deepEqual(selected.map((p) => p.id), ['inBinder', 'a', 'b']);
+});
+
+test('バインダー内でも直近使っていなければ候補に入らない', () => {
+  const selected = selectHomeShortcutProjects(
+    [
+      proj('a'),
+      proj('neverUsed', '英検'),
+      proj('oldUse', '英検', ago(HOME_SHORTCUT_RECENT_WINDOW_MS + HOUR)),
+      proj('blankBinder', '  ', null),
+    ],
+    NOW,
+  );
+  // 空白だけのバインダー名は未分類あつかい（ホームの unfiled 判定と同じ）
+  assert.deepEqual(selected.map((p) => p.id), ['a', 'blankBinder']);
+});
+
+test('直近使った単語帳は新しい順に先頭、残りは元の並びのまま', () => {
+  const selected = selectHomeShortcutProjects(
+    [
+      proj('a'),
+      proj('usedOld', null, ago(48 * HOUR)),
+      proj('b'),
+      proj('binderNew', 'X', ago(HOUR)),
+      proj('oldUnfiled', null, ago(HOME_SHORTCUT_RECENT_WINDOW_MS * 2)),
+    ],
+    NOW,
+  );
+  assert.deepEqual(selected.map((p) => p.id), ['binderNew', 'usedOld', 'a', 'b', 'oldUnfiled']);
+});
+
+test('バインダー外の単語帳が枠を超えていても、直近使ったバインダー内の単語帳はグリッドに載る', () => {
+  const unfiled = Array.from({ length: 10 }, (_, i) => proj(`p${i}`));
+  const selected = selectHomeShortcutProjects([...unfiled, proj('inBinder', 'B', ago(HOUR))], NOW);
+  const tiles = buildHomeShortcutTiles({
+    projects: selected,
+    groups: [],
+    recommendations: [],
+    slots: homeShortcutContentSlots(0),
+  });
+  assert.equal(tiles[0].kind, 'project');
+  assert.equal(tiles[0].kind === 'project' && tiles[0].project.id, 'inBinder');
+});
+
+test('不正な lastUsedAt は未使用あつかい', () => {
+  const selected = selectHomeShortcutProjects([proj('bad', 'B', 'not-a-date'), proj('a')], NOW);
+  assert.deepEqual(selected.map((p) => p.id), ['a']);
 });

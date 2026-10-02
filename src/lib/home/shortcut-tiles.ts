@@ -1,6 +1,7 @@
 /**
  * ホーム上部のショートカットグリッド（Spotify風 2カラム）の枠埋めロジック。
  * 優先順は 自分の単語帳 → 参加中のグループ → おすすめ共有単語帳。
+ * 自分の単語帳の候補と並びは selectHomeShortcutProjects が決める。
  * 自分のコンテンツで枠が埋まる場合、おすすめは一切表示されない。
  */
 
@@ -22,6 +23,50 @@ export const HOME_SHORTCUT_GRID_SIZE = 8;
  */
 export function homeShortcutContentSlots(fixedTiles: number): number {
   return Math.max(0, HOME_SHORTCUT_GRID_SIZE - fixedTiles);
+}
+
+/** 「直近使った」とみなす期間。これより前に使った単語帳はバインダー内なら出さない */
+export const HOME_SHORTCUT_RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+type ShortcutProjectCandidate = {
+  id: string;
+  binder?: string | null;
+  /** その単語帳の単語を最後に学習（クイズ・復習）した時刻。未学習なら null */
+  lastUsedAt?: string | null;
+};
+
+function recentUsedAtMs(project: ShortcutProjectCandidate, nowMs: number): number | null {
+  if (!project.lastUsedAt) return null;
+  const usedAt = Date.parse(project.lastUsedAt);
+  if (Number.isNaN(usedAt) || nowMs - usedAt > HOME_SHORTCUT_RECENT_WINDOW_MS) return null;
+  return usedAt;
+}
+
+/**
+ * ショートカットグリッドに載せる単語帳の候補と並び順を決める。
+ * - 直近 (HOME_SHORTCUT_RECENT_WINDOW_MS 以内) に使った単語帳を、新しい順に先頭へ。
+ *   バインダーに入っている単語帳もここでは出す（ふだんはバインダーのタイルの
+ *   中にしか出ないが、続きをすぐ開けるようにする）。
+ * - 残りはバインダーに入っていない単語帳だけを、渡された順（従来の並び）で続ける。
+ */
+export function selectHomeShortcutProjects<P extends ShortcutProjectCandidate>(
+  projects: readonly P[],
+  now: Date = new Date(),
+): P[] {
+  const nowMs = now.getTime();
+  const recent: { project: P; usedAt: number }[] = [];
+  const rest: P[] = [];
+  for (const project of projects) {
+    const usedAt = recentUsedAtMs(project, nowMs);
+    if (usedAt !== null) {
+      recent.push({ project, usedAt });
+    } else if (!project.binder?.trim()) {
+      rest.push(project);
+    }
+  }
+  // Array.prototype.sort は安定ソートなので、同時刻なら元の並びを保つ
+  recent.sort((a, b) => b.usedAt - a.usedAt);
+  return [...recent.map((entry) => entry.project), ...rest];
 }
 
 export function buildHomeShortcutTiles<P, G, B>(options: {
