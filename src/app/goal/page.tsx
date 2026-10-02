@@ -151,6 +151,10 @@ export default function GoalPage() {
     [goalProjectIds, wordsByProject],
   );
   const goalMemory = useMemo(() => summarizeWordMemory(goalWords), [goalWords]);
+  // 1語でも未習得なら 100% と出さない (四捨五入で「達成」に見えるのを避ける)
+  const goalProgressPercent = goalMemory.total > 0
+    ? Math.min(goalMemory.mastered === goalMemory.total ? 100 : 99, Math.round((goalMemory.mastered / goalMemory.total) * 100))
+    : 0;
   const remainingDays = goal && today ? daysUntil(goal.targetDate, today) : null;
 
   // SM-2 で復習期限が来た語 (全単語帳)。設定の1日上限を超えては見せない
@@ -216,6 +220,25 @@ export default function GoalPage() {
               </div>
               <div className="mt-1 text-[11px] font-bold text-[var(--color-on-accent)]/85">
                 目標日 {goal?.targetDate.replaceAll('-', '/')} · 習得 {goalMemory.mastered}/{goalMemory.total}語
+              </div>
+              {/* 達成度 = 目標の単語帳のうち習得済みの割合 */}
+              <div className="mt-2 flex items-center gap-2 short:mt-1.5">
+                <div
+                  role="progressbar"
+                  aria-label="目標の達成度"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={goalProgressPercent}
+                  className="h-2 flex-1 overflow-hidden rounded-full bg-black/20"
+                >
+                  <div
+                    className="h-full rounded-full bg-[var(--color-warning)] transition-[width] duration-500"
+                    style={{ width: `${goalProgressPercent}%` }}
+                  />
+                </div>
+                <span className="font-mono text-[11px] font-black text-[var(--color-on-accent)]">
+                  {goalProgressPercent}%
+                </span>
               </div>
             </button>
           ) : (
