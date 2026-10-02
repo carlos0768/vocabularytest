@@ -11,6 +11,9 @@ import {
   AVATAR_INVALID_MESSAGE,
   AVATAR_TOO_LARGE_MESSAGE,
 } from '@/lib/profile/avatar';
+import { getProfileBioError, normalizeProfileBio } from '@/lib/profile/bio';
+import { certificationListSchema } from '@/lib/profile/certifications';
+import { fetchProfileExtras, saveProfileExtras } from '@/lib/profile/extras-server';
 
 // アイコンは data URL (正方形の小さな JPEG)。null / 空文字は「アイコンを外す」。
 const avatarUrlSchema = z
@@ -25,6 +28,16 @@ const avatarUrlSchema = z
   )
   .transform(value => (value === null || value.trim() === '' ? null : value.trim()));
 
+// 自己紹介。null / 空文字(空白・改行のみ含む)は「自己紹介を消す」。
+// 正規化してから長さを測るので、末尾の空白や余分な空行は文字数に数えない。
+const bioSchema = z
+  .union([z.string().max(2000, '自己紹介が長すぎます'), z.null()])
+  .transform(value => normalizeProfileBio(value))
+  .superRefine((value, ctx) => {
+    const message = getProfileBioError(value);
+    if (message) ctx.addIssue({ code: 'custom', message });
+  });
+
 const updateSchema = z.object({
   username: z
     .string()
@@ -38,9 +51,16 @@ const updateSchema = z.object({
     .regex(/^[a-z0-9_]{4,24}$/, 'IDは半角英小文字・数字・アンダースコアで4〜24文字にしてください')
     .optional(),
   avatarUrl: avatarUrlSchema.optional(),
+  bio: bioSchema.optional(),
+  // 資格は配列ごと置き換える。空配列は「すべて削除」。
+  certifications: certificationListSchema.optional(),
 }).strict().refine(
-  data => data.username !== undefined || data.accountId !== undefined || data.avatarUrl !== undefined,
-  { message: 'username, accountId, avatarUrl のいずれかを指定してください' },
+  data => data.username !== undefined
+    || data.accountId !== undefined
+    || data.avatarUrl !== undefined
+    || data.bio !== undefined
+    || data.certifications !== undefined,
+  { message: 'username, accountId, avatarUrl, bio, certifications のいずれかを指定してください' },
 );
 
 type ProfileRow = {
@@ -142,12 +162,17 @@ export async function handleProfileGet(
     const admin = (deps.getAdmin ?? getSupabaseAdmin)();
     const ensureProfile = deps.ensureProfile ?? ensureFriendProfile;
     const ensuredProfile = await ensureProfile(userId, admin);
-    const data = await fetchProfileRow(admin, userId);
+    const [data, extras] = await Promise.all([
+      fetchProfileRow(admin, userId),
+      fetchProfileExtras(admin, userId),
+    ]);
 
     return NextResponse.json({
       username: profileDisplayName(data),
       accountId: data?.account_id ?? data?.user_handle ?? ensuredProfile.accountId,
       avatarUrl: normalizeStoredAvatarUrl(data?.avatar_url),
+      bio: extras.bio,
+      certifications: extras.certifications,
     });
   } catch (error) {
     console.error('Profile GET error:', error);
@@ -218,10 +243,28 @@ export async function handleProfilePut(
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
     }
 
+    // 自己紹介・資格は列が無い環境(migration 未適用)でも他の項目の保存を巻き込まないよう、
+    // プロフィール行の upsert とは別に更新する。
+    if (parsed.data.bio !== undefined || parsed.data.certifications !== undefined) {
+      const saved = await saveProfileExtras(admin, userId, {
+        bio: parsed.data.bio,
+        certifications: parsed.data.certifications,
+      });
+      if (!saved.ok) {
+        const label = saved.field === 'bio' ? '自己紹介' : '資格';
+        return saved.reason === 'unavailable'
+          ? NextResponse.json({ error: `${label}は現在ご利用いただけません` }, { status: 503 })
+          : NextResponse.json({ error: `${label}の保存に失敗しました` }, { status: 500 });
+      }
+    }
+    const extras = await fetchProfileExtras(admin, userId);
+
     return NextResponse.json({
       username: profileDisplayName(data),
       accountId: data.account_id ?? data.user_handle ?? ensuredProfile.accountId,
       avatarUrl: normalizeStoredAvatarUrl(data.avatar_url),
+      bio: extras.bio,
+      certifications: extras.certifications,
     });
   } catch (error) {
     console.error('Profile PUT error:', error);

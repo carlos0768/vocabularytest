@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { CachedStats } from '@/lib/stats-cache';
 import type { FriendProfile } from '@/lib/friends/types';
 import type { FollowRelationship } from '@/lib/follows/types';
+import { parseStoredCertifications } from '@/lib/profile/certifications';
 
 function formatJoined(value: string | null): string | null {
   if (!value) return null;
@@ -23,6 +24,8 @@ type UserProfileResponse = {
   success?: boolean;
   isSelf?: boolean;
   profile?: FriendProfile;
+  bio?: string | null;
+  certifications?: unknown;
   relationship?: FollowRelationship;
   followId?: string | null;
   joinedAt?: string | null;
@@ -116,6 +119,8 @@ export default function FriendProfilePage() {
       initial={initial}
       color={color}
       avatarUrl={profile.avatarUrl}
+      bio={data.bio ?? null}
+      certifications={parseStoredCertifications(data.certifications)}
       joined={joined}
       planLabel={null}
       counts={counts}
