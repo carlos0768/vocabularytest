@@ -203,6 +203,12 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - **The same shell answers online launches too (instant launch)**: a navigation to a shell route is served from `SHELL_CACHE` before the network (`shouldServeShellInstantly`), and the worker checks the live build id in the background — a newer build marks the shell stale so launches go to the network until it is refilled. Every document served this way carries a boot guard in `<head>` that, on a `/_next/static` load failure or no hydration within 15s (`window.__merkenBooted`, set by `ServiceWorkerRegistration`), drops the shell and reloads from the network, and turns instant launch off for 24h. Sign-out deletes the shell. Don't remove `__merkenBooted` or the guard injection.
    - See `docs/OFFLINE-MODE-DESIGN.md`.
 
+12. **音声で追加 (`VoiceWordModal`, `/api/words/voice-input`)**: 単語帳の「＋」メニュー・空の単語帳・デスクトップの追加メニューに「音声で追加」、新規作成シートに「音声で作成」（旧「ChatGPTで作成」の位置）。マイクを押して録音開始、もう一度押して終了（GCP同期認識の上限1分に合わせ55秒で自動終了）。録音・送信は音読クイズと同じ `MediaRecorder` → GCP Speech-to-Text（iOS PWA対応、iOSは生PCMに変換）。
+   - 書き起こしは区切りの無い1本の文字列なので、見出し語への区切りだけAIに訊く (`src/lib/speech/dictated-words.ts`)。**AIの出力は書き起こしに連続して現れる語の並びだけ残す**ので、AIが綴りを直したり語を足したりしても一覧には入らない。AI失敗時は空白区切りに落とす。GCPの単語タイムスタンプは無音を語に吸収しがちで「間」での区切りには使えない
+   - 一覧で直してから「追加」すると、手入力と同じ `addEnrichedManualWord`（enrich-manual で訳・発音などを補完）を3並列で通る。訳を補完できない語は保存しない。語源解析の設定は手入力と共有
+   - 英語で認識するので**古典の単語帳では出さない**。利用回数は `word_voice_input`（Free 10回/日、Pro無制限）
+   - 「音声で作成」は単語帳を作ってから `saveVoiceAddIntent` で遷移先の音声追加モーダルを開く（空の単語帳の手入力と同じ仕組み）
+
 ## Testing
 
 Tests use Node.js built-in test runner with `tsx`. Test files are co-located with source (`.test.ts` suffix).

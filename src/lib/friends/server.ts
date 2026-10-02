@@ -65,6 +65,8 @@ type FriendSchemaDependency =
   | 'profiles_user_handle'
   | 'profiles_is_public'
   | 'profiles_avatar_url'
+  | 'profiles_bio'
+  | 'profiles_certifications'
   | 'user_friendships'
   | 'user_follows'
   | 'study_group_members'
@@ -141,6 +143,8 @@ export function getFriendSchemaIssue(error: unknown): FriendSchemaDependency | n
     ['user_handle', 'profiles_user_handle'],
     ['is_public', 'profiles_is_public'],
     ['avatar_url', 'profiles_avatar_url'],
+    ['bio', 'profiles_bio'],
+    ['certifications', 'profiles_certifications'],
   ] as const) {
     if (
       normalized.includes(column)

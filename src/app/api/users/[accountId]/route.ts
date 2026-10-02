@@ -3,6 +3,7 @@ import { requireAuthenticatedUser } from '@/app/api/shared-projects/shared';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { resolvePublicProfile, getProfilesByUserIds, getFollowRelationship } from '@/lib/follows/server';
 import { getPublicUserStats } from '@/lib/profile/stats-server';
+import { fetchProfileExtras } from '@/lib/profile/extras-server';
 
 type RouteContext = {
   params: Promise<{ accountId: string }>;
@@ -28,8 +29,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const userId = profile.userId;
     const isSelf = userId === auth.user.id;
 
-    const [stats, createdAtRow, followingRows, followersRows, friendsCount, relationship] = await Promise.all([
+    const [stats, extras, createdAtRow, followingRows, followersRows, friendsCount, relationship] = await Promise.all([
       getPublicUserStats(userId, admin),
+      fetchProfileExtras(admin, userId),
       admin
         .from('profiles')
         .select('created_at')
@@ -65,6 +67,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       success: true,
       isSelf,
       profile,
+      bio: extras.bio,
+      certifications: extras.certifications,
       relationship: relationship.relationship,
       followId: relationship.followId,
       joinedAt: createdAtRow.data?.created_at ?? null,

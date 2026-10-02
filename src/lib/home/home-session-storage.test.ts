@@ -7,10 +7,12 @@ import {
   clearLegacyHomeProjectId,
   consumeHomeGeneratingWordbook,
   consumeManualAddIntent,
+  consumeVoiceAddIntent,
   getHomeSelectedProjectId,
   saveHomeGeneratingWordbook,
   saveHomeSelectedProjectId,
   saveManualAddIntent,
+  saveVoiceAddIntent,
   type HomeSessionStorage,
 } from './home-session-storage';
 
@@ -144,6 +146,17 @@ test('consumeManualAddIntent returns null when no intent is stored', () => {
 
   assert.equal(consumeManualAddIntent(storage), null);
   assert.deepEqual(storage.removedKeys, []);
+});
+
+test('consumeVoiceAddIntent returns the saved project id once', () => {
+  const storage = new MemoryStorage();
+
+  saveVoiceAddIntent(storage, 'project-2');
+
+  assert.equal(consumeVoiceAddIntent(storage), 'project-2');
+  assert.equal(consumeVoiceAddIntent(storage), null);
+  // 手入力の印とは別のキーなので、互いに消し合わない
+  assert.equal(consumeManualAddIntent(storage), null);
 });
 
 test('clearLegacyHomeProjectId removes only the legacy project id key', () => {
