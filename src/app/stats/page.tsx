@@ -1,13 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DesktopStatsView } from '@/components/desktop/DesktopStats';
 import { Icon } from '@/components/ui/Icon';
 import { SolidPanel } from '@/components/redesign/SolidPage';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { useAuth } from '@/hooks/use-auth';
 import { getStats, type CachedStats } from '@/lib/stats-cache';
 import type { FriendProfile, FriendTimelineSession } from '@/lib/friends/types';
+import type { FollowingTodayActivity } from '@/lib/follows/today-activity';
 
 const HEAT_COLORS = [
   'color-mix(in srgb, var(--solid-ink) 7%, transparent)',
@@ -35,6 +38,7 @@ type StatsLoadState = {
 type TimelineApiResponse = {
   success?: boolean;
   sessions?: FriendTimelineSession[];
+  todayActivity?: FollowingTodayActivity[];
   error?: string;
 };
 
@@ -69,6 +73,7 @@ export default function StatsPage() {
 
   const [showStats, setShowStats] = useState(false);
   const [sessions, setSessions] = useState<FriendTimelineSession[]>([]);
+  const [todayActivity, setTodayActivity] = useState<FollowingTodayActivity[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
@@ -105,6 +110,7 @@ export default function StatsPage() {
       const payload = await response.json().catch(() => null) as TimelineApiResponse | null;
       if (response.ok && payload?.success) {
         setSessions(payload.sessions ?? []);
+        setTodayActivity(payload.todayActivity ?? []);
       }
     } catch {
       // timeline is best-effort
@@ -289,6 +295,10 @@ export default function StatsPage() {
           )}
         </AnimatePresence>
 
+        {!timelineLoading && todayActivity.length > 0 && (
+          <FollowingTodayStrip activity={todayActivity} />
+        )}
+
         {timelineLoading ? (
           <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
             <Icon name="progress_activity" size={20} className="animate-spin" />
@@ -371,6 +381,46 @@ function TimelineItem({
         </div>
       )}
     </article>
+  );
+}
+
+/**
+ * 今日クイズを解いたフォロー中のユーザーを、インスタの「おすすめ」風の
+ * 横スクロールカードで並べる。カードを押すとその人のプロフィールへ。
+ */
+function FollowingTodayStrip({ activity }: { activity: FollowingTodayActivity[] }) {
+  return (
+    <section className="border-b border-[var(--color-border)] pb-4 pt-2" aria-label="今日クイズを解いたフォロー中のユーザー">
+      <div className="px-[18px] pb-2.5 text-[13px] font-bold text-[var(--solid-ink)]">
+        今日がんばったフォロー中の人
+      </div>
+      <div className="flex snap-x gap-2.5 overflow-x-auto px-[18px] pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {activity.map((item) => (
+          <Link
+            key={item.userId}
+            href={`/profile/${encodeURIComponent(item.profile.accountId)}`}
+            className="flex w-[124px] shrink-0 snap-start flex-col items-center rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 pb-3.5 pt-4"
+          >
+            <ProfileAvatar
+              avatarUrl={item.profile.avatarUrl}
+              initial={(item.profile.username || item.profile.accountId || '?').charAt(0).toUpperCase()}
+              color={avatarColor(item.profile.accountId)}
+              size={72}
+              radius={36}
+            />
+            <div className="mt-2.5 w-full truncate text-center font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+              {displayName(item.profile)}
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-0.5 text-[var(--color-accent)]">
+              <span className="font-display text-[20px] font-extrabold leading-none tabular-nums">
+                {item.answerCount.toLocaleString()}
+              </span>
+              <span className="text-[11px] font-bold">問</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
