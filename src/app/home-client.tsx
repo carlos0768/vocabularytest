@@ -653,7 +653,7 @@ export function HomeClient() {
   const showUpgradeBanner = isBillingEnabled() && !isPro && !upgradeBannerDismissed;
   // 参加中のグループ（マイ単語帳の下に表示。/shared から移設）
   const { groups: myGroups } = useMyGroups();
-  // 今日クイズを解いたフォロー中の人（マイ単語帳の上にカード列で出す）
+  // 今日クイズを解いたフォロー中の人 + フォローのおすすめ（マイ単語帳の上にカード列で出す）
   const followingToday = useFollowingTodayActivity();
   // ホームのおすすめ（英検級ベースの共有単語帳）
   const { books: recommendedBooks } = useHomeRecommendations();
@@ -761,7 +761,7 @@ export function HomeClient() {
         </div>
       )}
 
-      <FollowingTodayStrip activity={followingToday} />
+      <FollowingTodayStrip activity={followingToday.activity} suggestions={followingToday.suggestions} />
 
       <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
         <div>
