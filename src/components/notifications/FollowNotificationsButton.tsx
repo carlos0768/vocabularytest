@@ -81,8 +81,9 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
         throw new Error(payload?.error || 'follow_notifications_failed');
       }
       const nextNotifications = payload.notifications ?? [];
+      // 既読になった通知も残して返ってくるので、バッジは未読のものだけ数える
       setNotifications(nextNotifications);
-      setUnreadCount(nextNotifications.length);
+      setUnreadCount(nextNotifications.filter((item) => item.readAt === null).length);
       return nextNotifications;
     } catch (loadError) {
       console.error('Failed to load follow notifications:', loadError);
@@ -184,7 +185,12 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || 'follow_respond_failed');
       }
-      setNotifications((current) => current.filter((item) => item.followId !== followId));
+      // 承認したリクエストは「フォローされました」として履歴に残し、削除したものだけ消す
+      setNotifications((current) => (
+        action === 'accept'
+          ? current.map((item) => (item.followId === followId ? { ...item, status: 'active' } : item))
+          : current.filter((item) => item.followId !== followId)
+      ));
     } catch (respondError) {
       console.error('Failed to respond follow notification:', respondError);
       setError(action === 'accept' ? '承認できませんでした' : '削除できませんでした');
@@ -214,7 +220,9 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
           if (!open) {
             void (async () => {
               const latestNotifications = await loadNotifications();
-              if (latestNotifications.length > 0 || unreadCount > 0) await markNotificationsRead();
+              if (latestNotifications.some((item) => item.readAt === null) || unreadCount > 0) {
+                await markNotificationsRead();
+              }
             })();
             void ensureFollowPushSubscription();
           }
@@ -267,7 +275,7 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
               </div>
             ) : notifications.length === 0 ? (
               <div className="px-3 py-6 text-center text-[12px] font-bold text-[var(--color-muted)]">
-                新しい通知はありません
+                通知はありません
               </div>
             ) : (
               <div className="divide-y divide-[var(--color-border)]">
@@ -276,6 +284,8 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                   const avatarLabel = (item.profile.accountId ?? item.profile.username ?? 'U').charAt(0).toUpperCase();
                   const isPending = item.status === 'pending';
                   const isResponding = respondingId === item.followId;
+                  // 開いた時点で未読だったもの。パネルを開いている間は目印を残し、次に開いたときには消える
+                  const isUnread = item.readAt === null;
                   const profileHref = item.profile.accountId
                     ? `/profile/${encodeURIComponent(item.profile.accountId)}`
                     : null;
@@ -297,7 +307,10 @@ export function FollowNotificationsButton({ variant = 'desktop' }: FollowNotific
                   );
 
                   return (
-                    <div key={item.id} className="px-3 py-3">
+                    <div
+                      key={item.id}
+                      className={cn('px-3 py-3', isUnread && 'bg-[var(--color-surface-secondary)]')}
+                    >
                       {profileHref ? (
                         <Link
                           href={profileHref}

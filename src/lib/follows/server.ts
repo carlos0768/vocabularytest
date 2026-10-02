@@ -186,10 +186,37 @@ function toFollowSummary(
   };
 }
 
-function isUnreadFollowNotification(summary: FollowSummary, viewerUserId: string): boolean {
+/** 通知パネルに残しておく件数。既読になっても消さず、新しい順にこの件数まで出す */
+export const FOLLOW_NOTIFICATION_LIMIT = 10;
+
+function isIncomingFollowNotification(summary: FollowSummary, viewerUserId: string): boolean {
   return summary.followingId === viewerUserId
-    && summary.readAt === null
     && (summary.status === 'pending' || summary.status === 'active');
+}
+
+/**
+ * 自分宛てのフォロー通知を新しい順に最大 `limit` 件選ぶ。既読かどうかでは落とさない。
+ * 未対応のフォローリクエスト (pending) は承認・削除がこのパネルでしかできないので、
+ * 古くても件数に関係なく全部残し、空いた枠を新しい順の履歴で埋める。
+ */
+export function selectFollowNotifications(
+  summaries: FollowSummary[],
+  viewerUserId: string,
+  limit: number = FOLLOW_NOTIFICATION_LIMIT,
+): FollowSummary[] {
+  const incoming = summaries
+    .filter((item) => isIncomingFollowNotification(item, viewerUserId))
+    .sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt));
+
+  const pendingCount = incoming.filter((item) => item.status === 'pending').length;
+  let historySlots = Math.max(0, limit - pendingCount);
+
+  return incoming.filter((item) => {
+    if (item.status === 'pending') return true;
+    if (historySlots === 0) return false;
+    historySlots -= 1;
+    return true;
+  });
 }
 
 export async function listFollowsHome(
@@ -240,9 +267,7 @@ export async function listFollowNotifications(
 ): Promise<FollowNotification[]> {
   const home = await listFollowsHome(userId, admin);
 
-  return [...home.pendingIncoming, ...home.followers]
-    .filter((item) => isUnreadFollowNotification(item, userId))
-    .sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt))
+  return selectFollowNotifications([...home.pendingIncoming, ...home.followers], userId)
     .map((item) => ({
       id: item.id,
       followId: item.id,

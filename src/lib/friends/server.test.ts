@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { listFollowNotifications, listFollowsHome, markFollowNotificationsRead } from '@/lib/follows/server';
+import {
+  FOLLOW_NOTIFICATION_LIMIT,
+  listFollowNotifications,
+  listFollowsHome,
+  markFollowNotificationsRead,
+  selectFollowNotifications,
+} from '@/lib/follows/server';
+import type { FollowSummary } from '@/lib/follows/types';
 import {
   createFriendRequest,
   getFriendSchemaIssue,
@@ -298,7 +305,7 @@ test('listFollowsHome returns an empty home payload when follows are unavailable
   assert.deepEqual(payload.pendingOutgoing, []);
 });
 
-test('listFollowNotifications returns incoming active follows and pending requests', async () => {
+test('listFollowNotifications keeps read notifications alongside unread ones', async () => {
   const thirdId = '33333333-3333-3333-3333-333333333333';
   const admin = new FakeUserAdmin({
     profiles: [
@@ -348,13 +355,62 @@ test('listFollowNotifications returns incoming active follows and pending reques
 
   const notifications = await listFollowNotifications(viewerId, admin as never);
 
-  assert.deepEqual(notifications.map((item) => item.followId), ['follow-2', 'follow-1']);
-  assert.deepEqual(notifications.map((item) => item.status), ['active', 'pending']);
-  assert.equal(notifications[0]?.profile.userId, thirdId);
-  assert.equal(notifications[0]?.profile.accountId, 'third');
-  assert.equal(notifications[1]?.profile.userId, targetId);
-  assert.equal(notifications[1]?.profile.accountId, 'abc');
-  assert.deepEqual(notifications.map((item) => item.readAt), [null, null]);
+  // follow-3 は自分が送った側なので通知ではない。既読の follow-4 は消さずに残る
+  assert.deepEqual(notifications.map((item) => item.followId), ['follow-4', 'follow-2', 'follow-1']);
+  assert.deepEqual(notifications.map((item) => item.status), ['active', 'active', 'pending']);
+  assert.equal(notifications[1]?.profile.userId, thirdId);
+  assert.equal(notifications[1]?.profile.accountId, 'third');
+  assert.equal(notifications[2]?.profile.userId, targetId);
+  assert.equal(notifications[2]?.profile.accountId, 'abc');
+  assert.deepEqual(notifications.map((item) => item.readAt), ['2026-06-26T03:30:00.000Z', null, null]);
+});
+
+function buildIncomingSummary(index: number, status: 'active' | 'pending'): FollowSummary {
+  const createdAt = new Date(Date.UTC(2026, 5, 1, 0, index)).toISOString();
+  return {
+    id: `follow-${index}`,
+    followerId: `user-${index}`,
+    followingId: viewerId,
+    status,
+    createdAt,
+    respondedAt: status === 'active' ? createdAt : null,
+    readAt: createdAt,
+    profile: { userId: `user-${index}`, username: null, accountId: `user${index}`, avatarUrl: null },
+  };
+}
+
+test('selectFollowNotifications keeps only the newest 10 notifications', () => {
+  const summaries = Array.from({ length: 15 }, (_, index) => buildIncomingSummary(index, 'active'));
+
+  const selected = selectFollowNotifications(summaries, viewerId);
+
+  assert.equal(FOLLOW_NOTIFICATION_LIMIT, 10);
+  assert.equal(selected.length, 10);
+  assert.deepEqual(
+    selected.map((item) => item.id),
+    [14, 13, 12, 11, 10, 9, 8, 7, 6, 5].map((index) => `follow-${index}`),
+  );
+});
+
+test('selectFollowNotifications never drops an unanswered follow request', () => {
+  // いちばん古い2件が未対応のリクエスト。履歴に押し出されると承認・削除の手段がなくなる
+  const summaries = Array.from({ length: 15 }, (_, index) => (
+    buildIncomingSummary(index, index < 2 ? 'pending' : 'active')
+  ));
+
+  const selected = selectFollowNotifications(summaries, viewerId);
+
+  assert.equal(selected.length, 10);
+  assert.deepEqual(
+    selected.map((item) => item.id),
+    [14, 13, 12, 11, 10, 9, 8, 7, 1, 0].map((index) => `follow-${index}`),
+  );
+});
+
+test('selectFollowNotifications ignores follows the viewer sent', () => {
+  const outgoing: FollowSummary = { ...buildIncomingSummary(1, 'active'), followerId: viewerId, followingId: targetId };
+
+  assert.deepEqual(selectFollowNotifications([outgoing], viewerId), []);
 });
 
 test('markFollowNotificationsRead marks unread incoming follow notifications only', async () => {
