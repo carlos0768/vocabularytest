@@ -4,7 +4,7 @@ import { buildProfileShareDescription, buildProfileShareText } from '@/lib/profi
 
 // プロフィールのリンクを LINE / X / Discord などに貼ったときのプレビュー。
 // 隣の opengraph-image.tsx と組みで、その人の名前・アイコン・学習量が載る。
-// 鍵アカウントや見つからない ID では個人を特定しない汎用の文言にする。
+// 見つからない ID では汎用の文言にする。
 
 type LayoutProps = {
   children: React.ReactNode;

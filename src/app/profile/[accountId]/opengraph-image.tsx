@@ -2,7 +2,7 @@ import { renderProfileShareImage } from '@/lib/profile/share-image';
 import { getProfileSharePreview } from '@/lib/profile/share-preview-server';
 
 // プロフィールのシェアカード(OG/Twitter)。描画は lib/profile/share-image.tsx。
-// 鍵アカウント・見つからない ID では個人情報を載せない汎用カードになる。
+// 見つからない ID では汎用カードになる。
 
 export const runtime = 'nodejs';
 export const alt = 'MERKEN プロフィール';

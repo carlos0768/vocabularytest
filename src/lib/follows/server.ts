@@ -405,20 +405,6 @@ export async function resolvePublicProfile(
 }
 
 /**
- * Like resolvePublicProfile, but also reports whether the account is public
- * (is_public = false means follows need approval). Used by the share preview,
- * which anyone holding the link can fetch without logging in.
- */
-export async function resolveProfileWithVisibility(
-  publicId: string,
-  admin: SupabaseAdminClient = getSupabaseAdmin(),
-): Promise<{ profile: FriendProfile; isPublic: boolean } | null> {
-  const { data, error } = await findProfileByPublicId(publicId, admin);
-  if (error || !data) return null;
-  return { profile: toProfile(data), isPublic: data.is_public ?? true };
-}
-
-/**
  * Compute the viewer's follow relationship toward a target user.
  * Used by the public profile page to render the follow/unfollow button.
  */

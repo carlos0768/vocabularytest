@@ -4,7 +4,7 @@ import { fitProfileShareName, type ProfileSharePreview } from '@/lib/profile/sha
 
 // プロフィールのシェアカード(OG/Twitter)の描画。アプリ本体の「ソリッド」デザイン
 // (生成りの背景・墨色の太枠・ずらした影・角丸)をそのまま 1200x630 に写す。
-// preview が null(鍵アカウント・見つからない ID)なら個人情報を載せない汎用カード。
+// preview が null(見つからない ID)なら汎用カード。
 // DB を読まないので、データを差し込んで見た目だけ確かめることもできる。
 
 export const PROFILE_SHARE_IMAGE_SIZE = { width: 1200, height: 630 };

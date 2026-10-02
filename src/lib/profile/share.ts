@@ -16,7 +16,7 @@ export function buildProfileShareText(name: string, accountId: string): string {
   return `${displayName}（@${id}）のMERKENプロフィール`;
 }
 
-/** シェア画像・メタデータに載せる公開プロフィールの情報。鍵アカウントでは作らない。 */
+/** シェア画像・メタデータに載せるプロフィールの情報。 */
 export type ProfileSharePreview = {
   name: string;
   accountId: string;
@@ -26,7 +26,7 @@ export type ProfileSharePreview = {
   masteredWords: number;
 };
 
-/** リンクプレビューの説明文。鍵アカウント・見つからないときは個人を特定しない文言にする。 */
+/** リンクプレビューの説明文。アカウントが見つからないときは汎用の文言にする。 */
 export function buildProfileShareDescription(preview: ProfileSharePreview | null): string {
   if (!preview) return 'MERKENで一緒に英単語を覚えよう。写真から単語帳を作って、クイズで定着させる英単語アプリ。';
   return `${preview.totalWords.toLocaleString('ja-JP')}語を学習中・連続${preview.streakDays}日。MERKENで一緒に英単語を覚えよう。`;

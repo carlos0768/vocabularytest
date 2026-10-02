@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { resolveProfileWithVisibility } from '@/lib/follows/server';
+import { resolvePublicProfile } from '@/lib/follows/server';
 import { normalizeAccountIdInput } from '@/lib/friends/server';
 import { getPublicUserStats } from '@/lib/profile/stats-server';
 import type { ProfileSharePreview } from '@/lib/profile/share';
@@ -8,9 +8,8 @@ import type { ProfileSharePreview } from '@/lib/profile/share';
 /**
  * プロフィールのシェア画像・メタデータ用の情報を読む。
  *
- * リンクプレビューはログインなしで誰でも取得できるので、鍵アカウント
- * (is_public = false) や見つからないアカウントでは null を返し、
- * 呼び出し側は個人を特定しない汎用のカードを出す。
+ * 鍵アカウント(is_public = false)でも出す(プロダクト判断)。
+ * 見つからないアカウントでは null を返し、呼び出し側は汎用のカードを出す。
  */
 export const getProfileSharePreview = cache(async (rawAccountId: string): Promise<ProfileSharePreview | null> => {
   let decoded = rawAccountId;
@@ -24,10 +23,9 @@ export const getProfileSharePreview = cache(async (rawAccountId: string): Promis
 
   try {
     const admin = getSupabaseAdmin();
-    const resolved = await resolveProfileWithVisibility(accountId, admin);
-    if (!resolved || !resolved.isPublic) return null;
+    const profile = await resolvePublicProfile(accountId, admin);
+    if (!profile) return null;
 
-    const { profile } = resolved;
     const stats = await getPublicUserStats(profile.userId, admin);
     return {
       name: profile.username?.trim() || `@${profile.accountId}`,
