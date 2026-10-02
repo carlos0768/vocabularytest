@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { normalizeStoredAvatarUrl } from '@/lib/profile/avatar';
+import { normalizeProfileBio } from '@/lib/profile/bio';
+import { parseStoredCertifications, type ProfileCertification } from '@/lib/profile/certifications';
 
 const SESSION_CACHE_KEY = 'merken_profile_cache';
 
@@ -11,18 +13,30 @@ interface ProfileCache {
   username: string | null;
   accountId: string | null;
   avatarUrl: string | null;
+  bio: string | null;
+  certifications: ProfileCertification[];
 }
 
 /** 表示に使うプロフィール値。API・キャッシュ・楽観更新で共通の形。 */
 type ProfileValues = Omit<ProfileCache, 'userId'>;
 
-const EMPTY_VALUES: ProfileValues = { username: null, accountId: null, avatarUrl: null };
+const EMPTY_VALUES: ProfileValues = { username: null, accountId: null, avatarUrl: null, bio: null, certifications: [] };
+
+function toValues(entry: ProfileCache): ProfileValues {
+  return {
+    username: entry.username,
+    accountId: entry.accountId,
+    avatarUrl: entry.avatarUrl,
+    bio: entry.bio,
+    certifications: entry.certifications,
+  };
+}
 
 let cache: ProfileCache | null = null;
 
 function readCache(userId: string): ProfileValues | undefined {
   if (cache && cache.userId === userId) {
-    return { username: cache.username, accountId: cache.accountId, avatarUrl: cache.avatarUrl };
+    return toValues(cache);
   }
 
   try {
@@ -35,8 +49,10 @@ function readCache(userId: string): ProfileValues | undefined {
       username: parsed.username,
       accountId: parsed.accountId ?? null,
       avatarUrl: parsed.avatarUrl ?? null,
+      bio: normalizeProfileBio(parsed.bio),
+      certifications: parseStoredCertifications(parsed.certifications),
     };
-    return { username: cache.username, accountId: cache.accountId, avatarUrl: cache.avatarUrl };
+    return toValues(cache);
   } catch {
     return undefined;
   }
@@ -64,6 +80,8 @@ type ProfileApiResponse = {
   username?: string | null;
   accountId?: string | null;
   avatarUrl?: string | null;
+  bio?: string | null;
+  certifications?: unknown;
 };
 
 /** API レスポンスを表示値へ。返ってこなかった項目は手元の値を維持する。 */
@@ -74,6 +92,10 @@ function mergeApiResponse(data: ProfileApiResponse, current: ProfileValues): Pro
     avatarUrl: data.avatarUrl === undefined
       ? current.avatarUrl
       : normalizeStoredAvatarUrl(data.avatarUrl),
+    bio: data.bio === undefined ? current.bio : normalizeProfileBio(data.bio),
+    certifications: data.certifications === undefined
+      ? current.certifications
+      : parseStoredCertifications(data.certifications),
   };
 }
 
@@ -82,6 +104,10 @@ interface ProfileState {
   accountId: string | null;
   /** アカウントアイコンの data URL。未設定なら null。 */
   avatarUrl: string | null;
+  /** 自己紹介(改行を含む)。未設定なら null。 */
+  bio: string | null;
+  /** 登録済みの資格(英検 / TOEFL / TOEIC)。表示順に並んでいる。 */
+  certifications: ProfileCertification[];
   loading: boolean;
   saving: boolean;
   error: string | null;
@@ -90,6 +116,10 @@ interface ProfileState {
   setAccountId: (accountId: string) => Promise<boolean>;
   /** null を渡すとアイコンを削除する。 */
   setAvatarUrl: (avatarUrl: string | null) => Promise<boolean>;
+  /** null / 空文字を渡すと自己紹介を削除する。 */
+  setBio: (bio: string | null) => Promise<boolean>;
+  /** 資格の一覧を丸ごと置き換える。空配列ですべて削除。 */
+  setCertifications: (certifications: ProfileCertification[]) => Promise<boolean>;
 }
 
 export function useProfile(): ProfileState {
@@ -148,7 +178,7 @@ export function useProfile(): ProfileState {
    * `optimistic` は送信内容を画面へ即反映するための差分。
    */
   const save = useCallback(async (
-    body: Record<string, string | null>,
+    body: Record<string, unknown>,
     optimistic: Partial<ProfileValues>,
     failureMessage: string,
   ): Promise<boolean> => {
@@ -214,10 +244,25 @@ export function useProfile(): ProfileState {
     );
   }, [save]);
 
+  const setBio = useCallback(async (newBio: string | null): Promise<boolean> => {
+    const normalized = normalizeProfileBio(newBio);
+    return save(
+      { bio: normalized },
+      { bio: normalized },
+      normalized ? '自己紹介の保存に失敗しました' : '自己紹介の削除に失敗しました',
+    );
+  }, [save]);
+
+  const setCertifications = useCallback(async (next: ProfileCertification[]): Promise<boolean> => {
+    return save({ certifications: next }, { certifications: next }, '資格の保存に失敗しました');
+  }, [save]);
+
   return {
     username: values.username,
     accountId: values.accountId,
     avatarUrl: values.avatarUrl,
+    bio: values.bio,
+    certifications: values.certifications,
     loading,
     saving,
     error,
@@ -225,5 +270,7 @@ export function useProfile(): ProfileState {
     setUsername,
     setAccountId,
     setAvatarUrl,
+    setBio,
+    setCertifications,
   };
 }

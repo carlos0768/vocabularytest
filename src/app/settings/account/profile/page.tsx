@@ -5,10 +5,17 @@ import { useRouter } from 'next/navigation';
 import { Icon, useToast } from '@/components/ui';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { CertificationEditor } from '@/components/profile/CertificationEditor';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import { useProfile } from '@/hooks/use-profile';
 import { processAccountIconFile } from '@/lib/image-utils';
 import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
+import {
+  MAX_PROFILE_BIO_LENGTH,
+  countProfileBioChars,
+  getProfileBioError,
+  normalizeProfileBio,
+} from '@/lib/profile/bio';
 
 type IconAction = 'idle' | 'saving' | 'removing';
 
@@ -19,15 +26,20 @@ export default function ProfileSettingsPage() {
     username,
     accountId,
     avatarUrl,
+    bio,
+    certifications,
     loading: profileLoading,
     saving: profileSaving,
     error: profileError,
     setUsername,
     setAccountId: saveAccountId,
     setAvatarUrl,
+    setBio,
+    setCertifications,
   } = useProfile();
   const [usernameInput, setUsernameInput] = useState<string | null>(null);
   const [accountIdInput, setAccountIdInput] = useState<string | null>(null);
+  const [bioInput, setBioInput] = useState<string | null>(null);
   const [iconAction, setIconAction] = useState<IconAction>('idle');
   const [iconError, setIconError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -86,6 +98,13 @@ export default function ProfileSettingsPage() {
   const displayAccountIdValue = accountIdInput ?? accountId ?? '';
   const isAccountIdValid = /^[a-z0-9_]{4,24}$/.test(displayAccountIdValue);
 
+  const isEditingBio = bioInput !== null;
+  const displayBioValue = bioInput ?? bio ?? '';
+  const bioCharCount = countProfileBioChars(displayBioValue);
+  // 文字数・行数は保存時と同じく正規化後(末尾の空白や余分な空行を除いた後)で判定する。
+  const bioValidationError = getProfileBioError(normalizeProfileBio(displayBioValue));
+  const bioUnchanged = normalizeProfileBio(displayBioValue) === normalizeProfileBio(bio);
+
   // プロフィール変更はアカウント設定以外(プロフィール画面の設定ボタンなど)からも
   // 開かれるので、履歴があれば実際の遷移元へ戻す。直接開かれた場合のみ既定へ。
   const handleBack = () => {
@@ -129,6 +148,46 @@ export default function ProfileSettingsPage() {
       showToast({ type: 'success', message: 'IDを変更しました' });
     }
   };
+
+  const startEditingBio = () => {
+    setBioInput(bio ?? '');
+  };
+
+  const cancelEditingBio = () => {
+    setBioInput(null);
+  };
+
+  const handleSaveBio = async () => {
+    if (profileSaving || bioValidationError) return;
+    if (bioUnchanged) {
+      setBioInput(null);
+      return;
+    }
+    const normalized = normalizeProfileBio(displayBioValue);
+    const success = await setBio(normalized);
+    if (success) {
+      setBioInput(null);
+      showToast({ type: 'success', message: normalized ? '自己紹介を保存しました' : '自己紹介を削除しました' });
+    }
+  };
+
+  const handleSaveCertifications = async (next: Parameters<typeof setCertifications>[0]) => {
+    const success = await setCertifications(next);
+    if (success) {
+      showToast({ type: 'success', message: '資格を更新しました' });
+    }
+    return success;
+  };
+
+  const certificationEditor = (
+    <CertificationEditor
+      certifications={certifications}
+      loading={profileLoading}
+      saving={profileSaving}
+      serverError={profileError}
+      onSave={handleSaveCertifications}
+    />
+  );
 
   return (
     <>
@@ -298,6 +357,73 @@ export default function ProfileSettingsPage() {
                   <DesktopButton icon="edit" onClick={startEditingAccountId} disabled={profileLoading}>編集</DesktopButton>
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="ds-set-group">
+            <div className="gh">自己紹介</div>
+            <div className="ds-set-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+              {isEditingBio ? (
+                <>
+                  <label htmlFor="desktop-profile-bio" className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em' }}>
+                    BIO
+                  </label>
+                  <textarea
+                    id="desktop-profile-bio"
+                    className="ds-input"
+                    style={{ minHeight: 120, resize: 'vertical', lineHeight: 1.6 }}
+                    value={displayBioValue}
+                    onChange={(event) => setBioInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                        event.preventDefault();
+                        void handleSaveBio();
+                      }
+                      if (event.key === 'Escape') {
+                        cancelEditingBio();
+                      }
+                    }}
+                    rows={5}
+                    autoFocus
+                    placeholder={'例) 英検準1級に向けて勉強中📚\n毎朝30語ずつ覚えてます'}
+                  />
+                  <div className="mono muted" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11 }}>
+                    <span>改行できます / @ID でプロフィールにリンク</span>
+                    <span style={bioCharCount > MAX_PROFILE_BIO_LENGTH ? { color: 'var(--color-error)', fontWeight: 700 } : undefined}>
+                      {bioCharCount}/{MAX_PROFILE_BIO_LENGTH}
+                    </span>
+                  </div>
+                  {(bioValidationError || profileError) && (
+                    <p style={{ margin: 0, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--color-error)', background: 'rgba(239,68,68,0.08)', fontSize: 12.5, fontWeight: 700, color: 'var(--color-error)' }}>
+                      {bioValidationError ?? profileError}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <DesktopButton variant="dark" onClick={() => void handleSaveBio()} disabled={profileSaving || Boolean(bioValidationError)}>
+                      {profileSaving ? '保存中...' : '保存'}
+                    </DesktopButton>
+                    <DesktopButton onClick={cancelEditingBio} disabled={profileSaving}>キャンセル</DesktopButton>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                  <div className="lab" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="t" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontWeight: bio ? 500 : undefined }}>
+                      {profileLoading ? '読み込み中...' : (bio ?? '未設定')}
+                    </div>
+                    <div className="d">プロフィールの名前の下に表示されます</div>
+                  </div>
+                  <DesktopButton icon="edit" onClick={startEditingBio} disabled={profileLoading}>編集</DesktopButton>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="ds-set-group">
+            <div className="gh">資格</div>
+            <div className="ds-set-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+              <div className="d muted" style={{ fontSize: 12 }}>英検・TOEFL・TOEIC の結果をプロフィールに表示できます</div>
+              {certificationEditor}
             </div>
           </div>
         </div>
@@ -523,6 +649,87 @@ export default function ProfileSettingsPage() {
                 {profileLoading ? '...' : accountId ? `@${accountId}` : '未設定'}
               </p>
             )}
+          </div>
+
+          {/* 自己紹介 */}
+          <div className="border-t border-[var(--color-border)] px-4 py-3.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-bio" className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                BIO
+              </label>
+              {!isEditingBio && (
+                <button
+                  type="button"
+                  onClick={startEditingBio}
+                  disabled={profileLoading}
+                  className="inline-flex items-center gap-0.5 font-display text-[11px] font-bold text-[var(--color-accent)] disabled:opacity-50"
+                >
+                  <Icon name="edit" size={13} />
+                  編集
+                </button>
+              )}
+            </div>
+
+            {isEditingBio ? (
+              <>
+                <textarea
+                  id="profile-bio"
+                  value={displayBioValue}
+                  onChange={(event) => setBioInput(event.target.value)}
+                  rows={5}
+                  autoFocus
+                  placeholder={'例) 英検準1級に向けて勉強中📚\n毎朝30語ずつ覚えてます'}
+                  className="mt-1.5 w-full resize-none rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[16px] leading-[1.55] text-[var(--solid-ink)] outline-none transition-shadow placeholder:text-[var(--color-muted)] focus:shadow-[2px_2px_0_var(--color-accent)]"
+                />
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="font-mono text-[9px] text-[var(--color-muted)]">改行OK / @IDでリンク</p>
+                  <p className={`font-mono text-[9px] ${bioCharCount > MAX_PROFILE_BIO_LENGTH ? 'font-bold text-[var(--color-error)]' : 'text-[var(--color-muted)]'}`}>
+                    {bioCharCount}/{MAX_PROFILE_BIO_LENGTH}
+                  </p>
+                </div>
+                {(bioValidationError || profileError) && (
+                  <p className="mt-2 rounded-[8px] border border-[var(--color-error)] bg-[rgba(239,68,68,0.08)] px-2.5 py-2 text-[11px] font-bold text-[var(--color-error)]">
+                    {bioValidationError ?? profileError}
+                  </p>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveBio()}
+                    disabled={profileSaving || Boolean(bioValidationError)}
+                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3 py-2.5 font-display text-[13px] font-bold text-[var(--color-on-ink)] shadow-[2px_2px_0_var(--color-accent)] transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-50 active:translate-x-px active:translate-y-px"
+                  >
+                    {profileSaving ? '保存中...' : '保存'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditingBio}
+                    disabled={profileSaving}
+                    className="flex-1 rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[13px] font-bold text-[var(--solid-ink)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p
+                className={`mt-1 text-[14px] leading-[1.55] ${bio ? 'text-[var(--solid-ink)]' : 'font-display font-bold text-[var(--color-muted)]'}`}
+                style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+              >
+                {profileLoading ? '...' : (bio ?? '未設定')}
+              </p>
+            )}
+          </div>
+
+          {/* 資格 */}
+          <div className="border-t border-[var(--color-border)] px-4 py-3.5">
+            <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              CERTIFICATIONS
+            </div>
+            <p className="mb-2 mt-0.5 text-[10.5px] leading-4 text-[var(--color-muted)]">
+              英検・TOEFL・TOEIC の結果をプロフィールに表示できます
+            </p>
+            {certificationEditor}
           </div>
         </div>
       </div>
