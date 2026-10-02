@@ -107,6 +107,7 @@ export function DesktopProjectDetailView({
   onDeleteWord,
   onScan,
   onManualAdd,
+  onVoiceAdd,
 }: {
   project: Project;
   projectId: string;
@@ -134,6 +135,8 @@ export function DesktopProjectDetailView({
   onDeleteWord: (wordId: string) => void;
   onScan: () => void;
   onManualAdd: () => void;
+  /** 音声でまとめて追加。古典の単語帳では渡さない (英語の認識しかしないため)。 */
+  onVoiceAdd?: () => void;
 }) {
   const router = useRouter();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -394,6 +397,12 @@ export function DesktopProjectDetailView({
                       <Icon name="edit" style={{ fontSize: 18 }} />
                       手動で追加
                     </button>
+                    {onVoiceAdd && (
+                      <button type="button" className={MENU_ITEM} onClick={() => { setAddMenuOpen(false); onVoiceAdd(); }}>
+                        <Icon name="mic" style={{ fontSize: 18 }} />
+                        音声で追加
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -468,6 +477,11 @@ export function DesktopProjectDetailView({
                     <DesktopButton variant="accent" icon="edit" onClick={onManualAdd}>
                       手で入力
                     </DesktopButton>
+                    {onVoiceAdd && (
+                      <DesktopButton icon="mic" onClick={onVoiceAdd}>
+                        音声で追加
+                      </DesktopButton>
+                    )}
                     <DesktopButton icon="photo_camera" onClick={onScan}>
                       スキャンで追加
                     </DesktopButton>

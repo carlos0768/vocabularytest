@@ -195,8 +195,14 @@ export interface Linear16Audio {
 /**
  * 録音をデコードして LINEAR16 に直す。
  * デコードできない (対応していない形式・空の録音) ときは null。
+ *
+ * `maxSeconds` は既定で音読チャレンジ向けの長さ。単語をまとめて読み上げる
+ * 音声追加のように、長く話すのが前提の呼び出し側だけが延ばす。
  */
-export async function toLinear16(blob: Blob): Promise<Linear16Audio | null> {
+export async function toLinear16(
+  blob: Blob,
+  maxSeconds: number = MAX_LINEAR16_SECONDS,
+): Promise<Linear16Audio | null> {
   const Ctor = audioContextConstructor();
   if (!Ctor || blob.size === 0) return null;
 
@@ -214,7 +220,7 @@ export async function toLinear16(blob: Blob): Promise<Linear16Audio | null> {
     const spoken = capDuration(
       trimSilence(mono, LINEAR16_SAMPLE_RATE),
       LINEAR16_SAMPLE_RATE,
-      MAX_LINEAR16_SECONDS,
+      maxSeconds,
     );
     return { pcm: floatsToPcm16(spoken), sampleRateHertz: LINEAR16_SAMPLE_RATE };
   } catch {

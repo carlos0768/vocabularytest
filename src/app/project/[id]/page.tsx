@@ -13,6 +13,7 @@ import { SelectCheckbox, WordRow, posShort } from '@/components/project/WordRow'
 import { StackedBar } from '@/components/project/WordStatusBar';
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
+import { VoiceWordModal } from '@/components/project/VoiceWordModal';
 import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
@@ -25,7 +26,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { getDb, getRepository, hybridRepository, syncQueue } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
-import { consumeManualAddIntent } from '@/lib/home/home-session-storage';
+import { consumeManualAddIntent, consumeVoiceAddIntent } from '@/lib/home/home-session-storage';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import {
@@ -52,6 +53,9 @@ import {
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus, WordTranslation } from '@/types';
+
+/** 音声でまとめて追加するとき、同時に補完を走らせる語数。 */
+const VOICE_ADD_CONCURRENCY = 3;
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
@@ -245,6 +249,10 @@ export default function ProjectPage() {
   const [manualWordSaving, setManualWordSaving] = useState(false);
   const [manualWordSavingMessage, setManualWordSavingMessage] = useState<string | undefined>(undefined);
   const [manualWordAddedCount, setManualWordAddedCount] = useState(0);
+  // 音声でまとめて追加するモーダル。保存は手入力と同じ経路 (addEnrichedManualWord)。
+  const [showVoiceWordModal, setShowVoiceWordModal] = useState(false);
+  const [voiceWordAdding, setVoiceWordAdding] = useState(false);
+  const [voiceWordAddingMessage, setVoiceWordAddingMessage] = useState<string | undefined>(undefined);
   // 手動追加時の語源解析トグル。オフにすると enrich-manual が語源解析
   // （とそのコイン消費）をスキップする。選択は端末に記憶する。
   const [manualWordMorphologyEnabled, setManualWordMorphologyEnabled] = useState(true);
@@ -384,6 +392,10 @@ export default function ProjectPage() {
       if (consumeManualAddIntent(sessionStorage) === projectId) {
         setManualWordAddedCount(0);
         setShowManualWordModal(true);
+      }
+      // 「音声で作成」から来たときは音声追加モーダルを開く。
+      if (consumeVoiceAddIntent(sessionStorage) === projectId) {
+        setShowVoiceWordModal(true);
       }
     } catch {
       // sessionStorage が使えない環境では自動オープンだけ諦める
@@ -1213,23 +1225,32 @@ export default function ProjectPage() {
     }
   };
 
-  const handleSaveManualWord = async () => {
-    const english = manualWordEnglish.trim();
-    // 日本語訳は任意入力。未入力なら enrich API（マスター/AI）が補完する。
-    const japaneseInput = manualWordJapanese.trim();
-    if (!english || !project) return;
+  // 音声追加は英語で認識するので、古典の単語帳では出さない。
+  const voiceAddAvailable = project?.kind !== 'classical';
+  const openVoiceWordModal = useCallback(() => setShowVoiceWordModal(true), []);
+  // 一覧で「登録済み」と示すための見出し語。大文字小文字は区別しない。
+  const existingEnglishSet = useMemo(
+    () => new Set(words.map((word) => word.english.trim().toLowerCase())),
+    [words],
+  );
 
-    const { canAdd, wouldExceed } = canAddWords(1);
-    if (!canAdd || wouldExceed) {
-      setShowWordLimitModal(true);
-      return;
-    }
-
-    const userPos = manualWordPartOfSpeech.trim();
-    const userExample = manualWordExampleSentence.trim();
-
-    setManualWordSaving(true);
-    setManualWordSavingMessage('情報を生成中...');
+  /**
+   * 1語を AI で補完して単語帳に入れる (手入力と音声追加で共通)。
+   *
+   * 日本語訳は未入力なら enrich-manual (マスター/AI) が補完する。補完もできず
+   * 訳が空のままなら保存しない —— 意味の無い単語はクイズ・カードで使えないため。
+   * 画面には先に楽観的に足し、保存は裏で続ける。
+   */
+  const addEnrichedManualWord = async (input: {
+    english: string;
+    japanese?: string;
+    partOfSpeech?: string;
+    exampleSentence?: string;
+  }): Promise<'added' | 'no_japanese'> => {
+    const english = input.english.trim();
+    const japaneseInput = input.japanese?.trim() ?? '';
+    const userPos = input.partOfSpeech?.trim() ?? '';
+    const userExample = input.exampleSentence?.trim() ?? '';
 
     let japanese = japaneseInput;
     let enrichedTranslationTexts: string[] = [];
@@ -1289,14 +1310,7 @@ export default function ProjectPage() {
       console.warn('[manual-word] enrich error:', enrichError);
     }
 
-    // 日本語訳が入力されず自動補完もできなかった場合だけ入力をお願いする
-    // （意味が空の単語はクイズ・カードで使いものにならないため保存しない）。
-    if (!japanese) {
-      setManualWordSaving(false);
-      setManualWordSavingMessage(undefined);
-      showToast({ message: '日本語訳を自動生成できませんでした。日本語訳を入力してください', type: 'error' });
-      return;
-    }
+    if (!japanese) return 'no_japanese';
 
     // 補完された全訳を訳ごとの WordTranslation レコードに展開する
     const enrichedTranslations: WordTranslation[] | undefined = enrichedTranslationTexts.length > 0
@@ -1331,13 +1345,6 @@ export default function ProjectPage() {
     };
 
     setWords((prev) => [optimisticWord, ...prev]);
-    // Keep the modal open so several words can be entered in a row
-    // (scan-like batch entry); the modal shows a running count and the
-    // summary toast fires when the user closes it.
-    resetManualWordForm();
-    setManualWordAddedCount((count) => count + 1);
-    setManualWordSaving(false);
-    setManualWordSavingMessage(undefined);
     refreshWordCount();
 
     mutationRepository
@@ -1364,9 +1371,98 @@ export default function ProjectPage() {
       .catch((createError) => {
         console.error('Failed to save word:', createError);
         setWords((prev) => prev.filter((w) => w.id !== optimisticWord.id));
-        showToast({ message: '単語の保存に失敗しました', type: 'error' });
+        showToast({ message: `「${english}」の保存に失敗しました`, type: 'error' });
         refreshWordCount();
       });
+
+    return 'added';
+  };
+
+  const handleSaveManualWord = async () => {
+    const english = manualWordEnglish.trim();
+    if (!english || !project) return;
+
+    const { canAdd, wouldExceed } = canAddWords(1);
+    if (!canAdd || wouldExceed) {
+      setShowWordLimitModal(true);
+      return;
+    }
+
+    setManualWordSaving(true);
+    setManualWordSavingMessage('情報を生成中...');
+
+    const outcome = await addEnrichedManualWord({
+      english,
+      japanese: manualWordJapanese,
+      partOfSpeech: manualWordPartOfSpeech,
+      exampleSentence: manualWordExampleSentence,
+    });
+
+    // 日本語訳が入力されず自動補完もできなかった場合だけ入力をお願いする
+    // （意味が空の単語はクイズ・カードで使いものにならないため保存しない）。
+    if (outcome === 'no_japanese') {
+      setManualWordSaving(false);
+      setManualWordSavingMessage(undefined);
+      showToast({ message: '日本語訳を自動生成できませんでした。日本語訳を入力してください', type: 'error' });
+      return;
+    }
+
+    // Keep the modal open so several words can be entered in a row
+    // (scan-like batch entry); the modal shows a running count and the
+    // summary toast fires when the user closes it.
+    resetManualWordForm();
+    setManualWordAddedCount((count) => count + 1);
+    setManualWordSaving(false);
+    setManualWordSavingMessage(undefined);
+  };
+
+  /**
+   * 音声で聞き取った語をまとめて追加する。
+   *
+   * 1語ずつ enrich-manual を呼ぶので、数語ずつ並べて待ち時間を縮める。
+   * 一度に全部投げると、語源解析 (コイン消費) や AI の上限に一斉に当たる。
+   */
+  const handleAddVoiceWords = async (entries: string[]) => {
+    const targets = entries.map((entry) => entry.trim()).filter(Boolean);
+    if (!project || targets.length === 0) return;
+
+    const { canAdd, wouldExceed } = canAddWords(targets.length);
+    if (!canAdd || wouldExceed) {
+      setShowWordLimitModal(true);
+      return;
+    }
+
+    setVoiceWordAdding(true);
+    let done = 0;
+    let added = 0;
+    const failed: string[] = [];
+    setVoiceWordAddingMessage(`追加中 0/${targets.length}`);
+
+    const queue = [...targets];
+    const worker = async () => {
+      for (let english = queue.shift(); english !== undefined; english = queue.shift()) {
+        const outcome = await addEnrichedManualWord({ english });
+        if (outcome === 'added') added += 1;
+        else failed.push(english);
+        done += 1;
+        setVoiceWordAddingMessage(`追加中 ${done}/${targets.length}`);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(VOICE_ADD_CONCURRENCY, targets.length) }, worker));
+
+    setVoiceWordAdding(false);
+    setVoiceWordAddingMessage(undefined);
+    setShowVoiceWordModal(false);
+
+    if (added > 0) {
+      showToast({ message: `${added}語を追加しました`, type: 'success' });
+    }
+    if (failed.length > 0) {
+      showToast({
+        message: `${failed.length}語は日本語訳を補完できず追加できませんでした（${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ' ほか' : ''}）`,
+        type: 'error',
+      });
+    }
   };
 
   if (loading && !project) {
@@ -1425,6 +1521,7 @@ export default function ProjectPage() {
         onDeleteWord={handleOpenDeleteWord}
         onScan={() => setShowScanCaptureModal(true)}
         onManualAdd={openManualWordModal}
+        onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
       />
       <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
@@ -1590,6 +1687,16 @@ export default function ProjectPage() {
                     openManualWordModal();
                   }}
                 />
+                {voiceAddAvailable && (
+                  <MenuButton
+                    icon="mic"
+                    label="音声で追加"
+                    onClick={() => {
+                      setAddMenuOpen(false);
+                      openVoiceWordModal();
+                    }}
+                  />
+                )}
               </div>
             </>
           )}
@@ -1670,6 +1777,7 @@ export default function ProjectPage() {
               isPro={isPro}
               onScan={() => setShowScanCaptureModal(true)}
               onManualAdd={openManualWordModal}
+              onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
             />
           ) : (
             <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
@@ -1855,6 +1963,18 @@ export default function ProjectPage() {
         onCancel={closeManualWordModal}
         onConfirm={handleSaveManualWord}
       />
+
+      {showVoiceWordModal && (
+        <VoiceWordModal
+          adding={voiceWordAdding}
+          addingMessage={voiceWordAddingMessage}
+          existingEnglish={existingEnglishSet}
+          morphologyEnabled={manualWordMorphologyEnabled}
+          onMorphologyEnabledChange={handleManualWordMorphologyChange}
+          onClose={() => setShowVoiceWordModal(false)}
+          onAdd={handleAddVoiceWords}
+        />
+      )}
 
       <WordLimitModal
         isOpen={showWordLimitModal}
@@ -2078,10 +2198,12 @@ function EmptyWordbookState({
   isPro,
   onScan,
   onManualAdd,
+  onVoiceAdd,
 }: {
   isPro: boolean;
   onScan: () => void;
   onManualAdd: () => void;
+  onVoiceAdd?: () => void;
 }) {
   // Free users get manual entry first (scanning is Pro-only);
   // Pro users get scan as the recommended first action.
@@ -2102,6 +2224,13 @@ function EmptyWordbookState({
         { key: 'manual', icon: 'edit', label: '手で入力', hint: '続けて何語でも入力できます', primary: true, onClick: onManualAdd },
         { key: 'scan', icon: 'photo_camera', label: 'スキャンで追加', hint: '写真から自動抽出（Pro限定）', pro: true, onClick: onScan },
       ];
+  if (onVoiceAdd) {
+    // 手入力のすぐ後ろに置く (どちらも無料で使える追加方法)。
+    const manualIndex = actions.findIndex((action) => action.key === 'manual');
+    actions.splice(manualIndex + 1, 0, {
+      key: 'voice', icon: 'mic', label: '音声で追加', hint: '読み上げた単語をまとめて追加', onClick: onVoiceAdd,
+    });
+  }
 
   return (
     <div

@@ -9,6 +9,7 @@ export const HOME_SESSION_STORAGE_KEYS = {
   generatingWordbook: 'scanvocab_generating_wordbook',
   legacyProjectId: 'scanvocab_project_id',
   manualAddProjectId: 'scanvocab_manual_add_project_id',
+  voiceAddProjectId: 'scanvocab_voice_add_project_id',
 } as const;
 
 export interface HomeGeneratingWordbookPayload {
@@ -86,6 +87,18 @@ export function consumeManualAddIntent(storage: HomeSessionStorage): string | nu
   const projectId = storage.getItem(HOME_SESSION_STORAGE_KEYS.manualAddProjectId);
   if (projectId === null) return null;
   storage.removeItem(HOME_SESSION_STORAGE_KEYS.manualAddProjectId);
+  return projectId;
+}
+
+/** 「音声で作成」から来たとき、遷移先で音声追加モーダルを開くための印。 */
+export function saveVoiceAddIntent(storage: HomeSessionStorage, projectId: string): void {
+  storage.setItem(HOME_SESSION_STORAGE_KEYS.voiceAddProjectId, projectId);
+}
+
+export function consumeVoiceAddIntent(storage: HomeSessionStorage): string | null {
+  const projectId = storage.getItem(HOME_SESSION_STORAGE_KEYS.voiceAddProjectId);
+  if (projectId === null) return null;
+  storage.removeItem(HOME_SESSION_STORAGE_KEYS.voiceAddProjectId);
   return projectId;
 }
 
