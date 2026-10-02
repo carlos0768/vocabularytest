@@ -1,4 +1,10 @@
-import type { SharedDiscoverPayload, SharedProjectCard, SharedProjectMetricsMap } from '@/lib/shared-projects/types';
+import type { FollowSearchResult } from '@/lib/follows/types';
+import type {
+  SharedDiscoverPayload,
+  SharedProjectCard,
+  SharedProjectMetricsMap,
+  SharedUserSummary,
+} from '@/lib/shared-projects/types';
 
 export function mergeUniqueProjectCards(
   existing: SharedProjectCard[],
@@ -65,6 +71,48 @@ export function appendDiscoverPage(
     projects: mergeUniqueProjectCards(current.projects, page.projects),
     nextCursor: page.nextCursor,
   };
+}
+
+/**
+ * 検索窓のユーザー結果に、ユーザー検索 (`/api/follows/search`) のヒットを合流させる。
+ *
+ * `/api/shared-projects/discover` のユーザーは「共有単語帳を公開している人」から
+ * 拾うだけなので、単語帳を公開していない人や、表示名・ハンドルでしか一致しない人は
+ * 出てこない。ユーザータブで検索すれば出るのに検索窓では出ない、の原因がこれ。
+ * 名前で直接一致したプロフィールを先頭に置き（共有の集計があれば引き継ぐ）、
+ * 残りの discover 側のユーザーをその後ろに並べる。
+ */
+export function mergeProfileSearchUsers(
+  discoverUsers: SharedUserSummary[],
+  profileResults: FollowSearchResult[],
+): SharedUserSummary[] {
+  if (profileResults.length === 0) return discoverUsers;
+
+  const discoverById = new Map(discoverUsers.map((user) => [user.userId, user]));
+  const merged: SharedUserSummary[] = [];
+  const seen = new Set<string>();
+
+  for (const result of profileResults) {
+    if (seen.has(result.userId)) continue;
+    seen.add(result.userId);
+    const stats = discoverById.get(result.userId);
+    merged.push({
+      userId: result.userId,
+      username: result.username ?? stats?.username ?? null,
+      accountId: result.accountId || stats?.accountId || null,
+      projectCount: stats?.projectCount ?? 0,
+      wordCount: stats?.wordCount ?? 0,
+      likeCount: stats?.likeCount ?? 0,
+    });
+  }
+
+  for (const user of discoverUsers) {
+    if (seen.has(user.userId)) continue;
+    seen.add(user.userId);
+    merged.push(user);
+  }
+
+  return merged;
 }
 
 export function removeProjectFromDiscover(

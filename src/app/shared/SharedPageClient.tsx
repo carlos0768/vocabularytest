@@ -16,6 +16,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import {
   appendDiscoverPage,
   buildSharedPageSearch,
+  mergeProfileSearchUsers,
   mergeUniqueProjectCards,
   parseSharedPageTab,
   removeProjectFromDiscover,
@@ -111,6 +112,18 @@ function buildDiscoverUrl(category: SharedDiscoverCategory, query: string, curso
   return `/api/shared-projects/discover?${params.toString()}`;
 }
 
+async function fetchProfileSearchResults(query: string, signal: AbortSignal): Promise<FollowSearchResult[]> {
+  try {
+    const params = new URLSearchParams({ q: query });
+    const response = await fetch(`/api/follows/search?${params.toString()}`, { cache: 'no-store', signal });
+    const payload = await response.json().catch(() => null) as FollowSearchApiResponse | null;
+    if (!response.ok || !payload?.success) return [];
+    return payload.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // タブの URL 同期はクライアント限定。ハイドレーション後・描画前に走らせたいので
 // 通常は useLayoutEffect、SSR では警告を避けるため useEffect にフォールバックする。
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -122,6 +135,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const isLoggedIn = Boolean(user);
   const { showToast } = useToast();
 
   const [category, setCategory] = useState<PageCategory | 'all'>('all');
@@ -182,16 +196,32 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     setLoading(true);
     setError(null);
 
-    fetch(buildDiscoverUrl(category, query), {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
+    // discover のユーザーは共有単語帳の公開者からしか拾えないので、ログイン中は
+    // ユーザータブと同じプロフィール検索も並行して引き、結果に合流させる。
+    // こちらが失敗しても単語帳の検索結果は出したいので、失敗は空扱いにする。
+    const trimmedQuery = query.trim();
+    const profileSearch = isLoggedIn && trimmedQuery && (category === 'all' || category === 'users')
+      ? fetchProfileSearchResults(trimmedQuery, controller.signal)
+      : Promise.resolve<FollowSearchResult[]>([]);
+
+    Promise.all([
+      fetch(buildDiscoverUrl(category, query), {
+        cache: 'no-store',
+        signal: controller.signal,
+      }).then(async (response) => {
         const payload = await response.json().catch(() => null) as DiscoverResponse | null;
         if (!response.ok || !isDiscoverPayload(payload)) {
           throw new Error(payload && 'error' in payload ? payload.error : 'shared_discover_failed');
         }
-        startTransition(() => setDiscover(payload));
+        return payload;
+      }),
+      profileSearch,
+    ])
+      .then(([payload, profileResults]) => {
+        startTransition(() => setDiscover({
+          ...payload,
+          users: mergeProfileSearchUsers(payload.users, profileResults),
+        }));
       })
       .catch((loadError) => {
         if (controller.signal.aborted) return;
@@ -204,7 +234,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
       });
 
     return () => controller.abort();
-  }, [category, initialDiscover, query, refreshNonce]);
+  }, [category, initialDiscover, isLoggedIn, query, refreshNonce]);
 
   function handleOpenShareSheet() {
     setChooserOpen(true);
