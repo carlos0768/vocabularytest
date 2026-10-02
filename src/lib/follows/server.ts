@@ -8,6 +8,12 @@ import {
 import { normalizeStoredAvatarUrl } from '@/lib/profile/avatar';
 import { sendFollowPushNotification } from '@/lib/notifications/web-push';
 import type { FriendProfile, FriendTimelineSession, QuizSessionWordSummary } from '@/lib/friends/types';
+import {
+  aggregateFollowingTodayActivity,
+  jstDayStartIso,
+  type FollowingTodayActivity,
+  type TodayActivitySessionRow,
+} from './today-activity';
 import type {
   FollowStatus,
   FollowRelationship,
@@ -772,6 +778,39 @@ export async function listFollowTimeline(
     masteredCount: Number(session.mastered_count ?? 0),
     words: wordsBySessionId.get(session.id) ?? [],
   }));
+}
+
+/**
+ * フォロー中（status='active'）のユーザーのうち、今日（JST）クイズを解いた人と問題数。
+ * タイムラインと違い、自分・グループメンバー・フレンドは含めない。
+ */
+export async function listFollowingTodayActivity(
+  userId: string,
+  admin: SupabaseAdminClient = getSupabaseAdmin(),
+  now: Date = new Date(),
+): Promise<FollowingTodayActivity[]> {
+  const followingIds = await getActiveFollowingUserIds(userId, admin);
+  if (followingIds.length === 0) return [];
+
+  const dayStartIso = jstDayStartIso(now);
+  const { data, error } = await admin
+    .from('quiz_sessions')
+    .select('user_id,last_answered_at,answer_count')
+    .in('user_id', followingIds)
+    .gte('last_answered_at', dayStartIso)
+    .gt('answer_count', 0);
+
+  if (error) {
+    if (getFriendSchemaIssue(error) === 'quiz_sessions') return [];
+    throw new Error(error.message || 'today_activity_lookup_failed');
+  }
+
+  const sessions = (data ?? []) as TodayActivitySessionRow[];
+  const activeUserIds = [...new Set(sessions.map((s) => s.user_id))];
+  if (activeUserIds.length === 0) return [];
+
+  const profilesByUserId = await getProfilesByUserIds(activeUserIds, admin);
+  return aggregateFollowingTodayActivity(sessions, followingIds, profilesByUserId, dayStartIso, fallbackProfile);
 }
 
 async function getSessionWordsBySessionId(
