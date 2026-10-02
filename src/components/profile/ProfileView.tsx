@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import type { MouseEvent, ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { ProfileBio } from '@/components/profile/ProfileBio';
+import { ProfileCertifications } from '@/components/profile/ProfileCertifications';
+import type { ProfileCertification } from '@/lib/profile/certifications';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useToast } from '@/components/ui/toast';
@@ -75,6 +78,8 @@ export function ProfileView({
   initial,
   color,
   avatarUrl,
+  bio,
+  certifications,
   joined,
   planLabel,
   counts,
@@ -98,6 +103,10 @@ export function ProfileView({
   color: string;
   /** 設定済みのアカウントアイコン(data URL)。未設定なら頭文字を表示する。 */
   avatarUrl?: string | null;
+  /** 自己紹介(改行を含む)。未設定なら何も表示しない。 */
+  bio?: string | null;
+  /** 登録済みの資格。空なら何も表示しない。 */
+  certifications?: ProfileCertification[];
   joined: string | null;
   planLabel?: string | null;
   counts: ProfileCounts | null;
@@ -153,6 +162,8 @@ export function ProfileView({
       initial={initial}
       color={color}
       avatarUrl={avatarUrl}
+      bio={bio}
+      certifications={certifications}
       joined={joined}
       planLabel={planLabel}
       counts={counts}
@@ -259,6 +270,12 @@ export function ProfileView({
               )}
             </div>
           </div>
+
+          <ProfileBio
+            bio={bio}
+            className="mt-3 text-[13.5px] leading-[1.55] text-[var(--solid-ink)]"
+          />
+          <ProfileCertifications certifications={certifications} style={{ margin: '12px 0 0' }} />
 
           {/* Counts */}
           <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
@@ -423,6 +440,8 @@ function DesktopProfileView({
   initial,
   color,
   avatarUrl,
+  bio,
+  certifications,
   joined,
   planLabel,
   counts,
@@ -444,6 +463,8 @@ function DesktopProfileView({
   initial: string;
   color: string;
   avatarUrl?: string | null;
+  bio?: string | null;
+  certifications?: ProfileCertification[];
   joined: string | null;
   planLabel?: string | null;
   counts: ProfileCounts | null;
@@ -512,6 +533,11 @@ function DesktopProfileView({
                   )}
                   {joined && <span className="muted" style={{ fontSize: 10, fontWeight: 700 }}>{joined}から</span>}
                 </div>
+                <ProfileBio
+                  bio={bio}
+                  style={{ margin: '10px 0 0', maxWidth: 560, fontSize: 13.5, lineHeight: 1.6, color: 'var(--color-ink)' }}
+                />
+                <ProfileCertifications certifications={certifications} style={{ margin: '10px 0 0' }} />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', overflow: 'hidden', borderRadius: 14, border: '2px solid var(--solid-ink)', background: 'var(--color-surface)' }}>
