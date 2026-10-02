@@ -59,6 +59,10 @@ import {
 } from '@/lib/home/home-session-storage';
 import { getDailyStats, getStreakDays } from '@/lib/utils';
 import { isBillingEnabled } from '@/lib/billing/feature';
+import { useHideOnScroll } from '@/hooks/use-hide-on-scroll';
+import { useFollowingTodayActivity } from '@/hooks/use-following-today-activity';
+import { FollowingTodayStrip } from '@/components/home/FollowingTodayStrip';
+import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
 const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
@@ -297,6 +301,8 @@ export function HomeClient() {
   // デスクトップの新規作成はページ遷移せず中央モーダルで完結させる
   const [desktopCreateOpen, setDesktopCreateOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const headerHidden = useHideOnScroll();
+  const headerScrolled = usePageScrolled();
   const loadHomeRef = useRef<(options?: { forceRemote?: boolean }) => Promise<void>>(() => Promise.resolve());
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
@@ -397,10 +403,14 @@ export function HomeClient() {
       if (readRepo === remoteRepository && rawProjects.length > 0) {
         try {
           const db = getDb();
-          await db.projects.bulkPut(rawProjects);
-          if (result.allWords.length > 0) {
-            await db.words.bulkPut(result.allWords);
-          }
+          // 単語帳と単語は1トランザクションで書く。別々に書くと、単語帳だけ
+          // 入って単語がまだの瞬間に開いた単語帳が「0語」に見える。
+          await db.transaction('rw', [db.projects, db.words], async () => {
+            await db.projects.bulkPut(rawProjects);
+            if (result.allWords.length > 0) {
+              await db.words.bulkPut(result.allWords);
+            }
+          });
         } catch {
           // Non-critical — local cache write failure doesn't affect the UI
         }
@@ -643,6 +653,8 @@ export function HomeClient() {
   const showUpgradeBanner = isBillingEnabled() && !isPro && !upgradeBannerDismissed;
   // 参加中のグループ（マイ単語帳の下に表示。/shared から移設）
   const { groups: myGroups } = useMyGroups();
+  // 今日クイズを解いたフォロー中の人（マイ単語帳の上にカード列で出す）
+  const followingToday = useFollowingTodayActivity();
   // ホームのおすすめ（英検級ベースの共有単語帳）
   const { books: recommendedBooks } = useHomeRecommendations();
   // 語法問題集（Pro限定）。グループ表示の上に出す
@@ -674,8 +686,17 @@ export function HomeClient() {
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
       />
-      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
-      <div className="flex items-center justify-between px-[18px] pb-4 pt-2 lg:hidden">
+      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      {/* 下スクロールで上へ格納し、上スクロールで戻ってくるヘッダ */}
+      <div
+        className={`sticky z-40 flex items-center justify-between border-b-2 bg-[var(--color-background)]/95 px-[18px] pb-4 pt-5 backdrop-blur-md transition-transform duration-200 ease-out lg:hidden ${
+          headerScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'
+        }`}
+        style={{
+          top: 'env(safe-area-inset-top, 0px)',
+          transform: headerHidden ? 'translateY(calc(-100% - env(safe-area-inset-top, 0px)))' : 'translateY(0)',
+        }}
+      >
         <div className="font-display text-[26px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
           MERKEN
           <span className="ml-1 inline-block h-[5px] w-[5px] -translate-y-2 bg-[var(--color-accent)]" />
@@ -739,6 +760,8 @@ export function HomeClient() {
           <ProUpgradeBanner onDismiss={dismissUpgradeBanner} />
         </div>
       )}
+
+      <FollowingTodayStrip activity={followingToday} />
 
       <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
         <div>

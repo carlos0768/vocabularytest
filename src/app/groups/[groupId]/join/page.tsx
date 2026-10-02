@@ -260,11 +260,10 @@ export default function GroupJoinPage() {
 
       {/* Mobile */}
       <div
-        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] lg:hidden"
-        style={{
-          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
-          paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
-        }}
+        className="relative mx-auto w-full max-w-[560px] bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden"
+        // ノッチ分の余白は body が env(safe-area-inset-top) で確保済み。ここで
+        // もう一度足すと二重になってページ全体が下にずれる。
+        style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
       >
         <div className="flex items-center gap-2 px-[14px] pt-1">
           <button

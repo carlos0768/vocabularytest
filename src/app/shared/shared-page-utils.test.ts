@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import type { FollowSearchResult } from '@/lib/follows/types';
 import type { SharedProjectCard, SharedUserSummary } from '@/lib/shared-projects/types';
 import {
   appendDiscoverPage,
   buildSharedPageSearch,
   collectMetricProjectIds,
   mergeMetricsIntoCards,
+  mergeProfileSearchUsers,
   mergeUniqueProjectCards,
   parseSharedPageTab,
   removeProjectFromDiscover,
@@ -144,7 +146,6 @@ test('normalizeSharedTags keeps storage markerless while display uses hash', () 
 
 test('parseSharedPageTab restores the tab the viewer left from', () => {
   assert.equal(parseSharedPageTab('?tab=groups'), 'groups');
-  assert.equal(parseSharedPageTab('tab=grammar'), 'grammar');
   assert.equal(parseSharedPageTab('?q=abc&tab=users'), 'users');
   assert.equal(parseSharedPageTab('?tab=official'), 'official');
 });
@@ -153,6 +154,8 @@ test('parseSharedPageTab falls back to the top tab for missing or unknown values
   assert.equal(parseSharedPageTab(''), 'all');
   assert.equal(parseSharedPageTab(null), 'all');
   assert.equal(parseSharedPageTab('?tab='), 'all');
+  // 語法タブは廃止。古いリンクはトップに倒す。
+  assert.equal(parseSharedPageTab('?tab=grammar'), 'all');
   assert.equal(parseSharedPageTab('?tab=bogus'), 'all');
   assert.equal(parseSharedPageTab('?q=groups'), 'all');
 });
@@ -164,4 +167,39 @@ test('buildSharedPageSearch keeps other params and drops the default tab', () =>
   assert.equal(buildSharedPageSearch('?q=abc&tab=groups', 'all'), '?q=abc');
   assert.equal(buildSharedPageSearch('?tab=groups', 'all'), '');
   assert.equal(buildSharedPageSearch('', 'official'), '?tab=official');
+});
+
+function makeProfileResult(userId: string, accountId: string, username: string | null = null): FollowSearchResult {
+  return { userId, accountId, username, avatarUrl: null, isPublic: true, relationship: 'none', followId: null };
+}
+
+test('mergeProfileSearchUsers surfaces profile hits that discover missed (no shared wordbooks)', () => {
+  const discoverUsers: SharedUserSummary[] = [
+    { userId: 'u-sharer', username: 'sharer', accountId: 'sharer', projectCount: 2, wordCount: 40, likeCount: 3 },
+  ];
+  const merged = mergeProfileSearchUsers(discoverUsers, [makeProfileResult('u-quiet', 'quiet_user', 'Quiet')]);
+
+  assert.deepEqual(merged.map((user) => user.userId), ['u-quiet', 'u-sharer']);
+  assert.deepEqual(merged[0], {
+    userId: 'u-quiet', username: 'Quiet', accountId: 'quiet_user', projectCount: 0, wordCount: 0, likeCount: 0,
+  });
+});
+
+test('mergeProfileSearchUsers keeps shared stats and does not duplicate users found by both', () => {
+  const discoverUsers: SharedUserSummary[] = [
+    { userId: 'u-a', username: 'alice', accountId: 'alice', projectCount: 3, wordCount: 90, likeCount: 7 },
+    { userId: 'u-b', username: 'bob', accountId: 'bob', projectCount: 1, wordCount: 10, likeCount: 0 },
+  ];
+  const merged = mergeProfileSearchUsers(discoverUsers, [makeProfileResult('u-a', 'alice', 'alice')]);
+
+  assert.deepEqual(merged.map((user) => user.userId), ['u-a', 'u-b']);
+  assert.equal(merged[0].projectCount, 3);
+  assert.equal(merged[0].likeCount, 7);
+});
+
+test('mergeProfileSearchUsers returns discover users untouched when profile search found nothing', () => {
+  const discoverUsers: SharedUserSummary[] = [
+    { userId: 'u-a', username: 'alice', accountId: 'alice', projectCount: 1, wordCount: 1, likeCount: 0 },
+  ];
+  assert.equal(mergeProfileSearchUsers(discoverUsers, []), discoverUsers);
 });

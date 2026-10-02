@@ -22,7 +22,7 @@ import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useTourSeen } from '@/hooks/use-tour-seen';
 import { useTutorialFlow, type TutorialStage } from '@/hooks/use-tutorial-flow';
 import { useWordCount } from '@/hooks/use-word-count';
-import { getRepository, hybridRepository } from '@/lib/db';
+import { getDb, getRepository, hybridRepository, syncQueue } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { consumeManualAddIntent } from '@/lib/home/home-session-storage';
@@ -130,6 +130,38 @@ function thumbColor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   return THUMBS[Math.abs(h) % THUMBS.length];
+}
+
+/**
+ * ローカルで0語だった単語帳の単語をサーバーから取り直す。
+ * 未送信の削除 (オフライン中に消した単語) はサーバーにまだ残っているので除く。
+ * 取れた単語はローカルにも書き戻し、続けて開くクイズなども同じ単語を見られるようにする。
+ * 失敗したら空のまま (従来どおりの表示) にする。
+ */
+async function loadRemoteWordsForEmptyLocalCache(projectId: string): Promise<Word[]> {
+  try {
+    const [remoteWords, pending] = await Promise.all([
+      remoteRepository.getWords(projectId),
+      syncQueue.getPending().catch(() => []),
+    ]);
+    const pendingDeletedWordIds = new Set(
+      pending
+        .filter((item) => item.table === 'words' && item.operation === 'delete')
+        .map((item) => item.entityId),
+    );
+    const words = remoteWords.filter((word) => !pendingDeletedWordIds.has(word.id));
+    if (words.length > 0) {
+      try {
+        await getDb().words.bulkPut(words);
+      } catch {
+        // キャッシュへの書き戻しは失敗しても表示には影響しない
+      }
+    }
+    return words;
+  } catch (error) {
+    console.warn('Failed to load words from remote for an empty local wordbook:', error);
+    return [];
+  }
 }
 
 function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
@@ -262,8 +294,14 @@ export default function ProjectPage() {
     [repository, subscriptionStatus],
   );
 
+  // 認証やサブスクの確定で loadProject が作り直されると、前の呼び出しが
+  // 後から終わって新しい結果を上書きしうる。最後に始めた呼び出しだけ反映する。
+  const loadRequestIdRef = useRef(0);
+
   const loadProject = useCallback(async () => {
     if (authLoading) return;
+    const requestId = ++loadRequestIdRef.current;
+    const isStale = () => requestId !== loadRequestIdRef.current;
     setLoading(true);
     setError(null);
 
@@ -287,10 +325,18 @@ export default function ProjectPage() {
         }
       }
 
+      if (isStale()) return;
+
       if (isOwnedBy(loadedProject, expectedUserId)) {
         setProject(loadedProject);
         setLoading(false);
-        const loadedWords = await wordRepo.getWords(projectId);
+        let loadedWords = await wordRepo.getWords(projectId);
+        // ローカルキャッシュは同期の途中で単語帳だけ入って単語がまだ、という
+        // 状態になりうる。0語のときはサーバーにも訊いて、本当に空かを確かめる。
+        if (loadedWords.length === 0 && wordRepo === hybridRepository && user && navigator.onLine) {
+          loadedWords = await loadRemoteWordsForEmptyLocalCache(projectId);
+        }
+        if (isStale()) return;
         setWords(loadedWords);
         setWordOrderSnapshot(buildProjectWordOrderSnapshot(loadedWords));
         setWordsLoaded(true);
@@ -312,11 +358,14 @@ export default function ProjectPage() {
         setError('単語帳が見つかりません');
       }
     } catch (loadError) {
+      if (isStale()) return;
       console.error('Failed to load project:', loadError);
       setError('単語帳の読み込みに失敗しました');
     } finally {
-      setLoading(false);
-      setWordsLoaded(true);
+      if (!isStale()) {
+        setLoading(false);
+        setWordsLoaded(true);
+      }
     }
   }, [authLoading, projectId, repository, router, user]);
 

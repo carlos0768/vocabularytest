@@ -16,6 +16,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import {
   appendDiscoverPage,
   buildSharedPageSearch,
+  mergeProfileSearchUsers,
   mergeUniqueProjectCards,
   parseSharedPageTab,
   removeProjectFromDiscover,
@@ -26,7 +27,6 @@ import type {
   SharedProjectCard,
 } from '@/lib/shared-projects/types';
 import type { FollowSearchResult, FollowSummary } from '@/lib/follows/types';
-import type { PublicGrammarBookCard } from '@/lib/grammar/types';
 import type { OfficialWordbookCard } from '@/lib/official-wordbooks/catalog';
 import type { PublicStudyGroupSummary, StudyGroupSummary } from '@/lib/shared-projects/types';
 import { formatSharedTag } from '../../../shared/shared-tags';
@@ -38,13 +38,12 @@ type SharedPageClientProps = {
 type DiscoverResponse = SharedDiscoverPayload | { error?: string };
 
 type ShareCategory = Exclude<SharedDiscoverCategory, 'all'>;
-type PageCategory = ShareCategory | 'official' | 'groups' | 'grammar';
+type PageCategory = ShareCategory | 'official' | 'groups';
 
 const CATEGORY_META: Record<PageCategory, { label: string; icon: string; description: string; color: string }> = {
   official: { label: '公式', icon: 'verified', description: 'MERKEN公式の単語帳', color: '#664DB3' },
   users: { label: 'ユーザー', icon: 'person', description: '学習者をフォロー', color: '#137FEC' },
   projects: { label: '単語帳', icon: 'menu_book', description: '公開されている単語帳', color: '#228B22' },
-  grammar: { label: '語法', icon: 'rule', description: '公開されている語法問題集', color: '#CC4D59' },
   groups: { label: 'グループ検索', icon: 'groups', description: '公開グループを探す', color: '#D97340' },
 };
 
@@ -74,13 +73,6 @@ type GroupSearchApiResponse = {
   error?: string;
 };
 
-type PublicGrammarApiResponse = {
-  success?: boolean;
-  items?: PublicGrammarBookCard[];
-  nextCursor?: string | null;
-  error?: string;
-};
-
 type OfficialWordbooksApiResponse = {
   success?: boolean;
   items?: OfficialWordbookCard[];
@@ -88,7 +80,6 @@ type OfficialWordbooksApiResponse = {
   error?: string;
 };
 
-const GRAMMAR_PAGE_SIZE = 12;
 const OFFICIAL_PAGE_SIZE = 12;
 
 export function buildOfficialWordbooksUrl(query: string, cursor?: string | null) {
@@ -96,13 +87,6 @@ export function buildOfficialWordbooksUrl(query: string, cursor?: string | null)
   if (query.trim()) params.set('q', query.trim());
   if (cursor) params.set('cursor', cursor);
   return `/api/official-wordbooks?${params.toString()}`;
-}
-
-export function buildPublicGrammarUrl(query: string, cursor?: string | null) {
-  const params = new URLSearchParams({ limit: String(GRAMMAR_PAGE_SIZE) });
-  if (query.trim()) params.set('q', query.trim());
-  if (cursor) params.set('cursor', cursor);
-  return `/api/grammar/public?${params.toString()}`;
 }
 
 const EMPTY_DISCOVER: SharedDiscoverPayload = {
@@ -128,6 +112,18 @@ function buildDiscoverUrl(category: SharedDiscoverCategory, query: string, curso
   return `/api/shared-projects/discover?${params.toString()}`;
 }
 
+async function fetchProfileSearchResults(query: string, signal: AbortSignal): Promise<FollowSearchResult[]> {
+  try {
+    const params = new URLSearchParams({ q: query });
+    const response = await fetch(`/api/follows/search?${params.toString()}`, { cache: 'no-store', signal });
+    const payload = await response.json().catch(() => null) as FollowSearchApiResponse | null;
+    if (!response.ok || !payload?.success) return [];
+    return payload.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // タブの URL 同期はクライアント限定。ハイドレーション後・描画前に走らせたいので
 // 通常は useLayoutEffect、SSR では警告を避けるため useEffect にフォールバックする。
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -139,6 +135,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const isLoggedIn = Boolean(user);
   const { showToast } = useToast();
 
   const [category, setCategory] = useState<PageCategory | 'all'>('all');
@@ -151,19 +148,8 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
   const [groupLoading, setGroupLoading] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
 
-  // 共有ページに公開された語法問題集。単語帳の discover とは別APIなので
-  // 検索・追加読み込みもこのページ内で完結させる。
-  const [grammarQuery, setGrammarQuery] = useState('');
-  const [grammarBooks, setGrammarBooks] = useState<PublicGrammarBookCard[]>([]);
-  const [grammarCursor, setGrammarCursor] = useState<string | null>(null);
-  const [grammarLoading, setGrammarLoading] = useState(false);
-  const [grammarError, setGrammarError] = useState<string | null>(null);
-  const [grammarLoadMoreState, setGrammarLoadMoreState] = useState<LoadMoreState>('idle');
-  // 検索条件が変わるたびに増やし、古い結果を捨てるための世代番号。
-  const grammarSeqRef = useRef(0);
-
   // 共有ページに置いた公式単語帳。運営が配る単語帳なので投稿者は出さず、
-  // 語法と同じく専用APIで検索・追加読み込みする。
+  // 専用APIで検索・追加読み込みする。
   const [officialQuery, setOfficialQuery] = useState('');
   const [officialBooks, setOfficialBooks] = useState<OfficialWordbookCard[]>([]);
   const [officialCursor, setOfficialCursor] = useState<string | null>(null);
@@ -197,7 +183,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   useEffect(() => {
     discoverSeqRef.current += 1;
-    if (category === 'groups' || category === 'grammar' || category === 'official') return;
+    if (category === 'groups' || category === 'official') return;
 
     const canUseInitial = !hasUsedInitialRef.current && category === 'all' && !query.trim() && refreshNonce === 0;
     if (canUseInitial) {
@@ -210,16 +196,32 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
     setLoading(true);
     setError(null);
 
-    fetch(buildDiscoverUrl(category, query), {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
+    // discover のユーザーは共有単語帳の公開者からしか拾えないので、ログイン中は
+    // ユーザータブと同じプロフィール検索も並行して引き、結果に合流させる。
+    // こちらが失敗しても単語帳の検索結果は出したいので、失敗は空扱いにする。
+    const trimmedQuery = query.trim();
+    const profileSearch = isLoggedIn && trimmedQuery && (category === 'all' || category === 'users')
+      ? fetchProfileSearchResults(trimmedQuery, controller.signal)
+      : Promise.resolve<FollowSearchResult[]>([]);
+
+    Promise.all([
+      fetch(buildDiscoverUrl(category, query), {
+        cache: 'no-store',
+        signal: controller.signal,
+      }).then(async (response) => {
         const payload = await response.json().catch(() => null) as DiscoverResponse | null;
         if (!response.ok || !isDiscoverPayload(payload)) {
           throw new Error(payload && 'error' in payload ? payload.error : 'shared_discover_failed');
         }
-        startTransition(() => setDiscover(payload));
+        return payload;
+      }),
+      profileSearch,
+    ])
+      .then(([payload, profileResults]) => {
+        startTransition(() => setDiscover({
+          ...payload,
+          users: mergeProfileSearchUsers(payload.users, profileResults),
+        }));
       })
       .catch((loadError) => {
         if (controller.signal.aborted) return;
@@ -232,7 +234,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
       });
 
     return () => controller.abort();
-  }, [category, initialDiscover, query, refreshNonce]);
+  }, [category, initialDiscover, isLoggedIn, query, refreshNonce]);
 
   function handleOpenShareSheet() {
     setChooserOpen(true);
@@ -240,7 +242,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
   // 一覧の下端に達したら次ページを取得して追記する（カーソルが無ければ何もしない）。
   function handleLoadMore() {
-    if (category === 'groups' || category === 'grammar' || category === 'official' || loading || loadMoreState === 'loading') return;
+    if (category === 'groups' || category === 'official' || loading || loadMoreState === 'loading') return;
     const cursor = discover.nextCursor;
     if (!cursor) return;
 
@@ -316,54 +318,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
       setGroupResults([]);
     } finally {
       setGroupLoading(false);
-    }
-  }
-
-  async function handleGrammarSearch() {
-    grammarSeqRef.current += 1;
-    const seq = grammarSeqRef.current;
-    setGrammarLoading(true);
-    setGrammarError(null);
-    setGrammarLoadMoreState('idle');
-    try {
-      const response = await fetch(buildPublicGrammarUrl(grammarQuery), { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as PublicGrammarApiResponse | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'grammar_search_failed');
-      }
-      if (grammarSeqRef.current !== seq) return;
-      setGrammarBooks(payload.items ?? []);
-      setGrammarCursor(payload.nextCursor ?? null);
-    } catch {
-      if (grammarSeqRef.current !== seq) return;
-      setGrammarError('語法問題集を読み込めませんでした。');
-      setGrammarBooks([]);
-      setGrammarCursor(null);
-    } finally {
-      if (grammarSeqRef.current === seq) setGrammarLoading(false);
-    }
-  }
-
-  async function handleGrammarLoadMore() {
-    if (grammarLoading || grammarLoadMoreState === 'loading' || !grammarCursor) return;
-    const seq = grammarSeqRef.current;
-    setGrammarLoadMoreState('loading');
-    try {
-      const response = await fetch(buildPublicGrammarUrl(grammarQuery, grammarCursor), { cache: 'no-store' });
-      const payload = await response.json().catch(() => null) as PublicGrammarApiResponse | null;
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || 'grammar_load_more_failed');
-      }
-      if (grammarSeqRef.current !== seq) return;
-      setGrammarBooks((current) => {
-        const known = new Set(current.map((item) => item.id));
-        return [...current, ...(payload.items ?? []).filter((item) => !known.has(item.id))];
-      });
-      setGrammarCursor(payload.nextCursor ?? null);
-      setGrammarLoadMoreState('idle');
-    } catch {
-      if (grammarSeqRef.current !== seq) return;
-      setGrammarLoadMoreState('error');
     }
   }
 
@@ -455,15 +409,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         groupError={groupError}
         onGroupQueryChange={setGroupQuery}
         onGroupSearch={() => void handleGroupSearch()}
-        grammarQuery={grammarQuery}
-        grammarBooks={grammarBooks}
-        grammarLoading={grammarLoading}
-        grammarError={grammarError}
-        grammarLoadMoreState={grammarLoadMoreState}
-        grammarHasMore={Boolean(grammarCursor)}
-        onGrammarQueryChange={setGrammarQuery}
-        onGrammarSearch={() => void handleGrammarSearch()}
-        onGrammarLoadMore={() => void handleGrammarLoadMore()}
         officialQuery={officialQuery}
         officialBooks={officialBooks}
         officialLoading={officialLoading}
@@ -509,7 +454,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </button>
         </header>
 
-        {category !== 'groups' && category !== 'users' && category !== 'grammar' && category !== 'official' && (
+        {category !== 'groups' && category !== 'users' && category !== 'official' && (
           <div className="px-[14px] pt-2">
             <label className="flex min-w-0 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[var(--color-muted)]">
               <Icon name="search" size={16} />
@@ -555,18 +500,6 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             onQueryChange={setOfficialQuery}
             onSearch={() => void handleOfficialSearch()}
             onLoadMore={() => void handleOfficialLoadMore()}
-          />
-        ) : category === 'grammar' ? (
-          <GrammarSearchSection
-            grammarQuery={grammarQuery}
-            books={grammarBooks}
-            loading={grammarLoading}
-            error={grammarError}
-            hasMore={Boolean(grammarCursor)}
-            loadMoreState={grammarLoadMoreState}
-            onQueryChange={setGrammarQuery}
-            onSearch={() => void handleGrammarSearch()}
-            onLoadMore={() => void handleGrammarLoadMore()}
           />
         ) : category === 'groups' ? (
           <GroupSearchSection
@@ -1267,133 +1200,6 @@ function OfficialWordbookCardItem({ book }: { book: OfficialWordbookCard }) {
                     {book.wordCount} 語
                   </span>
                 </>
-              )}
-            </div>
-          </div>
-
-          <Icon name="chevron_right" size={20} className="shrink-0 text-[var(--color-muted)]" />
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-/**
- * 共有ページの「語法」カテゴリ。公開されている語法問題集を検索・一覧する。
- * カードのタップで /grammar/share/[shareId] (閲覧・取り込み) に飛ぶ。
- */
-function GrammarSearchSection({
-  grammarQuery,
-  books,
-  loading,
-  error,
-  hasMore,
-  loadMoreState,
-  onQueryChange,
-  onSearch,
-  onLoadMore,
-}: {
-  grammarQuery: string;
-  books: PublicGrammarBookCard[];
-  loading: boolean;
-  error: string | null;
-  hasMore: boolean;
-  loadMoreState: LoadMoreState;
-  onQueryChange: (value: string) => void;
-  onSearch: () => void;
-  onLoadMore: () => void;
-}) {
-  const searchedInitiallyRef = useRef(false);
-
-  useEffect(() => {
-    if (searchedInitiallyRef.current) return;
-    searchedInitiallyRef.current = true;
-    onSearch();
-  }, [onSearch]);
-
-  return (
-    <div className="flex flex-col gap-3 px-[14px]">
-      <form
-        onSubmit={(event) => { event.preventDefault(); onSearch(); }}
-        className="flex gap-2"
-      >
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5">
-          <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
-          <input
-            value={grammarQuery}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="問題集名・ユーザーで検索"
-            className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-[var(--solid-ink)] outline-none placeholder:font-semibold placeholder:text-[var(--color-muted)]"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] text-[var(--color-on-ink)] disabled:opacity-50"
-          aria-label="検索"
-        >
-          <Icon name={loading ? 'progress_activity' : 'arrow_forward'} className={loading ? 'animate-spin' : ''} size={16} />
-        </button>
-      </form>
-
-      {error && <ErrorBox message={error} />}
-
-      {loading && books.length === 0 && <LoadingBox />}
-
-      {books.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {books.map((book) => (
-            <GrammarBookCard key={book.id} book={book} />
-          ))}
-        </div>
-      )}
-
-      {!loading && books.length === 0 && !error && (
-        <EmptyBox message="公開されている語法問題集はまだありません" />
-      )}
-
-      {books.length > 0 && (
-        <LoadMoreSentinel hasMore={hasMore} state={loadMoreState} onLoadMore={onLoadMore} />
-      )}
-    </div>
-  );
-}
-
-function GrammarBookCard({ book }: { book: PublicGrammarBookCard }) {
-  const ownerLabel = book.ownerAccountId
-    ? `@${book.ownerAccountId}`
-    : book.ownerUsername
-      ? `@${book.ownerUsername}`
-      : '共有ユーザー';
-
-  return (
-    <Link href={`/grammar/share/${encodeURIComponent(book.shareId)}`} className="block">
-      <div className="rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3 transition-all duration-100 active:translate-x-px active:translate-y-px">
-        <div className="flex items-center gap-[11px]">
-          <div
-            className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"
-            style={{ backgroundColor: thumbColor(book.id) }}
-          >
-            <Icon name="rule" size={24} />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <span className="block overflow-hidden text-ellipsis whitespace-nowrap font-display text-[14px] font-bold text-[var(--solid-ink)]">
-              {book.title}
-            </span>
-            <div className="mt-[3px] flex items-center gap-1.5">
-              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[var(--color-muted)]">
-                {ownerLabel}
-              </span>
-              <span className="text-[11px] text-[var(--color-muted)] opacity-50">.</span>
-              <span className="font-mono text-[10px] tabular-nums text-[var(--color-muted)]">
-                {book.questionCount} 問
-              </span>
-              {book.importCount > 0 && (
-                <span className="flex items-center gap-0.5 font-mono text-[10px] tabular-nums text-[var(--color-muted)]">
-                  <Icon name="download" size={12} />
-                  {book.importCount}
-                </span>
               )}
             </div>
           </div>
