@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { markProjectUsed } from '@/lib/projects/recent-use';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
@@ -164,6 +165,10 @@ export default function VoiceQuizPage() {
    * 単語帳を前提にした記録先 (projectId) は語ごとのものに切り替える。
    */
   const binderName = projectId === 'all' ? searchParams.get('binder') : null;
+  // ホームのショートカットグリッドの「直近使った単語帳」用。横断 (`all`) は記録しない
+  useEffect(() => {
+    markProjectUsed(projectId);
+  }, [projectId]);
   // 通常クイズから引き継いだ出題数。モード選択はURLだけで表現し、保存はしない。
   const requestedCount = resolveVoiceQuizCount(searchParams.get('count'));
   const { subscription, loading: authLoading, user } = useAuth();

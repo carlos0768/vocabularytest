@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { markProjectUsed } from '@/lib/projects/recent-use';
 import { Icon } from '@/components/ui/Icon';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
@@ -183,6 +184,10 @@ export default function FlashcardPage() {
   const collectionId = searchParams.get('collectionId');
   /** バインダー横断の山札。`/flashcard/all?binder=<バインダー名>` で来る。 */
   const binderName = projectId === 'all' ? searchParams.get('binder') : null;
+  // ホームのショートカットグリッドの「直近使った単語帳」用。横断 (`all`) は記録しない
+  useEffect(() => {
+    markProjectUsed(projectId);
+  }, [projectId]);
   const { user, subscription, loading: authLoading } = useAuth();
 
   // 山札は「読み込んだ全部 (allWords)」と「絞り込み後 (words)」に分ける。

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { markProjectUsed } from '@/lib/projects/recent-use';
 import Link from 'next/link';
 import { DesktopProjectDetailView } from '@/components/desktop/DesktopProjectDetail';
 import { Icon } from '@/components/ui/Icon';
@@ -176,6 +177,10 @@ export default function ProjectPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
+  // ホームのショートカットグリッドの「直近使った単語帳」用（recent-use.ts）
+  useEffect(() => {
+    markProjectUsed(projectId);
+  }, [projectId]);
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { count: totalWordCount, canAddWords, refresh: refreshWordCount } = useWordCount();
