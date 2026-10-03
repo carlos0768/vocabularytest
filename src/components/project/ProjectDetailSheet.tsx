@@ -10,6 +10,7 @@ import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton'
 // 段階の見た目が一覧とずれる)。
 import { StatusSquares } from '@/components/project/WordRow';
 import { getMasteryLevel } from '@/lib/words/mastery-level';
+import { getWordStatusStep } from '@/lib/words/status-cycle';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
@@ -220,8 +221,10 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
     if (wordFilterPos) base = base.filter((w) => w.partOfSpeechTags?.includes(wordFilterPos!));
     if (wordSortOrder === 'alphabetical') return [...base].sort((a, b) => a.english.localeCompare(b.english));
     if (wordSortOrder === 'statusAsc') {
-      const rank = (s: string) => (s === 'new' ? 0 : s === 'review' ? 1 : 2);
-      return [...base].sort((a, b) => rank(a.status) - rank(b.status));
+      // 未学習 → 学習中 → 定着中 → 習得 (Lv.0) → Lv.1 → Lv.2 … の順
+      return [...base].sort((a, b) =>
+        getWordStatusStep(a.status) - getWordStatusStep(b.status)
+        || getMasteryLevel(a) - getMasteryLevel(b));
     }
     return base;
   }, [query, words, wordSortOrder, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);

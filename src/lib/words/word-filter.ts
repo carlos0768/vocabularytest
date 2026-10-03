@@ -8,6 +8,7 @@
  */
 
 import type { Word, WordStatus } from '@/types';
+import { getMasteryLevel } from '@/lib/words/mastery-level';
 
 /** 単語 + 一覧表示に必要な単語帳側の情報。 */
 export interface WordListEntry {
@@ -270,7 +271,10 @@ function compareEntries(a: WordListEntry, b: WordListEntry, sort: SortKey): numb
     case 'japanese':
       return a.word.japanese.localeCompare(b.word.japanese, 'ja') || compareEnglish(a, b);
     case 'status':
-      return STATUS_ORDER[a.word.status] - STATUS_ORDER[b.word.status] || compareEnglish(a, b);
+      // 習得同士は Lv.0 (習得) → Lv.1 → Lv.2 … の順でレベルが上の語ほど後ろ
+      return STATUS_ORDER[a.word.status] - STATUS_ORDER[b.word.status]
+        || getMasteryLevel(a.word) - getMasteryLevel(b.word)
+        || compareEnglish(a, b);
     case 'review': {
       // 期限なし(未学習)は後ろにまとめる
       const aNext = timestamp(a.word.nextReviewAt) ?? Number.POSITIVE_INFINITY;
