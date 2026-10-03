@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getRepository } from '@/lib/db';
 import { recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
-import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
+import { calculateNextReview, getProgressAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { useAuth } from '@/hooks/use-auth';
 import type { Word, SubscriptionStatus } from '@/types';
@@ -246,9 +246,8 @@ export default function QuickResponsePage() {
       recordActivity();
 
       try {
-        const newStatus = getStatusAfterAnswer(word.status, correct);
         const srUpdate = calculateNextReview(correct, word);
-        const updates = { status: newStatus, ...srUpdate };
+        const updates = { ...getProgressAfterAnswer(word, correct), ...srUpdate };
         await repository.updateWord(word.id, updates);
         setWords((prev) =>
           prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w))

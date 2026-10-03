@@ -225,7 +225,7 @@ export default function WordListPage() {
       newStatus,
       writer: async (finalStatus, originalStatus) => {
         try {
-          await repository.updateWord(wordId, { status: finalStatus });
+          await repository.updateWord(wordId, { status: finalStatus, masteryLevel: 0 });
         } catch (error) {
           console.error('Failed to update status:', error);
           setWords(prev => prev.map(w => w.id === wordId ? { ...w, status: originalStatus } : w));

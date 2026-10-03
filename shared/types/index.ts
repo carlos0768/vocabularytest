@@ -227,6 +227,13 @@ export interface Word {
   exampleSentenceJa?: string; // Japanese translation of example sentence
   pronunciation?: string; // IPA pronunciation e.g. "/ɪˈlæb.ər.ət/"
   status: WordStatus;
+  /**
+   * 習得レベル。習得 (`status === 'mastered'`) の先を無限に進めるための段数で、
+   * 習得した直後が 0、その後クイズで正解するたびに 1 ずつ上がる (Lv.1, Lv.2, …)。
+   * 習得でないときの値に意味は無い (必ず `getMasteryLevel()` を通して読む)。
+   * 未設定は 0 あつかい。
+   */
+  masteryLevel?: number;
   createdAt: string; // ISO string
   // Spaced repetition fields (SM-2 algorithm)
   lastReviewedAt?: string; // ISO string - when last reviewed
