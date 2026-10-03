@@ -1,31 +1,39 @@
 /**
- * 音声で読み上げた単語の並びを、単語帳に入れる「見出し語」の一覧に分ける。
+ * 1回の録音から、単語帳に入れる見出し語を1つだけ決める。
  *
- * 書き起こしは「apple banana look forward to beautiful」のように、区切りの無い
- * 1本の文字列で返ってくる。空白で割ると熟語 (look forward to) が1語ずつに
- * ばらけてしまう。単語ごとの発話時刻を見て「間」で区切る手もあるが、
- * Cloud Speech-to-Text は無音を前後の語の長さに吸収して返すことが多く、
- * 間の長さが当てにならない。
+ * 音声で追加は「1回の録音 = 1語 (熟語なら1つ)」。書き起こしを空白で割ると、
+ * 聞き違い (apple → "a pole") がそのまま2語として追加されてしまうので、
+ * 発話全体を1項目として扱い、割ることはしない。
  *
- * そこで区切りだけを生成AIに訊く。ただしAIの出力は信用しない ——
- * 書き起こしに連続して現れる語の並びでない項目は捨てるので、AIが語を
- * 書き換えたり、言っていない語を足したりしても一覧には入らない。
- * AIが失敗したときは空白区切りに落とす (熟語はばらけるが、一覧で直せる)。
+ * 日本人の発音の英語は en-US の認識だけでは別の語に化けやすい (カタカナ寄りの
+ * 発音は英語モデルの想定外)。そこで ja-JP でも同時に認識しておく —— こちらは
+ * 「アップル」のようにカタカナで拾える。英語の認識が自信を持って1語を返した
+ * ときはそれを使い、そうでなければ両方の候補を生成AIに渡して、学習者が
+ * 言おうとした英語を1つだけ選ばせる。AIが失敗したら英語の最有力候補に落とす。
+ * どの経路でも返すのは高々1項目。
  */
 
 import { z } from 'zod';
 import { AI_CONFIG, getAPIKeys, type ResponseSchema } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
-import { MAX_DICTATED_ENTRY_LENGTH, MAX_DICTATED_WORDS } from './dictated-words-limits';
-
-export { MAX_DICTATED_ENTRY_LENGTH, MAX_DICTATED_WORDS };
+import { MAX_DICTATED_ENTRY_LENGTH } from './dictated-words-limits';
 
 /** 熟語として扱う語数の上限。これより長い並びは文であって見出し語ではない。 */
 const MAX_WORDS_PER_ENTRY = 6;
 
-/** AIに渡す書き起こしの上限。55秒ぶんの読み上げで数百文字に収まる。 */
-const MAX_TRANSCRIPT_LENGTH = 4000;
+/** AIに渡す候補の数。認識側の候補数 (5) に合わせ、余計なものは渡さない。 */
+const MAX_CANDIDATES_PER_LANGUAGE = 5;
+
+/** 候補1つの長さの上限。1語ぶんの発話でこれを超えることは無い。 */
+const MAX_CANDIDATE_LENGTH = 80;
+
+/**
+ * 英語の認識をそのまま信じてよい確信度。これ以上なら AI を呼ばない
+ * (はっきり発音できた語でまで待たせない)。日本人の発音で化けたときは
+ * 確信度が下がるので、AI の判断に回る。
+ */
+export const CONFIDENT_ENGLISH_THRESHOLD = 0.85;
 
 /** 言い淀み。認識側が拾ってしまったときだけ落とす。 */
 const FILLER_WORDS = new Set(['um', 'uh', 'er', 'ah', 'eh', 'hmm', 'mm', 'erm', 'uhm']);
@@ -57,94 +65,59 @@ export function normalizeDictatedEntry(raw: string): string | null {
   return text;
 }
 
-/** 突き合わせ用に、書き起こしを小文字の語の列にする。 */
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[.,!?;:"“”、。]+/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
+export interface SpokenEntryCandidates {
+  /** en-US の認識候補 (先頭が最有力)。 */
+  english: readonly string[];
+  /** en-US の最有力候補の確信度 (0〜1)。 */
+  englishConfidence: number;
+  /** ja-JP の認識候補 (先頭が最有力)。カタカナで拾えた発音が入る。 */
+  japanese: readonly string[];
 }
 
-/** `needle` が `haystack` の中に連続して現れるか。 */
-function containsSequence(haystack: readonly string[], needle: readonly string[]): boolean {
-  if (needle.length === 0 || needle.length > haystack.length) return false;
-  outer: for (let start = 0; start + needle.length <= haystack.length; start += 1) {
-    for (let offset = 0; offset < needle.length; offset += 1) {
-      if (haystack[start + offset] !== needle[offset]) continue outer;
-    }
-    return true;
-  }
-  return false;
-}
-
-/**
- * 整形・重複除去・上限をかけて一覧を確定する。
- * 重複は大文字小文字を区別せず、先に出たほうを残す (読み上げ順を保つ)。
- */
-export function finalizeDictatedEntries(entries: readonly string[]): string[] {
+function cleanCandidates(values: readonly string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
-  for (const raw of entries) {
-    const entry = normalizeDictatedEntry(raw);
-    if (!entry) continue;
-    const key = entry.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(entry);
-    if (result.length >= MAX_DICTATED_WORDS) break;
+  for (const raw of values) {
+    const value = raw.trim();
+    if (!value || value.length > MAX_CANDIDATE_LENGTH || seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+    if (result.length >= MAX_CANDIDATES_PER_LANGUAGE) break;
   }
   return result;
 }
 
-/** AIを使えないときの区切り方。熟語はばらけるが、言った語は全部残る。 */
-export function splitTranscriptByWhitespace(transcript: string): string[] {
-  return finalizeDictatedEntries(transcript.split(/[\s,、。.]+/));
-}
-
-/**
- * AIが返した項目のうち、書き起こしに実際にあるものだけを残す。
- * 語を書き換えた・足した項目はここで落ちる。
- */
-export function keepEntriesFoundInTranscript(
-  entries: readonly string[],
-  transcript: string,
-): string[] {
-  const tokens = tokenize(transcript);
-  return finalizeDictatedEntries(entries).filter((entry) =>
-    containsSequence(tokens, tokenize(entry)),
-  );
-}
-
-const splitResponseSchema = z.object({
-  entries: z.array(z.string()).default([]),
+const resolveResponseSchema = z.object({
+  entry: z.string().default(''),
 });
 
-/** Gemini Controlled Generation schema mirroring `splitResponseSchema`. */
-export const DICTATED_WORDS_RESPONSE_SCHEMA: ResponseSchema = {
+/** Gemini Controlled Generation schema mirroring `resolveResponseSchema`. */
+export const SPOKEN_ENTRY_RESPONSE_SCHEMA: ResponseSchema = {
   type: 'OBJECT',
   properties: {
-    entries: { type: 'ARRAY', items: { type: 'STRING' } },
+    entry: { type: 'STRING' },
   },
-  required: ['entries'],
+  required: ['entry'],
 };
 
-const SPLIT_PROMPT = `あなたは英語の単語帳づくりを手伝うアシスタントです。
-学習者が覚えたい英単語や熟語を、続けて声に出して読み上げました。
-その音声の書き起こしを、単語帳の見出し語ごとに区切ってください。
+const RESOLVE_PROMPT = `あなたは日本人の英語学習者の単語帳づくりを手伝うアシスタントです。
+学習者は覚えたい英単語か英語の熟語を「1つだけ」声に出しました。日本語なまりの発音のことがあります。
+その音声を英語の音声認識と日本語の音声認識の両方にかけた結果を渡すので、
+学習者が言おうとした英単語（または熟語）を1つだけ答えてください。
 
-ルール:
-- 書き起こしに出てくる語だけを使う。綴りを直したり、語を足したり、言い換えたりしない
-- 語の順番は書き起こしのとおりに保つ
-- 熟語・句動詞・決まった言い回し (例: look forward to, take care of, in spite of) は1項目にまとめる
-- それ以外は1語ずつ別の項目にする
-- 言い淀み (um, uh など) は含めない
-- 説明文やMarkdownは出さない。JSONのみ返す
+判断のしかた:
+- 英語の認識結果は、日本語なまりのせいで別の語に聞き違えられていることがある（例: "a pole" は apple の聞き違い）
+- 日本語の認識結果は、英語の発音をカタカナで拾っていることがある（例: アップル → apple、ルック フォワード トゥ → look forward to）
+- 両方を照らし合わせ、音が近く、学習者が単語帳に入れそうな語を選ぶ
+- 熟語・句動詞は1つの項目として、そのまま答える
+- 複数の語を並べて答えない。見出し語は必ず1つ
+- 英単語として判断できないときは空文字を返す
+- 答えは英語の綴り（小文字。固有名詞のみ大文字）で返す。説明文やMarkdownは出さない。JSONのみ返す
 
 出力形式:
-{ "entries": ["apple", "look forward to", "beautiful"] }`;
+{ "entry": "apple" }`;
 
-export interface DictatedWordsDeps {
+export interface SpokenEntryDeps {
   generateText?: (prompt: string) => Promise<string>;
 }
 
@@ -152,9 +125,9 @@ async function generateWithProvider(prompt: string): Promise<string> {
   const config = {
     ...AI_CONFIG.lexicon.classifyPos,
     temperature: 0,
-    maxOutputTokens: 2048,
+    maxOutputTokens: 256,
     responseFormat: 'json' as const,
-    responseSchema: DICTATED_WORDS_RESPONSE_SCHEMA,
+    responseSchema: SPOKEN_ENTRY_RESPONSE_SCHEMA,
   };
 
   const provider = getProviderFromConfig(config, getAPIKeys());
@@ -164,31 +137,45 @@ async function generateWithProvider(prompt: string): Promise<string> {
   return result.content;
 }
 
-/**
- * 書き起こしを見出し語の一覧にする。
- *
- * 1語しか無ければ区切るまでもないので、AIは呼ばない。AIが失敗した・
- * 何も残らなかったときは空白区切りに落とす —— 読み上げた語を失うより、
- * 熟語がばらけるほうがましで、一覧の上で直せる。
- */
-export async function splitDictatedTranscript(
-  transcript: string,
-  deps?: DictatedWordsDeps,
-): Promise<string[]> {
-  const text = transcript.trim().slice(0, MAX_TRANSCRIPT_LENGTH);
-  if (!text) return [];
+function formatCandidates(values: readonly string[]): string {
+  return values.length > 0 ? values.map((value, index) => `${index + 1}. ${value}`).join('\n') : '(なし)';
+}
 
-  const fallback = splitTranscriptByWhitespace(text);
-  if (fallback.length <= 1) return fallback;
+/**
+ * 認識候補から見出し語を1つ決める。決められなければ null。
+ *
+ * - 英語の最有力候補が確信度高く見出し語の形をしていれば、それをそのまま使う
+ * - それ以外は AI に英語・日本語の両候補を見せて1つ選ばせる
+ * - AI が失敗・判断不能なら、英語の候補で見出し語の形をしている最初のものに落とす
+ */
+export async function resolveSpokenEntry(
+  candidates: SpokenEntryCandidates,
+  deps?: SpokenEntryDeps,
+): Promise<string | null> {
+  const english = cleanCandidates(candidates.english);
+  const japanese = cleanCandidates(candidates.japanese);
+  const englishEntries = english
+    .map((candidate) => normalizeDictatedEntry(candidate))
+    .filter((entry): entry is string => entry !== null);
+
+  const topEnglish = english[0] ? normalizeDictatedEntry(english[0]) : null;
+  if (topEnglish && candidates.englishConfidence >= CONFIDENT_ENGLISH_THRESHOLD) {
+    return topEnglish;
+  }
+
+  const fallback = englishEntries[0] ?? null;
+  if (english.length === 0 && japanese.length === 0) return null;
 
   try {
     const generateText = deps?.generateText ?? generateWithProvider;
-    const content = await generateText(`${SPLIT_PROMPT}\n\n書き起こし:\n${text}`);
-    const parsed = splitResponseSchema.parse(parseJsonResponse(content));
-    const entries = keepEntriesFoundInTranscript(parsed.entries, text);
-    if (entries.length > 0) return entries;
+    const content = await generateText(
+      `${RESOLVE_PROMPT}\n\n英語の音声認識の候補:\n${formatCandidates(english)}\n\n日本語の音声認識の候補:\n${formatCandidates(japanese)}`,
+    );
+    const parsed = resolveResponseSchema.parse(parseJsonResponse(content));
+    const entry = normalizeDictatedEntry(parsed.entry);
+    if (entry) return entry;
   } catch (error) {
-    console.error('Dictated word split failed:', error);
+    console.error('Spoken entry resolve failed:', error);
   }
 
   return fallback;

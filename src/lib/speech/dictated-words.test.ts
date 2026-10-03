@@ -1,14 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  MAX_DICTATED_WORDS,
-  finalizeDictatedEntries,
-  keepEntriesFoundInTranscript,
-  normalizeDictatedEntry,
-  splitDictatedTranscript,
-  splitTranscriptByWhitespace,
-} from './dictated-words';
+import { normalizeDictatedEntry, resolveSpokenEntry } from './dictated-words';
+
+const neverCalled = async () => {
+  throw new Error('AI should not be called');
+};
 
 test('normalizeDictatedEntry strips punctuation and rejects non-English entries', () => {
   assert.equal(normalizeDictatedEntry(' Apple. '), 'Apple');
@@ -22,76 +19,79 @@ test('normalizeDictatedEntry strips punctuation and rejects non-English entries'
   assert.equal(normalizeDictatedEntry('this is a whole sentence said aloud'), null);
 });
 
-test('finalizeDictatedEntries removes duplicates case-insensitively and keeps order', () => {
-  assert.deepEqual(
-    finalizeDictatedEntries(['apple', 'Banana', 'APPLE', 'banana', 'cherry']),
-    ['apple', 'Banana', 'cherry'],
+test('a confident English result is used as is without calling the AI', async () => {
+  const entry = await resolveSpokenEntry(
+    { english: ['beautiful'], englishConfidence: 0.93, japanese: ['ビューティフル'] },
+    { generateText: neverCalled },
   );
+  assert.equal(entry, 'beautiful');
 });
 
-test('finalizeDictatedEntries caps the number of entries', () => {
-  const many = Array.from(
-    { length: MAX_DICTATED_WORDS + 20 },
-    (_, i) => `w${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
-  );
-  assert.equal(finalizeDictatedEntries(many).length, MAX_DICTATED_WORDS);
-});
-
-test('splitTranscriptByWhitespace returns one entry per spoken word', () => {
-  assert.deepEqual(
-    splitTranscriptByWhitespace('apple, banana uh beautiful'),
-    ['apple', 'banana', 'beautiful'],
-  );
-});
-
-test('keepEntriesFoundInTranscript drops entries the AI rewrote or invented', () => {
-  const transcript = 'apple look forward to beautifull';
-  assert.deepEqual(
-    keepEntriesFoundInTranscript(
-      ['apple', 'look forward to', 'beautiful', 'orange', 'forward look'],
-      transcript,
-    ),
-    ['apple', 'look forward to'],
-  );
-});
-
-test('splitDictatedTranscript groups idioms using the AI split', async () => {
+test('a Japanese-accented utterance is resolved from both recognizers', async () => {
   const prompts: string[] = [];
-  const entries = await splitDictatedTranscript('apple look forward to beautiful', {
-    generateText: async (prompt) => {
-      prompts.push(prompt);
-      return JSON.stringify({ entries: ['apple', 'look forward to', 'beautiful'] });
+  const entry = await resolveSpokenEntry(
+    { english: ['a pole', 'a pull'], englishConfidence: 0.42, japanese: ['アップル'] },
+    {
+      generateText: async (prompt) => {
+        prompts.push(prompt);
+        return JSON.stringify({ entry: 'apple' });
+      },
     },
-  });
+  );
 
-  assert.deepEqual(entries, ['apple', 'look forward to', 'beautiful']);
+  assert.equal(entry, 'apple');
   assert.equal(prompts.length, 1);
-  assert.match(prompts[0], /apple look forward to beautiful/);
+  // 両方の認識結果を AI に見せていること
+  assert.match(prompts[0], /a pole/);
+  assert.match(prompts[0], /アップル/);
 });
 
-test('splitDictatedTranscript skips the AI for a single word', async () => {
-  const entries = await splitDictatedTranscript('Serendipity', {
-    generateText: async () => {
-      throw new Error('should not be called');
-    },
-  });
-  assert.deepEqual(entries, ['Serendipity']);
+test('an idiom stays one entry', async () => {
+  const entry = await resolveSpokenEntry(
+    { english: ['look forward to'], englishConfidence: 0.95, japanese: [] },
+    { generateText: neverCalled },
+  );
+  assert.equal(entry, 'look forward to');
 });
 
-test('splitDictatedTranscript falls back to whitespace when the AI fails', async () => {
-  const entries = await splitDictatedTranscript('apple banana', {
-    generateText: async () => 'not json',
-  });
-  assert.deepEqual(entries, ['apple', 'banana']);
+test('a misheard multi-word result is never split into several entries', async () => {
+  // AI が失敗しても、発話全体が1項目のまま返る (2語として追加されない)
+  const entry = await resolveSpokenEntry(
+    { english: ['a pole'], englishConfidence: 0.4, japanese: [] },
+    { generateText: async () => 'not json' },
+  );
+  assert.equal(entry, 'a pole');
 });
 
-test('splitDictatedTranscript falls back when nothing the AI returned is in the transcript', async () => {
-  const entries = await splitDictatedTranscript('apple banana', {
-    generateText: async () => JSON.stringify({ entries: ['orange'] }),
-  });
-  assert.deepEqual(entries, ['apple', 'banana']);
+test('the AI cannot return something that is not an English headword', async () => {
+  const entry = await resolveSpokenEntry(
+    { english: ['apple'], englishConfidence: 0.5, japanese: ['アップル'] },
+    { generateText: async () => JSON.stringify({ entry: 'りんご' }) },
+  );
+  // 使えない答えは捨て、英語の候補に落とす
+  assert.equal(entry, 'apple');
 });
 
-test('splitDictatedTranscript returns nothing for an empty transcript', async () => {
-  assert.deepEqual(await splitDictatedTranscript('   '), []);
+test('Japanese-only recognition can still produce an English entry via the AI', async () => {
+  const entry = await resolveSpokenEntry(
+    { english: [], englishConfidence: 0, japanese: ['ビューティフル'] },
+    { generateText: async () => JSON.stringify({ entry: 'beautiful' }) },
+  );
+  assert.equal(entry, 'beautiful');
+});
+
+test('nothing heard yields no entry and no AI call', async () => {
+  const entry = await resolveSpokenEntry(
+    { english: [], englishConfidence: 0, japanese: [] },
+    { generateText: neverCalled },
+  );
+  assert.equal(entry, null);
+});
+
+test('an AI answer of "unknown" falls back to the English candidate', async () => {
+  const entry = await resolveSpokenEntry(
+    { english: ['serendipity'], englishConfidence: 0.6, japanese: [] },
+    { generateText: async () => JSON.stringify({ entry: '' }) },
+  );
+  assert.equal(entry, 'serendipity');
 });

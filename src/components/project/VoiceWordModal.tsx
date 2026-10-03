@@ -16,9 +16,6 @@ interface Candidate {
 
 let nextCandidateId = 1;
 
-function toCandidates(words: readonly string[]): Candidate[] {
-  return words.map((english) => ({ id: nextCandidateId++, english }));
-}
 
 function formatSeconds(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -26,11 +23,12 @@ function formatSeconds(ms: number): string {
 }
 
 /**
- * 音声で単語をまとめて追加するモーダル。
+ * 音声で単語を追加するモーダル。
  *
- * マイクのボタンで録音を始め、もう一度押すと止まる。読み上げた語は
- * 一覧になり、認識違いを直したり消したりしてから「追加」で保存する。
- * 「続けて話す」で録り足せる (同じ語は重ねない)。保存は呼び出し側で、
+ * マイクのボタンで録音を始め、もう一度押すと止まる。1回の録音で一覧に
+ * 増えるのは1語 (熟語なら1つ) だけで、聞き違いが2語に割れて入ることはない。
+ * 何回でも録り足せ (同じ語は重ねない)、一覧で直したり消したりしてから
+ * 「追加」でまとめて保存する。保存は呼び出し側で、
  * 手入力と同じ経路 (日本語訳・発音などはAIが補完) に流す。
  *
  * 開いている間だけマウントすること。閉じる (アンマウント) と録音は止まり、
@@ -57,22 +55,22 @@ export function VoiceWordModal({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const handleResult = ({ words }: VoiceDictationResult) => {
-    if (words.length === 0) {
+  const handleResult = ({ word }: VoiceDictationResult) => {
+    if (!word) {
       setNotice('英単語を聞き取れませんでした。もう一度ゆっくり話してみてください');
       return;
     }
+    const key = word.toLowerCase();
+    if (candidates.some((c) => c.english.trim().toLowerCase() === key)) {
+      setNotice(`「${word}」はすでに一覧にあります`);
+      return;
+    }
+    if (candidates.length >= MAX_DICTATED_WORDS) {
+      setNotice(`一度に追加できるのは${MAX_DICTATED_WORDS}語までです`);
+      return;
+    }
     setNotice(null);
-    setCandidates((prev) => {
-      const seen = new Set(prev.map((c) => c.english.trim().toLowerCase()));
-      const fresh = words.filter((word) => {
-        const key = word.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      return [...prev, ...toCandidates(fresh)].slice(0, MAX_DICTATED_WORDS);
-    });
+    setCandidates((prev) => [...prev, { id: nextCandidateId++, english: word }]);
   };
 
   const dictation = useVoiceWordDictation(handleResult);
@@ -119,7 +117,7 @@ export function VoiceWordModal({
             音声で追加
           </h2>
           <p className="mt-1 text-[11px] leading-[1.5] text-[var(--color-muted)]">
-            マイクを押して、覚えたい英単語や熟語を少し間をあけながら読み上げてください。もう一度押すと終了します。日本語訳などは AI が自動で補完します。
+            マイクを押して、覚えたい英単語（または熟語）を1つ言い、もう一度押してください。1回の録音で1語ずつ一覧に増えます。日本語訳などは AI が自動で補完します。
           </p>
 
           {/* 録音ボタン */}
@@ -163,7 +161,7 @@ export function VoiceWordModal({
                   : dictation.phase === 'starting'
                     ? 'マイクを準備しています...'
                     : candidates.length > 0
-                      ? 'タップして続けて話す'
+                      ? 'タップして次の単語を話す'
                       : 'タップして話す'}
             </div>
             {errorText && (

@@ -53,53 +53,68 @@ test('word voice input rejects LINEAR16 without a sample rate before counting us
   assert.equal(rpcCalls, 0);
 });
 
-test('word voice input recognizes English and returns the split word list', async () => {
-  let languageCode: string | undefined;
-  let splitInput = '';
+test('word voice input recognizes in English and Japanese and returns one word', async () => {
+  const languages: string[] = [];
+  let resolvedWith: unknown;
   const response = await handleWordVoiceInputPost(
     jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }),
     {
       createClient: async () => createClient() as never,
       recognize: async (input) => {
-        languageCode = input.languageCode;
-        return {
-          success: true,
-          transcript: 'apple look forward to',
-          confidence: 0.9,
-          alternatives: [],
-          // 長い発話は結果が分かれる。後半を落とさずにつなぐこと。
-          segments: ['apple look forward to', 'beautiful'],
-        };
+        languages.push(input.languageCode ?? '');
+        return input.languageCode === 'ja-JP'
+          ? { success: true, transcript: 'アップル', confidence: 0.8, alternatives: ['アップル'] }
+          : { success: true, transcript: 'a pole', confidence: 0.4, alternatives: ['a pole', 'a pull'] };
       },
-      splitTranscript: async (transcript) => {
-        splitInput = transcript;
-        return ['apple', 'look forward to', 'beautiful'];
+      resolveEntry: async (candidates) => {
+        resolvedWith = candidates;
+        return 'apple';
       },
     },
   );
 
   assert.equal(response.status, 200);
-  assert.equal(languageCode, 'en-US');
-  assert.equal(splitInput, 'apple look forward to beautiful');
-  const payload = await response.json() as { success: boolean; words: string[] };
+  assert.deepEqual(languages.sort(), ['en-US', 'ja-JP']);
+  assert.deepEqual(resolvedWith, {
+    english: ['a pole', 'a pull'],
+    englishConfidence: 0.4,
+    japanese: ['アップル'],
+  });
+  const payload = await response.json() as { success: boolean; word: string | null };
   assert.equal(payload.success, true);
-  assert.deepEqual(payload.words, ['apple', 'look forward to', 'beautiful']);
+  assert.equal(payload.word, 'apple');
 });
 
-test('word voice input returns an empty list when nothing was heard', async () => {
+test('word voice input keeps going when only the Japanese recognizer fails', async () => {
+  const response = await handleWordVoiceInputPost(
+    jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }),
+    {
+      createClient: async () => createClient() as never,
+      recognize: async (input) => (input.languageCode === 'ja-JP'
+        ? { success: false, reason: 'upstream', error: 'boom' }
+        : { success: true, transcript: 'beautiful', confidence: 0.95, alternatives: ['beautiful'] }),
+      resolveEntry: async (candidates) => candidates.english[0] ?? null,
+    },
+  );
+  const payload = await response.json() as { success: boolean; word: string | null };
+  assert.equal(response.status, 200);
+  assert.equal(payload.word, 'beautiful');
+});
+
+test('word voice input returns no word when nothing was heard', async () => {
   const response = await handleWordVoiceInputPost(
     jsonRequest({ audioBase64: 'AAAA', encoding: 'WEBM_OPUS' }),
     {
       createClient: async () => createClient() as never,
       recognize: async () => ({ success: true, transcript: '', confidence: 0, alternatives: [] }),
-      splitTranscript: async () => {
-        throw new Error('split should not run');
+      resolveEntry: async () => {
+        throw new Error('resolve should not run');
       },
     },
   );
-  const payload = await response.json() as { success: boolean; words: string[] };
+  const payload = await response.json() as { success: boolean; word: string | null };
   assert.equal(payload.success, true);
-  assert.deepEqual(payload.words, []);
+  assert.equal(payload.word, null);
 });
 
 test('word voice input maps recognizer failures without leaking details', async () => {
