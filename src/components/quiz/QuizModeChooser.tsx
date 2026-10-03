@@ -38,6 +38,13 @@ const MODES: ReadonlyArray<{
     title: '声で答える',
     description: '読み上げられた問題に、声で答えます。マイクを使います。',
   },
+  {
+    key: 'cloze',
+    icon: 'edit_note',
+    title: '空所補充で解く',
+    description: '英検のように、英文の空欄に入る語を4つから選びます。',
+    scope: 'Passive (P) の単語だけ出題されます',
+  },
 ];
 
 /**
