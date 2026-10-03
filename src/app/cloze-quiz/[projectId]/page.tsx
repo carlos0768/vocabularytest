@@ -14,7 +14,7 @@ import {
 import { getRepository } from '@/lib/db';
 import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity } from '@/lib/utils';
-import { calculateNextReview, getStatusAfterAnswer } from '@/lib/spaced-repetition';
+import { calculateNextReview, getProgressAfterAnswer } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { useAuth } from '@/hooks/use-auth';
 import { createBrowserClient } from '@/lib/supabase';
@@ -208,9 +208,8 @@ export default function ClozeQuizPage() {
       recordActivity();
 
       try {
-        const newStatus = getStatusAfterAnswer(word.status, correct);
-        const updates = { status: newStatus, ...calculateNextReview(correct, word) };
-        const becameMastered = word.status !== 'mastered' && newStatus === 'mastered';
+        const updates = { ...getProgressAfterAnswer(word, correct), ...calculateNextReview(correct, word) };
+        const becameMastered = word.status !== 'mastered' && updates.status === 'mastered';
         await repository.updateWord(word.id, updates);
         setWordsById((prev) => new Map(prev).set(word.id, { ...word, ...updates }));
         if (userId) {
