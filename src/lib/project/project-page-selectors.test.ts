@@ -208,6 +208,37 @@ test('selectFilteredProjectWords sorts by status ascending', () => {
   assert.deepEqual(selectIds(words, { sortOrder: 'statusAsc' }), ['missing', 'new', 'review', 'mastered']);
 });
 
+test('学習度順では Lv.1 以降の語を習得 (Lv.0) の後ろに置き、レベルが上がるほど後ろになる', () => {
+  const words = [
+    { ...word('lv2', { status: 'mastered' }), masteryLevel: 2 },
+    { ...word('lv0', { status: 'mastered' }), masteryLevel: 0 },
+    { ...word('lv1', { status: 'mastered' }), masteryLevel: 1 },
+    word('active', { status: 'active' }),
+    // 習得でない語に残ったレベルは無視する
+    { ...word('review-stale', { status: 'review' }), masteryLevel: 5 },
+  ];
+
+  assert.deepEqual(selectIds(words, { sortOrder: 'statusAsc' }), ['review-stale', 'active', 'lv0', 'lv1', 'lv2']);
+  // 学習優先度順 (クイズと同じ) も習得同士はレベルの低い語が先
+  assert.deepEqual(
+    selectIds(words, { sortOrder: 'priority' }).filter((id) => id.startsWith('lv')),
+    ['lv0', 'lv1', 'lv2'],
+  );
+});
+
+test('並び順のスナップショットは習得レベルも凍結する', () => {
+  const words = [
+    { ...word('a', { status: 'mastered' }), masteryLevel: 0 },
+    { ...word('b', { status: 'mastered' }), masteryLevel: 1 },
+  ];
+  const orderSnapshot = buildProjectWordOrderSnapshot(words);
+  // 一覧を開いたあとに 'a' がクイズで Lv.3 に上がっても、開き直すまで並びは動かない
+  const afterQuiz = words.map((item) => (item.id === 'a' ? { ...item, masteryLevel: 3 } : item));
+
+  assert.deepEqual(selectIds(afterQuiz, { sortOrder: 'statusAsc', orderSnapshot }), ['a', 'b']);
+  assert.deepEqual(selectIds(afterQuiz, { sortOrder: 'statusAsc' }), ['b', 'a']);
+});
+
 test('selectFilteredProjectWords "priority" order matches quiz/flashcard sortWordsByPriority', () => {
   const now = Date.now();
   const past = new Date(now - 24 * 60 * 60 * 1000).toISOString();

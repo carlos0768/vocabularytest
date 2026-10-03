@@ -291,6 +291,14 @@ describe('filterAndSortWords', () => {
     assert.deepEqual(ids(filterAndSortWords(entries, withFilter({ sort: 'wrong' }), NOW)), ['b', 'a', 'c']);
   });
 
+  it('学習度順は習得同士を Lv.0 → Lv.1 → Lv.2 の順に並べる', () => {
+    const lv0 = makeEntry({ word: makeWord({ id: 'lv0', english: 'zebra', japanese: 'しまうま', status: 'mastered', masteryLevel: 0 }), projectTitle: 'A帳', wrongCount: 0 });
+    const lv1 = makeEntry({ word: makeWord({ id: 'lv1', english: 'apple', japanese: 'りんご', status: 'mastered', masteryLevel: 1 }), projectTitle: 'A帳', wrongCount: 0 });
+    const lv2 = makeEntry({ word: makeWord({ id: 'lv2', english: 'mango', japanese: 'マンゴー', status: 'mastered', masteryLevel: 2 }), projectTitle: 'A帳', wrongCount: 0 });
+    // 英語のアルファベット順より習得レベルが優先される
+    assert.deepEqual(ids(filterAndSortWords([lv2, lv1, lv0], withFilter({ sort: 'status' }), NOW)), ['lv0', 'lv1', 'lv2']);
+  });
+
   it('復習期限順は期限なしを末尾に置く', () => {
     assert.deepEqual(ids(filterAndSortWords(entries, withFilter({ sort: 'review' }), NOW)), ['c', 'b', 'a']);
   });
