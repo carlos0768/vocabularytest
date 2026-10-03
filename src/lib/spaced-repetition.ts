@@ -9,8 +9,14 @@
  * - Wrong answer: quality = 1 (complete blackout)
  */
 
-import type { Word, WordStatus } from '@/types';
+import type { VocabularyType, Word, WordStatus } from '@/types';
 import { getDefaultSpacedRepetitionFields } from '../../shared/db';
+import { isClassicalWord, type ClassicalWordMarker } from '@/lib/classical/is-classical';
+import {
+  getMasteryLevel,
+  getVocabularyTypeForMasteryLevel,
+  type MasteryLevelFields,
+} from '@/lib/words/mastery-level';
 
 // Re-export from shared for backwards compatibility
 export { getDefaultSpacedRepetitionFields };
@@ -81,6 +87,63 @@ export function getStatusAfterQuality(currentStatus: WordStatus, qualityInput: n
   if (currentStatus === 'new') return 'review';
   if (currentStatus === 'review') return 'active';
   return 'mastered';
+}
+
+/** 習得度の更新に必要な語の形。`Word` はこれを満たす。 */
+export type WordProgressFields = MasteryLevelFields &
+  ClassicalWordMarker & { vocabularyType?: VocabularyType | null };
+
+/** 解答1回ぶんの習得度の更新内容 (status + 習得レベル + 必要なら語彙モード)。 */
+export interface WordProgressUpdate {
+  status: WordStatus;
+  masteryLevel: number;
+  /** レベルに合わせて語彙モードを切り替えるときだけ入る (Lv.1 以降・古典語を除く)。 */
+  vocabularyType?: VocabularyType;
+}
+
+/**
+ * 解答の質から、status と習得レベルをまとめて進める。
+ *
+ * 習得 (mastered) までは `getStatusAfterQuality` と同じ。習得からは status を
+ * 動かさず、正解 (quality 4+) でレベルを 1 上げ、不正解 (quality 2 以下) で 1 下げる。
+ * Lv.0 で不正解なら従来どおり定着中へ戻る。難しかった (quality 3) は据え置き。
+ *
+ *   … → 定着中 → 習得 (Lv.0) ⇄ Lv.1 ⇄ Lv.2 ⇄ …
+ *
+ * Lv.1 以降は語彙モードを Passive → Active → … と交互に付け替える
+ * (`getVocabularyTypeForMasteryLevel`)。古典語は記述クイズに出さないので回さない。
+ *
+ * 習得でない段階へ落ちたときはレベルを 0 に戻す。残しておくと、次に習得した
+ * ときに古いレベルが復活してしまう。
+ */
+export function getProgressAfterQuality(word: WordProgressFields, qualityInput: number): WordProgressUpdate {
+  const quality = clampQuality(qualityInput);
+
+  if (word.status !== 'mastered') {
+    return { status: getStatusAfterQuality(word.status, quality), masteryLevel: 0 };
+  }
+
+  const level = getMasteryLevel(word);
+  let nextLevel = level;
+  if (quality >= 4) nextLevel = level + 1;
+  else if (quality <= 2) nextLevel = level - 1;
+
+  if (nextLevel < 0) {
+    // Lv.0 で間違えた: 従来どおり定着中へ戻る
+    return { status: 'active', masteryLevel: 0 };
+  }
+
+  const update: WordProgressUpdate = { status: 'mastered', masteryLevel: nextLevel };
+  const vocabularyType = getVocabularyTypeForMasteryLevel(nextLevel);
+  if (vocabularyType && !isClassicalWord(word) && word.vocabularyType !== vocabularyType) {
+    update.vocabularyType = vocabularyType;
+  }
+  return update;
+}
+
+/** 正誤だけから習得度を進める版。正解 = quality 4、不正解 = quality 1。 */
+export function getProgressAfterAnswer(word: WordProgressFields, isCorrect: boolean): WordProgressUpdate {
+  return getProgressAfterQuality(word, isCorrect ? 4 : 1);
 }
 
 /**
@@ -221,6 +284,8 @@ export interface WordPriorityFields {
   status: WordStatus;
   createdAt: string;
   nextReviewAt?: string;
+  /** 習得レベル。習得同士ではレベルの低い語を先に出す。 */
+  masteryLevel?: number | null;
 }
 
 function getReviewBucket(word: WordPriorityFields, nowMs: number): number {
@@ -242,6 +307,11 @@ export function compareWordsByPriority(a: WordPriorityFields, b: WordPriorityFie
 
   const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
   if (statusDiff !== 0) return statusDiff;
+
+  // 習得同士はレベルの低い語から。全部習得になった単語帳でも、
+  // 進みの遅い語が先に回ってきて偏らずにレベルが上がる。
+  const levelDiff = getMasteryLevel(a) - getMasteryLevel(b);
+  if (levelDiff !== 0) return levelDiff;
 
   const createdDiff = Date.parse(a.createdAt) - Date.parse(b.createdAt);
   if (!Number.isNaN(createdDiff) && createdDiff !== 0) return createdDiff;

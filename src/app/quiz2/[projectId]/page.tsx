@@ -12,7 +12,7 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { speakEnglish, stopSpeaking } from '@/lib/speech';
-import { calculateNextReviewByQuality, getStatusAfterQuality } from '@/lib/spaced-repetition';
+import { calculateNextReviewByQuality, getProgressAfterQuality } from '@/lib/spaced-repetition';
 import {
   getGuestUserId,
   recordActivity,
@@ -256,9 +256,9 @@ export default function Quiz2Page() {
 
     try {
       const quality = QUALITY_BY_GRADE[grade];
-      const nextStatus = getStatusAfterQuality(currentWord.status, quality);
       const srUpdate = calculateNextReviewByQuality(quality, currentWord);
-      const updates = { status: nextStatus, ...srUpdate };
+      const updates = { ...getProgressAfterQuality(currentWord, quality), ...srUpdate };
+      const nextStatus = updates.status;
 
       await repository.updateWord(currentWord.id, updates);
       if (isFrozenByTabLeaveRef.current) return;

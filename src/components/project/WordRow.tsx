@@ -16,6 +16,11 @@ import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { getVocabularyTypeLabel, getVocabularyTypeShortLabel } from '@/lib/vocabulary-type';
 import { STATUS_LABELS } from '@/lib/words/word-filter';
 import {
+  getMasteryLevel,
+  getMasteryLevelFill,
+  getMasteryLevelLabel,
+} from '@/lib/words/mastery-level';
+import {
   getNextWordStatus,
   getWordStatusForStep,
   getWordStatusStep,
@@ -55,13 +60,18 @@ const PP_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習�
  *
  * 青とオレンジはデスクトップの一覧の点 (`.c-active` / `.c-review`) と同じ色。
  * 習得だけは黄緑を使い、緑系のアクセント色 (リンクや Pro 表示) と取り違えないようにする。
+ *
+ * 習得の先 (Lv.1, Lv.2, …) は3マス全部塗ったまま、レベルごとに色を変える
+ * (`getMasteryLevelFill`)。マスの数は3つで打ち止めなので、その先の進みは色で見せる。
  */
-const PP_FILL: Record<WordStatus, string> = {
-  new: 'transparent',
-  review: 'var(--color-warning)',
-  active: '#2563eb',
-  mastered: '#84cc16',
-};
+function getStatusFill(status: WordStatus, masteryLevel: number): string {
+  switch (status) {
+    case 'review': return 'var(--color-warning)';
+    case 'active': return '#2563eb';
+    case 'mastered': return getMasteryLevelFill(masteryLevel);
+    default: return 'transparent';
+  }
+}
 
 /**
  * 習得度のラベル (習得 / 定着中 / 学習中 / 未学習)。
@@ -75,13 +85,15 @@ const PP_FILL: Record<WordStatus, string> = {
  * マスが示しているので、ここで色を増やすと行の情報量が上がるだけで、
  * ダークモードでのコントラストも取りづらい。
  */
-export function WordStatusLabel({ status }: { status: WordStatus }) {
+export function WordStatusLabel({ status, masteryLevel = 0 }: { status: WordStatus; masteryLevel?: number }) {
+  // 習得の先は「習得」ではなく「Lv.N」。段階は status が、進みはレベルが示す。
+  const label = status === 'mastered' ? getMasteryLevelLabel(masteryLevel) : STATUS_LABELS[status];
   return (
     <span
       className="font-display text-[8.5px] font-bold leading-none tracking-[-0.02em]"
       style={{ color: status === 'new' ? 'var(--color-muted)' : 'var(--solid-ink)' }}
     >
-      {STATUS_LABELS[status]}
+      {label}
     </span>
   );
 }
@@ -89,24 +101,31 @@ export function WordStatusLabel({ status }: { status: WordStatus }) {
 export function StatusSquares({
   wordId,
   status,
+  masteryLevel = 0,
   onStatusChange,
   className,
 }: {
   wordId: string;
   status: WordStatus;
+  /** 習得レベル (習得のときだけ意味を持つ)。マスの色とラベルに使う。 */
+  masteryLevel?: number;
   onStatusChange: (newStatus: WordStatus) => void;
   className?: string;
 }) {
   const [filledCount, setFilledCount] = useState(() => getWordStatusStep(status));
+  // タップで段階を選び直すとレベルは 0 に戻る (書き込み側も 0 を書く) ので、
+  // マスと同じく楽観的に 0 へ落とし、props が追いついたら合わせ直す。
+  const [shownLevel, setShownLevel] = useState(masteryLevel);
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
       setFilledCount(getWordStatusStep(status));
+      setShownLevel(masteryLevel);
     });
     return () => { cancelled = true; };
-  }, [status, wordId]);
+  }, [status, masteryLevel, wordId]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -115,6 +134,7 @@ export function StatusSquares({
     // 進む順番が飛んだり止まったりしない。
     const next = getNextWordStatus(getWordStatusForStep(filledCount));
     setFilledCount(getWordStatusStep(next));
+    setShownLevel(0);
     onStatusChange(next);
   }, [filledCount, onStatusChange]);
 
@@ -122,12 +142,16 @@ export function StatusSquares({
   // される) ので、マスと同じく楽観更新した `filledCount` からラベルを引く。
   // そうしないとマスだけ先に塗られて文言が1タップ遅れる。
   const shownStatus = getWordStatusForStep(filledCount);
+  const fill = getStatusFill(shownStatus, shownLevel);
+  const ariaStatus = shownStatus === 'mastered' && shownLevel > 0
+    ? `習得済み ${getMasteryLevelLabel(shownLevel)}`
+    : (PP_ARIA[shownStatus] ?? shownStatus);
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      aria-label={`ステータス: ${PP_ARIA[shownStatus] ?? shownStatus}`}
+      aria-label={`ステータス: ${ariaStatus}`}
       className={`flex shrink-0 flex-col items-center gap-[3px] rounded transition-colors active:bg-[color-mix(in_srgb,_var(--solid-ink)_6%,_transparent)]${className ? ` ${className}` : ''}`}
     >
       <div className="flex flex-col gap-[1.5px]">
@@ -135,11 +159,11 @@ export function StatusSquares({
           <div
             key={i}
             className="h-[13px] w-[13px] rounded-[2.5px] border-2 border-[var(--solid-ink)]"
-            style={{ background: i < filledCount ? PP_FILL[shownStatus] : 'transparent' }}
+            style={{ background: i < filledCount ? fill : 'transparent' }}
           />
         ))}
       </div>
-      <WordStatusLabel status={shownStatus} />
+      <WordStatusLabel status={shownStatus} masteryLevel={shownLevel} />
     </button>
   );
 }
@@ -371,6 +395,7 @@ export function WordRow({
 }) {
   const pos = word.partOfSpeechTags?.[0] ?? null;
   const displayStatus = word.status;
+  const masteryLevel = getMasteryLevel(word);
 
   if (selectMode) {
     return (
@@ -387,7 +412,7 @@ export function WordRow({
               選別できるように)。ここではタップで段階を変えられないので文言のみ。 */}
           <div className="flex shrink-0 flex-col items-center gap-[3px]">
             <SelectCheckbox checked={selected} size={26} />
-            <WordStatusLabel status={word.status} />
+            <WordStatusLabel status={word.status} masteryLevel={masteryLevel} />
           </div>
           <div className={`min-w-0 flex-1${splitMeaning ? ' flex self-stretch overflow-visible' : ''}`}>
             <WordRowText
@@ -413,6 +438,7 @@ export function WordRow({
         <StatusSquares
           wordId={word.id}
           status={displayStatus}
+          masteryLevel={masteryLevel}
           onStatusChange={onCycleStatus}
           className={tourAnchor ? 'tour-anchor-word-status' : undefined}
         />

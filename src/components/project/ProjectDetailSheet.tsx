@@ -9,6 +9,7 @@ import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton'
 // マス目 + 習得度ラベルは単語一覧の行と同じものを使う (ここで作り直すと文言や
 // 段階の見た目が一覧とずれる)。
 import { StatusSquares } from '@/components/project/WordRow';
+import { getMasteryLevel } from '@/lib/words/mastery-level';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository, hybridRepository } from '@/lib/db';
@@ -85,7 +86,7 @@ function WordRow({ word, onCycleStatus, onCycleVocabularyType, onToggleFavorite 
       <div className="absolute inset-0 rounded-xl bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
       <div className="relative rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[13px] py-2">
         <div className="flex items-center gap-2.5">
-          <StatusSquares wordId={word.id} status={displayStatus} onStatusChange={onCycleStatus} />
+          <StatusSquares wordId={word.id} status={displayStatus} masteryLevel={getMasteryLevel(word)} onStatusChange={onCycleStatus} />
           <Link href={`/word/${word.id}?from=${encodeURIComponent('/projects')}`} className="min-w-0 flex-1">
             <div className="truncate font-display text-[15px] font-bold text-[var(--solid-ink)]">{word.english}</div>
             <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)]">
@@ -233,7 +234,7 @@ export function ProjectDetailSheet({ projectId, onClose }: { projectId: string; 
     scheduleWordStatusWrite({
       wordId, currentStatus, newStatus,
       writer: async (finalStatus, originalStatus) => {
-        try { await mutationRepository.updateWord(wordId, { status: finalStatus }); }
+        try { await mutationRepository.updateWord(wordId, { status: finalStatus, masteryLevel: 0 }); }
         catch {
           setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: originalStatus } : w)));
           showToast({ message: 'ステータスの更新に失敗しました', type: 'error' });
