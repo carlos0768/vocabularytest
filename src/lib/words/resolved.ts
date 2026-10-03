@@ -13,7 +13,7 @@ export const WORD_TRANSLATION_WITH_SENSE_SELECT_COLUMNS =
   `${WORD_TRANSLATION_SELECT_COLUMNS}, lexicon_senses(${LEXICON_SENSE_SELECT_COLUMNS})` as const;
 
 export const RESOLVED_WORD_BASE_SELECT_COLUMNS =
-  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, morphology, classical_entry_id, status, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections' as const;
+  'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id, distractors, example_sentence, example_sentence_ja, pronunciation, part_of_speech_tags, related_words, usage_patterns, insights_generated_at, insights_version, word_order_quiz, morphology, classical_entry_id, status, mastery_level, created_at, last_reviewed_at, next_review_at, ease_factor, interval_days, repetition, is_favorite, custom_sections' as const;
 
 export const RESOLVED_WORD_TEXT_BASE_SELECT_COLUMNS =
   'id, project_id, english, japanese, japanese_source, vocabulary_type, lexicon_entry_id, lexicon_sense_id' as const;
@@ -166,7 +166,10 @@ type MaybeColumnError = {
 // 一気に basic まで落ちて custom_sections / morphology / word_order_quiz まで
 // 消える。スカラー列だけならこのラッパで足りる。
 
-const OPTIONAL_WORD_COLUMNS = ['classical_entry_id'] as const;
+// mastery_level (習得レベル) も後付けの列。取得側の列リストに無いと、同期で読み直す
+// たびに 0 (= 習得) に戻ってしまい Lv.1 以降が消える —— 列リストと mapWordFromRow の
+// 両方に入れたうえで、未適用DBでは落として読めるようにここにも載せる。
+const OPTIONAL_WORD_COLUMNS = ['classical_entry_id', 'mastery_level'] as const;
 
 function findMissingOptionalWordColumn(error: MaybeColumnError): string | null {
   if (!error) return null;
@@ -175,6 +178,9 @@ function findMissingOptionalWordColumn(error: MaybeColumnError): string | null {
   const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
   return OPTIONAL_WORD_COLUMNS.find((column) => text.includes(column)) ?? null;
 }
+
+/** テスト用に公開。後付けの任意カラム一覧。 */
+export const OPTIONAL_WORD_SELECT_COLUMNS: readonly string[] = OPTIONAL_WORD_COLUMNS;
 
 export async function withMissingWordColumnFallback<T extends { error: MaybeColumnError }>(
   run: (columns: string) => PromiseLike<T>,
