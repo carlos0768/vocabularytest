@@ -38,6 +38,7 @@ test('WORDS_SELECT_COLUMNS excludes embedding and includes required columns', ()
     'insights_version',
     'word_order_quiz',
     'status',
+    'mastery_level',
     'created_at',
     'last_reviewed_at',
     'next_review_at',

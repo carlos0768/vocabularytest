@@ -4,7 +4,7 @@
  * カードを裏返して意味を確かめたあと、思い出せた度合いを
  * もう一度 / 難しい / 普通 / 簡単 の4択で自己評価する (Anki と同じ流儀)。
  * 4つはそのまま SM-2 の quality (1 / 3 / 4 / 5) に対応させ、
- * 既存の `calculateNextReviewByQuality` / `getStatusAfterQuality` に乗せる ——
+ * 既存の `calculateNextReviewByQuality` / `getProgressAfterQuality` に乗せる ——
  * クイズや対戦と同じ習得度の物差しで扱いたいため。
  *
  * ここは判定と集計だけを持つ純粋関数の層。DOM もタイマーも通信も触らないので、
@@ -13,10 +13,11 @@
 
 import {
   calculateNextReviewByQuality,
-  getStatusAfterQuality,
+  getProgressAfterQuality,
+  type WordProgressUpdate,
   type ReviewQuality,
 } from '@/lib/spaced-repetition';
-import type { Word, WordStatus } from '@/types';
+import type { Word } from '@/types';
 
 /** 自己評価の4段階。並び順＝ボタンの並び順 (左が弱い記憶、右が強い記憶)。 */
 export type FlashcardGrade = 'again' | 'hard' | 'good' | 'easy';
@@ -83,10 +84,10 @@ export function isPassingGrade(grade: FlashcardGrade): boolean {
 export function buildGradeWordUpdate(
   word: Word,
   grade: FlashcardGrade,
-): { status: WordStatus } & ReturnType<typeof calculateNextReviewByQuality> {
+): WordProgressUpdate & ReturnType<typeof calculateNextReviewByQuality> {
   const quality = FLASHCARD_GRADE_QUALITY[grade];
   return {
-    status: getStatusAfterQuality(word.status, quality),
+    ...getProgressAfterQuality(word, quality),
     ...calculateNextReviewByQuality(quality, word),
   };
 }

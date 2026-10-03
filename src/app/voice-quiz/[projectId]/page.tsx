@@ -17,7 +17,7 @@ import { voiceQuizBatch } from '@/lib/quiz/voice-quiz-batch';
 import { getRepository } from '@/lib/db';
 import { getWordsByProjectMap } from '@/lib/projects/load-helpers';
 import { cn, recordCorrectAnswer, recordWrongAnswer, recordActivity, getGuestUserId } from '@/lib/utils';
-import { calculateNextReview, getStatusAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
+import { calculateNextReview, getProgressAfterAnswer, sortWordsByPriority } from '@/lib/spaced-repetition';
 import { playAnswerFeedbackSound } from '@/lib/audio/answer-feedback';
 import { stopSpeaking } from '@/lib/speech';
 import {
@@ -485,10 +485,9 @@ export default function VoiceQuizPage() {
       if (apiErrored) return;
 
       try {
-        const newStatus = getStatusAfterAnswer(word.status, correct);
         const srUpdate = calculateNextReview(correct, word);
-        const updates = { status: newStatus, ...srUpdate };
-        const becameMastered = word.status !== 'mastered' && newStatus === 'mastered';
+        const updates = { ...getProgressAfterAnswer(word, correct), ...srUpdate };
+        const becameMastered = word.status !== 'mastered' && updates.status === 'mastered';
         await repository.updateWord(word.id, updates);
         setPool((prev) => prev.map((w) => (w.id === word.id ? { ...w, ...updates } : w)));
         if (user) {

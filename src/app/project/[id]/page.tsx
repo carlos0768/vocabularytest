@@ -840,7 +840,9 @@ export default function ProjectPage() {
       newStatus,
       writer: async (finalStatus, originalStatus) => {
         try {
-          await mutationRepository.updateWord(wordId, { status: finalStatus });
+          // タップで段階を選び直したら習得レベルも 0 から (古いレベルが残ると
+          // 次に習得したときに復活してしまう)
+          await mutationRepository.updateWord(wordId, { status: finalStatus, masteryLevel: 0 });
         } catch {
           setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, status: originalStatus } : w)));
           showToast({ message: 'ステータスの更新に失敗しました', type: 'error' });

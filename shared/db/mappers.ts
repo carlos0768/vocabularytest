@@ -198,6 +198,7 @@ export interface WordRow {
   morphology?: unknown | null;
   classical_entry_id?: string | null;
   status?: string | null;
+  mastery_level?: number | null;
   created_at: string;
   last_reviewed_at?: string | null;
   next_review_at?: string | null;
@@ -615,6 +616,12 @@ function normalizeWordOrderQuizCache(value: unknown): WordOrderQuizCache | undef
   };
 }
 
+/** 習得レベル列。未設定・不正値は 0 (習得したて) に丸める。 */
+function normalizeMasteryLevel(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value));
+}
+
 export function mapWordFromRow(row: WordRow): Word {
   const defaultSR = getDefaultSpacedRepetitionFields();
   const linkedSense = resolveLexiconSenseRow(row.lexicon_senses);
@@ -646,6 +653,7 @@ export function mapWordFromRow(row: WordRow): Word {
     // words に is_classical 列は無い。辞書へのリンクの有無がそのまま印になる
     ...(row.classical_entry_id ? { isClassical: true } : {}),
     status: (row.status as Word['status']) ?? 'new',
+    masteryLevel: normalizeMasteryLevel(row.mastery_level),
     createdAt: row.created_at,
     lastReviewedAt: row.last_reviewed_at ?? undefined,
     nextReviewAt: row.next_review_at ?? undefined,
@@ -743,6 +751,7 @@ export function mapWordToInsertWithId(word: Word): {
   morphology?: WordMorphology;
   classical_entry_id?: string;
   status: string;
+  mastery_level?: number;
   created_at: string;
   last_reviewed_at?: string;
   next_review_at?: string;
@@ -774,6 +783,8 @@ export function mapWordToInsertWithId(word: Word): {
     morphology: word.morphology,
     ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
     status: word.status,
+    // 列の既定値が 0 なので、0 のときは送らない (行の形を変えない)
+    ...(word.masteryLevel ? { mastery_level: word.masteryLevel } : {}),
     created_at: word.createdAt,
     last_reviewed_at: word.lastReviewedAt,
     next_review_at: word.nextReviewAt,
@@ -796,6 +807,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.lexiconSenseId !== undefined) updateData.lexicon_sense_id = updates.lexiconSenseId;
   if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
   if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.masteryLevel !== undefined) updateData.mastery_level = updates.masteryLevel;
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;
   if (updates.exampleSentenceJa !== undefined) updateData.example_sentence_ja = updates.exampleSentenceJa;
   if (updates.pronunciation !== undefined) updateData.pronunciation = updates.pronunciation;

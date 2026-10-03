@@ -112,7 +112,7 @@ export default function WordsPage() {
         newStatus,
         writer: async (finalStatus, originalStatus) => {
           try {
-            await repository.updateWord(entry.word.id, { status: finalStatus });
+            await repository.updateWord(entry.word.id, { status: finalStatus, masteryLevel: 0 });
             invalidateHomeCache();
           } catch (updateError) {
             console.error('Failed to update status:', updateError);
