@@ -11,6 +11,7 @@ import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/ty
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
+import { useParaphraseSynonyms } from '@/hooks/use-paraphrase-synonyms';
 import { speakEnglish } from '@/lib/speech';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 
@@ -153,6 +154,8 @@ export function WordDetailView({
     onWordUpdated?.(updated);
   }, [syncHomeCacheForWord, onWordUpdated]);
   const morphology = useMorphologyBackfill(word, { onBackfilled: handleMorphologyBackfilled });
+  // 言い換え (英語の同義語): 言い換えクイズと同じ辞書を表示時に引く。単語行には保存しない。
+  const synonyms = useParaphraseSynonyms(word);
 
   useEffect(() => {
     if (authLoading) return;
@@ -524,6 +527,26 @@ export function WordDetailView({
               <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.6] text-[var(--color-ink-muted)]">
                 {morphology.explanation}
               </p>
+            </section>
+          </>
+        )}
+
+        {synonyms && synonyms.length > 0 && (
+          <>
+            <SectionDivider />
+            <section className="py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <SectionHeading title="SYNONYMS" />
+                <span className="font-mono text-[11px] font-bold text-[var(--color-muted)]">言い換え</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {synonyms.map((synonym) => (
+                  <span key={synonym} className="rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 font-display text-[13px] font-bold leading-none text-[var(--solid-ink)]">
+                    {synonym}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] leading-4 text-[var(--color-muted)]">出典: Open English WordNet (CC BY 4.0) ほかのオープンデータ</p>
             </section>
           </>
         )}

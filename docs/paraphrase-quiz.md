@@ -43,6 +43,15 @@
 - 材料の取得に失敗したら、空の出題画面ではなく「取得できませんでした」と再試行を出す。
   言い換えはオンライン専用 (辞書はサーバーにだけある)。
 
+## 単語詳細の「言い換え」
+
+単語詳細 (モバイル `WordDetailView`、デスクトップ `DesktopWordDetailModal`) にも同じ辞書の
+同義語を「言い換え」として出す。`useParaphraseSynonyms` が語源のバックフィル
+(`useMorphologyBackfill`) と同じく表示時に `/api/paraphrase/lookup` を引く。
+単語行には保存しない —— 辞書は決定的で同じ語には毎回同じ答えが返るので、保存しても
+同期の手間が増えるだけ。辞書に無い語・古典語・オフラインでは節ごと出ない。
+出典の一行 (Open English WordNet CC BY 4.0 ほか) を節の下に添える。
+
 ## 関係するファイル
 
 | ファイル | 役割 |
@@ -56,6 +65,7 @@
 | `src/lib/paraphrase/client.ts` | クライアントからの取得とキャッシュ |
 | `src/lib/paraphrase/question.ts` | 問題の組み立て |
 | `src/lib/quiz/answer-format-words.ts` | 解き方ごとの出題対象 (言い換えは材料の有無) |
+| `src/hooks/use-paraphrase-synonyms.ts` | 単語詳細に出す同義語の取得 |
 | `src/components/quiz/QuizModeChooser.tsx` | 選択画面の札 |
 
 ## 知っておくこと
