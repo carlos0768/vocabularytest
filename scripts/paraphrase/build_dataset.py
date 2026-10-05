@@ -93,8 +93,10 @@ TIER_PENALTY = {
     "hypernym": 1.3,          # WordNet の直接の上位語だけ
     "moby_mutual+far": 1.3,   # Moby で双方向に挙がり、WordNet では兄弟・いとこ程度の近さ
     "moby+wn": 1.4,           # Moby で片方向に挙がり、WordNet でも直接の関係がある
-    "moby_mutual": 1.2,       # Moby で双方向に挙がるだけ (WordNet に関係なし。happy → cheerful)
 }
+# Moby だけが挙げる語 (WordNet に関係なし) は正解候補にしない。Moby は連想辞典なので、
+# 双方向に挙がっていても navigation ↔ geography のような「関連はあるが同義ではない」組を
+# 大量に含む。誤答から同義語を外す用途 (excluded) にだけ使う。
 # WordNet と Moby の両方にあり、しかも Moby で双方向なら、いちばん確かな言い換え。
 MUTUAL_BONUS = -0.3
 # 形容詞の similar 先は同じ synset より遠い (happy → golden / blessed)。
@@ -470,8 +472,6 @@ class Builder:
                 consider(lemma, "moby_mutual+wn" if mutual else "moby+wn", sense_penalty)
             elif mutual and lemma in far:
                 consider(lemma, "moby_mutual+far", far[lemma])
-            elif mutual:
-                consider(lemma, "moby_mutual", 0.0)
 
         if not candidates:
             return None
