@@ -31,7 +31,9 @@ JSON ができる。
    - WordNet の同じ synset にあり Moby も挙げる (双方向ならさらに優先)
    - WordNet の直接の上位語で Moby も挙げる (`plummet → drop`)
    - Moby で双方向に挙がり WordNet でも直接の関係がある
-   - WordNet の同じ synset だけ / 直接の上位語だけ / Moby だけ
+   - WordNet の同じ synset だけ / 直接の上位語だけ
+   - Moby だけが挙げる語 (WordNet に関係なし) は候補にしない。Moby は連想辞典なので
+     navigation ↔ geography のような「関連はあるが同義ではない」組を含む
 2. 候補を **頻度帯** で調整する。一般的すぎる語 (take / get / good) と難しすぎる語は下げ、
    見出し語よりずっと珍しい語 (`tiny → diminutive`) も下げる。WordNet の後ろの語義 (珍しい語義)
    を通して見つかった候補は下げるが、Moby も双方向に挙げるなら主要な語義とみなす
