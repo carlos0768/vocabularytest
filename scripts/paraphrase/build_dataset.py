@@ -11,6 +11,9 @@
       npm パッケージ moby (zeke/moby) の words.txt
   - gwordlist (CC BY 3.0, Google Books Ngram 由来) … 語の頻度順位
       https://github.com/hackerb9/gwordlist  frequency-alpha-alldicts.txt
+  - Princeton WordNet 3.1 (WordNet License) … 語義ごとの使用回数 (SemCor のタグ数, index.sense)
+      npm パッケージ wordnet-db の dict/index.sense。「jaw は名詞としては使うが動詞 (叱る) では
+      ほぼ使わない」のような品詞・語義ごとの使われ方を見るのに使う
 
 使い方:
   python3 scripts/paraphrase/build_dataset.py [--cache-dir .cache/paraphrase-sources]
@@ -66,6 +69,7 @@ OEWN_SYNSET_FILES = [
 OEWN_ENTRY_FILES = ["entries-0"] + [f"entries-{letter}" for letter in string.ascii_lowercase]
 MOBY_TARBALL_URL = "https://registry.npmjs.org/moby/-/moby-1.1.2.tgz"
 GWORDLIST_URL = "https://raw.githubusercontent.com/hackerb9/gwordlist/master/frequency-alpha-alldicts.txt"
+WORDNET_DB_TARBALL_URL = "https://registry.npmjs.org/wordnet-db/-/wordnet-db-3.1.14.tgz"
 
 # ---- 選定のしきい値 -------------------------------------------------------
 # 正解・誤答に使う語は「学習者が知っていてよい語」に限る。頻度順位 (gwordlist) で切る。
@@ -104,6 +108,13 @@ SIMILAR_PENALTY = 0.8
 # WordNet と Moby (双方向) の両方が挙げる語は、WordNet の語義順が後ろでも主要な言い換えとみなす
 # (happy → glad は WordNet では 3 番目の語義、abandon → desert は 5 番目)。
 MUTUAL_SENSE_PENALTY_CAP = 0.3
+# 語義ごとの使用回数 (SemCor タグ数)。頻度順位は品詞をまたいだ合計なので、名詞としてよく使う語が
+# 動詞の同義語としても「よく使う語」に見えてしまう (tell off → jaw / rag)。その品詞で一度も
+# タグ付けされていない語は下げ、まさにその語義でタグ付けされている語は少し上げる。
+POS_UNUSED_MIN_TOTAL_TAGS = 2     # 他の品詞ではこれ以上使われているのに
+POS_UNUSED_PENALTY = 1.2          # この品詞では 0 回
+SENSE_TAGGED_BONUS = -0.5         # 同じ synset のこの語義に使用例がある
+SENSE_UNTAGGED_PENALTY = 1.8      # 同じ synset の他の語には使用例があるのに、この語のこの語義には無い (jaw = 叱る)
 # 見出し語よりずっと珍しい語 (tiny → diminutive) は言い換えとして役に立ちにくいので下げる。
 RARER_THAN_HEAD_RATIO = 2.0
 RARER_THAN_HEAD_PENALTY = 0.8
@@ -169,12 +180,17 @@ def load_oewn_synsets(cache_dir: Path) -> dict:
     return synsets
 
 
-def load_oewn_sense_order(cache_dir: Path) -> dict[str, dict[str, list[str]]]:
-    """lemma -> pos -> [synset id ...] を、見出し語の語義の並び (よく使う順) で返す。"""
-    cached = cache_dir / "oewn-sense-order.json"
+def load_oewn_sense_order(cache_dir: Path) -> tuple[dict[str, dict[str, list[str]]], dict[str, str]]:
+    """(lemma -> pos -> [synset id ...] を見出し語の語義の並び (よく使う順) で, sense key -> synset id) を返す。
+
+    sense key ('scold%2:32:00::') は Princeton WordNet と共通で、index.sense のタグ数を引く鍵になる。
+    """
+    cached = cache_dir / "oewn-sense-order-v2.json"
     if cached.exists():
-        return json.loads(cached.read_text())
+        data = json.loads(cached.read_text())
+        return data["order"], data["sense_keys"]
     order: dict[str, dict[str, list[str]]] = {}
+    sense_keys: dict[str, str] = {}
     for name in OEWN_ENTRY_FILES:
         path = cache_dir / "oewn-entries" / f"{name}.yaml"
         download(OEWN_RAW_BASE + f"{name}.yaml", path)
@@ -192,8 +208,27 @@ def load_oewn_sense_order(cache_dir: Path) -> dict[str, dict[str, list[str]]]:
                 synset_ids = [sense["synset"] for sense in body.get("sense", []) if "synset" in sense]
                 if synset_ids:
                     order.setdefault(key, {}).setdefault(pos, []).extend(synset_ids)
-    cached.write_text(json.dumps(order))
-    return order
+                for sense in body.get("sense", []):
+                    if "synset" in sense and "id" in sense:
+                        sense_keys[sense["id"]] = sense["synset"]
+    cached.write_text(json.dumps({"order": order, "sense_keys": sense_keys}))
+    return order, sense_keys
+
+
+def load_sense_tag_counts(cache_dir: Path) -> dict[str, int]:
+    """Princeton WordNet の index.sense から sense key -> タグ数 (SemCor での出現回数)。"""
+    tarball = cache_dir / "wordnet-db-3.1.14.tgz"
+    download(WORDNET_DB_TARBALL_URL, tarball)
+    with tarfile.open(tarball, "r:gz") as archive:
+        member = archive.extractfile("package/dict/index.sense")
+        assert member is not None
+        text = member.read().decode("utf-8", errors="replace")
+    counts: dict[str, int] = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[3].isdigit():
+            counts[parts[0]] = int(parts[3])
+    return counts
 
 
 # ---- Moby Thesaurus ----------------------------------------------------------
@@ -282,10 +317,28 @@ class Builder:
         sense_order: dict[str, dict[str, list[str]]],
         moby: dict[str, set[str]],
         ranks: dict[str, int],
+        sense_keys: dict[str, str] | None = None,
+        tag_counts: dict[str, int] | None = None,
     ):
         self.synsets = synsets
         self.moby = moby
         self.ranks = ranks
+        # (lemma, pos) -> その品詞での使用回数、(lemma, pos, synset) -> その語義での使用回数、lemma -> 合計
+        self.pos_tags: dict[tuple[str, str], int] = defaultdict(int)
+        self.sense_tags: dict[tuple[str, str, str], int] = defaultdict(int)
+        self.total_tags: dict[str, int] = defaultdict(int)
+        for sense_key, synset_id in (sense_keys or {}).items():
+            count = (tag_counts or {}).get(sense_key, 0)
+            if count <= 0:
+                continue
+            lemma_part, _, rest = sense_key.partition("%")
+            lemma = normalize_lemma(lemma_part)
+            pos = {"1": "n", "2": "v", "3": "a", "4": "r", "5": "a"}.get(rest[:1])
+            if pos is None:
+                continue
+            self.pos_tags[(lemma, pos)] += count
+            self.sense_tags[(lemma, pos, synset_id)] += count
+            self.total_tags[lemma] += count
         # lemma -> pos -> [synset ids] (語義の並び順。entries に無い synset は末尾)
         self.lemma_synsets: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
         # synset -> hyponym synsets (hypernym の逆)
@@ -331,12 +384,22 @@ class Builder:
             return False
         if self.pos_share(lemma, pos) < 0.5:
             return False
+        if self.is_pos_unused(lemma, pos):
+            return False
         if pos == "a" and (lemma.endswith("ed") or lemma.endswith("ing")):
             # 分詞由来の形容詞 (treated / increasing) は選択肢として浮く
             base = stem(lemma)
             if any(base == stem(v) for v in (lemma[:-2], lemma[:-3], lemma[:-3] + "e") if v in self.lemma_synsets and "v" in self.lemma_synsets[v]):
                 return False
         return True
+
+    def synset_tagged(self, synset_id: str, pos: str) -> bool:
+        """その synset のどれかの語に使用例があるか (= その語義自体は実際に使われている)。"""
+        return any(self.sense_tags.get((m, pos, synset_id), 0) > 0 for m in self.members_of([synset_id], pos))
+
+    def is_pos_unused(self, lemma: str, pos: str) -> bool:
+        """他の品詞では使われているのに、この品詞では一度もタグ付けされていない語か (jaw の動詞)。"""
+        return self.total_tags.get(lemma, 0) >= POS_UNUSED_MIN_TOTAL_TAGS and self.pos_tags.get((lemma, pos), 0) == 0
 
     def pos_share(self, lemma: str, pos: str) -> float:
         """その語の synset のうち、この品詞のものの割合。品詞が従 (fox の動詞など) の語は言い換えに向かない。"""
@@ -389,17 +452,22 @@ class Builder:
         """
         own = self.lemma_synsets[head][pos]
         same: dict[str, float] = {}
+        # lemma -> その語が見つかった synset (語義ごとの使用回数を引くため。同じ synset・上位語・下位語のどれでも)
+        connecting_synset: dict[str, str] = {}
         similar_only: set[str] = set()
         hypernyms: dict[str, float] = {}
         direct: dict[str, float] = {}
         far: dict[str, float] = {}
 
         def add(target: dict[str, float], synset_ids, penalty: float) -> None:
-            for lemma in self.members_of(synset_ids, pos):
-                if lemma == head:
-                    continue
-                if lemma not in target or penalty < target[lemma]:
-                    target[lemma] = penalty
+            for synset_id in synset_ids:
+                for lemma in self.members_of([synset_id], pos):
+                    if lemma == head:
+                        continue
+                    if lemma not in target or penalty < target[lemma]:
+                        target[lemma] = penalty
+                    if target is not far:
+                        connecting_synset.setdefault(lemma, synset_id)
 
         for index, synset_id in enumerate(own):
             penalty = min(SENSE_ORDER_PENALTY_MAX, SENSE_ORDER_PENALTY_STEP * index)
@@ -420,10 +488,12 @@ class Builder:
                         add(far, cousins, penalty)
         # 同じ synset にも居る語は similar 扱いにしない
         similar_only -= {lemma for lemma in similar_only if any(lemma in self.members_of([s], pos) for s in own)}
+        self._last_connecting_synset = connecting_synset
         return same, hypernyms, direct, far, similar_only
 
     def build_entry(self, head: str, pos: str, rng: random.Random):
         same, hypernyms, direct, far, similar_only = self.related_lemmas(head, pos)
+        connecting_synset = self._last_connecting_synset
         moby_fwd = self.moby.get(head, set())
         head_rank = self.ranks.get(head)
 
@@ -441,6 +511,14 @@ class Builder:
             if is_variant(head, lemma):
                 return
             score = TIER_PENALTY[tier] + sense_penalty + extra + self.commonness_penalty(rank, pos) + self.polysemy_penalty(lemma)
+            if self.is_pos_unused(lemma, pos):
+                score += POS_UNUSED_PENALTY
+            synset_id = connecting_synset.get(lemma)
+            if synset_id:
+                if self.sense_tags.get((lemma, pos, synset_id), 0) > 0:
+                    score += SENSE_TAGGED_BONUS
+                elif self.synset_tagged(synset_id, pos):
+                    score += SENSE_UNTAGGED_PENALTY
             if head_rank is not None and rank > head_rank * RARER_THAN_HEAD_RATIO:
                 score += RARER_THAN_HEAD_PENALTY
             if share < 0.5:
@@ -552,7 +630,7 @@ class Builder:
             "generatedAt": dt.date.today().isoformat(),
             "sources": [
                 {"name": "Open English WordNet", "license": "CC BY 4.0", "url": "https://github.com/globalwordnet/english-wordnet"},
-                {"name": "Princeton WordNet", "license": "WordNet License", "url": "https://wordnet.princeton.edu/"},
+                {"name": "Princeton WordNet 3.1 (sense tag counts)", "license": "WordNet License", "url": "https://wordnet.princeton.edu/"},
                 {"name": "Moby Thesaurus II", "license": "Public Domain", "url": "https://github.com/zeke/moby"},
                 {"name": "gwordlist (Google Books Ngram)", "license": "CC BY 3.0", "url": "https://github.com/hackerb9/gwordlist"},
             ],
@@ -572,14 +650,16 @@ def main() -> None:
 
     synsets = load_oewn_synsets(cache_dir)
     log(f"synsets: {len(synsets)}")
-    sense_order = load_oewn_sense_order(cache_dir)
+    sense_order, sense_keys = load_oewn_sense_order(cache_dir)
     log(f"lemmas with sense order: {len(sense_order)}")
     moby = load_moby(cache_dir)
     log(f"moby headwords: {len(moby)}")
     ranks = load_frequency_ranks(cache_dir)
     log(f"frequency ranks: {len(ranks)}")
+    tag_counts = load_sense_tag_counts(cache_dir)
+    log(f"sense tag counts: {len(tag_counts)}")
 
-    builder = Builder(synsets, sense_order, moby, ranks)
+    builder = Builder(synsets, sense_order, moby, ranks, sense_keys, tag_counts)
 
     if args.inspect:
         rng = random.Random(SEED)
