@@ -7,6 +7,7 @@ import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
+import { useParaphraseSynonyms } from '@/hooks/use-paraphrase-synonyms';
 import { speakEnglish } from '@/lib/speech';
 import type { Word } from '@/types';
 
@@ -27,6 +28,8 @@ export function DesktopWordDetailModal({
 }) {
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完する
   const morphology = useMorphologyBackfill(word);
+  // 言い換え (英語の同義語) も同じく表示時に辞書を引く
+  const synonyms = useParaphraseSynonyms(word);
 
   return (
     <div className="ds-overlay" onClick={onClose}>
@@ -130,6 +133,20 @@ export function DesktopWordDetailModal({
               <div style={{ fontSize: 13, color: 'var(--color-secondary-text)', lineHeight: 1.75, marginTop: 12, whiteSpace: 'pre-line' }}>
                 {morphology.explanation}
               </div>
+            </div>
+          )}
+
+          {synonyms && synonyms.length > 0 && (
+            <div>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent-ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Icon name="sync_alt" style={{ fontSize: 14 }} />言い換え
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {synonyms.map((synonym) => (
+                  <span key={synonym} className="ds-tag">{synonym}</span>
+                ))}
+              </div>
+              <div className="muted" style={{ fontSize: 10, marginTop: 8 }}>出典: Open English WordNet (CC BY 4.0) ほかのオープンデータ</div>
             </div>
           )}
 

@@ -346,7 +346,11 @@ export interface AIResponse {
 // ============ Quiz Types ============
 
 export interface MultipleChoiceQuizQuestion {
-  type?: 'multiple-choice';
+  /**
+   * `paraphrase` は英語 → 英語の同義語を選ぶ言い換えクイズ。選択肢の形は同じで、
+   * 出題文 (英語をそのまま見せる・前置詞を伏せない) と見出しだけが変わる。
+   */
+  type?: 'multiple-choice' | 'paraphrase';
   word: Word;
   options: string[]; // Shuffled: 1 correct + 3 distractors
   correctIndex: number;

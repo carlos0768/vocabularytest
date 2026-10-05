@@ -43,6 +43,17 @@ test('the chosen mode round-trips', () => {
 
   writeQuizMode('typing', storage);
   assert.equal(readQuizMode(storage), 'typing');
+
+  writeQuizMode('paraphrase', storage);
+  assert.equal(readQuizMode(storage), 'paraphrase');
+});
+
+test('言い換えはこの画面の中で解ける形式で、音読は別ページ', () => {
+  assert.equal(isQuizAnswerFormat('paraphrase'), true);
+  assert.equal(isQuizMode('paraphrase'), true);
+  assert.equal(isQuizAnswerFormat('voice'), false);
+  assert.equal(isQuizMode('voice'), true);
+  assert.equal(isQuizAnswerFormat('sideways'), false);
 });
 
 test('the mode is stored under the documented key', () => {

@@ -33,6 +33,13 @@ const MODES: ReadonlyArray<{
     scope: 'Active (A) の単語だけ出題されます',
   },
   {
+    key: 'paraphrase',
+    icon: 'sync_alt',
+    title: '言い換えで解く',
+    description: '英単語と同じ意味の英単語を選びます (plummet → drop)。',
+    scope: '英語の言い換えがある単語だけ出題されます',
+  },
+  {
     key: 'voice',
     icon: 'mic',
     title: '声で答える',
