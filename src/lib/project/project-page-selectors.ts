@@ -1,4 +1,5 @@
 import type { VocabularyType, WordStatus } from '@/types';
+import { getMasteryLevel } from '@/lib/words/mastery-level';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import { compareWordsByPriority } from '@/lib/spaced-repetition';
 
@@ -36,6 +37,8 @@ export interface ProjectWordFilterOptions extends ProjectWordFilterState {
 export interface ProjectWordOrderKey {
   status: WordStatus;
   nextReviewAt?: string;
+  /** 習得レベル (習得でなければ 0)。学習度順で 習得 (Lv.0) → Lv.1 → Lv.2 … と並べるのに使う。 */
+  masteryLevel: number;
 }
 
 export type ProjectWordOrderSnapshot = ReadonlyMap<string, ProjectWordOrderKey>;
@@ -48,6 +51,7 @@ export interface ProjectPageWord {
   nextReviewAt?: string;
   projectId?: string;
   status?: WordStatus;
+  masteryLevel?: number | null;
   isFavorite?: boolean;
   vocabularyType?: VocabularyType | null;
   partOfSpeechTags?: string[];
@@ -100,14 +104,23 @@ export function countProjectWordStats(words: readonly Partial<ProjectPageWord>[]
  * 防ぐため、一覧を開いたときと並べ替えを選び直したときだけ作り直す。
  */
 export function buildProjectWordOrderSnapshot(
-  words: readonly Pick<ProjectPageWord, 'id' | 'status' | 'nextReviewAt'>[],
+  words: readonly Pick<ProjectPageWord, 'id' | 'status' | 'nextReviewAt' | 'masteryLevel'>[],
 ): ProjectWordOrderSnapshot {
   const snapshot = new Map<string, ProjectWordOrderKey>();
   for (const word of words) {
     if (!word.id) continue;
-    snapshot.set(word.id, { status: word.status ?? 'new', nextReviewAt: word.nextReviewAt });
+    snapshot.set(word.id, toOrderKey(word));
   }
   return snapshot;
+}
+
+function toOrderKey(word: Pick<ProjectPageWord, 'status' | 'nextReviewAt' | 'masteryLevel'>): ProjectWordOrderKey {
+  const status = word.status ?? 'new';
+  return {
+    status,
+    nextReviewAt: word.nextReviewAt,
+    masteryLevel: getMasteryLevel({ status, masteryLevel: word.masteryLevel }),
+  };
 }
 
 function resolveOrderKey(
@@ -115,7 +128,7 @@ function resolveOrderKey(
   snapshot: ProjectWordOrderSnapshot | null | undefined,
 ): ProjectWordOrderKey {
   const frozen = word.id ? snapshot?.get(word.id) : undefined;
-  return frozen ?? { status: word.status ?? 'new', nextReviewAt: word.nextReviewAt };
+  return frozen ?? toOrderKey(word);
 }
 
 export function isProjectWordFilterActive(filters: ProjectWordFilterState): boolean {
@@ -164,7 +177,9 @@ export function selectFilteredProjectWords<T extends ProjectPageWord>(
     return [...result].sort((a, b) => {
       const keyA = resolveOrderKey(a, options.orderSnapshot);
       const keyB = resolveOrderKey(b, options.orderSnapshot);
-      return (STATUS_SORT_ORDER[keyA.status] ?? 0) - (STATUS_SORT_ORDER[keyB.status] ?? 0);
+      // 習得同士は Lv.0 (習得) → Lv.1 → Lv.2 … の順。レベルが上の語ほど後ろ。
+      return (STATUS_SORT_ORDER[keyA.status] ?? 0) - (STATUS_SORT_ORDER[keyB.status] ?? 0)
+        || keyA.masteryLevel - keyB.masteryLevel;
     });
   }
 
@@ -175,8 +190,8 @@ export function selectFilteredProjectWords<T extends ProjectPageWord>(
       const keyA = resolveOrderKey(a, options.orderSnapshot);
       const keyB = resolveOrderKey(b, options.orderSnapshot);
       return compareWordsByPriority(
-        { id: a.id ?? '', status: keyA.status, createdAt: a.createdAt, nextReviewAt: keyA.nextReviewAt },
-        { id: b.id ?? '', status: keyB.status, createdAt: b.createdAt, nextReviewAt: keyB.nextReviewAt },
+        { id: a.id ?? '', status: keyA.status, createdAt: a.createdAt, nextReviewAt: keyA.nextReviewAt, masteryLevel: keyA.masteryLevel },
+        { id: b.id ?? '', status: keyB.status, createdAt: b.createdAt, nextReviewAt: keyB.nextReviewAt, masteryLevel: keyB.masteryLevel },
         now,
       );
     });

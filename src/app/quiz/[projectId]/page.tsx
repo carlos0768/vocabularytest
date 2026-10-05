@@ -73,6 +73,9 @@ import {
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
 import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { fetchParaphraseMaterials, isParaphraseCandidateWord } from '@/lib/paraphrase/client';
+import { generateParaphraseQuestions, isParaphraseQuestion } from '@/lib/paraphrase/question';
+import type { ParaphraseMaterial } from '@/lib/paraphrase/dataset';
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
 import { mapTranslationProgressUpdatesToRow } from '@/lib/quiz/translation-progress';
 import {
@@ -549,6 +552,15 @@ export default function QuizPage() {
   answerFormatValueRef.current = answerFormat;
   /** 右上から開くクイズ形式の切り替え。 */
   const [showModeSwitch, setShowModeSwitch] = useState(false);
+  /**
+   * 言い換えクイズの材料 (単語 ID → 同義語と誤答)。サーバーの辞書を引いて初めて
+   * 「どの語が出題できるか」が分かるので、語が読めたら先回りして取りに行き、
+   * 選択画面の語数と出題の両方に使う。null = まだ届いていない。
+   */
+  const [paraphraseMaterials, setParaphraseMaterials] = useState<Map<string, ParaphraseMaterial> | null>(null);
+  const [paraphraseLoadFailed, setParaphraseLoadFailed] = useState(false);
+  const paraphraseMaterialsRef = useRef<Map<string, ParaphraseMaterial> | null>(null);
+  const paraphraseLoadRef = useRef<{ key: string; promise: Promise<Map<string, ParaphraseMaterial> | null> } | null>(null);
   const [inputCount, setInputCount] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-to-ja');
@@ -791,14 +803,56 @@ export default function QuizPage() {
     }
   }, [needsWordOrderQuiz, repository]);
 
-  // 出題するのは解き方に合う語だけ (記述=Active / 四択=Passive)。絞り込みはここに
-  // 一箇所だけ置く —— 呼び出し側でやると、増えた経路が素通ししてしまう。
+  /**
+   * 言い換えの材料を (まだなら) 取りに行く。同じ語の組には一度しか行かない。
+   * 失敗は投げずに null で返し、画面側が「取得できなかった」を出す。
+   */
+  const ensureParaphraseMaterials = useCallback(async (words: readonly Word[]): Promise<Map<string, ParaphraseMaterial> | null> => {
+    const key = words.map((w) => w.id).sort().join('\u0000');
+    if (paraphraseLoadRef.current?.key === key) return paraphraseLoadRef.current.promise;
+    const promise = (async () => {
+      try {
+        const materials = await fetchParaphraseMaterials(words);
+        paraphraseMaterialsRef.current = materials;
+        setParaphraseMaterials(materials);
+        setParaphraseLoadFailed(false);
+        return materials;
+      } catch (error) {
+        console.error('Paraphrase materials lookup failed:', error);
+        setParaphraseLoadFailed(true);
+        // 次に選んだときにもう一度試せるように、失敗した組は覚えない
+        if (paraphraseLoadRef.current?.key === key) paraphraseLoadRef.current = null;
+        return null;
+      }
+    })();
+    paraphraseLoadRef.current = { key, promise };
+    return promise;
+  }, []);
+
+  // 語が読めたら言い換えの材料を先回りして取る (選択画面に語数を出すため)。
+  // 英語の見出し語が 1 つも無い単語帳 (古典語) では行かない。
+  useEffect(() => {
+    if (allWords.length === 0 || !allWords.some(isParaphraseCandidateWord)) return;
+    void ensureParaphraseMaterials(allWords);
+  }, [allWords, ensureParaphraseMaterials]);
+
+  const isParaphraseEligible = useCallback(
+    (word: Pick<Word, 'id'>) => paraphraseMaterials?.has(word.id) ?? false,
+    [paraphraseMaterials],
+  );
+
+  // 出題するのは解き方に合う語だけ (記述=Active / 四択=Passive / 言い換え=材料のある語)。
+  // 絞り込みはここに一箇所だけ置く —— 呼び出し側でやると、増えた経路が素通ししてしまう。
   const generateQuestions = useCallback((
     words: Word[],
     count: number,
     direction: QuizDirection,
     format: QuizAnswerFormat,
   ): QuizQuestion[] => {
+    if (format === 'paraphrase') {
+      const materials = paraphraseMaterialsRef.current ?? new Map<string, ParaphraseMaterial>();
+      return generateParaphraseQuestions(words, materials, count, { preserveOrder: reminderMode });
+    }
     return generateQuizQuestions(filterWordsForAnswerFormat(words, format), count, direction, undefined, {
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
@@ -810,9 +864,14 @@ export default function QuizPage() {
     count: number,
     format: QuizAnswerFormat,
   ) => {
+    setDistractorError(null);
+    if (format === 'paraphrase') {
+      // 言い換えの選択肢は辞書から来るので、AI の誤答生成も語順クイズの生成も要らない。
+      setQuestions(generateQuestions(allCandidates, count, quizDirection, format));
+      return;
+    }
     const words = filterWordsForAnswerFormat(allCandidates, format);
     const selected = reminderMode ? words.slice(0, count) : sortWordsByPriority(words).slice(0, count);
-    setDistractorError(null);
     const selectedNeedsWordOrderQuiz = selected.some(needsWordOrderQuiz);
     const wordOrderGenerationRun = wordOrderGenerationRunRef.current + 1;
     wordOrderGenerationRunRef.current = wordOrderGenerationRun;
@@ -892,6 +951,19 @@ export default function QuizPage() {
     setIsRevealed(false); setTypeInAnswer(''); setTypeInResult(null);
     setResults({ correct: 0, total: 0 }); setAnswerResults([]); setIsComplete(false); setIsTransitioning(false);
 
+    if (format === 'paraphrase') {
+      // 材料が届くのを待ってから組む (選択画面を素早く選ぶと先回りの取得がまだ途中)。
+      const materials = await ensureParaphraseMaterials(allWords);
+      const pool = materials ? allWords.filter((w) => materials.has(w.id)) : [];
+      if (pool.length === 0) {
+        setQuestions([]);
+        return;
+      }
+      const count = Math.max(1, Math.min(questionCount ?? pool.length, pool.length, MAX_NORMAL_QUIZ_QUESTION_COUNT));
+      setQuestions(generateQuestions(pool, count, quizDirection, format));
+      return;
+    }
+
     const pool = filterWordsForAnswerFormat(allWords, format);
     if (pool.length === 0) {
       // 1問も無いことは呼び出し側では分からない。空のまま置いて、画面に出させる。
@@ -908,7 +980,7 @@ export default function QuizPage() {
     } else {
       setQuestions(generateQuestions(allWords, count, quizDirection, format));
     }
-  }, [allWords, clearQuizState, generateQuestions, isPro, needsDistractors, needsWordOrderQuiz, questionCount, quizDirection, startQuizWithDistractors]);
+  }, [allWords, clearQuizState, ensureParaphraseMaterials, generateQuestions, isPro, needsDistractors, needsWordOrderQuiz, questionCount, quizDirection, startQuizWithDistractors]);
 
   /**
    * 解き方を選んだ。四択・記述はこの画面のまま、音読なら音読チャレンジへ移る。
@@ -1170,7 +1242,14 @@ export default function QuizPage() {
         // 解き方がまだ決まっていない (これから選択画面を出す) なら出題は作らない。
         // 出題する語が解き方で変わるので、決まってから `startQuizForFormat` が作る。
         const format = answerFormatValueRef.current;
-        if (resolvedCount && format) {
+        if (resolvedCount && format === 'paraphrase') {
+          // 今日すでに言い換えを選んでいる。材料が届いてから組む。
+          const materials = await ensureParaphraseMaterials(prioritized);
+          const pool = materials ? prioritized.filter((w) => materials.has(w.id)) : [];
+          setQuestions(pool.length > 0
+            ? generateQuestions(pool, Math.min(resolvedCount, pool.length), quizDirection, format)
+            : []);
+        } else if (resolvedCount && format) {
           const pool = filterWordsForAnswerFormat(prioritized, format);
           if (pool.some((w) => needsDistractors(w) || needsWordOrderQuiz(w))) {
             await startQuizWithDistractors(prioritized, resolvedCount, format);
@@ -1187,7 +1266,7 @@ export default function QuizPage() {
     };
 
     loadWords();
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, binderName, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, ensureParaphraseMaterials, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, binderName, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
 
   useEffect(() => {
     if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId || binderName) return;
@@ -1231,20 +1310,34 @@ export default function QuizPage() {
   }, [questions.length, projectId, repository, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, collectionId, binderName]);
 
   // 選択画面に出す「この単語帳で何語出せるか」。
-  const answerFormatWordCounts = useMemo(() => {
-    const counts = countWordsByAnswerFormat(allWords);
+  const answerFormatWordCounts = useMemo(
+    () => countWordsByAnswerFormat(allWords, { isParaphraseEligible }),
+    [allWords, isParaphraseEligible],
+  );
+  // 言い換えの語数は材料が届くまで分からないので、届くまでは出さない (0語と誤解させない)。
+  const chooserWordCounts = useMemo<Partial<Record<QuizMode, number>>>(() => ({
+    ...answerFormatWordCounts,
+    paraphrase: paraphraseMaterials ? answerFormatWordCounts.paraphrase : undefined,
     // 空所補充も四択と同じく Passive (P) の語を出す
-    return { ...counts, cloze: counts.normal };
-  }, [allWords]);
+    cloze: answerFormatWordCounts.normal,
+  }), [answerFormatWordCounts, paraphraseMaterials]);
+  // 選べない解き方。音読・空所補充は単語帳をまたぐ出題で、言い換えは英語の見出し語が無い単語帳 (古典語) で隠す。
+  const hiddenModes = useMemo<QuizMode[] | undefined>(() => {
+    const hidden: QuizMode[] = [];
+    if (voiceQuizUnavailable) hidden.push(...SEPARATE_PAGE_MODES_HIDDEN);
+    if (allWords.length > 0 && !allWords.some(isParaphraseCandidateWord)) hidden.push('paraphrase');
+    return hidden.length > 0 ? hidden : undefined;
+  }, [allWords, voiceQuizUnavailable]);
 
   const currentQuestion = questions[currentIndex];
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
+  const currentIsParaphrase = isParaphraseQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
   // 記述で見せるかは、この回で選ばれた解き方だけで決まる (単語の状態では決めない:
   // 四択を選んだのに一部の語だけ入力欄になってしまうため)。解き方を変えると出題が
   // 組み直されて最初からになるので、問題の途中でここが入れ替わることはない。
   const resolvedAnswerFormat: QuizAnswerFormat = answerFormat ?? 'normal';
-  const isTypeInMode = !currentIsWordOrder && resolvedAnswerFormat === 'typing';
+  const isTypeInMode = !currentIsWordOrder && !currentIsParaphrase && resolvedAnswerFormat === 'typing';
   // Type-in quizzes always ask for the English word (日英). We never make the
   // user type Japanese, regardless of quiz direction or active source.
   const typeInExpectedAnswer = currentQuestion?.word.english ?? '';
@@ -1256,7 +1349,8 @@ export default function QuizPage() {
     [currentIsWordOrder, currentQuestion?.word.english],
   );
   const typeInIdiomSegments = isTypeInMode ? idiomSegments : null;
-  const promptIdiomSegments = !isTypeInMode && quizDirection === 'en-to-ja' ? idiomSegments : null;
+  // 言い換えは英語をそのまま見せる (前置詞を伏せると同義語を選ぶ手がかりが消える)。
+  const promptIdiomSegments = !isTypeInMode && !currentIsParaphrase && quizDirection === 'en-to-ja' ? idiomSegments : null;
   const typeInNormalizeInput = isActiveVocab || typeInIdiomSegments ? stripActiveQuizAnswerSpaces : undefined;
 
   // Auto-focus the input whenever a new, unanswered type-in question is shown so
@@ -1523,8 +1617,8 @@ export default function QuizPage() {
             current={storedMode ?? undefined}
             currentLabel="前回"
             onSelect={chooseMode}
-            hiddenModes={voiceQuizUnavailable ? SEPARATE_PAGE_MODES_HIDDEN : undefined}
-            wordCounts={answerFormatWordCounts}
+            hiddenModes={hiddenModes}
+            wordCounts={chooserWordCounts}
           />
         </div>
       </div>
@@ -1559,25 +1653,41 @@ export default function QuizPage() {
 
   /* ---------- 選んだ解き方に合う単語が1語も無い ---------- */
   if (questions.length === 0) {
-    const otherFormat: QuizAnswerFormat = resolvedAnswerFormat === 'typing' ? 'normal' : 'typing';
-    const emptyLabel = resolvedAnswerFormat === 'typing' ? 'Active (A)' : 'Passive (P)';
-    const otherLabel = otherFormat === 'typing' ? 'Active (A)' : 'Passive (P)';
-    const otherCount = answerFormatWordCounts[otherFormat];
+    const formatNames: Record<QuizAnswerFormat, string> = { normal: '四択', typing: '記述', paraphrase: '言い換え' };
+    const scopeLabels: Record<QuizAnswerFormat, string> = {
+      normal: 'Passive (P)',
+      typing: 'Active (A)',
+      paraphrase: '英語の言い換えがある',
+    };
+    const otherFormats = (['normal', 'typing', 'paraphrase'] as const)
+      .filter((format) => format !== resolvedAnswerFormat && !hiddenModes?.includes(format))
+      .filter((format) => answerFormatWordCounts[format] > 0);
+    const paraphraseFailed = resolvedAnswerFormat === 'paraphrase' && paraphraseLoadFailed;
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6">
         <p className="mb-2 text-center font-display text-lg font-black text-[var(--solid-ink)]">
-          出題できる {emptyLabel} の単語がありません
+          {paraphraseFailed
+            ? '言い換えの材料を取得できませんでした'
+            : `出題できる ${scopeLabels[resolvedAnswerFormat]} 単語がありません`}
         </p>
         <p className="mb-6 max-w-xs text-center text-sm leading-6 text-[var(--color-muted)]">
-          {resolvedAnswerFormat === 'typing' ? '記述' : '四択'}では {emptyLabel} の単語だけを出題します。
-          単語一覧の A / P ボタンで語彙モードを変えるか、別の解き方を選んでください。
+          {paraphraseFailed
+            ? '言い換えクイズはオンラインで辞書を引いて出題します。通信を確かめてもう一度お試しください。'
+            : resolvedAnswerFormat === 'paraphrase'
+              ? '言い換えでは、辞書に英語の同義語がある単語だけを出題します。別の解き方を選んでください。'
+              : `${formatNames[resolvedAnswerFormat]}では ${scopeLabels[resolvedAnswerFormat]} の単語だけを出題します。単語一覧の A / P ボタンで語彙モードを変えるか、別の解き方を選んでください。`}
         </p>
         <div className="w-full max-w-xs space-y-3">
-          {otherCount > 0 && (
-            <SolidButton variant="inverse" onClick={() => chooseMode(otherFormat)} className="w-full justify-center">
-              {otherFormat === 'typing' ? '記述' : '四択'}に切り替える（{otherLabel} {otherCount}語）
+          {paraphraseFailed && (
+            <SolidButton variant="inverse" onClick={() => chooseMode('paraphrase')} className="w-full justify-center">
+              <Icon name="refresh" size={18} />再試行
             </SolidButton>
           )}
+          {otherFormats.map((format) => (
+            <SolidButton key={format} variant="inverse" onClick={() => chooseMode(format)} className="w-full justify-center">
+              {formatNames[format]}に切り替える（{scopeLabels[format]} {answerFormatWordCounts[format]}語）
+            </SolidButton>
+          ))}
           <SolidButton onClick={backToProject} className="w-full justify-center">単語帳に戻る</SolidButton>
         </div>
       </div>
@@ -1788,9 +1898,11 @@ export default function QuizPage() {
   // 語順クイズだけは選んだ解き方に関わらず語順のまま (問題の作りが別物)。
   const quizKindLabel = currentIsWordOrder
     ? '語順クイズ'
-    : isTypeInMode
-      ? '記述クイズ'
-      : '4択クイズ';
+    : currentIsParaphrase
+      ? '言い換えクイズ'
+      : isTypeInMode
+        ? '記述クイズ'
+        : '4択クイズ';
   const quizScopeLabel = reviewMode
     ? '復習'
     : learnMode
@@ -1808,7 +1920,7 @@ export default function QuizPage() {
     ? displayJapanese
     : isTypeInMode
       ? displayJapanese
-      : quizDirection === 'en-to-ja'
+      : currentIsParaphrase || quizDirection === 'en-to-ja'
         ? currentQuestion?.word.english
         : displayJapanese;
   const desktopPhonetic = !currentIsWordOrder && !isTypeInMode
@@ -1865,8 +1977,8 @@ export default function QuizPage() {
         current={resolvedAnswerFormat}
         onSelect={chooseMode}
         onCancel={() => setShowModeSwitch(false)}
-        hiddenModes={voiceQuizUnavailable ? SEPARATE_PAGE_MODES_HIDDEN : undefined}
-        wordCounts={answerFormatWordCounts}
+        hiddenModes={hiddenModes}
+        wordCounts={chooserWordCounts}
         title="クイズの解き方を変える"
         description="今日はこのあともこの解き方で始めます。"
         warning={
@@ -1915,6 +2027,10 @@ export default function QuizPage() {
                   </div>
                 ) : (
                   <div className="ph">{desktopPhonetic || '\u00a0'}</div>
+                )}
+                {/* 言い換えは答えるまで訳を見せない (訳から選べてしまう)。答えたら確認用に出す。 */}
+                {currentIsParaphrase && isRevealed && displayJapanese && (
+                  <div className="ph" style={{ marginTop: 6 }}>{displayJapanese}</div>
                 )}
               </div>
             )}
@@ -2136,7 +2252,7 @@ export default function QuizPage() {
       {/* Main content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
         <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-          {currentIsWordOrder ? '語順を完成' : isTypeInMode ? 'つづりを入力' : '意味を選ぼう'}
+          {currentIsWordOrder ? '語順を完成' : currentIsParaphrase ? '言い換えを選ぼう' : isTypeInMode ? 'つづりを入力' : '意味を選ぼう'}
         </div>
 
         {/* Word display — big solid plate */}
@@ -2149,10 +2265,14 @@ export default function QuizPage() {
                   ? displayJapanese
                   : promptIdiomSegments
                     ? <IdiomPromptText segments={promptIdiomSegments} revealed={isRevealed} />
-                    : quizDirection === 'en-to-ja'
+                    : currentIsParaphrase || quizDirection === 'en-to-ja'
                       ? currentQuestion?.word.english
                       : displayJapanese}
             </div>
+            {/* 言い換えは答えるまで訳を見せない (訳から選べてしまう)。答えたら確認用に出す。 */}
+            {currentIsParaphrase && isRevealed && displayJapanese && (
+              <div className="mt-2 text-sm font-bold leading-5 text-[var(--color-muted)]">{displayJapanese}</div>
+            )}
             {/* 前置詞を伏せている間に読み上げると答えが聞こえてしまうので、答えるまで出さない */}
             {!isTypeInMode && !currentIsWordOrder && (!promptIdiomSegments || isRevealed) && (
               <div className="mt-2.5 flex justify-center">

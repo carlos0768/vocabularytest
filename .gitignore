@@ -88,3 +88,6 @@ skills-lock.json
 # Python (scripts/derived-words のパイプライン実行で生成される)
 __pycache__/
 *.py[cod]
+
+# 言い換えクイズのデータ源 (scripts/paraphrase/build_dataset.py がダウンロードする)
+.cache/

@@ -1,5 +1,5 @@
 /**
- * クイズの解き方 (四択 / 記述 / 音読チャレンジ / 空所補充) の端末ごとの記憶。
+ * クイズの解き方 (四択 / 記述 / 言い換え / 音読チャレンジ / 空所補充) の端末ごとの記憶。
  *
  * 端末によって使い方が変わる ——「電車では四択、家では声で」のように——ので、
  * アカウントではなく端末に紐づける。したがって localStorage に置き、
@@ -12,9 +12,12 @@
  * クイズ画面右上の切り替えからいつでも選び直せる。
  */
 
-export type QuizMode = 'normal' | 'typing' | 'voice' | 'cloze';
+export type QuizMode = 'normal' | 'typing' | 'paraphrase' | 'voice' | 'cloze';
 
-/** 音読チャレンジ・空所補充 (どちらも別ページ) ではなく、四択クイズ画面の中で解ける形式。 */
+/**
+ * 音読チャレンジ・空所補充 (どちらも別ページ) ではなく、四択クイズ画面の中で解ける形式。
+ * `paraphrase` は英語 → 英語の同義語を 4 択で選ぶ言い換えクイズ (出題材料はオープンデータ)。
+ */
 export type QuizAnswerFormat = Exclude<QuizMode, 'voice' | 'cloze'>;
 
 /** 端末ごとの選択を入れる localStorage のキー。 */
@@ -42,12 +45,12 @@ export function quizModeDayKey(now: Date = new Date()): string {
 export const QUIZ_FORMAT_QUERY_KEY = 'format';
 
 export function isQuizMode(value: unknown): value is QuizMode {
-  return value === 'normal' || value === 'typing' || value === 'voice' || value === 'cloze';
+  return isQuizAnswerFormat(value) || value === 'voice' || value === 'cloze';
 }
 
 /** 四択クイズ画面の中で解ける形式か (音読・空所補充は別ページなので含まない)。 */
 export function isQuizAnswerFormat(value: unknown): value is QuizAnswerFormat {
-  return value === 'normal' || value === 'typing';
+  return value === 'normal' || value === 'typing' || value === 'paraphrase';
 }
 
 /** localStorage のうち、この機能が使う部分だけ。テストから差し替えられるようにする。 */
