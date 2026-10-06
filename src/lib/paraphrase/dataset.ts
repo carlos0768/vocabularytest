@@ -16,8 +16,14 @@ export interface ParaphraseDatasetSource {
   url: string;
 }
 
-/** [品詞, 正解候補の vocab 添字 (良い順), 誤答候補の vocab 添字] */
-export type ParaphraseRawEntry = [pos: string, answers: number[], distractors: number[]];
+/** 語義ごとの材料: [日本語 WordNet の訳語, その語義だけを根拠にした正解候補の vocab 添字] */
+export type ParaphraseRawSense = [japanese: string[], answers: number[]];
+
+/**
+ * [品詞, 正解候補の vocab 添字 (良い順), 誤答候補の vocab 添字, 語義ごとの材料?]
+ * 4 つめは version 2 から。単語帳の日本語訳と突き合わせて語義を選ぶのに使う。
+ */
+export type ParaphraseRawEntry = [pos: string, answers: number[], distractors: number[], senses?: ParaphraseRawSense[]];
 
 export interface ParaphraseDataset {
   version: number;
@@ -37,6 +43,8 @@ export interface ParaphraseMaterial {
   answers: string[];
   /** 正解のどれとも同義でない同品詞の語。3 つ以上。 */
   distractors: string[];
+  /** 単語帳の日本語訳から語義を選べたとき true (answers はその語義だけの候補)。 */
+  senseMatched?: boolean;
 }
 
 const POS_VALUES: readonly ParaphrasePos[] = ['n', 'v', 'a', 'r'];
@@ -106,12 +114,66 @@ export function toParaphrasePosHint(tags: readonly string[] | null | undefined):
   return null;
 }
 
+/**
+ * 単語帳の日本語訳 (「1.平凡な 2.つまらない」「汗をかく」など) を、辞書の訳語と比べられる
+ * 粒度に刻む。番号・区切り記号で分け、2 文字以上の断片だけ残す。
+ */
+export function tokenizeJapaneseHint(hint: string): string[] {
+  return hint
+    .normalize('NFKC')
+    .split(/[\s、,/・;:()\[\]「」『』【】〈〉《》〜~…0-9①-⑳.]+/u)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+}
+
+/**
+ * 訳語との一致の強さ。1 = 一致 (「平凡な」⊇「平凡」、「発汗する」⊇「発汗」)、
+ * 0.5 = 「汗をかく」の目的語「汗」が訳語「汗する」の頭に立つ弱い一致、0 = 不一致。
+ * 短すぎる断片の包含は偶然が多いので 2 文字以上で見る。
+ */
+function japaneseTokenMatch(token: string, lemma: string): number {
+  if (token === lemma) return 1;
+  if ((lemma.length >= 2 && token.includes(lemma)) || (token.length >= 2 && lemma.includes(token))) return 1;
+  const objectIndex = token.indexOf('を');
+  if (objectIndex >= 1) {
+    const object = token.slice(0, objectIndex);
+    if (/^[\p{Script=Han}]+$/u.test(object) && lemma.startsWith(object) && lemma !== object) return 0.5;
+  }
+  return 0;
+}
+
+/**
+ * 単語帳の日本語訳に最も合う語義を選ぶ。合う語義が無ければ null。
+ * 同点なら先 (WordNet の語義順で主なもの) を取る。
+ */
+export function matchJapaneseSense<T extends { japanese: readonly string[] }>(
+  senses: readonly T[],
+  hints: readonly string[],
+): T | null {
+  const tokens = Array.from(new Set(hints.flatMap(tokenizeJapaneseHint)));
+  if (tokens.length === 0) return null;
+  let best: T | null = null;
+  let bestScore = 0;
+  for (const sense of senses) {
+    let score = 0;
+    for (const lemma of sense.japanese) {
+      score += Math.max(0, ...tokens.map((token) => japaneseTokenMatch(token, lemma)));
+    }
+    if (score > bestScore) {
+      best = sense;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 function materialFromEntry(
   dataset: ParaphraseDataset,
   headword: string,
   entry: ParaphraseRawEntry,
+  japaneseHints: readonly string[] = [],
 ): ParaphraseMaterial | null {
-  const [pos, answerIndexes, distractorIndexes] = entry;
+  const [pos, answerIndexes, distractorIndexes, rawSenses] = entry;
   if (!isParaphrasePos(pos) || !Array.isArray(answerIndexes) || !Array.isArray(distractorIndexes)) {
     return null;
   }
@@ -119,10 +181,23 @@ function materialFromEntry(
     indexes
       .map((index) => (Number.isInteger(index) ? dataset.vocab[index] : undefined))
       .filter((word): word is string => typeof word === 'string' && word.length > 0);
-  const answers = toWords(answerIndexes);
+  let answers = toWords(answerIndexes);
   const distractors = toWords(distractorIndexes);
   if (answers.length === 0 || distractors.length < 3) return null;
-  return { headword, pos, answers, distractors };
+
+  let senseMatched = false;
+  if (japaneseHints.length > 0 && Array.isArray(rawSenses)) {
+    const senses = rawSenses
+      .filter((sense): sense is ParaphraseRawSense => Array.isArray(sense) && Array.isArray(sense[0]) && Array.isArray(sense[1]))
+      .map((sense) => ({ japanese: sense[0].filter((item) => typeof item === 'string'), answers: toWords(sense[1]) }))
+      .filter((sense) => sense.answers.length > 0);
+    const matched = matchJapaneseSense(senses, japaneseHints);
+    if (matched) {
+      answers = matched.answers;
+      senseMatched = true;
+    }
+  }
+  return { headword, pos, answers, distractors, senseMatched };
 }
 
 /**
@@ -130,17 +205,20 @@ function materialFromEntry(
  *
  * 見出し語は `paraphraseHeadwordCandidates` の順に当て、最初に見つかったものを使う。
  * 品詞は、単語の品詞タグから推せてその品詞の材料があればそれ、無ければ主な品詞 (先頭)。
+ * 日本語訳 (`japaneseHints`) が辞書の語義のどれかに合えば、その語義だけの正解候補にする
+ * (mundane = 平凡な → everyday。「この世の」の語義の terrestrial は出さない)。
  */
 export function resolveParaphraseMaterial(
   dataset: ParaphraseDataset,
   english: string,
   posHint: ParaphrasePos | null = null,
+  japaneseHints: readonly string[] = [],
 ): ParaphraseMaterial | null {
   for (const candidate of paraphraseHeadwordCandidates(english)) {
     const entries = dataset.entries[candidate];
     if (!Array.isArray(entries) || entries.length === 0) continue;
     const preferred = posHint ? entries.find((entry) => entry[0] === posHint) : undefined;
-    const material = materialFromEntry(dataset, candidate, preferred ?? entries[0]);
+    const material = materialFromEntry(dataset, candidate, preferred ?? entries[0], japaneseHints);
     if (material) return material;
   }
   return null;

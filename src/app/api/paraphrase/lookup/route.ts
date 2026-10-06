@@ -26,6 +26,8 @@ const requestSchema = z.object({
     id: z.string().trim().min(1).max(80),
     english: z.string().trim().min(1).max(200),
     partOfSpeechTags: z.array(z.string().trim().max(40)).max(8).optional(),
+    japanese: z.string().trim().max(300).optional(),
+    translations: z.array(z.string().trim().max(120)).max(10).optional(),
   }).strict()).min(1).max(500),
 }).strict();
 

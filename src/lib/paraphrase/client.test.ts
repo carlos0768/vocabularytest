@@ -20,9 +20,11 @@ function word(overrides: Partial<Word> & { id: string; english: string }): Word 
   } as Word;
 }
 
-function fakeFetch(results: unknown[], calls: Array<{ words: Array<{ id: string; english: string }> }>) {
+type SentWord = { id: string; english: string; japanese?: string; translations?: string[] };
+
+function fakeFetch(results: unknown[], calls: Array<{ words: SentWord[] }>) {
   return (async (_input: RequestInfo | URL, init?: RequestInit) => {
-    calls.push(JSON.parse(String(init?.body)) as { words: Array<{ id: string; english: string }> });
+    calls.push(JSON.parse(String(init?.body)) as { words: SentWord[] });
     return new Response(JSON.stringify({ success: true, results }), { status: 200 });
   }) as typeof fetch;
 }
@@ -34,7 +36,7 @@ test('英語の見出し語だけが対象で、古典語は引かない', () =>
 });
 
 test('材料のある語だけが Map に入り、同じ語は 2 度目は取りに行かない', async () => {
-  const calls: Array<{ words: Array<{ id: string; english: string }> }> = [];
+  const calls: Array<{ words: SentWord[] }> = [];
   const cache = new Map<string, ParaphraseMaterial | null>();
   const fetchImpl = fakeFetch([
     { wordId: 'w1', headword: 'plummet', pos: 'v', answers: ['drop', 'decline'], distractors: ['wish', 'abuse', 'leaf'] },
@@ -61,8 +63,32 @@ test('通信に失敗したら投げる (呼び出し側が「取得できなか
   );
 });
 
+test('日本語訳は語義選びの手がかりとして送り、訳が違えば別に取りに行く', async () => {
+  const calls: Array<{ words: SentWord[] }> = [];
+  const cache = new Map<string, ParaphraseMaterial | null>();
+  const fetchImpl = fakeFetch([], calls);
+  const withTranslations = word({
+    id: 'w1',
+    english: 'mundane',
+    japanese: '1.平凡な 2.つまらない',
+    translations: [
+      { id: 't1', wordId: 'w1', translationJa: '平凡な' },
+      { id: 't2', wordId: 'w1', translationJa: 'つまらない' },
+    ] as Word['translations'],
+  });
+  await fetchParaphraseMaterials([withTranslations], { fetchImpl, cache });
+  assert.equal(calls[0].words[0].japanese, '1.平凡な 2.つまらない');
+  assert.deepEqual(calls[0].words[0].translations, ['平凡な', 'つまらない']);
+
+  // 同じ見出し語でも訳が違えばキャッシュは別 (語義が変わりうる)
+  await fetchParaphraseMaterials([word({ id: 'w2', english: 'mundane', japanese: '世俗的な' })], { fetchImpl, cache });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].words[0].japanese, '世俗的な');
+  assert.equal(calls[1].words[0].translations, undefined);
+});
+
 test('形の崩れた結果は無視する', async () => {
-  const calls: Array<{ words: Array<{ id: string; english: string }> }> = [];
+  const calls: Array<{ words: SentWord[] }> = [];
   const fetchImpl = fakeFetch([{ wordId: 'w1', answers: 'drop' }, 'junk'], calls);
   const result = await fetchParaphraseMaterials([word({ id: 'w1', english: 'plummet' })], { fetchImpl, cache: new Map() });
   assert.equal(result.size, 0);
