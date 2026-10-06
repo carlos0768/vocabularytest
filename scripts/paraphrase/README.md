@@ -20,6 +20,7 @@ JSON ができる。
 | [Open English WordNet](https://github.com/globalwordnet/english-wordnet) (`src/yaml/*.yaml`) | 同義語集合 (synset)・上位語・形容詞の類似語・語義の順序 | CC BY 4.0 (Princeton WordNet 由来) |
 | [Moby Thesaurus II](https://github.com/zeke/moby) (npm `moby` の `words.txt`) | 連想的な広い同義語リスト。WordNet の裏取りと、誤答から同義語を外すのに使う | パブリックドメイン |
 | [gwordlist](https://github.com/hackerb9/gwordlist) (`frequency-alpha-alldicts.txt`) | 語の頻度順位 (Google Books Ngram 由来) | CC BY 3.0 |
+| [Princeton WordNet 3.1](https://wordnet.princeton.edu/) (npm `wordnet-db` の `dict/index.sense`) | 語義ごとの使用回数 (SemCor のタグ数)。品詞・語義ごとの使われ方を見る | WordNet License |
 
 いずれも帰属表示が条件 (Moby は不要) なので、`dataset.json` の `sources` に載せ、API の応答にも返す。
 
@@ -34,15 +35,20 @@ JSON ができる。
    - WordNet の同じ synset だけ / 直接の上位語だけ
    - Moby だけが挙げる語 (WordNet に関係なし) は候補にしない。Moby は連想辞典なので
      navigation ↔ geography のような「関連はあるが同義ではない」組を含む
-2. 候補を **頻度帯** で調整する。一般的すぎる語 (take / get / good) と難しすぎる語は下げ、
+2. 候補を **語義ごとの使用回数** で調整する。頻度順位は品詞をまたいだ合計なので、名詞としてよく使う語が
+   動詞の同義語としても「よく使う語」に見えてしまう (`tell off → jaw / rag`)。他の品詞では使われているのに
+   この品詞では一度もタグ付けされていない語、同じ synset の他の語には使用例があるのにこの語のこの語義には
+   無い語は強く下げ、まさにその語義で使用例のある語は少し上げる。
+3. 候補を **頻度帯** で調整する。一般的すぎる語 (take / get / good) と難しすぎる語は下げ、
    見出し語よりずっと珍しい語 (`tiny → diminutive`) も下げる。WordNet の後ろの語義 (珍しい語義)
    を通して見つかった候補は下げるが、Moby も双方向に挙げるなら主要な語義とみなす
    (`happy → glad` は WordNet では 3 番目の語義)。
-3. 上位 3 語を正解候補にする (クライアントは重みつきでそのうち 1 つを出す)。
-4. **誤答** は同じ品詞・同じ頻度帯の語から、見出し語と正解候補のどれとも WordNet (2 ホップ以内)・
+4. 上位 3 語を正解候補にする (クライアントは重みつきでそのうち 1 つを出す)。
+5. **誤答** は同じ品詞・同じ頻度帯の語から、見出し語と正解候補のどれとも WordNet (2 ホップ以内)・
    Moby で関係のない語を 6 語選ぶ。見出し語の活用・派生 (`plummet → plummeting`) も外す。
 
-正解にも誤答にも、主に別の品詞で使う語 (`fox` の動詞用法) と、ローマ数字・母音の無い略語風の語は使わない。
+正解にも誤答にも、主に別の品詞で使う語 (`fox` の動詞用法)、その品詞で一度も使用例の無い語 (`jaw` の動詞用法)、
+ローマ数字・母音の無い略語風の語は使わない。
 品詞は synset の多い順に並べ、従属的な品詞 (`plummet` の名詞) は出題しない。
 
 ## 出力形式
