@@ -12,7 +12,13 @@ import {
   isUniqueSignupProfileViolation,
   saveSignupProfileFields,
 } from '@/lib/auth/signup-profile';
+import {
+  buildOnboardingPath,
+  needsOnboardingProfile,
+  type OnboardingProfileRow,
+} from '@/lib/auth/onboarding-profile';
 import { seedDefaultOfficialWordbooksForUser } from '@/lib/official-wordbooks/import-default';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
 type AuthCallbackDeps = {
@@ -20,7 +26,31 @@ type AuthCallbackDeps = {
   getAdmin?: typeof getSupabaseAdmin;
   saveSignupProfileFields?: typeof saveSignupProfileFields;
   seedDefaultOfficialWordbooksForUser?: typeof seedDefaultOfficialWordbooksForUser;
+  loadOnboardingProfile?: typeof loadOnboardingProfile;
 };
+
+/**
+ * Reads the onboarding fields of the user's profile. Returns `undefined` when
+ * the lookup itself failed (as opposed to `null` for "no row"), so the caller
+ * can let the user into the app rather than send them to onboarding on a
+ * transient error.
+ */
+export async function loadOnboardingProfile(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<OnboardingProfileRow | null | undefined> {
+  const { data, error } = await admin
+    .from('profiles')
+    .select('username,display_name,user_handle')
+    .eq('user_id', userId)
+    .maybeSingle<OnboardingProfileRow>();
+
+  if (error) {
+    console.error('Failed to load profile after OAuth callback:', error);
+    return undefined;
+  }
+  return data ?? null;
+}
 
 function clearOAuthCookies(response: NextResponse): void {
   response.headers.append('Set-Cookie', buildExpiredOAuthRedirectCookie());
@@ -79,7 +109,26 @@ export async function handleAuthCallbackGet(request: Request, deps: AuthCallback
         }
       }
 
-      const response = NextResponse.redirect(`${origin}${next}`);
+      // OAuth users can create an account without ever seeing the signup
+      // screens ("Googleで続ける" on /login), and the cookie above can be lost on
+      // the way back from the provider. Whatever the channel, the profile row
+      // is the source of truth: a user without a name + handle is sent to the
+      // onboarding screens before entering the app. A failed lookup never
+      // blocks login — the user simply lands on `next`.
+      let destination = next;
+      if (data.user) {
+        try {
+          const admin = (deps.getAdmin ?? getSupabaseAdmin)();
+          const profile = await (deps.loadOnboardingProfile ?? loadOnboardingProfile)(admin, data.user.id);
+          if (profile !== undefined && needsOnboardingProfile(profile)) {
+            destination = buildOnboardingPath(next);
+          }
+        } catch (lookupError) {
+          console.error('Failed to check onboarding profile after OAuth callback:', lookupError);
+        }
+      }
+
+      const response = NextResponse.redirect(`${origin}${destination}`);
       clearOAuthCookies(response);
       return response;
     }

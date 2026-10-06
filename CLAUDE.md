@@ -137,6 +137,7 @@ Coin system core: `src/lib/coins/` (rates, scan gate, manual-morphology gate, re
 2. User verifies OTP -> Account created, session set
 3. Subscription + profile rows auto-created via database trigger (`on_auth_user_created` -> `handle_new_user()`). The former first-66 launch campaign is retired; new signups stay Free unless explicitly upgraded or granted test Pro. See `docs/ops-auto-pro-first-66-2026-04-04.md`.
 4. User upgrades -> KOMOJU payment page -> Webhook activates Pro
+5. **OAuth (Google / Apple) signups**: the onboarding profile (ユーザー名 / ユーザーID / 英検級) collected on `/signup` is carried through the provider redirect in a cookie and persisted by `/auth/callback`. That cookie is absent for 「Googleで続ける」 on `/login` (the account is created on the spot) and can be lost on the way back (PWA / in-app browser / expiry), so the callback also reads the profile row and sends anyone without a name + handle to `/onboarding?next=…` (`needsOnboardingProfile`, `src/lib/auth/onboarding-profile.ts`) before they enter the app. That page reuses the signup steps (`SignupStepUi`, `useHandlePicker`), prefills from the `/signup` sessionStorage stash or the provider's profile name, and saves through `POST /api/onboarding/profile` (which only fills empty fields and seeds the default wordbooks for the chosen level). The EIKEN level is optional (未定), so it is never a reason to ask again.
 
 ### Payment Flow (Stripe)
 1. User clicks upgrade -> `/api/subscription/create` -> Creates Stripe Checkout Session
