@@ -588,10 +588,12 @@ class Builder:
         head_rank = self.ranks.get(head)
 
         candidates: dict[str, float] = {}
-        has_synset_candidate = False
+        # 同じ synset に「その品詞で使われる」言い換えがあるか (fox の動詞用法のように
+        # 別品詞でしか使用例の無い語しか無いときは、上位語を最後の手段として出す)
+        has_firm_synset_candidate = False
 
         def consider(lemma: str, tier: str, sense_penalty: float, extra: float = 0.0) -> None:
-            nonlocal has_synset_candidate
+            nonlocal has_firm_synset_candidate
             if not SINGLE_WORD_RE.match(lemma):
                 return
             rank = self.ranks.get(lemma)
@@ -607,7 +609,10 @@ class Builder:
             if is_variant(head, lemma):
                 return
             score = TIER_PENALTY[tier] + sense_penalty + extra + self.commonness_penalty(rank, pos) + self.polysemy_penalty(lemma)
-            if self.is_pos_unused(lemma, pos):
+            # その品詞で一度も使用例の無い語 (fox の動詞用法) は、同じ synset にあっても
+            # 「確かな言い換え」には数えない (上位語を最後の手段として出すかの判断に使う)
+            firm = not self.is_pos_unused(lemma, pos)
+            if not firm:
                 score += POS_UNUSED_PENALTY
             if synset_id:
                 if sense_attested:
@@ -620,8 +625,8 @@ class Builder:
                 score += 0.6
             if lemma not in candidates or score < candidates[lemma]:
                 candidates[lemma] = score
-            if tier in ("synset", "synset+moby"):
-                has_synset_candidate = True
+            if firm and tier in ("synset", "synset+moby"):
+                has_firm_synset_candidate = True
 
         def is_mutual(lemma: str) -> bool:
             return lemma in moby_fwd and head in self.moby.get(lemma, set())
@@ -648,9 +653,11 @@ class Builder:
                 consider(lemma, "hypernym+moby", min(sense_penalty, MUTUAL_SENSE_PENALTY_CAP))
             elif lemma in moby_fwd:
                 consider(lemma, "hypernym+moby", sense_penalty)
-            elif not has_synset_candidate:
-                # Moby の裏付けの無い上位語は、同じ synset に言い換えが 1 つも無いときの最後の手段
-                # (perspire に sweat があるなら、上位語の eliminate は出さない)
+            elif not has_firm_synset_candidate:
+                # Moby の裏付けの無い上位語は、同じ synset に確かな言い換えが無いときの最後の手段
+                # (perspire に sweat があるなら、上位語の eliminate は出さない。play a trick on は
+                # 同じ synset に別品詞が主の fox しか無く、trick は見出し語に含まれるので候補に
+                # ならないから、上位語の deceive を出す)
                 consider(lemma, "hypernym", sense_penalty)
         for lemma in moby_fwd:
             # Moby は連想が広いので、Moby で相互に挙がるか、WordNet でも直接の関係があるものだけ採る。

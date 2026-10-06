@@ -35,8 +35,9 @@ JSON ができる。
    - Moby で双方向に挙がり WordNet でも直接の関係 (also) がある
    - WordNet の同じ synset だけ / 直接の上位語だけ (上位語だけは動詞・形容詞・副詞のみ)
    - **下位語は根拠にしない** (`amphibian → frog` は一種であって言い換えではない)。誤答から外すためだけに使う
-   - **Moby の裏付けの無い上位語は、同じ synset に言い換えが 1 つも無いときだけ** (`perspire` に `sweat`
-     があるなら上位語の `eliminate` は出さない)
+   - **Moby の裏付けの無い上位語は、同じ synset に確かな言い換えが無いときだけ** (`perspire` に `sweat`
+     があるなら上位語の `eliminate` は出さない)。同じ synset に弱い候補 (主に別の品詞で使う `fox`) しか
+     無ければ上位語を出す (`play a trick on → deceive`。`trick` は見出し語に含まれるので候補にしない)
    - 品詞の割合で切る前に、**その語義に使用例 (SemCor) があれば通す** (`sweat` は名詞の synset が多いが
      動詞「汗をかく」には使用例がある)
    - **名詞では上位語・兄弟語・いとこを慎重に扱う**。名詞の上位語は分類 (`amphibian → vertebrate`、
