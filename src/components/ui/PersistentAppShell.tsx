@@ -8,6 +8,8 @@ import { BottomNav } from './bottom-nav';
 
 const NO_SHELL_PATHS = [
   '/lp', '/login', '/signup', '/reset-password', '/auth',
+  // OAuth 登録者のプロフィール設定。/signup と同じ全画面ステップなのでシェルを外す。
+  '/onboarding',
   '/privacy', '/terms', '/tokusho', '/contact', '/features', '/pricing',
   '/guide', '/column',
   '/offline', '/share-target', '/admin',
