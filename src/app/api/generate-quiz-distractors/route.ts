@@ -20,6 +20,8 @@ interface WordInput {
   id: string;
   english: string;
   japanese: string;
+  /** 正解以外の既知の訳。誤答に使わせないために生成側へ渡す。 */
+  knownTranslations?: string[];
 }
 
 interface ExistingWordRow {
@@ -67,6 +69,9 @@ const requestSchema = z.object({
       id: z.string().trim().min(1).max(80),
       english: z.string().trim().min(1).max(200),
       japanese: z.string().trim().min(1).max(300),
+      // 出題語の他の語義（word_translations）。誤答がこれらと一致すると
+      // 正解が2つある問題になるので、プロンプトと生成後のフィルタの両方で除く。
+      knownTranslations: z.array(z.string().trim().min(1).max(300)).max(30).optional(),
     }).strict(),
   ).min(1).max(30),
   // 例文生成はスキャン時のオプトイン（+2コイン）。このルートは誤答選択肢の

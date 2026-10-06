@@ -17,6 +17,9 @@ import {
 } from '@/lib/quiz/quiz-mode-preference';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
+import { QuizOptionReportPanel } from '@/components/quiz/QuizOptionReportPanel';
+import { useToast } from '@/components/ui/toast';
+import { describeOptionReportVerdict } from '@/lib/quiz/option-report';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { createBrowserClient } from '@/lib/supabase';
@@ -72,7 +75,7 @@ import {
   getTypeInCorrectAnswer,
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
-import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { collectKnownTranslations, parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { fetchParaphraseMaterials, isParaphraseCandidateWord } from '@/lib/paraphrase/client';
 import { generateParaphraseQuestions, isParaphraseQuestion } from '@/lib/paraphrase/question';
 import type { ParaphraseMaterial } from '@/lib/paraphrase/dataset';
@@ -459,6 +462,7 @@ export default function QuizPage() {
   const pathname = usePathname();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user, isPro } = useAuth();
+  const { showToast } = useToast();
   const billingEnabled = isBillingEnabled();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
@@ -886,7 +890,7 @@ export default function QuizPage() {
             response = await fetch('/api/generate-quiz-distractors', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ words: chunk.map((w) => ({ id: w.id, english: w.english, japanese: w.japanese })) }),
+              body: JSON.stringify({ words: chunk.map((w) => ({ id: w.id, english: w.english, japanese: w.japanese, knownTranslations: collectKnownTranslations(w) })) }),
               signal: controller.signal,
             });
           } finally { clearTimeout(timeoutId); }
@@ -1318,6 +1322,50 @@ export default function QuizPage() {
   }, [allWords, voiceQuizUnavailable]);
 
   const currentQuestion = questions[currentIndex];
+
+  // 「選択肢がおかしい」報告。サーバーが Gemini で判定し、おかしければ単語の誤答を
+  // その場で差し替えて返す。返ってきた誤答は手元の出題プールにも反映して、同じ回の
+  // 「次へ」や組み直しで古い誤答が出ないようにする。
+  const handleReportOption = useCallback(async (reportedOption: string) => {
+    const question = currentQuestion;
+    if (!question || !isMultipleChoiceQuestion(question)) return;
+    const wordId = question.word.quizTarget?.wordId ?? question.word.id;
+    let data: {
+      success?: boolean;
+      error?: string;
+      verdict?: Parameters<typeof describeOptionReportVerdict>[0];
+      fixed?: boolean;
+      distractors?: unknown;
+    } = {};
+    try {
+      const response = await fetch('/api/quiz/report-option', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wordId, reportedOption, options: question.options }),
+      });
+      data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || '報告に失敗しました');
+    } catch (error) {
+      showToast({ message: error instanceof Error ? error.message : '報告に失敗しました', type: 'error' });
+      throw error;
+    }
+
+    const title = data.verdict ? describeOptionReportVerdict(data.verdict) : '確認しました';
+    showToast({
+      message: data.fixed ? `${title}。別の選択肢に差し替えました` : title,
+      type: data.verdict === 'ok' ? 'info' : 'success',
+      duration: 5000,
+    });
+
+    if (data.fixed && Array.isArray(data.distractors)) {
+      const distractors = data.distractors.filter((item): item is string => typeof item === 'string');
+      const sameWord = (w: Word) => (w.quizTarget?.wordId ?? w.id) === wordId;
+      setQuestions((prev) => prev.map((q) => (sameWord(q.word) ? { ...q, word: { ...q.word, distractors } } : q)));
+      setAllWords((prev) => prev.map((w) => (sameWord(w) ? { ...w, distractors } : w)));
+      // サーバーは Supabase の行を直している。手元の IndexedDB キャッシュも合わせる。
+      repository.updateWord(wordId, { distractors }).catch(() => {});
+    }
+  }, [currentQuestion, repository, showToast]);
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const currentIsParaphrase = isParaphraseQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
@@ -2311,6 +2359,15 @@ export default function QuizPage() {
               >
                 わからない
               </button>
+            )}
+            {/* 言い換えの選択肢は辞書由来で単語の誤答ではないので、報告の対象にしない */}
+            {isRevealed && !currentIsParaphrase && user && currentQuestion && (
+              <QuizOptionReportPanel
+                key={`${currentIndex}:${currentQuestion.word.id}`}
+                options={currentQuestion.options}
+                correctIndex={currentQuestion.correctIndex}
+                onReport={handleReportOption}
+              />
             )}
           </div>
         ) : (
