@@ -1,5 +1,8 @@
 'use client';
 
+import Link from 'next/link';
+import { Icon } from '@/components/ui/Icon';
+
 export interface ScanInProgressItem {
   id: string;
   project_title: string;
@@ -52,6 +55,73 @@ export function ScanInProgressBanner({
         <div className="text-[13px] font-bold text-[var(--solid-ink)]">スキャン中...</div>
         <div className="truncate text-[11px] text-[var(--color-muted)]">{detail}</div>
       </div>
+    </div>
+  );
+}
+
+export interface ScanCompletedItem {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  /** 追加された語数。不明なら null */
+  wordCount: number | null;
+}
+
+/**
+ * スキャンが終わったら「スキャン中」と同じ位置に出す完了バナー。
+ * 追加した語数と、その単語帳を開くボタンを出す。開くか閉じるまで残る。
+ */
+export function ScanCompletedBanner({
+  scans,
+  onDismiss,
+  className = '',
+}: {
+  scans: ScanCompletedItem[];
+  onDismiss: (jobId: string) => void;
+  className?: string;
+}) {
+  if (scans.length === 0) return null;
+
+  return (
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {scans.map((scan) => (
+        <div
+          key={scan.id}
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 shadow-[2px_3px_0_var(--solid-shadow)]"
+        >
+          <div
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-success)] text-white"
+            aria-hidden="true"
+          >
+            <Icon name="check" size={16} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-bold text-[var(--solid-ink)]">スキャン完了</div>
+            <div className="truncate text-[11px] text-[var(--color-muted)]">
+              {scan.wordCount === null
+                ? `「${scan.projectTitle}」に単語を追加しました`
+                : `「${scan.projectTitle}」に${scan.wordCount}語追加しました`}
+            </div>
+          </div>
+          <Link
+            href={`/project/${scan.projectId}`}
+            onClick={() => onDismiss(scan.id)}
+            className="shrink-0 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] px-3 py-1 text-[12px] font-bold text-[var(--color-on-accent)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
+          >
+            開く
+          </Link>
+          <button
+            type="button"
+            onClick={() => onDismiss(scan.id)}
+            aria-label="スキャン完了の表示を閉じる"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--color-muted)]"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

@@ -18,7 +18,11 @@ import { DesktopStudySidebar } from '@/components/desktop/DesktopStudySidebar';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { GroupAvatar } from '@/components/groups/GroupAvatar';
 import { DesktopHomeGrammarBooks } from '@/components/home/HomeGrammarBooks';
-import { ScanInProgressBanner } from '@/components/home/ScanInProgressBanner';
+import {
+  ScanCompletedBanner,
+  ScanInProgressBanner,
+  type ScanCompletedItem,
+} from '@/components/home/ScanInProgressBanner';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { GrammarBook } from '@/components/desktop/DesktopGrammar';
@@ -76,6 +80,8 @@ export function DesktopHomeView({
   loading,
   error,
   pendingScans,
+  completedScans = [],
+  onDismissCompletedScan,
   joinedGroups = [],
   goal,
   grammarBooks = [],
@@ -90,6 +96,8 @@ export function DesktopHomeView({
   loading: boolean;
   error: string | null;
   pendingScans: DesktopPendingScan[];
+  completedScans?: ScanCompletedItem[];
+  onDismissCompletedScan?: (jobId: string) => void;
   joinedGroups?: StudyGroupSummary[];
   goal: DesktopHomeGoal;
   grammarBooks?: GrammarBook[];
@@ -131,6 +139,9 @@ export function DesktopHomeView({
         <div style={{ minWidth: 0 }}>
           {/* スキャンで単語帳を作成・追加している間はホームの一番上に出す */}
           <ScanInProgressBanner scans={pendingScans} className="mb-[18px]" />
+          {onDismissCompletedScan && (
+            <ScanCompletedBanner scans={completedScans} onDismiss={onDismissCompletedScan} className="mb-[18px]" />
+          )}
 
           {error && (
             <div className="ds-card" style={{ padding: 14, marginBottom: 18, color: 'var(--color-error)', borderColor: 'var(--color-error)' }}>

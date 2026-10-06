@@ -10,7 +10,13 @@ import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
-import { ScanInProgressBanner } from '@/components/home/ScanInProgressBanner';
+import { ScanCompletedBanner, ScanInProgressBanner } from '@/components/home/ScanInProgressBanner';
+import {
+  addDismissedScanCompletionId,
+  readDismissedScanCompletionIds,
+  selectHomeScanCompletionNotices,
+  type HomeScanCompletionNotice,
+} from '@/lib/home/home-scan-completion';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
 import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
@@ -114,6 +120,9 @@ type RecentScanJob = {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   project_title: string;
   project_id?: string | null;
+  target_project_id?: string | null;
+  result?: string | null;
+  updated_at?: string | null;
   error_message?: string | null;
 };
 
@@ -299,6 +308,20 @@ export function HomeClient() {
   // 直前のポーリングで実行中(pending/processing)だったジョブID。次のポーリングで
   // failed に変わったものを検出して失敗理由を即表示するために使う。
   const watchedActiveJobIdsRef = useRef<Set<string>>(new Set());
+  // 最近完了したスキャン（ホーム最上部に「スキャン完了」として出す）。
+  // 閉じた/開いたジョブは localStorage に記録して二度と出さない。
+  const [scanCompletionCandidates, setScanCompletionCandidates] = useState<HomeScanCompletionNotice[]>([]);
+  const [dismissedScanCompletionIds, setDismissedScanCompletionIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    setDismissedScanCompletionIds(readDismissedScanCompletionIds());
+  }, []);
+  const dismissScanCompletion = useCallback((jobId: string) => {
+    setDismissedScanCompletionIds((current) => addDismissedScanCompletionId(current, jobId));
+  }, []);
+  const scanCompletionNotices = useMemo(
+    () => scanCompletionCandidates.filter((notice) => !dismissedScanCompletionIds.has(notice.id)),
+    [scanCompletionCandidates, dismissedScanCompletionIds],
+  );
 
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
@@ -341,6 +364,7 @@ export function HomeClient() {
       setStats(EMPTY_STATS);
       setPendingScans([]);
       setRecentScanJobs([]);
+      setScanCompletionCandidates([]);
       setPendingGeneratingWordbook(null);
       setLoading(false);
       setError(null);
@@ -468,10 +492,13 @@ export function HomeClient() {
         const jobs = data.jobs ?? [];
         const active = jobs.filter((j) => j.status === 'pending' || j.status === 'processing');
         setRecentScanJobs(jobs);
+        setScanCompletionCandidates(
+          selectHomeScanCompletionNotices(jobs, { now: Date.now(), dismissedIds: new Set() }),
+        );
         setPendingScans(active.map((j) => ({
           id: j.id,
           project_title: j.project_title,
-          addingToExisting: !!j.project_id,
+          addingToExisting: !!(j.target_project_id ?? j.project_id),
         })));
 
         // 実行中として見えていたジョブが failed に変わった瞬間に理由を表示する。
@@ -696,6 +723,8 @@ export function HomeClient() {
         loading={loading}
         error={error}
         pendingScans={displayedPendingScans}
+        completedScans={scanCompletionNotices}
+        onDismissCompletedScan={dismissScanCompletion}
         joinedGroups={myGroups}
         goal={{ state: goalState, count: goalCount }}
         grammarBooks={grammarBooks}
@@ -737,6 +766,7 @@ export function HomeClient() {
 
       {/* スキャンで単語帳を作成・追加している間はホームの一番上に出す */}
       <ScanInProgressBanner scans={displayedPendingScans} className="mx-[18px] mb-3" />
+      <ScanCompletedBanner scans={scanCompletionNotices} onDismiss={dismissScanCompletion} className="mx-[18px] mb-3" />
 
       {error && (
         <div className="px-[18px] pb-3">
