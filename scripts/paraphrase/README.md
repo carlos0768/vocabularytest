@@ -30,9 +30,14 @@ JSON ができる。
 
 1. **正解候補** を集める。根拠の強い順に
    - WordNet の同じ synset にあり Moby も挙げる (双方向ならさらに優先)
-   - WordNet の直接の上位語で Moby も挙げる (`plummet → drop`)
-   - Moby で双方向に挙がり WordNet でも直接の関係がある
-   - WordNet の同じ synset だけ / 直接の上位語だけ
+   - WordNet の直接の上位語で Moby も挙げる (`plummet → drop`、`disease → illness`)
+   - Moby で双方向に挙がり WordNet でも直接の関係 (also) がある
+   - WordNet の同じ synset だけ / 直接の上位語だけ (上位語だけは動詞・形容詞・副詞のみ)
+   - **下位語は根拠にしない** (`amphibian → frog` は一種であって言い換えではない)。誤答から外すためだけに使う
+   - **名詞では上位語・兄弟語・いとこを慎重に扱う**。名詞の上位語は分類 (`amphibian → vertebrate`、
+     別の語義の `amphibian → plane`) になりがちなので Moby も挙げるものだけ採り、兄弟語・いとこ
+     (`amphibian → reptile`) は採らない。動詞では同じ上位語の下の語が近い意味になりやすい
+     (`plummet` / `plunge`) ので残す
    - Moby だけが挙げる語 (WordNet に関係なし) は候補にしない。Moby は連想辞典なので
      navigation ↔ geography のような「関連はあるが同義ではない」組を含む
 2. 候補を **語義ごとの使用回数** で調整する。頻度順位は品詞をまたいだ合計なので、名詞としてよく使う語が
