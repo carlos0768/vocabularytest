@@ -4,9 +4,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  matchJapaneseSense,
   parseParaphraseDataset,
   resolveParaphraseMaterial,
   toParaphrasePosHint,
+  tokenizeJapaneseHint,
   type ParaphraseDataset,
 } from './dataset';
 
@@ -14,7 +16,7 @@ const tiny: ParaphraseDataset = parseParaphraseDataset({
   version: 1,
   generatedAt: '2026-10-05',
   sources: [{ name: 'Open English WordNet', license: 'CC BY 4.0', url: 'https://example.test' }],
-  vocab: ['drop', 'decline', 'wish', 'abuse', 'leaf', 'pioneer', 'weight', 'brain', 'poem', 'zone', 'deceive', 'fool'],
+  vocab: ['drop', 'decline', 'wish', 'abuse', 'leaf', 'pioneer', 'weight', 'brain', 'poem', 'zone', 'deceive', 'fool', 'everyday', 'terrestrial', 'worldly'],
   entries: {
     plummet: [
       ['v', [0, 1], [2, 3, 4, 5]],
@@ -22,6 +24,10 @@ const tiny: ParaphraseDataset = parseParaphraseDataset({
     ],
     'play a trick on': [['v', [10, 11], [2, 3, 4]]],
     broken: [['v', [0], [999, 2]]],
+    mundane: [['a', [12, 13, 14], [2, 3, 4], [
+      [['平凡', '日常的', '有りふれた'], [12]],
+      [['この世の', '世俗的'], [13, 14]],
+    ]]],
   },
 });
 
@@ -58,6 +64,44 @@ test('品詞タグは英語名でも日本語名でも推せる', () => {
   assert.equal(toParaphrasePosHint(undefined), null);
 });
 
+test('日本語訳が辞書の語義に合えば、その語義だけの正解候補にする', () => {
+  const matched = resolveParaphraseMaterial(tiny, 'mundane', null, ['1.平凡な 2.つまらない']);
+  assert.deepEqual(matched?.answers, ['everyday']);
+  assert.equal(matched?.senseMatched, true);
+
+  const other = resolveParaphraseMaterial(tiny, 'mundane', null, ['世俗的な']);
+  assert.deepEqual(other?.answers, ['terrestrial', 'worldly']);
+
+  // 合う語義が無ければ従来どおり全体の候補
+  const none = resolveParaphraseMaterial(tiny, 'mundane', null, ['急落する']);
+  assert.deepEqual(none?.answers, ['everyday', 'terrestrial', 'worldly']);
+  assert.equal(none?.senseMatched, false);
+  // 日本語訳を渡さなければ語義は選ばない
+  assert.deepEqual(resolveParaphraseMaterial(tiny, 'mundane')?.answers, ['everyday', 'terrestrial', 'worldly']);
+});
+
+test('日本語訳は番号・区切りで刻み、2 文字以上の断片だけ残す', () => {
+  assert.deepEqual(tokenizeJapaneseHint('1.平凡な 2.つまらない'), ['平凡な', 'つまらない']);
+  assert.deepEqual(tokenizeJapaneseHint('汗をかく、発汗する'), ['汗をかく', '発汗する']);
+  assert.deepEqual(tokenizeJapaneseHint('①急落する ②（価格が）下がる'), ['急落する', '価格が', '下がる']);
+  assert.deepEqual(tokenizeJapaneseHint('木'), []);
+});
+
+test('語義の選択は訳語の一致数で決め、同点なら先の語義', () => {
+  const senses = [
+    { japanese: ['平凡', '日常的'], id: 'a' },
+    { japanese: ['この世の', '世俗的'], id: 'b' },
+    { japanese: ['平凡', '日常的', '有りふれた'], id: 'c' },
+  ];
+  assert.equal(matchJapaneseSense(senses, ['平凡な'])?.id, 'a');
+  assert.equal(matchJapaneseSense(senses, ['有りふれた・平凡な・日常的な'])?.id, 'c');
+  // 「汗をかく」は「汗する」に弱く合う (目的語が訳語の頭に立つ)。
+  assert.equal(matchJapaneseSense([{ japanese: ['流れる'], id: 'x' }, { japanese: ['汗する', '発汗する'], id: 'y' }], ['汗をかく'])?.id, 'y');
+  assert.equal(matchJapaneseSense(senses, ['世俗的'])?.id, 'b');
+  assert.equal(matchJapaneseSense(senses, ['急落する']), null);
+  assert.equal(matchJapaneseSense(senses, []), null);
+});
+
 test('形の崩れたデータは受け付けない', () => {
   assert.throws(() => parseParaphraseDataset(null));
   assert.throws(() => parseParaphraseDataset({ version: 1, vocab: 'x', entries: {} }));
@@ -67,7 +111,7 @@ test('形の崩れたデータは受け付けない', () => {
 test('コミット済みの dataset.json が読め、代表的な語の材料が入っている', () => {
   const raw = readFileSync(join(process.cwd(), 'src', 'lib', 'paraphrase', 'dataset.json'), 'utf8');
   const dataset = parseParaphraseDataset(JSON.parse(raw));
-  assert.equal(dataset.version, 1);
+  assert.equal(dataset.version, 2);
   assert.ok(dataset.sources.some((source) => source.name.includes('WordNet')));
   assert.ok(Object.keys(dataset.entries).length > 20000, 'dataset should cover tens of thousands of headwords');
 
@@ -82,4 +126,15 @@ test('コミット済みの dataset.json が読め、代表的な語の材料が
   }
   assert.ok(resolveParaphraseMaterial(dataset, 'plummet')!.answers.includes('drop'));
   assert.ok(resolveParaphraseMaterial(dataset, 'play a trick on')!.answers.includes('deceive'));
+
+  // 日本語訳で語義を選べる (mundane = 平凡な → everyday、「この世の」の terrestrial は出ない)
+  const mundane = resolveParaphraseMaterial(dataset, 'mundane', 'a', ['1.平凡な 2.つまらない']);
+  assert.ok(mundane?.senseMatched, 'mundane should match the 平凡 sense');
+  assert.ok(mundane!.answers.includes('everyday'));
+  assert.ok(!mundane!.answers.includes('terrestrial'));
+  assert.ok(!mundane!.answers.includes('worldly'));
+  // 下位語・上位語は言い換えにしない (perspire → sweat であって eliminate ではない)
+  const perspire = resolveParaphraseMaterial(dataset, 'perspire', 'v', ['汗をかく']);
+  assert.deepEqual(perspire?.answers, ['sweat']);
+  assert.equal(resolveParaphraseMaterial(dataset, 'amphibian'), null);
 });

@@ -30,6 +30,9 @@ export interface ParaphraseLookupWord {
   id: string;
   english: string;
   partOfSpeechTags?: string[];
+  /** 単語帳の日本語訳。辞書の語義を選ぶのに使う (無ければ主な語義)。 */
+  japanese?: string;
+  translations?: string[];
 }
 
 export interface ParaphraseLookupResult extends ParaphraseMaterial {
@@ -41,7 +44,8 @@ export function lookupParaphraseMaterials(words: readonly ParaphraseLookupWord[]
   const dataset = getParaphraseDataset();
   const results: ParaphraseLookupResult[] = [];
   for (const word of words) {
-    const material = resolveParaphraseMaterial(dataset, word.english, toParaphrasePosHint(word.partOfSpeechTags));
+    const hints = [word.japanese, ...(word.translations ?? [])].filter((hint): hint is string => typeof hint === 'string' && hint.trim().length > 0);
+    const material = resolveParaphraseMaterial(dataset, word.english, toParaphrasePosHint(word.partOfSpeechTags), hints);
     if (material) results.push({ wordId: word.id, ...material });
   }
   return results;
