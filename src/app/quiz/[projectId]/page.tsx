@@ -72,7 +72,7 @@ import {
   getTypeInCorrectAnswer,
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
-import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { collectKnownTranslations, parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { fetchParaphraseMaterials, isParaphraseCandidateWord } from '@/lib/paraphrase/client';
 import { generateParaphraseQuestions, isParaphraseQuestion } from '@/lib/paraphrase/question';
 import type { ParaphraseMaterial } from '@/lib/paraphrase/dataset';
@@ -886,7 +886,7 @@ export default function QuizPage() {
             response = await fetch('/api/generate-quiz-distractors', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ words: chunk.map((w) => ({ id: w.id, english: w.english, japanese: w.japanese })) }),
+              body: JSON.stringify({ words: chunk.map((w) => ({ id: w.id, english: w.english, japanese: w.japanese, knownTranslations: collectKnownTranslations(w) })) }),
               signal: controller.signal,
             });
           } finally { clearTimeout(timeoutId); }
