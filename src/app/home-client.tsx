@@ -10,6 +10,7 @@ import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
+import { ScanInProgressBanner } from '@/components/home/ScanInProgressBanner';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
 import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
@@ -105,12 +106,14 @@ type HomePendingScan = {
   id: string;
   project_title: string;
   iconDataUrl?: string;
+  addingToExisting?: boolean;
 };
 
 type RecentScanJob = {
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   project_title: string;
+  project_id?: string | null;
   error_message?: string | null;
 };
 
@@ -465,7 +468,11 @@ export function HomeClient() {
         const jobs = data.jobs ?? [];
         const active = jobs.filter((j) => j.status === 'pending' || j.status === 'processing');
         setRecentScanJobs(jobs);
-        setPendingScans(active.map((j) => ({ id: j.id, project_title: j.project_title })));
+        setPendingScans(active.map((j) => ({
+          id: j.id,
+          project_title: j.project_title,
+          addingToExisting: !!j.project_id,
+        })));
 
         // 実行中として見えていたジョブが failed に変わった瞬間に理由を表示する。
         // （以前は「生成中」カードが理由も出さず消えるだけで、リロードするまで
@@ -727,6 +734,9 @@ export function HomeClient() {
           </button>
         </div>
       </div>
+
+      {/* スキャンで単語帳を作成・追加している間はホームの一番上に出す */}
+      <ScanInProgressBanner scans={displayedPendingScans} className="mx-[18px] mb-3" />
 
       {error && (
         <div className="px-[18px] pb-3">
