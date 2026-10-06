@@ -1,4 +1,4 @@
-// ホーム最上部の「スキャン完了」表示に出すジョブを選ぶ。
+// ホーム最上部の「スキャン完了」「スキャン失敗」表示に出すジョブを選ぶ。
 //
 // ホームを離れている間に終わったスキャンも、戻ってきたときに知らせたいので、
 // 「ポーリング中に完了へ変わった瞬間」ではなく「最近完了して、まだ閉じていない」
@@ -8,6 +8,8 @@ export interface HomeScanCompletionJob {
   id: string;
   status: string;
   project_id?: string | null;
+  target_project_id?: string | null;
+  error_message?: string | null;
   project_title?: string | null;
   result?: string | null;
   updated_at?: string | null;
@@ -20,6 +22,21 @@ export interface HomeScanCompletionNotice {
   /** 実際に保存された語数。結果が読めなければ null */
   wordCount: number | null;
 }
+
+export interface HomeScanFailureNotice {
+  id: string;
+  projectTitle: string;
+  /** 既存の単語帳へ追加しようとして失敗したなら、その単語帳ID */
+  targetProjectId: string | null;
+  /** ユーザーに見せる失敗理由 */
+  message: string;
+}
+
+// 失敗したのに error_message が無い場合の予備文言。
+// 「単語帳を撮影しなかった（＝単語が写っていない）」ケースを想定した、
+// 理由が伝わる日本語メッセージを表示する。
+export const SCAN_JOB_FAILED_FALLBACK_MESSAGE =
+  '画像から単語を読み取れませんでした。単語帳や英単語がはっきり写るように、もう一度撮影してください。';
 
 /** これより前に完了したスキャンはもう知らせない */
 export const HOME_SCAN_COMPLETION_WINDOW_MS = 30 * 60 * 1000;
@@ -38,10 +55,7 @@ export function selectHomeScanCompletionNotices(
     if (job.status !== 'completed') continue;
     // 開く先が無い完了（端末保存のジョブ）はここでは扱わない
     if (!job.project_id) continue;
-    if (options.dismissedIds.has(job.id)) continue;
-
-    const completedAt = job.updated_at ? Date.parse(job.updated_at) : Number.NaN;
-    if (!Number.isFinite(completedAt) || options.now - completedAt > windowMs) continue;
+    if (!isRecentAndUndismissed(job, options.now, windowMs, options.dismissedIds)) continue;
 
     notices.push({
       id: job.id,
@@ -52,6 +66,39 @@ export function selectHomeScanCompletionNotices(
   }
 
   return notices;
+}
+
+export function selectHomeScanFailureNotices(
+  jobs: readonly HomeScanCompletionJob[],
+  options: { now: number; dismissedIds: ReadonlySet<string>; windowMs?: number },
+): HomeScanFailureNotice[] {
+  const windowMs = options.windowMs ?? HOME_SCAN_COMPLETION_WINDOW_MS;
+  const notices: HomeScanFailureNotice[] = [];
+
+  for (const job of jobs) {
+    if (job.status !== 'failed') continue;
+    if (!isRecentAndUndismissed(job, options.now, windowMs, options.dismissedIds)) continue;
+
+    notices.push({
+      id: job.id,
+      projectTitle: job.project_title?.trim() || '単語帳',
+      targetProjectId: job.target_project_id || null,
+      message: job.error_message?.trim() || SCAN_JOB_FAILED_FALLBACK_MESSAGE,
+    });
+  }
+
+  return notices;
+}
+
+function isRecentAndUndismissed(
+  job: HomeScanCompletionJob,
+  now: number,
+  windowMs: number,
+  dismissedIds: ReadonlySet<string>,
+): boolean {
+  if (dismissedIds.has(job.id)) return false;
+  const finishedAt = job.updated_at ? Date.parse(job.updated_at) : Number.NaN;
+  return Number.isFinite(finishedAt) && now - finishedAt <= windowMs;
 }
 
 export function parseResultWordCount(result: string | null | undefined): number | null {

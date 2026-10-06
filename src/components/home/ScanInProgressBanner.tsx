@@ -125,3 +125,97 @@ export function ScanCompletedBanner({
     </div>
   );
 }
+
+export interface ScanFailedItem {
+  id: string;
+  projectTitle: string;
+  /** 既存の単語帳へ追加しようとして失敗したなら、その単語帳ID */
+  targetProjectId: string | null;
+  /** 失敗理由 */
+  message: string;
+}
+
+/**
+ * スキャンが失敗したら「スキャン中」と同じ位置に出す失敗バナー。
+ * 理由と、撮り直すための導線を出す。既存の単語帳への追加だったなら
+ * その単語帳へ、新規作成だったならスキャンをもう一度開く。閉じるまで残る。
+ */
+export function ScanFailedBanner({
+  scans,
+  onDismiss,
+  onRetryScan,
+  className = '',
+}: {
+  scans: ScanFailedItem[];
+  onDismiss: (jobId: string) => void;
+  /** 新規作成で失敗したときの「もう一度スキャン」。無ければボタンを出さない */
+  onRetryScan?: () => void;
+  className?: string;
+}) {
+  if (scans.length === 0) return null;
+
+  const actionClassName =
+    'shrink-0 rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1 text-[12px] font-bold text-[var(--solid-ink)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]';
+
+  return (
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {scans.map((scan) => (
+        <div
+          key={scan.id}
+          role="alert"
+          className="rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] px-3 py-2.5 shadow-[2px_3px_0_var(--solid-shadow)]"
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className="mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-error)] text-white"
+              aria-hidden="true"
+            >
+              <Icon name="priority_high" size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-bold text-[var(--color-error)]">スキャン失敗</div>
+              <div className="truncate text-[11px] font-bold text-[var(--solid-ink)]">
+                {scan.targetProjectId
+                  ? `「${scan.projectTitle}」に単語を追加できませんでした`
+                  : `「${scan.projectTitle}」を作成できませんでした`}
+              </div>
+              <p className="mt-0.5 text-[11px] leading-[1.5] text-[var(--color-muted)]">{scan.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onDismiss(scan.id)}
+              aria-label="スキャン失敗の表示を閉じる"
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--color-muted)]"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+          {(scan.targetProjectId || onRetryScan) && (
+            <div className="mt-2 flex justify-end">
+              {scan.targetProjectId ? (
+                <Link
+                  href={`/project/${scan.targetProjectId}`}
+                  onClick={() => onDismiss(scan.id)}
+                  className={actionClassName}
+                >
+                  単語帳を開いて撮り直す
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDismiss(scan.id);
+                    onRetryScan?.();
+                  }}
+                  className={actionClassName}
+                >
+                  もう一度スキャン
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}

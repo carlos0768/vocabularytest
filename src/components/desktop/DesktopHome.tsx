@@ -20,8 +20,10 @@ import { GroupAvatar } from '@/components/groups/GroupAvatar';
 import { DesktopHomeGrammarBooks } from '@/components/home/HomeGrammarBooks';
 import {
   ScanCompletedBanner,
+  ScanFailedBanner,
   ScanInProgressBanner,
   type ScanCompletedItem,
+  type ScanFailedItem,
 } from '@/components/home/ScanInProgressBanner';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
@@ -81,6 +83,7 @@ export function DesktopHomeView({
   error,
   pendingScans,
   completedScans = [],
+  failedScans = [],
   onDismissCompletedScan,
   joinedGroups = [],
   goal,
@@ -97,6 +100,7 @@ export function DesktopHomeView({
   error: string | null;
   pendingScans: DesktopPendingScan[];
   completedScans?: ScanCompletedItem[];
+  failedScans?: ScanFailedItem[];
   onDismissCompletedScan?: (jobId: string) => void;
   joinedGroups?: StudyGroupSummary[];
   goal: DesktopHomeGoal;
@@ -140,7 +144,15 @@ export function DesktopHomeView({
           {/* スキャンで単語帳を作成・追加している間はホームの一番上に出す */}
           <ScanInProgressBanner scans={pendingScans} className="mb-[18px]" />
           {onDismissCompletedScan && (
-            <ScanCompletedBanner scans={completedScans} onDismiss={onDismissCompletedScan} className="mb-[18px]" />
+            <>
+              <ScanCompletedBanner scans={completedScans} onDismiss={onDismissCompletedScan} className="mb-[18px]" />
+              <ScanFailedBanner
+                scans={failedScans}
+                onDismiss={onDismissCompletedScan}
+                onRetryScan={onStartScan}
+                className="mb-[18px]"
+              />
+            </>
           )}
 
           {error && (

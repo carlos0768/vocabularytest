@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import {
   HOME_SCAN_COMPLETION_WINDOW_MS,
   parseResultWordCount,
+  SCAN_JOB_FAILED_FALLBACK_MESSAGE,
   selectHomeScanCompletionNotices,
+  selectHomeScanFailureNotices,
   type HomeScanCompletionJob,
 } from './home-scan-completion';
 
@@ -72,4 +74,40 @@ test('parseResultWordCount reads only non-negative numbers', () => {
   assert.equal(parseResultWordCount(JSON.stringify({ wordCount: '3' })), null);
   assert.equal(parseResultWordCount(JSON.stringify({ wordCount: -1 })), null);
   assert.equal(parseResultWordCount(null), null);
+});
+
+test('recently failed job becomes a failure notice with its reason', () => {
+  const failed = job('job-1', {
+    status: 'failed',
+    project_id: null,
+    target_project_id: 'project-9',
+    error_message: '  画像が暗すぎます  ',
+  });
+  assert.deepEqual(selectHomeScanFailureNotices([failed], { now: NOW, dismissedIds: new Set() }), [
+    { id: 'job-1', projectTitle: 'ターゲット1900', targetProjectId: 'project-9', message: '画像が暗すぎます' },
+  ]);
+});
+
+test('failure without a reason falls back to the default message', () => {
+  const [notice] = selectHomeScanFailureNotices(
+    [job('job-1', { status: 'failed', error_message: null, target_project_id: null })],
+    { now: NOW, dismissedIds: new Set() },
+  );
+  assert.equal(notice.message, SCAN_JOB_FAILED_FALLBACK_MESSAGE);
+  assert.equal(notice.targetProjectId, null);
+});
+
+test('failure notices skip completed, dismissed and old jobs', () => {
+  const jobs = [
+    job('done'),
+    job('dismissed', { status: 'failed' }),
+    job('old', {
+      status: 'failed',
+      updated_at: new Date(NOW - HOME_SCAN_COMPLETION_WINDOW_MS - 1).toISOString(),
+    }),
+  ];
+  assert.deepEqual(
+    selectHomeScanFailureNotices(jobs, { now: NOW, dismissedIds: new Set(['dismissed']) }),
+    [],
+  );
 });

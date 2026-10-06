@@ -10,12 +10,14 @@ import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
-import { ScanCompletedBanner, ScanInProgressBanner } from '@/components/home/ScanInProgressBanner';
+import { ScanCompletedBanner, ScanFailedBanner, ScanInProgressBanner } from '@/components/home/ScanInProgressBanner';
 import {
   addDismissedScanCompletionId,
   readDismissedScanCompletionIds,
   selectHomeScanCompletionNotices,
+  selectHomeScanFailureNotices,
   type HomeScanCompletionNotice,
+  type HomeScanFailureNotice,
 } from '@/lib/home/home-scan-completion';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
 import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
@@ -125,12 +127,6 @@ type RecentScanJob = {
   updated_at?: string | null;
   error_message?: string | null;
 };
-
-// バックグラウンドスキャンが失敗したのに error_message が無い場合の予備文言。
-// 「単語帳を撮影しなかった（＝単語が写っていない）」ケースを想定した、
-// 理由が伝わる日本語メッセージを表示する。
-const SCAN_JOB_FAILED_FALLBACK_MESSAGE =
-  '画像から単語を読み取れませんでした。単語帳や英単語がはっきり写るように、もう一度撮影してください。';
 
 function withHomeGeneratingFallbackId(
   payload: HomeGeneratingWordbookPayload,
@@ -302,15 +298,11 @@ export function HomeClient() {
   const [pendingScans, setPendingScans] = useState<HomePendingScan[]>([]);
   const [recentScanJobs, setRecentScanJobs] = useState<RecentScanJob[]>([]);
   const [pendingGeneratingWordbook, setPendingGeneratingWordbook] = useState<HomeGeneratingWordbookPayload | null>(null);
-  // スキャン失敗の理由表示。loadHome() が setError(null) するため error とは
-  // 別に持ち、リロードせずポーリング検出の時点で即表示する。
-  const [scanFailureNotice, setScanFailureNotice] = useState<string | null>(null);
-  // 直前のポーリングで実行中(pending/processing)だったジョブID。次のポーリングで
-  // failed に変わったものを検出して失敗理由を即表示するために使う。
-  const watchedActiveJobIdsRef = useRef<Set<string>>(new Set());
-  // 最近完了したスキャン（ホーム最上部に「スキャン完了」として出す）。
-  // 閉じた/開いたジョブは localStorage に記録して二度と出さない。
+  // 最近完了/失敗したスキャン（ホーム最上部に「スキャン完了」「スキャン失敗」として出す）。
+  // 閉じた/開いたジョブは localStorage に記録して二度と出さない。失敗の理由は
+  // loadHome() の setError(null) で消えないよう error とは別に持つ。
   const [scanCompletionCandidates, setScanCompletionCandidates] = useState<HomeScanCompletionNotice[]>([]);
+  const [scanFailureCandidates, setScanFailureCandidates] = useState<HomeScanFailureNotice[]>([]);
   const [dismissedScanCompletionIds, setDismissedScanCompletionIds] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     setDismissedScanCompletionIds(readDismissedScanCompletionIds());
@@ -322,6 +314,14 @@ export function HomeClient() {
     () => scanCompletionCandidates.filter((notice) => !dismissedScanCompletionIds.has(notice.id)),
     [scanCompletionCandidates, dismissedScanCompletionIds],
   );
+  const scanFailureNotices = useMemo(
+    () => scanFailureCandidates.filter((notice) => !dismissedScanCompletionIds.has(notice.id)),
+    [scanFailureCandidates, dismissedScanCompletionIds],
+  );
+  const scanFailureNoticesRef = useRef<HomeScanFailureNotice[]>([]);
+  useEffect(() => {
+    scanFailureNoticesRef.current = scanFailureNotices;
+  }, [scanFailureNotices]);
 
   const [vocabScanOpen, setVocabScanOpen] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
@@ -339,7 +339,12 @@ export function HomeClient() {
   const showHomeGeneratingWordbook = useCallback((payload: HomeGeneratingWordbookPayload) => {
     // 新しいスキャンを開始したら、前回の失敗メッセージが残っていても消す。
     setError(null);
-    setScanFailureNotice(null);
+    const shownFailureIds = scanFailureNoticesRef.current.map((notice) => notice.id);
+    if (shownFailureIds.length > 0) {
+      setDismissedScanCompletionIds((current) =>
+        shownFailureIds.reduce<Set<string>>((ids, jobId) => addDismissedScanCompletionId(ids, jobId), current),
+      );
+    }
     setPendingGeneratingWordbook(withHomeGeneratingFallbackId(payload));
   }, []);
 
@@ -365,6 +370,7 @@ export function HomeClient() {
       setPendingScans([]);
       setRecentScanJobs([]);
       setScanCompletionCandidates([]);
+      setScanFailureCandidates([]);
       setPendingGeneratingWordbook(null);
       setLoading(false);
       setError(null);
@@ -492,8 +498,14 @@ export function HomeClient() {
         const jobs = data.jobs ?? [];
         const active = jobs.filter((j) => j.status === 'pending' || j.status === 'processing');
         setRecentScanJobs(jobs);
+        const now = Date.now();
         setScanCompletionCandidates(
-          selectHomeScanCompletionNotices(jobs, { now: Date.now(), dismissedIds: new Set() }),
+          selectHomeScanCompletionNotices(jobs, { now, dismissedIds: new Set() }),
+        );
+        // 失敗も同じく「最近失敗して、まだ閉じていない」ものを出すので、
+        // ホームを離れている間に失敗したスキャンも戻ったときに理由が分かる。
+        setScanFailureCandidates(
+          selectHomeScanFailureNotices(jobs, { now, dismissedIds: new Set() }),
         );
         setPendingScans(active.map((j) => ({
           id: j.id,
@@ -501,18 +513,6 @@ export function HomeClient() {
           addingToExisting: !!(j.target_project_id ?? j.project_id),
         })));
 
-        // 実行中として見えていたジョブが failed に変わった瞬間に理由を表示する。
-        // （以前は「生成中」カードが理由も出さず消えるだけで、リロードするまで
-        // 失敗に気づけなかった。）
-        const newlyFailed = jobs.find(
-          (j) => j.status === 'failed' && watchedActiveJobIdsRef.current.has(j.id),
-        );
-        if (newlyFailed) {
-          setScanFailureNotice(
-            `「${newlyFailed.project_title}」を作成できませんでした：${newlyFailed.error_message?.trim() || SCAN_JOB_FAILED_FALLBACK_MESSAGE}`,
-          );
-        }
-        watchedActiveJobIdsRef.current = new Set(active.map((j) => j.id));
         if (active.length === 0) {
           if (hadActiveRef.current) {
             hadActiveRef.current = false;
@@ -554,15 +554,6 @@ export function HomeClient() {
 
     if (linkedJob.status === 'completed') {
       void loadHomeRef.current({ forceRemote: true });
-    }
-
-    // 失敗（単語ゼロなど）した場合、以前は「生成中」カードが理由も出さず
-    // 消えるだけでユーザーが困っていた。サーバーが記録した理由を必ず表示する。
-    // （ポーリングで実行中を経ずに最初から failed で見えた高速失敗ケース。）
-    if (linkedJob.status === 'failed') {
-      setScanFailureNotice(
-        `「${linkedJob.project_title}」を作成できませんでした：${linkedJob.error_message?.trim() || SCAN_JOB_FAILED_FALLBACK_MESSAGE}`,
-      );
     }
   }, [pendingGeneratingWordbook?.linkedJobId, recentScanJobs]);
 
@@ -724,6 +715,7 @@ export function HomeClient() {
         error={error}
         pendingScans={displayedPendingScans}
         completedScans={scanCompletionNotices}
+        failedScans={scanFailureNotices}
         onDismissCompletedScan={dismissScanCompletion}
         joinedGroups={myGroups}
         goal={{ state: goalState, count: goalCount }}
@@ -767,32 +759,17 @@ export function HomeClient() {
       {/* スキャンで単語帳を作成・追加している間はホームの一番上に出す */}
       <ScanInProgressBanner scans={displayedPendingScans} className="mx-[18px] mb-3" />
       <ScanCompletedBanner scans={scanCompletionNotices} onDismiss={dismissScanCompletion} className="mx-[18px] mb-3" />
+      <ScanFailedBanner
+        scans={scanFailureNotices}
+        onDismiss={dismissScanCompletion}
+        onRetryScan={() => setVocabScanOpen(true)}
+        className="mx-[18px] mb-3"
+      />
 
       {error && (
         <div className="px-[18px] pb-3">
           <SolidPanel className="!rounded-[12px] border-[var(--color-error)]" faceClassName="!p-3 text-xs font-bold text-[var(--color-error)]">
             {error}
-          </SolidPanel>
-        </div>
-      )}
-
-      {/* スキャン失敗の理由。ポーリング検出時に即表示し、リロード不要にする */}
-      {scanFailureNotice && (
-        <div className="px-[18px] pb-3">
-          <SolidPanel className="!rounded-[12px] border-[var(--color-error)]" faceClassName="!p-3">
-            <div className="flex items-start gap-2">
-              <p className="min-w-0 flex-1 text-xs font-bold leading-[1.5] text-[var(--color-error)]">
-                {scanFailureNotice}
-              </p>
-              <button
-                type="button"
-                onClick={() => setScanFailureNotice(null)}
-                aria-label="失敗メッセージを閉じる"
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--color-error)]"
-              >
-                <Icon name="close" size={14} />
-              </button>
-            </div>
           </SolidPanel>
         </div>
       )}
