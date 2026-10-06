@@ -14,6 +14,9 @@
   - Princeton WordNet 3.1 (WordNet License) … 語義ごとの使用回数 (SemCor のタグ数, index.sense)
       npm パッケージ wordnet-db の dict/index.sense。「jaw は名詞としては使うが動詞 (叱る) では
       ほぼ使わない」のような品詞・語義ごとの使われ方を見るのに使う
+  - Japanese WordNet (NICT, Japanese WordNet License) … synset ごとの日本語訳
+      Open Multilingual Wordnet の wns/jpn/wn-data-jpn.tab。単語帳の日本語訳 (平凡な) と突き合わせて
+      どの語義の言い換えを出すか (mundane → everyday であって terrestrial ではない) を選ぶのに使う
 
 使い方:
   python3 scripts/paraphrase/build_dataset.py [--cache-dir .cache/paraphrase-sources]
@@ -51,7 +54,7 @@ except ImportError:  # pragma: no cover
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_PATH = REPO_ROOT / "src" / "lib" / "paraphrase" / "dataset.json"
-DATASET_VERSION = 1
+DATASET_VERSION = 2
 
 OEWN_RAW_BASE = "https://raw.githubusercontent.com/globalwordnet/english-wordnet/main/src/yaml/"
 OEWN_SYNSET_FILES = [
@@ -70,6 +73,12 @@ OEWN_ENTRY_FILES = ["entries-0"] + [f"entries-{letter}" for letter in string.asc
 MOBY_TARBALL_URL = "https://registry.npmjs.org/moby/-/moby-1.1.2.tgz"
 GWORDLIST_URL = "https://raw.githubusercontent.com/hackerb9/gwordlist/master/frequency-alpha-alldicts.txt"
 WORDNET_DB_TARBALL_URL = "https://registry.npmjs.org/wordnet-db/-/wordnet-db-3.1.14.tgz"
+OMW_JPN_TAB_URL = "https://raw.githubusercontent.com/omwn/omw-data/main/wns/jpn/wn-data-jpn.tab"
+# WordNet 3.0 のオフセット -> 英語メンバー (定義文で決まらない synset の対応付けに使う)
+OMW_ENG_TAB_URL = "https://raw.githubusercontent.com/omwn/omw-data/main/wns/eng/wn-data-eng.tab"
+# 語義ごとに持つ日本語訳と正解候補の上限
+JAPANESE_LEMMAS_PER_SENSE = 8
+ANSWERS_PER_SENSE = 3
 
 # ---- 選定のしきい値 -------------------------------------------------------
 # 正解・誤答に使う語は「学習者が知っていてよい語」に限る。頻度順位 (gwordlist) で切る。
@@ -158,7 +167,7 @@ def normalize_lemma(lemma: str) -> str:
 
 def load_oewn_synsets(cache_dir: Path) -> dict:
     """synset id -> {pos, members[], hypernym[], similar[], also[]} を返す (JSON キャッシュ付き)。"""
-    cached = cache_dir / "oewn-synsets.json"
+    cached = cache_dir / "oewn-synsets-v2.json"
     if cached.exists():
         return json.loads(cached.read_text())
     synsets: dict[str, dict] = {}
@@ -169,8 +178,10 @@ def load_oewn_synsets(cache_dir: Path) -> dict:
         with path.open("r", encoding="utf-8") as handle:
             data = yaml.load(handle, Loader=YamlLoader)
         for synset_id, body in data.items():
+            definitions = body.get("definition", [])
             synsets[synset_id] = {
                 "pos": POS_CODE.get(body.get("partOfSpeech", ""), None),
+                "definition": definitions[0] if definitions else "",
                 "members": list(body.get("members", [])),
                 "hypernym": list(body.get("hypernym", [])),
                 "similar": list(body.get("similar", [])),
@@ -229,6 +240,78 @@ def load_sense_tag_counts(cache_dir: Path) -> dict[str, int]:
         if len(parts) >= 4 and parts[3].isdigit():
             counts[parts[0]] = int(parts[3])
     return counts
+
+
+def _normalize_definition(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def load_japanese_lemmas(cache_dir: Path, synsets: dict) -> dict[str, list[str]]:
+    """OEWN synset id -> 日本語訳のリスト (日本語 WordNet)。
+
+    日本語 WordNet は WordNet 3.0 のオフセットで引くが、OEWN の synset id は別物なので、
+    同じファイルに入っている英語の定義文 (eng:def) を OEWN の定義文と突き合わせて対応を取る。
+    定義文で決まらない synset は (品詞, メンバー集合) の一致で補う。
+    """
+    cached = cache_dir / "oewn-japanese-lemmas.json"
+    if cached.exists():
+        return json.loads(cached.read_text())
+    path = cache_dir / "omw-wn-data-jpn.tab"
+    download(OMW_JPN_TAB_URL, path)
+    definitions: dict[str, str] = {}
+    lemmas: dict[str, list[str]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        offset, kind = parts[0], parts[1]
+        # 定義文の行は「offset  eng:def  語義番号  本文」の 4 列
+        if kind == "eng:def" and len(parts) >= 4 and offset not in definitions:
+            definitions[offset] = _normalize_definition(parts[3])
+        elif kind == "jpn:lemma":
+            lemmas.setdefault(offset, []).append(parts[2].replace("+", ""))
+
+    by_definition: dict[tuple[str, str], str] = {}
+    for offset, definition in definitions.items():
+        pos = offset[-1]
+        key = (pos, definition)
+        by_definition[key] = "" if key in by_definition else offset  # 同じ定義が複数あれば使わない
+    by_members: dict[tuple[str, frozenset[str]], str] = {}
+    members_of_offset: dict[str, set[str]] = {}
+    eng_path = cache_dir / "omw-wn-data-eng.tab"
+    download(OMW_ENG_TAB_URL, eng_path)
+    for line in eng_path.read_text(encoding="utf-8").splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 3 and parts[1] == "lemma":
+            members_of_offset.setdefault(parts[0], set()).add(normalize_lemma(parts[2]))
+    for offset, members in members_of_offset.items():
+        key = (offset[-1], frozenset(members))
+        by_members[key] = "" if key in by_members else offset
+
+    result: dict[str, list[str]] = {}
+    matched_by_definition = 0
+    for synset_id, body in synsets.items():
+        pos = body["pos"]
+        if pos is None:
+            continue
+        offset = by_definition.get((pos, _normalize_definition(body.get("definition", ""))))
+        if offset:
+            matched_by_definition += 1
+        else:
+            members = frozenset(normalize_lemma(m) for m in body["members"])
+            offset = by_members.get((pos, members))
+        if not offset or offset not in lemmas:
+            continue
+        unique: list[str] = []
+        for lemma in lemmas[offset]:
+            if lemma and lemma not in unique:
+                unique.append(lemma)
+        result[synset_id] = unique
+    log(f"japanese lemmas: {len(result)} synsets (by definition: {matched_by_definition})")
+    cached.write_text(json.dumps(result, ensure_ascii=False))
+    return result
 
 
 # ---- Moby Thesaurus ----------------------------------------------------------
@@ -319,10 +402,12 @@ class Builder:
         ranks: dict[str, int],
         sense_keys: dict[str, str] | None = None,
         tag_counts: dict[str, int] | None = None,
+        japanese: dict[str, list[str]] | None = None,
     ):
         self.synsets = synsets
         self.moby = moby
         self.ranks = ranks
+        self.japanese = japanese or {}
         # (lemma, pos) -> その品詞での使用回数、(lemma, pos, synset) -> その語義での使用回数、lemma -> 合計
         self.pos_tags: dict[tuple[str, str], int] = defaultdict(int)
         self.sense_tags: dict[tuple[str, str, str], int] = defaultdict(int)
@@ -438,7 +523,7 @@ class Builder:
                     result.add(normalize_lemma(member))
         return result
 
-    def related_lemmas(self, head: str, pos: str):
+    def related_lemmas(self, head: str, pos: str, own: list[str] | None = None):
         """見出し語の近縁語を 4 つの辞書 (lemma -> 語義順の罰点) で返す。
 
         same      … 同じ synset (形容詞は similar 先も含む)
@@ -450,7 +535,8 @@ class Builder:
         挙がる語の裏取りと、誤答から外すのに使う (誤答に出すと答えが割れる)。
         値は、その語がどの語義 (何番目) を通して見つかったかの罰点。小さいほど主要な語義。
         """
-        own = self.lemma_synsets[head][pos]
+        if own is None:
+            own = self.lemma_synsets[head][pos]
         same: dict[str, float] = {}
         # lemma -> その語が見つかった synset (語義ごとの使用回数を引くため。同じ synset・上位語・also のどれでも)
         connecting_synset: dict[str, str] = {}
@@ -494,41 +580,48 @@ class Builder:
         self._last_hyponyms = hyponym_words
         return same, hypernyms, direct, far, similar_only
 
-    def build_entry(self, head: str, pos: str, rng: random.Random):
-        same, hypernyms, direct, far, similar_only = self.related_lemmas(head, pos)
+    def collect_answers(self, head: str, pos: str, own: list[str] | None = None) -> list[str]:
+        """正解候補を良い順に。`own` を渡すとその synset (語義) だけを根拠にする。"""
+        same, hypernyms, direct, far, similar_only = self.related_lemmas(head, pos, own)
         connecting_synset = self._last_connecting_synset
-        hyponym_words = self._last_hyponyms
         moby_fwd = self.moby.get(head, set())
         head_rank = self.ranks.get(head)
 
         candidates: dict[str, float] = {}
+        has_synset_candidate = False
 
         def consider(lemma: str, tier: str, sense_penalty: float, extra: float = 0.0) -> None:
+            nonlocal has_synset_candidate
             if not SINGLE_WORD_RE.match(lemma):
                 return
             rank = self.ranks.get(lemma)
             if rank is None or rank > ANSWER_MAX_RANK:
                 return
+            synset_id = connecting_synset.get(lemma)
+            # その語義で実際に使われている証拠 (SemCor のタグ) があれば、品詞の割合で切らない
+            # (sweat は名詞の synset が多いが、動詞「汗をかく」の語義には使用例がある)
+            sense_attested = bool(synset_id) and self.sense_tags.get((lemma, pos, synset_id), 0) > 0
             share = self.pos_share(lemma, pos)
-            if share < ANSWER_MIN_POS_SHARE:
+            if share < ANSWER_MIN_POS_SHARE and not sense_attested:
                 return  # その品詞で主に使われない語は言い換えにならない
             if is_variant(head, lemma):
                 return
             score = TIER_PENALTY[tier] + sense_penalty + extra + self.commonness_penalty(rank, pos) + self.polysemy_penalty(lemma)
             if self.is_pos_unused(lemma, pos):
                 score += POS_UNUSED_PENALTY
-            synset_id = connecting_synset.get(lemma)
             if synset_id:
-                if self.sense_tags.get((lemma, pos, synset_id), 0) > 0:
+                if sense_attested:
                     score += SENSE_TAGGED_BONUS
                 elif self.synset_tagged(synset_id, pos):
                     score += SENSE_UNTAGGED_PENALTY
             if head_rank is not None and rank > head_rank * RARER_THAN_HEAD_RATIO:
                 score += RARER_THAN_HEAD_PENALTY
-            if share < 0.5:
+            if share < 0.5 and not sense_attested:
                 score += 0.6
             if lemma not in candidates or score < candidates[lemma]:
                 candidates[lemma] = score
+            if tier in ("synset", "synset+moby"):
+                has_synset_candidate = True
 
         def is_mutual(lemma: str) -> bool:
             return lemma in moby_fwd and head in self.moby.get(lemma, set())
@@ -553,8 +646,12 @@ class Builder:
         for lemma, sense_penalty in answer_hypernyms.items():
             if is_mutual(lemma):
                 consider(lemma, "hypernym+moby", min(sense_penalty, MUTUAL_SENSE_PENALTY_CAP))
-            else:
-                consider(lemma, "hypernym+moby" if lemma in moby_fwd else "hypernym", sense_penalty)
+            elif lemma in moby_fwd:
+                consider(lemma, "hypernym+moby", sense_penalty)
+            elif not has_synset_candidate:
+                # Moby の裏付けの無い上位語は、同じ synset に言い換えが 1 つも無いときの最後の手段
+                # (perspire に sweat があるなら、上位語の eliminate は出さない)
+                consider(lemma, "hypernym", sense_penalty)
         for lemma in moby_fwd:
             # Moby は連想が広いので、Moby で相互に挙がるか、WordNet でも直接の関係があるものだけ採る。
             mutual = is_mutual(lemma)
@@ -565,13 +662,42 @@ class Builder:
                 consider(lemma, "moby_mutual+far", answer_far[lemma])
 
         if not candidates:
-            return None
+            return []
         ranked = sorted(candidates.items(), key=lambda item: item[1])
         best_score = ranked[0][1]
-        answers = [lemma for lemma, score in ranked if score <= best_score + ANSWER_SCORE_WINDOW][:ANSWERS_PER_ENTRY]
+        return [lemma for lemma, score in ranked if score <= best_score + ANSWER_SCORE_WINDOW][:ANSWERS_PER_ENTRY]
+
+    def collect_senses(self, head: str, pos: str) -> list[tuple[list[str], list[str]]]:
+        """語義ごとの (日本語訳, その語義だけを根拠にした正解候補)。日本語訳か正解候補の無い語義は省く。
+
+        単語帳の日本語訳と突き合わせて、学習者が覚えた語義の言い換えだけを出すために使う
+        (mundane = 平凡な → everyday。「この世の」の語義の terrestrial は出さない)。
+        """
+        senses: list[tuple[list[str], list[str]]] = []
+        for synset_id in self.lemma_synsets[head][pos]:
+            japanese = self.japanese.get(synset_id, [])
+            if not japanese:
+                continue
+            answers = self.collect_answers(head, pos, [synset_id])[:ANSWERS_PER_SENSE]
+            if not answers:
+                continue
+            senses.append((japanese[:JAPANESE_LEMMAS_PER_SENSE], answers))
+        return senses
+
+    def build_entry(self, head: str, pos: str, rng: random.Random):
+        answers = self.collect_answers(head, pos)
+        if not answers:
+            return None
+        same, hypernyms, direct, far, _ = self.related_lemmas(head, pos)
+        hyponym_words = self._last_hyponyms
+        moby_fwd = self.moby.get(head, set())
 
         # 誤答: 正解のどれとも同義・近縁でない同品詞の語を、正解と同じ頻度帯から。
+        # 語義ごとの正解候補も全部外す (どの語義で出題しても答えが割れないように)。
+        senses = self.collect_senses(head, pos)
         excluded: set[str] = set(same) | set(hypernyms) | set(direct) | set(far) | set(hyponym_words) | moby_fwd | {head}
+        for _, sense_answers in senses:
+            excluded |= set(sense_answers)
         for answer in answers:
             a_same, a_hyper, a_direct, a_far, _ = self.related_lemmas(answer, pos)
             excluded |= set(a_same) | set(a_hyper) | set(a_direct) | set(a_far) | set(self._last_hyponyms)
@@ -604,7 +730,7 @@ class Builder:
             draw([i for i in range(len(pool)) if i < band_start or i >= band_end], distractors)
         if len(distractors) < 3:
             return None
-        return answers, distractors
+        return answers, distractors, senses
 
     POS_TIE_ORDER = {"v": 0, "a": 1, "n": 2, "r": 3}
 
@@ -634,8 +760,13 @@ class Builder:
                 result = self.build_entry(head, pos, rng)
                 if result is None:
                     continue
-                answers, distractors = result
-                built.append([pos, [index_of(a) for a in answers], [index_of(d) for d in distractors]])
+                answers, distractors, senses = result
+                built.append([
+                    pos,
+                    [index_of(a) for a in answers],
+                    [index_of(d) for d in distractors],
+                    [[japanese, [index_of(a) for a in sense_answers]] for japanese, sense_answers in senses],
+                ])
             if built:
                 entries[head] = built
         return {
@@ -646,6 +777,7 @@ class Builder:
                 {"name": "Princeton WordNet 3.1 (sense tag counts)", "license": "WordNet License", "url": "https://wordnet.princeton.edu/"},
                 {"name": "Moby Thesaurus II", "license": "Public Domain", "url": "https://github.com/zeke/moby"},
                 {"name": "gwordlist (Google Books Ngram)", "license": "CC BY 3.0", "url": "https://github.com/hackerb9/gwordlist"},
+                {"name": "Japanese WordNet (NICT)", "license": "Japanese WordNet License", "url": "https://github.com/omwn/omw-data"},
             ],
             "vocab": [word for word, _ in sorted(vocab.items(), key=lambda item: item[1])],
             "entries": entries,
@@ -671,8 +803,9 @@ def main() -> None:
     log(f"frequency ranks: {len(ranks)}")
     tag_counts = load_sense_tag_counts(cache_dir)
     log(f"sense tag counts: {len(tag_counts)}")
+    japanese = load_japanese_lemmas(cache_dir, synsets)
 
-    builder = Builder(synsets, sense_order, moby, ranks, sense_keys, tag_counts)
+    builder = Builder(synsets, sense_order, moby, ranks, sense_keys, tag_counts, japanese)
 
     if args.inspect:
         rng = random.Random(SEED)
@@ -683,13 +816,21 @@ def main() -> None:
             for pos in builder.pos_order(head):
                 if builder.pos_share(head, pos) < ANSWER_MIN_POS_SHARE:
                     continue
-                print(f"{head} [{pos}] -> {builder.build_entry(head, pos, rng)}")
+                result = builder.build_entry(head, pos, rng)
+                if result is None:
+                    print(f"{head} [{pos}] -> None")
+                    continue
+                answers, distractors, senses = result
+                print(f"{head} [{pos}] -> {answers} / 誤答 {distractors}")
+                for japanese, sense_answers in senses:
+                    print(f"    語義 {japanese} -> {sense_answers}")
         return
 
     dataset = builder.build()
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(dataset, ensure_ascii=True, separators=(",", ":")) + "\n")
+    # 日本語訳を含むので UTF-8 のまま書く (\uXXXX にすると 6 倍に膨らむ)
+    output.write_text(json.dumps(dataset, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     log(f"entries: {len(dataset['entries'])}, vocab: {len(dataset['vocab'])}, bytes: {output.stat().st_size}")
 
 
