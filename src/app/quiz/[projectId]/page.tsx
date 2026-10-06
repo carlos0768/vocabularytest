@@ -36,6 +36,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { speakEnglish } from '@/lib/speech';
 import { loadCollectionWords } from '@/lib/collection-words';
 import {
+  USE_RANDOM_JAPANESE_DISTRACTORS,
   applyWordOrderQuestionsToPendingQuiz,
   generateQuizQuestions,
   getBinderQuizStorageKey,
@@ -578,6 +579,8 @@ export default function QuizPage() {
   const repository = useMemo(() => getRepository(subscriptionStatus, wasPro), [subscriptionStatus, wasPro]);
 
   const needsDistractors = useCallback((w: Word) => {
+    // 誤答をランダムにしている間は AI 生成の誤答を使わないので、作りにも行かない。
+    if (USE_RANDOM_JAPANESE_DISTRACTORS) return false;
     if (isActiveQuizWord(w) || isWordOrderEligible(w)) return false;
     // 「選択肢1」等のプレースホルダしか無い単語は、誤答が無いのと同じ扱いにして
     // 生成し直す（1件でも混ざると答えが割れるため、件数ではなく中身で見る）。
@@ -833,6 +836,7 @@ export default function QuizPage() {
     return generateQuizQuestions(filterWordsForAnswerFormat(words, format), count, direction, undefined, {
       preserveOrder: reminderMode,
       primaryOnly: !isPro,
+      randomDistractors: USE_RANDOM_JAPANESE_DISTRACTORS,
     });
   }, [isPro, reminderMode]);
 

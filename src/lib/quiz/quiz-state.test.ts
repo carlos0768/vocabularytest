@@ -84,6 +84,31 @@ test('generateQuizQuestions builds en-to-ja options from stored distractors and 
   assert.equal(question.correctIndex, 0);
 });
 
+test('generateQuizQuestions ignores stored distractors and uses other Japanese words when randomDistractors is on', () => {
+  const words = [
+    createWord({
+      id: 'word-1',
+      english: 'apple',
+      japanese: 'りんご',
+      distractors: ['確認する', '提供する', '参加する'],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }),
+    createWord({ id: 'word-2', english: 'banana', japanese: 'バナナ', createdAt: '2026-01-02T00:00:00.000Z' }),
+    createWord({ id: 'word-3', english: 'grape', japanese: 'ぶどう', createdAt: '2026-01-03T00:00:00.000Z' }),
+    createWord({ id: 'word-4', english: 'peach', japanese: 'もも', createdAt: '2026-01-04T00:00:00.000Z' }),
+  ];
+
+  const [question] = generateQuizQuestions(words, 1, 'en-to-ja', identityShuffle, { randomDistractors: true });
+
+  assert.equal(question.word.id, 'word-1');
+  assert.deepEqual(question.options, ['りんご', 'バナナ', 'ぶどう', 'もも']);
+  assert.equal(question.correctIndex, 0);
+
+  // フラグ無しでは保存済みの誤答がそのまま出る (既存の挙動)。
+  const [stored] = generateQuizQuestions(words, 1, 'en-to-ja', identityShuffle);
+  assert.deepEqual(stored.options, ['りんご', '確認する', '提供する', '参加する']);
+});
+
 test('generateQuizQuestions falls back to other Japanese words when stored distractors are placeholders', () => {
   const words = [
     createWord({
