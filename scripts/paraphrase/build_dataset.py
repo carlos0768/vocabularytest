@@ -442,9 +442,9 @@ class Builder:
         """見出し語の近縁語を 4 つの辞書 (lemma -> 語義順の罰点) で返す。
 
         same      … 同じ synset (形容詞は similar 先も含む)
-        hypernyms … 直接の上位語
-        direct    … 直接の下位語・also
-        far       … 兄弟語 (同じ上位語の下)・祖父語・いとこ (小さな家族のときだけ)
+        hypernyms … 直接の上位語 (名詞では Moby も挙げるものだけ正解の根拠にする。amphibian → plane は分類であって言い換えではない)
+        direct    … also (関連語)
+        far       … 直接の下位語・兄弟語 (同じ上位語の下)・祖父語・いとこ (小さな家族のときだけ)
 
         前の 3 つは「言い換えの根拠」に使う。far は正解の根拠にはならないが、Moby で双方向に
         挙がる語の裏取りと、誤答から外すのに使う (誤答に出すと答えが割れる)。
@@ -452,12 +452,14 @@ class Builder:
         """
         own = self.lemma_synsets[head][pos]
         same: dict[str, float] = {}
-        # lemma -> その語が見つかった synset (語義ごとの使用回数を引くため。同じ synset・上位語・下位語のどれでも)
+        # lemma -> その語が見つかった synset (語義ごとの使用回数を引くため。同じ synset・上位語・also のどれでも)
         connecting_synset: dict[str, str] = {}
         similar_only: set[str] = set()
         hypernyms: dict[str, float] = {}
         direct: dict[str, float] = {}
         far: dict[str, float] = {}
+        # 直接の下位語 (amphibian → frog)。どの品詞でも言い換えの根拠にはせず、誤答から外すためだけに持つ
+        hyponym_words: dict[str, float] = {}
 
         def add(target: dict[str, float], synset_ids, penalty: float) -> None:
             for synset_id in synset_ids:
@@ -466,7 +468,7 @@ class Builder:
                         continue
                     if lemma not in target or penalty < target[lemma]:
                         target[lemma] = penalty
-                    if target is not far:
+                    if target is not far and target is not hyponym_words:
                         connecting_synset.setdefault(lemma, synset_id)
 
         for index, synset_id in enumerate(own):
@@ -477,7 +479,7 @@ class Builder:
             add(same, body["similar"], penalty)
             similar_only |= set(same) - before
             add(hypernyms, body["hypernym"], penalty)
-            add(direct, self.hyponyms.get(synset_id, []), penalty)
+            add(hyponym_words, self.hyponyms.get(synset_id, []), penalty)
             add(direct, body["also"], penalty)
             for hyper in body["hypernym"]:
                 add(far, self.hyponyms.get(hyper, []), penalty)
@@ -489,11 +491,13 @@ class Builder:
         # 同じ synset にも居る語は similar 扱いにしない
         similar_only -= {lemma for lemma in similar_only if any(lemma in self.members_of([s], pos) for s in own)}
         self._last_connecting_synset = connecting_synset
+        self._last_hyponyms = hyponym_words
         return same, hypernyms, direct, far, similar_only
 
     def build_entry(self, head: str, pos: str, rng: random.Random):
         same, hypernyms, direct, far, similar_only = self.related_lemmas(head, pos)
         connecting_synset = self._last_connecting_synset
+        hyponym_words = self._last_hyponyms
         moby_fwd = self.moby.get(head, set())
         head_rank = self.ranks.get(head)
 
@@ -537,7 +541,16 @@ class Builder:
                 consider(lemma, "synset+moby", sense_penalty, extra)
             else:
                 consider(lemma, "synset", sense_penalty, extra)
-        for lemma, sense_penalty in hypernyms.items():
+        # 名詞の上位語は分類 (amphibian → plane / vertebrate) になりがちで言い換えとは限らない。
+        # Moby も挙げるものだけ候補にする (disease → illness、river → stream は残り、別の語義の
+        # 上位語 plane は落ちる)。動詞・形容詞・副詞の上位語 (plummet → drop) はそのまま残す。
+        answer_hypernyms = hypernyms if pos != "n" else {
+            lemma: penalty for lemma, penalty in hypernyms.items() if lemma in moby_fwd
+        }
+        # 名詞の兄弟語・いとこ (amphibian → reptile) も分類の隣であって言い換えではない。動詞では
+        # 同じ上位語の下の語が近い意味になりやすい (plummet / plunge) ので残す。
+        answer_far = far if pos != "n" else {}
+        for lemma, sense_penalty in answer_hypernyms.items():
             if is_mutual(lemma):
                 consider(lemma, "hypernym+moby", min(sense_penalty, MUTUAL_SENSE_PENALTY_CAP))
             else:
@@ -545,11 +558,11 @@ class Builder:
         for lemma in moby_fwd:
             # Moby は連想が広いので、Moby で相互に挙がるか、WordNet でも直接の関係があるものだけ採る。
             mutual = is_mutual(lemma)
-            if lemma in hypernyms or lemma in direct:
-                sense_penalty = min(p for p in (hypernyms.get(lemma), direct.get(lemma)) if p is not None)
+            if lemma in answer_hypernyms or lemma in direct:
+                sense_penalty = min(p for p in (answer_hypernyms.get(lemma), direct.get(lemma)) if p is not None)
                 consider(lemma, "moby_mutual+wn" if mutual else "moby+wn", sense_penalty)
-            elif mutual and lemma in far:
-                consider(lemma, "moby_mutual+far", far[lemma])
+            elif mutual and lemma in answer_far:
+                consider(lemma, "moby_mutual+far", answer_far[lemma])
 
         if not candidates:
             return None
@@ -558,10 +571,10 @@ class Builder:
         answers = [lemma for lemma, score in ranked if score <= best_score + ANSWER_SCORE_WINDOW][:ANSWERS_PER_ENTRY]
 
         # 誤答: 正解のどれとも同義・近縁でない同品詞の語を、正解と同じ頻度帯から。
-        excluded: set[str] = set(same) | set(hypernyms) | set(direct) | set(far) | moby_fwd | {head}
+        excluded: set[str] = set(same) | set(hypernyms) | set(direct) | set(far) | set(hyponym_words) | moby_fwd | {head}
         for answer in answers:
             a_same, a_hyper, a_direct, a_far, _ = self.related_lemmas(answer, pos)
-            excluded |= set(a_same) | set(a_hyper) | set(a_direct) | set(a_far)
+            excluded |= set(a_same) | set(a_hyper) | set(a_direct) | set(a_far) | set(self._last_hyponyms)
             excluded |= self.moby.get(answer, set())
         anchor_rank = self.ranks[answers[0]]
         low = anchor_rank / DISTRACTOR_RANK_RATIO
