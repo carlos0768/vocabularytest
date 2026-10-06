@@ -22,6 +22,8 @@ const protectedPaths = [
   '/stats',
   '/reels',
   '/oauth/authorize',
+  // OAuth signups finish their profile here; the page itself needs the session.
+  '/onboarding',
 ];
 const authPaths = ['/login', '/signup'];
 
