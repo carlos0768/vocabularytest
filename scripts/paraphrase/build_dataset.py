@@ -78,6 +78,12 @@ OMW_JPN_TAB_URL = "https://raw.githubusercontent.com/omwn/omw-data/main/wns/jpn/
 OMW_ENG_TAB_URL = "https://raw.githubusercontent.com/omwn/omw-data/main/wns/eng/wn-data-eng.tab"
 # 語義ごとに持つ日本語訳と正解候補の上限
 JAPANESE_LEMMAS_PER_SENSE = 8
+# 言い換えの無い語義にも日本語訳は残す (単語帳の訳がその語義なら「言い換え無し」と判定できるように)。
+# 出題には使わないので少なめに
+JAPANESE_LEMMAS_PER_EMPTY_SENSE = 6
+# 上位語が見出し語の synset の語から否定の接頭辞を取っただけなら、意味は逆なので言い換えにしない
+# (mistake / misidentify の上位語 identify、misjudge の上位語 judge)
+NEGATIVE_PREFIXES = ("mis", "un", "dis", "non", "de", "in", "im", "ir", "il")
 ANSWERS_PER_SENSE = 3
 
 # ---- 選定のしきい値 -------------------------------------------------------
@@ -393,6 +399,32 @@ def is_variant(left: str, right: str) -> bool:
 
 # ---- 本体 --------------------------------------------------------------------
 
+KANJI_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
+
+
+def select_japanese_lemmas(lemmas: list[str], limit: int) -> list[str]:
+    """語義の日本語訳を limit 個まで選ぶ。日本語 WordNet は 1 語義に「取ちがえする / 取りちがえする /
+    取りあやまる / …」と送り仮名違いが並ぶので、先頭から切ると漢字の種類が偏り、後ろの「間ちがう」
+    「かん違いする」が落ちる。実行時の比較は文字列の包含と漢字の集合なので、漢字の集合が新しい語を
+    先に採り、余りは元の順で埋める。"""
+    chosen: list[str] = []
+    seen: set[frozenset[str]] = set()
+    for lemma in lemmas:
+        kanji = frozenset(KANJI_RE.findall(lemma))
+        if kanji in seen:
+            continue
+        seen.add(kanji)
+        chosen.append(lemma)
+        if len(chosen) >= limit:
+            return chosen
+    for lemma in lemmas:
+        if len(chosen) >= limit:
+            break
+        if lemma not in chosen:
+            chosen.append(lemma)
+    return chosen
+
+
 class Builder:
     def __init__(
         self,
@@ -648,6 +680,13 @@ class Builder:
         # 名詞の兄弟語・いとこ (amphibian → reptile) も分類の隣であって言い換えではない。動詞では
         # 同じ上位語の下の語が近い意味になりやすい (plummet / plunge) ので残す。
         answer_far = far if pos != "n" else {}
+        own_members: set[str] = set()
+        for synset_id in (own or self.lemma_synsets[head][pos]):
+            own_members.update(self.synsets[synset_id]["members"])
+        answer_hypernyms = {
+            lemma: penalty for lemma, penalty in answer_hypernyms.items()
+            if not any(prefix + lemma in own_members for prefix in NEGATIVE_PREFIXES)
+        }
         for lemma, sense_penalty in answer_hypernyms.items():
             if is_mutual(lemma):
                 consider(lemma, "hypernym+moby", min(sense_penalty, MUTUAL_SENSE_PENALTY_CAP))
@@ -675,7 +714,7 @@ class Builder:
         return [lemma for lemma, score in ranked if score <= best_score + ANSWER_SCORE_WINDOW][:ANSWERS_PER_ENTRY]
 
     def collect_senses(self, head: str, pos: str) -> list[tuple[list[str], list[str]]]:
-        """語義ごとの (日本語訳, その語義だけを根拠にした正解候補)。日本語訳か正解候補の無い語義は省く。
+        """語義ごとの (日本語訳, その語義だけを根拠にした正解候補)。日本語訳の無い語義は省く。
 
         単語帳の日本語訳と突き合わせて、学習者が覚えた語義の言い換えだけを出すために使う
         (mundane = 平凡な → everyday。「この世の」の語義の terrestrial は出さない)。
@@ -686,9 +725,10 @@ class Builder:
             if not japanese:
                 continue
             answers = self.collect_answers(head, pos, [synset_id])[:ANSWERS_PER_SENSE]
-            if not answers:
-                continue
-            senses.append((japanese[:JAPANESE_LEMMAS_PER_SENSE], answers))
+            # 言い換えの無い語義も日本語訳だけは残す。単語帳の訳がその語義に合うなら、
+            # 他の語義の言い換えを出すより「無し」が正しい (mistake for = 〜と間違える に slip を出さない)
+            limit = JAPANESE_LEMMAS_PER_SENSE if answers else JAPANESE_LEMMAS_PER_EMPTY_SENSE
+            senses.append((select_japanese_lemmas(japanese, limit), answers))
         return senses
 
     def build_entry(self, head: str, pos: str, rng: random.Random):
