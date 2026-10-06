@@ -16,7 +16,7 @@ const tiny: ParaphraseDataset = parseParaphraseDataset({
   version: 1,
   generatedAt: '2026-10-05',
   sources: [{ name: 'Open English WordNet', license: 'CC BY 4.0', url: 'https://example.test' }],
-  vocab: ['drop', 'decline', 'wish', 'abuse', 'leaf', 'pioneer', 'weight', 'brain', 'poem', 'zone', 'deceive', 'fool', 'everyday', 'terrestrial', 'worldly'],
+  vocab: ['drop', 'decline', 'wish', 'abuse', 'leaf', 'pioneer', 'weight', 'brain', 'poem', 'zone', 'deceive', 'fool', 'everyday', 'terrestrial', 'worldly', 'slip'],
   entries: {
     plummet: [
       ['v', [0, 1], [2, 3, 4, 5]],
@@ -27,6 +27,10 @@ const tiny: ParaphraseDataset = parseParaphraseDataset({
     mundane: [['a', [12, 13, 14], [2, 3, 4], [
       [['平凡', '日常的', '有りふれた'], [12]],
       [['この世の', '世俗的'], [13, 14]],
+    ]]],
+    // 「取り違える」の語義には言い換えが無い (answers が空)。「しくじる」の語義の slip だけが品詞全体の候補
+    mistake: [['v', [15], [2, 3, 4], [
+      [['取りちがえる', '間ちがう', 'かん違いする'], []],
     ]]],
   },
 });
@@ -68,6 +72,15 @@ test('日本語訳が辞書の語義に合えば、その語義だけの正解�
   const matched = resolveParaphraseMaterial(tiny, 'mundane', null, ['1.平凡な 2.つまらない']);
   assert.deepEqual(matched?.answers, ['everyday']);
   assert.equal(matched?.senseMatched, true);
+});
+
+test('日本語訳が「言い換えの無い語義」に合えば材料無し (他の語義の言い換えを出さない)', () => {
+  // mistake for = 〜と間違える は「取り違える」の語義。slip (しくじる) を出してはいけない
+  assert.equal(resolveParaphraseMaterial(tiny, 'mistake for', 'v', ['〜と間違える']), null);
+  // 訳が無ければ従来どおり品詞全体の候補
+  assert.deepEqual(resolveParaphraseMaterial(tiny, 'mistake', 'v')?.answers, ['slip']);
+  // 別の語義の訳なら、その語義が無くても品詞全体の候補に戻る
+  assert.deepEqual(resolveParaphraseMaterial(tiny, 'mistake', 'v', ['しくじる'])?.answers, ['slip']);
 
   const other = resolveParaphraseMaterial(tiny, 'mundane', null, ['世俗的な']);
   assert.deepEqual(other?.answers, ['terrestrial', 'worldly']);
@@ -97,6 +110,10 @@ test('語義の選択は訳語の一致数で決め、同点なら先の語義',
   assert.equal(matchJapaneseSense(senses, ['有りふれた・平凡な・日常的な'])?.id, 'c');
   // 「汗をかく」は「汗する」に弱く合う (目的語が訳語の頭に立つ)。
   assert.equal(matchJapaneseSense([{ japanese: ['流れる'], id: 'x' }, { japanese: ['汗する', '発汗する'], id: 'y' }], ['汗をかく'])?.id, 'y');
+  // 送り仮名・交ぜ書きの揺れ: 訳語の漢字がすべて含まれれば弱く合う (「間ちがう」「かん違いする」⊆「間違える」)
+  assert.equal(matchJapaneseSense([{ japanese: ['しくじる'], id: 'x' }, { japanese: ['取りちがえる', '間ちがう', 'かん違いする'], id: 'y' }], ['〜と間違える'])?.id, 'y');
+  // 漢字の無い訳語・1 文字の訳語は漢字では合わせない
+  assert.equal(matchJapaneseSense([{ japanese: ['間'], id: 'x' }], ['間違える']), null);
   assert.equal(matchJapaneseSense(senses, ['世俗的'])?.id, 'b');
   assert.equal(matchJapaneseSense(senses, ['急落する']), null);
   assert.equal(matchJapaneseSense(senses, []), null);
@@ -137,4 +154,9 @@ test('コミット済みの dataset.json が読め、代表的な語の材料が
   const perspire = resolveParaphraseMaterial(dataset, 'perspire', 'v', ['汗をかく']);
   assert.deepEqual(perspire?.answers, ['sweat']);
   assert.equal(resolveParaphraseMaterial(dataset, 'amphibian'), null);
+  // 否定の接頭辞を取っただけの上位語は言い換えにしない (mistake / misidentify → identify、miscount → count)
+  assert.equal(resolveParaphraseMaterial(dataset, 'mistake for', 'v', ['〜と間違える']), null);
+  assert.ok(!resolveParaphraseMaterial(dataset, 'misidentify', 'v')?.answers.includes('identify'));
+  assert.ok(!(resolveParaphraseMaterial(dataset, 'miscount', 'v')?.answers ?? []).includes('count'));
+  assert.ok(!resolveParaphraseMaterial(dataset, 'abuse', 'n')?.answers.includes('use'));
 });

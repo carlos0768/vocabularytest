@@ -16,7 +16,11 @@ export interface ParaphraseDatasetSource {
   url: string;
 }
 
-/** 語義ごとの材料: [日本語 WordNet の訳語, その語義だけを根拠にした正解候補の vocab 添字] */
+/**
+ * 語義ごとの材料: [日本語 WordNet の訳語, その語義だけを根拠にした正解候補の vocab 添字]。
+ * 正解候補は空のこともある (その語義には言い換えが無い)。単語帳の訳がその語義に合うなら
+ * 材料無し (出題しない) にする —— 他の語義の言い換えを出すより正しい。
+ */
 export type ParaphraseRawSense = [japanese: string[], answers: number[]];
 
 /**
@@ -126,9 +130,18 @@ export function tokenizeJapaneseHint(hint: string): string[] {
     .filter((token) => token.length >= 2);
 }
 
+const KANJI_RE = /\p{Script=Han}/gu;
+
+function kanjiOf(text: string): string[] {
+  return Array.from(new Set(text.match(KANJI_RE) ?? []));
+}
+
 /**
  * 訳語との一致の強さ。1 = 一致 (「平凡な」⊇「平凡」、「発汗する」⊇「発汗」)、
- * 0.5 = 「汗をかく」の目的語「汗」が訳語「汗する」の頭に立つ弱い一致、0 = 不一致。
+ * 0.5 = 弱い一致、0 = 不一致。弱い一致は 2 種類:
+ * - 「汗をかく」の目的語「汗」が訳語「汗する」の頭に立つ
+ * - 訳語の漢字がすべて単語帳の訳に含まれる (「間ちがう」「かん違いする」⊆「間違える」)。
+ *   日本語 WordNet は送り仮名・交ぜ書きの揺れが大きく、文字列の包含では拾えない
  * 短すぎる断片の包含は偶然が多いので 2 文字以上で見る。
  */
 function japaneseTokenMatch(token: string, lemma: string): number {
@@ -139,12 +152,20 @@ function japaneseTokenMatch(token: string, lemma: string): number {
     const object = token.slice(0, objectIndex);
     if (/^[\p{Script=Han}]+$/u.test(object) && lemma.startsWith(object) && lemma !== object) return 0.5;
   }
+  if (lemma.length >= 2) {
+    const lemmaKanji = kanjiOf(lemma);
+    if (lemmaKanji.length > 0) {
+      const tokenKanji = new Set(kanjiOf(token));
+      if (lemmaKanji.every((kanji) => tokenKanji.has(kanji))) return 0.5;
+    }
+  }
   return 0;
 }
 
 /**
  * 単語帳の日本語訳に最も合う語義を選ぶ。合う語義が無ければ null。
- * 同点なら先 (WordNet の語義順で主なもの) を取る。
+ * 同点なら先 (WordNet の語義順で主なもの) を取る。言い換えの無い語義 (answers が空) も
+ * 候補に入れる —— 訳がそちらに合うなら、他の語義の言い換えを出してはいけない。
  */
 export function matchJapaneseSense<T extends { japanese: readonly string[] }>(
   senses: readonly T[],
@@ -189,10 +210,12 @@ function materialFromEntry(
   if (japaneseHints.length > 0 && Array.isArray(rawSenses)) {
     const senses = rawSenses
       .filter((sense): sense is ParaphraseRawSense => Array.isArray(sense) && Array.isArray(sense[0]) && Array.isArray(sense[1]))
-      .map((sense) => ({ japanese: sense[0].filter((item) => typeof item === 'string'), answers: toWords(sense[1]) }))
-      .filter((sense) => sense.answers.length > 0);
+      .map((sense) => ({ japanese: sense[0].filter((item) => typeof item === 'string'), answers: toWords(sense[1]) }));
     const matched = matchJapaneseSense(senses, japaneseHints);
     if (matched) {
+      // 単語帳の訳が「言い換えの無い語義」に合う (mistake for = 〜と間違える)。
+      // 別の語義の言い換え (slip = しくじる) を出すより、材料無しが正しい
+      if (matched.answers.length === 0) return null;
       answers = matched.answers;
       senseMatched = true;
     }
