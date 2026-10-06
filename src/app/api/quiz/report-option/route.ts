@@ -17,7 +17,7 @@ import {
   type OptionReportJudgement,
 } from '@/lib/quiz/option-report';
 import { judgeReportedOption } from '@/lib/quiz/option-report.server';
-import { normalizeJapaneseSense } from '@/lib/ai/generate-quiz-content';
+import { normalizeJapaneseSense } from '@/lib/quiz/distractor-safety';
 
 /**
  * 四択の「選択肢がおかしい」報告。

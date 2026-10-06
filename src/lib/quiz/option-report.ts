@@ -15,7 +15,7 @@ import {
   isDistractorSenseOfWord,
   isSourceSameOrDerivedWord,
   normalizeJapaneseSense,
-} from '@/lib/ai/generate-quiz-content';
+} from '@/lib/quiz/distractor-safety';
 
 /**
  * 判定結果。`ok` 以外はすべて「おかしい」= 差し替え対象。
