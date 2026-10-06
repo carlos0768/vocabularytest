@@ -342,3 +342,35 @@ test('buildQuizPrefillSeedWords drops words that only needed an example when exa
   const on = buildQuizPrefillSeedWords(words, { includeExamples: true });
   assert.deepEqual(on.map((w) => w.id), ['only-example', 'also-distractors']);
 });
+
+test('buildQuizPrefillSeedWords passes the word\'s other translations as knownTranslations', () => {
+  const seedWords = buildQuizPrefillSeedWords([
+    {
+      id: 'bank',
+      english: 'bank',
+      japanese: '銀行',
+      translations: [
+        { translationJa: '銀行' },
+        { translationJa: '土手' },
+        { translationJa: ' ' },
+        null,
+        { translationJa: '土手' },
+      ],
+      distractors: [],
+      example_sentence: null,
+      part_of_speech_tags: [],
+    },
+    {
+      id: 'plain',
+      english: 'rank',
+      japanese: '地位',
+      distractors: [],
+      example_sentence: null,
+      part_of_speech_tags: [],
+    },
+  ]);
+
+  assert.equal(seedWords.length, 2);
+  assert.deepEqual(seedWords[0].knownTranslations, ['土手']);
+  assert.equal('knownTranslations' in seedWords[1], false);
+});

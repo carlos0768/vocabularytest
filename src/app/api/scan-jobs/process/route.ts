@@ -1760,7 +1760,15 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       if (aiEnabled) {
         const quizPrefillStart = Date.now();
         try {
-          const quizSeedWords = buildQuizPrefillSeedWords(insertedWordsArray, { includeExamples });
+          // insertedWordsArray は wordsToPersist と1対1。DBの戻り値には訳の一覧が無いので、
+          // 誤答生成に「出題語の他の訳」を渡すために保存した側の translations を添える。
+          const quizSeedWords = buildQuizPrefillSeedWords(
+            insertedWordsArray.map((word, index) => ({
+              ...word,
+              translations: wordsToPersist[index]?.translations ?? null,
+            })),
+            { includeExamples },
+          );
 
           let quizPrefillSucceeded = 0;
           const quizPrefillFailedWordIds = new Set<string>();

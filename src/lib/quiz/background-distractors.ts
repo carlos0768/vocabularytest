@@ -1,3 +1,24 @@
+/**
+ * 誤答生成 API (`/api/generate-quiz-distractors`) へ渡す「出題語の他の訳」。
+ * 正解 (`word.japanese`) 以外の語義を集める。誤答がこれらのどれかと一致すると
+ * 正解が2つある問題になるので、サーバー側がプロンプトでの禁止と生成後の
+ * フィルタに使う。正解そのもの・空文字・重複は除く。
+ */
+export function collectKnownTranslations(
+  word: { japanese: string; translations?: ReadonlyArray<{ translationJa?: string | null }> | null },
+): string[] {
+  const correct = word.japanese.trim();
+  const seen = new Set<string>([correct]);
+  const result: string[] = [];
+  for (const translation of word.translations ?? []) {
+    const value = typeof translation?.translationJa === 'string' ? translation.translationJa.trim() : '';
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
+}
+
 export interface QuizBackgroundDistractorExample {
   exampleSentence: string;
   exampleSentenceJa: string;
