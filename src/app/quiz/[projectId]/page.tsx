@@ -1021,9 +1021,24 @@ export default function QuizPage() {
       } catch { sessionStorage.removeItem(storageKey); return false; }
     };
 
-    if (tryRestoreState()) return;
+    // 中断前の出題を復元できても、出題プール (allWords) は読み直す。
+    // 復元で入るのは復元した問題の語 (最大20語) だけなので、そのまま「次へ」や
+    // 解き方の切り替えで組み直すと、その20語しか出てこなくなる。語数の多い
+    // バインダー横断の出題で「同じ問題ばかり」になっていたのがこれ。
+    // プールを埋め直すだけのときは、復元した出題に触らず、画面遷移もしない。
+    // 復元したあとに問題数などが変わってこの effect が走り直したときも同じ扱い
+    // (復元中は `restoredFromStorage` が立ったまま)。ここで全部読み直すと
+    // 復元した出題を組み直して上書きしてしまう。
+    const restored = tryRestoreState() || restoredFromStorage.current;
 
-    const loadWords = async () => {
+    const loadWords = async ({ poolOnly }: { poolOnly: boolean }) => {
+      // 語が読めない・権限が無いときの退避先。プールの埋め直しでは復元した出題を
+      // 続けさせたいので、どこへも移らない。
+      const leave = (href?: string) => {
+        if (poolOnly) return;
+        if (href) router.replace(href);
+        else backToProject();
+      };
       try {
         const ensureProjectAccess = async (): Promise<boolean> => {
           const ownerUserId = user ? user.id : getGuestUserId();
@@ -1045,7 +1060,7 @@ export default function QuizPage() {
 
         if (favoritesMode) {
           if (!isPro) {
-            router.replace(billingEnabled ? '/subscription' : '/favorites');
+            leave(billingEnabled ? '/subscription' : '/favorites');
             return;
           }
 
@@ -1060,7 +1075,7 @@ export default function QuizPage() {
               } catch { /* ignore */ }
             }
             const projectIds = projects.map((p) => p.id);
-            if (projectIds.length === 0) { backToProject(); return; }
+            if (projectIds.length === 0) { leave(); return; }
             const repoWithBulk = wordRepo as typeof repository & {
               getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
               getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
@@ -1077,7 +1092,7 @@ export default function QuizPage() {
             sourceWords = projectIds.flatMap((id) => wordsByProject[id] ?? []).filter((word) => word.isFavorite);
           } else {
             const hasAccess = await ensureProjectAccess();
-            if (!hasAccess) { backToProject(); return; }
+            if (!hasAccess) { leave(); return; }
             let loadedWords = await repository.getWords(projectId);
             if (loadedWords.length === 0 && user && navigator.onLine) {
               try { loadedWords = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
@@ -1104,7 +1119,7 @@ export default function QuizPage() {
             if (filtered.length > 0) projectIds = filtered;
           }
           if (projectIds.length === 0 && !wrongMode) {
-            if (reminderMode) { router.replace('/'); } else { backToProject(); }
+            leave(reminderMode ? '/' : undefined);
             return;
           }
           const repoWithBulk = wordRepo as typeof repository & {
@@ -1165,7 +1180,7 @@ export default function QuizPage() {
           const projectIds = projects
             .filter((p) => (p.binder?.trim() ?? '') === binderName)
             .map((p) => p.id);
-          if (projectIds.length === 0) { backToProject(); return; }
+          if (projectIds.length === 0) { leave(); return; }
           const repoWithBulk = wordRepo as typeof repository & {
             getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
             getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
@@ -1182,7 +1197,7 @@ export default function QuizPage() {
           sourceWords = projectIds.flatMap((id) => wordsByProject[id] ?? []);
         } else {
           const hasAccess = await ensureProjectAccess();
-          if (!hasAccess) { backToProject(); return; }
+          if (!hasAccess) { leave(); return; }
           let loadedWords = await repository.getWords(projectId);
           if (loadedWords.length === 0 && user && navigator.onLine) {
             try { loadedWords = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
@@ -1200,13 +1215,15 @@ export default function QuizPage() {
         }
 
         if (sourceWords.length === 0) {
-          if (reminderMode) { router.replace('/'); } else { backToProject(); }
+          leave(reminderMode ? '/' : undefined);
           return;
         }
 
         // Reminder words are already ordered (notification words first).
         const prioritized = reminderMode ? sourceWords : sortWordsByPriority(sourceWords);
         setAllWords(prioritized);
+        // 復元した出題を続けている。問題数も出題も復元したものが正なので、ここまで。
+        if (poolOnly) return;
 
         const targetCount = getQuizTargetCount(prioritized, { primaryOnly: !isPro });
         const resolvedCount = Math.max(1, Math.min(questionCount ?? targetCount, targetCount, MAX_NORMAL_QUIZ_QUESTION_COUNT));
@@ -1232,13 +1249,13 @@ export default function QuizPage() {
         }
       } catch (error) {
         console.error('Failed to load words:', error);
-        backToProject();
+        leave();
       } finally {
-        setLoading(false);
+        if (!poolOnly) setLoading(false);
       }
     };
 
-    loadWords();
+    void loadWords({ poolOnly: restored });
   }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, ensureParaphraseMaterials, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, binderName, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
 
   useEffect(() => {
