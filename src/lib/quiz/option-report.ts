@@ -18,10 +18,12 @@ import {
 } from '@/lib/quiz/distractor-safety';
 
 /**
- * 判定結果。`ok` 以外はすべて「おかしい」= 差し替え対象。
- * - correct_translation: 報告された選択肢は出題語の正しい訳として通る（正解が2つ）
- * - too_similar: 正解の類義語・言い換えで、区別がつかない
- * - other_problem: 日本語として不自然・正解と重複・フォーマットが違う など
+ * 判定結果。差し替えるのは「本当に出題語の訳として通る」ときだけ。
+ * - correct_translation: 報告された選択肢は出題語の正しい訳として通る（正解が2つ）→ 差し替え
+ * - other_problem: 日本語として壊れている・意味不明で、選択肢として成立していない → 差し替え
+ * - too_similar: 正解と意味は近いが、出題語の訳ではない → **差し替えない**。誤答はわざと
+ *   紛らわしく（語形の似た語の訳で）作っているので、近いこと自体は欠陥ではない。
+ *   記録には残し、学習者には「そのまま」と伝える
  * - ok: 問題なし（誤答として成立している）
  */
 export type OptionReportVerdict = 'correct_translation' | 'too_similar' | 'other_problem' | 'ok';
@@ -33,8 +35,12 @@ export const OPTION_REPORT_VERDICTS: readonly OptionReportVerdict[] = [
   'ok',
 ];
 
+/**
+ * この判定で選択肢を差し替えるか。`too_similar` は差し替えない —— 意味が近いのは
+ * 誤答生成の狙いどおりで、出題語の訳として通らない限り問題にしない。
+ */
 export function isProblemVerdict(verdict: OptionReportVerdict): boolean {
-  return verdict !== 'ok';
+  return verdict === 'correct_translation' || verdict === 'other_problem';
 }
 
 export interface OptionReportJudgement {
@@ -126,9 +132,9 @@ export function describeOptionReportVerdict(verdict: OptionReportVerdict): strin
     case 'correct_translation':
       return 'その選択肢も正解として通る訳でした';
     case 'too_similar':
-      return '正解と意味が近すぎる選択肢でした';
+      return '意味は近いですが、別の語の訳なのでそのままにします';
     case 'other_problem':
-      return '選択肢として不適切でした';
+      return '選択肢として成立していませんでした';
     case 'ok':
     default:
       return '選択肢に問題は見つかりませんでした';

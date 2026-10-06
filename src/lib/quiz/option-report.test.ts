@@ -11,10 +11,11 @@ import {
   buildOptionReportJudgePrompt,
 } from '@/lib/quiz/option-report.server';
 
-test('isProblemVerdict treats everything but ok as a problem', () => {
+test('isProblemVerdict replaces only when the option is really a translation (or broken), never for too_similar', () => {
+  // 誤答はわざと紛らわしく作っているので、「意味が近い」だけでは差し替えない。
   assert.equal(isProblemVerdict('correct_translation'), true);
-  assert.equal(isProblemVerdict('too_similar'), true);
   assert.equal(isProblemVerdict('other_problem'), true);
+  assert.equal(isProblemVerdict('too_similar'), false);
   assert.equal(isProblemVerdict('ok'), false);
 });
 
@@ -93,13 +94,25 @@ test('judge prompt lists the known translations and the reported option', () => 
   assert.equal(prompt.includes('銀行 / 堤防 / 地位 / 空白'), true);
 });
 
-test('judge prompt defines every verdict and leans toward reporting a problem', () => {
-  for (const snippet of ['correct_translation', 'too_similar', 'other_problem', '- ok:', '迷ったら ok ではなく問題あり側に倒して']) {
+test('judge prompt defines every verdict and leans toward NOT flagging near-synonyms', () => {
+  for (const snippet of [
+    '- correct_translation:',
+    '- too_similar:',
+    '- other_problem:',
+    '- ok:',
+    '誤答はわざと紛らわしく作ってあります',
+    '意味が近いことは欠陥ではありません',
+    '英和辞典の出題語の項にその訳',
+    '迷ったら correct_translation ではなく too_similar か ok に',
+    'これは差し替えません',
+  ]) {
     assert.equal(OPTION_REPORT_JUDGE_PROMPT.includes(snippet), true, snippet);
   }
+  assert.equal(OPTION_REPORT_JUDGE_PROMPT.includes('問題あり側に倒して'), false, 'the old lenient bias must be gone');
 });
 
 test('describeOptionReportVerdict has a label for every verdict', () => {
   assert.equal(describeOptionReportVerdict('correct_translation'), 'その選択肢も正解として通る訳でした');
+  assert.equal(describeOptionReportVerdict('too_similar'), '意味は近いですが、別の語の訳なのでそのままにします');
   assert.equal(describeOptionReportVerdict('ok'), '選択肢に問題は見つかりませんでした');
 });

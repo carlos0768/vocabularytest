@@ -1353,7 +1353,8 @@ export default function QuizPage() {
     const title = data.verdict ? describeOptionReportVerdict(data.verdict) : '確認しました';
     showToast({
       message: data.fixed ? `${title}。別の選択肢に差し替えました` : title,
-      type: data.verdict === 'ok' ? 'info' : 'success',
+      // 差し替えたときだけ成功扱い。「意味は近いがそのまま」「問題なし」は案内。
+      type: data.fixed ? 'success' : 'info',
       duration: 5000,
     });
 

@@ -184,6 +184,35 @@ test('report-option leaves the word alone and still records the report when the 
   assert.equal(adminFake.inserted[0].verdict, 'ok');
 });
 
+test('report-option records but does not replace a too_similar option (confusing on purpose)', async () => {
+  const fake = createClient({ word });
+  const adminFake = createAdmin(['地位', '土手', '空白']);
+  const response = await handleQuizOptionReportPost(
+    jsonRequest({ wordId: 'word-1', reportedOption: '地位' }),
+    {
+      createClient: async () => fake.client as never,
+      getAdmin: () => adminFake.admin as never,
+      judge: async () => ({
+        verdict: 'too_similar',
+        reason: '地位は rank の訳で bank の訳ではありません',
+        replacements: ['戦車'],
+        replacementSources: ['tank'],
+      }),
+    },
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.verdict, 'too_similar');
+  assert.equal(body.fixed, false);
+  assert.equal(body.replacement, null);
+  assert.deepEqual(body.distractors, ['地位', '土手', '空白']);
+  assert.deepEqual(fake.updates, []);
+  assert.deepEqual(adminFake.senseUpdates, []);
+  assert.equal(adminFake.inserted.length, 1);
+  assert.equal(adminFake.inserted[0].verdict, 'too_similar');
+  assert.equal(adminFake.inserted[0].fixed, false);
+});
+
 test('report-option stops at the daily limit before calling the judge', async () => {
   const fake = createClient({ word, usage: { allowed: false, requires_pro: false, current_count: 20, limit: 20, is_pro: false } });
   let judgeCalls = 0;
