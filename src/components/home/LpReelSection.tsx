@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { getGuestEntryHref } from '@/lib/auth/signup-feature-flag';
 
 /**
  * LP（ゲスト向けランディング）のリール紹介セクション。
@@ -141,7 +142,7 @@ export function LpReelSection() {
               リールの閲覧は<strong className="font-bold text-[var(--solid-ink)]">無料プランでも1日50枚まで</strong>使えます（ログインが必要です）。Proプランなら枚数の上限なし・広告なしで見続けられます。
             </p>
             <Link
-              href="/signup?redirect=/reels"
+              href={getGuestEntryHref('/reels')}
               className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-6 text-sm font-bold text-[var(--color-on-ink)] shadow-[2px_3px_0_color-mix(in_srgb,_var(--solid-ink)_30%,_transparent)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
             >
               リールを見てみる

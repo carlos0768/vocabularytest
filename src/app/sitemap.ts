@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { isBillingEnabled } from '@/lib/billing/feature';
+import { NEW_USER_SIGNUP_ENABLED } from '@/lib/auth/signup-feature-flag';
 import { COLUMNS, GUIDES } from '@/lib/marketing/articles';
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -92,13 +93,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.5,
     },
-    {
+  );
+
+  // /signup only shows a "受付停止中" notice while signup is closed — keep it out then.
+  if (NEW_USER_SIGNUP_ENABLED) {
+    entries.push({
       url: `${baseUrl}/signup`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.5,
-    },
-  );
+    });
+  }
 
   return entries;
 }

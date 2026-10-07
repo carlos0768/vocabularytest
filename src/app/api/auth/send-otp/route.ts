@@ -10,6 +10,7 @@ import {
   normalizeOtpEmail,
   resolveAuthOtpSendPolicy,
 } from '@/lib/auth/otp-lifecycle';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -25,6 +26,8 @@ const requestSchema = z.object({
 }).strict();
 
 export type SendOtpRouteDeps = {
+  /** テスト用。省略時は `NEW_USER_SIGNUP_ENABLED` */
+  signupEnabled?: boolean;
   getAdminClient?: typeof getAdminClient;
   generateOtpCode?: typeof generateOtpCode;
   sendOtpEmail?: typeof sendOtpEmail;
@@ -39,6 +42,15 @@ export async function handleSendOtpPost(
   deps: SendOtpRouteDeps = {},
 ) {
   try {
+    // 新規受付停止中は、メールを見る前に断る (このルートは signup 専用。
+    // パスワード再設定の OTP は /api/auth/reset-password が送る)
+    if (!(deps.signupEnabled ?? NEW_USER_SIGNUP_ENABLED)) {
+      return NextResponse.json(
+        { error: SIGNUP_CLOSED_API_ERROR, signup_closed: true },
+        { status: 403 }
+      );
+    }
+
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: '有効なメールアドレスを入力してください',
     });

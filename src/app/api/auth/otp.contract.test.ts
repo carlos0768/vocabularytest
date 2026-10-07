@@ -316,6 +316,7 @@ test('signup send-otp returns 409 for an existing email without creating an OTP'
   const response = await handleSendOtpPost(
     jsonRequest('/api/auth/send-otp', { email: 'Existing@Example.COM' }),
     {
+      signupEnabled: true,
       getAdminClient: () => adminClient as never,
       generateOtpCode: () => {
         throw new Error('OTP generation should not run for existing signup emails');
@@ -377,6 +378,7 @@ test('invalid verify-otp code increments attempts by id and returns 400', async 
       code: '000000',
     }),
     {
+      signupEnabled: true,
       getAdminClient: () => adminClient as never,
     },
   );
@@ -406,6 +408,7 @@ test('expired signup-verify OTP is deleted by id and returns 400', async () => {
       password: 'password123',
     }),
     {
+      signupEnabled: true,
       getAdminClient: () => adminClient as never,
     },
   );
@@ -494,6 +497,7 @@ test('verify-otp valid flow can create a confirmed user, set a magic-link sessio
       code: '123456',
     }),
     {
+      signupEnabled: true,
       getAdminClient: () => adminClient as never,
       getServerClient: async () => serverClient as never,
     },
@@ -538,6 +542,7 @@ test('signup-verify valid OTP still returns 409 for an existing email after veri
       password: 'password123',
     }),
     {
+      signupEnabled: true,
       getAdminClient: () => adminClient as never,
     },
   );
@@ -588,6 +593,7 @@ test('signup-verify valid OTP saves onboarding profile and persists default offi
       eiken_level: 'pre2',
     }),
     {
+      signupEnabled: true,
       getAdminClient: () => adminClient as never,
       getServerClient: async () => serverClient as never,
       fetchDefaultOfficialWordbooksForLocalImport: async (client, eikenLevel) => {
@@ -690,4 +696,121 @@ test('reset-password set-password uses verified OTP grace, updates password, cle
   assert.deepEqual(serverClient.signInWithPasswordCalls, [
     { email: 'reset@example.com', password: 'new-password-123' },
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// 新規受付停止中 (`NEW_USER_SIGNUP_ENABLED = false`) の挙動
+// ---------------------------------------------------------------------------
+
+test('signup send-otp refuses with 403 while new-user signup is closed, before touching Supabase', async () => {
+  const adminClient = new FakeOtpAdminClient({ users: [] });
+
+  const response = await handleSendOtpPost(
+    jsonRequest('/api/auth/send-otp', { email: 'new@example.com' }),
+    {
+      signupEnabled: false,
+      getAdminClient: () => {
+        throw new Error('admin client must not be created while signup is closed');
+      },
+      sendOtpEmail: async () => {
+        throw new Error('no OTP email while signup is closed');
+      },
+    },
+  );
+
+  assert.equal(response.status, 403);
+  assert.deepEqual(await jsonPayload(response), {
+    error: '現在、新規登録の受付を停止しています',
+    signup_closed: true,
+  });
+  assert.equal(adminClient.listUsersCalls, 0);
+  assert.deepEqual(adminClient.operations, []);
+});
+
+test('signup-verify refuses with 403 while new-user signup is closed and never creates a user', async () => {
+  const adminClient = new FakeOtpAdminClient({
+    users: [],
+    otpRecord: otpRecord({ id: 'otp-closed' }),
+    createdUser: { id: 'should-not-exist', email: 'new@example.com' },
+  });
+
+  const response = await handleSignupVerifyPost(
+    jsonRequest('/api/auth/signup-verify', {
+      email: 'new@example.com',
+      code: '123456',
+      password: 'password-123',
+    }),
+    {
+      signupEnabled: false,
+      getAdminClient: () => adminClient as never,
+      getServerClient: async () => {
+        throw new Error('no session while signup is closed');
+      },
+    },
+  );
+
+  assert.equal(response.status, 403);
+  assert.deepEqual(await jsonPayload(response), {
+    error: '現在、新規登録の受付を停止しています',
+    signup_closed: true,
+  });
+  assert.deepEqual(adminClient.createUserCalls, []);
+  assert.deepEqual(adminClient.generateLinkCalls, []);
+  assert.deepEqual(adminClient.operations, []);
+});
+
+test('verify-otp refuses to create an account for an unknown email while signup is closed', async () => {
+  const adminClient = new FakeOtpAdminClient({
+    users: [],
+    otpRecord: otpRecord({ id: 'otp-login-closed' }),
+    createdUser: { id: 'should-not-exist', email: 'new@example.com' },
+  });
+
+  const response = await handleVerifyOtpPost(
+    jsonRequest('/api/auth/verify-otp', {
+      email: 'new@example.com',
+      code: '123456',
+    }),
+    {
+      signupEnabled: false,
+      getAdminClient: () => adminClient as never,
+      getServerClient: async () => {
+        throw new Error('no session while signup is closed');
+      },
+    },
+  );
+
+  assert.equal(response.status, 403);
+  assert.deepEqual(await jsonPayload(response), {
+    error: '現在、新規登録の受付を停止しています',
+    signup_closed: true,
+  });
+  assert.deepEqual(adminClient.createUserCalls, []);
+  assert.deepEqual(adminClient.generateLinkCalls, []);
+});
+
+test('verify-otp still signs in an existing user while signup is closed', async () => {
+  const adminClient = new FakeOtpAdminClient({
+    users: [{ id: 'existing-user-1', email: 'existing@example.com' }],
+    otpRecord: otpRecord({ id: 'otp-login-existing' }),
+  });
+  const serverClient = new FakeServerClient({
+    sessionUser: { id: 'existing-user-1', email: 'existing@example.com' },
+  });
+
+  const response = await handleVerifyOtpPost(
+    jsonRequest('/api/auth/verify-otp', {
+      email: 'existing@example.com',
+      code: '123456',
+    }),
+    {
+      signupEnabled: false,
+      getAdminClient: () => adminClient as never,
+      getServerClient: async () => serverClient as never,
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(adminClient.createUserCalls, []);
+  assert.equal(adminClient.generateLinkCalls.length, 1);
 });

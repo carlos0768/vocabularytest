@@ -22,6 +22,7 @@ import {
   type AuthOAuthProvider,
 } from '@/lib/auth/oauth';
 import type { SignupProfileFields } from '@/lib/auth/signup-profile';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
 
 interface AuthState {
   user: User | null;
@@ -571,6 +572,9 @@ export function useAuth() {
 
   // Sign up with email/password
   const signUp = useCallback(async (email: string, password: string) => {
+    if (!NEW_USER_SIGNUP_ENABLED) {
+      return { success: false, error: SIGNUP_CLOSED_API_ERROR };
+    }
     const supabase = getSupabase();
     if (!supabase) {
       return { success: false, error: 'Supabase not initialized' };

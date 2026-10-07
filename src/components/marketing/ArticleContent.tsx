@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_NOTICE, getGuestEntryHref, getGuestEntryLabel } from '@/lib/auth/signup-feature-flag';
 import type { Article, ArticleBlock } from '@/lib/marketing/articles';
 
 function formatUpdated(updated: string): string {
@@ -75,13 +76,15 @@ export function ArticlePage({
           写真から単語帳を作って、間隔反復で覚える
         </p>
         <p className="mt-2 text-sm leading-7 text-[var(--color-muted)]">
-          MERKENは無料で始められます。共有ライブラリの単語帳を取り込んで、今日から学習をスタート。
+          {NEW_USER_SIGNUP_ENABLED
+            ? 'MERKENは無料で始められます。共有ライブラリの単語帳を取り込んで、今日から学習をスタート。'
+            : `${SIGNUP_CLOSED_NOTICE} すでにアカウントをお持ちの方はログインしてご利用ください。`}
         </p>
         <Link
-          href="/signup?redirect=/"
+          href={getGuestEntryHref('/')}
           className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-[var(--color-on-ink)]"
         >
-          無料で始める
+          {getGuestEntryLabel('無料で始める')}
           <Icon name="arrow_forward" size={16} />
         </Link>
       </div>

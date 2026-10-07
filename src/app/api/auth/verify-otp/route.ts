@@ -10,6 +10,7 @@ import {
   findAuthUserByNormalizedEmail,
   normalizeOtpEmail,
 } from '@/lib/auth/otp-lifecycle';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -47,6 +48,8 @@ const requestSchema = z.object({
 }).strict();
 
 export type VerifyOtpRouteDeps = {
+  /** テスト用。省略時は `NEW_USER_SIGNUP_ENABLED` */
+  signupEnabled?: boolean;
   getAdminClient?: typeof getAdminClient;
   getServerClient?: typeof getServerClient;
 };
@@ -150,6 +153,15 @@ export async function handleVerifyOtpPost(
       // 既存ユーザー
       userId = existingUser.id;
     } else {
+      // 新規受付停止中は未登録メールのアカウント作成だけ止める (既存ユーザーの
+      // ログインはそのまま通す)
+      if (!(deps.signupEnabled ?? NEW_USER_SIGNUP_ENABLED)) {
+        return NextResponse.json(
+          { error: SIGNUP_CLOSED_API_ERROR, signup_closed: true },
+          { status: 403 }
+        );
+      }
+
       // 新規ユーザー作成
       const randomPassword = crypto.randomUUID(); // パスワードは使用しないがSupabaseの仕様上必要
       const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { getGuestEntryHref, getGuestEntryLabel } from '@/lib/auth/signup-feature-flag';
 
 const DEMO_WORDS = [
   {
@@ -423,10 +424,10 @@ export function LpDemoSection() {
           ノートや教材を撮影するだけで、あなただけの単語帳が完成します。
         </p>
         <Link
-          href="/signup?redirect=/"
+          href={getGuestEntryHref('/')}
           className="mt-1 inline-flex items-center gap-2 rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--solid-ink)] px-5 py-2.5 text-sm font-bold text-[var(--color-on-ink)] shadow-[2px_3px_0_color-mix(in_srgb,_var(--solid-ink)_30%,_transparent)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
         >
-          無料で始める
+          {getGuestEntryLabel('無料で始める')}
           <Icon name="arrow_forward" size={14} />
         </Link>
       </div>

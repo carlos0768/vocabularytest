@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
+import { NEW_USER_SIGNUP_ENABLED } from '@/lib/auth/signup-feature-flag';
 import { cn } from '@/lib/utils';
 
 interface StatusAwareCtaProps {
@@ -30,8 +31,11 @@ export function StatusAwareCta({
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
 
-  const label = isAuthenticated ? (authLabel ?? guestLabel) : guestLabel;
-  const href = isAuthenticated ? authHref : guestHref;
+  // 新規受付停止中は、ゲストを /signup ではなくログインへ案内する
+  const effectiveGuestLabel = NEW_USER_SIGNUP_ENABLED ? guestLabel : 'ログイン';
+  const effectiveGuestHref = NEW_USER_SIGNUP_ENABLED ? guestHref : '/login';
+  const label = isAuthenticated ? (authLabel ?? guestLabel) : effectiveGuestLabel;
+  const href = isAuthenticated ? authHref : effectiveGuestHref;
 
   return (
     <Button

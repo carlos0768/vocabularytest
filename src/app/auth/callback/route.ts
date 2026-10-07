@@ -18,6 +18,11 @@ import {
   type OnboardingProfileRow,
 } from '@/lib/auth/onboarding-profile';
 import { seedDefaultOfficialWordbooksForUser } from '@/lib/official-wordbooks/import-default';
+import {
+  NEW_USER_SIGNUP_ENABLED,
+  SIGNUP_CLOSED_LOGIN_PATH,
+  isFreshlyCreatedAuthUser,
+} from '@/lib/auth/signup-feature-flag';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
@@ -27,7 +32,24 @@ type AuthCallbackDeps = {
   saveSignupProfileFields?: typeof saveSignupProfileFields;
   seedDefaultOfficialWordbooksForUser?: typeof seedDefaultOfficialWordbooksForUser;
   loadOnboardingProfile?: typeof loadOnboardingProfile;
+  /** テスト用。省略時は `NEW_USER_SIGNUP_ENABLED` */
+  signupEnabled?: boolean;
+  deleteAuthUser?: typeof deleteAuthUser;
+  now?: () => number;
 };
+
+/**
+ * Removes an auth user with the service role. `profiles` / `subscriptions`
+ * reference `auth.users` with ON DELETE CASCADE, so the trigger-created rows
+ * go with it. Returns the error (if any) instead of throwing.
+ */
+export async function deleteAuthUser(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<{ message: string } | null> {
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  return error ? { message: error.message } : null;
+}
 
 /**
  * Reads the onboarding fields of the user's profile. Returns `undefined` when
@@ -72,6 +94,36 @@ export async function handleAuthCallbackGet(request: Request, deps: AuthCallback
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // 新規受付停止中: Google / Apple は Supabase 側でアカウントを作ってから
+      // ここに戻ってくるので、Next.js 側で事前には止められない。作られたばかりの
+      // ユーザーなら service role で消し、セッションを捨ててログイン画面へ返す。
+      // 既存ユーザー (created_at が古い) はそのまま通す。
+      if (
+        !(deps.signupEnabled ?? NEW_USER_SIGNUP_ENABLED)
+        && data.user
+        && isFreshlyCreatedAuthUser(data.user, (deps.now ?? Date.now)())
+      ) {
+        try {
+          const admin = (deps.getAdmin ?? getSupabaseAdmin)();
+          const deleteError = await (deps.deleteAuthUser ?? deleteAuthUser)(admin, data.user.id);
+          if (deleteError) {
+            console.error('Failed to delete OAuth signup while signup is closed:', deleteError);
+          }
+        } catch (deleteError) {
+          console.error('Failed to delete OAuth signup while signup is closed:', deleteError);
+        }
+        try {
+          // ローカルの cookie だけ捨てる (ユーザーはもう居ないのでサーバー呼び出しはしない)
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch (signOutError) {
+          console.error('Failed to drop session after refusing OAuth signup:', signOutError);
+        }
+
+        const response = NextResponse.redirect(`${origin}${SIGNUP_CLOSED_LOGIN_PATH}`);
+        clearOAuthCookies(response);
+        return response;
+      }
+
       if (data.user && onboardingFields && hasSignupProfileFields(onboardingFields)) {
         const admin = (deps.getAdmin ?? getSupabaseAdmin)();
         const persistProfile = deps.saveSignupProfileFields ?? saveSignupProfileFields;

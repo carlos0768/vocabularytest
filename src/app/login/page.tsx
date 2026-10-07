@@ -14,19 +14,25 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { usePageBackground } from '@/hooks/use-page-background';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_NOTICE } from '@/lib/auth/signup-feature-flag';
 
 function LoginForm() {
   usePageBackground('var(--color-paper-alt)');
 
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
+  // /auth/callback が「新規受付停止中」を理由に Google / Apple のサインインを
+  // 取り消したときは ?signup=closed で戻ってくるので、理由を最初から出しておく
+  const bouncedFromClosedSignup = searchParams.get('signup') === 'closed';
   const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    bouncedFromClosedSignup ? `${SIGNUP_CLOSED_NOTICE} お持ちのアカウントでログインしてください。` : null,
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -97,15 +103,21 @@ function LoginForm() {
           onError={(message) => setError(message || null)}
         />
 
-        <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 24 }}>
-          アカウントをお持ちでない方は{' '}
-          <Link
-            href={`/signup?redirect=${encodeURIComponent(redirect)}`}
-            style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}
-          >
-            新規登録
-          </Link>
-        </div>
+        {NEW_USER_SIGNUP_ENABLED ? (
+          <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 24 }}>
+            アカウントをお持ちでない方は{' '}
+            <Link
+              href={`/signup?redirect=${encodeURIComponent(redirect)}`}
+              style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}
+            >
+              新規登録
+            </Link>
+          </div>
+        ) : (
+          <div className="muted" style={{ fontSize: 12.5, textAlign: 'center', marginTop: 24 }}>
+            {SIGNUP_CLOSED_NOTICE}
+          </div>
+        )}
       </DesktopAuthShell>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-paper-alt)] pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] [background-image:radial-gradient(color-mix(in_srgb,_var(--solid-ink)_4.5%,_transparent)_1px,transparent_1px)] [background-size:22px_22px] lg:hidden">
@@ -197,21 +209,29 @@ function LoginForm() {
         onError={(message) => setError(message || null)}
       />
 
-      <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
-        <div className="h-px flex-1 bg-[color-mix(in_srgb,_var(--solid-ink)_15%,_transparent)]" />
-        <span className="font-mono text-[10px] text-[var(--color-ink-mute)]">または</span>
-        <div className="h-px flex-1 bg-[color-mix(in_srgb,_var(--solid-ink)_15%,_transparent)]" />
-      </div>
+      {NEW_USER_SIGNUP_ENABLED ? (
+        <>
+          <div className="flex items-center gap-2.5 px-6 pb-3.5 pt-1.5">
+            <div className="h-px flex-1 bg-[color-mix(in_srgb,_var(--solid-ink)_15%,_transparent)]" />
+            <span className="font-mono text-[10px] text-[var(--color-ink-mute)]">または</span>
+            <div className="h-px flex-1 bg-[color-mix(in_srgb,_var(--solid-ink)_15%,_transparent)]" />
+          </div>
 
-      <div className="flex flex-col gap-2 px-6 pb-3">
-        <Link
-          href={`/signup?redirect=${encodeURIComponent(redirect)}`}
-          className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-shadow)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_var(--solid-shadow)]"
-        >
-          <Icon name="person_add" size={16} />
-          新規登録する
-        </Link>
-      </div>
+          <div className="flex flex-col gap-2 px-6 pb-3">
+            <Link
+              href={`/signup?redirect=${encodeURIComponent(redirect)}`}
+              className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-3 text-[13px] font-bold text-[var(--solid-ink)] shadow-[3px_4px_0_var(--solid-shadow)] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_var(--solid-shadow)]"
+            >
+              <Icon name="person_add" size={16} />
+              新規登録する
+            </Link>
+          </div>
+        </>
+      ) : (
+        <p className="px-6 pb-3 pt-2 text-center text-[11px] leading-5 text-[var(--color-ink-mute)]">
+          {SIGNUP_CLOSED_NOTICE}
+        </p>
+      )}
 
       <div className="flex-1" />
       </div>
