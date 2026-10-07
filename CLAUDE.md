@@ -133,6 +133,7 @@ Coin system core: `src/lib/coins/` (rates, scan gate, manual-morphology gate, re
 6. Quiz pulls words, shuffles options, updates word status with SM-2 spaced repetition
 
 ### Authentication Flow
+0. **新規ユーザー受付は 2026-10-07 から一時停止中** (`src/lib/auth/signup-feature-flag.ts` の `NEW_USER_SIGNUP_ENABLED = false`)。止めている間は `/signup` への導線 (LP / 料金 / 記事 / レベルテスト / ログイン画面 / サイトマップ) を隠してゲスト向け CTA は `/login` に向け (`getGuestEntryHref` / `getGuestEntryLabel`、`StatusAwareCta`)、`/signup` は「受付停止中」の案内だけを出す。サーバー側も `send-otp` / `signup-verify` は 403、`verify-otp` は未登録メールのアカウント作成だけ 403 (既存ユーザーのログインは通す)。Google / Apple は Supabase がコールバック前にユーザーを作るので、`/auth/callback` が作られたばかりのユーザー (`isFreshlyCreatedAuthUser`、`created_at` が 5 分以内) を service role で消して `/login?signup=closed` へ返す。既存ユーザーのログイン・利用には影響しない。再開は定数を true に戻すだけ。Supabase ダッシュボードの「Allow new users to sign up」も合わせて切ること (`mobile/` の `supabase.auth.signUp` 直叩きはそこでしか止まらない)
 1. User signs up -> OTP email sent via Resend (`/api/auth/send-otp`)
 2. User verifies OTP -> Account created, session set
 3. Subscription + profile rows auto-created via database trigger (`on_auth_user_created` -> `handle_new_user()`). The former first-66 launch campaign is retired; new signups stay Free unless explicitly upgraded or granted test Pro. See `docs/ops-auto-pro-first-66-2026-04-04.md`.

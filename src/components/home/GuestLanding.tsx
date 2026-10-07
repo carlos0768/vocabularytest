@@ -4,6 +4,7 @@ import { Icon } from '@/components/ui/Icon';
 import { LpDemoSection } from '@/components/home/LpDemoSection';
 import { LpReelSection } from '@/components/home/LpReelSection';
 import { isBillingEnabled } from '@/lib/billing/feature';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_NOTICE, getGuestEntryHref, getGuestEntryLabel } from '@/lib/auth/signup-feature-flag';
 
 const ROOT_LANDING_SCAN_MODES = [
   {
@@ -120,7 +121,9 @@ const ROOT_LANDING_FAQS = [
   },
   {
     q: '登録方法は？',
-    a: 'メールとOTP認証、またはGoogle / Appleログインで始められます。登録後はそのままホーム画面に進みます。',
+    a: NEW_USER_SIGNUP_ENABLED
+      ? 'メールとOTP認証、またはGoogle / Appleログインで始められます。登録後はそのままホーム画面に進みます。'
+      : `${SIGNUP_CLOSED_NOTICE} すでにアカウントをお持ちの方はログインしてご利用ください。`,
   },
 ];
 
@@ -138,12 +141,14 @@ export function GuestLanding() {
             <Link href="#demo" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">体験する</Link>
             <Link href="#reels" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">リール</Link>
             {billingEnabled && <Link href="#pricing" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">料金</Link>}
-            <Link href="/login?redirect=/" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">ログイン</Link>
+            {NEW_USER_SIGNUP_ENABLED && (
+              <Link href="/login?redirect=/" className="hidden text-sm font-semibold hover:text-[var(--color-accent)] md:inline">ログイン</Link>
+            )}
             <Link
-              href="/signup?redirect=/"
+              href={getGuestEntryHref('/')}
               className="inline-flex items-center gap-2 rounded-full bg-[var(--solid-ink)] px-4 py-2 text-sm font-bold text-[var(--color-on-ink)]"
             >
-              無料で始める
+              {getGuestEntryLabel('無料で始める')}
               <Icon name="arrow_forward" size={16} />
             </Link>
           </nav>
@@ -165,10 +170,10 @@ export function GuestLanding() {
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-4">
               <Link
-                href="/signup?redirect=/"
+                href={getGuestEntryHref('/')}
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-7 text-base font-bold text-[var(--color-on-ink)] shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]"
               >
-                無料で始める
+                {getGuestEntryLabel('無料で始める')}
                 <Icon name="arrow_forward" size={18} />
               </Link>
               <Link
@@ -443,16 +448,20 @@ export function GuestLanding() {
             単語帳を、<br />もう手で作らなくていい。
           </h2>
           <p className="mt-6 max-w-[560px] text-base leading-8 text-[var(--color-on-ink)]/70">
-            ブラウザからすぐに開始できます。メールOTP、Google、Appleのいずれかで登録し、最初の単語帳を作成してください。
+            {NEW_USER_SIGNUP_ENABLED
+              ? 'ブラウザからすぐに開始できます。メールOTP、Google、Appleのいずれかで登録し、最初の単語帳を作成してください。'
+              : `${SIGNUP_CLOSED_NOTICE} すでにアカウントをお持ちの方はログインしてご利用ください。`}
           </p>
           <div className="mt-9 flex flex-wrap gap-4">
-            <Link
-              href="/signup?redirect=/"
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-7 text-base font-bold text-[var(--color-on-accent)] shadow-[3px_4px_0_#14532d]"
-            >
-              無料で始める
-              <Icon name="arrow_forward" size={18} />
-            </Link>
+            {NEW_USER_SIGNUP_ENABLED && (
+              <Link
+                href="/signup?redirect=/"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--color-accent-ink)] bg-[var(--color-accent)] px-7 text-base font-bold text-[var(--color-on-accent)] shadow-[3px_4px_0_#14532d]"
+              >
+                無料で始める
+                <Icon name="arrow_forward" size={18} />
+              </Link>
+            )}
             <Link
               href="/login?redirect=/"
               className="inline-flex items-center justify-center gap-2 border-b-2 border-[var(--color-on-ink)]/40 px-1 py-1 font-display text-sm font-bold text-[var(--color-on-ink)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent-on-ink)]"
@@ -485,7 +494,9 @@ export function GuestLanding() {
           <div>
             <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-ink-mute)]">Account</p>
             <ul className="flex flex-col gap-2 text-sm">
-              <li><Link href="/signup?redirect=/" className="hover:text-[var(--color-accent)]">新規登録</Link></li>
+              {NEW_USER_SIGNUP_ENABLED && (
+                <li><Link href="/signup?redirect=/" className="hover:text-[var(--color-accent)]">新規登録</Link></li>
+              )}
               <li><Link href="/login?redirect=/" className="hover:text-[var(--color-accent)]">ログイン</Link></li>
               <li><Link href="/reset-password" className="hover:text-[var(--color-accent)]">パスワード再設定</Link></li>
             </ul>
@@ -808,10 +819,10 @@ function RootLandingPricingCard({
       </ul>
       <div className="mt-auto pt-8">
         <Link
-          href={pro ? '/signup?redirect=/subscription' : '/signup?redirect=/'}
+          href={getGuestEntryHref(pro ? '/subscription' : '/')}
           className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] text-sm font-bold shadow-[2px_3px_0_var(--solid-shadow)] ${pro ? 'bg-[var(--color-surface)] text-[var(--solid-ink)]' : 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]'}`}
         >
-          {pro ? '無料登録して始める' : '無料で始める'}
+          {getGuestEntryLabel(pro ? '無料登録して始める' : '無料で始める', pro ? 'ログインして始める' : 'ログイン')}
           <Icon name="arrow_forward" size={16} />
         </Link>
       </div>

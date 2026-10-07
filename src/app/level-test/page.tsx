@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui';
+import { NEW_USER_SIGNUP_ENABLED } from '@/lib/auth/signup-feature-flag';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { LevelTestResultCard } from '@/components/level-test/LevelTestResultCard';
 import { LevelTestShareSheet } from '@/components/level-test/LevelTestShareSheet';
@@ -298,9 +299,15 @@ export default function LevelTestPage() {
                 ホームに戻る
               </SolidButton>
             ) : (
-              <SolidButton size="md" variant="inverse" className="w-full" href="/signup" iconLeft="rocket_launch">
-                MERKENで語彙を増やす(無料登録)
-              </SolidButton>
+              NEW_USER_SIGNUP_ENABLED ? (
+                <SolidButton size="md" variant="inverse" className="w-full" href="/signup" iconLeft="rocket_launch">
+                  MERKENで語彙を増やす(無料登録)
+                </SolidButton>
+              ) : (
+                <SolidButton size="md" variant="inverse" className="w-full" href="/login" iconLeft="login">
+                  ログインしてMERKENで語彙を増やす
+                </SolidButton>
+              )
             )}
           </motion.div>
         </div>

@@ -43,6 +43,7 @@ import { storePendingOnboarding } from '@/lib/auth/pending-onboarding';
 import type { SignupProfileFields } from '@/lib/auth/signup-profile';
 import { useHandlePicker } from '@/hooks/use-handle-picker';
 import { usePageBackground } from '@/hooks/use-page-background';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_NOTICE } from '@/lib/auth/signup-feature-flag';
 
 const SIGNUP_BG = 'var(--color-paper-alt)';
 
@@ -850,10 +851,87 @@ function SignupFallback() {
   return <SignupLoadingScreen />;
 }
 
+/**
+ * 新規受付停止中に `/signup` へ直接来た人 (ブックマーク・検索結果・古いリンク) に
+ * 出す案内。フォームは一切出さず、ログインへだけ導く。
+ */
+function SignupClosedNotice() {
+  usePageBackground(SIGNUP_BG);
+
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') || '/';
+  const loginHref = `/login?redirect=${encodeURIComponent(redirect)}`;
+
+  return (
+    <>
+      <DesktopAuthShell title="新規登録の受付停止中" description={SIGNUP_CLOSED_NOTICE}>
+        <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.8, marginBottom: 20 }}>
+          再開まで今しばらくお待ちください。すでにアカウントをお持ちの方は、そのままログインしてご利用いただけます。
+        </p>
+        <Link
+          href={loginHref}
+          className="ds-btn dark"
+          style={{ display: 'flex', justifyContent: 'center', textDecoration: 'none' }}
+        >
+          ログインへ
+        </Link>
+      </DesktopAuthShell>
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-[var(--color-paper-alt)] pt-[calc(env(safe-area-inset-top,0px)+12px)] font-[var(--font-body)] [background-image:radial-gradient(color-mix(in_srgb,_var(--solid-ink)_4.5%,_transparent)_1px,transparent_1px)] [background-size:22px_22px] lg:hidden">
+        <div className="px-[14px] pt-1">
+          <Link
+            href="/"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            aria-label="戻る"
+          >
+            <Icon name="chevron_left" size={16} />
+          </Link>
+        </div>
+
+        <div className="px-6 pb-2 pt-6 text-center">
+          <div className="inline-block font-display text-[38px] font-black leading-none tracking-[0.1em] text-[var(--solid-ink)]">
+            MERKEN
+            <span className="ml-[5px] inline-block h-[7px] w-[7px] -translate-y-3 bg-[var(--color-accent)]" />
+          </div>
+        </div>
+
+        <div className="px-6 pb-4 pt-6">
+          <div className="font-display text-2xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[var(--solid-ink)]">
+            新規登録の受付停止中
+          </div>
+        </div>
+
+        <div className="px-6 pb-4">
+          <SolidPanel faceClassName="p-4">
+            <p className="text-[13px] leading-6 text-[var(--solid-ink)]">
+              {SIGNUP_CLOSED_NOTICE}
+            </p>
+            <p className="mt-2 text-[12px] leading-5 text-[var(--color-ink-soft)]">
+              再開まで今しばらくお待ちください。すでにアカウントをお持ちの方は、そのままログインしてご利用いただけます。
+            </p>
+          </SolidPanel>
+        </div>
+
+        <div className="px-6 pb-4">
+          <Link
+            href={loginHref}
+            className="flex items-center justify-center gap-2 rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] py-3.5 text-center text-sm font-bold text-[var(--color-on-ink)] shadow-[3px_4px_0_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0_#000]"
+          >
+            <Icon name="login" size={16} />
+            ログインへ
+          </Link>
+        </div>
+
+        <div className="flex-1" />
+      </div>
+    </>
+  );
+}
+
 export default function SignupPage() {
   return (
     <Suspense fallback={<SignupFallback />}>
-      <SignupForm />
+      {NEW_USER_SIGNUP_ENABLED ? <SignupForm /> : <SignupClosedNotice />}
     </Suspense>
   );
 }
