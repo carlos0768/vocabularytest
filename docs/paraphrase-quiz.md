@@ -17,6 +17,8 @@
 | Open English WordNet | CC BY 4.0 |
 | Moby Thesaurus II | パブリックドメイン |
 | gwordlist (Google Books Ngram 由来の頻度表) | CC BY 3.0 |
+| Princeton WordNet 3.1 (語義ごとの使用回数) | WordNet License |
+| Japanese WordNet (NICT、語義ごとの日本語訳) | Japanese WordNet License |
 
 帰属表示は `dataset.json` の `sources` に持ち、`/api/paraphrase/lookup` の応答にも載せる。
 
@@ -70,8 +72,15 @@
 
 ## 知っておくこと
 
-- 辞書は語義を区別できない。学習者が覚えた訳と別の語義の同義語が出ることがある
-  (多義語ほど起きる)。品詞タグ (`partOfSpeechTags`) があれば品詞だけは合わせる。
-  日本語 WordNet で訳と synset を突き合わせれば語義まで合わせられる (未着手)。
+- **2026-10-07 から一時停止中**。`src/lib/paraphrase/feature-flag.ts` の `PARAPHRASE_FEATURE_ENABLED` が
+  false の間は、解き方の選択画面・右上の切り替え・単語詳細の「言い換え」札をすべて隠し、
+  `isQuizAnswerFormat('paraphrase')` も false になる (端末に残った選択・`?format=`・中断復帰は四択に倒れる)。
+  辞書と `/api/paraphrase/lookup` はそのまま。戻すときは定数を true にするだけ。
+
+- 語義は **単語帳の日本語訳で選ぶ**。`/api/paraphrase/lookup` に `japanese` と `translations`
+  (語義ごとの訳) も送り、辞書側の語義ごとの日本語訳 (Japanese WordNet) と突き合わせて、合う語義だけの
+  正解候補を返す (mundane = 平凡な → everyday。「この世の」の terrestrial は出さない)。合う語義が
+  無ければ品詞全体の候補。品詞タグ (`partOfSpeechTags`) があれば品詞も合わせる。
+  日本語 WordNet に無い語義 (約 4 割の synset) は選べないので、そこは従来どおり。
 - 候補の良し悪しは `build_dataset.py` の重みで決まる。WordNet に忠実なだけの同義語
   (`plummet → plump`) をどこまで許すかはそこで調整する。

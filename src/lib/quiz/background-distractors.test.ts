@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseQuizBackgroundDistractorResults } from './background-distractors';
+import { collectKnownTranslations, parseQuizBackgroundDistractorResults } from './background-distractors';
 
 test('parseQuizBackgroundDistractorResults builds distractor, example, and success maps', () => {
   const parsed = parseQuizBackgroundDistractorResults([
@@ -41,4 +41,15 @@ test('parseQuizBackgroundDistractorResults ignores unusable result rows', () => 
   assert.equal(parsed.distractorMap.size, 0);
   assert.equal(parsed.exampleMap.size, 0);
   assert.equal(parsed.succeededIds.size, 0);
+});
+
+test('collectKnownTranslations returns the other translations without the correct answer or duplicates', () => {
+  assert.deepEqual(
+    collectKnownTranslations({
+      japanese: '銀行',
+      translations: [{ translationJa: '銀行' }, { translationJa: '土手' }, { translationJa: '' }, { translationJa: '土手' }],
+    }),
+    ['土手'],
+  );
+  assert.deepEqual(collectKnownTranslations({ japanese: '銀行' }), []);
 });

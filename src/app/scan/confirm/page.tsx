@@ -24,6 +24,7 @@ import { normalizeProjectKind } from '@/types';
 import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/classical/purity';
 import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphology/format';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
+import { collectKnownTranslations } from '@/lib/quiz/background-distractors';
 
 interface EditableWord extends AIWordExtraction {
   tempId: string;
@@ -176,7 +177,7 @@ export default function ConfirmPage() {
       .filter((w) => w.english.trim().length > 0 && w.japanese.trim().length > 0 &&
         !isWordOrderEligible(w) &&
         (!hasValidDistractors(w.distractors) || !hasExampleSentence(w.exampleSentence) || !hasPronunciation(w.pronunciation) || !hasPartOfSpeechTags(w.partOfSpeechTags)))
-      .map((w) => ({ id: w.id, english: w.english, japanese: w.japanese }));
+      .map((w) => ({ id: w.id, english: w.english, japanese: w.japanese, knownTranslations: collectKnownTranslations(w) }));
     const wordOrderSeedWords = createdWords
       .filter((w) => w.english.trim().length > 0 && w.japanese.trim().length > 0 &&
         isWordOrderEligible(w) &&

@@ -49,13 +49,13 @@ test('paraphrase lookup validates the body before looking anything up', async ()
 test('paraphrase lookup returns only the words that have material, with attribution', async () => {
   const response = await handleParaphraseLookupPost(
     jsonRequest({ words: [
-      { id: 'w1', english: 'plummet', partOfSpeechTags: ['verb'] },
+      { id: 'w1', english: 'plummet', partOfSpeechTags: ['verb'], japanese: '急落する', translations: ['急落する', '急に下がる'] },
       { id: 'w2', english: 'xyzzy' },
     ] }),
     {
       createClient: async () => createClient() as never,
       lookup: (words) => words
-        .filter((word) => word.english === 'plummet')
+        .filter((word) => word.english === 'plummet' && word.japanese === '急落する' && word.translations?.length === 2)
         .map((word) => ({
           wordId: word.id,
           headword: 'plummet',
@@ -80,7 +80,7 @@ test('paraphrase lookup returns only the words that have material, with attribut
 
 test('paraphrase lookup rejects unknown fields and oversized batches', async () => {
   const unknownField = await handleParaphraseLookupPost(
-    jsonRequest({ words: [{ id: 'w1', english: 'plummet', japanese: '急落する' }] }),
+    jsonRequest({ words: [{ id: 'w1', english: 'plummet', projectId: 'p1' }] }),
     { createClient: async () => createClient() as never, lookup: () => [], sources },
   );
   assert.equal(unknownField.status, 400);

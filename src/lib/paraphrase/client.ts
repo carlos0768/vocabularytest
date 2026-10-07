@@ -14,8 +14,14 @@ const REQUEST_TIMEOUT_MS = 15000;
 
 const materialCache = new Map<string, ParaphraseMaterial | null>();
 
-function cacheKey(word: Pick<Word, 'english' | 'partOfSpeechTags'>): string {
-  return `${word.english.trim().toLowerCase()}\u0000${(word.partOfSpeechTags ?? []).join(',')}`;
+/** 辞書の語義を選ぶ手がかりになる日本語訳 (単語の訳と、語義ごとの訳)。 */
+function japaneseHints(word: Pick<Word, 'japanese' | 'translations'>): string[] {
+  const hints = [word.japanese, ...(word.translations ?? []).map((translation) => translation.translationJa)];
+  return Array.from(new Set(hints.filter((hint): hint is string => typeof hint === 'string' && hint.trim().length > 0).map((hint) => hint.trim())));
+}
+
+function cacheKey(word: Pick<Word, 'english' | 'partOfSpeechTags' | 'japanese' | 'translations'>): string {
+  return `${word.english.trim().toLowerCase()}\u0000${(word.partOfSpeechTags ?? []).join(',')}\u0000${japaneseHints(word).join('|')}`;
 }
 
 /** 言い換えの材料を引く意味がある語か (英語の見出し語だけ。古典語は対象外)。 */
@@ -73,11 +79,16 @@ export async function fetchParaphraseMaterials(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          words: chunk.map((word) => ({
-            id: word.id,
-            english: word.english,
-            ...(word.partOfSpeechTags?.length ? { partOfSpeechTags: word.partOfSpeechTags.slice(0, 8) } : {}),
-          })),
+          words: chunk.map((word) => {
+            const hints = japaneseHints(word);
+            return {
+              id: word.id,
+              english: word.english,
+              ...(word.partOfSpeechTags?.length ? { partOfSpeechTags: word.partOfSpeechTags.slice(0, 8) } : {}),
+              ...(hints[0] ? { japanese: hints[0].slice(0, 300) } : {}),
+              ...(hints.length > 1 ? { translations: hints.slice(1, 11).map((hint) => hint.slice(0, 120)) } : {}),
+            };
+          }),
         }),
         signal: controller.signal,
       });

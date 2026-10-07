@@ -15,12 +15,19 @@ export interface QuizPrefillCandidateWord {
   example_sentence_ja?: unknown;
   pronunciation?: unknown;
   part_of_speech_tags: unknown;
+  /**
+   * 出題語が持つ訳の一覧（word_translations 相当）。誤答生成で「出題語の他の訳」
+   * として渡し、正解以外の語義が誤答に紛れ込むのを防ぐ。無ければ `japanese` だけ。
+   */
+  translations?: ReadonlyArray<{ translationJa?: string | null } | null | undefined> | null;
 }
 
 export interface QuizPrefillSeedWord {
   id: string;
   english: string;
   japanese: string;
+  /** 正解以外の既知の訳。誤答に使わせないためにプロンプトへ渡す。 */
+  knownTranslations?: string[];
   /** 生成が必要なフィールドのみ true。既に値がある（master解決済み等）フィールドは再生成しない。 */
   needs: QuizContentFieldNeeds;
 }
@@ -107,12 +114,29 @@ export function buildQuizPrefillSeedWords(
     // 発音記号(IPA)も英語専用。除外しても4択は quiz-state.ts の
     // 「同じ単語帳の他の語の訳から誤答を集める」フォールバックで成立する。
     .filter(({ word, needs }) => !shouldSkipEnglishEnrichment(word) && !isWordOrderEligible(word) && hasAnyNeed(needs))
-    .map(({ word, needs }) => ({
-      id: word.id,
-      english: word.english,
-      japanese: word.japanese,
-      needs,
-    }));
+    .map(({ word, needs }) => {
+      const knownTranslations = collectKnownTranslations(word);
+      return {
+        id: word.id,
+        english: word.english,
+        japanese: word.japanese,
+        ...(knownTranslations.length > 0 ? { knownTranslations } : {}),
+        needs,
+      };
+    });
+}
+
+function collectKnownTranslations(word: QuizPrefillCandidateWord): string[] {
+  const correct = word.japanese.trim();
+  const seen = new Set<string>([correct]);
+  const result: string[] = [];
+  for (const translation of word.translations ?? []) {
+    const value = typeof translation?.translationJa === 'string' ? translation.translationJa.trim() : '';
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
 }
 
 export interface QuizPrefillLexiconLinkWord {

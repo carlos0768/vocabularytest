@@ -12,6 +12,8 @@
  * クイズ画面右上の切り替えからいつでも選び直せる。
  */
 
+import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
+
 export type QuizMode = 'normal' | 'typing' | 'paraphrase' | 'voice';
 
 /**
@@ -48,9 +50,13 @@ export function isQuizMode(value: unknown): value is QuizMode {
   return isQuizAnswerFormat(value) || value === 'voice';
 }
 
-/** 四択クイズ画面の中で解ける形式か (音読は別ページなので含まない)。 */
+/**
+ * 四択クイズ画面の中で解ける形式か (音読は別ページなので含まない)。
+ * 言い換えは機能を止めている間は形式として認めない —— 端末に残った選択・URL・中断復帰の
+ * どれから来ても、ここで弾いて四択に倒す。
+ */
 export function isQuizAnswerFormat(value: unknown): value is QuizAnswerFormat {
-  return value === 'normal' || value === 'typing' || value === 'paraphrase';
+  return value === 'normal' || value === 'typing' || (value === 'paraphrase' && PARAPHRASE_FEATURE_ENABLED);
 }
 
 /** localStorage のうち、この機能が使う部分だけ。テストから差し替えられるようにする。 */

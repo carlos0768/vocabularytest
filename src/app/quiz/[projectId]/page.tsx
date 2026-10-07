@@ -17,6 +17,9 @@ import {
 } from '@/lib/quiz/quiz-mode-preference';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
+import { QuizOptionReportPanel } from '@/components/quiz/QuizOptionReportPanel';
+import { useToast } from '@/components/ui/toast';
+import { describeOptionReportVerdict } from '@/lib/quiz/option-report';
 import { getRepository } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { createBrowserClient } from '@/lib/supabase';
@@ -72,8 +75,9 @@ import {
   getTypeInCorrectAnswer,
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
-import { parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
+import { collectKnownTranslations, parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { fetchParaphraseMaterials, isParaphraseCandidateWord } from '@/lib/paraphrase/client';
+import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
 import { generateParaphraseQuestions, isParaphraseQuestion } from '@/lib/paraphrase/question';
 import type { ParaphraseMaterial } from '@/lib/paraphrase/dataset';
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
@@ -459,6 +463,7 @@ export default function QuizPage() {
   const pathname = usePathname();
   const projectId = params.projectId as string;
   const { subscription, loading: authLoading, user, isPro } = useAuth();
+  const { showToast } = useToast();
   const billingEnabled = isBillingEnabled();
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
@@ -809,6 +814,7 @@ export default function QuizPage() {
   // 語が読めたら言い換えの材料を先回りして取る (選択画面に語数を出すため)。
   // 英語の見出し語が 1 つも無い単語帳 (古典語) では行かない。
   useEffect(() => {
+    if (!PARAPHRASE_FEATURE_ENABLED) return;
     if (allWords.length === 0 || !allWords.some(isParaphraseCandidateWord)) return;
     void ensureParaphraseMaterials(allWords);
   }, [allWords, ensureParaphraseMaterials]);
@@ -886,7 +892,7 @@ export default function QuizPage() {
             response = await fetch('/api/generate-quiz-distractors', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ words: chunk.map((w) => ({ id: w.id, english: w.english, japanese: w.japanese })) }),
+              body: JSON.stringify({ words: chunk.map((w) => ({ id: w.id, english: w.english, japanese: w.japanese, knownTranslations: collectKnownTranslations(w) })) }),
               signal: controller.signal,
             });
           } finally { clearTimeout(timeoutId); }
@@ -1021,9 +1027,24 @@ export default function QuizPage() {
       } catch { sessionStorage.removeItem(storageKey); return false; }
     };
 
-    if (tryRestoreState()) return;
+    // 中断前の出題を復元できても、出題プール (allWords) は読み直す。
+    // 復元で入るのは復元した問題の語 (最大20語) だけなので、そのまま「次へ」や
+    // 解き方の切り替えで組み直すと、その20語しか出てこなくなる。語数の多い
+    // バインダー横断の出題で「同じ問題ばかり」になっていたのがこれ。
+    // プールを埋め直すだけのときは、復元した出題に触らず、画面遷移もしない。
+    // 復元したあとに問題数などが変わってこの effect が走り直したときも同じ扱い
+    // (復元中は `restoredFromStorage` が立ったまま)。ここで全部読み直すと
+    // 復元した出題を組み直して上書きしてしまう。
+    const restored = tryRestoreState() || restoredFromStorage.current;
 
-    const loadWords = async () => {
+    const loadWords = async ({ poolOnly }: { poolOnly: boolean }) => {
+      // 語が読めない・権限が無いときの退避先。プールの埋め直しでは復元した出題を
+      // 続けさせたいので、どこへも移らない。
+      const leave = (href?: string) => {
+        if (poolOnly) return;
+        if (href) router.replace(href);
+        else backToProject();
+      };
       try {
         const ensureProjectAccess = async (): Promise<boolean> => {
           const ownerUserId = user ? user.id : getGuestUserId();
@@ -1045,7 +1066,7 @@ export default function QuizPage() {
 
         if (favoritesMode) {
           if (!isPro) {
-            router.replace(billingEnabled ? '/subscription' : '/favorites');
+            leave(billingEnabled ? '/subscription' : '/favorites');
             return;
           }
 
@@ -1060,7 +1081,7 @@ export default function QuizPage() {
               } catch { /* ignore */ }
             }
             const projectIds = projects.map((p) => p.id);
-            if (projectIds.length === 0) { backToProject(); return; }
+            if (projectIds.length === 0) { leave(); return; }
             const repoWithBulk = wordRepo as typeof repository & {
               getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
               getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
@@ -1077,7 +1098,7 @@ export default function QuizPage() {
             sourceWords = projectIds.flatMap((id) => wordsByProject[id] ?? []).filter((word) => word.isFavorite);
           } else {
             const hasAccess = await ensureProjectAccess();
-            if (!hasAccess) { backToProject(); return; }
+            if (!hasAccess) { leave(); return; }
             let loadedWords = await repository.getWords(projectId);
             if (loadedWords.length === 0 && user && navigator.onLine) {
               try { loadedWords = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
@@ -1104,7 +1125,7 @@ export default function QuizPage() {
             if (filtered.length > 0) projectIds = filtered;
           }
           if (projectIds.length === 0 && !wrongMode) {
-            if (reminderMode) { router.replace('/'); } else { backToProject(); }
+            leave(reminderMode ? '/' : undefined);
             return;
           }
           const repoWithBulk = wordRepo as typeof repository & {
@@ -1165,7 +1186,7 @@ export default function QuizPage() {
           const projectIds = projects
             .filter((p) => (p.binder?.trim() ?? '') === binderName)
             .map((p) => p.id);
-          if (projectIds.length === 0) { backToProject(); return; }
+          if (projectIds.length === 0) { leave(); return; }
           const repoWithBulk = wordRepo as typeof repository & {
             getAllWordsByProjectIds?: (ids: string[]) => Promise<Record<string, Word[]>>;
             getAllWordsByProject?: (ids: string[]) => Promise<Record<string, Word[]>>;
@@ -1182,7 +1203,7 @@ export default function QuizPage() {
           sourceWords = projectIds.flatMap((id) => wordsByProject[id] ?? []);
         } else {
           const hasAccess = await ensureProjectAccess();
-          if (!hasAccess) { backToProject(); return; }
+          if (!hasAccess) { leave(); return; }
           let loadedWords = await repository.getWords(projectId);
           if (loadedWords.length === 0 && user && navigator.onLine) {
             try { loadedWords = await remoteRepository.getWords(projectId); } catch { /* ignore */ }
@@ -1200,13 +1221,15 @@ export default function QuizPage() {
         }
 
         if (sourceWords.length === 0) {
-          if (reminderMode) { router.replace('/'); } else { backToProject(); }
+          leave(reminderMode ? '/' : undefined);
           return;
         }
 
         // Reminder words are already ordered (notification words first).
         const prioritized = reminderMode ? sourceWords : sortWordsByPriority(sourceWords);
         setAllWords(prioritized);
+        // 復元した出題を続けている。問題数も出題も復元したものが正なので、ここまで。
+        if (poolOnly) return;
 
         const targetCount = getQuizTargetCount(prioritized, { primaryOnly: !isPro });
         const resolvedCount = Math.max(1, Math.min(questionCount ?? targetCount, targetCount, MAX_NORMAL_QUIZ_QUESTION_COUNT));
@@ -1232,13 +1255,13 @@ export default function QuizPage() {
         }
       } catch (error) {
         console.error('Failed to load words:', error);
-        backToProject();
+        leave();
       } finally {
-        setLoading(false);
+        if (!poolOnly) setLoading(false);
       }
     };
 
-    loadWords();
+    void loadWords({ poolOnly: restored });
   }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, ensureParaphraseMaterials, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, binderName, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
 
   useEffect(() => {
@@ -1296,11 +1319,56 @@ export default function QuizPage() {
   const hiddenModes = useMemo<QuizMode[] | undefined>(() => {
     const hidden: QuizMode[] = [];
     if (voiceQuizUnavailable) hidden.push(...VOICE_MODE_HIDDEN);
-    if (allWords.length > 0 && !allWords.some(isParaphraseCandidateWord)) hidden.push('paraphrase');
+    if (!PARAPHRASE_FEATURE_ENABLED || (allWords.length > 0 && !allWords.some(isParaphraseCandidateWord))) hidden.push('paraphrase');
     return hidden.length > 0 ? hidden : undefined;
   }, [allWords, voiceQuizUnavailable]);
 
   const currentQuestion = questions[currentIndex];
+
+  // 「選択肢がおかしい」報告。サーバーが Gemini で判定し、おかしければ単語の誤答を
+  // その場で差し替えて返す。返ってきた誤答は手元の出題プールにも反映して、同じ回の
+  // 「次へ」や組み直しで古い誤答が出ないようにする。
+  const handleReportOption = useCallback(async (reportedOption: string) => {
+    const question = currentQuestion;
+    if (!question || !isMultipleChoiceQuestion(question)) return;
+    const wordId = question.word.quizTarget?.wordId ?? question.word.id;
+    let data: {
+      success?: boolean;
+      error?: string;
+      verdict?: Parameters<typeof describeOptionReportVerdict>[0];
+      fixed?: boolean;
+      distractors?: unknown;
+    } = {};
+    try {
+      const response = await fetch('/api/quiz/report-option', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wordId, reportedOption, options: question.options }),
+      });
+      data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || '報告に失敗しました');
+    } catch (error) {
+      showToast({ message: error instanceof Error ? error.message : '報告に失敗しました', type: 'error' });
+      throw error;
+    }
+
+    const title = data.verdict ? describeOptionReportVerdict(data.verdict) : '確認しました';
+    showToast({
+      message: data.fixed ? `${title}。別の選択肢に差し替えました` : title,
+      // 差し替えたときだけ成功扱い。「意味は近いがそのまま」「問題なし」は案内。
+      type: data.fixed ? 'success' : 'info',
+      duration: 5000,
+    });
+
+    if (data.fixed && Array.isArray(data.distractors)) {
+      const distractors = data.distractors.filter((item): item is string => typeof item === 'string');
+      const sameWord = (w: Word) => (w.quizTarget?.wordId ?? w.id) === wordId;
+      setQuestions((prev) => prev.map((q) => (sameWord(q.word) ? { ...q, word: { ...q.word, distractors } } : q)));
+      setAllWords((prev) => prev.map((w) => (sameWord(w) ? { ...w, distractors } : w)));
+      // サーバーは Supabase の行を直している。手元の IndexedDB キャッシュも合わせる。
+      repository.updateWord(wordId, { distractors }).catch(() => {});
+    }
+  }, [currentQuestion, repository, showToast]);
   const currentIsWordOrder = isWordOrderQuestion(currentQuestion);
   const currentIsParaphrase = isParaphraseQuestion(currentQuestion);
   const isActiveVocab = !currentIsWordOrder && currentQuestion?.word.vocabularyType === 'active';
@@ -2294,6 +2362,15 @@ export default function QuizPage() {
               >
                 わからない
               </button>
+            )}
+            {/* 言い換えの選択肢は辞書由来で単語の誤答ではないので、報告の対象にしない */}
+            {isRevealed && !currentIsParaphrase && user && currentQuestion && (
+              <QuizOptionReportPanel
+                key={`${currentIndex}:${currentQuestion.word.id}`}
+                options={currentQuestion.options}
+                correctIndex={currentQuestion.correctIndex}
+                onReport={handleReportOption}
+              />
             )}
           </div>
         ) : (

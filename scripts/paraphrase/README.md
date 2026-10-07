@@ -21,6 +21,7 @@ JSON ができる。
 | [Moby Thesaurus II](https://github.com/zeke/moby) (npm `moby` の `words.txt`) | 連想的な広い同義語リスト。WordNet の裏取りと、誤答から同義語を外すのに使う | パブリックドメイン |
 | [gwordlist](https://github.com/hackerb9/gwordlist) (`frequency-alpha-alldicts.txt`) | 語の頻度順位 (Google Books Ngram 由来) | CC BY 3.0 |
 | [Princeton WordNet 3.1](https://wordnet.princeton.edu/) (npm `wordnet-db` の `dict/index.sense`) | 語義ごとの使用回数 (SemCor のタグ数)。品詞・語義ごとの使われ方を見る | WordNet License |
+| [Japanese WordNet](https://github.com/omwn/omw-data) (NICT、Open Multilingual Wordnet の `wns/jpn/wn-data-jpn.tab`) | synset ごとの日本語訳。単語帳の日本語訳と突き合わせて語義を選ぶ | Japanese WordNet License |
 
 いずれも帰属表示が条件 (Moby は不要) なので、`dataset.json` の `sources` に載せ、API の応答にも返す。
 
@@ -30,9 +31,19 @@ JSON ができる。
 
 1. **正解候補** を集める。根拠の強い順に
    - WordNet の同じ synset にあり Moby も挙げる (双方向ならさらに優先)
-   - WordNet の直接の上位語で Moby も挙げる (`plummet → drop`)
-   - Moby で双方向に挙がり WordNet でも直接の関係がある
-   - WordNet の同じ synset だけ / 直接の上位語だけ
+   - WordNet の直接の上位語で Moby も挙げる (`plummet → drop`、`disease → illness`)
+   - Moby で双方向に挙がり WordNet でも直接の関係 (also) がある
+   - WordNet の同じ synset だけ / 直接の上位語だけ (上位語だけは動詞・形容詞・副詞のみ)
+   - **下位語は根拠にしない** (`amphibian → frog` は一種であって言い換えではない)。誤答から外すためだけに使う
+   - **Moby の裏付けの無い上位語は、同じ synset に確かな言い換えが無いときだけ** (`perspire` に `sweat`
+     があるなら上位語の `eliminate` は出さない)。同じ synset に弱い候補 (主に別の品詞で使う `fox`) しか
+     無ければ上位語を出す (`play a trick on → deceive`。`trick` は見出し語に含まれるので候補にしない)
+   - 品詞の割合で切る前に、**その語義に使用例 (SemCor) があれば通す** (`sweat` は名詞の synset が多いが
+     動詞「汗をかく」には使用例がある)
+   - **名詞では上位語・兄弟語・いとこを慎重に扱う**。名詞の上位語は分類 (`amphibian → vertebrate`、
+     別の語義の `amphibian → plane`) になりがちなので Moby も挙げるものだけ採り、兄弟語・いとこ
+     (`amphibian → reptile`) は採らない。動詞では同じ上位語の下の語が近い意味になりやすい
+     (`plummet` / `plunge`) ので残す
    - Moby だけが挙げる語 (WordNet に関係なし) は候補にしない。Moby は連想辞典なので
      navigation ↔ geography のような「関連はあるが同義ではない」組を含む
 2. 候補を **語義ごとの使用回数** で調整する。頻度順位は品詞をまたいだ合計なので、名詞としてよく使う語が
@@ -51,6 +62,18 @@ JSON ができる。
 ローマ数字・母音の無い略語風の語は使わない。
 品詞は synset の多い順に並べ、従属的な品詞 (`plummet` の名詞) は出題しない。
 
+## 語義の選択 (日本語訳との突き合わせ)
+
+多義語では、品詞をまとめた正解候補だと別の語義の同義語が混ざる (`mundane` = 平凡な に
+`terrestrial` = この世の)。そこで見出し語 × 品詞ごとに、**語義 (synset) ごとの日本語訳と
+その語義だけを根拠にした正解候補** も持たせる (`senses`)。日本語訳は Japanese WordNet から取り、
+WordNet 3.0 のオフセットと OEWN の synset id は英語の定義文 (同じファイルの `eng:def`) と
+メンバー集合で対応付ける。
+
+実行時 (`src/lib/paraphrase/dataset.ts` の `matchJapaneseSense`) は、単語帳の日本語訳を番号・区切りで
+刻み、語義の訳語と包含で比べて (「平凡な」⊇「平凡」)、一致数が最も多い語義の候補を出す。
+合う語義が無ければ品詞全体の候補に戻る。
+
 ## 出力形式
 
 ```jsonc
@@ -60,7 +83,8 @@ JSON ができる。
   "sources": [{ "name": "...", "license": "...", "url": "..." }],
   "vocab": ["drop", "decline", ...],              // 語は一度だけ置く
   "entries": {
-    "plummet": [["v", [0, 1, 2], [10, 11, 12, 13, 14, 15]]],   // [品詞, 正解候補の添字 (良い順), 誤答の添字]
+    // [品詞, 正解候補の添字 (良い順), 誤答の添字, 語義ごとの [日本語訳, その語義の正解候補の添字]]
+    "plummet": [["v", [0, 1, 2], [10, 11, 12, 13, 14, 15], [[["急落する"], [0, 1, 2]]]]],
     "play a trick on": [["v", [...], [...]]]
   }
 }
