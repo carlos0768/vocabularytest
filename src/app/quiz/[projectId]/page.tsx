@@ -77,6 +77,7 @@ import {
 } from '@/lib/quiz/quiz-answer';
 import { collectKnownTranslations, parseQuizBackgroundDistractorResults } from '@/lib/quiz/background-distractors';
 import { fetchParaphraseMaterials, isParaphraseCandidateWord } from '@/lib/paraphrase/client';
+import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
 import { generateParaphraseQuestions, isParaphraseQuestion } from '@/lib/paraphrase/question';
 import type { ParaphraseMaterial } from '@/lib/paraphrase/dataset';
 import { parseReminderPriorityIds, selectReminderQuizWords } from '@/lib/quiz/reminder-quiz';
@@ -836,6 +837,7 @@ export default function QuizPage() {
   // 語が読めたら言い換えの材料を先回りして取る (選択画面に語数を出すため)。
   // 英語の見出し語が 1 つも無い単語帳 (古典語) では行かない。
   useEffect(() => {
+    if (!PARAPHRASE_FEATURE_ENABLED) return;
     if (allWords.length === 0 || !allWords.some(isParaphraseCandidateWord)) return;
     void ensureParaphraseMaterials(allWords);
   }, [allWords, ensureParaphraseMaterials]);
@@ -1346,7 +1348,7 @@ export default function QuizPage() {
   const hiddenModes = useMemo<QuizMode[] | undefined>(() => {
     const hidden: QuizMode[] = [];
     if (voiceQuizUnavailable) hidden.push(...SEPARATE_PAGE_MODES_HIDDEN);
-    if (allWords.length > 0 && !allWords.some(isParaphraseCandidateWord)) hidden.push('paraphrase');
+    if (!PARAPHRASE_FEATURE_ENABLED || (allWords.length > 0 && !allWords.some(isParaphraseCandidateWord))) hidden.push('paraphrase');
     return hidden.length > 0 ? hidden : undefined;
   }, [allWords, voiceQuizUnavailable]);
 
@@ -1382,7 +1384,8 @@ export default function QuizPage() {
     const title = data.verdict ? describeOptionReportVerdict(data.verdict) : '確認しました';
     showToast({
       message: data.fixed ? `${title}。別の選択肢に差し替えました` : title,
-      type: data.verdict === 'ok' ? 'info' : 'success',
+      // 差し替えたときだけ成功扱い。「意味は近いがそのまま」「問題なし」は案内。
+      type: data.fixed ? 'success' : 'info',
       duration: 5000,
     });
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { fetchParaphraseMaterials, isParaphraseCandidateWord } from '@/lib/paraphrase/client';
+import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
 import type { Word } from '@/types';
 
 /**
@@ -20,7 +21,8 @@ export function useParaphraseSynonyms(word: Word | null): string[] | undefined {
 
   const wordId = word?.id;
   const english = word?.english;
-  const eligible = !!word && isParaphraseCandidateWord(word);
+  // 機能を止めている間は辞書を引かない (札も出ない)
+  const eligible = PARAPHRASE_FEATURE_ENABLED && !!word && isParaphraseCandidateWord(word);
 
   useEffect(() => {
     if (!wordId || !english || !eligible) return;
