@@ -12,6 +12,7 @@ import {
   writeQuizMode,
   type QuizModeStorage,
 } from './quiz-mode-preference';
+import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
 
 function fakeStorage(initial: Record<string, string> = {}): QuizModeStorage & { data: Record<string, string> } {
   const data = { ...initial };
@@ -44,13 +45,14 @@ test('the chosen mode round-trips', () => {
   writeQuizMode('typing', storage);
   assert.equal(readQuizMode(storage), 'typing');
 
+  // 言い換えは機能を止めている間は読めない (端末に残っていても選択画面に戻す)
   writeQuizMode('paraphrase', storage);
-  assert.equal(readQuizMode(storage), 'paraphrase');
+  assert.equal(readQuizMode(storage), PARAPHRASE_FEATURE_ENABLED ? 'paraphrase' : null);
 });
 
-test('言い換えはこの画面の中で解ける形式で、音読は別ページ', () => {
-  assert.equal(isQuizAnswerFormat('paraphrase'), true);
-  assert.equal(isQuizMode('paraphrase'), true);
+test('言い換えはこの画面の中で解ける形式 (機能が有効なとき) で、音読は別ページ', () => {
+  assert.equal(isQuizAnswerFormat('paraphrase'), PARAPHRASE_FEATURE_ENABLED);
+  assert.equal(isQuizMode('paraphrase'), PARAPHRASE_FEATURE_ENABLED);
   assert.equal(isQuizAnswerFormat('voice'), false);
   assert.equal(isQuizMode('voice'), true);
   assert.equal(isQuizAnswerFormat('sideways'), false);
