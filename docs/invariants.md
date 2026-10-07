@@ -143,6 +143,8 @@ Source: `src/lib/db/hybrid-repository.ts` lines 107-113.
 
 **Consequence of violation**: New users cannot complete real registration, or existing users get surprising auth state changes.
 
+**While new-user signup is paused** (`NEW_USER_SIGNUP_ENABLED = false` in `src/lib/auth/signup-feature-flag.ts`, since 2026-10-07): the flow above is unreachable by design. Hiding the `/signup` links is not the safeguard — the server is: `send-otp` / `signup-verify` return 403, `verify-otp` refuses to create an account for an unknown email, and `/auth/callback` deletes an account Supabase just created for a Google / Apple sign-in. Existing users must keep logging in through every channel (password, OTP, OAuth) — never let the pause touch an account whose `created_at` is older than the fresh-user window.
+
 ### INV-16: Flashcard order stays synced with quiz order (no persisted state)
 
 `src/app/flashcard/[projectId]/page.tsx` must derive its card order purely from the current repository/cache word list, sorted with `sortWordsByPriority` — the same comparator the quiz uses. It must not persist or restore flashcard resume state (the retired `flashcard_session_*` / `flashcard_progress_*` records) and must not offer an alternate sort mode that would diverge from the quiz question order.

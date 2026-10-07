@@ -14,6 +14,7 @@ import {
   findAuthUserByNormalizedEmail,
   normalizeOtpEmail,
 } from '@/lib/auth/otp-lifecycle';
+import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
 
 // Service Role client for admin operations
 function getAdminClient() {
@@ -60,6 +61,8 @@ type SignupVerifyBody = z.infer<typeof requestSchema>;
 type SignupProfileFields = Pick<SignupVerifyBody, 'display_name' | 'user_handle' | 'eiken_level'>;
 
 export type SignupVerifyRouteDeps = {
+  /** テスト用。省略時は `NEW_USER_SIGNUP_ENABLED` */
+  signupEnabled?: boolean;
   getAdminClient?: typeof getAdminClient;
   getServerClient?: typeof getServerClient;
   fetchDefaultOfficialWordbooksForLocalImport?: typeof fetchDefaultOfficialWordbooksForLocalImport;
@@ -171,6 +174,15 @@ export async function handleSignupVerifyPost(
   deps: SignupVerifyRouteDeps = {},
 ) {
   try {
+    // 新規受付停止中はアカウントを作らない (iOS アプリもこのルートを叩くので
+    // 画面を隠すだけでは足りない)
+    if (!(deps.signupEnabled ?? NEW_USER_SIGNUP_ENABLED)) {
+      return NextResponse.json(
+        { error: SIGNUP_CLOSED_API_ERROR, signup_closed: true },
+        { status: 403 }
+      );
+    }
+
     const parsed = await parseJsonWithSchema(request, requestSchema, {
       invalidMessage: 'メールアドレス、6桁の認証コード、8文字以上のパスワードを入力してください',
     });
