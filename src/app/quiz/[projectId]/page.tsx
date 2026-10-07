@@ -115,8 +115,11 @@ const DISTRACTOR_MAX_ATTEMPTS = 3;
 const DISTRACTOR_API_CHUNK_SIZE = 20;
 const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 const WORD_ORDER_API_CHUNK_SIZE = 30;
-/** 単語帳をまたぐ出題では音読チャレンジを選ばせない (向こうが1冊ぶんしか出せない)。 */
-const VOICE_MODE_HIDDEN = ['voice'] as const;
+/**
+ * 単語帳をまたぐ出題では音読チャレンジ・空所補充を選ばせない
+ * (どちらも別ページで、単語帳1冊かバインダー1つぶんしか出せない)。
+ */
+const SEPARATE_PAGE_MODES_HIDDEN = ['voice', 'cloze'] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -677,6 +680,24 @@ export default function QuizPage() {
     else router.push(href);
   }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
 
+  /**
+   * 空所補充へ切り替える。音読チャレンジと同じく別ページで、出題数・バインダー・戻り先を引き継ぐ。
+   */
+  const goToClozeQuiz = useCallback((options?: { replace?: boolean }) => {
+    writeQuizMode('cloze');
+    const params = new URLSearchParams();
+    const parsedInput = Number.parseInt(inputCount, 10);
+    const count = Number.isFinite(parsedInput) && parsedInput > 0 ? parsedInput : questionCount;
+    if (count && count > 0) params.set('count', String(count));
+    if (binderName) params.set('binder', binderName);
+    if (returnPath) params.set('from', returnPath);
+    const query = params.toString();
+    const href = `/cloze-quiz/${projectId}${query ? `?${query}` : ''}`;
+    // 自動送りは replace (音読チャレンジと同じ理由で、戻るで堂々巡りにしない)。
+    if (options?.replace) router.replace(href);
+    else router.push(href);
+  }, [inputCount, questionCount, returnPath, router, projectId, binderName]);
+
   // 端末の前回の選択を読む。今日すでに選んでいれば選択画面は出さずにその解き方で
   // 始め、今日まだなら選択画面の初期選択にするだけ。
   // 語の読み込み effect より前に置くこと —— そちらは `answerFormatValueRef` を読んで
@@ -684,16 +705,18 @@ export default function QuizPage() {
   useEffect(() => {
     setStoredMode(readQuizMode());
     const todaysMode = urlAnswerFormatRef.current ? null : readTodaysQuizMode();
-    if (todaysMode === 'voice') {
-      // 中断したクイズが残っていれば、そちらの再開を優先して音読へは飛ばさない。
+    if (todaysMode === 'voice' || todaysMode === 'cloze') {
+      // 音読チャレンジ・空所補充は別ページ。
+      // 中断したクイズが残っていれば、そちらの再開を優先して飛ばさない。
       let hasSavedQuiz = false;
       try {
         const saved = sessionStorage.getItem(storageKey);
         hasSavedQuiz = !!saved && !isQuizStateExpired((JSON.parse(saved) as QuizPersistState).timestamp);
       } catch { /* 読めなければ無いものとして扱う */ }
       if (!voiceQuizUnavailable && !hasSavedQuiz) {
-        // 読み込み中の表示のまま音読チャレンジへ移る (選択画面を一瞬も出さない)。
-        goToVoiceQuiz({ replace: true });
+        // 読み込み中の表示のまま移る (選択画面を一瞬も出さない)。
+        if (todaysMode === 'voice') goToVoiceQuiz({ replace: true });
+        else goToClozeQuiz({ replace: true });
         return;
       }
     } else if (todaysMode) {
@@ -979,10 +1002,14 @@ export default function QuizPage() {
         goToVoiceQuiz();
         return;
       }
+      if (mode === 'cloze') {
+        goToClozeQuiz();
+        return;
+      }
       setAnswerFormat(mode);
       void startQuizForFormat(mode);
     },
-    [goToVoiceQuiz, startQuizForFormat],
+    [goToVoiceQuiz, goToClozeQuiz, startQuizForFormat],
   );
 
   useEffect(() => {
@@ -1314,11 +1341,13 @@ export default function QuizPage() {
   const chooserWordCounts = useMemo<Partial<Record<QuizMode, number>>>(() => ({
     ...answerFormatWordCounts,
     paraphrase: paraphraseMaterials ? answerFormatWordCounts.paraphrase : undefined,
+    // 空所補充も四択と同じく Passive (P) の語を出す
+    cloze: answerFormatWordCounts.normal,
   }), [answerFormatWordCounts, paraphraseMaterials]);
-  // 選べない解き方。音読は単語帳をまたぐ出題で、言い換えは英語の見出し語が無い単語帳 (古典語) で隠す。
+  // 選べない解き方。音読・空所補充は単語帳をまたぐ出題で、言い換えは英語の見出し語が無い単語帳 (古典語) で隠す。
   const hiddenModes = useMemo<QuizMode[] | undefined>(() => {
     const hidden: QuizMode[] = [];
-    if (voiceQuizUnavailable) hidden.push(...VOICE_MODE_HIDDEN);
+    if (voiceQuizUnavailable) hidden.push(...SEPARATE_PAGE_MODES_HIDDEN);
     if (!PARAPHRASE_FEATURE_ENABLED || (allWords.length > 0 && !allWords.some(isParaphraseCandidateWord))) hidden.push('paraphrase');
     return hidden.length > 0 ? hidden : undefined;
   }, [allWords, voiceQuizUnavailable]);
