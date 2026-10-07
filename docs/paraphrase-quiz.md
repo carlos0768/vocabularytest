@@ -72,6 +72,11 @@
 
 ## 知っておくこと
 
+- **2026-10-07 から一時停止中**。`src/lib/paraphrase/feature-flag.ts` の `PARAPHRASE_FEATURE_ENABLED` が
+  false の間は、解き方の選択画面・右上の切り替え・単語詳細の「言い換え」札をすべて隠し、
+  `isQuizAnswerFormat('paraphrase')` も false になる (端末に残った選択・`?format=`・中断復帰は四択に倒れる)。
+  辞書と `/api/paraphrase/lookup` はそのまま。戻すときは定数を true にするだけ。
+
 - 語義は **単語帳の日本語訳で選ぶ**。`/api/paraphrase/lookup` に `japanese` と `translations`
   (語義ごとの訳) も送り、辞書側の語義ごとの日本語訳 (Japanese WordNet) と突き合わせて、合う語義だけの
   正解候補を返す (mundane = 平凡な → everyday。「この世の」の terrestrial は出さない)。合う語義が

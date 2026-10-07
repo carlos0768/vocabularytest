@@ -3,6 +3,7 @@
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/utils';
 import type { QuizMode } from '@/lib/quiz/quiz-mode-preference';
+import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
 
 const SOLID_SURFACE =
   'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
@@ -87,9 +88,9 @@ export function QuizModeChooser({
    */
   wordCounts?: Partial<Record<QuizMode, number>>;
 }) {
-  const modes = hiddenModes?.length
-    ? MODES.filter((mode) => !hiddenModes.includes(mode.key))
-    : MODES;
+  const modes = MODES.filter(
+    (mode) => (mode.key !== 'paraphrase' || PARAPHRASE_FEATURE_ENABLED) && !hiddenModes?.includes(mode.key),
+  );
 
   return (
     <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-6 animate-fade-in-up')}>
