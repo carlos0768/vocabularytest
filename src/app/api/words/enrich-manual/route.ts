@@ -385,7 +385,10 @@ export async function POST(request: NextRequest) {
     if (master?.entryId) {
       const entryId = master.entryId;
       const writeBackPronunciation = aiNeedsPronunciation && aiPronunciation ? aiPronunciation : null;
-      const writeBackExample = aiNeedsExample && aiExample && aiExampleJa
+      // 入力訳に合わせて作った例文は、その訳と一致したエントリにだけ書き戻す。
+      // 別の語義のエントリに入れると、次にその語を追加した人に食い違った例文が付く。
+      const exampleFitsEntry = !filledJapanese || master.matchedJapaneseHint;
+      const writeBackExample = aiNeedsExample && exampleFitsEntry && aiExample && aiExampleJa
         ? { exampleSentence: aiExample, exampleSentenceJa: aiExampleJa }
         : null;
       // AIが出した訳は insert-only でsenseに追加（既存senseは上書きされない）
