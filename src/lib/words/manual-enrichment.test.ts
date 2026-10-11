@@ -78,6 +78,28 @@ test('pickManualMasterEnrichment falls back to the most complete row without a h
   assert.equal(result.entryId, 'complete');
 });
 
+test('pickManualMasterEnrichment drops a master example from another sense than the user translation', () => {
+  const result = pickManualMasterEnrichment(
+    [row({ id: 'entry-verb', translation_ja: '走る' })],
+    '経営する',
+  );
+
+  assert.ok(result);
+  assert.equal(result.matchedJapaneseHint, false);
+  assert.equal(result.exampleSentence, '');
+  assert.equal(result.exampleSentenceJa, '');
+  // 発音は見出し語単位なので語義が違っても使える
+  assert.equal(result.pronunciation, '/rʌn/');
+});
+
+test('pickManualMasterEnrichment keeps the master example when no translation was entered', () => {
+  const result = pickManualMasterEnrichment([row({ translation_ja: '走る' })], '');
+
+  assert.ok(result);
+  assert.equal(result.matchedJapaneseHint, false);
+  assert.equal(result.exampleSentence, 'I run every day.');
+});
+
 test('pickManualMasterEnrichment supplies a Japanese translation for empty manual input', () => {
   const result = pickManualMasterEnrichment(
     [
@@ -151,4 +173,25 @@ test('buildManualEnrichPrompt asks for a Japanese translation when the user left
 
   assert.equal(prompt.includes('japanese'), true);
   assert.equal(prompt.includes('"run"\n'), true);
+});
+
+test('buildManualEnrichPrompt ties the example to the translation the user entered', () => {
+  const prompt = buildManualEnrichPrompt('run', '経営する', {
+    pronunciation: false,
+    pos: false,
+    example: true,
+  });
+
+  assert.equal(prompt.includes('「経営する」の意味で使った文'), true);
+});
+
+test('buildManualEnrichPrompt adds no sense instruction without a translation or example', () => {
+  assert.equal(
+    buildManualEnrichPrompt('run', '', { japanese: true, pronunciation: false, pos: false, example: true }).includes('の意味で使った文'),
+    false,
+  );
+  assert.equal(
+    buildManualEnrichPrompt('run', '走る', { pronunciation: true, pos: false, example: false }).includes('の意味で使った文'),
+    false,
+  );
 });
