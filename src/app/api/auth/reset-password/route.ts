@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/server';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import {
   buildOtpInsertPayload,
   evaluateAuthOtpCode,
@@ -14,27 +12,6 @@ import {
   normalizeOtpEmail,
   resolveAuthOtpSendPolicy,
 } from '@/lib/auth/otp-lifecycle';
-
-// Server client for setting session cookies
-async function getServerClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-}
 
 const emailSchema = z.string().trim().email().max(254);
 const codeSchema = z.string().trim().regex(/^\d{6}$/);
@@ -66,7 +43,7 @@ const requestSchema = z.discriminatedUnion('action', [
 
 export type ResetPasswordRouteDeps = {
   getAdminClient?: typeof getSupabaseAdmin;
-  getServerClient?: typeof getServerClient;
+  getServerClient?: typeof createClient;
   generateOtpCode?: typeof generateOtpCode;
   sendOtpEmail?: typeof sendOtpEmail;
 };
@@ -299,7 +276,7 @@ async function handleSetPassword(
     .eq('email', normalizedEmail);
 
   // Log the user in
-  const serverClient = await (deps.getServerClient ?? getServerClient)();
+  const serverClient = await (deps.getServerClient ?? createClient)();
   const { error: signInError } = await serverClient.auth.signInWithPassword({
     email: normalizedEmail,
     password: newPassword,
