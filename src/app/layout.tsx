@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript, THEME_COLORS } from '@/components/theme-script';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
+import { WebPushSync } from '@/components/pwa/WebPushSync';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
 import { OfflineBanner } from '@/components/pwa/OfflineBanner';
 import { StatsSync } from '@/components/StatsSync';
@@ -163,6 +164,7 @@ export default function RootLayout({
           <PendingOnboardingSync />
           <HomeOpenLogger />
           <ServiceWorkerRegistration />
+          <WebPushSync />
         </ThemeProvider>
       </body>
     </html>
