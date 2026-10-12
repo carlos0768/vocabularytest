@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
-import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import type { ProjectShareScope } from '@/types';
 import { formatSharedTag, parseSharedTagsInput } from '../../../shared/shared-tags';
 
@@ -27,11 +26,6 @@ type ProjectShareSheetProps = {
   onCopyShareLink: (shareUrl: string) => void | Promise<void>;
   onShareLink: (shareUrl: string) => void | Promise<void>;
   shareLinkCopied: boolean;
-  groups?: StudyGroupSummary[];
-  groupsLoading?: boolean;
-  groupsError?: string | null;
-  groupSharingUpdatingId?: string | null;
-  onToggleGroupShare?: (group: StudyGroupSummary) => void;
 };
 
 export function ProjectShareSheet({
@@ -46,11 +40,6 @@ export function ProjectShareSheet({
   onCopyShareLink,
   onShareLink,
   shareLinkCopied,
-  groups = [],
-  groupsLoading = false,
-  groupsError = null,
-  groupSharingUpdatingId = null,
-  onToggleGroupShare,
 }: ProjectShareSheetProps) {
   const sharedTagsValue = sharedTags.map(formatSharedTag).join(', ');
   const tagInputRef = useRef<HTMLInputElement>(null);

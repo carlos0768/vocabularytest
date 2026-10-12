@@ -17,7 +17,8 @@ MERKEN (package name: `wordsnap`) is an AI-powered vocabulary learning PWA for J
 npm run dev      # Start development server (localhost:3000)
 npm run build    # Production build
 npm run lint     # ESLint + SQL injection guard
-npm test         # Unit tests (Node.js built-in test runner + tsx)
+npm run typecheck # tsc --noEmit
+npm test         # Unit tests (Node.js built-in test runner + tsx, auto-discovered)
 npm run security:all  # Full security suite (SQL + secrets + deps audit)
 ```
 
@@ -221,12 +222,16 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
 Tests use Node.js built-in test runner with `tsx`. Test files are co-located with source (`.test.ts` suffix).
 
 ```bash
-npm test                    # Unit tests (fixed file list in package.json)
+npm test                    # Unit tests (every src/ + shared/ *.test.ts, auto-discovered)
+npm test -- src/lib/quiz    # Only the tests under a path
+npm run typecheck           # tsc --noEmit (test files included)
 npm run test:security       # SQL injection + secrets + route security tests
 npm run security:all        # Full security suite
 ```
 
-New test files must be manually added to the `test` script in `package.json` -- they are not auto-discovered.
+`npm test` runs `scripts/run-unit-tests.mjs`, which discovers every `*.test.ts(x)` under `src/` and `shared/` (excluding `*.security.test.ts`, which `npm run test:security` runs). There is no list to update when adding a test.
+
+CI (`.github/workflows/ci.yml`) runs `typecheck`, `lint` and `npm test` on every PR. Keep all three green — before this gate existed, type errors and never-run tests piled up unnoticed.
 
 ## Testing Stripe Webhooks Locally
 

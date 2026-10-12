@@ -54,7 +54,7 @@ interface ImmediateWordInput extends Omit<
 
 export type ResolvedImmediateWord<T extends ImmediateWordInput = ImmediateWordInput> = Omit<
   T,
-  'english' | 'japanese' | 'japaneseSource' | 'lexiconEntryId' | 'lexiconSenseId' | 'cefrLevel' | 'partOfSpeechTags' | 'pronunciation'
+  'english' | 'japanese' | 'japaneseSource' | 'lexiconEntryId' | 'lexiconSenseId' | 'cefrLevel' | 'partOfSpeechTags' | 'pronunciation' | 'exampleSentence' | 'exampleSentenceJa'
 > & {
   english: string;
   japanese: string;
@@ -66,6 +66,9 @@ export type ResolvedImmediateWord<T extends ImmediateWordInput = ImmediateWordIn
   cefrLevel?: string;
   partOfSpeechTags?: string[];
   pronunciation?: string;
+  // 入力に例文が無くてもマスターの例文で埋めて返すので、入力型に依らず持つ
+  exampleSentence?: string;
+  exampleSentenceJa?: string;
 };
 
 export interface MasterFirstScanMetrics {
